@@ -42,7 +42,7 @@ def view():
     if g.phase == 'requisition':
         g.next_year()
         session['g'] = pickle.dumps(g)
-        return redirect(url_for('view', game=g.to_dict()))
+        return redirect(url_for('view'))
 
     # Handle assignment phase
     if g.phase == 'assignment':
