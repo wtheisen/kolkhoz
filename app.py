@@ -1,13 +1,12 @@
 # app.py
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+import pickle
 from engine import GameState, Card
 from ai import RandomAI
 import random
-import uuid
 
 app = Flask(__name__)
 app.secret_key = 'MEOWCAT'
-GAMES = {}
 
 def read_rules():
     with open('rules.txt', 'r') as file:
@@ -16,19 +15,16 @@ def read_rules():
 
 @app.route('/')
 def lobby():
-    if not GAMES:
-        gid = str(uuid.uuid4())
-        g = GameState()
-        g.set_trump(random.choice(Card.SUITS))
-        GAMES[gid] = g
-    else:
-        gid = next(iter(GAMES))
+    g = GameState()
+    g.set_trump(random.choice(Card.SUITS))
     rules = read_rules()
-    return render_template('lobby.html', game_id=gid, rules=rules)
 
-@app.route('/game/<game_id>')
-def view(game_id):
-    g = GAMES[game_id]
+    session['g'] = pickle.dumps(g)
+    return render_template('lobby.html', rules=rules)
+
+@app.route('/game')
+def view():
+    g = pickle.loads(session['g'])
 
     # Move from planning into trick phase and choose a new trump
     if g.phase == 'planning':
@@ -45,14 +41,15 @@ def view(game_id):
     # After requisition, start next year
     if g.phase == 'requisition':
         g.next_year()
-        return redirect(url_for('view', game_id=game_id))
+        session['g'] = pickle.dumps(g)
+        return redirect(url_for('view', game=g.to_dict()))
 
     # Handle assignment phase
     if g.phase == 'assignment':
+        session['g'] = pickle.dumps(g)
         return render_template(
             'game.html',
-            game=g,
-            game_id=game_id,
+            game=g.to_dict(),
             suits=Card.SUITS,
             next_player=None
         )
@@ -62,37 +59,33 @@ def view(game_id):
     if g.phase == 'trick' and len(g.current_trick) < g.num_players:
         next_player = (g.lead + len(g.current_trick)) % g.num_players
 
-    return render_template(
-        'game.html',
-        game=g,
-        game_id=game_id,
-        suits=Card.SUITS,
-        next_player=next_player
-    )
+    session['g'] = pickle.dumps(g)
+    return render_template('game.html', game=g.to_dict(), suits=Card.SUITS, next_player=next_player)
 
-@app.route('/play/<game_id>/<int:ci>')
-def play(game_id, ci):
-    game = GAMES[game_id]
+@app.route('/play/<int:ci>')
+def play(ci):
+    g = pickle.loads(session['g'])
 
-    if game.lead != 0:
-        lead_suit = game.current_trick[0][1].suit
-        print(lead_suit, game.players[0].hand[ci].suit)
+    if g.lead != 0:
+        lead_suit = g.current_trick[0][1].suit
+        print(lead_suit, g.players[0].hand[ci].suit)
         can_follow = False
 
-        for c in game.players[0].hand:
+        for c in g.players[0].hand:
             if c.suit == lead_suit:
                 can_follow = True
 
-        if can_follow and game.players[0].hand[ci].suit != lead_suit:
+        if can_follow and g.players[0].hand[ci].suit != lead_suit:
             flash('Please follow suit')
-            return redirect(url_for('view', game_id=game_id))
+            return redirect(url_for('view'))
 
-    game.play_card(0, ci)
-    return redirect(url_for('view', game_id=game_id))
+    g.play_card(0, ci)
+    session['g'] = pickle.dumps(g)
+    return redirect(url_for('view'))
 
-@app.route('/assign/<game_id>', methods=['POST'])
-def assign(game_id):
-    g = GAMES[game_id]
+@app.route('/assign', methods=['POST'])
+def assign():
+    g = pickle.loads(session['g'])
     mapping = {}
     for i, (pid, card) in enumerate(g.last_trick):
         if card.suit == g.trump:
@@ -101,7 +94,8 @@ def assign(game_id):
             mapping[card] = card.suit
 
     g.apply_assignments(mapping)
-    return redirect(url_for('view', game_id=game_id))
+    session['g'] = pickle.dumps(g)
+    return redirect(url_for('view'))
 
 if __name__ == '__main__':
     app.run(debug=True)

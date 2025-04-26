@@ -1,9 +1,11 @@
+import json
 import random
 from collections import defaultdict
 
 class Card:
     SUITS = ['Hearts', 'Diamonds', 'Clubs', 'Spades']
     VALUES = list(range(6, 14))
+
     def __init__(self, suit, value): 
         self.suit, self.value = suit, value
 
@@ -14,6 +16,18 @@ class Card:
     def __lt__(self, other):
         return self.value < other.value
 
+    # --- serialization ---
+    def to_dict(self):
+        return {
+            'suit': self.suit,
+            'value': self.value
+        }
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(d['suit'], d['value'])
+
+
 class Player:
     def __init__(self, idx, is_human=False):
         self.idx = idx
@@ -21,6 +35,26 @@ class Player:
         self.hand = []
         self.plot = defaultdict(list)
         self.bridage_leader = False
+
+    # --- serialization ---
+    def to_dict(self):
+        return {
+            'idx': self.idx,
+            'is_human': self.is_human,
+            'hand': [c.to_dict() for c in self.hand],
+            'plot': {phase: [c.to_dict() for c in cards] for phase, cards in self.plot.items()},
+            'bridage_leader': self.bridage_leader
+        }
+
+    @classmethod
+    def from_dict(cls, d):
+        p = cls(d['idx'], d['is_human'])
+        p.hand = [Card.from_dict(c) for c in d['hand']]
+        p.plot = defaultdict(list,
+                             {phase: [Card.from_dict(c) for c in cards]
+                              for phase, cards in d['plot'].items()})
+        p.bridage_leader = d.get('bridage_leader', False)
+        return p
 
 class GameState:
     THRESHOLD = 40
@@ -30,7 +64,10 @@ class GameState:
         self.players=[Player(i,i==0) for i in range(num_players)]
         self.lead,self.year,self.trump=random.randint(0, num_players - 1),1,None
         self.job_piles,self.revealed_jobs={},{}
-        self.claimed_jobs=set(); self.work_hours=defaultdict(int)
+        self.claimed_jobs=set(); 
+        self.work_hours = {}
+        for suit in ['Hearts', 'Diamonds', 'Clubs', 'Spades']:
+            self.work_hours[suit] = 0
         self.job_buckets=defaultdict(list)
         self.current_trick=[]; self.last_trick=[]; self.last_winner=None
         self.trick_history=[]; self.requisition_log=defaultdict(list)
@@ -89,7 +126,7 @@ class GameState:
     def play_card(self, pid, idx):
         if not self.current_trick and self.last_trick: self.last_trick.clear(); self.last_winner=None
         card=self.players[pid].hand.pop(idx)
-        self.current_trick.append((pid,card))
+        self.current_trick.append((pid, card))
         if len(self.current_trick)==self.num_players: self._resolve_trick()
 
     def _resolve_trick(self):
@@ -107,7 +144,6 @@ class GameState:
         # 3) Record winner and clear the current trick
         self.last_winner = best_pid
         self.last_trick = list(self.current_trick)
-        played_cards = [c for _, c in self.current_trick]
         self.current_trick.clear()
         self.trick_count += 1
         self.lead = self.last_winner
@@ -136,7 +172,14 @@ class GameState:
         self.trick_history.append({
             'type': 'jobs',
             'year': self.year,
-            'jobs': self.work_hours.copy()  # e.g. ['P0 sent 6♥', 'P2 sent 8♣']
+            'jobs': self.work_hours.copy(),  # e.g. ['P0 sent 6♥', 'P2 sent 8♣']
+        })
+
+        # after requisition for a job 'suit', with details list of messages
+        self.trick_history.append({
+            'type': 'requisition',
+            'year': self.year,
+            'requisitions': [],
         })
 
         for suit, bucket in self.job_buckets.items():
@@ -145,7 +188,7 @@ class GameState:
                 drunkard = False
                 for c in bucket:
                     if c.value == 11 and c.suit == self.trump:
-                        self.requisition_log[self.year].append(f"Пьяница отправить на Север")
+                        self.trick_history[-1]['requisitions'].append(f"Пьяница отправить на Север")
                         self.exiled.add(c)
                         drunkard = True
 
@@ -174,21 +217,14 @@ class GameState:
                         card = suit_cards[0]
                         p.plot['revealed'].remove(card)
                         self.exiled.add(card)
-                        self.requisition_log[self.year].append(f"Player {p.idx} отправить на Север {card}")
+                        self.trick_history[-1]['requisitions'].append(f"Player {p.idx} отправить на Север {card}")
 
                         # if King(trump) present remove second
                         if any(c.value==13 and c.suit==self.trump for c in bucket) and len(suit_cards)>1:
                             card2 = suit_cards[1]
                             p.plot['revealed'].remove(card2)
                             self.exiled.add(card2)
-                            self.requisition_log[self.year].append(f"Партийный чиновник: Player {p.idx} отправить на Север {card2}")
-
-        # after requisition for a job 'suit', with details list of messages
-        self.trick_history.append({
-            'type': 'requisition',
-            'year': self.year,
-            'details': self.requisition_log[self.year]  # e.g. ['P0 sent 6♥', 'P2 sent 8♣']
-        })
+                            self.trick_history[-1]['requisitions'].append(f"Партийный чиновник: Player {p.idx} отправить на Север {card2}")
 
     def next_year(self):
         if self.year>=GameState.MAX_YEARS: 
@@ -198,7 +234,8 @@ class GameState:
         self.year+=1 
         self.phase='planning' 
         self.trick_count=0 
-        self.work_hours.clear()
+        for suit in ['Hearts', 'Diamonds', 'Clubs', 'Spades']:
+            self.work_hours[suit] = 0
         self._reveal_jobs() 
         self._prepare_workers_deck()
 
@@ -239,7 +276,6 @@ class GameState:
             'year': self.year,
             'plays': list(self.last_trick),
             'winner': self.last_winner,
-            'assignments': mapping.copy()
         })
 
         # Clean up and either continue or trigger requisition
@@ -253,3 +289,48 @@ class GameState:
                 p.plot['hidden'].append(p.hand[0])
             self.perform_requisition()
             self.phase = 'requisition'
+
+    # --- serialization ---
+    def to_dict(self):
+        return {
+            'num_players': self.num_players,
+            'players': [p.to_dict() for p in self.players],
+            'lead': self.lead,
+            'year': self.year,
+            'trump': self.trump if self.trump else None,
+            'job_piles': {
+                suit: [c.to_dict() for c in cards]
+                for suit, cards in self.job_piles.items()
+            },
+            'revealed_jobs': {
+                pid: job.to_dict()
+                for pid, job in self.revealed_jobs.items()
+            },
+            'claimed_jobs': list(self.claimed_jobs),
+            'work_hours': self.work_hours,
+            'job_buckets': {
+                suit: [c.to_dict() for c in cards]
+                for suit, cards in self.job_buckets.items()
+            },
+            'current_trick': [(pid_c[0], pid_c[1].to_dict()) for pid_c in self.current_trick],
+            'last_trick': [(pid_c[0], pid_c[1].to_dict()) for pid_c in self.last_trick],
+            'last_winner': self.last_winner,
+            'trick_history': [
+                {
+                    'type': e['type'],
+                    'year': e.get('year'),
+                    'winner': e.get('winner'),
+                    'plays': [(pid_c[0], pid_c[1].to_dict()) for pid_c in e.get('plays', [])],
+                    'jobs': e.get('jobs', None),
+                    'requisitions': e.get('requisitions', None)
+                    # assignments as list of [Card, suit]
+                }
+                for e in self.trick_history
+            ],
+            'phase': self.phase,
+            'trick_count': self.trick_count,
+            'exiled': list(self.exiled),
+            'THRESHOLD': 40,
+            'scores': self.scores,
+            'final_scores': self.final_scores
+        }

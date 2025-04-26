@@ -22,7 +22,7 @@
 
 <div class="page-wrapper">
   <header class="topbar">
-    <div class="top-section"><strong>год {{ game.year }} of the Пятилетка</strong></div>
+    <div class="top-section"><strong>год {{ game['year'] }} of the Пятилетка</strong></div>
     <div class="top-section">
         <span>Наша главная задача:</span> 
         {{ suit_img(game.trump) }}
@@ -66,7 +66,7 @@
       <div class="trick-entry">
         {% if entry.type == "requisition" %}
             <strong>Ищут врагов народа:</strong>
-            <strong>{{ entry.details }}</strong>
+            <strong>{{ entry.requisitions }}</strong>
         {% elif entry.type == "jobs" %}
             <strong>работы for Year {{ group.grouper }}</strong>
             <div class="history-hand">
@@ -115,7 +115,7 @@
       {% if game.phase == 'assignment' %}
         <section class="assignment-phase">
             <h3>Assign Trump Workers</h3>
-            <form method="post" action="{{ url_for('assign', game_id=game_id) }}">
+            <form method="post" action="{{ url_for('assign') }}">
             {% for pid, c in game.last_trick %}
             <div class="row">
                 {{ img_for(c) }}
@@ -140,7 +140,7 @@
         {% if game.phase == 'trick' and next_player == 0 or game.phase == 'assignment' %}
         <div class="hand">
           {% for c in game.players[0].hand %}
-            <a class="card" href="{{ url_for('play', game_id=game_id, ci=loop.index0) }}">{{ img_for(c) }}</a>
+            <a class="card" href="{{ url_for('play', ci=loop.index0) }}">{{ img_for(c) }}</a>
           {% endfor %}
         </div>
         {% else %}
@@ -201,7 +201,7 @@
                 {% endif %}
                 <div class="hand">
                     {% for c in p.plot['revealed'] %}
-                    <a class="card" href="{{ url_for('play', game_id=game_id, ci=loop.index0) }}">{{ img_for(c) }}</a>
+                    <a class="card" href="{{ url_for('play', ci=loop.index0) }}">{{ img_for(c) }}</a>
                     {% endfor %}
                     {% for c in p.plot['hidden'] %}
                     <img src="{{ url_for('static', filename='cards/back.svg') }}" alt="back" class="card-image">
