@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+{% block content %}
+{% set faces = {1:'ace',11:'jack',12:'queen',13:'king'} %}
+
+{% macro img_for(card) -%}
+  {% set rank = faces.get(card.value, card.value) %}
+  {% set file = rank ~ '_of_' ~ card.suit|lower ~ '.svg' %}
+  <img src="{{ url_for('static', filename='cards/' ~ file) }}" alt="{{ card }}" class="card-image">
+{%- endmacro %}
+
+{% macro suit_img(suit) -%}
+    {% if suit == 'Diamonds' %}
+        <img src="{{ url_for('static', filename='cards/diamond.svg') }}" alt="back" class="card-image">
+    {% elif suit == 'Spades' %}
+        <img src="{{ url_for('static', filename='cards/spade.svg') }}" alt="back" class="card-image">
+    {% elif suit == 'Hearts' %}
+        <img src="{{ url_for('static', filename='cards/heart.svg') }}" alt="back" class="card-image">
+    {% elif suit == 'Clubs' %}
+        <img src="{{ url_for('static', filename='cards/club.svg') }}" alt="back" class="card-image">
+    {% endif %}
+{%- endmacro %}
+
+<div class="page-wrapper">
+  <header class="topbar">
+    <div class="top-section"><strong>год {{ game.year }} of the Пятилетка</strong></div>
+    <div class="top-section">
+        <span>Наша главная задача:</span> 
+        {{ suit_img(game.trump) }}
+    </div>
+
+    <div class="top-section jobs">
+      {% for s in suits %}
+        <div class="job">
+            {% if game.work_hours[s] >= game.THRESHOLD %}
+                <img src="{{ url_for('static', filename='cards/back.svg') }}" alt="back" class="card-image">
+            {% else %}
+                {{ img_for(game.revealed_jobs[s]) }}
+            {% endif %}
+
+            <span>
+                {{ game.work_hours[s] }}/{{ game.THRESHOLD }}
+
+                {% for c in game.job_buckets[s] %}
+                    {% if c.value == 11 and c.suit == game.trump %}
+                        <p>Пьяница</p>
+                    {% elif c.value == 12 and c.suit == game.trump %}
+                        <p>Информатор</p>
+                    {% elif c.value == 13 and c.suit == game.trump %}
+                        <p>Партийный чиновник</p>
+                    {% endif %}
+                {% endfor %}
+            </span>
+        </div>
+      {% endfor %}
+    </div>
+  </header>
+
+  <div class="container">
+    <aside class="history">
+  <h3>взятка History</h3>
+  {# Group by year, then reverse both years and tricks #}
+  {% set groups = game.trick_history|groupby('year') %}
+  {% for group in groups|reverse %}
+    <h4>год {{ group.grouper }}</h4>
+    {% for entry in group.list|reverse %}
+      <div class="trick-entry">
+        {% if entry.type == "requisition" %}
+            <strong>Ищут врагов народа:</strong>
+            <strong>{{ entry.details }}</strong>
+        {% elif entry.type == "jobs" %}
+            <strong>работы for Year {{ group.grouper }}</strong>
+            <div class="history-hand">
+                {% for suit, work_hours in entry.jobs.items() %}
+                    <div class="history-card">
+                        {{ suit_img(suit) }}
+                        <div class="card-player">
+                            {{ work_hours }}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <strong>взятка {{ loop.revindex }} – Бригадир: Player {{ entry.winner }}</strong>
+            <div class="history-hand">
+            {% for pid, c in entry.plays %}
+                <div class="history-card">
+                <div class="card-player">P{{ pid }}</div>
+                {{ img_for(c) }}
+                </div>
+            {% endfor %}
+            </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% endfor %}
+</aside>
+
+    <main class="main">
+        <section class="current-trick">
+        <h3>взятка:</h3>
+            {% if game.current_trick %}
+            <div class="hand">
+            {% for pid, c in game.current_trick %}
+                <div class="card">
+                <div class="card-player">P{{ pid }}</div>
+                {{ img_for(c) }}
+                </div>
+            {% endfor %}
+            </div>
+            {% else %}
+            <p>No cards played yet.</p>
+            {% endif %}
+        </section>
+      
+      {% if game.phase == 'assignment' %}
+        <section class="assignment-phase">
+            <h3>Assign Trump Workers</h3>
+            <form method="post" action="{{ url_for('assign', game_id=game_id) }}">
+            {% for pid, c in game.last_trick %}
+            <div class="row">
+                {{ img_for(c) }}
+                {% if c.suit == game.trump %}
+                <select name="assign_{{ loop.index0 }}">
+                    {% for s in suits %}
+                    <option value="{{ s }}">{{ s }}</option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                Assigned: {{ suit_img(c.suit) }}
+                {% endif %}
+            </div>
+            {% endfor %}
+            <button class="button" type="submit">Assign</button>
+            </form>
+        </section>
+      {% endif %}
+
+      <section class="your-hand">
+        <h3>семья:</h3>
+        {% if game.phase == 'trick' and next_player == 0 or game.phase == 'assignment' %}
+        <div class="hand">
+          {% for c in game.players[0].hand %}
+            <a class="card" href="{{ url_for('play', game_id=game_id, ci=loop.index0) }}">{{ img_for(c) }}</a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p>Waiting for Player {{ next_player }}…</p>
+        {% endif %}
+        {% if game.players[0].brigade_leader %}
+        <h3>(Бригадир)</h3>
+        {% endif %}
+      </section>
+
+      <section class="personal-plot">
+        <h3>Личный Участок: {{ game.final_scores[0] }}</h3>
+        <div class="plot-cards">
+          {% for c in game.players[0].plot['revealed'] %}
+          <div class="card">
+            {{ img_for(c) }}
+          </div>
+          {% endfor %}
+          {% for c in game.players[0].plot['hidden'] %}
+            <div class="history-card">
+                <div class="card-player">Hidden</div>
+                {{ img_for(c) }}
+                </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="personal-plot">
+        <h3>ГУЛАГ:</h3>
+        <div class="plot-cards">
+          {% for c in game.exiled %}
+          <div class="card">
+            {{ img_for(c) }}
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      {% if game.phase == 'game_over' %}
+      <section class="game-over">
+        <h3>Game Over</h3>
+        <ul>
+          {% for i in range(game.num_players) %}
+          <li>Player {{ i }}: {{ game.final_scores[i] }}</li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+    </main>
+
+    <aside class="history">
+        <h3>Личный Участок:</h3>
+        {% for p in game.players %}
+            {% if not p.is_human %}
+                <p> Player {{ p.idx }}: {{ game.scores[p.idx] }} </p>
+                {% if p.brigade_leader %}
+                    <p>(Бригадир)</p>
+                {% endif %}
+                <div class="hand">
+                    {% for c in p.plot['revealed'] %}
+                    <a class="card" href="{{ url_for('play', game_id=game_id, ci=loop.index0) }}">{{ img_for(c) }}</a>
+                    {% endfor %}
+                    {% for c in p.plot['hidden'] %}
+                    <img src="{{ url_for('static', filename='cards/back.svg') }}" alt="back" class="card-image">
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endfor %}
+    </aside>
+  </div>
+</div>
+{% endblock %}

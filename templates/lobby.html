@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card centered">
+  <h1>Kolkhoz</h1>
+  <a class="button" href="{{ url_for('view',game_id=game_id) }}">Start Game</a>
+</div>
+
+<div class="card centered">
+  <!-- Content from Kolkhoz Rules (2).pdf Kolkhoz Rules (2).pdf](file-service://file-ByjwXSYe9zG5ujgNeBrYJS) -->
+<section id="kolkhoz-rules">
+  <h1>Колхоз (Kolkhoz)</h1>
+
+  <h2>1. Игровой Набор (Igrovoy Nabor – Game Setup)</h2>
+  <ul>
+    <li>Remove the Ace, 2, 3, 4, and 5 cards of each suit from a standard 52-card deck. Set these aside in piles according to their работы (raboty – job). Then shuffle each pile individually.</li>
+    <li>Shuffle the remaining 32 cards (6 through King of each suit) to form the Колода Рабочих (Koloda Rabochikh – Workers Deck).</li>
+    <li>Choose a player to be the first Центральный Плановик (Tsentral’nyy Planovik – Central Planner/dealer). This can be done randomly or by agreement. That player deals 5 cards face-down to each player.</li>
+    <li>Each player has a designated area for their hidden cards of the Личный Участок (Lichnyy Uchastok – Personal Plot).</li>
+  </ul>
+
+  <h2>2. Ход Игры (Khod Igry – Round Flow / Season)</h2>
+  <p>The game proceeds over a set number of rounds.</p>
+
+  <h3>a. Фаза Планирования (Faza Planirovaniya – Planning Phase)</h3>
+  <ul>
+    <li>The Центральный Плановик reveals one Карты Плановых Заданий face-up for each of the four работы (raboty – jobs):
+      <ul>
+        <li>Hearts – Пахота (Pakhota – Plowing)</li>
+        <li>Diamonds – Жатва (Zhatva – Harvesting)</li>
+        <li>Clubs – Мастерская (Masterskaya – Workshop)</li>
+        <li>Spades – Зерно (Zerno – Grain)</li>
+      </ul>
+      These values (Ace–5) are the Victory Points awarded for successfully completing the job this season.
+    </li>
+    <li>The Центральный Плановик then declares <em>Наша главная задача</em> for the current year.</li>
+  </ul>
+
+  <h3>b. Фаза Взяток (Faza Vzyatok – Trick-Taking Phase)</h3>
+  <p><strong>Четыре Взятки (Chetyre Vzyatki – Four Tricks):</strong></p>
+  <ul>
+    <li>Starting with the player to the left of the Центральный Плановик, players play one card.</li>
+    <li>Players follow suit if able; otherwise, they may play any card.</li>
+    <li>Players may not lead trump until it has been played.</li>
+    <li>The highest-ranking card of the lead suit, or the highest-ranking trump card if trump was played, wins the взятка (trick).</li>
+    <li>The winner becomes the Бригадир (Brigadir – Brigade Leader) of the взятка and collects the four played cards.</li>
+    <li>
+      The Бригадир then assigns each of the four cards from the взятка to the four matching работы. However, workers of the trump suit may be assigned to any job. If the assigned workers pass the Work-Hours threshold, the Бригадир immediately adds the corresponding Карты Плановых Заданий to their Личный Участок face-up.
+    </li>
+    <li>
+      The face cards of the trump suit have special effects:
+      <ul>
+        <li><strong>Jack “Пьяница (P’yanitsa)”</strong> – Contributes 0 work-hours. If this job is requisitioned, the Jack is sent north instead of a player’s card.</li>
+        <li><strong>Queen “Информатор (Informator)”</strong> – If this job fails, all players must reveal their Personal Plots, not just the Brigade Leaders.</li>
+        <li><strong>King “Партийный чиновник (Partiynyy chinovnik)”</strong> – If this job is requisitioned, two cards are sent north instead of one.</li>
+      </ul>
+    </li>
+    <li>The Бригадир then leads the next взятка.</li>
+    <li>Four взятки are played in total.</li>
+  </ul>
+
+  <h3>c. Выбор Личного Участка (Vybor Lichnogo Uchastka – Personal Plot Selection)</h3>
+  <ul>
+    <li>After the fourth взятка, each player places their one remaining card from that hand into their Личный Участок face-down.</li>
+  </ul>
+
+  <h3>d. Ищут врагов народа (They Are Looking for Enemies of the People)</h3>
+  <ul>
+    <li>For each работа that did not reach the 40 work-hour threshold:
+      <ul>
+        <li>If the Пьяница (P’yanitsa) is among the workers for that job, the Пьяница is отправить на Север (sent north). Otherwise:
+          <ul>
+            <li>All players who were a Бригадир reveal any face-down cards in their Личный Участок matching the failed работа. If the Информатор (Informator) is among the workers, all players reveal those cards.</li>
+            <li>Those players must отправить на Север the highest-value card of that job from their Личный Участок. If the Партийный чиновник was among the workers, each player’s second-highest matching card is also отправить на Север.</li>
+            <li>Leave all revealed cards face-up for the rest of the game.</li>
+          </ul>
+        </li>
+      </ul>
+    </li>
+  </ul>
+
+  <h3>f. Конец Раунда (Konets Raunda – End of Round)</h3>
+  <ul>
+    <li>All remaining worker cards (not in any Личный Участок and not sent north) are reshuffled.</li>
+    <li>The role of Центральный Плановик passes to the player to the left.</li>
+    <li>A new round begins with the Planning Phase.</li>
+  </ul>
+
+  <h2>3. Конец Игры и Итоговый Подсчет Очков (Konets Igry i Itogovyy Podschet Ochkov – End of Game and Final Scoring)</h2>
+  <p>After the completion of the Пятилетка, players calculate their final scores:</p>
+  <ul>
+    <li>Sum the face values of all cards remaining in each player’s Личный Участок (including hidden workers and revealed rewards).</li>
+    <li>The player with the highest total score wins.</li>
+  </ul>
+</section>
+</div>
+{% endblock %}

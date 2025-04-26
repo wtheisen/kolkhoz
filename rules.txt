@@ -1,0 +1,41 @@
+Колхоз (Kolkhoz):
+1. Игровой Набор (Igrovoy Nabor - Game Setup):
+Remove the Ace, 2, 3, 4, and 5 cards of each suit from a standard 52-card deck. Set these aside in piles according to their работы (raboty - job). Then shuffle each pile individually and reveal the top card of each pile, marking the first year of the Пятилетка (Pyatiletka - Five-Year Plan).
+Shuffle the remaining 32 cards (6 - King of each suit) to form the Колода Рабочих (Koloda Rabochikh - Workers Deck).
+Choose a player to be the first Центральный Плановик (Tsentral'nyy Planovik - Central Planner) (dealer). This can be done randomly or by agreement. That player deals 5 cards face-down to each player.
+Each player has a designated area for their hidden cards of the Личный Участок (Lichnyy Uchastok - Personal Plot).
+2. Ход Игры (Khod Igry - Round Flow / Season):
+The game proceeds over a set number of rounds.
+a. Фаза Планирования (Faza Planirovaniya - Planning Phase):
+The Центральный Плановик reveals one Карты Плановых Заданий face-up for each of the four работы (raboty - jobs): Hearts - Пахота (Pak͡hota - Plowing), Diamonds - Жатва (Zhatva - Harvesting), Clubs - Мастерская (Masterskaya - Workshop), Spades - Зерно (Zerno - Grain). These values (Ace - 5) are the Victory Points awarded for successfully completing the job this season.
+The Центральный Плановик then declares the trump suit for the current year
+b. Фаза Взяток (Faza Vzyatok - Trick-Taking Phase) (Четыре Взятки - Chetyre Vzyatki - Four Tricks):
+Starting with the player to the left of the Центральный Плановик, players lead one card.
+Players follow suit if able; otherwise, they may play any card.
+The highest-ranking card of the lead suit wins the взятка (vzyatka - trick).
+The winner becomes the Бригадир (Brigadir - Brigade Leader) of the взятка and collects the four played cards.
+The Бригадир then assigns each of the four cards from the взятка to the four matching работы (Pak͡hota, Zhatva, Masterskaya, Zerno). However, workers of the trump suit may be assigned to any job. If the assigned workers pass the Work-Hours threshold for the job, the Бригадир immediately adds the Карты Плановых Заданий for that работа to their Личный Участок face-up.
+The face cards of the trump suit have special effects:
+Jack “Пьяница (P'yanitsa)” - Contributes 0 work hours. If this job is requisitioned, the Jack is sent north instead of a player's card.
+Queen “Информатор (Informator)” - If this job fails, all players must reveal their Personal Plots, not just the Brigade Leaders.
+King “Партийный чиновник (Partiynyy chinovnik)” - If this job is requisitioned, two cards are sent north instead of one.
+The Бригадир then leads the next взятка.
+Four взятки are played in total.
+c. Выбор Личного Участка (Vybor Lichnogo Uchastka - Personal Plot Selection):
+After the fourth взятка, each player keeps one card from their remaining hand for their Личный Участок, adding it face-down.
+d. Фаза Реквизиции (Faza Rekvizitsii - Requisition Phase):
+For each работа that did not reach the 36 work-hour threshold:
+If the Пьяница (P'yanitsa) is amongst the workers for that job, the Пьяница (P'yanitsa) is отправить на Север.
+All players who were a Бригадир reveal all cards in their Личный Участок. If the Информатор (Informator) is amongst the workers for the job, instead all players reveal their Личный Участок.
+Among all revealed Личный Участок cards, identify all cards which match with the failed работа.
+The player with the highest value card of that работа among all their Личный Участок cards must отправить на Север (otpravit' na Sever - send to the north) that highest value card of that работа from their Личный Участок. If the Партийный чиновник (Partiynyy chinovnik) was amongst the workers for the failed job, the second highest card is also отправить на Север.
+f. Конец Раунда (Konets Raundа - End of Round):
+All played worker cards are reshuffled.
+The role of Центральный Плановик passes to the player to the left.
+A new round begins with the Planning Phase.
+During the final year of the five year plan, there is a Перебои со снабжением (Pereboi so snabzheniyem) and during this year only 3 tricks will be played instead of 4. During the Перебои со снабжением there is no trump and workers may be added to any job
+
+3. Конец Игры и Итоговый Подсчет Очков (Konets Igry i Itogovyy Podschet Ochkov - End of Game and Final Scoring):
+After the completion of the  Пятилетка, players calculate their final scores:
+Sum the face values of the cards remaining in their Личный Участок areas. This includes hidden workers taken and revealed rewards for finishing jobs.
+The player with the highest total score wins.
