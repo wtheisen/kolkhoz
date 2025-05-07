@@ -87,11 +87,10 @@ def play(ci):
 def assign():
     g = pickle.loads(session['g'])
     mapping = {}
+    valid_jobs = set([card.suit for _, card in g.last_trick])
+
     for i, (pid, card) in enumerate(g.last_trick):
-        if card.suit == g.trump:
-            mapping[card] = request.form[f'assign_{i}']
-        else:
-            mapping[card] = card.suit
+        mapping[card] = request.form[f'assign_{i}']
 
     g.apply_assignments(mapping)
     session['g'] = pickle.dumps(g)

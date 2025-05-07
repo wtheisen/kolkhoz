@@ -34,7 +34,7 @@ class Player:
         self.is_human = is_human
         self.hand = []
         self.plot = defaultdict(list)
-        self.bridage_leader = False
+        self.brigade_leader = False
 
     # --- serialization ---
     def to_dict(self):
@@ -43,7 +43,7 @@ class Player:
             'is_human': self.is_human,
             'hand': [c.to_dict() for c in self.hand],
             'plot': {phase: [c.to_dict() for c in cards] for phase, cards in self.plot.items()},
-            'bridage_leader': self.bridage_leader
+            'brigade_leader': self.brigade_leader
         }
 
     @classmethod
@@ -53,7 +53,7 @@ class Player:
         p.plot = defaultdict(list,
                              {phase: [Card.from_dict(c) for c in cards]
                               for phase, cards in d['plot'].items()})
-        p.bridage_leader = d.get('bridage_leader', False)
+        p.brigade_leader = d.get('brigade_leader', False)
         return p
 
 class GameState:
@@ -147,7 +147,7 @@ class GameState:
         self.current_trick.clear()
         self.trick_count += 1
         self.lead = self.last_winner
-        self.players[best_pid].bridage_leader = True
+        self.players[best_pid].brigade_leader = True
 
         # 4) Assign each card to its job bucket AND update work_hours
         if self.players[self.last_winner].is_human:
@@ -158,7 +158,7 @@ class GameState:
             mapping = {}
 
             for pid, card in self.last_trick:
-                if card.suit != self.trump:
+                if card.suit == self.trump:
                     assigned = card.suit
                 else:
                     assigned = RandomAI(self.last_winner).assign_trick(self)[card]
@@ -204,7 +204,7 @@ class GameState:
                         informator = True
 
                 for p in self.players:
-                    if p.bridage_leader or informator:
+                    if p.brigade_leader or informator:
                         for c in p.plot['hidden']:
                             if c.suit == suit:
                                 p.plot['revealed'].append(c)
@@ -227,7 +227,7 @@ class GameState:
                             self.trick_history[-1]['requisitions'].append(f"Партийный чиновник: Player {p.idx} отправить на Север {card2}")
 
     def next_year(self):
-        if self.year>=GameState.MAX_YEARS: 
+        if self.year >= GameState.MAX_YEARS: 
             self.phase='game_over' 
             return
 
@@ -241,7 +241,7 @@ class GameState:
 
         for p in self.players: 
             p.hand.clear()
-            p.bridage_leader = False
+            p.brigade_leader = False
 
         self._deal_hands() 
         self.lead = random.randint(0, self.num_players - 1)
@@ -284,7 +284,10 @@ class GameState:
         self.phase = 'trick'
 
         tricks_needed = 4
-        if self.trick_count == tricks_needed:
+        if self.year == GameState.MAX_YEARS:
+            tricks_needed = 3
+
+        if self.trick_count == tricks_needed: 
             for p in self.players:
                 p.plot['hidden'].append(p.hand[0])
             self.perform_requisition()

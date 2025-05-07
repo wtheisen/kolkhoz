@@ -96,6 +96,16 @@
 </aside>
 
     <main class="main">
+          {% if game.phase == 'game_over' %}
+          <section class="game-over">
+            <h3>Game Over</h3>
+            <ul>
+              {% for i in range(game.num_players) %}
+              <li>Player {{ i }}: {{ game.final_scores[i] }}</li>
+              {% endfor %}
+            </ul>
+          </section>
+          {% endif %}
         <section class="current-trick">
         <h3>взятка:</h3>
             {% if game.current_trick %}
@@ -116,18 +126,20 @@
         <section class="assignment-phase">
             <h3>Assign Trump Workers</h3>
             <form method="post" action="{{ url_for('assign') }}">
+                {% set valid_jobs = [] %}
+                {% for _, c in game.last_trick %}
+                    {% if c.suit not in valid_jobs %}
+                        {% set _ = valid_jobs.append(c.suit) %}
+                    {% endif %}
+                {% endfor %}
             {% for pid, c in game.last_trick %}
             <div class="row">
                 {{ img_for(c) }}
-                {% if c.suit == game.trump %}
                 <select name="assign_{{ loop.index0 }}">
-                    {% for s in suits %}
-                    <option value="{{ s }}">{{ s }}</option>
+                    {% for s in valid_jobs%}
+                        <option value="{{ s }}">{{ s }}</option>
                     {% endfor %}
                 </select>
-                {% else %}
-                Assigned: {{ suit_img(c.suit) }}
-                {% endif %}
             </div>
             {% endfor %}
             <button class="button" type="submit">Assign</button>
@@ -179,26 +191,13 @@
         </div>
       </section>
 
-      {% if game.phase == 'game_over' %}
-      <section class="game-over">
-        <h3>Game Over</h3>
-        <ul>
-          {% for i in range(game.num_players) %}
-          <li>Player {{ i }}: {{ game.final_scores[i] }}</li>
-          {% endfor %}
-        </ul>
-      </section>
-      {% endif %}
     </main>
 
     <aside class="history">
         <h3>Личный Участок:</h3>
         {% for p in game.players %}
             {% if not p.is_human %}
-                <p> Player {{ p.idx }}: {{ game.scores[p.idx] }} </p>
-                {% if p.brigade_leader %}
-                    <p>(Бригадир)</p>
-                {% endif %}
+                <p> Player {{ p.idx }} {% if p.brigade_leader %} (Бригадир) {% endif %} : {{ game.scores[p.idx] }} </p>
                 <div class="hand">
                     {% for c in p.plot['revealed'] %}
                     <a class="card" href="{{ url_for('play', ci=loop.index0) }}">{{ img_for(c) }}</a>

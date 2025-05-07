@@ -16,9 +16,9 @@ class RandomAI:
 
     def assign_trick(self, game_state):
         mapping = {}
+        valid_jobs = list(set([card.suit for _, card in game_state.last_trick]))
+
         for pid, card in game_state.last_trick:
-            if card.suit != game_state.trump:
-                mapping[card] = card.suit
-            else:
-                mapping[card] = random.choice(Card.SUITS)
+            mapping[card] = random.choice(valid_jobs)
+
         return mapping
