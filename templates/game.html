@@ -80,7 +80,7 @@
                 {% endfor %}
             </div>
         {% else %}
-            <strong>взятка {{ loop.revindex }} – Бригадир: Player {{ entry.winner }}</strong>
+            <strong>взятка {{ loop.revindex }} – Бригадир: {{ game.players[entry.winner].name }}</strong>
             <div class="history-hand">
             {% for pid, c in entry.plays %}
                 <div class="history-card">
@@ -197,7 +197,7 @@
         <h3>Личный Участок:</h3>
         {% for p in game.players %}
             {% if not p.is_human %}
-                <p> Player {{ p.idx }} {% if p.brigade_leader %} (Бригадир) {% endif %} : {{ game.scores[p.idx] }} </p>
+                <p> {{ p.name }} {% if p.brigade_leader %} (Бригадир) {% endif %} : {{ game.scores[p.idx] }} </p>
                 <div class="hand">
                     {% for c in p.plot['revealed'] %}
                     <a class="card" href="{{ url_for('play', ci=loop.index0) }}">{{ img_for(c) }}</a>

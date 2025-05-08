@@ -1,6 +1,8 @@
-import json
 import random
+
 from collections import defaultdict
+
+import numpy as np
 
 class Card:
     SUITS = ['Hearts', 'Diamonds', 'Clubs', 'Spades']
@@ -29,9 +31,11 @@ class Card:
 
 
 class Player:
-    def __init__(self, idx, is_human=False):
+
+    def __init__(self, idx, is_human=False, name='Player'):
         self.idx = idx
         self.is_human = is_human
+        self.name = name
         self.hand = []
         self.plot = defaultdict(list)
         self.brigade_leader = False
@@ -41,6 +45,7 @@ class Player:
         return {
             'idx': self.idx,
             'is_human': self.is_human,
+            'name': self.name,
             'hand': [c.to_dict() for c in self.hand],
             'plot': {phase: [c.to_dict() for c in cards] for phase, cards in self.plot.items()},
             'brigade_leader': self.brigade_leader
@@ -49,6 +54,7 @@ class Player:
     @classmethod
     def from_dict(cls, d):
         p = cls(d['idx'], d['is_human'])
+        p.name = d['name']
         p.hand = [Card.from_dict(c) for c in d['hand']]
         p.plot = defaultdict(list,
                              {phase: [Card.from_dict(c) for c in cards]
@@ -59,9 +65,11 @@ class Player:
 class GameState:
     THRESHOLD = 40
     MAX_YEARS = 5
+
     def __init__(self, num_players=4):
+        NAMES = set(['Ivan - Иван', 'Dmitri - Дмитрий', 'Alyosha - Алёша', 'Fyodor - Фёдор', 'Grushenka - Грушенька', 'Katerina - Катерина'])
         self.num_players=num_players
-        self.players=[Player(i,i==0) for i in range(num_players)]
+        self.players=[Player(i, i == 0, 'Player' if i == 0 else NAMES.pop()) for i in range(num_players)]
         self.lead,self.year,self.trump=random.randint(0, num_players - 1),1,None
         self.job_piles,self.revealed_jobs={},{}
         self.claimed_jobs=set(); 
@@ -217,14 +225,14 @@ class GameState:
                         card = suit_cards[0]
                         p.plot['revealed'].remove(card)
                         self.exiled.add(card)
-                        self.trick_history[-1]['requisitions'].append(f"Player {p.idx} отправить на Север {card}")
+                        self.trick_history[-1]['requisitions'].append(f"{p.name} отправить на Север {card}")
 
                         # if King(trump) present remove second
                         if any(c.value==13 and c.suit==self.trump for c in bucket) and len(suit_cards)>1:
                             card2 = suit_cards[1]
                             p.plot['revealed'].remove(card2)
                             self.exiled.add(card2)
-                            self.trick_history[-1]['requisitions'].append(f"Партийный чиновник: Player {p.idx} отправить на Север {card2}")
+                            self.trick_history[-1]['requisitions'].append(f"Партийный чиновник: {p.name} отправить на Север {card2}")
 
     def next_year(self):
         if self.year >= GameState.MAX_YEARS: 
