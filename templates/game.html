@@ -80,11 +80,11 @@
                 {% endfor %}
             </div>
         {% else %}
-            <strong>взятка {{ loop.revindex }} – Бригадир: {{ game.players[entry.winner].name }}</strong>
+            <strong>взятка {{ loop.revindex }} – Бригадир: Player {{ game.players[entry.winner].name }}</strong>
             <div class="history-hand">
             {% for pid, c in entry.plays %}
                 <div class="history-card">
-                <div class="card-player">P{{ pid }}</div>
+                <div class="card-player">{{ game.players[pid].name }}</div>
                 {{ img_for(c) }}
                 </div>
             {% endfor %}
@@ -96,23 +96,13 @@
 </aside>
 
     <main class="main">
-          {% if game.phase == 'game_over' %}
-          <section class="game-over">
-            <h3>Game Over</h3>
-            <ul>
-              {% for i in range(game.num_players) %}
-              <li>Player {{ i }}: {{ game.final_scores[i] }}</li>
-              {% endfor %}
-            </ul>
-          </section>
-          {% endif %}
         <section class="current-trick">
         <h3>взятка:</h3>
             {% if game.current_trick %}
             <div class="hand">
             {% for pid, c in game.current_trick %}
                 <div class="card">
-                <div class="card-player">P{{ pid }}</div>
+                <div class="card-player">{{ game.players[pid].name }}</div>
                 {{ img_for(c) }}
                 </div>
             {% endfor %}
@@ -127,15 +117,15 @@
             <h3>Assign Trump Workers</h3>
             <form method="post" action="{{ url_for('assign') }}">
                 {% set valid_jobs = [] %}
-                {% for _, c in game.last_trick %}
-                    {% if c.suit not in valid_jobs %}
+                    {% for _, c in game.last_trick %}
                         {% set _ = valid_jobs.append(c.suit) %}
-                    {% endif %}
-                {% endfor %}
+                    {% endfor %}
             {% for pid, c in game.last_trick %}
             <div class="row">
                 {{ img_for(c) }}
                 <select name="assign_{{ loop.index0 }}">
+                    {
+
                     {% for s in valid_jobs%}
                         <option value="{{ s }}">{{ s }}</option>
                     {% endfor %}
@@ -191,13 +181,26 @@
         </div>
       </section>
 
+      {% if game.phase == 'game_over' %}
+      <section class="game-over">
+        <h3>Game Over</h3>
+        <ul>
+          {% for i in range(game.num_players) %}
+          <li>{{ game.players[i].name }}: {{ game.final_scores[i] }}</li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
     </main>
 
     <aside class="history">
         <h3>Личный Участок:</h3>
         {% for p in game.players %}
             {% if not p.is_human %}
-                <p> {{ p.name }} {% if p.brigade_leader %} (Бригадир) {% endif %} : {{ game.scores[p.idx] }} </p>
+                <p> {{ p.name }}: {{ game.scores[p.idx] }} </p>
+                {% if p.brigade_leader %}
+                    <p>(Бригадир)</p>
+                {% endif %}
                 <div class="hand">
                     {% for c in p.plot['revealed'] %}
                     <a class="card" href="{{ url_for('play', ci=loop.index0) }}">{{ img_for(c) }}</a>

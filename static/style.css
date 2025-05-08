@@ -1,106 +1,183 @@
 html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    width: 100%;
-    background: #eaeaea;
-    font-family: sans-serif;
-  }
-  
-  .page-wrapper {
-    display: grid;
-    grid-template-rows: auto 1fr;
-    height: 100vh;
-    width: 100vw;
-  }
-  
-  header.topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #fff;
-    padding: 12px 24px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    z-index: 10;
-  }
-  header.topbar .top-section { margin: 0 16px; }
-  header.topbar .jobs { display: flex; gap: 16px; }
-  header.topbar .scores { display: flex; gap: 16px; }
-  
-  .container {
-    display: grid;
-    grid-template-columns: 400px 1fr 400px;
-    overflow: hidden;
-  }
-  
-  aside.history {
-    background: #f9f9f9;
-    padding: 20px;
-    box-shadow: 2px 0 5px rgba(0,0,0,0.05);
-    overflow-y: auto;
-  }
-  
-  .history-list { display: flex; flex-direction: column; gap: 16px; }
-  .trick-entry {
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 12px;
-  }
-  .history-hand {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-  }
-  .history-card {
-    background: #f5f5f5;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    padding: 4px;
-    text-align: center;
-  }
-  
-  main.main {
-    background: #fff;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-    overflow-y: auto;
-  }
-  
-  .hand {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-  
-  .card, .history-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-width: 50px;
-  }
-  
-  .card-image { width: 60px; height: auto; }
-  .card-player { font-size: 0.8em; margin-bottom: 4px; }
-  .row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
-  .button {
-    background: #333;
-    color: #fff;
-    padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-  .button:hover { background: #555; }
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  background: #eaeaea;
+  font-family: sans-serif;
+}
 
-  /* Add at bottom of your stylesheet */
-.personal-plot {
-    margin-top: 24px;
+.page-wrapper {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100vh;
+  width: 100vw;
+}
+
+header.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  padding: 12px 24px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  z-index: 10;
+}
+
+main.main {
+  background: #fff;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.rules-section {
+  max-width: 800px;
+  width: 90%;
+  height: 80vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.rules-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .rules-section {
+    height: 70vh;
   }
-  .plot-cards {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
+}
+
+@media (max-width: 480px) {
+  .rules-section {
+    height: 60vh;
   }
+}
+
+.button {
+  background: #333;
+  color: #fff;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.button:hover {
+  background: #555;
+}
+
+.card-image {
+  width: 80px;
+  height: auto;
+}
+
+.hand, .plot-cards, .history-hand {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.history-card, .card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid #ccc;
+  padding: 2px;
+  border-radius: 4px;
+  text-align: center;
+  width: 80px;
+}
+
+.card-player {
+  word-break: break-word;
+  margin-top: 5px;
+}
+
+.container {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.main {
+  flex: 3;
+  margin: 10px;
+  overflow-y: auto;
+}
+
+.history {
+  flex: 1;
+  margin: 10px;
+  max-width: 300px;
+  height: calc(100vh - 20px);
+  overflow-y: auto;
+}
+
+.history .trick-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.history .history-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 12px;
+  min-width: 40px;
+}
+
+.card-image, .history-card img {
+  width: 40px;
+  height: auto;
+}
+
+.history .trick-entry .history-hand {
+  display: flex;
+  justify-content: flex-start;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .card-image {
+    width: 2%;
+  }
+}
+
+.jobs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.job {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 12px;
+  min-width: 50px;
+}
