@@ -15,11 +15,45 @@ window.addEventListener('DOMContentLoaded', () => {
     continueBtn.style.display = 'inline-block';
   }
 
-  // Start new game
-  document.getElementById('start-game').addEventListener('click', () => {
-    const game = new GameState();
+  // Get modal elements
+  const modal = document.getElementById('variant-modal');
+  const startGameBtn = document.getElementById('start-game');
+  const modalClose = document.getElementById('modal-close');
+  const modalCancel = document.getElementById('modal-cancel');
+  const variantForm = document.getElementById('variant-form');
+
+  // Show modal when Start Game is clicked
+  startGameBtn.addEventListener('click', () => {
+    modal.style.display = 'flex';
+  });
+
+  // Close modal handlers
+  const closeModal = () => {
+    modal.style.display = 'none';
+  };
+
+  modalClose.addEventListener('click', closeModal);
+  modalCancel.addEventListener('click', closeModal);
+
+  // Close modal when clicking backdrop
+  modal.querySelector('.modal-backdrop').addEventListener('click', closeModal);
+
+  // Handle form submission
+  variantForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    // Read variant selections
+    const specialEffects = document.getElementById('special-effects').checked;
+
+    // Create game with selected variants
+    const game = new GameState(4, {
+      specialEffects: specialEffects
+    });
     game.setTrump();
     GameStorage.save(game);
+    
+    // Close modal and navigate to game
+    closeModal();
     window.location.href = 'game.html';
   });
 

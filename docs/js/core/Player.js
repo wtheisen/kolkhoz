@@ -3,7 +3,7 @@
 import { Card } from './Card.js';
 
 export class Player {
-  constructor(idx, isHuman = false, name = 'Player') {
+  constructor(idx, isHuman = false, name = 'игрок') {
     this.idx = idx;
     this.isHuman = isHuman;
     this.name = name;

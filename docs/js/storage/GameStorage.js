@@ -72,6 +72,15 @@ export class GameStorage {
       currentVersion = 1;
     }
 
+    // Update human player name from "Player" to "игрок" if needed
+    if (data.players && Array.isArray(data.players)) {
+      for (const player of data.players) {
+        if (player.isHuman && player.name === 'Player') {
+          player.name = 'игрок';
+        }
+      }
+    }
+
     // Future migrations go here
 
     return data;

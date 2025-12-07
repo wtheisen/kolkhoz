@@ -42,6 +42,29 @@ export class GameController {
     this.storage.save(this.game);
     this.render();
 
+    // Check if we need AI assignment (after trick resolution)
+    if (this.game.phase === 'assignment' && !this.game.players[this.game.lastWinner].isHuman) {
+      // AI auto-assigns
+      const ai = new RandomAI(this.game.lastWinner);
+      const mapping = ai.assignTrick(this.game);
+      this.game.applyAssignments(mapping);
+
+      // Check if year is over (requisition phase)
+      if (this.game.phase === 'requisition') {
+        console.log('[Controller] Year complete (AI), transitioning to next year');
+        this.game.nextYear();
+
+        // After nextYear(), phase becomes 'planning'
+        if (this.game.phase === 'planning') {
+          this.game.setTrump();
+          this.game.phase = 'trick';
+        }
+      }
+
+      this.storage.save(this.game);
+      this.render();
+    }
+
     // Continue with AI
     if (this.shouldPlayAI()) {
       setTimeout(() => this.playAISequence(), 500);

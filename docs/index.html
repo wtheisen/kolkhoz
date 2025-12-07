@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Колхоз (Kolkhoz)</title>
+  <link rel="icon" type="image/svg+xml" href="assets/medal.svg">
   <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
@@ -23,6 +24,39 @@
                 frameborder="0"></iframe>
       </section>
     </main>
+  </div>
+
+  <!-- Game Variant Selection Modal -->
+  <div id="variant-modal" class="modal" style="display: none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Game Variants</h2>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="variant-form">
+          <div class="variant-option">
+            <label class="variant-checkbox">
+              <input type="checkbox" id="special-effects" name="specialEffects">
+              <span class="checkbox-label">Enable Special Face Card Effects</span>
+            </label>
+            <p class="variant-description">
+              When enabled, face cards (Jack, Queen, King) of the trump suit have special effects:
+              <ul>
+                <li><strong>Jack (Пьяница - Drunkard):</strong> Contributes 0 work hours. If the job fails, the Drunkard is exiled instead of your cards.</li>
+                <li><strong>Queen (Информатор - Informant):</strong> If the job fails, all players must reveal their Personal Plots, not just the Brigade Leaders.</li>
+                <li><strong>King (Партийный чиновник - Party Official):</strong> If the job is requisitioned, two cards are exiled instead of one.</li>
+              </ul>
+            </p>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="button button-secondary" id="modal-cancel">Cancel</button>
+            <button type="submit" class="button button-primary" id="modal-start">Start Game</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="js/lobby.js"></script>

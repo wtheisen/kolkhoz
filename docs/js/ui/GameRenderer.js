@@ -13,9 +13,9 @@ export class GameRenderer {
       <div class="page-wrapper">
         ${this._renderHeader(gameState)}
         <div class="container">
-          ${this._renderHistory(gameState)}
           ${this._renderGameBoard(gameState)}
         </div>
+        ${this._renderRulesModal()}
       </div>
     `;
 
@@ -24,46 +24,16 @@ export class GameRenderer {
   }
 
   _renderHeader(game) {
-    console.log('[GameRenderer] Rendering header with trump:', game.trump);
-    return `
-      <header class="topbar">
-        <div class="top-section">
-          <strong>год ${game.year} of the Пятилетка</strong>
-          <button class="button button-small" id="new-game-header">New Game</button>
-        </div>
-        <div class="top-section">
-          <span>Наша главная задача: ${game.trump}</span>
-          ${this._suitImage(game.trump)}
-        </div>
-
-        <div class="top-section jobs">
-          ${SUITS.map(suit => `
-            <div class="job">
-              ${game.workHours[suit] >= 40
-                ? '<img src="assets/cards/back.svg" alt="back" class="card-image">'
-                : this._cardImage(game.revealedJobs[suit])
-              }
-              <span>
-                ${game.workHours[suit]}/40
-                ${this._renderJobEffects(game, suit)}
-              </span>
-            </div>
-          `).join('')}
-        </div>
-
-        <div class="top-section jobs">
-          <h3>ГУЛАГ:</h3>
-          ${Array.from(game.exiled).map(key => {
-            const [suit, value] = key.split('-');
-            const card = { suit, value: parseInt(value) };
-            return `<div class="job"><div class="card">${this._cardImageFromData(card)}</div></div>`;
-          }).join('')}
-        </div>
-      </header>
-    `;
+    // Topbar removed - year tracker and new game button moved to game-info-left
+    return '';
   }
 
   _renderJobEffects(game, suit) {
+    // Only show special effects if the variant is enabled
+    if (!game.gameVariants || !game.gameVariants.specialEffects) {
+      return '';
+    }
+
     const bucket = game.jobBuckets[suit] || [];
     const effects = bucket
       .filter(c => c.suit === game.trump && [11, 12, 13].includes(c.value))
@@ -77,28 +47,8 @@ export class GameRenderer {
   }
 
   _renderHistory(game) {
-    // Group by year
-    const grouped = {};
-    for (const entry of game.trickHistory) {
-      if (!grouped[entry.year]) grouped[entry.year] = [];
-      grouped[entry.year].push(entry);
-    }
-
-    const years = Object.keys(grouped).sort((a, b) => b - a);
-
-    return `
-      <aside class="history">
-        <h3>взятка History</h3>
-        ${years.map(year => `
-          <h4>год ${year}</h4>
-          ${grouped[year].slice().reverse().map((entry, idx) => `
-            <div class="trick-entry">
-              ${this._renderHistoryEntry(entry, game, idx)}
-            </div>
-          `).join('')}
-        `).join('')}
-      </aside>
-    `;
+    // History sidebar removed - tricks are now shown on the table for current year only
+    return '';
   }
 
   _renderHistoryEntry(entry, game, idx) {
@@ -141,12 +91,14 @@ export class GameRenderer {
         <section class="current-trick">
           <h3>взятка:</h3>
           <div class="game-table">
-            ${this._renderPlayerArea(game, 1, 'top')}
-            ${this._renderPlayerArea(game, 2, 'left')}
-            ${this._renderPlayerArea(game, 3, 'right')}
+            ${this._renderJobsAndTrump(game)}
+            ${this._renderPlayerArea(game, 1, 'top', 'left')}
+            ${this._renderPlayerArea(game, 2, 'top', 'center')}
+            ${this._renderPlayerArea(game, 3, 'top', 'right')}
             ${this._renderPlayerArea(game, 0, 'bottom')}
             ${this._renderTrickArea(game)}
-            ${game.phase === 'assignment' ? this._renderAssignmentModal(game) : ''}
+            ${this._renderGulag(game)}
+            ${game.phase === 'assignment' && game.players[game.lastWinner]?.isHuman ? this._renderAssignmentModal(game) : ''}
           </div>
         </section>
 
@@ -155,120 +107,212 @@ export class GameRenderer {
     `;
   }
 
-  _renderPlayerArea(game, playerIdx, position) {
+  _renderJobsAndTrump(game) {
+    return `
+      <div class="game-info-left">
+        <div class="year-tracker">
+          <strong>год ${game.year} of the Пятилетка</strong>
+        </div>
+        <div class="trump-info">
+          <span>Наша главная задача:</span>
+          ${this._suitImage(game.trump)}
+        </div>
+        <div class="jobs-info">
+          ${SUITS.map(suit => {
+            const assignedCards = game.jobBuckets[suit] || [];
+            return `
+              <div class="job">
+                ${game.workHours[suit] >= 40
+                  ? '<img src="assets/card_back.png" alt="back" class="card-image">'
+                  : this._cardImage(game.revealedJobs[suit])
+                }
+                <span>
+                  ${game.workHours[suit]}/40
+                  ${this._renderJobEffects(game, suit)}
+                </span>
+                <div class="job-cards">
+                  ${assignedCards.map((card, index) => `
+                    <div class="job-card" style="--index: ${index}">
+                      ${this._cardImage(card)}
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+      <div class="game-controls">
+        <button class="button button-small" id="rules-button">Rules</button>
+        <button class="button button-small" id="new-game-header">New Game</button>
+      </div>
+    `;
+  }
+
+  _renderGulag(game) {
+    const exiledArray = Array.from(game.exiled);
+    return `
+      <div class="game-info-right">
+        <h3>ГУЛАГ:</h3>
+        <div class="gulag-cards">
+          ${exiledArray.map((key, index) => {
+            const [suit, value] = key.split('-');
+            const card = { suit, value: parseInt(value) };
+            return `<div class="gulag-card" style="--index: ${index}">${this._cardImageFromData(card)}</div>`;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  _renderPlayerArea(game, playerIdx, position, horizontalPosition = null) {
     const player = game.players[playerIdx];
     const isHuman = player.isHuman;
     const scores = game.scores;
+    const isCentralPlanner = playerIdx === game.lead;
+    const emblemIcon = isCentralPlanner ? '<img src="assets/emblem.svg" class="emblem-icon" alt="Central Planner" />' : '';
+    
+    // Calculate whose turn it is to play
+    const isCurrentTurn = game.phase === 'trick' && 
+                          game.currentTrick.length < game.numPlayers &&
+                          playerIdx === (game.lead + game.currentTrick.length) % game.numPlayers;
+    const turnIcon = isCurrentTurn ? '<img src="assets/player.svg" class="player-icon" alt="Current Turn" />' : '';
+
+    const horizontalClass = horizontalPosition ? ` top-${horizontalPosition}` : '';
 
     return `
-      <div class="player-area ${position}">
+      <div class="player-area ${position}${horizontalClass}">
         ${position === 'top' || position === 'bottom' ? `
           ${position === 'top' ? `
             <div class="player-plot" id="player-${playerIdx}-plot">
               ${player.plot.revealed.map(c => this._cardImage(c)).join('')}
               ${player.plot.hidden.map(c =>
-                '<img src="assets/cards/back.svg" class="card-image" />'
+                '<img src="assets/card_back.png" class="card-image" />'
               ).join('')}
               ${Array(player.plot.medals).fill(0).map(() =>
-                '<img src="assets/medal.svg" class="medal-image" alt="Medal" />'
+                '<img src="assets/cards/medal.png" class="medal-image" alt="Medal" />'
               ).join('')}
             </div>
-          ` : ''}
-
-          <div class="player-hand ${isHuman ? 'human-hand' : 'opponent-hand'}" id="player-${playerIdx}-hand">
-            ${isHuman
-              ? player.hand.map((card, idx) => `
-                  <span class="draggable" draggable="true" data-card-index="${idx}">
-                    ${this._cardImage(card)}
-                  </span>
-                `).join('')
-              : player.hand.map(() =>
-                  '<img src="assets/cards/back.svg" class="card-image" />'
-                ).join('')
-            }
-            <div class="player-name">${player.name}</div>
-          </div>
-
-          ${position === 'bottom' ? `
+            <div class="player-score">
+              <strong>${player.name}: ${scores[playerIdx]}</strong>${emblemIcon}${turnIcon}
+              ${player.brigadeLeader || player.medals > 0 ? '<img src="assets/medal_icon.png" class="medal-icon" alt="Medal" />' : ''}
+            </div>
+            <div class="player-hand ${isHuman ? 'human-hand' : 'opponent-hand'}" id="player-${playerIdx}-hand">
+              ${isHuman
+                ? player.hand.map((card, idx) => `
+                    <span class="draggable" draggable="true" data-card-index="${idx}">
+                      ${this._cardImage(card)}
+                    </span>
+                  `).join('')
+                : player.hand.map(() =>
+                    '<img src="assets/card_back.png" class="card-image" />'
+                  ).join('')
+              }
+            </div>
+          ` : `
+            <div class="player-hand ${isHuman ? 'human-hand' : 'opponent-hand'}" id="player-${playerIdx}-hand">
+              ${isHuman
+                ? player.hand.map((card, idx) => `
+                    <span class="draggable" draggable="true" data-card-index="${idx}">
+                      ${this._cardImage(card)}
+                    </span>
+                  `).join('')
+                : player.hand.map(() =>
+                    '<img src="assets/card_back.png" class="card-image" />'
+                  ).join('')
+              }
+            </div>
+            <div class="player-score">
+              <strong>${player.name}: ${scores[playerIdx]}</strong>${emblemIcon}${turnIcon}
+              ${player.brigadeLeader || player.medals > 0 ? '<img src="assets/medal_icon.png" class="medal-icon" alt="Medal" />' : ''}
+            </div>
             <div class="player-plot" id="player-${playerIdx}-plot">
               ${player.plot.revealed.map(c => this._cardImage(c)).join('')}
               ${player.plot.hidden.map(c => this._cardImage(c)).join('')}
               ${Array(player.plot.medals).fill(0).map(() =>
-                '<img src="assets/medal.svg" class="medal-image" alt="Medal" />'
+                '<img src="assets/cards/medal.png" class="medal-image" alt="Medal" />'
               ).join('')}
             </div>
-          ` : ''}
-
-          <div class="player-score">
-            <strong>${player.name}: ${scores[playerIdx]}</strong>
-            ${player.brigadeLeader ? '<img src="assets/medal.svg" class="medal-icon" alt="Brigade Leader" />' : ''}
-            ${player.medals > 0 ? ` <span class="year-medals">(${player.medals} 🏅)</span>` : ''}
-          </div>
+          `}
         ` : `
           ${position === 'left' ? `
             <div class="player-plot" id="player-${playerIdx}-plot">
               ${player.plot.revealed.map(c => this._cardImage(c)).join('')}
               ${player.plot.hidden.map(c =>
-                '<img src="assets/cards/back.svg" class="card-image" />'
+                '<img src="assets/card_back.png" class="card-image" />'
               ).join('')}
               ${Array(player.plot.medals).fill(0).map(() =>
-                '<img src="assets/medal.svg" class="medal-image" alt="Medal" />'
+                '<img src="assets/cards/medal.png" class="medal-image" alt="Medal" />'
               ).join('')}
             </div>
-          ` : ''}
-
-          <div class="player-hand ${position} opponent-hand" id="player-${playerIdx}-hand">
-            <div>
-              ${player.hand.map(() =>
-                '<img src="assets/cards/back.svg" class="card-image" />'
-              ).join('')}
-              <div class="player-name" style="writing-mode: vertical-lr;">${player.name}</div>
+            <div class="player-info">
+              <div class="player-score">
+                <strong>${player.name}: ${scores[playerIdx]}</strong>${emblemIcon}${turnIcon}
+                ${player.brigadeLeader ? '<img src="assets/medal.svg" class="medal-icon" alt="Brigade Leader" />' : ''}
+                ${player.medals > 0 ? ` <span class="year-medals">(${player.medals} 🏅)</span>` : ''}
+              </div>
             </div>
-          </div>
-
-          ${position === 'right' ? `
+            <div class="player-hand ${position} opponent-hand" id="player-${playerIdx}-hand">
+              <div>
+                ${player.hand.map(() =>
+                  '<img src="assets/card_back.png" class="card-image" />'
+                ).join('')}
+              </div>
+            </div>
+          ` : `
+            <div class="player-hand ${position} opponent-hand" id="player-${playerIdx}-hand">
+              <div>
+                ${player.hand.map(() =>
+                  '<img src="assets/card_back.png" class="card-image" />'
+                ).join('')}
+              </div>
+            </div>
+            <div class="player-info">
+              <div class="player-score">
+                <strong>${player.name}: ${scores[playerIdx]}</strong>${emblemIcon}${turnIcon}
+                ${player.brigadeLeader ? '<img src="assets/medal.svg" class="medal-icon" alt="Brigade Leader" />' : ''}
+                ${player.medals > 0 ? ` <span class="year-medals">(${player.medals} 🏅)</span>` : ''}
+              </div>
+            </div>
             <div class="player-plot" id="player-${playerIdx}-plot">
               ${player.plot.revealed.map(c => this._cardImage(c)).join('')}
               ${player.plot.hidden.map(c =>
-                '<img src="assets/cards/back.svg" class="card-image" />'
+                '<img src="assets/card_back.png" class="card-image" />'
               ).join('')}
               ${Array(player.plot.medals).fill(0).map(() =>
-                '<img src="assets/medal.svg" class="medal-image" alt="Medal" />'
+                '<img src="assets/cards/medal.png" class="medal-image" alt="Medal" />'
               ).join('')}
             </div>
-          ` : ''}
-
-          <div class="player-info">
-            <div class="player-score">
-              <strong>${player.name}: ${scores[playerIdx]}</strong>
-              ${player.brigadeLeader ? '<img src="assets/medal.svg" class="medal-icon" alt="Brigade Leader" />' : ''}
-              ${player.medals > 0 ? ` <span class="year-medals">(${player.medals} 🏅)</span>` : ''}
-            </div>
-          </div>
+          `}
         `}
       </div>
     `;
   }
 
   _renderTrickArea(game) {
-    if (game.currentTrick.length === 0) {
-      return `
-        <div class="trick-area" id="trick-area">
-          <div style="color: #fff; font-size: 1.2em; text-align: center;">
-            Waiting for first card...
-          </div>
-        </div>
-      `;
-    }
+    // Get the lead suit from the first card played (if any)
+    const leadSuit = game.currentTrick.length > 0 ? game.currentTrick[0][1].suit : null;
 
     return `
-      <div class="trick-area" id="trick-area">
-        ${game.currentTrick.map(([pid, card]) => `
-          <div class="card">
-            <div class="card-player">${game.players[pid].name}</div>
-            ${this._cardImage(card)}
+      <div class="trick-area-wrapper">
+        ${leadSuit ? `
+          <div class="lead-suit-indicator">
+            <span style="color: #fff; font-size: 12px; margin-right: 4px;">Lead:</span>
+            ${this._suitImage(leadSuit)}
           </div>
-        `).join('')}
+        ` : ''}
+        <div class="trick-area" id="trick-area">
+          ${game.currentTrick.length === 0 ? `
+            <div style="color: #fff; font-size: 1.2em; text-align: center;">
+              Waiting for first card...
+            </div>
+          ` : game.currentTrick.map(([pid, card]) => `
+            <div class="card">
+              <div class="card-player">${game.players[pid].name}</div>
+              ${this._cardImage(card)}
+            </div>
+          `).join('')}
+        </div>
       </div>
     `;
   }
@@ -315,6 +359,27 @@ export class GameRenderer {
         </ul>
         <button class="button" id="new-game">New Game</button>
       </section>
+    `;
+  }
+
+  _renderRulesModal() {
+    return `
+      <div id="rules-modal" class="modal" style="display: none;">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>Game Rules</h2>
+            <button class="modal-close" id="rules-modal-close">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="rules-section">
+              <iframe src="https://docs.google.com/document/d/e/2PACX-1vT0wmZXS3b4hT7NXVtfzjqVbgCs-RUcKtCxoeAE9d71jKXUEy6iYJkw1FMjfxPrtzmwVQ1YWUY4C0cN/pub?embedded=true"
+                      class="rules-iframe"
+                      frameborder="0"></iframe>
+            </div>
+          </div>
+        </div>
+      </div>
     `;
   }
 
@@ -401,6 +466,32 @@ export class GameRenderer {
     const newGameHeaderBtn = document.getElementById('new-game-header');
     if (newGameHeaderBtn) {
       newGameHeaderBtn.addEventListener('click', () => this.onNewGame());
+    }
+
+    // Rules modal
+    const rulesModal = document.getElementById('rules-modal');
+    const rulesButton = document.getElementById('rules-button');
+    const rulesModalClose = document.getElementById('rules-modal-close');
+    
+    if (rulesButton && rulesModal) {
+      rulesButton.addEventListener('click', () => {
+        rulesModal.style.display = 'flex';
+      });
+    }
+
+    if (rulesModalClose && rulesModal) {
+      rulesModalClose.addEventListener('click', () => {
+        rulesModal.style.display = 'none';
+      });
+    }
+
+    if (rulesModal) {
+      const backdrop = rulesModal.querySelector('.modal-backdrop');
+      if (backdrop) {
+        backdrop.addEventListener('click', () => {
+          rulesModal.style.display = 'none';
+        });
+      }
     }
   }
 

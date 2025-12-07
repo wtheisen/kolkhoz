@@ -6,10 +6,10 @@ export const THRESHOLD = 40;
 export const MAX_YEARS = 5;
 
 export const PLAYER_NAMES = [
-  'Ivan - Иван',
-  'Dmitri - Дмитрий',
-  'Alyosha - Алёша',
-  'Fyodor - Фёдор',
-  'Grushenka - Грушенька',
-  'Katerina - Катерина'
+  'Иван',
+  'Дмитрий',
+  'Алёша',
+  'Фёдор',
+  'Грушенька',
+  'Катерина'
 ];

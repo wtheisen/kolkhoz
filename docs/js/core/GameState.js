@@ -8,18 +8,24 @@ export class GameState {
   static THRESHOLD = THRESHOLD;
   static MAX_YEARS = MAX_YEARS;
 
-  constructor(numPlayers = 4) {
+  constructor(numPlayers = 4, gameVariants = {}) {
     const names = [...PLAYER_NAMES];
     this.numPlayers = numPlayers;
     this.players = Array.from({ length: numPlayers }, (_, i) => {
       if (i === 0) {
-        return new Player(0, true, 'Player');
+        return new Player(0, true, 'игрок');
       } else {
         const randomIndex = Math.floor(Math.random() * names.length);
         const name = names.splice(randomIndex, 1)[0];
         return new Player(i, false, name);
       }
     });
+
+    // Initialize game variants with defaults
+    this.gameVariants = {
+      specialEffects: false,
+      ...gameVariants
+    };
 
     this.lead = Math.floor(Math.random() * numPlayers);
     this.year = 1;
@@ -209,8 +215,8 @@ export class GameState {
     for (const [card, assignedSuit] of mapping.entries()) {
       this.jobBuckets[assignedSuit].push(card);
 
-      // Skip drunkard (Jack of trump) for work hours
-      if (card.value === 11 && card.suit === this.trump) {
+      // Skip drunkard (Jack of trump) for work hours (only if special effects enabled)
+      if (this.gameVariants.specialEffects && card.value === 11 && card.suit === this.trump) {
         continue;
       }
 
@@ -274,16 +280,18 @@ export class GameState {
         continue;
       }
 
-      // Check for drunkard (Jack of trump)
+      // Check for drunkard (Jack of trump) - only if special effects enabled
       let drunkard = false;
-      for (const c of bucket) {
-        if (c.value === 11 && c.suit === this.trump) {
-          this.trickHistory[this.trickHistory.length - 1].requisitions.push(
-            "Пьяница отправить на Север"
-          );
-          this.exiled.add(`${c.suit}-${c.value}`);
-          drunkard = true;
-          break;
+      if (this.gameVariants.specialEffects) {
+        for (const c of bucket) {
+          if (c.value === 11 && c.suit === this.trump) {
+            this.trickHistory[this.trickHistory.length - 1].requisitions.push(
+              "Пьяница отправить на Север"
+            );
+            this.exiled.add(`${c.suit}-${c.value}`);
+            drunkard = true;
+            break;
+          }
         }
       }
 
@@ -291,18 +299,20 @@ export class GameState {
         continue;
       }
 
-      // Check for informant (Queen of trump)
+      // Check for informant (Queen of trump) - only if special effects enabled
       let informant = false;
-      for (const c of bucket) {
-        if (c.value === 12 && c.suit === this.trump) {
-          informant = true;
-          break;
+      if (this.gameVariants.specialEffects) {
+        for (const c of bucket) {
+          if (c.value === 12 && c.suit === this.trump) {
+            informant = true;
+            break;
+          }
         }
       }
 
       // Process requisition for each player
       for (const p of this.players) {
-        // Reveal hidden cards if brigade leader or informant present
+        // Reveal hidden cards if brigade leader or informant present (informant only if special effects enabled)
         if (p.brigadeLeader || informant) {
           const toReveal = p.plot.hidden.filter(c => c.suit === suit);
           p.plot.revealed.push(...toReveal);
@@ -327,18 +337,20 @@ export class GameState {
           `${p.name} отправить на Север ${card.toString()}`
         );
 
-        // Check for party official (King of trump) - exile second card
-        const partyOfficial = bucket.some(c => c.value === 13 && c.suit === this.trump);
-        if (partyOfficial && suitCards.length > 1) {
-          const card2 = suitCards[1];
-          const card2Index = p.plot.revealed.findIndex(
-            c => c.suit === card2.suit && c.value === card2.value
-          );
-          p.plot.revealed.splice(card2Index, 1);
-          this.exiled.add(`${card2.suit}-${card2.value}`);
-          this.trickHistory[this.trickHistory.length - 1].requisitions.push(
-            `Партийный чиновник: ${p.name} отправить на Север ${card2.toString()}`
-          );
+        // Check for party official (King of trump) - exile second card (only if special effects enabled)
+        if (this.gameVariants.specialEffects) {
+          const partyOfficial = bucket.some(c => c.value === 13 && c.suit === this.trump);
+          if (partyOfficial && suitCards.length > 1) {
+            const card2 = suitCards[1];
+            const card2Index = p.plot.revealed.findIndex(
+              c => c.suit === card2.suit && c.value === card2.value
+            );
+            p.plot.revealed.splice(card2Index, 1);
+            this.exiled.add(`${card2.suit}-${card2.value}`);
+            this.trickHistory[this.trickHistory.length - 1].requisitions.push(
+              `Партийный чиновник: ${p.name} отправить на Север ${card2.toString()}`
+            );
+          }
         }
       }
     }
@@ -406,6 +418,7 @@ export class GameState {
     return {
       version: 1,
       numPlayers: this.numPlayers,
+      gameVariants: this.gameVariants,
       players: this.players.map(p => p.toJSON()),
       lead: this.lead,
       year: this.year,
@@ -464,6 +477,8 @@ export class GameState {
     }
 
     game.numPlayers = data.numPlayers;
+    // Handle game variants - default to no special effects for old saves
+    game.gameVariants = data.gameVariants || { specialEffects: false };
     game.players = data.players.map(Player.fromJSON);
     game.lead = data.lead;
     game.year = data.year;
