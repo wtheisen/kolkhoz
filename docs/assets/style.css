@@ -456,18 +456,82 @@ main.main {
   text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
 }
 
+.job-rewards-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  width: 100%;
+  max-width: 250px;
+  min-height: 80px;
+  gap: 12px;
+}
+
+.job-pile-remaining {
+  position: relative;
+  display: inline-block;
+  height: 100px;
+  width: 80px;
+  min-width: 80px;
+}
+
+.job-pile-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: center bottom;
+  transition: transform 0.2s ease;
+}
+
+.job-pile-card .card-image {
+  width: 7vw;
+  max-width: 80px;
+  min-width: 40px;
+  filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.5));
+}
+
+.job-pile-card[style*="--pile-index: 0"] {
+  transform: rotate(-8deg) translateX(-15px);
+  z-index: 1;
+}
+
+.job-pile-card[style*="--pile-index: 1"] {
+  transform: rotate(-4deg) translateX(-8px);
+  z-index: 2;
+}
+
+.job-pile-card[style*="--pile-index: 2"] {
+  transform: rotate(0deg);
+  z-index: 3;
+}
+
+.job-pile-card[style*="--pile-index: 3"] {
+  transform: rotate(4deg) translateX(8px);
+  z-index: 4;
+}
+
+.job-pile-card[style*="--pile-index"] {
+  /* Stack face-down cards with slight offset, fanning left to right */
+  transform: rotate(calc(var(--pile-index) * 2deg - 4deg)) 
+             translateX(calc(var(--pile-index) * 7px - 10px));
+  z-index: calc(var(--pile-index) + 1);
+}
+
 .job-rewards-fanned {
   position: relative;
   display: inline-block;
   height: 100px;
   width: 100%;
   max-width: 120px;
+  min-height: 80px;
 }
 
 .job-reward-card {
   position: absolute;
-  left: 0;
+  left: 50%;
   top: 0;
+  transform-origin: center bottom;
   transition: transform 0.2s ease;
 }
 
@@ -479,36 +543,37 @@ main.main {
 }
 
 .job-reward-card[style*="--fan-index: 0"] {
-  transform: rotate(-8deg) translateY(0);
-  z-index: 3;
+  transform: translateX(-50%) rotate(-10deg) translateX(-35px);
+  z-index: 1;
 }
 
 .job-reward-card[style*="--fan-index: 1"] {
-  transform: rotate(-4deg) translateY(2px) translateX(8px);
+  transform: translateX(-50%) rotate(-5deg) translateX(-18px);
   z-index: 2;
 }
 
 .job-reward-card[style*="--fan-index: 2"] {
-  transform: rotate(0deg) translateY(4px) translateX(16px);
-  z-index: 1;
+  transform: translateX(-50%) rotate(0deg);
+  z-index: 3;
 }
 
 .job-reward-card[style*="--fan-index: 3"] {
-  transform: rotate(4deg) translateY(2px) translateX(24px);
-  z-index: 0;
+  transform: translateX(-50%) rotate(5deg) translateX(18px);
+  z-index: 4;
 }
 
 .job-reward-card[style*="--fan-index: 4"] {
-  transform: rotate(8deg) translateY(0) translateX(32px);
-  z-index: -1;
+  transform: translateX(-50%) rotate(10deg) translateX(35px);
+  z-index: 5;
 }
 
 .job-reward-card[style*="--fan-index"] {
-  /* For 5+ cards, spread them out more */
-  transform: rotate(calc(var(--fan-index) * 3deg - 10deg)) 
-             translateY(calc(var(--fan-index) * 1px)) 
-             translateX(calc(var(--fan-index) * 8px));
-  z-index: calc(10 - var(--fan-index));
+  /* For 5+ cards, use calculated values - higher index = more right, higher z-index */
+  /* Match job-card pattern: translateX(-50%) centers, then rotate and offset */
+  transform: translateX(-50%) 
+             rotate(calc(var(--fan-index) * 5deg - 10deg)) 
+             translateX(calc(var(--fan-index) * 17.5px - 35px));
+  z-index: calc(var(--fan-index) + 1);
 }
 
 .job-cards {

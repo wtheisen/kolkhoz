@@ -124,20 +124,38 @@ export class GameRenderer {
             const jobRewards = game.revealedJobs[suit];
             const isArray = Array.isArray(jobRewards);
             const rewardCards = isArray ? jobRewards : [jobRewards];
+            const remainingCards = game.jobPiles[suit] ? game.jobPiles[suit].length : 0;
             
             return `
               <div class="job">
                 ${game.workHours[suit] >= 40
                   ? '<img src="assets/card_back.png" alt="back" class="card-image">'
-                  : isArray && rewardCards.length > 1
-                    ? `<div class="job-rewards-fanned">
-                        ${rewardCards.map((card, index) => `
-                          <div class="job-reward-card" style="--fan-index: ${index}">
-                            ${this._cardImage(card)}
-                          </div>
-                        `).join('')}
+                  : game.gameVariants.accumulateUnclaimedJobs && remainingCards > 0
+                    ? `<div class="job-rewards-container">
+                        <div class="job-pile-remaining">
+                          ${Array(remainingCards).fill(0).map((_, index) => `
+                            <div class="job-pile-card" style="--pile-index: ${index}">
+                              <img src="assets/card_back.png" alt="back" class="card-image">
+                            </div>
+                          `).join('')}
+                        </div>
+                        <div class="job-rewards-fanned">
+                          ${rewardCards.map((card, index) => `
+                            <div class="job-reward-card" style="--fan-index: ${index}">
+                              ${this._cardImage(card)}
+                            </div>
+                          `).join('')}
+                        </div>
                       </div>`
-                    : this._cardImage(rewardCards[0])
+                    : isArray && rewardCards.length > 1
+                      ? `<div class="job-rewards-fanned">
+                          ${rewardCards.map((card, index) => `
+                            <div class="job-reward-card" style="--fan-index: ${index}">
+                              ${this._cardImage(card)}
+                            </div>
+                          `).join('')}
+                        </div>`
+                      : this._cardImage(rewardCards[0])
                 }
                 <span>
                   ${game.workHours[suit]}/40
