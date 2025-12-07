@@ -99,6 +99,7 @@ export class GameRenderer {
             ${this._renderTrickArea(game)}
             ${this._renderGulag(game)}
             ${game.phase === 'assignment' && game.players[game.lastWinner]?.isHuman ? this._renderAssignmentModal(game) : ''}
+            ${game.phase === 'swap' && game.currentSwapPlayer === 0 ? this._renderSwapModal(game) : ''}
           </div>
         </section>
 
@@ -120,11 +121,23 @@ export class GameRenderer {
         <div class="jobs-info">
           ${SUITS.map(suit => {
             const assignedCards = game.jobBuckets[suit] || [];
+            const jobRewards = game.revealedJobs[suit];
+            const isArray = Array.isArray(jobRewards);
+            const rewardCards = isArray ? jobRewards : [jobRewards];
+            
             return `
               <div class="job">
                 ${game.workHours[suit] >= 40
                   ? '<img src="assets/card_back.png" alt="back" class="card-image">'
-                  : this._cardImage(game.revealedJobs[suit])
+                  : isArray && rewardCards.length > 1
+                    ? `<div class="job-rewards-fanned">
+                        ${rewardCards.map((card, index) => `
+                          <div class="job-reward-card" style="--fan-index: ${index}">
+                            ${this._cardImage(card)}
+                          </div>
+                        `).join('')}
+                      </div>`
+                    : this._cardImage(rewardCards[0])
                 }
                 <span>
                   ${game.workHours[suit]}/40
@@ -346,6 +359,52 @@ export class GameRenderer {
     `;
   }
 
+  _renderSwapModal(game) {
+    const player = game.players[0];
+    
+    if (player.plot.hidden.length === 0 || player.hand.length === 0) {
+      // Can't swap, skip
+      return '';
+    }
+
+    return `
+      <div class="assignment-overlay">
+        <div class="assignment-modal">
+          <h3 style="text-align:center;">Swap Cards</h3>
+          <p style="text-align:center; margin-bottom: 16px;">Choose one hidden card and one hand card to swap</p>
+          <form id="swap-form" style="display: flex; gap: 24px; justify-content: center; align-items: flex-end;">
+            <div style="display: flex; flex-direction: column; align-items: center;">
+              <h4>Hidden Card</h4>
+              <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                ${player.plot.hidden.map((card, idx) => `
+                  <label style="cursor: pointer;">
+                    <input type="radio" name="hidden_card" value="${idx}" required>
+                    <img src="assets/card_back.png" class="card-image" style="opacity: 0.7;">
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center;">
+              <h4>Hand Card</h4>
+              <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                ${player.hand.map((card, idx) => `
+                  <label style="cursor: pointer;">
+                    <input type="radio" name="hand_card" value="${idx}" required>
+                    ${this._cardImage(card)}
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <button type="submit" class="button button-primary">Swap</button>
+              <button type="button" class="button button-secondary" id="skip-swap">Skip</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+  }
+
   _renderGameOver(game) {
     const finalScores = game.finalScores;
 
@@ -457,6 +516,30 @@ export class GameRenderer {
       });
     }
 
+    // Swap form
+    const swapForm = document.getElementById('swap-form');
+    if (swapForm) {
+      swapForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const formData = new FormData(swapForm);
+        const hiddenIndex = parseInt(formData.get('hidden_card'));
+        const handIndex = parseInt(formData.get('hand_card'));
+        
+        if (!isNaN(hiddenIndex) && !isNaN(handIndex)) {
+          this.onSwapSubmitted(hiddenIndex, handIndex);
+        }
+      });
+    }
+
+    // Skip swap button
+    const skipSwapBtn = document.getElementById('skip-swap');
+    if (skipSwapBtn) {
+      skipSwapBtn.addEventListener('click', () => {
+        // Skip swap by completing without swapping
+        this.onSwapSubmitted(-1, -1);
+      });
+    }
+
     // New game buttons (both in game-over screen and header)
     const newGameBtn = document.getElementById('new-game');
     if (newGameBtn) {
@@ -498,5 +581,6 @@ export class GameRenderer {
   // Event handler stubs - implemented by controller
   onCardPlayed(cardIndex) {}
   onAssignmentSubmitted(mapping) {}
+  onSwapSubmitted(hiddenIndex, handIndex) {}
   onNewGame() {}
 }

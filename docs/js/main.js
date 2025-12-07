@@ -31,6 +31,11 @@ window.addEventListener('DOMContentLoaded', () => {
     GameStorage.save(game);
   }
 
+  if (game.phase === 'swap') {
+    console.log('[main.js] Phase is swap, waiting for player swaps');
+    // Swap phase will be handled by the controller
+  }
+
   console.log('[main.js] Before render, Player 0 hand size:', game.players[0].hand.length);
   const renderer = new GameRenderer(document.getElementById('app'));
   const controller = new GameController(game, renderer, GameStorage);

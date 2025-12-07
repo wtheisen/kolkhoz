@@ -15,14 +15,95 @@ export class GameController {
     this.renderer.onCardPlayed = (idx) => this.handleCardPlay(idx);
     this.renderer.onAssignmentSubmitted = (mapping) => this.handleAssignment(mapping);
     this.renderer.onNewGame = () => this.handleNewGame();
+    this.renderer.onSwapSubmitted = (hiddenIdx, handIdx) => this.handleSwap(hiddenIdx, handIdx);
   }
 
   start() {
     this.render();
 
+    // Handle swap phase if needed
+    if (this.game.phase === 'swap') {
+      this.handleSwapPhase();
+      return;
+    }
+
     // If AI turn, play immediately
     if (this.shouldPlayAI()) {
       setTimeout(() => this.playAISequence(), 500);
+    }
+  }
+
+  handleSwapPhase() {
+    // If it's an AI player's turn to swap, do it automatically
+    if (this.game.currentSwapPlayer !== null && 
+        this.game.currentSwapPlayer !== 0 && 
+        !this.game.players[this.game.currentSwapPlayer].isHuman) {
+      const player = this.game.players[this.game.currentSwapPlayer];
+      
+      // Only swap if player has both hidden and hand cards
+      if (player.plot.hidden.length > 0 && player.hand.length > 0) {
+        // AI swaps randomly
+        const ai = new RandomAI(this.game.currentSwapPlayer);
+        const swap = ai.swap(this.game);
+        if (swap) {
+          this.game.swapCard(this.game.currentSwapPlayer, swap.hiddenIndex, swap.handIndex);
+        }
+      }
+      
+      this.game.completeSwap(this.game.currentSwapPlayer);
+      this.storage.save(this.game);
+      this.render();
+      
+      // Continue with next player or move to planning
+      if (this.game.phase === 'swap') {
+        setTimeout(() => this.handleSwapPhase(), 500);
+      } else if (this.game.phase === 'planning') {
+        this.game.setTrump();
+        this.game.phase = 'trick';
+        this.storage.save(this.game);
+        this.render();
+        if (this.shouldPlayAI()) {
+          setTimeout(() => this.playAISequence(), 500);
+        }
+      }
+    }
+    // If it's the human player's turn, wait for UI interaction
+  }
+
+  handleSwap(hiddenCardIndex, handCardIndex) {
+    if (this.game.phase !== 'swap' || this.game.currentSwapPlayer !== 0) {
+      NotificationManager.show('Not your turn to swap', 'error');
+      return;
+    }
+
+    // Allow skipping swap (-1, -1)
+    if (hiddenCardIndex === -1 || handCardIndex === -1) {
+      this.game.completeSwap(0);
+      this.storage.save(this.game);
+      this.render();
+    } else {
+      try {
+        this.game.swapCard(0, hiddenCardIndex, handCardIndex);
+        this.game.completeSwap(0);
+        this.storage.save(this.game);
+        this.render();
+      } catch (error) {
+        NotificationManager.show(error.message, 'error');
+        return;
+      }
+    }
+
+    // Continue with next player or move to planning
+    if (this.game.phase === 'swap') {
+      setTimeout(() => this.handleSwapPhase(), 500);
+    } else if (this.game.phase === 'planning') {
+      this.game.setTrump();
+      this.game.phase = 'trick';
+      this.storage.save(this.game);
+      this.render();
+      if (this.shouldPlayAI()) {
+        setTimeout(() => this.playAISequence(), 500);
+      }
     }
   }
 
@@ -54,8 +135,11 @@ export class GameController {
         console.log('[Controller] Year complete (AI), transitioning to next year');
         this.game.nextYear();
 
-        // After nextYear(), phase becomes 'planning'
-        if (this.game.phase === 'planning') {
+        // After nextYear(), phase might be 'swap', 'planning', or 'trick'
+        if (this.game.phase === 'swap') {
+          // Handle swap phase
+          this.handleSwapPhase();
+        } else if (this.game.phase === 'planning') {
           this.game.setTrump();
           this.game.phase = 'trick';
         }
@@ -105,8 +189,11 @@ export class GameController {
         console.log('[Controller] Year complete (AI), transitioning to next year');
         this.game.nextYear();
 
-        // After nextYear(), phase becomes 'planning'
-        if (this.game.phase === 'planning') {
+        // After nextYear(), phase might be 'swap', 'planning', or 'trick'
+        if (this.game.phase === 'swap') {
+          // Handle swap phase
+          this.handleSwapPhase();
+        } else if (this.game.phase === 'planning') {
           this.game.setTrump();
           this.game.phase = 'trick';
         }
@@ -130,10 +217,18 @@ export class GameController {
       console.log('[Controller] Year complete, transitioning to next year');
       this.game.nextYear();
 
-      // After nextYear(), phase becomes 'planning'
-      if (this.game.phase === 'planning') {
+      // After nextYear(), phase might be 'swap', 'planning', or 'trick'
+      if (this.game.phase === 'swap') {
+        // Handle swap phase
+        this.handleSwapPhase();
+      } else if (this.game.phase === 'planning') {
         this.game.setTrump();
         this.game.phase = 'trick';
+        this.storage.save(this.game);
+        this.render();
+        if (this.shouldPlayAI()) {
+          setTimeout(() => this.playAISequence(), 500);
+        }
       }
     }
 

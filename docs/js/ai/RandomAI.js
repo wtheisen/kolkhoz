@@ -40,4 +40,19 @@ export class RandomAI extends AIPlayer {
 
     return mapping;
   }
+
+  swap(gameState) {
+    const player = gameState.players[this.playerIdx];
+    
+    // Only swap if player has both hidden cards and hand cards
+    if (player.plot.hidden.length === 0 || player.hand.length === 0) {
+      return null;  // Skip swap
+    }
+
+    // Randomly choose one hidden card and one hand card to swap
+    const hiddenIndex = Math.floor(Math.random() * player.plot.hidden.length);
+    const handIndex = Math.floor(Math.random() * player.hand.length);
+
+    return { hiddenIndex, handIndex };
+  }
 }

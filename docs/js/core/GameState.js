@@ -24,6 +24,9 @@ export class GameState {
     // Initialize game variants with defaults
     this.gameVariants = {
       specialEffects: false,
+      medalsCount: true,  // If true, medals accumulate and count toward final score
+      accumulateUnclaimedJobs: false,  // If true, unclaimed job rewards accumulate to next year
+      allowSwap: false,  // If true, players can swap one hidden plot card with one hand card at year start
       ...gameVariants
     };
 
@@ -31,8 +34,12 @@ export class GameState {
     this.year = 1;
     this.trump = null;
     this.jobPiles = {};
-    this.revealedJobs = {};
+    this.revealedJobs = {};  // Will store arrays of cards when accumulateUnclaimedJobs is enabled
     this.claimedJobs = new Set();
+    this.accumulatedJobCards = {};  // Track accumulated cards for unclaimed jobs (variant)
+    for (const suit of SUITS) {
+      this.accumulatedJobCards[suit] = [];
+    }
     this.workHours = {};
     for (const suit of SUITS) {
       this.workHours[suit] = 0;
@@ -49,6 +56,8 @@ export class GameState {
     this.phase = 'planning';
     this.trickCount = 0;
     this.exiled = new Set();
+    this.currentSwapPlayer = null;  // Tracks which player is currently swapping
+    this.currentSwapPlayer = null;  // Tracks which player is currently swapping
 
     this._prepareJobPiles();
     this._revealJobs();
@@ -75,7 +84,23 @@ export class GameState {
     this.requisitionLog = {};
 
     for (const [suit, pile] of Object.entries(this.jobPiles)) {
-      this.revealedJobs[suit] = pile.pop();
+      const newJobCard = pile.pop();
+      
+      if (this.gameVariants.accumulateUnclaimedJobs) {
+        // If there are accumulated cards from previous year, add new card to the array
+        if (this.accumulatedJobCards[suit].length > 0) {
+          // Keep accumulated cards and add the new one
+          this.revealedJobs[suit] = [...this.accumulatedJobCards[suit], newJobCard];
+          // Clear accumulated cards (will be set again if not claimed)
+          this.accumulatedJobCards[suit] = [];
+        } else {
+          // First card for this job
+          this.revealedJobs[suit] = [newJobCard];
+        }
+      } else {
+        // Store as single card (backward compatibility)
+        this.revealedJobs[suit] = newJobCard;
+      }
     }
   }
 
@@ -129,6 +154,40 @@ export class GameState {
     } else {
       this.trump = SUITS[Math.floor(Math.random() * SUITS.length)];
       console.log('[GameState] Trump randomly set to:', this.trump);
+    }
+  }
+
+  swapCard(playerId, hiddenCardIndex, handCardIndex) {
+    // Validate indices
+    const player = this.players[playerId];
+    if (hiddenCardIndex < 0 || hiddenCardIndex >= player.plot.hidden.length) {
+      throw new Error('Invalid hidden card index');
+    }
+    if (handCardIndex < 0 || handCardIndex >= player.hand.length) {
+      throw new Error('Invalid hand card index');
+    }
+
+    // Perform the swap
+    const hiddenCard = player.plot.hidden[hiddenCardIndex];
+    const handCard = player.hand[handCardIndex];
+    
+    player.plot.hidden[hiddenCardIndex] = handCard;
+    player.hand[handCardIndex] = hiddenCard;
+
+    console.log(`[GameState] Player ${playerId} swapped hidden card with hand card`);
+  }
+
+  completeSwap(playerId) {
+    // Mark that this player has completed their swap
+    if (this.currentSwapPlayer === playerId) {
+      this.currentSwapPlayer++;
+      
+      // If all players have swapped, move to planning phase
+      if (this.currentSwapPlayer >= this.numPlayers) {
+        this.setTrump();
+        this.phase = 'planning';
+        this.currentSwapPlayer = null;
+      }
     }
   }
 
@@ -196,8 +255,10 @@ export class GameState {
       p.brigadeLeader = false;
     }
     this.players[bestPid].brigadeLeader = true;
-    // Award medal for winning the trick
-    this.players[bestPid].medals++;
+    // Award medal for winning the trick (only if medals variant is enabled)
+    if (this.gameVariants.medalsCount) {
+      this.players[bestPid].medals++;
+    }
 
     // 4) Assignment phase - human must assign manually
     if (this.players[this.lastWinner].isHuman) {
@@ -226,8 +287,21 @@ export class GameState {
     // Check for any new completed jobs (threshold reached)
     for (const [suit, hours] of Object.entries(this.workHours)) {
       if (!this.claimedJobs.has(suit) && hours >= THRESHOLD) {
-        this.players[this.lastWinner].plot.revealed.push(this.revealedJobs[suit]);
+        // Get the job card(s) - could be array or single card
+        const jobRewards = Array.isArray(this.revealedJobs[suit]) 
+          ? this.revealedJobs[suit] 
+          : [this.revealedJobs[suit]];
+        
+        // Add all accumulated reward cards to player's plot
+        for (const card of jobRewards) {
+          this.players[this.lastWinner].plot.revealed.push(card);
+        }
+        
         this.claimedJobs.add(suit);
+        // Clear accumulated cards if job is claimed
+        if (this.gameVariants.accumulateUnclaimedJobs) {
+          this.accumulatedJobCards[suit] = [];
+        }
       }
     }
 
@@ -363,6 +437,19 @@ export class GameState {
       return;
     }
 
+    // Store accumulated cards for unclaimed jobs (if variant enabled)
+    if (this.gameVariants.accumulateUnclaimedJobs) {
+      for (const suit of SUITS) {
+        if (!this.claimedJobs.has(suit)) {
+          // Accumulate the unclaimed job card(s)
+          const jobRewards = Array.isArray(this.revealedJobs[suit]) 
+            ? this.revealedJobs[suit] 
+            : [this.revealedJobs[suit]];
+          this.accumulatedJobCards[suit].push(...jobRewards);
+        }
+      }
+    }
+
     this.year++;
     console.log('[GameState] Starting year:', this.year);
     this.phase = 'planning';
@@ -378,9 +465,11 @@ export class GameState {
     console.log('[GameState] Clearing player hands and transferring medals to plots');
     for (const p of this.players) {
       console.log(`[GameState] Player ${p.idx} hand before clear:`, p.hand.length, 'medals this year:', p.medals);
-      // Transfer medals earned this year to personal plot
-      p.plot.medals += p.medals;
-      console.log(`[GameState] Player ${p.idx} total medals in plot:`, p.plot.medals);
+      // Transfer medals earned this year to personal plot (only if medals variant is enabled)
+      if (this.gameVariants.medalsCount) {
+        p.plot.medals += p.medals;
+        console.log(`[GameState] Player ${p.idx} total medals in plot:`, p.plot.medals);
+      }
       p.hand = [];
       p.brigadeLeader = false;
       // Reset temporary medal counter for new year
@@ -389,20 +478,32 @@ export class GameState {
 
     this._dealHands();
     this.lead = Math.floor(Math.random() * this.numPlayers);
-    this.setTrump();
+    
+    // If swap variant is enabled, go to swap phase; otherwise go to planning
+    if (this.gameVariants.allowSwap) {
+      this.phase = 'swap';
+      this.currentSwapPlayer = 0;  // Start with player 0
+    } else {
+      this.setTrump();
+      this.phase = 'planning';
+    }
     console.log('[GameState] nextYear() complete');
   }
 
   get scores() {
-    return this.players.map(p =>
-      p.plot.revealed.reduce((sum, c) => sum + c.value, 0) + p.plot.medals + p.medals
-    );
+    return this.players.map(p => {
+      const cardScore = p.plot.revealed.reduce((sum, c) => sum + c.value, 0);
+      const medalScore = this.gameVariants.medalsCount ? (p.plot.medals + p.medals) : 0;
+      return cardScore + medalScore;
+    });
   }
 
   get finalScores() {
-    return this.players.map(p =>
-      [...p.plot.revealed, ...p.plot.hidden].reduce((sum, c) => sum + c.value, 0) + p.plot.medals + p.medals
-    );
+    return this.players.map(p => {
+      const cardScore = [...p.plot.revealed, ...p.plot.hidden].reduce((sum, c) => sum + c.value, 0);
+      const medalScore = this.gameVariants.medalsCount ? (p.plot.medals + p.medals) : 0;
+      return cardScore + medalScore;
+    });
   }
 
   // Fisher-Yates shuffle
@@ -429,9 +530,14 @@ export class GameState {
         )
       ),
       revealedJobs: Object.fromEntries(
-        Object.entries(this.revealedJobs).map(([suit, card]) =>
-          [suit, card.toJSON()]
-        )
+        Object.entries(this.revealedJobs).map(([suit, cardOrArray]) => {
+          // Handle both single cards and arrays of cards
+          if (Array.isArray(cardOrArray)) {
+            return [suit, cardOrArray.map(c => c.toJSON())];
+          } else {
+            return [suit, cardOrArray.toJSON()];
+          }
+        })
       ),
       claimedJobs: Array.from(this.claimedJobs),
       workHours: this.workHours,
@@ -464,7 +570,12 @@ export class GameState {
       }),
       phase: this.phase,
       trickCount: this.trickCount,
-      exiled: Array.from(this.exiled)
+      exiled: Array.from(this.exiled),
+      accumulatedJobCards: Object.fromEntries(
+        Object.entries(this.accumulatedJobCards).map(([suit, cards]) =>
+          [suit, cards.map(c => c.toJSON())]
+        )
+      )
     };
   }
 
@@ -477,8 +588,14 @@ export class GameState {
     }
 
     game.numPlayers = data.numPlayers;
-    // Handle game variants - default to no special effects for old saves
-    game.gameVariants = data.gameVariants || { specialEffects: false };
+    // Handle game variants - default to no special effects and medals enabled for old saves
+    game.gameVariants = {
+      specialEffects: false,
+      medalsCount: true,
+      accumulateUnclaimedJobs: false,
+      allowSwap: false,
+      ...(data.gameVariants || {})
+    };
     game.players = data.players.map(Player.fromJSON);
     game.lead = data.lead;
     game.year = data.year;
@@ -492,9 +609,14 @@ export class GameState {
     );
 
     game.revealedJobs = Object.fromEntries(
-      Object.entries(data.revealedJobs).map(([suit, card]) =>
-        [suit, Card.fromJSON(card)]
-      )
+      Object.entries(data.revealedJobs).map(([suit, cardOrArray]) => {
+        // Handle both single cards and arrays of cards
+        if (Array.isArray(cardOrArray)) {
+          return [suit, cardOrArray.map(Card.fromJSON)];
+        } else {
+          return [suit, Card.fromJSON(cardOrArray)];
+        }
+      })
     );
 
     game.claimedJobs = new Set(data.claimedJobs);
@@ -540,6 +662,21 @@ export class GameState {
     game.trickCount = data.trickCount;
     game.exiled = new Set(data.exiled);
     game.requisitionLog = {};
+    game.currentSwapPlayer = data.currentSwapPlayer || null;
+    
+    // Initialize accumulated job cards (for variant)
+    game.accumulatedJobCards = {};
+    if (data.accumulatedJobCards) {
+      for (const [suit, cards] of Object.entries(data.accumulatedJobCards)) {
+        game.accumulatedJobCards[suit] = cards.map(Card.fromJSON);
+      }
+    }
+    // Ensure all suits have arrays (for backward compatibility with old saves)
+    for (const suit of SUITS) {
+      if (!(suit in game.accumulatedJobCards)) {
+        game.accumulatedJobCards[suit] = [];
+      }
+    }
 
     return game;
   }

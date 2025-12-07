@@ -50,6 +50,33 @@
               </ul>
             </p>
           </div>
+          <div class="variant-option">
+            <label class="variant-checkbox">
+              <input type="checkbox" id="medals-count" name="medalsCount" checked>
+              <span class="checkbox-label">Medals Count Toward Score</span>
+            </label>
+            <p class="variant-description">
+              When enabled, players earn medals for winning tricks, and these medals count toward the final score. When disabled, medals are not awarded and do not affect scoring.
+            </p>
+          </div>
+          <div class="variant-option">
+            <label class="variant-checkbox">
+              <input type="checkbox" id="accumulate-jobs" name="accumulateUnclaimedJobs">
+              <span class="checkbox-label">Accumulate Unclaimed Job Rewards</span>
+            </label>
+            <p class="variant-description">
+              When enabled, if a job is not completed (doesn't reach the work hour threshold), its reward value accumulates to the next year. The new year's job reward will be added to any unclaimed rewards from previous years.
+            </p>
+          </div>
+          <div class="variant-option">
+            <label class="variant-checkbox">
+              <input type="checkbox" id="allow-swap" name="allowSwap">
+              <span class="checkbox-label">Allow Card Swap at Year Start</span>
+            </label>
+            <p class="variant-description">
+              When enabled, at the start of each year, players can swap one of their face-down Personal Plot cards with one card from their hand. This happens before the planning phase.
+            </p>
+          </div>
           <div class="modal-actions">
             <button type="button" class="button button-secondary" id="modal-cancel">Cancel</button>
             <button type="submit" class="button button-primary" id="modal-start">Start Game</button>

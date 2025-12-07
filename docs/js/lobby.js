@@ -44,10 +44,16 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // Read variant selections
     const specialEffects = document.getElementById('special-effects').checked;
+    const medalsCount = document.getElementById('medals-count').checked;
+    const accumulateUnclaimedJobs = document.getElementById('accumulate-jobs').checked;
+    const allowSwap = document.getElementById('allow-swap').checked;
 
     // Create game with selected variants
     const game = new GameState(4, {
-      specialEffects: specialEffects
+      specialEffects: specialEffects,
+      medalsCount: medalsCount,
+      accumulateUnclaimedJobs: accumulateUnclaimedJobs,
+      allowSwap: allowSwap
     });
     game.setTrump();
     GameStorage.save(game);
