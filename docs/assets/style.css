@@ -358,6 +358,8 @@ main.main {
   color: #d32f2f;
   font-weight: bold;
   font-size: 16px;
+  position: relative;
+  z-index: 10;
 }
 
 .game-table {
@@ -441,8 +443,9 @@ main.main {
   color: #fff;
   text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
   flex: 0 0 calc(50% - 16px);
-  justify-content: center;
+  justify-content: flex-start;
   min-width: 140px;
+  padding-top: 8px;
 }
 
 .jobs-info .job .card-image {
@@ -454,6 +457,9 @@ main.main {
 .jobs-info .job span {
   color: #fff;
   text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+  margin-top: 4px;
+  position: relative;
+  z-index: 10;
 }
 
 .job-rewards-container {
@@ -463,6 +469,8 @@ main.main {
   width: 100%;
   min-height: 80px;
   padding: 6px 0;
+  margin-bottom: 8px;
+  overflow: visible;
 }
 
 .job-pile-card {
@@ -516,10 +524,12 @@ main.main {
 .job-rewards-fanned {
   position: relative;
   display: inline-block;
-  height: 100px;
+  height: 80px;
   width: 100%;
   min-height: 80px;
   padding: 6px 0;
+  margin-bottom: 8px;
+  overflow: visible;
 }
 
 .job-reward-card {
@@ -676,6 +686,27 @@ main.main {
   margin-left: 0;
 }
 
+.gulag-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.gulag-year-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+.gulag-year-label {
+  font-size: 12px;
+  color: #fff;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+  margin-bottom: 4px;
+}
+
 .gulag-cards {
   display: flex;
   flex-direction: row;
@@ -697,39 +728,47 @@ main.main {
   transform-origin: center bottom;
 }
 
-.gulag-card:nth-child(1) {
-  transform: translateX(-50%) rotate(-20deg) translateY(-10px);
+.gulag-card[style*="--index: 0"] {
+  transform: translateX(-50%) rotate(-10deg) translateX(-35px);
   z-index: 1;
 }
 
-.gulag-card:nth-child(2) {
-  transform: translateX(-50%) rotate(-10deg) translateX(-25px) translateY(-5px);
+.gulag-card[style*="--index: 1"] {
+  transform: translateX(-50%) rotate(-5deg) translateX(-18px);
   z-index: 2;
 }
 
-.gulag-card:nth-child(3) {
+.gulag-card[style*="--index: 2"] {
   transform: translateX(-50%) rotate(0deg);
   z-index: 3;
 }
 
-.gulag-card:nth-child(4) {
-  transform: translateX(-50%) rotate(10deg) translateX(25px) translateY(-5px);
-  z-index: 2;
+.gulag-card[style*="--index: 3"] {
+  transform: translateX(-50%) rotate(5deg) translateX(18px);
+  z-index: 4;
 }
 
-.gulag-card:nth-child(5) {
-  transform: translateX(-50%) rotate(20deg) translateX(50px) translateY(-10px);
-  z-index: 1;
+.gulag-card[style*="--index: 4"] {
+  transform: translateX(-50%) rotate(10deg) translateX(35px);
+  z-index: 5;
 }
 
-.gulag-card:nth-child(6) {
-  transform: translateX(-50%) rotate(30deg) translateX(75px) translateY(-15px);
-  z-index: 1;
+.gulag-card[style*="--index: 5"] {
+  transform: translateX(-50%) rotate(12deg) translateX(50px);
+  z-index: 6;
 }
 
-.gulag-card:nth-child(7) {
-  transform: translateX(-50%) rotate(-30deg) translateX(-75px) translateY(-15px);
-  z-index: 1;
+.gulag-card[style*="--index: 6"] {
+  transform: translateX(-50%) rotate(-12deg) translateX(-50px);
+  z-index: 0;
+}
+
+.gulag-card[style*="--index"] {
+  /* For 7+ cards, use calculated values matching job-card pattern */
+  transform: translateX(-50%) 
+             rotate(calc(var(--index) * 5deg - 10deg)) 
+             translateX(calc(var(--index) * 17.5px - 35px));
+  z-index: calc(var(--index) + 1);
 }
 
 .gulag-card .card-image {

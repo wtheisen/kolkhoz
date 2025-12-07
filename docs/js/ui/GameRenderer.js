@@ -181,15 +181,29 @@ export class GameRenderer {
   }
 
   _renderGulag(game) {
-    const exiledArray = Array.from(game.exiled);
+    // Group exiled cards by year
+    const years = Object.keys(game.exiled || {})
+      .map(y => parseInt(y))
+      .sort((a, b) => a - b);
+    
     return `
       <div class="game-info-right">
         <h3>ГУЛАГ:</h3>
-        <div class="gulag-cards">
-          ${exiledArray.map((key, index) => {
-            const [suit, value] = key.split('-');
-            const card = { suit, value: parseInt(value) };
-            return `<div class="gulag-card" style="--index: ${index}">${this._cardImageFromData(card)}</div>`;
+        <div class="gulag-container">
+          ${years.map(year => {
+            const yearCards = game.exiled[year] || [];
+            return `
+              <div class="gulag-year-group">
+                <div class="gulag-year-label">Year ${year}</div>
+                <div class="gulag-cards">
+                  ${yearCards.map((key, index) => {
+                    const [suit, value] = key.split('-');
+                    const card = { suit, value: parseInt(value) };
+                    return `<div class="gulag-card" style="--index: ${index}">${this._cardImageFromData(card)}</div>`;
+                  }).join('')}
+                </div>
+              </div>
+            `;
           }).join('')}
         </div>
       </div>

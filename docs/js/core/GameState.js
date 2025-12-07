@@ -55,7 +55,7 @@ export class GameState {
     this.requisitionLog = {};
     this.phase = 'planning';
     this.trickCount = 0;
-    this.exiled = new Set();
+    this.exiled = {};  // Maps year to array of card keys: { 1: ['Hearts-10', ...], 2: [...], ... }
     this.currentSwapPlayer = null;  // Tracks which player is currently swapping
     this.currentSwapPlayer = null;  // Tracks which player is currently swapping
 
@@ -119,8 +119,11 @@ export class GameState {
         used.add(`${c.suit}-${c.value}`);
       }
     }
-    for (const cardKey of this.exiled) {
-      used.add(cardKey);
+    // Collect all exiled cards from all years
+    for (const yearCards of Object.values(this.exiled)) {
+      for (const cardKey of yearCards) {
+        used.add(cardKey);
+      }
     }
 
     console.log('[GameState] Total cards:', allCards.length, 'Used cards:', used.size);
@@ -145,6 +148,14 @@ export class GameState {
       }
     }
     console.log('[GameState] After dealing - Player 0 hand size:', this.players[0].hand.length);
+  }
+
+  _addToExiled(cardKey) {
+    // Initialize year array if it doesn't exist
+    if (!this.exiled[this.year]) {
+      this.exiled[this.year] = [];
+    }
+    this.exiled[this.year].push(cardKey);
   }
 
   setTrump(suit = null) {
@@ -362,7 +373,7 @@ export class GameState {
             this.trickHistory[this.trickHistory.length - 1].requisitions.push(
               "Пьяница отправить на Север"
             );
-            this.exiled.add(`${c.suit}-${c.value}`);
+            this._addToExiled(`${c.suit}-${c.value}`);
             drunkard = true;
             break;
           }
@@ -406,7 +417,7 @@ export class GameState {
           c => c.suit === card.suit && c.value === card.value
         );
         p.plot.revealed.splice(cardIndex, 1);
-        this.exiled.add(`${card.suit}-${card.value}`);
+        this._addToExiled(`${card.suit}-${card.value}`);
         this.trickHistory[this.trickHistory.length - 1].requisitions.push(
           `${p.name} отправить на Север ${card.toString()}`
         );
@@ -420,7 +431,7 @@ export class GameState {
               c => c.suit === card2.suit && c.value === card2.value
             );
             p.plot.revealed.splice(card2Index, 1);
-            this.exiled.add(`${card2.suit}-${card2.value}`);
+            this._addToExiled(`${card2.suit}-${card2.value}`);
             this.trickHistory[this.trickHistory.length - 1].requisitions.push(
               `Партийный чиновник: ${p.name} отправить на Север ${card2.toString()}`
             );
@@ -570,7 +581,7 @@ export class GameState {
       }),
       phase: this.phase,
       trickCount: this.trickCount,
-      exiled: Array.from(this.exiled),
+      exiled: this.exiled,  // Now an object mapping year to arrays
       accumulatedJobCards: Object.fromEntries(
         Object.entries(this.accumulatedJobCards).map(([suit, cards]) =>
           [suit, cards.map(c => c.toJSON())]
