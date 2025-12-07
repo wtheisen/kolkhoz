@@ -132,20 +132,20 @@ export class GameRenderer {
                   ? '<img src="assets/card_back.png" alt="back" class="card-image">'
                   : game.gameVariants.accumulateUnclaimedJobs && remainingCards > 0
                     ? `<div class="job-rewards-container">
-                        <div class="job-pile-remaining">
-                          ${Array(remainingCards).fill(0).map((_, index) => `
-                            <div class="job-pile-card" style="--pile-index: ${index}">
-                              <img src="assets/card_back.png" alt="back" class="card-image">
-                            </div>
-                          `).join('')}
-                        </div>
-                        <div class="job-rewards-fanned">
-                          ${rewardCards.map((card, index) => `
-                            <div class="job-reward-card" style="--fan-index: ${index}">
+                        ${Array(remainingCards).fill(0).map((_, index) => `
+                          <div class="job-pile-card" style="--pile-index: ${index}">
+                            <img src="assets/card_back.png" alt="back" class="card-image">
+                          </div>
+                        `).join('')}
+                        ${rewardCards.map((card, index) => {
+                          // Continue the fan from where face-down cards left off
+                          const fanIndex = remainingCards + index;
+                          return `
+                            <div class="job-reward-card" style="--fan-index: ${fanIndex}">
                               ${this._cardImage(card)}
                             </div>
-                          `).join('')}
-                        </div>
+                          `;
+                        }).join('')}
                       </div>`
                     : isArray && rewardCards.length > 1
                       ? `<div class="job-rewards-fanned">

@@ -458,27 +458,16 @@ main.main {
 
 .job-rewards-container {
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100px;
-  width: 100%;
-  max-width: 250px;
-  min-height: 80px;
-  gap: 12px;
-}
-
-.job-pile-remaining {
-  position: relative;
   display: inline-block;
-  height: 100px;
-  width: 80px;
-  min-width: 80px;
+  height: 80px;
+  width: 100%;
+  min-height: 80px;
+  padding: 6px 0;
 }
 
 .job-pile-card {
   position: absolute;
-  left: 0;
+  left: 50%;
   top: 0;
   transform-origin: center bottom;
   transition: transform 0.2s ease;
@@ -492,29 +481,35 @@ main.main {
 }
 
 .job-pile-card[style*="--pile-index: 0"] {
-  transform: rotate(-8deg) translateX(-15px);
+  transform: translateX(-50%) rotate(-10deg) translateX(-35px);
   z-index: 1;
 }
 
 .job-pile-card[style*="--pile-index: 1"] {
-  transform: rotate(-4deg) translateX(-8px);
+  transform: translateX(-50%) rotate(-5deg) translateX(-18px);
   z-index: 2;
 }
 
 .job-pile-card[style*="--pile-index: 2"] {
-  transform: rotate(0deg);
+  transform: translateX(-50%) rotate(0deg);
   z-index: 3;
 }
 
 .job-pile-card[style*="--pile-index: 3"] {
-  transform: rotate(4deg) translateX(8px);
+  transform: translateX(-50%) rotate(5deg) translateX(18px);
   z-index: 4;
 }
 
+.job-pile-card[style*="--pile-index: 4"] {
+  transform: translateX(-50%) rotate(10deg) translateX(35px);
+  z-index: 5;
+}
+
 .job-pile-card[style*="--pile-index"] {
-  /* Stack face-down cards with slight offset, fanning left to right */
-  transform: rotate(calc(var(--pile-index) * 2deg - 4deg)) 
-             translateX(calc(var(--pile-index) * 7px - 10px));
+  /* Fan face-down cards horizontally, matching job-card pattern */
+  transform: translateX(-50%) 
+             rotate(calc(var(--pile-index) * 5deg - 10deg)) 
+             translateX(calc(var(--pile-index) * 17.5px - 35px));
   z-index: calc(var(--pile-index) + 1);
 }
 
@@ -523,8 +518,8 @@ main.main {
   display: inline-block;
   height: 100px;
   width: 100%;
-  max-width: 120px;
   min-height: 80px;
+  padding: 6px 0;
 }
 
 .job-reward-card {
