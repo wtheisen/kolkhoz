@@ -1,2 +1,2 @@
 # kolkhoz
-Flask server for kolkhoz
+Browser Implementation of Kolkhoz
