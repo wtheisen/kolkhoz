@@ -2,13 +2,69 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes">
+  <meta name="description" content="Колхоз (Kolkhoz) - A card game about Soviet collective farms">
+  <meta name="theme-color" content="#c9a961">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Kolkhoz">
   <title>Колхоз - Game</title>
   <link rel="icon" type="image/svg+xml" href="assets/medal.svg">
+  <link rel="apple-touch-icon" href="assets/medal_icon.png">
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
   <div id="app"></div>
   <script type="module" src="js/main.js"></script>
+  <script>
+    // Unregister any existing service workers first (for debugging)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for(let registration of registrations) {
+          registration.unregister();
+          console.log('Unregistered old service worker');
+        }
+      });
+    }
+    
+    // Register service worker for PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then((registration) => {
+            console.log('SW registered: ', registration);
+          })
+          .catch((registrationError) => {
+            console.log('SW registration failed: ', registrationError);
+          });
+      });
+    }
+    
+    // Global error handler to catch any unhandled errors
+    window.addEventListener('error', (event) => {
+      console.error('Global error:', event.error, event.filename, event.lineno);
+      // Show error on page if it's a critical error
+      if (event.error && event.error.message) {
+        const app = document.getElementById('app');
+        if (app) {
+          app.innerHTML = `
+            <div style="color: white; padding: 20px; font-family: sans-serif; background: #000;">
+              <h1>JavaScript Error</h1>
+              <p>${event.error.message}</p>
+              <p>Check the browser console (F12) for more details.</p>
+              <button onclick="location.reload()" style="padding: 10px 20px; margin-top: 10px; cursor: pointer;">
+                Reload Page
+              </button>
+            </div>
+          `;
+        }
+      }
+    });
+    
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('Unhandled promise rejection:', event.reason);
+    });
+  </script>
 </body>
 </html>

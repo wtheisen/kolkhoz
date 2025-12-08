@@ -16,6 +16,7 @@ export class Player {
     };
     this.brigadeLeader = false;
     this.medals = 0;  // Medals earned this year (temporary)
+    this.hasWonTrickThisYear = false;  // Track if player has won any trick this year (for requisition vulnerability)
   }
 
   // Serialization
@@ -31,7 +32,8 @@ export class Player {
         medals: this.plot.medals
       },
       brigadeLeader: this.brigadeLeader,
-      medals: this.medals
+      medals: this.medals,
+      hasWonTrickThisYear: this.hasWonTrickThisYear
     };
   }
 
@@ -43,6 +45,7 @@ export class Player {
     p.plot.medals = data.plot.medals || 0;
     p.brigadeLeader = data.brigadeLeader;
     p.medals = data.medals || 0;
+    p.hasWonTrickThisYear = data.hasWonTrickThisYear || false;
     return p;
   }
 }

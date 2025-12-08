@@ -81,6 +81,18 @@ export class CardAnimator {
     trickArea.innerHTML = '';
 
     currentTrick.forEach(([pid, card]) => {
+      // Skip if card is undefined or null
+      if (!card) {
+        console.warn('[CardAnimator] Skipping undefined card for player', pid);
+        return;
+      }
+
+      // Skip if player is undefined
+      if (!players || !players[pid]) {
+        console.warn('[CardAnimator] Skipping undefined player', pid);
+        return;
+      }
+
       const cardDiv = document.createElement('div');
       cardDiv.className = 'card';
 

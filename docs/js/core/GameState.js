@@ -23,9 +23,9 @@ export class GameState {
 
     // Initialize game variants with defaults
     this.gameVariants = {
-      specialEffects: false,
-      medalsCount: true,  // If true, medals accumulate and count toward final score
-      accumulateUnclaimedJobs: false,  // If true, unclaimed job rewards accumulate to next year
+      specialEffects: true,  // Face card powers (drunkard, informant, party official)
+      medalsCount: false,  // If true, medals accumulate and count toward final score
+      accumulateUnclaimedJobs: true,  // If true, unclaimed job rewards accumulate to next year
       allowSwap: false,  // If true, players can swap one hidden plot card with one hand card at year start
       ...gameVariants
     };
@@ -188,6 +188,27 @@ export class GameState {
     console.log(`[GameState] Player ${playerId} swapped hidden card with hand card`);
   }
 
+  reorderHand(playerId, fromIndex, toIndex) {
+    // Validate indices
+    const player = this.players[playerId];
+    if (fromIndex < 0 || fromIndex >= player.hand.length) {
+      throw new Error('Invalid from index');
+    }
+    if (toIndex < 0 || toIndex >= player.hand.length) {
+      throw new Error('Invalid to index');
+    }
+    if (fromIndex === toIndex) {
+      return; // No change needed
+    }
+
+    // Remove card from original position
+    const card = player.hand.splice(fromIndex, 1)[0];
+    // Insert at new position
+    player.hand.splice(toIndex, 0, card);
+
+    console.log(`[GameState] Player ${playerId} reordered hand: moved card from index ${fromIndex} to ${toIndex}`);
+  }
+
   completeSwap(playerId) {
     // Mark that this player has completed their swap
     if (this.currentSwapPlayer === playerId) {
@@ -208,7 +229,25 @@ export class GameState {
       this.lastWinner = null;
     }
 
+    // Validate player and index
+    if (!this.players[pid]) {
+      console.error('[GameState] Invalid player ID:', pid);
+      return;
+    }
+
+    if (idx < 0 || idx >= this.players[pid].hand.length) {
+      console.error('[GameState] Invalid card index:', idx, 'for player', pid, 'hand size:', this.players[pid].hand.length);
+      return;
+    }
+
     const card = this.players[pid].hand.splice(idx, 1)[0];
+    
+    // Validate card was retrieved
+    if (!card) {
+      console.error('[GameState] Failed to retrieve card at index', idx, 'from player', pid);
+      return;
+    }
+
     this.currentTrick.push([pid, card]);
 
     if (this.currentTrick.length === this.numPlayers) {
@@ -217,7 +256,22 @@ export class GameState {
   }
 
   _resolveTrick() {
-    console.log('[GameState] Resolving trick:', this.currentTrick.map(([pid, c]) => `P${pid}: ${c.toString()}`));
+    // Filter out any undefined cards before resolving
+    this.currentTrick = this.currentTrick.filter(([pid, c]) => {
+      if (!c) {
+        console.warn('[GameState] Filtering out undefined card from player', pid);
+        return false;
+      }
+      return true;
+    });
+
+    // Check if we still have enough cards
+    if (this.currentTrick.length < this.numPlayers) {
+      console.error('[GameState] Not enough cards in trick after filtering:', this.currentTrick.length, 'expected:', this.numPlayers);
+      return;
+    }
+
+    console.log('[GameState] Resolving trick:', this.currentTrick.map(([pid, c]) => `P${pid}: ${c ? c.toString() : 'undefined'}`));
 
     // 1) Determine the lead suit
     const leadSuit = this.currentTrick[0][1].suit;
@@ -266,13 +320,32 @@ export class GameState {
       p.brigadeLeader = false;
     }
     this.players[bestPid].brigadeLeader = true;
+    // Mark that this player has won a trick this year (for requisition vulnerability)
+    this.players[bestPid].hasWonTrickThisYear = true;
     // Award medal for winning the trick (only if medals variant is enabled)
     if (this.gameVariants.medalsCount) {
       this.players[bestPid].medals++;
     }
 
-    // 4) Assignment phase - human must assign manually
+    // 4) Assignment phase - check if auto-assignment is possible
     if (this.players[this.lastWinner].isHuman) {
+      // Check if all cards in the trick have the same suit
+      const allCardsSameSuit = this.lastTrick.length > 0 && 
+        this.lastTrick.every(([pid, card]) => card.suit === this.lastTrick[0][1].suit);
+      
+      if (allCardsSameSuit) {
+        // Auto-assign all cards to the same suit
+        const commonSuit = this.lastTrick[0][1].suit;
+        const mapping = new Map();
+        for (const [pid, card] of this.lastTrick) {
+          mapping.set(card, commonSuit);
+        }
+        console.log('[GameState] All cards have same suit, auto-assigning to', commonSuit);
+        this.applyAssignments(mapping);
+        return;
+      }
+      
+      // Otherwise, require manual assignment
       this.phase = 'assignment';
       return;
     } else {
@@ -284,20 +357,34 @@ export class GameState {
 
   applyAssignments(mapping) {
     // mapping is a Map<Card, string> where string is the assigned suit
+    console.log('[GameState] applyAssignments called with mapping:', Array.from(mapping.entries()).map(([c, s]) => `${c.toString()} (value: ${c.value}, type: ${typeof c.value}) -> ${s}`));
     for (const [card, assignedSuit] of mapping.entries()) {
+      // Ensure workHours is initialized for this suit
+      if (!(assignedSuit in this.workHours)) {
+        this.workHours[assignedSuit] = 0;
+      }
+      
       this.jobBuckets[assignedSuit].push(card);
 
       // Skip drunkard (Jack of trump) for work hours (only if special effects enabled)
       if (this.gameVariants.specialEffects && card.value === 11 && card.suit === this.trump) {
+        console.log('[GameState] Skipping drunkard (Jack of trump) for work hours');
         continue;
       }
 
-      this.workHours[assignedSuit] += card.value;
+      const previousHours = this.workHours[assignedSuit];
+      const cardValue = Number(card.value); // Ensure it's a number
+      this.workHours[assignedSuit] += cardValue;
+      console.log(`[GameState] Added ${cardValue} work hours to ${assignedSuit}: ${previousHours} + ${cardValue} = ${this.workHours[assignedSuit]}`);
     }
 
     // Check for any new completed jobs (threshold reached)
+    console.log('[GameState] Current work hours:', this.workHours);
+    console.log('[GameState] Threshold:', THRESHOLD);
     for (const [suit, hours] of Object.entries(this.workHours)) {
+      console.log(`[GameState] Checking ${suit}: ${hours} hours, claimed: ${this.claimedJobs.has(suit)}`);
       if (!this.claimedJobs.has(suit) && hours >= THRESHOLD) {
+        console.log(`[GameState] Job ${suit} completed! Claiming reward.`);
         // Get the job card(s) - could be array or single card
         const jobRewards = Array.isArray(this.revealedJobs[suit]) 
           ? this.revealedJobs[suit] 
@@ -397,12 +484,15 @@ export class GameState {
 
       // Process requisition for each player
       for (const p of this.players) {
-        // Reveal hidden cards if brigade leader or informant present (informant only if special effects enabled)
-        if (p.brigadeLeader || informant) {
+        // Reveal hidden cards if player was a brigade leader this year or informant present (informant only if special effects enabled)
+        if (p.hasWonTrickThisYear || informant) {
           const toReveal = p.plot.hidden.filter(c => c.suit === suit);
           p.plot.revealed.push(...toReveal);
           p.plot.hidden = p.plot.hidden.filter(c => c.suit !== suit);
         }
+
+        // Only players who were brigade leaders this year are affected by card exile, unless informant is present in THIS job (then all players are affected for this job only)
+        if (!p.hasWonTrickThisYear && !informant) continue;
 
         // Find highest card of this suit in revealed plot
         const suitCards = p.plot.revealed
@@ -485,6 +575,8 @@ export class GameState {
       p.brigadeLeader = false;
       // Reset temporary medal counter for new year
       p.medals = 0;
+      // Reset trick winner flag for new year
+      p.hasWonTrickThisYear = false;
     }
 
     this._dealHands();
@@ -599,11 +691,12 @@ export class GameState {
     }
 
     game.numPlayers = data.numPlayers;
-    // Handle game variants - default to no special effects and medals enabled for old saves
+    // Handle game variants - default to special effects and reward accumulation enabled for new games
+    // Old saves will preserve their settings via the spread operator
     game.gameVariants = {
-      specialEffects: false,
-      medalsCount: true,
-      accumulateUnclaimedJobs: false,
+      specialEffects: true,
+      medalsCount: false,
+      accumulateUnclaimedJobs: true,
       allowSwap: false,
       ...(data.gameVariants || {})
     };
@@ -671,7 +764,12 @@ export class GameState {
 
     game.phase = data.phase;
     game.trickCount = data.trickCount;
-    game.exiled = new Set(data.exiled);
+    // exiled should be an object mapping year to arrays, not a Set
+    game.exiled = data.exiled || {};
+    // Handle backward compatibility: if exiled is an array (old format), convert to object
+    if (Array.isArray(data.exiled)) {
+      game.exiled = {};
+    }
     game.requisitionLog = {};
     game.currentSwapPlayer = data.currentSwapPlayer || null;
     

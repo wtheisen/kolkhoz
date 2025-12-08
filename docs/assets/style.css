@@ -99,14 +99,82 @@ main.main {
   max-width: 80px;
   min-width: 40px;
   height: auto;
-  transition: transform 0.4s cubic-bezier(.4,2,.6,1);
+  transition: transform 0.2s ease, border 0.2s ease;
   cursor: pointer;
+  user-select: none;
+  border: 2px solid transparent;
+  box-sizing: border-box;
+}
+
+.card-image:hover {
+  transform: translateY(-10px) scale(1.05);
+  border: 2px solid #c9a961;
+  z-index: 10;
 }
 
 .card-image.dragging,
 .draggable.dragging {
   opacity: 0.5;
-  transform: scale(1.1);
+  transform: scale(1.1) rotate(5deg);
+  z-index: 1000;
+  cursor: grabbing;
+}
+
+.draggable {
+  cursor: grab;
+  transition: transform 0.2s ease, border 0.2s ease;
+  display: inline-block;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  border: 2px solid transparent;
+  box-sizing: border-box;
+}
+
+.draggable:active {
+  cursor: grabbing;
+}
+
+.draggable:hover {
+  transform: translateY(-5px);
+  border: 2px solid #c9a961;
+}
+
+.draggable:hover .card-image {
+  border: 2px solid #c9a961;
+}
+
+@media (hover: none) {
+  .draggable:hover {
+    transform: none;
+  }
+  
+  .card-image:hover {
+    transform: none;
+    border: 2px solid transparent;
+  }
+  
+  .player-area.bottom .player-hand .draggable:hover {
+    transform: none !important;
+  }
+  
+  /* Better touch targets on mobile */
+  .draggable {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  .button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  .trick-card.assignment-card {
+    min-width: 60px;
+    min-height: 80px;
+  }
 }
 
 .medal-icon {
@@ -328,6 +396,66 @@ main.main {
   .job-cards {
     height: 50px;
   }
+  
+  /* Mobile-specific improvements */
+  .game-info-left {
+    min-width: auto;
+    max-width: 90vw;
+    left: 2%;
+    top: 50%;
+  }
+  
+  .game-info-right {
+    right: 2%;
+    max-width: 100px;
+  }
+  
+  .trick-area {
+    width: 90vw;
+    max-width: 400px;
+    min-width: 250px;
+    padding: 12px;
+  }
+  
+  .player-area.bottom {
+    width: 100vw;
+    max-width: 100%;
+  }
+  
+  .player-area.bottom .player-hand {
+    min-height: 120px;
+    padding: 8px;
+  }
+  
+  .jobs-info {
+    gap: 16px;
+    max-width: 100%;
+  }
+  
+  .jobs-info .job {
+    min-width: 100px;
+    font-size: 13px;
+  }
+  
+  header.topbar {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+  }
+  
+  .top-section {
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+  
+  .button {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  
+  .modal-content {
+    width: 95%;
+    max-height: 95vh;
+  }
 }
 
 .jobs {
@@ -346,6 +474,15 @@ main.main {
   font-size: 16px;
   min-width: 50px;
   color: #c9a961;
+  gap: 0;
+  position: relative;
+}
+
+.job-cards-container {
+  position: relative;
+  width: 100%;
+  min-height: 90px;
+  margin-top: 8px;
 }
 
 .job span {
@@ -387,6 +524,16 @@ main.main {
   gap: 20px;
   z-index: 1;
   min-width: 400px;
+}
+
+/* During assignment phase, make job piles accessible */
+.game-table.assignment-phase .game-info-left {
+  z-index: 101;
+  pointer-events: auto;
+}
+
+.game-table.assignment-phase .job-drop-target {
+  z-index: 102;
 }
 
 .year-tracker {
@@ -590,8 +737,11 @@ main.main {
   min-height: 80px;
   height: 80px;
   width: 100%;
-  margin-top: 8px;
+  margin-top: 0;
+  margin-bottom: 0;
   padding: 6px 0;
+  z-index: 2;
+  pointer-events: none; /* Allow drops to pass through to drop zone */
 }
 
 .job-card {
@@ -602,6 +752,7 @@ main.main {
   transition: transform 0.3s ease;
   left: 50%;
   transform-origin: center bottom;
+  pointer-events: none; /* Allow drops to pass through */
 }
 
 .job-card:nth-child(1) {
@@ -696,7 +847,7 @@ main.main {
 .gulag-year-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   align-items: center;
 }
 
@@ -704,7 +855,7 @@ main.main {
   font-size: 12px;
   color: #fff;
   text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .gulag-cards {
@@ -713,9 +864,9 @@ main.main {
   align-items: center;
   justify-content: center;
   position: relative;
-  height: 140px;
-  padding: 10px 0;
-  width: 200px;
+  height: 70px;
+  padding: 5px 0;
+  width: 100px;
 }
 
 .gulag-card {
@@ -729,12 +880,12 @@ main.main {
 }
 
 .gulag-card[style*="--index: 0"] {
-  transform: translateX(-50%) rotate(-10deg) translateX(-35px);
+  transform: translateX(-50%) rotate(-10deg) translateX(-17.5px);
   z-index: 1;
 }
 
 .gulag-card[style*="--index: 1"] {
-  transform: translateX(-50%) rotate(-5deg) translateX(-18px);
+  transform: translateX(-50%) rotate(-5deg) translateX(-9px);
   z-index: 2;
 }
 
@@ -744,22 +895,22 @@ main.main {
 }
 
 .gulag-card[style*="--index: 3"] {
-  transform: translateX(-50%) rotate(5deg) translateX(18px);
+  transform: translateX(-50%) rotate(5deg) translateX(9px);
   z-index: 4;
 }
 
 .gulag-card[style*="--index: 4"] {
-  transform: translateX(-50%) rotate(10deg) translateX(35px);
+  transform: translateX(-50%) rotate(10deg) translateX(17.5px);
   z-index: 5;
 }
 
 .gulag-card[style*="--index: 5"] {
-  transform: translateX(-50%) rotate(12deg) translateX(50px);
+  transform: translateX(-50%) rotate(12deg) translateX(25px);
   z-index: 6;
 }
 
 .gulag-card[style*="--index: 6"] {
-  transform: translateX(-50%) rotate(-12deg) translateX(-50px);
+  transform: translateX(-50%) rotate(-12deg) translateX(-25px);
   z-index: 0;
 }
 
@@ -767,14 +918,14 @@ main.main {
   /* For 7+ cards, use calculated values matching job-card pattern */
   transform: translateX(-50%) 
              rotate(calc(var(--index) * 5deg - 10deg)) 
-             translateX(calc(var(--index) * 17.5px - 35px));
+             translateX(calc(var(--index) * 8.75px - 17.5px));
   z-index: calc(var(--index) + 1);
 }
 
 .gulag-card .card-image {
-  width: 7vw;
-  max-width: 80px;
-  min-width: 40px;
+  width: 3.5vw;
+  max-width: 40px;
+  min-width: 20px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
@@ -859,9 +1010,119 @@ main.main {
 }
 
 /* Human player hand (bottom) - fan left to right, cards lower at edges */
-.player-area.top .player-hand img:nth-child(1) {
-  transform: translateX(-50%) rotate(-12deg) translateX(-35px);
+.player-area.bottom .player-hand {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 0;
+  padding: 10px;
+  min-height: 140px;
+  width: 100%;
+  overflow: visible;
+}
+
+.player-area.bottom .player-hand .draggable {
+  position: relative;
+  transition: transform 0.2s ease, z-index 0.2s ease, filter 0.2s ease;
   z-index: 1;
+  margin-left: -20px;
+}
+
+.player-area.bottom .player-hand .draggable:first-child {
+  margin-left: 0;
+}
+
+.player-area.bottom .player-hand .draggable:hover {
+  transform: translateY(-15px) scale(1.05) !important;
+  z-index: 10 !important;
+  border: 2px solid #c9a961 !important;
+}
+
+.player-area.bottom .player-hand .draggable:hover .card-image {
+  border: 2px solid #c9a961 !important;
+}
+
+.player-area.bottom .player-hand .draggable:nth-child(1) {
+  transform: rotate(-12deg) translateX(-35px);
+  z-index: 1;
+}
+
+.player-area.bottom .player-hand .draggable:nth-child(1):hover {
+  transform: translateY(-15px) scale(1.05) rotate(-12deg) translateX(-35px) !important;
+}
+
+.player-area.bottom .player-hand .draggable:nth-child(2) {
+  transform: rotate(-6deg) translateX(-18px);
+  z-index: 2;
+}
+
+.player-area.bottom .player-hand .draggable:nth-child(2):hover {
+  transform: translateY(-15px) scale(1.05) rotate(-6deg) translateX(-18px) !important;
+}
+
+.player-area.bottom .player-hand .draggable:nth-child(3) {
+  transform: rotate(0deg);
+  z-index: 3;
+}
+
+.player-area.bottom .player-hand .draggable:nth-child(3):hover {
+  transform: translateY(-15px) scale(1.05) rotate(0deg) !important;
+}
+
+.player-area.bottom .player-hand .draggable:nth-child(4) {
+  transform: rotate(6deg) translateX(18px);
+  z-index: 2;
+}
+
+.player-area.bottom .player-hand .draggable:nth-child(4):hover {
+  transform: translateY(-15px) scale(1.05) rotate(6deg) translateX(18px) !important;
+}
+
+.player-area.bottom .player-hand .draggable:nth-child(5) {
+  transform: rotate(12deg) translateX(35px);
+  z-index: 1;
+}
+
+.player-area.bottom .player-hand .draggable:nth-child(5):hover {
+  transform: translateY(-15px) scale(1.05) rotate(12deg) translateX(35px) !important;
+}
+
+.player-area.bottom .player-hand .draggable:nth-child(6) {
+  transform: rotate(18deg) translateX(52px);
+  z-index: 1;
+}
+
+.player-area.bottom .player-hand .draggable:nth-child(6):hover {
+  transform: translateY(-15px) scale(1.05) rotate(18deg) translateX(52px) !important;
+}
+
+.player-area.bottom .player-hand .draggable:nth-child(7) {
+  transform: rotate(-18deg) translateX(-52px);
+  z-index: 1;
+}
+
+.player-area.bottom .player-hand .draggable:nth-child(7):hover {
+  transform: translateY(-15px) scale(1.05) rotate(-18deg) translateX(-52px) !important;
+}
+
+.player-area.bottom .player-hand .draggable:nth-child(8) {
+  transform: rotate(24deg) translateX(69px);
+  z-index: 1;
+}
+
+.player-area.bottom .player-hand .draggable:nth-child(8):hover {
+  transform: translateY(-15px) scale(1.05) rotate(24deg) translateX(69px) !important;
+}
+
+.player-area.bottom .player-hand .draggable:nth-child(9) {
+  transform: rotate(-24deg) translateX(-69px);
+  z-index: 1;
+}
+
+.player-area.bottom .player-hand .draggable:nth-child(9):hover {
+  transform: translateY(-15px) scale(1.05) rotate(-24deg) translateX(-69px) !important;
 }
 
 .player-area.top .player-hand img:nth-child(2) {
@@ -984,7 +1245,43 @@ main.main {
   align-items: center;
   gap: 8px;
   position: static;
+  min-height: 120px;
+  padding: 10px;
 }
+
+.player-hand.human-hand {
+  cursor: default;
+}
+
+.drop-indicator {
+  width: 3px;
+  height: 100px;
+  background: #c9a961;
+  border-radius: 2px;
+  margin: 0 -2px;
+  box-shadow: 0 0 8px rgba(201, 169, 97, 0.8);
+  animation: pulse 1s ease-in-out infinite;
+  pointer-events: none;
+  flex-shrink: 0;
+  z-index: 100;
+}
+
+.player-area.bottom .player-hand .drop-indicator {
+  height: 120px;
+  align-self: flex-end;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scaleY(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1.1);
+  }
+}
+
 /* .human-hand and .opponent-hand styles removed - no longer needed */
 
 .player-plot {
@@ -1044,18 +1341,21 @@ main.main {
 
 .trick-area {
   position: relative;
-  width: 60vw;
-  max-width: 600px;
-  min-width: 300px;
-  height: 50vh;
-  max-height: 400px;
-  min-height: 200px;
+  width: 50vw;
+  max-width: 500px;
+  min-width: 280px;
+  height: 28vh;
+  max-height: 250px;
+  min-height: 120px;
   background: rgba(255,255,255,0.15);
+  border: 2px dashed rgba(201, 169, 97, 0.5);
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 16px;
+  flex-wrap: wrap;
+  padding: 20px;
 }
 
 .trick-area.dragover {
@@ -1063,26 +1363,144 @@ main.main {
   background: #388e3c;
 }
 
-.assignment-overlay {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.45);
-  z-index: 100;
+.trick-area.assignment-trick-area {
+  background: rgba(201, 169, 97, 0.1);
+  border: 2px dashed rgba(201, 169, 97, 0.5);
+  pointer-events: auto;
+}
+
+.trick-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: all 0.2s ease;
+  pointer-events: auto;
+}
+
+.trick-card.assignment-card {
+  cursor: grab;
+  padding: 8px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: element;
+}
+
+.trick-card.assignment-card:hover {
+  border-color: #c9a961;
+  background: rgba(201, 169, 97, 0.1);
+  transform: translateY(-5px);
+}
+
+.trick-card.assignment-card:active {
+  cursor: grabbing;
+}
+
+.trick-card.assignment-card.dragging {
+  opacity: 0 !important;
+  cursor: grabbing;
+  transition: opacity 0.15s ease;
+}
+
+.trick-card.assignment-card.assigned {
+  opacity: 0.6;
+  border-color: #4caf50;
+  background: rgba(76, 175, 80, 0.1);
+  cursor: default;
+}
+
+.trick-card .assignment-status {
+  font-size: 11px;
+  text-align: center;
+  margin-top: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  min-height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.assignment-modal {
-  background: #000;
-  border-radius: 16px;
-  padding: 32px 40px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
-  min-width: 320px;
-  min-height: 180px;
+
+.trick-card .assignment-status[data-status="unassigned"] {
+  color: #ff9800;
+  background: rgba(255, 152, 0, 0.2);
+  font-weight: 500;
+}
+
+.trick-card .assignment-status[data-status="assigned"] {
+  color: #4caf50;
+  background: rgba(76, 175, 80, 0.2);
+  font-weight: 600;
+}
+
+.assignment-instructions {
+  text-align: center;
+  margin-bottom: 12px;
+  padding: 8px 16px;
+  background: rgba(201, 169, 97, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(201, 169, 97, 0.3);
+}
+
+
+.job-drop-target {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.job-drop-zone {
+  width: 100%;
+  min-height: 90px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px dashed rgba(201, 169, 97, 0.5);
+  border-radius: 8px;
   display: flex;
-  flex-direction: column;
   align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+}
+
+.job-drop-zone-label {
+  pointer-events: none;
+}
+
+.job-drop-zone:hover {
+  background: rgba(201, 169, 97, 0.12);
+  border-color: rgba(201, 169, 97, 0.7);
+}
+
+.job-drop-zone.dragover {
+  background: rgba(201, 169, 97, 0.2) !important;
+  border: 2px solid #c9a961 !important;
+  border-style: solid !important;
+  box-shadow: 0 0 15px rgba(201, 169, 97, 0.8), inset 0 0 10px rgba(201, 169, 97, 0.2);
+  transform: scale(1.03);
+}
+
+.job-drop-zone-label {
   color: #c9a961;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  padding: 8px 12px;
+  opacity: 0.8;
+  transition: all 0.2s ease;
+  pointer-events: none;
+}
+
+.job-drop-zone.dragover .job-drop-zone-label {
+  opacity: 1;
+  font-weight: 600;
+  font-size: 13px;
+  color: #d4b870;
 }
 
 @keyframes fly-to-trick {
@@ -1111,38 +1529,64 @@ main.main {
   height: 100%;
 }
 
-.game-over {
-  background: #000;
-  border-radius: 16px;
-  padding: 32px;
-  margin: 20px auto;
+.game-over-modal-content {
   max-width: 500px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  width: 90%;
   text-align: center;
+}
+
+.game-over-scores {
+  padding: 20px 0;
+}
+
+.game-over-scores h3 {
+  margin: 0 0 20px 0;
+  font-size: 20px;
   color: #c9a961;
 }
 
-.game-over h3 {
-  margin-top: 0;
-  font-size: 24px;
-  color: #c9a961;
-}
-
-.game-over ul {
+.game-over-list {
   list-style: none;
   padding: 0;
-  margin: 20px 0;
+  margin: 0;
+  text-align: left;
 }
 
-.game-over li {
-  padding: 8px 0;
-  font-size: 18px;
-  border-bottom: 1px solid #333;
+.game-over-list li {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  margin: 8px 0;
+  border-radius: 8px;
+  background: rgba(201, 169, 97, 0.1);
+  border: 1px solid rgba(201, 169, 97, 0.2);
   color: #c9a961;
+  font-size: 18px;
+  transition: all 0.2s ease;
 }
 
-.game-over li:last-child {
-  border-bottom: none;
+.game-over-list li.winner {
+  background: rgba(201, 169, 97, 0.2);
+  border: 2px solid #c9a961;
+  box-shadow: 0 4px 12px rgba(201, 169, 97, 0.3);
+  font-weight: 600;
+}
+
+.game-over-list li .rank {
+  min-width: 40px;
+  font-size: 20px;
+  margin-right: 12px;
+}
+
+.game-over-list li .player-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.game-over-list li .player-score {
+  font-size: 20px;
+  font-weight: 600;
+  color: #d4b870;
 }
 
 /* Modal Styles */

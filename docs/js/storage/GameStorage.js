@@ -43,14 +43,19 @@ export class GameStorage {
       return game;
     } catch (e) {
       console.error('Failed to load game:', e);
+      console.error('Error details:', e.stack);
 
-      // Offer to user
-      if (confirm('Save game is corrupted. Start a new game?')) {
-        GameStorage.clear();
-        return null;
-      } else {
-        throw e;
+      // Automatically clear corrupted save to prevent loops
+      console.warn('Clearing corrupted save data');
+      GameStorage.clear();
+      
+      // Only show alert if we're on the game page (not during initial load)
+      if (window.location.pathname.includes('game.html')) {
+        alert('Save game was corrupted and has been cleared. Redirecting to lobby...');
+        window.location.href = 'index.html';
       }
+      
+      return null;
     }
   }
 

@@ -13,6 +13,7 @@ export class GameController {
 
     // Bind event handlers
     this.renderer.onCardPlayed = (idx) => this.handleCardPlay(idx);
+    this.renderer.onHandReordered = (fromIdx, toIdx) => this.handleHandReordered(fromIdx, toIdx);
     this.renderer.onAssignmentSubmitted = (mapping) => this.handleAssignment(mapping);
     this.renderer.onNewGame = () => this.handleNewGame();
     this.renderer.onSwapSubmitted = (hiddenIdx, handIdx) => this.handleSwap(hiddenIdx, handIdx);
@@ -111,6 +112,17 @@ export class GameController {
     this.renderer.renderGame(this.game);
   }
 
+  handleHandReordered(fromIndex, toIndex) {
+    try {
+      this.game.reorderHand(0, fromIndex, toIndex);
+      this.storage.save(this.game);
+      this.render();
+    } catch (error) {
+      console.error('[Controller] Error reordering hand:', error);
+      NotificationManager.show('Failed to reorder cards', 'error');
+    }
+  }
+
   handleCardPlay(cardIndex) {
     // Validate follow-suit
     if (!this.isValidPlay(cardIndex)) {
@@ -122,6 +134,26 @@ export class GameController {
     this.game.playCard(0, cardIndex);
     this.storage.save(this.game);
     this.render();
+
+    // Check if year is over after auto-assignment (if all cards had same suit)
+    if (this.game.phase === 'requisition') {
+      console.log('[Controller] Year complete (auto-assignment), transitioning to next year');
+      this.game.nextYear();
+
+      // After nextYear(), phase might be 'swap', 'planning', or 'trick'
+      if (this.game.phase === 'swap') {
+        // Handle swap phase
+        this.handleSwapPhase();
+      } else if (this.game.phase === 'planning') {
+        this.game.setTrump();
+        this.game.phase = 'trick';
+        this.storage.save(this.game);
+        this.render();
+        if (this.shouldPlayAI()) {
+          setTimeout(() => this.playAISequence(), 500);
+        }
+      }
+    }
 
     // Check if we need AI assignment (after trick resolution)
     if (this.game.phase === 'assignment' && !this.game.players[this.game.lastWinner].isHuman) {
