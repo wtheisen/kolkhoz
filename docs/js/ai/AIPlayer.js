@@ -17,4 +17,9 @@ export class AIPlayer {
   assignTrick(gameState) {
     throw new Error('Must implement assignTrick()');
   }
+
+  // Must return card index to keep for personal plot
+  selectPlotCard(gameState) {
+    throw new Error('Must implement selectPlotCard()');
+  }
 }

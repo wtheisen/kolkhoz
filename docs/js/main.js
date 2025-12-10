@@ -1,12 +1,18 @@
-// Main entry point for game page
+// Main entry point for game page - Phaser version
 
+import { phaserConfig } from './phaser/config.js';
+import { PreloadScene } from './phaser/scenes/PreloadScene.js';
+import { GameScene } from './phaser/scenes/GameScene.js';
+import { GameOverScene } from './phaser/scenes/GameOverScene.js';
 import { GameState } from './core/GameState.js';
 import { GameStorage } from './storage/GameStorage.js';
-import { GameController } from './controller.js';
-import { GameRenderer } from './ui/GameRenderer.js';
+
+// Make GameStorage globally available for scenes
+window.GameStorage = GameStorage;
 
 window.addEventListener('DOMContentLoaded', () => {
   try {
+    // Check if there's a saved game
     let game = GameStorage.load();
 
     if (!game) {
@@ -15,42 +21,29 @@ window.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    console.log('[main.js] Game loaded, phase:', game.phase, 'Player 0 hand size:', game.players[0].hand.length);
+    console.log('[main.js] Game loaded, phase:', game.phase);
 
-    // Handle phase transitions (from Flask logic in kolkhoz.py:42-52)
-    if (game.phase === 'planning') {
-      console.log('[main.js] Phase is planning, setting trump');
-      game.setTrump();
-      game.phase = 'trick';
-      GameStorage.save(game);
-    }
+    // Configure Phaser scenes
+    phaserConfig.scene = [PreloadScene, GameScene, GameOverScene];
 
-    if (game.phase === 'requisition') {
-      console.log('[main.js] Phase is requisition, calling nextYear()');
-      game.nextYear();
-      console.log('[main.js] After nextYear(), phase:', game.phase, 'Player 0 hand size:', game.players[0].hand.length);
-      GameStorage.save(game);
-    }
+    // Store game state globally for PreloadScene to access
+    window.__phaserGameState = game;
 
-    if (game.phase === 'swap') {
-      console.log('[main.js] Phase is swap, waiting for player swaps');
-      // Swap phase will be handled by the controller
-    }
+    // Initialize Phaser game
+    const gameInstance = new Phaser.Game(phaserConfig);
 
-    console.log('[main.js] Before render, Player 0 hand size:', game.players[0].hand.length);
-    const appElement = document.getElementById('app');
-    if (!appElement) {
-      console.error('[main.js] App element not found!');
-      return;
-    }
-    const renderer = new GameRenderer(appElement);
-    const controller = new GameController(game, renderer, GameStorage);
-    controller.start();
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      // Update game size to match window
+      gameInstance.scale.resize(window.innerWidth, window.innerHeight);
+      gameInstance.scale.refresh();
+    });
+
   } catch (error) {
     console.error('[main.js] Fatal error:', error);
     console.error('[main.js] Stack:', error.stack);
     document.body.innerHTML = `
-      <div style="color: white; padding: 20px; font-family: sans-serif;">
+      <div style="color: white; padding: 20px; font-family: sans-serif; background: #000;">
         <h1>Error Loading Game</h1>
         <p>An error occurred while loading the game. Please check the browser console for details.</p>
         <p>Error: ${error.message}</p>

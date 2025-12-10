@@ -44,12 +44,39 @@
       <div class="modal-body">
         <form id="variant-form">
           <div class="variant-option">
+            <label class="variant-label">Deck Type</label>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" id="deck-52" name="deckType" value="52">
+                <span>52-Card Deck (Standard)</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" id="deck-36" name="deckType" value="36" checked>
+                <span>36-Card Deck</span>
+              </label>
+            </div>
+            <p class="variant-description">
+              Select the deck type. The 52-card deck uses cards 6-King for workers (32 cards) with Ace-5 as job rewards. The 36-card deck uses cards 6-King for workers (32 cards) with Aces only as job pile indicators (no rewards).
+            </p>
+          </div>
+          
+          <div class="variant-option">
             <label class="variant-checkbox">
-              <input type="checkbox" id="special-effects" name="specialEffects" checked>
-              <span class="checkbox-label">Enable Special Face Card Effects</span>
+              <input type="checkbox" id="northern-style" name="northernStyle">
+              <span class="checkbox-label">[Вариант] Игра по-северному</span>
             </label>
             <p class="variant-description">
-              When enabled, face cards (Jack, Queen, King) of the trump suit have special effects:
+              There is no reward for finishing a job and no need to remember who has been Бригадир. All players are vulnerable during requisition, not just brigade leaders.
+            </p>
+          </div>
+          
+          <div class="variant-option">
+            <label class="variant-checkbox">
+              <input type="checkbox" id="nomenclature" name="nomenclature" checked>
+              <span class="checkbox-label">[Вариант] Номенклатура живёт по своим законам</span>
+            </label>
+            <p class="variant-description">
+              Face cards (Jack, Queen, King) of the trump suit have special effects:
               <ul>
                 <li><strong>Jack (Пьяница - Drunkard):</strong> Contributes 0 work hours. If the job fails, the Drunkard is exiled instead of your cards.</li>
                 <li><strong>Queen (Информатор - Informant):</strong> If the job fails, all players must reveal their Personal Plots, not just the Brigade Leaders.</li>
@@ -57,6 +84,27 @@
               </ul>
             </p>
           </div>
+          
+          <div class="variant-option">
+            <label class="variant-checkbox">
+              <input type="checkbox" id="mice-variant" name="miceVariant">
+              <span class="checkbox-label">[Вариант] Разговоры вели даже с мышами</span>
+            </label>
+            <p class="variant-description">
+              For each работа that did not reach the work-hour threshold, all players reveal the highest hidden card in their подвал that matches the failed работа. The highest card is then отправить на Север.
+            </p>
+          </div>
+          
+          <div class="variant-option" id="orden-nachalniku-option" style="display: none;">
+            <label class="variant-checkbox">
+              <input type="checkbox" id="orden-nachalniku" name="ordenNachalniku" checked>
+              <span class="checkbox-label">[Вариант] Орден — начальнику, работа — нам (36-Card Deck Only)</span>
+            </label>
+            <p class="variant-description">
+              When a работа is closed, the Бригадир that closes it immediately adds the workers assigned to the работа in a singular stack to their подвал with the lowest card face-up on top. Cards that are отправить на Север are shuffled back into the deck at the start of the next year.
+            </p>
+          </div>
+          
           <div class="variant-option">
             <label class="variant-checkbox">
               <input type="checkbox" id="medals-count" name="medalsCount">
@@ -69,10 +117,10 @@
           <div class="variant-option">
             <label class="variant-checkbox">
               <input type="checkbox" id="accumulate-jobs" name="accumulateUnclaimedJobs" checked>
-              <span class="checkbox-label">Accumulate Unclaimed Job Rewards</span>
+              <span class="checkbox-label">Accumulate Unclaimed Job Rewards (52-Card Deck Only)</span>
             </label>
             <p class="variant-description">
-              When enabled, if a job is not completed (doesn't reach the work hour threshold), its reward value accumulates to the next year. The new year's job reward will be added to any unclaimed rewards from previous years.
+              When enabled, if a job is not completed (doesn't reach the work hour threshold), its reward value accumulates to the next year. The new year's job reward will be added to any unclaimed rewards from previous years. This option is only available for the 52-card deck, as the 36-card deck has no job rewards.
             </p>
           </div>
           <div class="variant-option">

@@ -1,12 +1,43 @@
+/* Minimal CSS for Kolkhoz - Phaser-based game */
+/* Only includes styles for lobby page and Phaser canvas */
+
+:root {
+  --gold: #c9a961;
+  --gold-light: #d4b870;
+  --dark: #000;
+  --dark-light: #1a1a1a;
+  --dark-medium: #2a2a2a;
+  --dark-card: #333;
+  --transition: 0.2s ease;
+}
+
+* { box-sizing: border-box; }
+
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
   width: 100%;
-  background: #000;
+  background: var(--dark);
   font-family: sans-serif;
+  color: #fff;
 }
 
+/* Phaser canvas container */
+#app {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+#app canvas {
+  display: block;
+  image-rendering: auto;
+  image-rendering: -webkit-optimize-contrast;
+  -ms-interpolation-mode: bicubic;
+}
+
+/* Lobby page styles */
 .page-wrapper {
   display: flex;
   flex-direction: column;
@@ -14,28 +45,29 @@ html, body {
   width: 100vw;
 }
 
+/* Header */
 header.topbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  background: #1a1a1a;
-  border-bottom: 1px solid #333;
+  background: var(--dark-light);
+  border-bottom: 1px solid var(--dark-card);
 }
 
 .top-section {
-  color: #c9a961;
+  color: var(--gold);
   font-size: 14px;
 }
 
+/* Main */
 main.main {
   display: flex;
   flex-direction: column;
-  flex: 1 1 0;
+  flex: 1;
   min-height: 0;
-  height: 100%;
   padding: 0;
-  background: #000;
+  background: var(--dark);
 }
 
 .rules-section {
@@ -46,7 +78,7 @@ main.main {
   justify-content: center;
   align-items: center;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  background: #000;
+  background: var(--dark);
   border-radius: 8px;
   overflow: hidden;
   margin: 0 auto;
@@ -58,22 +90,10 @@ main.main {
   border: none;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-  .rules-section {
-    height: 70vh;
-  }
-}
-
-@media (max-width: 480px) {
-  .rules-section {
-    height: 60vh;
-  }
-}
-
+/* Buttons */
 .button {
-  background: #c9a961;
-  color: #000;
+  background: var(--gold);
+  color: var(--dark);
   padding: 8px 16px;
   border: none;
   border-radius: 4px;
@@ -81,1525 +101,50 @@ main.main {
   text-decoration: none;
   font-size: 14px;
   font-weight: bold;
-  transition: background 0.2s;
+  transition: background var(--transition);
 }
 
-.button:hover {
-  background: #d4b870;
+.button:hover { 
+  background: var(--gold-light); 
 }
 
-.button-small {
-  padding: 4px 10px;
-  font-size: 12px;
-  margin-left: 12px;
+.button-small { 
+  padding: 4px 10px; 
+  font-size: 12px; 
+  margin-left: 12px; 
 }
 
-.card-image {
-  width: 7vw;
-  max-width: 80px;
-  min-width: 40px;
-  height: auto;
-  transition: transform 0.2s ease, border 0.2s ease;
-  cursor: pointer;
-  user-select: none;
-  border: 2px solid transparent;
-  box-sizing: border-box;
+.button-primary {
+  background: var(--gold);
+  color: var(--dark);
+  border: none;
 }
 
-.card-image:hover {
-  transform: translateY(-10px) scale(1.05);
-  border: 2px solid #c9a961;
-  z-index: 10;
+.button-primary:hover { 
+  background: var(--gold-light); 
 }
 
-.card-image.dragging,
-.draggable.dragging {
-  opacity: 0.5;
-  transform: scale(1.1) rotate(5deg);
-  z-index: 1000;
-  cursor: grabbing;
+.button-secondary {
+  background: var(--dark-medium);
+  color: var(--gold);
+  border: none;
 }
 
-.draggable {
-  cursor: grab;
-  transition: transform 0.2s ease, border 0.2s ease;
-  display: inline-block;
-  touch-action: none;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
-  border: 2px solid transparent;
-  box-sizing: border-box;
+.button-secondary:hover { 
+  background: #3a3a3a; 
 }
 
-.draggable:active {
-  cursor: grabbing;
-}
-
-.draggable:hover {
-  transform: translateY(-5px);
-  border: 2px solid #c9a961;
-}
-
-.draggable:hover .card-image {
-  border: 2px solid #c9a961;
-}
-
-@media (hover: none) {
-  .draggable:hover {
-    transform: none;
-  }
-  
-  .card-image:hover {
-    transform: none;
-    border: 2px solid transparent;
-  }
-  
-  .player-area.bottom .player-hand .draggable:hover {
-    transform: none !important;
-  }
-  
-  /* Better touch targets on mobile */
-  .draggable {
-    min-width: 44px;
-    min-height: 44px;
-  }
-  
-  .button {
-    min-width: 44px;
-    min-height: 44px;
-  }
-  
-  .trick-card.assignment-card {
-    min-width: 60px;
-    min-height: 80px;
-  }
-}
-
-.medal-icon {
-  width: 16px;
-  height: 20px;
-  vertical-align: middle;
-  margin-left: 4px;
-  object-fit: contain;
-}
-
-.emblem-icon {
-  width: 20px;
-  height: 20px;
-  vertical-align: middle;
-  margin-left: 4px;
-}
-
-.player-icon {
-  width: 20px;
-  height: 20px;
-  vertical-align: middle;
-  margin-left: 4px;
-}
-
-.medal-image {
-  width: 7vw;
-  max-width: 80px;
-  min-width: 40px;
-  height: auto;
-}
-
-.hand, .plot-cards, .history-hand {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-}
-
-.history-card, .card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  border: 1px solid #444;
-  padding: 2px;
-  border-radius: 4px;
-  text-align: center;
-  width: 80px;
-}
-
-.card-player {
-  word-break: break-word;
-  margin-top: 5px;
-  color: #c9a961;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.container {
-  flex: 1 1 0;
-  min-height: 0;
-  height: auto;
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: stretch;
-  overflow: hidden;
-  gap: 1vw;
-}
-
-.history {
-  flex: 1 1 300px;
-  margin: 20px 5px 20px 20px;
-  max-width: 350px;
-  min-width: 200px;
-  height: calc(100vh - 40px);
-  overflow-y: auto;
-  overflow-x: hidden;
-  background: #000;
-  border-radius: 12px;
-  padding: 8px 2px;
-  box-sizing: border-box;
-  color: #c9a961;
-}
-
-.history h3, .history h4 {
-  color: #c9a961;
-  margin: 4px 0 4px 2px;
-}
-
-.history strong {
-  color: #c9a961;
-  padding-left: 2px;
-}
-
-.history .trick-entry {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
-  margin-bottom: 6px;
-  padding-left: 2px;
-}
-
-.history .history-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  font-size: 11px;
-  flex: 1 1 0;
-  min-width: 0;
-  color: #c9a961;
-  padding: 1px;
-  border: 1px solid #444;
-  border-radius: 4px;
-}
-
-.history .history-card .card-image {
-  width: 3.5vw;
-  max-width: 45px;
-  min-width: 28px;
-}
-
-.history .trick-entry .history-hand {
-  display: flex;
-  justify-content: flex-start;
-  gap: 3px;
-  flex-wrap: nowrap;
-}
-
-@media (max-width: 900px) {
-  .game-table {
-    width: 98vw;
-    max-width: 100vw;
-    height: 60vw;
-    max-height: 80vw;
-  }
-  .history {
-    max-width: 180px;
-    min-width: 100px;
-    padding: 8px 4px;
-  }
-  .card-image {
-    width: 12vw;
-    max-width: 60px;
-    min-width: 28px;
-  }
-  .player-area.top {
-    width: 180px;
-    max-width: 28%;
-  }
-  .player-area.top.top-left {
-    left: 30%;
-  }
-  .player-area.top.top-center {
-    left: 55%;
-  }
-  .player-area.top.top-right {
-    left: 80%;
-  }
-  .player-area.top .card-image {
-    width: 6vw;
-    max-width: 55px;
-    min-width: 30px;
-  }
-  .job-card .card-image {
-    width: 4vw;
-    max-width: 40px;
-    min-width: 25px;
-  }
-  .job-cards {
-    height: 60px;
-  }
-}
-@media (max-width: 600px) {
-  .container {
-    flex-direction: column;
-    gap: 1vw;
-  }
-  .game-table {
-    width: 98vw;
-    height: 60vw;
-    min-width: 200px;
-    min-height: 200px;
-  }
-  .history {
-    max-width: 100vw;
-    min-width: 60vw;
-    height: 180px;
-    margin: 8px auto;
-  }
-  .card-image {
-    width: 16vw;
-    max-width: 40px;
-    min-width: 18px;
-  }
-  .player-area.top {
-    width: 140px;
-    max-width: 25%;
-  }
-  .player-area.top.top-left {
-    left: 30%;
-  }
-  .player-area.top.top-center {
-    left: 55%;
-  }
-  .player-area.top.top-right {
-    left: 80%;
-  }
-  .player-area.top .card-image {
-    width: 7vw;
-    max-width: 45px;
-    min-width: 25px;
-  }
-  .job-card .card-image {
-    width: 5vw;
-    max-width: 35px;
-    min-width: 20px;
-  }
-  .job-cards {
-    height: 50px;
-  }
-  
-  /* Mobile-specific improvements */
-  .game-info-left {
-    min-width: auto;
-    max-width: 90vw;
-    left: 2%;
-    top: 50%;
-  }
-  
-  .game-info-right {
-    right: 2%;
-    max-width: 100px;
-  }
-  
-  .trick-area {
-    width: 90vw;
-    max-width: 400px;
-    min-width: 250px;
-    padding: 12px;
-  }
-  
-  .player-area.bottom {
-    width: 100vw;
-    max-width: 100%;
-  }
-  
-  .player-area.bottom .player-hand {
-    min-height: 120px;
-    padding: 8px;
-  }
-  
-  .jobs-info {
-    gap: 16px;
-    max-width: 100%;
-  }
-  
-  .jobs-info .job {
-    min-width: 100px;
-    font-size: 13px;
-  }
-  
-  header.topbar {
-    padding: 12px 16px;
-    flex-wrap: wrap;
-  }
-  
-  .top-section {
-    font-size: 12px;
-    margin-bottom: 8px;
-  }
-  
-  .button {
-    padding: 6px 12px;
-    font-size: 12px;
-  }
-  
-  .modal-content {
-    width: 95%;
-    max-height: 95vh;
-  }
-}
-
-.jobs {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: nowrap;
-  width: 100%;
-  overflow-x: auto;
-}
-
-.job {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  font-size: 16px;
-  min-width: 50px;
-  color: #c9a961;
-  gap: 0;
-  position: relative;
-}
-
-.job-cards-container {
-  position: relative;
-  width: 100%;
-  min-height: 90px;
-  margin-top: 8px;
-}
-
-.job span {
-  color: #c9a961;
-  font-weight: 500;
-}
-
-.job p {
-  margin: 2px 0;
-  color: #d32f2f;
-  font-weight: bold;
-  font-size: 16px;
-  position: relative;
-  z-index: 10;
-}
-
-.game-table {
-  flex: 1 1 0;
-  min-height: 0;
-  height: 100%;
-  width: 100%;
-  margin: 0 auto;
-  background: #2e7d32;
-  border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-  overflow: visible;
-  min-width: 320px;
-  min-height: 320px;
-  position: relative;
-}
-
-.game-info-left {
-  position: absolute;
-  left: 5%;
-  top: 55%;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  z-index: 1;
-  min-width: 400px;
-}
-
-/* During assignment phase, make job piles accessible */
-.game-table.assignment-phase .game-info-left {
-  z-index: 101;
-  pointer-events: auto;
-}
-
-.game-table.assignment-phase .job-drop-target {
-  z-index: 102;
-}
-
-.year-tracker {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  color: #fff;
-  font-size: 14px;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-  margin-bottom: 8px;
-}
-
-.year-tracker strong {
-  color: #fff;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-}
-
-.year-tracker .button-small {
-  margin-left: 0;
-}
-
-.trump-info {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  color: #fff;
-  font-size: 14px;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-  justify-content: center;
-}
-
-.trump-info img {
-  width: 40px;
-  height: 40px;
-}
-
-.jobs-info {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 32px;
-  max-width: 400px;
-  justify-content: center;
-}
-
-.jobs-info .job {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  font-size: 15px;
-  color: #fff;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-  flex: 0 0 calc(50% - 16px);
-  justify-content: flex-start;
-  min-width: 140px;
-  padding-top: 8px;
-}
-
-.jobs-info .job .card-image {
-  width: 7vw;
-  max-width: 80px;
-  min-width: 40px;
-}
-
-.jobs-info .job span {
-  color: #fff;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-  margin-top: 4px;
-  position: relative;
-  z-index: 10;
-}
-
-.job-rewards-container {
-  position: relative;
-  display: inline-block;
-  height: 80px;
-  width: 100%;
-  min-height: 80px;
-  padding: 6px 0;
-  margin-bottom: 8px;
-  overflow: visible;
-}
-
-.job-pile-card {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  transform-origin: center bottom;
-  transition: transform 0.2s ease;
-}
-
-.job-pile-card .card-image {
-  width: 7vw;
-  max-width: 80px;
-  min-width: 40px;
-  filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.5));
-}
-
-.job-pile-card[style*="--pile-index: 0"] {
-  transform: translateX(-50%) rotate(-10deg) translateX(-35px);
-  z-index: 1;
-}
-
-.job-pile-card[style*="--pile-index: 1"] {
-  transform: translateX(-50%) rotate(-5deg) translateX(-18px);
-  z-index: 2;
-}
-
-.job-pile-card[style*="--pile-index: 2"] {
-  transform: translateX(-50%) rotate(0deg);
-  z-index: 3;
-}
-
-.job-pile-card[style*="--pile-index: 3"] {
-  transform: translateX(-50%) rotate(5deg) translateX(18px);
-  z-index: 4;
-}
-
-.job-pile-card[style*="--pile-index: 4"] {
-  transform: translateX(-50%) rotate(10deg) translateX(35px);
-  z-index: 5;
-}
-
-.job-pile-card[style*="--pile-index"] {
-  /* Fan face-down cards horizontally, matching job-card pattern */
-  transform: translateX(-50%) 
-             rotate(calc(var(--pile-index) * 5deg - 10deg)) 
-             translateX(calc(var(--pile-index) * 17.5px - 35px));
-  z-index: calc(var(--pile-index) + 1);
-}
-
-.job-rewards-fanned {
-  position: relative;
-  display: inline-block;
-  height: 80px;
-  width: 100%;
-  min-height: 80px;
-  padding: 6px 0;
-  margin-bottom: 8px;
-  overflow: visible;
-}
-
-.job-reward-card {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  transform-origin: center bottom;
-  transition: transform 0.2s ease;
-}
-
-.job-reward-card .card-image {
-  width: 7vw;
-  max-width: 80px;
-  min-width: 40px;
-  filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.5));
-}
-
-.job-reward-card[style*="--fan-index: 0"] {
-  transform: translateX(-50%) rotate(-10deg) translateX(-35px);
-  z-index: 1;
-}
-
-.job-reward-card[style*="--fan-index: 1"] {
-  transform: translateX(-50%) rotate(-5deg) translateX(-18px);
-  z-index: 2;
-}
-
-.job-reward-card[style*="--fan-index: 2"] {
-  transform: translateX(-50%) rotate(0deg);
-  z-index: 3;
-}
-
-.job-reward-card[style*="--fan-index: 3"] {
-  transform: translateX(-50%) rotate(5deg) translateX(18px);
-  z-index: 4;
-}
-
-.job-reward-card[style*="--fan-index: 4"] {
-  transform: translateX(-50%) rotate(10deg) translateX(35px);
-  z-index: 5;
-}
-
-.job-reward-card[style*="--fan-index"] {
-  /* For 5+ cards, use calculated values - higher index = more right, higher z-index */
-  /* Match job-card pattern: translateX(-50%) centers, then rotate and offset */
-  transform: translateX(-50%) 
-             rotate(calc(var(--fan-index) * 5deg - 10deg)) 
-             translateX(calc(var(--fan-index) * 17.5px - 35px));
-  z-index: calc(var(--fan-index) + 1);
-}
-
-.job-cards {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  min-height: 80px;
-  height: 80px;
-  width: 100%;
-  margin-top: 0;
-  margin-bottom: 0;
-  padding: 6px 0;
-  z-index: 2;
-  pointer-events: none; /* Allow drops to pass through to drop zone */
-}
-
-.job-card {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: absolute;
-  transition: transform 0.3s ease;
-  left: 50%;
-  transform-origin: center bottom;
-  pointer-events: none; /* Allow drops to pass through */
-}
-
-.job-card:nth-child(1) {
-  transform: translateX(-50%) rotate(-10deg) translateX(-35px);
-  z-index: 1;
-}
-
-.job-card:nth-child(2) {
-  transform: translateX(-50%) rotate(-5deg) translateX(-18px);
-  z-index: 2;
-}
-
-.job-card:nth-child(3) {
-  transform: translateX(-50%) rotate(0deg);
-  z-index: 3;
-}
-
-.job-card:nth-child(4) {
-  transform: translateX(-50%) rotate(5deg) translateX(18px);
-  z-index: 4;
-}
-
-.job-card:nth-child(5) {
-  transform: translateX(-50%) rotate(10deg) translateX(35px);
-  z-index: 5;
-}
-
-.job-card:nth-child(6) {
-  transform: translateX(-50%) rotate(12deg) translateX(50px);
-  z-index: 6;
-}
-
-.job-card:nth-child(7) {
-  transform: translateX(-50%) rotate(-12deg) translateX(-50px);
-  z-index: 0;
-}
-
-.job-card:nth-child(n+8) {
-  transform: translateX(-50%) rotate(0deg) translateY(-5px);
-  z-index: calc(var(--index, 8) + 7);
-  opacity: 0.7;
-}
-
-.job-card .card-image {
-  width: 5vw;
-  max-width: 50px;
-  min-width: 30px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-}
-
-.game-info-right {
-  position: absolute;
-  right: 10%;
-  top: 65%;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  z-index: 1;
-  max-width: 120px;
-}
-
-.game-info-right h3 {
-  margin: 0;
-  font-size: 14px;
-  color: #fff;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-}
-
-.game-controls {
-  position: absolute;
-  right: 20px;
-  top: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 10;
-}
-
-.game-controls .button-small {
-  margin-left: 0;
-}
-
-.gulag-container {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  align-items: flex-start;
-}
-
-.gulag-year-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  align-items: center;
-}
-
-.gulag-year-label {
-  font-size: 12px;
-  color: #fff;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-  margin-bottom: 2px;
-}
-
-.gulag-cards {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  height: 70px;
-  padding: 5px 0;
-  width: 100px;
-}
-
-.gulag-card {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: absolute;
-  transition: transform 0.3s ease;
-  left: 50%;
-  transform-origin: center bottom;
-}
-
-.gulag-card[style*="--index: 0"] {
-  transform: translateX(-50%) rotate(-10deg) translateX(-17.5px);
-  z-index: 1;
-}
-
-.gulag-card[style*="--index: 1"] {
-  transform: translateX(-50%) rotate(-5deg) translateX(-9px);
-  z-index: 2;
-}
-
-.gulag-card[style*="--index: 2"] {
-  transform: translateX(-50%) rotate(0deg);
-  z-index: 3;
-}
-
-.gulag-card[style*="--index: 3"] {
-  transform: translateX(-50%) rotate(5deg) translateX(9px);
-  z-index: 4;
-}
-
-.gulag-card[style*="--index: 4"] {
-  transform: translateX(-50%) rotate(10deg) translateX(17.5px);
-  z-index: 5;
-}
-
-.gulag-card[style*="--index: 5"] {
-  transform: translateX(-50%) rotate(12deg) translateX(25px);
-  z-index: 6;
-}
-
-.gulag-card[style*="--index: 6"] {
-  transform: translateX(-50%) rotate(-12deg) translateX(-25px);
-  z-index: 0;
-}
-
-.gulag-card[style*="--index"] {
-  /* For 7+ cards, use calculated values matching job-card pattern */
-  transform: translateX(-50%) 
-             rotate(calc(var(--index) * 5deg - 10deg)) 
-             translateX(calc(var(--index) * 8.75px - 17.5px));
-  z-index: calc(var(--index) + 1);
-}
-
-.gulag-card .card-image {
-  width: 3.5vw;
-  max-width: 40px;
-  min-width: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-}
-
-/* Player areas: absolute, but with smaller width/height and centered content */
-.player-area {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  pointer-events: none;
-}
-.player-area.top, .player-area.bottom {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  pointer-events: none;
-}
-.player-area.bottom {
-  width: 400px;
-}
-/* Top players arranged horizontally - smaller width to fit all three */
-.player-area.top {
-  top: 10px;
-  width: 260px;
-  max-width: 32%;
-}
-.player-area.top.top-left {
-  left: 30%;
-  transform: translateX(-50%);
-}
-.player-area.top.top-center {
-  left: 55%;
-  transform: translateX(-50%);
-}
-.player-area.top.top-right {
-  left: 80%;
-  transform: translateX(-50%);
-}
-.player-area.bottom {
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-.player-area.top .player-plot {
-  margin-bottom: 8px;
-  max-width: 100%;
-}
-.player-area.top .player-score {
-  font-size: 12px;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-.player-area.top .player-hand {
-  max-width: 100%;
-  position: relative;
-  height: 110px;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  overflow: visible;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 200px;
-}
-
-.player-area.top .opponent-hand img,
-.player-area.top .player-hand img {
-  position: absolute;
-  transition: transform 0.3s ease;
-  left: 50%;
-}
-
-.player-area.top .player-hand img {
-  transform-origin: center bottom;
-}
-
-.player-area.top .opponent-hand img {
-  transform-origin: center top;
-}
-
-/* Human player hand (bottom) - fan left to right, cards lower at edges */
-.player-area.bottom .player-hand {
-  position: relative;
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: flex-end;
-  gap: 0;
-  padding: 10px;
-  min-height: 140px;
-  width: 100%;
-  overflow: visible;
-}
-
-.player-area.bottom .player-hand .draggable {
-  position: relative;
-  transition: transform 0.2s ease, z-index 0.2s ease, filter 0.2s ease;
-  z-index: 1;
-  margin-left: -20px;
-}
-
-.player-area.bottom .player-hand .draggable:first-child {
-  margin-left: 0;
-}
-
-.player-area.bottom .player-hand .draggable:hover {
-  transform: translateY(-15px) scale(1.05) !important;
-  z-index: 10 !important;
-  border: 2px solid #c9a961 !important;
-}
-
-.player-area.bottom .player-hand .draggable:hover .card-image {
-  border: 2px solid #c9a961 !important;
-}
-
-.player-area.bottom .player-hand .draggable:nth-child(1) {
-  transform: rotate(-12deg) translateX(-35px);
-  z-index: 1;
-}
-
-.player-area.bottom .player-hand .draggable:nth-child(1):hover {
-  transform: translateY(-15px) scale(1.05) rotate(-12deg) translateX(-35px) !important;
-}
-
-.player-area.bottom .player-hand .draggable:nth-child(2) {
-  transform: rotate(-6deg) translateX(-18px);
-  z-index: 2;
-}
-
-.player-area.bottom .player-hand .draggable:nth-child(2):hover {
-  transform: translateY(-15px) scale(1.05) rotate(-6deg) translateX(-18px) !important;
-}
-
-.player-area.bottom .player-hand .draggable:nth-child(3) {
-  transform: rotate(0deg);
-  z-index: 3;
-}
-
-.player-area.bottom .player-hand .draggable:nth-child(3):hover {
-  transform: translateY(-15px) scale(1.05) rotate(0deg) !important;
-}
-
-.player-area.bottom .player-hand .draggable:nth-child(4) {
-  transform: rotate(6deg) translateX(18px);
-  z-index: 2;
-}
-
-.player-area.bottom .player-hand .draggable:nth-child(4):hover {
-  transform: translateY(-15px) scale(1.05) rotate(6deg) translateX(18px) !important;
-}
-
-.player-area.bottom .player-hand .draggable:nth-child(5) {
-  transform: rotate(12deg) translateX(35px);
-  z-index: 1;
-}
-
-.player-area.bottom .player-hand .draggable:nth-child(5):hover {
-  transform: translateY(-15px) scale(1.05) rotate(12deg) translateX(35px) !important;
-}
-
-.player-area.bottom .player-hand .draggable:nth-child(6) {
-  transform: rotate(18deg) translateX(52px);
-  z-index: 1;
-}
-
-.player-area.bottom .player-hand .draggable:nth-child(6):hover {
-  transform: translateY(-15px) scale(1.05) rotate(18deg) translateX(52px) !important;
-}
-
-.player-area.bottom .player-hand .draggable:nth-child(7) {
-  transform: rotate(-18deg) translateX(-52px);
-  z-index: 1;
-}
-
-.player-area.bottom .player-hand .draggable:nth-child(7):hover {
-  transform: translateY(-15px) scale(1.05) rotate(-18deg) translateX(-52px) !important;
-}
-
-.player-area.bottom .player-hand .draggable:nth-child(8) {
-  transform: rotate(24deg) translateX(69px);
-  z-index: 1;
-}
-
-.player-area.bottom .player-hand .draggable:nth-child(8):hover {
-  transform: translateY(-15px) scale(1.05) rotate(24deg) translateX(69px) !important;
-}
-
-.player-area.bottom .player-hand .draggable:nth-child(9) {
-  transform: rotate(-24deg) translateX(-69px);
-  z-index: 1;
-}
-
-.player-area.bottom .player-hand .draggable:nth-child(9):hover {
-  transform: translateY(-15px) scale(1.05) rotate(-24deg) translateX(-69px) !important;
-}
-
-.player-area.top .player-hand img:nth-child(2) {
-  transform: translateX(-50%) rotate(-6deg) translateX(-18px);
-  z-index: 2;
-}
-
-.player-area.top .player-hand img:nth-child(3) {
-  transform: translateX(-50%) rotate(0deg);
-  z-index: 3;
-}
-
-.player-area.top .player-hand img:nth-child(4) {
-  transform: translateX(-50%) rotate(6deg) translateX(18px);
-  z-index: 2;
-}
-
-.player-area.top .player-hand img:nth-child(5) {
-  transform: translateX(-50%) rotate(12deg) translateX(35px);
-  z-index: 1;
-}
-
-.player-area.top .player-hand img:nth-child(6) {
-  transform: translateX(-50%) rotate(18deg) translateX(52px);
-  z-index: 1;
-}
-
-.player-area.top .player-hand img:nth-child(7) {
-  transform: translateX(-50%) rotate(-18deg) translateX(-52px);
-  z-index: 1;
-}
-
-.player-area.top .player-hand img:nth-child(8) {
-  transform: translateX(-50%) rotate(24deg) translateX(69px);
-  z-index: 1;
-}
-
-.player-area.top .player-hand img:nth-child(9) {
-  transform: translateX(-50%) rotate(-24deg) translateX(-69px);
-  z-index: 1;
-}
-
-/* AI opponent hands (top) - same rotation but cards lower at edges (fan downward) */
-.player-area.top .opponent-hand img:nth-child(1) {
-  transform: translateX(-50%) rotate(-12deg) translateX(-35px) translateY(15px);
-  z-index: 1;
-}
-
-.player-area.top .opponent-hand img:nth-child(2) {
-  transform: translateX(-50%) rotate(-6deg) translateX(-18px) translateY(8px);
-  z-index: 2;
-}
-
-.player-area.top .opponent-hand img:nth-child(3) {
-  transform: translateX(-50%) rotate(0deg);
-  z-index: 3;
-}
-
-.player-area.top .opponent-hand img:nth-child(4) {
-  transform: translateX(-50%) rotate(6deg) translateX(18px) translateY(8px);
-  z-index: 2;
-}
-
-.player-area.top .opponent-hand img:nth-child(5) {
-  transform: translateX(-50%) rotate(12deg) translateX(35px) translateY(15px);
-  z-index: 1;
-}
-
-.player-area.top .opponent-hand img:nth-child(6) {
-  transform: translateX(-50%) rotate(18deg) translateX(52px) translateY(20px);
-  z-index: 1;
-}
-
-.player-area.top .opponent-hand img:nth-child(7) {
-  transform: translateX(-50%) rotate(-18deg) translateX(-52px) translateY(20px);
-  z-index: 1;
-}
-
-.player-area.top .opponent-hand img:nth-child(8) {
-  transform: translateX(-50%) rotate(24deg) translateX(69px) translateY(25px);
-  z-index: 1;
-}
-
-.player-area.top .opponent-hand img:nth-child(9) {
-  transform: translateX(-50%) rotate(-24deg) translateX(-69px) translateY(25px);
-  z-index: 1;
-}
-.player-area.top .player-plot {
-  gap: 3px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-}
-/* Make AI player cards smaller in hands and plots */
-.player-area.top .card-image {
-  width: 5.5vw;
-  max-width: 65px;
-  min-width: 35px;
-}
-.player-area.top .medal-image {
-  width: 5.5vw;
-  max-width: 65px;
-  min-width: 35px;
-}
-.player-area.bottom .player-plot {
-  margin-top: 8px;
-}
-
-/* Hands and plots: stack vertically for top/bottom, horizontally for left/right */
-.player-area.top .player-hand,
-.player-area.bottom .player-hand {
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  pointer-events: auto;
-}
-
-.player-hand {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  position: static;
-  min-height: 120px;
-  padding: 10px;
-}
-
-.player-hand.human-hand {
-  cursor: default;
-}
-
-.drop-indicator {
-  width: 3px;
-  height: 100px;
-  background: #c9a961;
-  border-radius: 2px;
-  margin: 0 -2px;
-  box-shadow: 0 0 8px rgba(201, 169, 97, 0.8);
-  animation: pulse 1s ease-in-out infinite;
-  pointer-events: none;
-  flex-shrink: 0;
-  z-index: 100;
-}
-
-.player-area.bottom .player-hand .drop-indicator {
-  height: 120px;
-  align-self: flex-end;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 0.6;
-    transform: scaleY(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scaleY(1.1);
-  }
-}
-
-/* .human-hand and .opponent-hand styles removed - no longer needed */
-
-.player-plot {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 4px;
-  align-items: center;
-  justify-content: center;
-  overflow-x: auto;
-}
-
-.player-score {
-  font-size: 14px;
-  font-weight: bold;
-  color: #fff;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-  margin-top: 4px;
-}
-
-.player-name {
-  font-size: 12px;
-  color: #fff;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-  margin-top: 4px;
-}
-
-.brigadier {
-  color: #ffd700;
-  font-weight: bold;
-}
-
-.trick-area-wrapper {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.lead-suit-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 8px;
-  padding: 4px 8px;
-  background: rgba(0,0,0,0.3);
-  border-radius: 6px;
-}
-
-.lead-suit-indicator img {
-  width: 24px;
-  height: 24px;
-}
-
-.trick-area {
-  position: relative;
-  width: 50vw;
-  max-width: 500px;
-  min-width: 280px;
-  height: 28vh;
-  max-height: 250px;
-  min-height: 120px;
-  background: rgba(255,255,255,0.15);
-  border: 2px dashed rgba(201, 169, 97, 0.5);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 20px;
-}
-
-.trick-area.dragover {
-  box-shadow: 0 0 10px 4px #fff176;
-  background: #388e3c;
-}
-
-.trick-area.assignment-trick-area {
-  background: rgba(201, 169, 97, 0.1);
-  border: 2px dashed rgba(201, 169, 97, 0.5);
-  pointer-events: auto;
-}
-
-.trick-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  transition: all 0.2s ease;
-  pointer-events: auto;
-}
-
-.trick-card.assignment-card {
-  cursor: grab;
-  padding: 8px;
-  border-radius: 8px;
-  border: 2px solid transparent;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-user-drag: element;
-}
-
-.trick-card.assignment-card:hover {
-  border-color: #c9a961;
-  background: rgba(201, 169, 97, 0.1);
-  transform: translateY(-5px);
-}
-
-.trick-card.assignment-card:active {
-  cursor: grabbing;
-}
-
-.trick-card.assignment-card.dragging {
-  opacity: 0 !important;
-  cursor: grabbing;
-  transition: opacity 0.15s ease;
-}
-
-.trick-card.assignment-card.assigned {
-  opacity: 0.6;
-  border-color: #4caf50;
-  background: rgba(76, 175, 80, 0.1);
-  cursor: default;
-}
-
-.trick-card .assignment-status {
-  font-size: 11px;
-  text-align: center;
-  margin-top: 4px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  min-height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.trick-card .assignment-status[data-status="unassigned"] {
-  color: #ff9800;
-  background: rgba(255, 152, 0, 0.2);
-  font-weight: 500;
-}
-
-.trick-card .assignment-status[data-status="assigned"] {
-  color: #4caf50;
-  background: rgba(76, 175, 80, 0.2);
-  font-weight: 600;
-}
-
-.assignment-instructions {
-  text-align: center;
-  margin-bottom: 12px;
-  padding: 8px 16px;
-  background: rgba(201, 169, 97, 0.1);
-  border-radius: 8px;
-  border: 1px solid rgba(201, 169, 97, 0.3);
-}
-
-
-.job-drop-target {
-  position: relative;
-  transition: all 0.2s ease;
-}
-
-.job-drop-zone {
-  width: 100%;
-  min-height: 90px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 2px dashed rgba(201, 169, 97, 0.5);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  cursor: pointer;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1;
-}
-
-.job-drop-zone-label {
-  pointer-events: none;
-}
-
-.job-drop-zone:hover {
-  background: rgba(201, 169, 97, 0.12);
-  border-color: rgba(201, 169, 97, 0.7);
-}
-
-.job-drop-zone.dragover {
-  background: rgba(201, 169, 97, 0.2) !important;
-  border: 2px solid #c9a961 !important;
-  border-style: solid !important;
-  box-shadow: 0 0 15px rgba(201, 169, 97, 0.8), inset 0 0 10px rgba(201, 169, 97, 0.2);
-  transform: scale(1.03);
-}
-
-.job-drop-zone-label {
-  color: #c9a961;
-  font-size: 12px;
-  font-weight: 500;
-  text-align: center;
-  padding: 8px 12px;
-  opacity: 0.8;
-  transition: all 0.2s ease;
-  pointer-events: none;
-}
-
-.job-drop-zone.dragover .job-drop-zone-label {
-  opacity: 1;
-  font-weight: 600;
-  font-size: 13px;
-  color: #d4b870;
-}
-
-@keyframes fly-to-trick {
-  0% {
-    z-index: 1000;
-    transform: scale(1) translate(0, 0);
-    opacity: 1;
-  }
-  100% {
-    z-index: 1000;
-    transform: scale(1.2) translate(var(--trick-x, 0), var(--trick-y, 0));
-    opacity: 1;
-  }
-}
-
-.card-fly {
-  animation: fly-to-trick 1.2s cubic-bezier(.4,2,.6,1) forwards;
-  pointer-events: none;
-}
-
-.current-trick {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 0;
-  min-height: 0;
-  height: 100%;
-}
-
-.game-over-modal-content {
-  max-width: 500px;
-  width: 90%;
-  text-align: center;
-}
-
-.game-over-scores {
-  padding: 20px 0;
-}
-
-.game-over-scores h3 {
-  margin: 0 0 20px 0;
-  font-size: 20px;
-  color: #c9a961;
-}
-
-.game-over-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  text-align: left;
-}
-
-.game-over-list li {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  margin: 8px 0;
-  border-radius: 8px;
-  background: rgba(201, 169, 97, 0.1);
-  border: 1px solid rgba(201, 169, 97, 0.2);
-  color: #c9a961;
-  font-size: 18px;
-  transition: all 0.2s ease;
-}
-
-.game-over-list li.winner {
-  background: rgba(201, 169, 97, 0.2);
-  border: 2px solid #c9a961;
-  box-shadow: 0 4px 12px rgba(201, 169, 97, 0.3);
-  font-weight: 600;
-}
-
-.game-over-list li .rank {
-  min-width: 40px;
-  font-size: 20px;
-  margin-right: 12px;
-}
-
-.game-over-list li .player-name {
-  flex: 1;
-  font-weight: 500;
-}
-
-.game-over-list li .player-score {
-  font-size: 20px;
-  font-weight: 600;
-  color: #d4b870;
-}
-
-/* Modal Styles */
+/* Modal */
 .modal {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 1000;
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
+  z-index: 10000;
 }
 
 .modal-backdrop {
@@ -1608,68 +153,40 @@ main.main {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  animation: fadeIn 0.2s ease-out;
+  background: rgba(0, 0, 0, 0.7);
 }
 
 .modal-content {
   position: relative;
-  background: #000;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  background: var(--dark);
+  border: 2px solid var(--gold);
+  border-radius: 8px;
   max-width: 600px;
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;
-  z-index: 1001;
-  animation: slideIn 0.3s ease-out;
-  color: #c9a961;
-}
-
-#rules-modal .modal-content {
-  max-width: 900px;
-  width: 90%;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateY(-20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+  z-index: 10001;
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24px 24px 16px 24px;
-  border-bottom: 1px solid #333;
+  padding: 20px 24px 12px 24px;
+  border-bottom: 1px solid var(--dark-card);
 }
 
 .modal-header h2 {
   margin: 0;
   font-size: 24px;
-  color: #c9a961;
+  color: var(--gold);
 }
 
 .modal-close {
   background: none;
   border: none;
+  color: var(--gold);
   font-size: 32px;
-  color: #c9a961;
   cursor: pointer;
   padding: 0;
   width: 32px;
@@ -1678,59 +195,76 @@ main.main {
   align-items: center;
   justify-content: center;
   line-height: 1;
-  transition: color 0.2s;
 }
 
-.modal-close:hover {
-  color: #d4b876;
+.modal-close:hover { 
+  color: var(--gold-light); 
 }
 
-.modal-body {
-  padding: 24px;
+.modal-body { 
+  padding: 24px; 
 }
 
 .modal-body .rules-section {
   max-width: 100%;
   width: 100%;
-  height: 70vh;
-  min-height: 400px;
+  height: 60vh;
   margin: 0;
 }
 
-.variant-option {
-  margin-bottom: 24px;
+/* Variant selection form */
+.variant-option { 
+  margin-bottom: 24px; 
+}
+
+.variant-label {
+  display: block;
+  font-size: 16px;
+  color: var(--gold);
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: #fff;
+}
+
+.radio-label input[type="radio"] {
+  margin-right: 8px;
 }
 
 .variant-checkbox {
   display: flex;
   align-items: flex-start;
   cursor: pointer;
-  margin-bottom: 12px;
+  color: #fff;
 }
 
 .variant-checkbox input[type="checkbox"] {
-  margin: 0;
-  margin-right: 12px;
+  margin: 0 12px 0 0;
   margin-top: 2px;
-  width: 20px;
-  height: 20px;
-  cursor: pointer;
-  flex-shrink: 0;
 }
 
 .checkbox-label {
-  font-size: 16px;
-  font-weight: 600;
-  color: #c9a961;
-  user-select: none;
+  font-weight: bold;
+  color: var(--gold);
 }
 
 .variant-description {
   margin: 0;
   padding-left: 32px;
+  color: #ccc;
   font-size: 14px;
-  color: #c9a961;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .variant-description ul {
@@ -1738,13 +272,13 @@ main.main {
   padding-left: 20px;
 }
 
-.variant-description li {
-  margin: 6px 0;
-  color: #c9a961;
+.variant-description li { 
+  margin: 6px 0; 
+  color: var(--gold); 
 }
 
-.variant-description strong {
-  color: #c9a961;
+.variant-description strong { 
+  color: var(--gold); 
 }
 
 .modal-actions {
@@ -1752,59 +286,64 @@ main.main {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid #333;
+  padding-top: 24px;
+  border-top: 1px solid var(--dark-card);
 }
 
-.button-primary {
-  background: #c9a961;
-  color: #000;
-  font-weight: bold;
+/* Mobile responsiveness */
+@media (max-width: 900px) {
+  header.topbar { 
+    padding: 12px 16px; 
+    flex-wrap: wrap; 
+  }
+  
+  .top-section { 
+    font-size: 12px; 
+    margin-bottom: 8px; 
+  }
+  
+  .button { 
+    padding: 6px 12px; 
+    font-size: 12px; 
+  }
+  
+  .modal-content { 
+    width: 95%; 
+    max-height: 95vh; 
+  }
+  
+  .modal-header { 
+    padding: 16px 16px 12px 16px; 
+  }
+  
+  .modal-header h2 { 
+    font-size: 20px; 
+  }
+  
+  .modal-body { 
+    padding: 16px; 
+  }
+  
+  .variant-description { 
+    padding-left: 28px; 
+    font-size: 13px; 
+  }
+  
+  .modal-actions { 
+    flex-direction: column; 
+  }
+  
+  .modal-actions .button { 
+    width: 100%; 
+  }
+  
+  .rules-section { 
+    height: 70vh; 
+  }
 }
 
-.button-primary:hover {
-  background: #d4b870;
-}
-
-.button-secondary {
-  background: #2a2a2a;
-  color: #c9a961;
-  border: 1px solid #c9a961;
-}
-
-.button-secondary:hover {
-  background: #3a3a3a;
-}
-
-/* Responsive modal */
 @media (max-width: 600px) {
-  .modal-content {
-    width: 95%;
-    max-height: 95vh;
-  }
-
-  .modal-header {
-    padding: 16px 16px 12px 16px;
-  }
-
-  .modal-header h2 {
-    font-size: 20px;
-  }
-
-  .modal-body {
-    padding: 16px;
-  }
-
-  .variant-description {
-    padding-left: 28px;
-    font-size: 13px;
-  }
-
-  .modal-actions {
-    flex-direction: column;
-  }
-
-  .modal-actions .button {
-    width: 100%;
+  .rules-section { 
+    height: 60vh; 
   }
 }

@@ -10,18 +10,27 @@ const urlsToCache = [
   './assets/card_back.png',
   './js/main.js',
   './js/lobby.js',
-  './js/controller.js',
   './js/core/GameState.js',
   './js/core/Player.js',
   './js/core/Card.js',
   './js/core/constants.js',
   './js/storage/GameStorage.js',
-  './js/ui/GameRenderer.js',
-  './js/ui/CardAnimator.js',
-  './js/ui/NotificationManager.js',
-  './js/ui/TouchHandler.js',
   './js/ai/AIPlayer.js',
-  './js/ai/RandomAI.js'
+  './js/ai/RandomAI.js',
+  './js/phaser/config.js',
+  './js/phaser/scenes/PreloadScene.js',
+  './js/phaser/scenes/GameScene.js',
+  './js/phaser/scenes/GameOverScene.js',
+  './js/phaser/managers/AnimationManager.js',
+  './js/phaser/managers/InputManager.js',
+  './js/phaser/managers/UIManager.js',
+  './js/phaser/objects/CardSprite.js',
+  './js/phaser/objects/GulagArea.js',
+  './js/phaser/objects/JobPile.js',
+  './js/phaser/objects/PlayerArea.js',
+  './js/phaser/objects/TrickArea.js',
+  './js/phaser/utils/LayoutManager.js',
+  './js/phaser/utils/TextureLoader.js'
 ];
 
 // Install event - cache resources

@@ -55,4 +55,13 @@ export class RandomAI extends AIPlayer {
 
     return { hiddenIndex, handIndex };
   }
+
+  selectPlotCard(gameState) {
+    const player = gameState.players[this.playerIdx];
+    if (player.hand.length === 0) {
+      return null; // No cards to select
+    }
+    // Randomly choose one card from hand
+    return Math.floor(Math.random() * player.hand.length);
+  }
 }
