@@ -81,6 +81,7 @@ export class GameState {
     this.currentSwapPlayer = null;
     this.currentPlotSelectionPlayer = null;
     this.workersDeck = [];
+    this.isFamine = false;
 
     // Initialize game
     this.jobPiles = this.deckManager.prepareJobPiles();
@@ -91,7 +92,7 @@ export class GameState {
       this.exiled,
       this.gameVariants.ordenNachalniku
     );
-    this.deckManager.dealHands(this.players, this.workersDeck);
+    this.isFamine = this.deckManager.dealHands(this.players, this.workersDeck);
   }
 
   setTrump(suit = null) {
@@ -232,7 +233,8 @@ export class GameState {
       gameVariants: this.gameVariants,
       currentSwapPlayer: this.currentSwapPlayer,
       currentPlotSelectionPlayer: this.currentPlotSelectionPlayer,
-      workersDeck: this.workersDeck.map(c => ({ suit: c.suit, value: c.value }))
+      workersDeck: this.workersDeck.map(c => ({ suit: c.suit, value: c.value })),
+      isFamine: this.isFamine
     };
   }
 
@@ -290,6 +292,7 @@ export class GameState {
     game.currentSwapPlayer = data.currentSwapPlayer;
     game.currentPlotSelectionPlayer = data.currentPlotSelectionPlayer || null;
     game.workersDeck = data.workersDeck.map(cData => new Card(cData.suit, cData.value));
+    game.isFamine = data.isFamine || false;
 
     // Reinitialize managers
     game.deckManager = new DeckManager(game.gameVariants);

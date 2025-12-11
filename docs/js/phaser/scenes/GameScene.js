@@ -71,6 +71,12 @@ export class GameScene extends Phaser.Scene {
       this.gameState.nextYear();
       this.saveGame();
       
+      // Check for game over first
+      if (this.gameState.phase === 'game_over') {
+        this.scene.switch('GameOverScene', { gameState: this.gameState });
+        return;
+      }
+      
       // After nextYear(), handle transition to trick phase if needed
       if (this.gameState.phase === 'planning') {
         this.gameState.setTrump();
@@ -163,19 +169,32 @@ export class GameScene extends Phaser.Scene {
     const trumpFontSize = `${Math.max(14, Math.min(22, baseSize * 0.018))}px`;
     const buttonFontSize = `${Math.max(11, Math.min(18, baseSize * 0.014))}px`;
     
-    // Year and trump display - positioned at top but with some margin
-    const yearText = this.add.text(leftMargin, topMargin, `Year ${this.gameState.year}`, {
+    // Calculate center position above job piles
+    // Job piles are positioned: leftMargin (120) + suitIndex * horizontalSpacing (140)
+    // For 4 jobs: positions are 120, 260, 400, 540
+    // Center X = (120 + 540) / 2 = 330
+    const jobPileLeftMargin = 120;
+    const jobPileHorizontalSpacing = 140;
+    const totalJobs = 4;
+    const jobPileCenterX = jobPileLeftMargin + (totalJobs - 1) * jobPileHorizontalSpacing / 2;
+    const jobPileY = this.layoutManager.centerY - 80; // Job pile Y position
+    const textY = jobPileY - height * 0.20; // Position text higher above job piles to prevent overlap
+    
+    // Year and trump display - centered above job piles
+    const yearText = this.add.text(jobPileCenterX, textY, `года ${this.gameState.year}`, {
       fontSize: yearFontSize,
       fill: '#c9a961',
       fontStyle: 'bold'
     });
+    yearText.setOrigin(0.5, 0.5); // Center horizontally
     this.yearText = yearText;
 
     if (this.gameState.trump) {
-      const trumpText = this.add.text(leftMargin, topMargin + height * 0.035, `Trump: ${this.gameState.trump}`, {
+      const trumpText = this.add.text(jobPileCenterX, textY + height * 0.035, `Наша главная задача: ${this.gameState.trump}`, {
         fontSize: trumpFontSize,
         fill: '#c9a961'
       });
+      trumpText.setOrigin(0.5, 0.5); // Center horizontally
       this.trumpText = trumpText;
     }
 
@@ -315,8 +334,57 @@ export class GameScene extends Phaser.Scene {
     if (this.yearText) {
       const baseSize = Math.min(this.cameras.main.width, this.cameras.main.height);
       const yearFontSize = `${Math.max(18, Math.min(30, baseSize * 0.024))}px`;
-      this.yearText.setText(`Year ${this.gameState.year}`);
+      this.yearText.setText(`года ${this.gameState.year}`);
       this.yearText.setStyle({ fontSize: yearFontSize });
+      
+      // Maintain centered position above job piles
+      const jobPileLeftMargin = 120;
+      const jobPileHorizontalSpacing = 140;
+      const totalJobs = 4;
+      const jobPileCenterX = jobPileLeftMargin + (totalJobs - 1) * jobPileHorizontalSpacing / 2;
+      const jobPileY = this.layoutManager.centerY - 80;
+      const textY = jobPileY - this.cameras.main.height * 0.20; // Higher to prevent overlap
+      this.yearText.setPosition(jobPileCenterX, textY);
+    }
+    
+    // Update trump text if it exists
+    if (this.trumpText) {
+      const baseSize = Math.min(this.cameras.main.width, this.cameras.main.height);
+      const trumpFontSize = `${Math.max(14, Math.min(22, baseSize * 0.018))}px`;
+      
+      if (this.gameState.trump) {
+        this.trumpText.setText(`Наша главная задача: ${this.gameState.trump}`);
+        this.trumpText.setStyle({ fontSize: trumpFontSize });
+        this.trumpText.setVisible(true);
+        
+        // Maintain centered position above job piles
+        const jobPileLeftMargin = 120;
+        const jobPileHorizontalSpacing = 140;
+        const totalJobs = 4;
+        const jobPileCenterX = jobPileLeftMargin + (totalJobs - 1) * jobPileHorizontalSpacing / 2;
+        const jobPileY = this.layoutManager.centerY - 80;
+        const textY = jobPileY - this.cameras.main.height * 0.20; // Higher to prevent overlap
+        this.trumpText.setPosition(jobPileCenterX, textY + this.cameras.main.height * 0.035);
+      } else {
+        this.trumpText.setVisible(false);
+      }
+    } else if (this.gameState.trump) {
+      // Create trump text if it doesn't exist but trump is set
+      const baseSize = Math.min(this.cameras.main.width, this.cameras.main.height);
+      const trumpFontSize = `${Math.max(14, Math.min(22, baseSize * 0.018))}px`;
+      const jobPileLeftMargin = 120;
+      const jobPileHorizontalSpacing = 140;
+      const totalJobs = 4;
+      const jobPileCenterX = jobPileLeftMargin + (totalJobs - 1) * jobPileHorizontalSpacing / 2;
+      const jobPileY = this.layoutManager.centerY - 80;
+      const textY = jobPileY - this.cameras.main.height * 0.20; // Higher to prevent overlap
+      
+      const trumpText = this.add.text(jobPileCenterX, textY + this.cameras.main.height * 0.035, `Наша главная задача: ${this.gameState.trump}`, {
+        fontSize: trumpFontSize,
+        fill: '#c9a961'
+      });
+      trumpText.setOrigin(0.5, 0.5);
+      this.trumpText = trumpText;
     }
 
     // Reattach input handlers after sprites are recreated
@@ -377,6 +445,12 @@ export class GameScene extends Phaser.Scene {
       this.saveGame();
       this.renderGame();
       
+      // Check for game over first
+      if (this.gameState.phase === 'game_over') {
+        this.scene.switch('GameOverScene', { gameState: this.gameState });
+        return;
+      }
+      
       if (this.gameState.phase === 'swap') {
         this.handleSwapPhase();
         return;
@@ -407,6 +481,13 @@ export class GameScene extends Phaser.Scene {
           this.saveGame();
           this.renderGame();
           
+          // Check for game over first
+          if (this.gameState.phase === 'game_over') {
+            this.scene.stop();
+            this.scene.start('GameOverScene', { gameState: this.gameState });
+            return;
+          }
+          
           if (this.gameState.phase === 'swap') {
             this.handleSwapPhase();
             return;
@@ -434,6 +515,7 @@ export class GameScene extends Phaser.Scene {
 
     // Check for game over
     if (this.gameState.phase === 'game_over') {
+      this.scene.stop();
       this.scene.start('GameOverScene', { gameState: this.gameState });
       return;
     }
@@ -485,6 +567,13 @@ export class GameScene extends Phaser.Scene {
         this.saveGame();
         this.renderGame();
         
+        // Check for game over first
+        if (this.gameState.phase === 'game_over') {
+          this.scene.stop();
+          this.scene.start('GameOverScene', { gameState: this.gameState });
+          return;
+        }
+        
         if (this.gameState.phase === 'swap') {
           this.handleSwapPhase();
           return;
@@ -508,6 +597,7 @@ export class GameScene extends Phaser.Scene {
 
     // Check for game over
     if (this.gameState.phase === 'game_over') {
+      this.scene.stop();
       this.scene.start('GameOverScene', { gameState: this.gameState });
       return;
     }
@@ -556,6 +646,12 @@ export class GameScene extends Phaser.Scene {
       this.saveGame();
       this.renderGame();
       
+      // Check for game over first
+      if (this.gameState.phase === 'game_over') {
+        this.scene.switch('GameOverScene', { gameState: this.gameState });
+        return;
+      }
+      
       if (this.gameState.phase === 'swap') {
         this.handleSwapPhase();
         return;
@@ -578,6 +674,7 @@ export class GameScene extends Phaser.Scene {
 
     // Check for game over
     if (this.gameState.phase === 'game_over') {
+      this.scene.stop();
       this.scene.start('GameOverScene', { gameState: this.gameState });
       return;
     }
@@ -719,6 +816,12 @@ export class GameScene extends Phaser.Scene {
       this.gameState.nextYear();
       this.saveGame();
       this.renderGame();
+      
+      // Check for game over first
+      if (this.gameState.phase === 'game_over') {
+        this.scene.switch('GameOverScene', { gameState: this.gameState });
+        return;
+      }
       
       if (this.gameState.phase === 'swap') {
         this.handleSwapPhase();

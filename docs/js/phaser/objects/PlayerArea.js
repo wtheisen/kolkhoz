@@ -71,7 +71,17 @@ export class PlayerArea extends Phaser.GameObjects.Container {
     
     // Player name and score
     const score = this.scene.gameState?.scores?.[this.playerIndex] || 0;
-    const infoText = `${this.player.name}: ${score}`;
+    let infoText = `${this.player.name}: ${score}`;
+    // Always show medals if player has won tricks this year (display only)
+    // Count shown is p.medals (tricks won this year) + plot.medals (if variant enabled)
+    if (this.player.hasWonTrickThisYear || (this.player.medals || 0) > 0) {
+      const currentYearMedals = this.player.medals || 0;
+      const plotMedals = this.scene.gameState?.gameVariants?.medalsCount ? (this.player.plot?.medals || 0) : 0;
+      const medalsToShow = currentYearMedals + plotMedals;
+      if (medalsToShow > 0) {
+        infoText += ` 🏅${medalsToShow}`;
+      }
+    }
     const info = this.scene.add.text(0, sizes.playerInfoY, infoText, {
       fontSize: sizes.playerInfoFontSize,
       fill: isHuman ? '#c9a961' : '#ffffff'
@@ -98,7 +108,18 @@ export class PlayerArea extends Phaser.GameObjects.Container {
     if (this.playerInfo) {
       const sizes = this.getResponsiveSizes();
       const score = this.scene.gameState?.scores?.[this.playerIndex] || 0;
-      this.playerInfo.setText(`${this.player.name}: ${score}`);
+      let infoText = `${this.player.name}: ${score}`;
+      // Always show medals if player has won tricks this year (display only)
+      // Count shown is p.medals (tricks won this year) + plot.medals (if variant enabled)
+      if (this.player.hasWonTrickThisYear || (this.player.medals || 0) > 0) {
+        const currentYearMedals = this.player.medals || 0;
+        const plotMedals = this.scene.gameState?.gameVariants?.medalsCount ? (this.player.plot?.medals || 0) : 0;
+        const medalsToShow = currentYearMedals + plotMedals;
+        if (medalsToShow > 0) {
+          infoText += ` 🏅${medalsToShow}`;
+        }
+      }
+      this.playerInfo.setText(infoText);
       // Update font size if needed (responsive)
       this.playerInfo.setStyle({ fontSize: sizes.playerInfoFontSize });
     }

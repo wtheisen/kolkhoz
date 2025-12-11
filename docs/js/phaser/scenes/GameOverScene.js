@@ -70,14 +70,18 @@ export class GameOverScene extends Phaser.Scene {
       fontStyle: 'bold'
     });
     newGameText.setOrigin(0.5, 0.5);
+    newGameText.setInteractive({ useHandCursor: true }); // Make text interactive so clicks work
 
-    newGameButton.on('pointerdown', () => {
+    const handleNewGame = () => {
       // Clear storage and return to lobby
       if (window.GameStorage) {
         window.GameStorage.clear();
       }
       window.location.href = 'index.html';
-    });
+    };
+
+    newGameButton.on('pointerdown', handleNewGame);
+    newGameText.on('pointerdown', handleNewGame); // Also allow clicking on text
 
     newGameButton.on('pointerover', () => {
       newGameButton.setFillStyle(0xd4b870);

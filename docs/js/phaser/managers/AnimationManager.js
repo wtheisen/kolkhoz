@@ -100,7 +100,7 @@ export class AnimationManager {
     overlay.setAlpha(0);
     
     const fontSize = `${Math.max(48, Math.min(80, baseSize * 0.064))}px`;
-    const yearText = this.scene.add.text(width / 2, height / 2, `Year ${year}`, {
+    const yearText = this.scene.add.text(width / 2, height / 2, `года ${year}`, {
       fontSize: fontSize,
       fill: '#c9a961',
       fontStyle: 'bold'

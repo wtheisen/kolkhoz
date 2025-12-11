@@ -8,11 +8,6 @@ export class YearManager {
   }
 
   nextYear(gameState, deckManager) {
-    if (gameState.year >= MAX_YEARS) {
-      gameState.phase = 'game_over';
-      return;
-    }
-
     // Store accumulated cards for unclaimed jobs
     if (this.gameVariants.accumulateUnclaimedJobs &&
         this.gameVariants.deckType !== '36' &&
@@ -28,6 +23,12 @@ export class YearManager {
     }
 
     gameState.year++;
+    
+    // Check if we've completed all years (after incrementing, so year 5 can complete)
+    if (gameState.year > MAX_YEARS) {
+      gameState.phase = 'game_over';
+      return;
+    }
     gameState.phase = 'planning';
     gameState.trickCount = 0; // Reset trick count for new year
     gameState.currentTrick = []; // Clear current trick for new year
@@ -68,8 +69,18 @@ export class YearManager {
     }
     gameState.claimedJobs.clear();
 
-    // Reset player flags
+    // Reset player flags and accumulate medals
     for (const p of gameState.players) {
+      // Clear hand before dealing new cards
+      p.hand = [];
+      // Accumulate medals earned this year into plot medals (only if variant is enabled)
+      if (this.gameVariants.medalsCount && p.medals > 0) {
+        p.plot.medals = (p.plot.medals || 0) + p.medals;
+        p.medals = 0;
+      } else {
+        // Reset medals if variant is disabled
+        p.medals = 0;
+      }
       p.hasWonTrickThisYear = false;
       p.brigadeLeader = false;
     }
@@ -81,7 +92,7 @@ export class YearManager {
       gameState.exiled,
       this.gameVariants.ordenNachalniku
     );
-    deckManager.dealHands(gameState.players, gameState.workersDeck);
+    gameState.isFamine = deckManager.dealHands(gameState.players, gameState.workersDeck);
 
     // Handle swap phase
     if (this.gameVariants.allowSwap) {
@@ -104,15 +115,17 @@ export class YearManager {
         score += c.value;
       }
 
-      // Count medals if variant enabled
+      // Count medals if variant enabled (use plot.medals for accumulated total)
       if (this.gameVariants.medalsCount) {
-        score += p.medals;
+        score += (p.plot.medals || 0) + (p.medals || 0); // Include both accumulated and current year medals
       }
 
       // Count stacks (ordenNachalniku variant)
+      // Only count the revealed card (lowest, face-up on top) from each stack
+      // Hidden cards in stacks are shuffled back into the deck at the start of next year
       if (p.plot.stacks) {
         for (const stack of p.plot.stacks) {
-          for (const c of [...stack.revealed, ...stack.hidden]) {
+          for (const c of stack.revealed || []) {
             score += c.value;
           }
         }
@@ -127,10 +140,10 @@ export class YearManager {
   calculateFinalScores(gameState) {
     const scores = this.calculateScores(gameState);
 
-    // Deduct hidden cards
+    // Add hidden cards (rules say to sum all cards in Личный Участок, including hidden workers)
     for (const [idx, p] of gameState.players.entries()) {
       for (const c of p.plot.hidden) {
-        scores[idx] -= c.value;
+        scores[idx] += c.value;
       }
     }
 

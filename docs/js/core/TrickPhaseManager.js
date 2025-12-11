@@ -67,9 +67,8 @@ export class TrickPhaseManager {
     gameState.players[bestPid].brigadeLeader = true;
     gameState.players[bestPid].hasWonTrickThisYear = true;
 
-    if (this.gameVariants.medalsCount) {
-      gameState.players[bestPid].medals++;
-    }
+    // Always track medals for display (shows tricks won), but only count toward score if variant enabled
+    gameState.players[bestPid].medals++;
 
     // Check for auto-assignment
     if (gameState.players[gameState.lastWinner].isHuman) {

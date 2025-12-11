@@ -21,9 +21,12 @@ export class TrickArea extends Phaser.GameObjects.Container {
     const gameHeight = this.scene.cameras.main.height;
     const baseSize = Math.min(gameWidth, gameHeight);
     
+    // Table circle radius
+    const tableRadius = Math.max(120, Math.min(180, baseSize * 0.15));
+    
     return {
       // Table circle radius
-      tableRadius: Math.max(120, Math.min(180, baseSize * 0.15)),
+      tableRadius: tableRadius,
       
       // Card sizes
       trickCardWidth: Math.max(56, Math.min(84, baseSize * 0.07)),
@@ -38,7 +41,7 @@ export class TrickArea extends Phaser.GameObjects.Container {
       playerNameFontSize: `${Math.max(9, Math.min(15, baseSize * 0.012))}px`,
       
       // Positions
-      leadTextY: -gameHeight * 0.12,
+      leadTextY: tableRadius + baseSize * 0.03, // Position below the circle but not too low to avoid player hand
       playerNameOffsetY: baseSize * 0.06
     };
   }

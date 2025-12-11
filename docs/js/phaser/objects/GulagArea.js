@@ -40,20 +40,27 @@ export class GulagArea extends Phaser.GameObjects.Container {
       // Year label font size - responsive
       yearLabelFontSize: `${Math.max(11, Math.min(16, baseSize * 0.015))}px`,
       
-      // Card sizes for exiled cards - use LayoutManager's card size calculation
-      cardSize: this.layoutManager ? this.layoutManager.getCardSize() : {
-        width: Math.max(25, Math.min(35, baseSize * 0.03)),
-        height: Math.max(35, Math.min(49, baseSize * 0.04))
-      },
+      // Card sizes for exiled cards - smaller than normal cards (similar to job piles)
+      cardSize: (() => {
+        const fullSize = this.layoutManager ? this.layoutManager.getCardSize() : {
+          width: Math.max(40, Math.min(60, baseSize * 0.05)),
+          height: Math.max(56, Math.min(84, baseSize * 0.07))
+        };
+        // Use 62.5% of full size (same as job piles)
+        return {
+          width: fullSize.width * 0.625,
+          height: fullSize.height * 0.625
+        };
+      })(),
       
-      // Spacing - responsive based on screen width, reduced to prevent clipping
-      columnSpacing: Math.max(35, Math.min(65, gameWidth * 0.04)),
+      // Spacing - responsive based on screen width, increased for better readability
+      columnSpacing: Math.max(50, Math.min(90, gameWidth * 0.06)),
       
       // Vertical spacing - responsive based on screen height
       deckOffsetY: -gameHeight * 0.12, // Deck position above gulag
       titleOffsetY: -gameHeight * 0.025, // Title position
-      yearLabelY: gameHeight * 0.025, // Year labels position
-      cardStackStartY: gameHeight * 0.055, // Card stack start position
+      yearLabelY: -gameHeight * 0.005, // Year labels position (moved up to prevent overlap)
+      cardStackStartY: gameHeight * 0.08, // Card stack start position (moved down to prevent overlap)
       
       // Card overlap - percentage of card height
       cardOverlapPercent: 0.24 // 24% overlap (similar to job piles)
@@ -113,11 +120,12 @@ export class GulagArea extends Phaser.GameObjects.Container {
       const columnX = startX + (year - 1) * sizes.columnSpacing;
       
       // Year label (always visible, centered on its column)
-      const yearLabel = this.scene.add.text(columnX, sizes.yearLabelY, `Year ${year}`, {
+      const yearLabel = this.scene.add.text(columnX, sizes.yearLabelY, `года ${year}`, {
         fontSize: sizes.yearLabelFontSize,
         fill: '#ffffff'
       });
       yearLabel.setOrigin(0.5, 0); // Centered horizontally on the column
+      yearLabel.setDepth(0); // Behind cards
       this.add(yearLabel);
       this.yearLabels.push(yearLabel);
 
@@ -128,8 +136,22 @@ export class GulagArea extends Phaser.GameObjects.Container {
 
       // Stack cards vertically in this column
       yearCards.forEach((key, index) => {
-        const [suit, value] = key.split('-');
-        const card = { suit, value: parseInt(value) };
+        // Parse card key (format: "suit-value")
+        const parts = key.split('-');
+        if (parts.length !== 2) {
+          console.warn(`Invalid card key format in exiled: ${key}`);
+          return;
+        }
+        
+        const [suit, valueStr] = parts;
+        const value = parseInt(valueStr, 10);
+        
+        if (isNaN(value)) {
+          console.warn(`Invalid card value in exiled: ${key}`);
+          return;
+        }
+        
+        const card = { suit, value };
         
         // Calculate vertical stack position
         const offsetY = sizes.cardStackStartY + index * (cardHeight - cardOverlap);
@@ -142,8 +164,8 @@ export class GulagArea extends Phaser.GameObjects.Container {
           true
         );
         cardSprite.setDisplaySize(cardWidth, cardHeight);
-        cardSprite.setAlpha(0.7);
-        cardSprite.setDepth(index + 1); // Later cards on top
+        cardSprite.setAlpha(1.0); // Fully visible (not greyed out)
+        cardSprite.setDepth(10 + index); // Cards above year labels (depth 0) and later cards on top
         
         this.exiledCardSprites.push(cardSprite);
         this.add(cardSprite);

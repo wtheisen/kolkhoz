@@ -68,15 +68,6 @@ export class DeckManager {
     // Track used cards
     const used = new Set();
 
-    // Exclude cards in job buckets
-    for (const bucket of Object.values(jobBuckets)) {
-      for (const card of bucket) {
-        if (this._isValidCard(card.value)) {
-          used.add(`${card.suit}-${card.value}`);
-        }
-      }
-    }
-
     // Exclude cards in player hands and plots
     for (const p of players) {
       for (const c of p.hand) {
@@ -92,15 +83,6 @@ export class DeckManager {
       for (const c of p.plot.hidden) {
         if (this._isValidCard(c.value)) {
           used.add(`${c.suit}-${c.value}`);
-        }
-      }
-      if (p.plot.stacks) {
-        for (const stack of p.plot.stacks) {
-          for (const c of [...(stack.revealed || []), ...(stack.hidden || [])]) {
-            if (this._isValidCard(c.value)) {
-              used.add(`${c.suit}-${c.value}`);
-            }
-          }
         }
       }
     }
@@ -128,12 +110,36 @@ export class DeckManager {
   }
 
   dealHands(players, workersDeck) {
-    for (let i = 0; i < 5; i++) {
-      for (const p of players) {
-        if (workersDeck.length > 0) {
+    const numPlayers = players.length;
+    const cardsPerPlayer = 5;
+    const requiredCards = numPlayers * cardsPerPlayer;
+    
+    // Only do normal dealing if we have at least the required number of cards
+    // If we have less, treat as famine year and deal equally
+    if (workersDeck.length >= requiredCards) {
+      // Normal dealing: 5 cards to each player
+      // Deal in rounds: each round, give one card to each player
+      for (let round = 0; round < cardsPerPlayer; round++) {
+        for (const p of players) {
           p.hand.push(workersDeck.pop());
         }
       }
+      return false; // Not a famine year
+    } else {
+      // Famine year: deal equal amounts to all players
+      const cardsPerPlayerFamine = Math.floor(workersDeck.length / numPlayers);
+      
+      // Deal equal amounts to all players
+      for (let i = 0; i < cardsPerPlayerFamine; i++) {
+        for (const p of players) {
+          if (workersDeck.length > 0) {
+            p.hand.push(workersDeck.pop());
+          }
+        }
+      }
+      
+      // Any remaining cards are left in the deck (not dealt to maintain equality)
+      return true; // This is a famine year
     }
   }
 

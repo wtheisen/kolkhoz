@@ -89,22 +89,103 @@ export class RequisitionManager {
     const allRevealedCards = this._revealMatchingCards(
       gameState, suit, informant, vulnerabilityFilter
     );
-    if (allRevealedCards.length === 0) return;
-
-    allRevealedCards.sort((a, b) => b[1].value - a[1].value);
-    this._exileCard(gameState, allRevealedCards[0]);
-
-    if (partyOfficial && allRevealedCards.length > 1) {
-      const [player, card] = allRevealedCards[1];
-      const cardIndex = player.plot.revealed.findIndex(
-        c => c.suit === card.suit && c.value === card.value
-      );
-      if (cardIndex !== -1) {
-        player.plot.revealed.splice(cardIndex, 1);
-        this._addToExiled(gameState, `${card.suit}-${card.value}`);
-        gameState.trickHistory[gameState.trickHistory.length - 1].requisitions.push(
-          `Партийный чиновник: ${player.name} отправить на Север ${card.toString()}`
+    
+    // Also check plot.revealed for vulnerable players only (cards may have been moved there
+    // from stacks at the start of the year, or from other sources like winning jobs)
+    // This ensures cards already revealed are still considered for exile, but only for vulnerable players
+    for (const p of gameState.players) {
+      // Only process vulnerable players
+      if (!vulnerabilityFilter(p)) {
+        continue;
+      }
+      
+      const revealedMatching = p.plot.revealed.filter(c => c.suit === suit);
+      for (const card of revealedMatching) {
+        // Only add if not already in allRevealedCards (avoid duplicates from _revealMatchingCards)
+        const alreadyAdded = allRevealedCards.some(
+          ([player, c]) => player === p && c.suit === card.suit && c.value === card.value
         );
+        if (!alreadyAdded) {
+          allRevealedCards.push([p, card]);
+        }
+      }
+    }
+    
+    // Group revealed cards by player, then exile each player's highest card
+    // (Each player must exile their own highest matching card, not just the overall highest)
+    const cardsByPlayer = new Map();
+    for (const [player, card] of allRevealedCards) {
+      if (!cardsByPlayer.has(player)) {
+        cardsByPlayer.set(player, []);
+      }
+      cardsByPlayer.get(player).push(card);
+    }
+    
+    // For each player, find and exile their highest matching card
+    for (const [player, cards] of cardsByPlayer.entries()) {
+      if (cards.length === 0) continue;
+      
+      // Sort player's cards by value (highest first)
+      cards.sort((a, b) => b.value - a.value);
+      const highestCard = cards[0];
+      
+      // Exile the player's highest card
+      this._exileCard(gameState, [player, highestCard]);
+      
+      // Party official exiles second highest card from this player
+      if (partyOfficial && cards.length > 1) {
+        const secondHighestCard = cards[1];
+        // Use the same exile logic that handles both plot.revealed and stacks
+        let cardIndex = player.plot.revealed.findIndex(
+          c => c.suit === secondHighestCard.suit && c.value === secondHighestCard.value
+        );
+        
+        if (cardIndex !== -1) {
+          player.plot.revealed.splice(cardIndex, 1);
+          this._addToExiled(gameState, `${secondHighestCard.suit}-${secondHighestCard.value}`);
+          gameState.trickHistory[gameState.trickHistory.length - 1].requisitions.push(
+            `Партийный чиновник: ${player.name} отправить на Север ${secondHighestCard.toString()}`
+          );
+        } else {
+          // Card might be in a stack (shouldn't happen after reveal, but check anyway)
+          let removedFromStack = false;
+          if (player.plot.stacks) {
+            for (const stack of player.plot.stacks) {
+              cardIndex = stack.revealed.findIndex(
+                c => c.suit === secondHighestCard.suit && c.value === secondHighestCard.value
+              );
+              if (cardIndex !== -1) {
+                stack.revealed.splice(cardIndex, 1);
+                removedFromStack = true;
+                this._addToExiled(gameState, `${secondHighestCard.suit}-${secondHighestCard.value}`);
+                gameState.trickHistory[gameState.trickHistory.length - 1].requisitions.push(
+                  `Партийный чиновник: ${player.name} отправить на Север ${secondHighestCard.toString()}`
+                );
+                break;
+              }
+              cardIndex = stack.hidden.findIndex(
+                c => c.suit === secondHighestCard.suit && c.value === secondHighestCard.value
+              );
+              if (cardIndex !== -1) {
+                stack.hidden.splice(cardIndex, 1);
+                removedFromStack = true;
+                this._addToExiled(gameState, `${secondHighestCard.suit}-${secondHighestCard.value}`);
+                gameState.trickHistory[gameState.trickHistory.length - 1].requisitions.push(
+                  `Партийный чиновник: ${player.name} отправить на Север ${secondHighestCard.toString()}`
+                );
+                break;
+              }
+            }
+          }
+          
+          // Clean up empty stacks if we removed from a stack
+          if (removedFromStack && player.plot.stacks) {
+            player.plot.stacks = player.plot.stacks.filter(stack => 
+              (stack.revealed && stack.revealed.length > 0) || 
+              (stack.hidden && stack.hidden.length > 0)
+            );
+          }
+        }
       }
     }
   }
@@ -122,14 +203,18 @@ export class RequisitionManager {
                           p.hasWonTrickThisYear ||
                           informant;
 
-      if (isVulnerable) {
-        const toReveal = p.plot.hidden.filter(c => c.suit === suit);
-        p.plot.revealed.push(...toReveal);
-        p.plot.hidden = p.plot.hidden.filter(c => c.suit !== suit);
+      // Only process requisitions for vulnerable players
+      if (!isVulnerable) {
+        continue;
       }
 
-      if (!isVulnerable) continue;
+      // Reveal matching cards from hidden plot if player is vulnerable
+      const toReveal = p.plot.hidden.filter(c => c.suit === suit);
+      p.plot.revealed.push(...toReveal);
+      p.plot.hidden = p.plot.hidden.filter(c => c.suit !== suit);
 
+      // Check for matching cards in revealed plot
+      // Cards may already be in revealed from previous actions (winning jobs, etc.)
       const suitCards = p.plot.revealed
         .filter(c => c.suit === suit)
         .sort((a, b) => b.value - a.value);
@@ -195,11 +280,34 @@ export class RequisitionManager {
         continue;
       }
 
+      // Collect matching cards from hidden plot cards
       const matchingHidden = p.plot.hidden.filter(c => c.suit === suit);
-      if (matchingHidden.length === 0) continue;
+      
+      // For ordenNachalniku variant, also check stacks for matching cards
+      const matchingFromStacks = [];
+      if (this.gameVariants.ordenNachalniku && this.gameVariants.deckType === '36' && p.plot.stacks) {
+        for (const stack of p.plot.stacks) {
+          // Check revealed cards in stack
+          for (const card of stack.revealed || []) {
+            if (card.suit === suit) {
+              matchingFromStacks.push({ card, stack, location: 'revealed' });
+            }
+          }
+          // Check hidden cards in stack
+          for (const card of stack.hidden || []) {
+            if (card.suit === suit) {
+              matchingFromStacks.push({ card, stack, location: 'hidden' });
+            }
+          }
+        }
+      }
+
+      // Combine all matching cards
+      const allMatching = [...matchingHidden, ...matchingFromStacks.map(m => m.card)];
+      if (allMatching.length === 0) continue;
 
       if (informant) {
-        // Reveal all matching cards
+        // Reveal all matching cards from hidden plot
         for (const card of matchingHidden) {
           const cardIndex = p.plot.hidden.findIndex(
             c => c.suit === card.suit && c.value === card.value
@@ -208,17 +316,84 @@ export class RequisitionManager {
           p.plot.revealed.push(card);
           allRevealedCards.push([p, card]);
         }
+        // Reveal all matching cards from stacks (move to plot.revealed)
+        for (const { card, stack, location } of matchingFromStacks) {
+          if (location === 'hidden') {
+            const cardIndex = stack.hidden.findIndex(
+              c => c.suit === card.suit && c.value === card.value
+            );
+            if (cardIndex !== -1) {
+              stack.hidden.splice(cardIndex, 1);
+              p.plot.revealed.push(card);
+              allRevealedCards.push([p, card]);
+            }
+          } else {
+            // Already revealed in stack, just move to plot.revealed
+            const cardIndex = stack.revealed.findIndex(
+              c => c.suit === card.suit && c.value === card.value
+            );
+            if (cardIndex !== -1) {
+              stack.revealed.splice(cardIndex, 1);
+              p.plot.revealed.push(card);
+              allRevealedCards.push([p, card]);
+            }
+          }
+        }
       } else {
-        // Reveal only highest
-        const highestCard = matchingHidden.reduce((max, card) =>
+        // Reveal only highest card overall (from both hidden plot and stacks)
+        const highestCard = allMatching.reduce((max, card) =>
           card.value > max.value ? card : max
         );
-        const cardIndex = p.plot.hidden.findIndex(
-          c => c.suit === highestCard.suit && c.value === highestCard.value
+        
+        // Check if highest is from hidden plot or from stacks
+        const isFromHidden = matchingHidden.some(c => 
+          c.suit === highestCard.suit && c.value === highestCard.value
         );
-        p.plot.hidden.splice(cardIndex, 1);
-        p.plot.revealed.push(highestCard);
-        allRevealedCards.push([p, highestCard]);
+        
+        if (isFromHidden) {
+          const cardIndex = p.plot.hidden.findIndex(
+            c => c.suit === highestCard.suit && c.value === highestCard.value
+          );
+          p.plot.hidden.splice(cardIndex, 1);
+          p.plot.revealed.push(highestCard);
+          allRevealedCards.push([p, highestCard]);
+        } else {
+          // Find which stack contains this card
+          const stackEntry = matchingFromStacks.find(m => 
+            m.card.suit === highestCard.suit && m.card.value === highestCard.value
+          );
+          if (stackEntry) {
+            const { stack, location } = stackEntry;
+            if (location === 'hidden') {
+              const cardIndex = stack.hidden.findIndex(
+                c => c.suit === highestCard.suit && c.value === highestCard.value
+              );
+              if (cardIndex !== -1) {
+                stack.hidden.splice(cardIndex, 1);
+                p.plot.revealed.push(highestCard);
+                allRevealedCards.push([p, highestCard]);
+              }
+            } else {
+              // Already revealed in stack, just move to plot.revealed
+              const cardIndex = stack.revealed.findIndex(
+                c => c.suit === highestCard.suit && c.value === highestCard.value
+              );
+              if (cardIndex !== -1) {
+                stack.revealed.splice(cardIndex, 1);
+                p.plot.revealed.push(highestCard);
+                allRevealedCards.push([p, highestCard]);
+              }
+            }
+          }
+        }
+      }
+      
+      // Clean up empty stacks after removing cards
+      if (p.plot.stacks) {
+        p.plot.stacks = p.plot.stacks.filter(stack => 
+          (stack.revealed && stack.revealed.length > 0) || 
+          (stack.hidden && stack.hidden.length > 0)
+        );
       }
     }
 
@@ -226,10 +401,46 @@ export class RequisitionManager {
   }
 
   _exileCard(gameState, [player, card]) {
-    const cardIndex = player.plot.revealed.findIndex(
+    // First try to find in plot.revealed
+    let cardIndex = player.plot.revealed.findIndex(
       c => c.suit === card.suit && c.value === card.value
     );
-    player.plot.revealed.splice(cardIndex, 1);
+    
+    let removedFromStack = false;
+    if (cardIndex !== -1) {
+      player.plot.revealed.splice(cardIndex, 1);
+    } else {
+      // Card might be in a stack (shouldn't happen after reveal, but check anyway)
+      if (player.plot.stacks) {
+        for (const stack of player.plot.stacks) {
+          cardIndex = stack.revealed.findIndex(
+            c => c.suit === card.suit && c.value === card.value
+          );
+          if (cardIndex !== -1) {
+            stack.revealed.splice(cardIndex, 1);
+            removedFromStack = true;
+            break;
+          }
+          cardIndex = stack.hidden.findIndex(
+            c => c.suit === card.suit && c.value === card.value
+          );
+          if (cardIndex !== -1) {
+            stack.hidden.splice(cardIndex, 1);
+            removedFromStack = true;
+            break;
+          }
+        }
+      }
+    }
+    
+    // Clean up empty stacks if we removed from a stack
+    if (removedFromStack && player.plot.stacks) {
+      player.plot.stacks = player.plot.stacks.filter(stack => 
+        (stack.revealed && stack.revealed.length > 0) || 
+        (stack.hidden && stack.hidden.length > 0)
+      );
+    }
+    
     this._addToExiled(gameState, `${card.suit}-${card.value}`);
     gameState.trickHistory[gameState.trickHistory.length - 1].requisitions.push(
       `${player.name} отправить на Север ${card.toString()}`
