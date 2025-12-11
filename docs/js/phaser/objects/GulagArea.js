@@ -113,6 +113,10 @@ export class GulagArea extends Phaser.GameObjects.Container {
       fontStyle: 'bold'
     });
     title.setOrigin(0.5, 0); // Centered horizontally
+    // Add tooltip for Russian text
+    if (this.scene.tooltipManager) {
+      this.scene.tooltipManager.addAutoTooltip(title, 'ГУЛАГ:');
+    }
     this.add(title);
 
     // Create columns for all years (1-5)
@@ -124,6 +128,10 @@ export class GulagArea extends Phaser.GameObjects.Container {
         fontSize: sizes.yearLabelFontSize,
         fill: '#ffffff'
       });
+      // Add tooltip for Russian text
+      if (this.scene.tooltipManager) {
+        this.scene.tooltipManager.addAutoTooltip(yearLabel, `года ${year}`);
+      }
       yearLabel.setOrigin(0.5, 0); // Centered horizontally on the column
       yearLabel.setDepth(0); // Behind cards
       this.add(yearLabel);

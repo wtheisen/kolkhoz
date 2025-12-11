@@ -111,36 +111,20 @@ export class DeckManager {
 
   dealHands(players, workersDeck) {
     const numPlayers = players.length;
-    const cardsPerPlayer = 5;
-    const requiredCards = numPlayers * cardsPerPlayer;
+    // Calculate how many cards can be evenly dealt (max 5 per player)
+    const cardsPerPlayer = Math.min(5, Math.floor(workersDeck.length / numPlayers));
     
-    // Only do normal dealing if we have at least the required number of cards
-    // If we have less, treat as famine year and deal equally
-    if (workersDeck.length >= requiredCards) {
-      // Normal dealing: 5 cards to each player
-      // Deal in rounds: each round, give one card to each player
-      for (let round = 0; round < cardsPerPlayer; round++) {
-        for (const p of players) {
+    // Deal that many cards to each player
+    for (let round = 0; round < cardsPerPlayer; round++) {
+      for (const p of players) {
+        if (workersDeck.length > 0) {
           p.hand.push(workersDeck.pop());
         }
       }
-      return false; // Not a famine year
-    } else {
-      // Famine year: deal equal amounts to all players
-      const cardsPerPlayerFamine = Math.floor(workersDeck.length / numPlayers);
-      
-      // Deal equal amounts to all players
-      for (let i = 0; i < cardsPerPlayerFamine; i++) {
-        for (const p of players) {
-          if (workersDeck.length > 0) {
-            p.hand.push(workersDeck.pop());
-          }
-        }
-      }
-      
-      // Any remaining cards are left in the deck (not dealt to maintain equality)
-      return true; // This is a famine year
     }
+    
+    // Famine year if we couldn't deal 5 cards to everyone
+    return cardsPerPlayer < 5;
   }
 
   shuffle(array) {

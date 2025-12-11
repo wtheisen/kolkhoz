@@ -18,7 +18,7 @@ The Бригадир then assigns each of the four cards from the взятка t
 The face cards of the trump suit have special effects:
 Jack “Пьяница (P'yanitsa)” - Contributes 0 work hours. If this job is requisitioned, the Jack is sent north instead of a player's card.
 Queen “Информатор (Informator)” - If this job fails, all players must reveal their Personal Plots, not just the Brigade Leaders.
-King “Партийный чиновник (Partiynyy chinovnik)” - If this job is requisitioned, two cards are sent north instead of one.
+King “партийец (Partiynyy chinovnik)” - If this job is requisitioned, two cards are sent north instead of one.
 The Бригадир then leads the next взятка.
 Four взятки are played in total.
 c. Выбор Личного Участка (Vybor Lichnogo Uchastka - Personal Plot Selection):
@@ -28,7 +28,7 @@ For each работа that did not reach the 36 work-hour threshold:
 If the Пьяница (P'yanitsa) is amongst the workers for that job, the Пьяница (P'yanitsa) is отправить на Север.
 All players who were a Бригадир reveal all cards in their Личный Участок. If the Информатор (Informator) is amongst the workers for the job, instead all players reveal their Личный Участок.
 Among all revealed Личный Участок cards, identify all cards which match with the failed работа.
-The player with the highest value card of that работа among all their Личный Участок cards must отправить на Север (otpravit' na Sever - send to the north) that highest value card of that работа from their Личный Участок. If the Партийный чиновник (Partiynyy chinovnik) was amongst the workers for the failed job, the second highest card is also отправить на Север.
+The player with the highest value card of that работа among all their Личный Участок cards must отправить на Север (otpravit' na Sever - send to the north) that highest value card of that работа from their Личный Участок. If the партийец (Partiynyy chinovnik) was amongst the workers for the failed job, the second highest card is also отправить на Север.
 f. Конец Раунда (Konets Raundа - End of Round):
 All played worker cards are reshuffled.
 The role of Центральный Плановик passes to the player to the left.

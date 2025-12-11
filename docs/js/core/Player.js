@@ -13,7 +13,7 @@ export class Player {
       revealed: [],
       hidden: [],
       medals: 0,  // Total medals in personal plot
-      stacks: []  // Array of stack objects: { revealed: [Card], hidden: [Card] } for ordenNachalniku variant
+      stacks: []  // Array of stack objects: { suit: string, revealed: [Card], hidden: [Card] } for ordenNachalniku variant
     };
     this.brigadeLeader = false;
     this.medals = 0;  // Medals earned this year (temporary)
@@ -32,6 +32,7 @@ export class Player {
         hidden: this.plot.hidden.map(c => c.toJSON()),
         medals: this.plot.medals,
         stacks: this.plot.stacks.map(stack => ({
+          suit: stack.suit,
           revealed: stack.revealed.map(c => c.toJSON()),
           hidden: stack.hidden.map(c => c.toJSON())
         }))
@@ -49,6 +50,7 @@ export class Player {
     p.plot.hidden = data.plot.hidden.map(Card.fromJSON);
     p.plot.medals = data.plot.medals || 0;
     p.plot.stacks = (data.plot.stacks || []).map(stack => ({
+      suit: stack.suit,
       revealed: stack.revealed.map(Card.fromJSON),
       hidden: stack.hidden.map(Card.fromJSON)
     }));

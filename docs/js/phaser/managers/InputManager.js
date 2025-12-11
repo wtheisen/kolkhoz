@@ -31,8 +31,12 @@ export class InputManager {
     this.scene.input.setDraggable(cardSprite);
 
     cardSprite.on('dragstart', (pointer) => {
-      // Check if it's the player's turn before allowing drag
-      if (!this.isPlayerTurn(playerIndex)) {
+      // Allow dragging during swap phase or if it's the player's turn
+      const isSwapPhase = this.gameState.phase === 'swap';
+      const isPlayerTurn = this.isPlayerTurn(playerIndex);
+      
+      // Block drag only if: NOT swap phase AND NOT player's turn
+      if (!isSwapPhase && !isPlayerTurn) {
         // Don't create preview or allow drag when it's not the player's turn
         // The drag will still technically start, but we won't show anything
         return;
@@ -201,7 +205,17 @@ export class InputManager {
   isPlayerTurn(playerIndex) {
     if (this.gameState.phase !== 'trick') return false;
     if (this.gameState.currentTrick.length >= this.gameState.numPlayers) return false;
-    const nextPlayer = (this.gameState.lead + this.gameState.currentTrick.length) % this.gameState.numPlayers;
+    // lead is the player who leads the current trick
+    const trickLength = this.gameState.currentTrick.length;
+    let nextPlayer;
+    
+    if (trickLength === 0) {
+      // Start of new trick: lead is already set to the correct player
+      nextPlayer = this.gameState.lead;
+    } else {
+      // Trick in progress: next player is (lead + number of cards played)
+      nextPlayer = (this.gameState.lead + trickLength) % this.gameState.numPlayers;
+    }
     return nextPlayer === playerIndex;
   }
 
@@ -235,13 +249,17 @@ export class InputManager {
     this.assignmentJobPiles = jobPiles; // Store reference for showing/hiding drop zones
 
     // Calculate valid jobs from the trick (suits represented in the trick)
-    const validJobs = Array.from(new Set(
-      this.gameState.lastTrick.map(([_, card]) => card.suit)
-    ));
+    // During famine year, all jobs are valid (workers may be added to any job)
+    const validJobs = this.gameState.isFamine
+      ? ['hearts', 'diamonds', 'clubs', 'spades'] // All suits during famine year
+      : Array.from(new Set(
+          this.gameState.lastTrick.map(([_, card]) => card.suit)
+        ));
 
     // Helper function to check if a card can be assigned to a specific job
     const canAssignToJob = (card, targetSuit) => {
-      // Any card can be assigned to any suit that was represented in the trick
+      // During famine year, any card can be assigned to any job
+      // Otherwise, any card can be assigned to any suit that was represented in the trick
       return validJobs.includes(targetSuit);
     };
 

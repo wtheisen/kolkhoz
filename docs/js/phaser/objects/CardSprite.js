@@ -122,6 +122,26 @@ export class CardSprite extends Phaser.GameObjects.Sprite {
     });
   }
 
+  // Get bounds for drop zone detection (in world coordinates)
+  getBounds() {
+    // Get world position of this sprite
+    // Use Phaser's getWorldTransformMatrix to get accurate world coordinates
+    // This works for sprites in containers too
+    const matrix = this.getWorldTransformMatrix();
+    const worldX = matrix.tx;
+    const worldY = matrix.ty;
+    
+    const halfWidth = this.displayWidth / 2;
+    const halfHeight = this.displayHeight / 2;
+    
+    return {
+      x: worldX - halfWidth,
+      y: worldY - halfHeight,
+      width: this.displayWidth,
+      height: this.displayHeight
+    };
+  }
+
   destroy() {
     // Clean up effects if they exist
     if (this.validGlow) {

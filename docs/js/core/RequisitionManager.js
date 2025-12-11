@@ -1,6 +1,6 @@
 // RequisitionManager - handles all requisition logic and variants
 
-import { THRESHOLD } from './constants.js';
+import { THRESHOLD, SUITS } from './constants.js';
 
 export class RequisitionManager {
   constructor(gameVariants) {
@@ -22,16 +22,27 @@ export class RequisitionManager {
       requisitions: []
     });
 
+    // Check if all four поля (jobs) are un-farmed (failed)
+    const allJobsFailed = SUITS.every(
+      suit => gameState.workHours[suit] < THRESHOLD
+    );
+
+    // Check if any players are vulnerable to requisition
+    const hasVulnerablePlayers = this._hasVulnerablePlayers(gameState);
+
+    // If all four jobs failed and no players are vulnerable, use mice variant logic
+    const useMiceVariantFallback = allJobsFailed && !hasVulnerablePlayers;
+
     for (const [suit, bucket] of Object.entries(gameState.jobBuckets)) {
       if (gameState.workHours[suit] >= THRESHOLD) {
         continue;
       }
 
-      if (this.gameVariants.miceVariant) {
+      // Use mice variant if explicitly enabled OR if fallback condition is met
+      if (this.gameVariants.miceVariant || useMiceVariantFallback) {
         this._performMiceVariant(gameState, suit, bucket);
-      } else if (this.gameVariants.deckType === '36') {
-        this._perform36Card(gameState, suit, bucket);
       } else {
+        // Standard and 36-card variants are now handled by the same function
         this._performStandard(gameState, suit, bucket);
       }
     }
@@ -65,127 +76,8 @@ export class RequisitionManager {
         player.plot.revealed.splice(cardIndex, 1);
         this._addToExiled(gameState, `${card.suit}-${card.value}`);
         gameState.trickHistory[gameState.trickHistory.length - 1].requisitions.push(
-          `Партийный чиновник: ${player.name} отправить на Север ${card.toString()}`
+          `партийец: ${player.name} отправить на Север ${card.toString()}`
         );
-      }
-    }
-  }
-
-  _perform36Card(gameState, suit, bucket) {
-    if (this._handleDrunkard(gameState, bucket)) {
-      return;
-    }
-
-    const informant = this._hasInformant(bucket, gameState.trump);
-    const partyOfficial = this._hasPartyOfficial(bucket, gameState.trump);
-
-    // For ordenNachalniku: only players with stacks are vulnerable
-    const vulnerabilityFilter = (p) => {
-      if (!this.gameVariants.ordenNachalniku) return true;
-      const hasStacks = p.plot.stacks && p.plot.stacks.length > 0;
-      return informant || hasStacks;
-    };
-
-    const allRevealedCards = this._revealMatchingCards(
-      gameState, suit, informant, vulnerabilityFilter
-    );
-    
-    // Also check plot.revealed for vulnerable players only (cards may have been moved there
-    // from stacks at the start of the year, or from other sources like winning jobs)
-    // This ensures cards already revealed are still considered for exile, but only for vulnerable players
-    for (const p of gameState.players) {
-      // Only process vulnerable players
-      if (!vulnerabilityFilter(p)) {
-        continue;
-      }
-      
-      const revealedMatching = p.plot.revealed.filter(c => c.suit === suit);
-      for (const card of revealedMatching) {
-        // Only add if not already in allRevealedCards (avoid duplicates from _revealMatchingCards)
-        const alreadyAdded = allRevealedCards.some(
-          ([player, c]) => player === p && c.suit === card.suit && c.value === card.value
-        );
-        if (!alreadyAdded) {
-          allRevealedCards.push([p, card]);
-        }
-      }
-    }
-    
-    // Group revealed cards by player, then exile each player's highest card
-    // (Each player must exile their own highest matching card, not just the overall highest)
-    const cardsByPlayer = new Map();
-    for (const [player, card] of allRevealedCards) {
-      if (!cardsByPlayer.has(player)) {
-        cardsByPlayer.set(player, []);
-      }
-      cardsByPlayer.get(player).push(card);
-    }
-    
-    // For each player, find and exile their highest matching card
-    for (const [player, cards] of cardsByPlayer.entries()) {
-      if (cards.length === 0) continue;
-      
-      // Sort player's cards by value (highest first)
-      cards.sort((a, b) => b.value - a.value);
-      const highestCard = cards[0];
-      
-      // Exile the player's highest card
-      this._exileCard(gameState, [player, highestCard]);
-      
-      // Party official exiles second highest card from this player
-      if (partyOfficial && cards.length > 1) {
-        const secondHighestCard = cards[1];
-        // Use the same exile logic that handles both plot.revealed and stacks
-        let cardIndex = player.plot.revealed.findIndex(
-          c => c.suit === secondHighestCard.suit && c.value === secondHighestCard.value
-        );
-        
-        if (cardIndex !== -1) {
-          player.plot.revealed.splice(cardIndex, 1);
-          this._addToExiled(gameState, `${secondHighestCard.suit}-${secondHighestCard.value}`);
-          gameState.trickHistory[gameState.trickHistory.length - 1].requisitions.push(
-            `Партийный чиновник: ${player.name} отправить на Север ${secondHighestCard.toString()}`
-          );
-        } else {
-          // Card might be in a stack (shouldn't happen after reveal, but check anyway)
-          let removedFromStack = false;
-          if (player.plot.stacks) {
-            for (const stack of player.plot.stacks) {
-              cardIndex = stack.revealed.findIndex(
-                c => c.suit === secondHighestCard.suit && c.value === secondHighestCard.value
-              );
-              if (cardIndex !== -1) {
-                stack.revealed.splice(cardIndex, 1);
-                removedFromStack = true;
-                this._addToExiled(gameState, `${secondHighestCard.suit}-${secondHighestCard.value}`);
-                gameState.trickHistory[gameState.trickHistory.length - 1].requisitions.push(
-                  `Партийный чиновник: ${player.name} отправить на Север ${secondHighestCard.toString()}`
-                );
-                break;
-              }
-              cardIndex = stack.hidden.findIndex(
-                c => c.suit === secondHighestCard.suit && c.value === secondHighestCard.value
-              );
-              if (cardIndex !== -1) {
-                stack.hidden.splice(cardIndex, 1);
-                removedFromStack = true;
-                this._addToExiled(gameState, `${secondHighestCard.suit}-${secondHighestCard.value}`);
-                gameState.trickHistory[gameState.trickHistory.length - 1].requisitions.push(
-                  `Партийный чиновник: ${player.name} отправить на Север ${secondHighestCard.toString()}`
-                );
-                break;
-              }
-            }
-          }
-          
-          // Clean up empty stacks if we removed from a stack
-          if (removedFromStack && player.plot.stacks) {
-            player.plot.stacks = player.plot.stacks.filter(stack => 
-              (stack.revealed && stack.revealed.length > 0) || 
-              (stack.hidden && stack.hidden.length > 0)
-            );
-          }
-        }
       }
     }
   }
@@ -198,51 +90,66 @@ export class RequisitionManager {
     const informant = this._hasInformant(bucket, gameState.trump);
     const partyOfficial = this._hasPartyOfficial(bucket, gameState.trump);
 
-    for (const p of gameState.players) {
-      const isVulnerable = this.gameVariants.northernStyle ||
-                          p.hasWonTrickThisYear ||
-                          informant;
+    // Determine vulnerability filter based on variant
+    const is36Card = this.gameVariants.deckType === '36';
+    const isOrdenNachalniku = this.gameVariants.ordenNachalniku && is36Card;
+    
+    const vulnerabilityFilter = (p) => {
+      if (isOrdenNachalniku) {
+        // For ordenNachalniku: only players who closed a job (have any stack) are vulnerable
+        const hasStacks = p.plot.stacks && p.plot.stacks.length > 0;
+        return informant || hasStacks;
+      } else {
+        // Standard: vulnerable if won a trick or informant present
+        // (northernStyle uses mice variant, so not possible here)
+        return p.hasWonTrickThisYear || informant;
+      }
+    };
 
-      // Only process requisitions for vulnerable players
-      if (!isVulnerable) {
+    // Step 1: Reveal face-down cards for vulnerable players
+    for (const p of gameState.players) {
+      if (!vulnerabilityFilter(p)) {
         continue;
       }
 
-      // Reveal matching cards from hidden plot if player is vulnerable
-      const toReveal = p.plot.hidden.filter(c => c.suit === suit);
-      p.plot.revealed.push(...toReveal);
-      p.plot.hidden = p.plot.hidden.filter(c => c.suit !== suit);
-
-      // Check for matching cards in revealed plot
-      // Cards may already be in revealed from previous actions (winning jobs, etc.)
-      const suitCards = p.plot.revealed
-        .filter(c => c.suit === suit)
-        .sort((a, b) => b.value - a.value);
-
-      if (suitCards.length === 0) continue;
-
-      // Exile highest
-      const card = suitCards[0];
-      const cardIndex = p.plot.revealed.findIndex(
-        c => c.suit === card.suit && c.value === card.value
-      );
-      p.plot.revealed.splice(cardIndex, 1);
-      this._addToExiled(gameState, `${card.suit}-${card.value}`);
-      gameState.trickHistory[gameState.trickHistory.length - 1].requisitions.push(
-        `${p.name} отправить на Север ${card.toString()}`
-      );
-
-      // Party official exiles second card
-      if (partyOfficial && suitCards.length > 1) {
-        const card2 = suitCards[1];
-        const card2Index = p.plot.revealed.findIndex(
-          c => c.suit === card2.suit && c.value === card2.value
+      const matchingHidden = p.plot.hidden.filter(c => c.suit === suit);
+      
+      if (matchingHidden.length > 0) {
+        // All variants: reveal only highest hidden card
+        const highestHidden = matchingHidden.reduce((max, card) =>
+          card.value > max.value ? card : max
         );
-        p.plot.revealed.splice(card2Index, 1);
-        this._addToExiled(gameState, `${card2.suit}-${card2.value}`);
-        gameState.trickHistory[gameState.trickHistory.length - 1].requisitions.push(
-          `Партийный чиновник: ${p.name} отправить на Север ${card2.toString()}`
+        const cardIndex = p.plot.hidden.findIndex(
+          c => c.suit === highestHidden.suit && c.value === highestHidden.value
         );
+        p.plot.hidden.splice(cardIndex, 1);
+        p.plot.revealed.push(highestHidden);
+      }
+    }
+
+    // Step 2: Exile cards - each vulnerable player exiles their own highest
+    // (mice variant uses _performMiceVariant which exiles single highest overall)
+    // Deck type (52 vs 36) only affects vulnerability determination via vulnerabilityFilter, not exile logic
+    for (const p of gameState.players) {
+      if (!vulnerabilityFilter(p)) {
+        continue;
+      }
+      
+      const faceUpMatching = p.plot.revealed.filter(c => c.suit === suit);
+      if (faceUpMatching.length === 0) continue;
+      
+      faceUpMatching.sort((a, b) => b.value - a.value);
+      const highestCard = faceUpMatching[0];
+      this._exileCard(gameState, [p, highestCard]);
+      
+      // Party official exiles second highest from this player
+      if (partyOfficial && faceUpMatching.length > 1) {
+        const secondCard = faceUpMatching[1];
+        this._exileCard(gameState, [p, secondCard]);
+        const requisitions = gameState.trickHistory[gameState.trickHistory.length - 1].requisitions;
+        if (requisitions.length > 0) {
+          requisitions[requisitions.length - 1] = `партийец: ${requisitions[requisitions.length - 1]}`;
+        }
       }
     }
   }
@@ -280,29 +187,24 @@ export class RequisitionManager {
         continue;
       }
 
-      // Collect matching cards from hidden plot cards
+      // Collect matching cards from hidden plot cards only
+      // Hidden cards in stacks are just markers and aren't considered for requisition
       const matchingHidden = p.plot.hidden.filter(c => c.suit === suit);
       
-      // For ordenNachalniku variant, also check stacks for matching cards
+      // For ordenNachalniku variant, check stacks for revealed cards only (not hidden)
       const matchingFromStacks = [];
       if (this.gameVariants.ordenNachalniku && this.gameVariants.deckType === '36' && p.plot.stacks) {
         for (const stack of p.plot.stacks) {
-          // Check revealed cards in stack
+          // Only check revealed cards in stack (hidden cards are just markers)
           for (const card of stack.revealed || []) {
             if (card.suit === suit) {
-              matchingFromStacks.push({ card, stack, location: 'revealed' });
-            }
-          }
-          // Check hidden cards in stack
-          for (const card of stack.hidden || []) {
-            if (card.suit === suit) {
-              matchingFromStacks.push({ card, stack, location: 'hidden' });
+              matchingFromStacks.push({ card, stack });
             }
           }
         }
       }
 
-      // Combine all matching cards
+      // Combine all matching cards (only from plot.hidden and stack.revealed, not stack.hidden)
       const allMatching = [...matchingHidden, ...matchingFromStacks.map(m => m.card)];
       if (allMatching.length === 0) continue;
 
@@ -316,31 +218,19 @@ export class RequisitionManager {
           p.plot.revealed.push(card);
           allRevealedCards.push([p, card]);
         }
-        // Reveal all matching cards from stacks (move to plot.revealed)
-        for (const { card, stack, location } of matchingFromStacks) {
-          if (location === 'hidden') {
-            const cardIndex = stack.hidden.findIndex(
-              c => c.suit === card.suit && c.value === card.value
-            );
-            if (cardIndex !== -1) {
-              stack.hidden.splice(cardIndex, 1);
-              p.plot.revealed.push(card);
-              allRevealedCards.push([p, card]);
-            }
-          } else {
-            // Already revealed in stack, just move to plot.revealed
-            const cardIndex = stack.revealed.findIndex(
-              c => c.suit === card.suit && c.value === card.value
-            );
-            if (cardIndex !== -1) {
-              stack.revealed.splice(cardIndex, 1);
-              p.plot.revealed.push(card);
-              allRevealedCards.push([p, card]);
-            }
+        // Move all matching revealed cards from stacks to plot.revealed
+        for (const { card, stack } of matchingFromStacks) {
+          const cardIndex = stack.revealed.findIndex(
+            c => c.suit === card.suit && c.value === card.value
+          );
+          if (cardIndex !== -1) {
+            stack.revealed.splice(cardIndex, 1);
+            p.plot.revealed.push(card);
+            allRevealedCards.push([p, card]);
           }
         }
       } else {
-        // Reveal only highest card overall (from both hidden plot and stacks)
+        // Reveal only highest card overall (from hidden plot or revealed in stacks)
         const highestCard = allMatching.reduce((max, card) =>
           card.value > max.value ? card : max
         );
@@ -358,31 +248,19 @@ export class RequisitionManager {
           p.plot.revealed.push(highestCard);
           allRevealedCards.push([p, highestCard]);
         } else {
-          // Find which stack contains this card
+          // Find which stack contains this card (must be revealed)
           const stackEntry = matchingFromStacks.find(m => 
             m.card.suit === highestCard.suit && m.card.value === highestCard.value
           );
           if (stackEntry) {
-            const { stack, location } = stackEntry;
-            if (location === 'hidden') {
-              const cardIndex = stack.hidden.findIndex(
-                c => c.suit === highestCard.suit && c.value === highestCard.value
-              );
-              if (cardIndex !== -1) {
-                stack.hidden.splice(cardIndex, 1);
-                p.plot.revealed.push(highestCard);
-                allRevealedCards.push([p, highestCard]);
-              }
-            } else {
-              // Already revealed in stack, just move to plot.revealed
-              const cardIndex = stack.revealed.findIndex(
-                c => c.suit === highestCard.suit && c.value === highestCard.value
-              );
-              if (cardIndex !== -1) {
-                stack.revealed.splice(cardIndex, 1);
-                p.plot.revealed.push(highestCard);
-                allRevealedCards.push([p, highestCard]);
-              }
+            const { stack } = stackEntry;
+            const cardIndex = stack.revealed.findIndex(
+              c => c.suit === highestCard.suit && c.value === highestCard.value
+            );
+            if (cardIndex !== -1) {
+              stack.revealed.splice(cardIndex, 1);
+              p.plot.revealed.push(highestCard);
+              allRevealedCards.push([p, highestCard]);
             }
           }
         }
@@ -452,5 +330,50 @@ export class RequisitionManager {
       gameState.exiled[gameState.year] = [];
     }
     gameState.exiled[gameState.year].push(cardKey);
+  }
+
+  _hasVulnerablePlayers(gameState) {
+    // Check if any players are vulnerable to requisition
+    // This depends on the variant being used
+    
+    if (this.gameVariants.deckType === '36' && this.gameVariants.ordenNachalniku) {
+      // For ordenNachalniku variant: players with stacks are vulnerable
+      // Also check if any job has an informant (makes everyone vulnerable for that job)
+      for (const [suit, bucket] of Object.entries(gameState.jobBuckets)) {
+        if (gameState.workHours[suit] >= THRESHOLD) {
+          continue; // Skip completed jobs
+        }
+        const informant = this._hasInformant(bucket, gameState.trump);
+        if (informant) {
+          return true; // Informant makes everyone vulnerable
+        }
+      }
+      // Check if any player has stacks
+      return gameState.players.some(p => 
+        p.plot.stacks && p.plot.stacks.length > 0
+      );
+    } else {
+      // Standard variant: check northernStyle, hasWonTrickThisYear, or informant
+      if (this.gameVariants.northernStyle) {
+        return true; // Everyone is vulnerable in northern style
+      }
+      
+      // Check if any player won a trick this year
+      if (gameState.players.some(p => p.hasWonTrickThisYear)) {
+        return true;
+      }
+      
+      // Check if any failed job has an informant
+      for (const [suit, bucket] of Object.entries(gameState.jobBuckets)) {
+        if (gameState.workHours[suit] >= THRESHOLD) {
+          continue; // Skip completed jobs
+        }
+        if (this._hasInformant(bucket, gameState.trump)) {
+          return true; // Informant makes everyone vulnerable
+        }
+      }
+      
+      return false;
+    }
   }
 }

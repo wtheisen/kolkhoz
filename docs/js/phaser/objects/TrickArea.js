@@ -10,6 +10,7 @@ export class TrickArea extends Phaser.GameObjects.Container {
     this.layoutManager = layoutManager;
     this.trickCardSprites = [];
     this.leadSuitIndicator = null;
+    this.trumpSuitIndicator = null;
     
     scene.add.existing(this);
     
@@ -38,10 +39,12 @@ export class TrickArea extends Phaser.GameObjects.Container {
       // Font sizes
       waitingFontSize: `${Math.max(12, Math.min(20, baseSize * 0.016))}px`,
       leadFontSize: `${Math.max(11, Math.min(18, baseSize * 0.014))}px`,
+      trumpFontSize: `${Math.max(14, Math.min(22, baseSize * 0.018))}px`,
       playerNameFontSize: `${Math.max(9, Math.min(15, baseSize * 0.012))}px`,
       
       // Positions
-      leadTextY: tableRadius + baseSize * 0.03, // Position below the circle but not too low to avoid player hand
+      leadTextY: tableRadius + baseSize * 0.03, // Position below the circle
+      trumpTextY: -(tableRadius + baseSize * 0.03), // Position above the circle
       playerNameOffsetY: baseSize * 0.06
     };
   }
@@ -52,6 +55,102 @@ export class TrickArea extends Phaser.GameObjects.Container {
     const tableBg = this.scene.add.circle(0, 0, sizes.tableRadius, 0x1a1a1a, 0.5);
     tableBg.setStrokeStyle(2, 0xc9a961);
     this.add(tableBg);
+    
+    // Show trump suit indicator or famine year indicator (always visible)
+    if (this.gameState.isFamine) {
+      // During famine year, show "Год неурожая" instead of trump
+      const famineText = this.scene.add.text(0, sizes.trumpTextY, 'Год неурожая', {
+        fontSize: sizes.trumpFontSize,
+        fill: '#c9a961'
+      });
+      famineText.setOrigin(0.5, 0.5);
+      this.add(famineText);
+      // Add tooltip for Russian text
+      if (this.scene.tooltipManager) {
+        this.scene.tooltipManager.addAutoTooltip(famineText, 'Год неурожая');
+      }
+      this.trumpSuitIndicator = famineText;
+    } else if (this.gameState.trump) {
+      const trumpText = this.scene.add.text(0, sizes.trumpTextY, `Наша главная задача: ${this.gameState.trump}`, {
+        fontSize: sizes.trumpFontSize,
+        fill: '#c9a961'
+      });
+      trumpText.setOrigin(0.5, 0.5);
+      this.add(trumpText);
+      // Add tooltip for Russian text
+      if (this.scene.tooltipManager) {
+        this.scene.tooltipManager.addAutoTooltip(trumpText, 'Наша главная задача:');
+      }
+      this.trumpSuitIndicator = trumpText;
+    }
+  }
+
+  // Update trump display (useful when trump changes)
+  updateTrumpDisplay() {
+    // Remove old trump indicator if it exists
+    if (this.trumpSuitIndicator) {
+      this.trumpSuitIndicator.destroy();
+      this.trumpSuitIndicator = null;
+    }
+    
+    // Add new trump indicator
+    const sizes = this.getResponsiveSizes();
+    if (this.gameState.isFamine) {
+      // During famine year, show "Год неурожая" instead of trump
+      const famineText = this.scene.add.text(0, sizes.trumpTextY, 'Год неурожая', {
+        fontSize: sizes.trumpFontSize,
+        fill: '#c9a961'
+      });
+      famineText.setOrigin(0.5, 0.5);
+      this.add(famineText);
+      // Add tooltip for Russian text
+      if (this.scene.tooltipManager) {
+        this.scene.tooltipManager.addAutoTooltip(famineText, 'Год неурожая');
+      }
+      this.trumpSuitIndicator = famineText;
+    } else if (this.gameState.trump) {
+      const trumpText = this.scene.add.text(0, sizes.trumpTextY, `Наша главная задача: ${this.gameState.trump}`, {
+        fontSize: sizes.trumpFontSize,
+        fill: '#c9a961'
+      });
+      trumpText.setOrigin(0.5, 0.5);
+      this.add(trumpText);
+      // Add tooltip for Russian text
+      if (this.scene.tooltipManager) {
+        this.scene.tooltipManager.addAutoTooltip(trumpText, 'Наша главная задача:');
+      }
+      this.trumpSuitIndicator = trumpText;
+    }
+  }
+
+  // Display swap phase text
+  displaySwapPhase() {
+    const sizes = this.getResponsiveSizes();
+    
+    // Clear existing cards
+    this.trickCardSprites.forEach(card => card.destroy());
+    this.trickCardSprites = [];
+    this.removeAll(true);
+    // Reset references since objects were removed
+    this.leadSuitIndicator = null;
+    this.trumpSuitIndicator = null;
+    this.createTrickArea();
+
+    // Show swap instruction text
+    const swapText = this.scene.add.text(0, 0, 'Поменять шило на мыло', {
+      fontSize: sizes.trumpFontSize,
+      fill: '#c9a961'
+    });
+    swapText.setOrigin(0.5, 0.5);
+    this.add(swapText);
+    // Add tooltip for Russian text
+    if (this.scene.tooltipManager) {
+      this.scene.tooltipManager.addAutoTooltip(swapText, 'Поменять шило на мыло');
+    }
+    this.swapPhaseText = swapText;
+    
+    // Store position for button placement
+    this.swapTextY = 0;
   }
 
   // Display current trick
@@ -62,6 +161,10 @@ export class TrickArea extends Phaser.GameObjects.Container {
     this.trickCardSprites.forEach(card => card.destroy());
     this.trickCardSprites = [];
     this.removeAll(true);
+    // Reset references since objects were removed
+    this.leadSuitIndicator = null;
+    this.trumpSuitIndicator = null;
+    this.swapPhaseText = null;
     this.createTrickArea();
 
     if (!trick || trick.length === 0) {
@@ -74,7 +177,7 @@ export class TrickArea extends Phaser.GameObjects.Container {
       return;
     }
 
-    // Show lead suit indicator
+    // Show lead suit indicator below the trick area
     if (trick.length > 0) {
       const leadSuit = trick[0][1].suit;
       const leadText = this.scene.add.text(0, sizes.leadTextY, `Lead: ${leadSuit}`, {

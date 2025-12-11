@@ -7,7 +7,86 @@ export class YearManager {
     this.gameVariants = gameVariants;
   }
 
-  nextYear(gameState, deckManager) {
+  /**
+   * Sets up a new year: resets state, reveals jobs, prepares deck, deals hands, determines famine status,
+   * handles trump selection, and sets up phases. This consolidates all year initialization logic in one place.
+   */
+  setupYear(gameState, deckManager) {
+    // Reset phase and trick state
+    gameState.phase = 'planning';
+    gameState.trickCount = 0;
+    gameState.currentTrick = [];
+    gameState.lastWinner = null; // Reset lastWinner for new year
+    gameState.trump = null; // Reset trump for new year (dealer will select)
+
+    // Reset work hours
+    for (const suit of SUITS) {
+      gameState.workHours[suit] = 0;
+    }
+
+    // Clear job buckets and claimed jobs
+    for (const suit of SUITS) {
+      gameState.jobBuckets[suit] = [];
+    }
+    gameState.claimedJobs.clear();
+
+    // Clear hands before dealing new cards
+    for (const p of gameState.players) {
+      p.hand = [];
+    }
+
+    // Rotate dealer to the left for next year
+    gameState.dealer = (gameState.dealer + 1) % gameState.numPlayers;
+    // First trick of the year starts with player to the left of dealer
+    gameState.lead = (gameState.dealer + 1) % gameState.numPlayers;
+
+    // Check if Ace of Clubs is at the top of the Clubs job pile before revealing (forces famine year in 52-card deck)
+    let aceOfClubsRevealed = false;
+    if (this.gameVariants.deckType !== '36') {
+      const clubsPile = gameState.jobPiles['Clubs'];
+      if (clubsPile && clubsPile.length > 0) {
+        const topCard = clubsPile[clubsPile.length - 1]; // Last element, since pop() removes from end
+        aceOfClubsRevealed = topCard.suit === 'Clubs' && topCard.value === 1;
+      }
+    }
+
+    // Reveal new jobs
+    gameState.revealedJobs = deckManager.revealJobs(
+      gameState.jobPiles,
+      gameState.accumulatedJobCards
+    );
+
+    // Prepare workers deck
+    gameState.workersDeck = deckManager.prepareWorkersDeck(
+      gameState.players,
+      gameState.jobBuckets,
+      gameState.exiled,
+      this.gameVariants.ordenNachalniku
+    );
+
+    // Calculate starting hand size before dealing (max 5, or evenly divisible amount)
+    const numPlayers = gameState.players.length;
+    gameState.startingHandSize = Math.min(5, Math.floor(gameState.workersDeck.length / numPlayers));
+
+    // Deal cards (this will deal exactly startingHandSize cards to each player)
+    gameState.isFamine = deckManager.dealHands(gameState.players, gameState.workersDeck);
+
+    // Force famine year if Ace of Clubs was revealed
+    if (aceOfClubsRevealed) {
+      gameState.isFamine = true;
+    }
+
+    // Note: planningPhase() should be called by the UI layer after setupYear()
+    // to handle trump selection and phase transitions.
+    // setupYear() just sets up the year state; planningPhase() handles the phase flow.
+  }
+
+  /**
+   * Performs end-of-year cleanup: accumulates unclaimed job rewards, processes stacks,
+   * accumulates medals, and resets player flags. This must run even for the final year
+   * so players receive their rewards.
+   */
+  yearCleanup(gameState) {
     // Store accumulated cards for unclaimed jobs
     if (this.gameVariants.accumulateUnclaimedJobs &&
         this.gameVariants.deckType !== '36' &&
@@ -21,28 +100,6 @@ export class YearManager {
         }
       }
     }
-
-    gameState.year++;
-    
-    // Check if we've completed all years (after incrementing, so year 5 can complete)
-    if (gameState.year > MAX_YEARS) {
-      gameState.phase = 'game_over';
-      return;
-    }
-    gameState.phase = 'planning';
-    gameState.trickCount = 0; // Reset trick count for new year
-    gameState.currentTrick = []; // Clear current trick for new year
-
-    // Reset work hours
-    for (const suit of SUITS) {
-      gameState.workHours[suit] = 0;
-    }
-
-    // Reveal new jobs
-    gameState.revealedJobs = deckManager.revealJobs(
-      gameState.jobPiles,
-      gameState.accumulatedJobCards
-    );
 
     // Handle ordenNachalniku variant: at start of next year, only keep the lowest card (revealed)
     // All other cards (hidden) from stacks go back to the deck
@@ -63,16 +120,8 @@ export class YearManager {
       }
     }
 
-    // Clear job buckets and claimed jobs
-    for (const suit of SUITS) {
-      gameState.jobBuckets[suit] = [];
-    }
-    gameState.claimedJobs.clear();
-
     // Reset player flags and accumulate medals
     for (const p of gameState.players) {
-      // Clear hand before dealing new cards
-      p.hand = [];
       // Accumulate medals earned this year into plot medals (only if variant is enabled)
       if (this.gameVariants.medalsCount && p.medals > 0) {
         p.plot.medals = (p.plot.medals || 0) + p.medals;
@@ -84,24 +133,22 @@ export class YearManager {
       p.hasWonTrickThisYear = false;
       p.brigadeLeader = false;
     }
+  }
 
-    // Prepare new deck and deal cards
-    gameState.workersDeck = deckManager.prepareWorkersDeck(
-      gameState.players,
-      gameState.jobBuckets,
-      gameState.exiled,
-      this.gameVariants.ordenNachalniku
-    );
-    gameState.isFamine = deckManager.dealHands(gameState.players, gameState.workersDeck);
+  nextYear(gameState, deckManager) {
+    // Perform end-of-year cleanup (must happen before checking game over)
+    this.yearCleanup(gameState);
 
-    // Handle swap phase
-    if (this.gameVariants.allowSwap) {
-      gameState.phase = 'swap';
-      gameState.currentSwapPlayer = 0;
-    } else {
-      this._setTrump(gameState);
-      gameState.phase = 'planning';
+    gameState.year++;
+
+    // Check if we've completed all years (after processing final year rewards)
+    if (gameState.year > MAX_YEARS) {
+      gameState.phase = 'game_over';
+      return;
     }
+
+    // Set up the next year
+    this.setupYear(gameState, deckManager);
   }
 
   calculateScores(gameState) {

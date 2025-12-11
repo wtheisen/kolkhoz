@@ -37,10 +37,15 @@ export class TrickPhaseManager {
     }
 
     const leadSuit = gameState.currentTrick[0][1].suit;
-    const trumpCards = gameState.currentTrick.filter(([pid, c]) => c.suit === gameState.trump);
+    // During famine year, there's no trump, so trumpCards will be empty
+    const trumpCards = gameState.trump 
+      ? gameState.currentTrick.filter(([pid, c]) => c.suit === gameState.trump)
+      : [];
 
     // Find winner
     let bestPid, bestCard;
+    // If there are trump cards, they win. Otherwise, highest lead suit wins.
+    // During famine year (no trump), only lead suit cards are checked.
     const cardsToCheck = trumpCards.length > 0 ? trumpCards :
                          gameState.currentTrick.filter(([pid, c]) => c.suit === leadSuit);
 
@@ -114,7 +119,7 @@ export class TrickPhaseManager {
     }
 
     // Check if this was the final trick of the year
-    const tricksPerYear = this._getTricksPerYear(gameState.year);
+    const tricksPerYear = this._getTricksPerYear(gameState);
     if (gameState.trickCount >= tricksPerYear) {
       // All tricks played - transition to plot selection
       gameState.phase = 'plot_selection';
@@ -125,9 +130,11 @@ export class TrickPhaseManager {
     }
   }
 
-  _getTricksPerYear(year) {
-    // Year 5 has 3 tricks, all other years have 4
-    return year === 5 ? 3 : 4;
+  _getTricksPerYear(gameState) {
+    // Always play one fewer trick than starting hand size
+    // For normal years: startingHandSize is 5, so 4 tricks
+    // For famine years: startingHandSize is < 5, so (startingHandSize - 1) tricks
+    return gameState.startingHandSize - 1;
   }
 
   _handleCompletedJob(gameState, suit) {
@@ -157,6 +164,7 @@ export class TrickPhaseManager {
 
       // Add stack to winner's plot (подвал)
       winner.plot.stacks.push({
+        suit: suit,  // Track which job this stack corresponds to
         revealed: [lowestCard],
         hidden: otherCards
       });

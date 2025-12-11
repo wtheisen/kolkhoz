@@ -59,7 +59,7 @@ The game is ready for deployment. See [DEPLOYMENT.md](./DEPLOYMENT.md) for detai
 
 - **Jack (Пьяница - Drunkard)** - Contributes 0 work hours. If the job fails, the Drunkard is exiled instead of your cards
 - **Queen (Информатор - Informant)** - If the job fails, ALL players reveal their Personal Plots (not just Brigade Leaders)
-- **King (Партийный чиновник - Party Official)** - If the job is requisitioned, TWO cards are exiled instead of one
+- **King (партийец - Party Official)** - If the job is requisitioned, TWO cards are exiled instead of one
 
 ## 🏗️ Architecture
 

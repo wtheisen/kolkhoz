@@ -12,8 +12,14 @@ export class PlayerArea extends Phaser.GameObjects.Container {
     this.layoutManager = layoutManager;
     this.cardSprites = [];
     this.plotSprites = [];
+    this.crownEmblem = null;
+    this.turnIndicator = null;
     
     scene.add.existing(this);
+    
+    // Containers are non-interactive by default, but explicitly disable to ensure
+    // pointer events pass through to child sprites and scene elements
+    this.disableInteractive();
     
     // Create player name and score display
     this.createPlayerInfo();
@@ -46,15 +52,16 @@ export class PlayerArea extends Phaser.GameObjects.Container {
       // Fan radius
       fanRadius: Math.max(100, Math.min(140, baseSize * 0.12)),
       
-      // Plot card sizes
-      plotCardWidth: Math.max(32, Math.min(48, baseSize * 0.04)),
-      plotCardHeight: Math.max(45, Math.min(67, baseSize * 0.056)),
+      // Plot card sizes (larger for single row layout)
+      plotCardWidth: Math.max(48, Math.min(72, baseSize * 0.06)),
+      plotCardHeight: Math.max(67, Math.min(101, baseSize * 0.084)),
       
       // Plot spacing
       plotStackSpacingX: Math.max(48, Math.min(72, baseSize * 0.06)),
       plotStackSpacingY: Math.max(64, Math.min(96, baseSize * 0.08)),
       plotCardOverlap: 3,
-      plotCardSpacingX: Math.max(20, Math.min(30, baseSize * 0.025)),
+      // Spacing should be card width + gap to prevent overlap
+      plotCardSpacingX: Math.max(54, Math.min(80, baseSize * 0.067)), // Card width + small gap
       plotCardSpacingY: Math.max(24, Math.min(36, baseSize * 0.03)),
       plotBaseY: gameHeight * 0.1,
       plotStackStartY: gameHeight * 0.1
@@ -64,22 +71,35 @@ export class PlayerArea extends Phaser.GameObjects.Container {
   createPlayerInfo() {
     const sizes = this.getResponsiveSizes();
     const isHuman = this.player.isHuman;
-    const isCentralPlanner = this.playerIndex === this.scene.gameState?.lead;
+    const isCentralPlanner = this.playerIndex === this.scene.gameState?.dealer;
     const isCurrentTurn = this.scene.gameState?.phase === 'trick' && 
                           this.scene.gameState?.currentTrick.length < this.scene.gameState?.numPlayers &&
-                          this.playerIndex === (this.scene.gameState?.lead + this.scene.gameState?.currentTrick.length) % this.scene.gameState?.numPlayers;
+                          this.playerIndex === this.scene.getNextPlayer();
     
     // Player name and score
     const score = this.scene.gameState?.scores?.[this.playerIndex] || 0;
     let infoText = `${this.player.name}: ${score}`;
-    // Always show medals if player has won tricks this year (display only)
-    // Count shown is p.medals (tricks won this year) + plot.medals (if variant enabled)
-    if (this.player.hasWonTrickThisYear || (this.player.medals || 0) > 0) {
-      const currentYearMedals = this.player.medals || 0;
-      const plotMedals = this.scene.gameState?.gameVariants?.medalsCount ? (this.player.plot?.medals || 0) : 0;
-      const medalsToShow = currentYearMedals + plotMedals;
-      if (medalsToShow > 0) {
-        infoText += ` 🏅${medalsToShow}`;
+    
+    // Medal display logic
+    const isOrdenNachalniku = this.scene.gameState?.gameVariants?.ordenNachalniku && 
+                              this.scene.gameState?.gameVariants?.deckType === '36';
+    
+    if (isOrdenNachalniku) {
+      // For ordenNachalniku variant: only show medals if player completed jobs (has stacks)
+      const stacksCount = (this.player.plot?.stacks?.length || 0);
+      if (stacksCount > 0) {
+        infoText += ` 🏅${stacksCount}`;
+      }
+    } else {
+      // Standard behavior: show medals for tricks won this year (display only)
+      // Count shown is p.medals (tricks won this year) + plot.medals (if variant enabled)
+      if (this.player.hasWonTrickThisYear || (this.player.medals || 0) > 0) {
+        const currentYearMedals = this.player.medals || 0;
+        const plotMedals = this.scene.gameState?.gameVariants?.medalsCount ? (this.player.plot?.medals || 0) : 0;
+        const medalsToShow = currentYearMedals + plotMedals;
+        if (medalsToShow > 0) {
+          infoText += ` 🏅${medalsToShow}`;
+        }
       }
     }
     const info = this.scene.add.text(0, sizes.playerInfoY, infoText, {
@@ -92,15 +112,15 @@ export class PlayerArea extends Phaser.GameObjects.Container {
     
     // Indicators
     if (isCentralPlanner) {
-      const emblem = this.scene.add.text(0, sizes.emblemY, '👑', { fontSize: sizes.emblemFontSize });
-      emblem.setOrigin(0.5, 0.5);
-      this.add(emblem);
+      this.crownEmblem = this.scene.add.text(0, sizes.emblemY, '👑', { fontSize: sizes.emblemFontSize });
+      this.crownEmblem.setOrigin(0.5, 0.5);
+      this.add(this.crownEmblem);
     }
     
     if (isCurrentTurn) {
-      const turnIndicator = this.scene.add.text(0, sizes.turnIndicatorY, '→', { fontSize: sizes.turnIndicatorFontSize, fill: '#4CAF50' });
-      turnIndicator.setOrigin(0.5, 0.5);
-      this.add(turnIndicator);
+      this.turnIndicator = this.scene.add.text(0, sizes.turnIndicatorY, '→', { fontSize: sizes.turnIndicatorFontSize, fill: '#4CAF50' });
+      this.turnIndicator.setOrigin(0.5, 0.5);
+      this.add(this.turnIndicator);
     }
   }
 
@@ -109,19 +129,68 @@ export class PlayerArea extends Phaser.GameObjects.Container {
       const sizes = this.getResponsiveSizes();
       const score = this.scene.gameState?.scores?.[this.playerIndex] || 0;
       let infoText = `${this.player.name}: ${score}`;
-      // Always show medals if player has won tricks this year (display only)
-      // Count shown is p.medals (tricks won this year) + plot.medals (if variant enabled)
-      if (this.player.hasWonTrickThisYear || (this.player.medals || 0) > 0) {
-        const currentYearMedals = this.player.medals || 0;
-        const plotMedals = this.scene.gameState?.gameVariants?.medalsCount ? (this.player.plot?.medals || 0) : 0;
-        const medalsToShow = currentYearMedals + plotMedals;
-        if (medalsToShow > 0) {
-          infoText += ` 🏅${medalsToShow}`;
+      
+      // Medal display logic
+      const isOrdenNachalniku = this.scene.gameState?.gameVariants?.ordenNachalniku && 
+                                this.scene.gameState?.gameVariants?.deckType === '36';
+      
+      if (isOrdenNachalniku) {
+        // For ordenNachalniku variant: only show medals if player completed jobs (has stacks)
+        const stacksCount = (this.player.plot?.stacks?.length || 0);
+        if (stacksCount > 0) {
+          infoText += ` 🏅${stacksCount}`;
+        }
+      } else {
+        // Standard behavior: show medals for tricks won this year (display only)
+        // Count shown is p.medals (tricks won this year) + plot.medals (if variant enabled)
+        if (this.player.hasWonTrickThisYear || (this.player.medals || 0) > 0) {
+          const currentYearMedals = this.player.medals || 0;
+          const plotMedals = this.scene.gameState?.gameVariants?.medalsCount ? (this.player.plot?.medals || 0) : 0;
+          const medalsToShow = currentYearMedals + plotMedals;
+          if (medalsToShow > 0) {
+            infoText += ` 🏅${medalsToShow}`;
+          }
         }
       }
       this.playerInfo.setText(infoText);
       // Update font size if needed (responsive)
       this.playerInfo.setStyle({ fontSize: sizes.playerInfoFontSize });
+    }
+    
+    // Update indicators based on current game state
+    const isCentralPlanner = this.playerIndex === this.scene.gameState?.dealer;
+    // Turn indicator: show arrow if it's the trick phase and this player should play next
+    let isCurrentTurn = false;
+    if (this.scene.gameState?.phase === 'trick' && 
+        this.scene.gameState?.currentTrick.length < this.scene.gameState?.numPlayers) {
+      const nextPlayer = this.scene.getNextPlayer();
+      isCurrentTurn = this.playerIndex === nextPlayer;
+    }
+    
+    const sizes = this.getResponsiveSizes();
+    
+    // Update crown (dealer indicator)
+    if (isCentralPlanner && !this.crownEmblem) {
+      // Need to show crown
+      this.crownEmblem = this.scene.add.text(0, sizes.emblemY, '👑', { fontSize: sizes.emblemFontSize });
+      this.crownEmblem.setOrigin(0.5, 0.5);
+      this.add(this.crownEmblem);
+    } else if (!isCentralPlanner && this.crownEmblem) {
+      // Need to hide crown
+      this.crownEmblem.destroy();
+      this.crownEmblem = null;
+    }
+    
+    // Update turn indicator (lead arrow)
+    if (isCurrentTurn && !this.turnIndicator) {
+      // Need to show turn indicator
+      this.turnIndicator = this.scene.add.text(0, sizes.turnIndicatorY, '→', { fontSize: sizes.turnIndicatorFontSize, fill: '#4CAF50' });
+      this.turnIndicator.setOrigin(0.5, 0.5);
+      this.add(this.turnIndicator);
+    } else if (!isCurrentTurn && this.turnIndicator) {
+      // Need to hide turn indicator
+      this.turnIndicator.destroy();
+      this.turnIndicator = null;
     }
   }
 
@@ -164,11 +233,19 @@ export class PlayerArea extends Phaser.GameObjects.Container {
     const startAngle = -spreadAngle / 2;
     const radius = sizes.fanRadius;
     
+    // Check if this is a top player (Y position above center)
+    const centerY = this.scene.cameras.main.height / 2;
+    const isTopPlayer = this.y < centerY;
+    
+    // Adjust hand Y offset based on player position
+    // Top players: hand slightly below center, bottom players: hand at center
+    const handYOffset = isTopPlayer ? sizes.fanRadius * 0.3 : 0;
+    
     for (let i = 0; i < count; i++) {
       const angle = startAngle + (spreadAngle * i) / Math.max(1, count - 1);
       positions.push({
         x: radius * Math.sin(angle),
-        y: radius * (1 - Math.cos(angle)),
+        y: handYOffset + radius * (1 - Math.cos(angle)),
         rotation: angle
       });
     }
@@ -190,9 +267,16 @@ export class PlayerArea extends Phaser.GameObjects.Container {
 
     // Render stacks for ordenNachalniku variant (36-card deck only)
     if (isOrdenNachalniku && this.player.plot.stacks) {
+      // Check if this is a top player (Y position above center)
+      const centerY = this.scene.cameras.main.height / 2;
+      const isTopPlayer = this.y < centerY;
+      
+      // For top players: stacks above hand (negative Y), for bottom players: stacks below hand (positive Y)
+      const stackBaseY = isTopPlayer ? -sizes.plotStackStartY : sizes.plotStackStartY;
+      
       this.player.plot.stacks.forEach((stack, stackIndex) => {
         const stackStartX = (stackIndex % 3) * sizes.plotStackSpacingX - sizes.plotStackSpacingX;
-        const stackStartY = sizes.plotStackStartY + Math.floor(stackIndex / 3) * sizes.plotStackSpacingY;
+        const stackStartY = stackBaseY + Math.floor(stackIndex / 3) * sizes.plotStackSpacingY;
         const cardOverlap = sizes.plotCardOverlap; // Vertical overlap between stacked cards
         
         // Calculate total stack height
@@ -250,44 +334,52 @@ export class PlayerArea extends Phaser.GameObjects.Container {
       });
     }
 
-    // Render revealed cards (for non-ordenNachalniku or when stacks aren't used)
+    // Render all plot cards in a single row (revealed + hidden)
+    // Check if this is a top player (Y position above center)
+    const centerY = this.scene.cameras.main.height / 2;
+    const isTopPlayer = this.y < centerY;
+    
+    // For top players: plot above hand (negative Y), for bottom players: plot below hand (positive Y)
+    // Add slight downward offset for both
+    const plotYOffset = isTopPlayer ? -sizes.plotBaseY * 1.5 + 20 : sizes.plotBaseY + 20;
+    
+    const baseY = isOrdenNachalniku && this.player.plot.stacks?.length > 0 
+      ? (isTopPlayer ? -sizes.plotStackStartY * 2 : sizes.plotStackStartY * 2) + Math.floor((this.player.plot.stacks.length - 1) / 3) * sizes.plotStackSpacingY + 20
+      : plotYOffset;
+    
+    // Combine all plot cards (revealed first, then hidden) into a single array
+    const allPlotCards = [];
     if (this.player.plot.revealed) {
-      const baseY = isOrdenNachalniku && this.player.plot.stacks?.length > 0 
-        ? sizes.plotStackStartY * 2 + Math.floor((this.player.plot.stacks.length - 1) / 3) * sizes.plotStackSpacingY
-        : sizes.plotBaseY;
-      
-      this.player.plot.revealed.forEach((card, index) => {
-        const cardSprite = new CardSprite(
-          this.scene,
-          (index % 5) * sizes.plotCardSpacingX - sizes.plotCardSpacingX * 2,
-          baseY + Math.floor(index / 5) * sizes.plotCardSpacingY,
-          card,
-          true
-        );
-        cardSprite.setDisplaySize(sizes.plotCardWidth, sizes.plotCardHeight);
-        this.plotSprites.push(cardSprite);
-        this.plotContainer.add(cardSprite);
+      this.player.plot.revealed.forEach(card => {
+        allPlotCards.push({ card, faceUp: true });
       });
     }
-
-    // Render hidden cards (face down)
     if (this.player.plot.hidden) {
-      const baseY = isOrdenNachalniku && this.player.plot.stacks?.length > 0 
-        ? sizes.plotStackStartY * 2.5 + Math.floor((this.player.plot.stacks.length - 1) / 3) * sizes.plotStackSpacingY
-        : sizes.plotBaseY * 1.5;
+      this.player.plot.hidden.forEach(card => {
+        allPlotCards.push({ card, faceUp: false });
+      });
+    }
+    
+    // Render all cards in a single row with proper spacing
+    if (allPlotCards.length > 0) {
+      const totalCards = allPlotCards.length;
+      // Spacing should be card width + small gap (8px) to prevent overlap
+      const cardSpacing = sizes.plotCardWidth + 8;
+      const totalWidth = (totalCards - 1) * cardSpacing;
+      const startX = -totalWidth / 2;
       
-      this.player.plot.hidden.forEach((card, index) => {
+      allPlotCards.forEach((plotCard, index) => {
         const cardSprite = new CardSprite(
           this.scene,
-          (index % 5) * sizes.plotCardSpacingX - sizes.plotCardSpacingX * 2,
-          baseY + Math.floor(index / 5) * sizes.plotCardSpacingY,
-          card,
-          false
+          startX + index * cardSpacing,
+          baseY,
+          plotCard.card,
+          plotCard.faceUp
         );
         cardSprite.setDisplaySize(sizes.plotCardWidth, sizes.plotCardHeight);
         
-        // Add hover reveal for human player's plot cards
-        if (this.player.isHuman) {
+        // Add hover reveal for human player's hidden plot cards
+        if (this.player.isHuman && !plotCard.faceUp) {
           cardSprite.setInteractive({ useHandCursor: true });
           cardSprite.on('pointerover', () => {
             cardSprite.setFaceUp(true);
@@ -305,6 +397,90 @@ export class PlayerArea extends Phaser.GameObjects.Container {
 
   getCardSprites() {
     return this.cardSprites;
+  }
+
+  getPlotSprites() {
+    return this.plotSprites;
+  }
+
+  // Get bounds for plot container (for drop zone detection)
+  getPlotBounds() {
+    if (this.plotSprites.length === 0) {
+      // No plot cards, return a default area
+      const sizes = this.getResponsiveSizes();
+      return {
+        x: this.x - sizes.plotCardSpacingX * 2.5,
+        y: this.y + sizes.plotBaseY,
+        width: sizes.plotCardSpacingX * 5,
+        height: sizes.plotBaseY * 2
+      };
+    }
+    
+    // Calculate bounds from actual card positions
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+    
+    this.plotSprites.forEach(sprite => {
+      // Get world position of sprite
+      const worldX = this.x + this.plotContainer.x + sprite.x;
+      const worldY = this.y + this.plotContainer.y + sprite.y;
+      const halfWidth = sprite.displayWidth / 2;
+      const halfHeight = sprite.displayHeight / 2;
+      
+      minX = Math.min(minX, worldX - halfWidth);
+      maxX = Math.max(maxX, worldX + halfWidth);
+      minY = Math.min(minY, worldY - halfHeight);
+      maxY = Math.max(maxY, worldY + halfHeight);
+    });
+    
+    // Add padding
+    const padding = 20;
+    return {
+      x: minX - padding,
+      y: minY - padding,
+      width: (maxX - minX) + padding * 2,
+      height: (maxY - minY) + padding * 2
+    };
+  }
+
+  // Get bounds for hand container (for drop zone detection)
+  getHandBounds() {
+    if (this.cardSprites.length === 0) {
+      // No hand cards, return a default area
+      const sizes = this.getResponsiveSizes();
+      return {
+        x: this.x - sizes.fanRadius * 1.25,
+        y: this.y - sizes.fanRadius * 0.75,
+        width: sizes.fanRadius * 2.5,
+        height: sizes.fanRadius * 1.5
+      };
+    }
+    
+    // Calculate bounds from actual card positions
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+    
+    this.cardSprites.forEach(sprite => {
+      // Get world position of sprite
+      const worldX = this.x + this.handContainer.x + sprite.x;
+      const worldY = this.y + this.handContainer.y + sprite.y;
+      const halfWidth = sprite.displayWidth / 2;
+      const halfHeight = sprite.displayHeight / 2;
+      
+      minX = Math.min(minX, worldX - halfWidth);
+      maxX = Math.max(maxX, worldX + halfWidth);
+      minY = Math.min(minY, worldY - halfHeight);
+      maxY = Math.max(maxY, worldY + halfHeight);
+    });
+    
+    // Add padding
+    const padding = 20;
+    return {
+      x: minX - padding,
+      y: minY - padding,
+      width: (maxX - minX) + padding * 2,
+      height: (maxY - minY) + padding * 2
+    };
   }
 
   destroy() {

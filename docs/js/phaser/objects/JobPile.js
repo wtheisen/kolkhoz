@@ -3,6 +3,7 @@
 import { CardSprite } from './CardSprite.js';
 import { TextureLoader } from '../utils/TextureLoader.js';
 import { SUITS } from '../../core/constants.js';
+import { getTranslation } from '../../translations.js';
 
 export class JobPile extends Phaser.GameObjects.Container {
   constructor(scene, x, y, suit, gameState, layoutManager) {
@@ -15,11 +16,13 @@ export class JobPile extends Phaser.GameObjects.Container {
     this.assignedCardSprites = [];
     this.dropZone = null;
     this.assignmentPreviewMap = null; // Map for preview assignments during assignment phase
+    this.faceCardNameText = null; // Text displaying face card names
     
     scene.add.existing(this);
     
     this.createJobDisplay();
     this.createWorkHoursDisplay();
+    this.createFaceCardNamesDisplay();
     this.createAssignedCardsArea();
   }
 
@@ -46,6 +49,7 @@ export class JobPile extends Phaser.GameObjects.Container {
       
       // Font sizes
       hoursFontSize: `${Math.max(14, Math.min(22, baseSize * 0.018))}px`,
+      faceCardNameFontSize: `${Math.max(10, Math.min(16, baseSize * 0.013))}px`,
       
       // Suit icon size
       suitIconSize: Math.max(24, Math.min(36, baseSize * 0.03)),
@@ -148,6 +152,91 @@ export class JobPile extends Phaser.GameObjects.Container {
     this.add(suitIcon);
   }
 
+  // Get face card names from job buckets
+  getFaceCardNames() {
+    const jobBuckets = this.gameState.jobBuckets[this.suit] || [];
+    const trump = this.gameState.trump;
+    if (!trump) return [];
+    
+    const names = [];
+    for (const card of jobBuckets) {
+      if (card.suit === trump) {
+        if (card.value === 11) {
+          names.push('Пьяница');
+        } else if (card.value === 12) {
+          names.push('Информатор');
+        } else if (card.value === 13) {
+          names.push('партийец');
+        }
+      }
+    }
+    return names;
+  }
+
+  // Create/update face card names display below the job pile
+  createFaceCardNamesDisplay() {
+    const sizes = this.getResponsiveSizes();
+    const gameHeight = this.scene.cameras.main.height;
+    
+    // Get face card names
+    const faceCardNames = this.getFaceCardNames();
+    
+    // Remove existing text if it exists
+    if (this.faceCardNameText) {
+      this.faceCardNameText.destroy();
+      this.faceCardNameText = null;
+    }
+    
+    // Only create text if there are face cards
+    if (faceCardNames.length > 0) {
+      const nameText = faceCardNames.join(', ');
+      
+      // Calculate position below assigned cards stack
+      // Get the total number of cards (including preview if in assignment phase)
+      let totalCards = this.gameState.jobBuckets[this.suit]?.length || 0;
+      if (this.assignmentPreviewMap && this.lastTrickForPreview) {
+        const previewCards = this.lastTrickForPreview.filter(([_pid, card]) => {
+          const cardKey = `${card.suit}-${card.value}`;
+          return this.assignmentPreviewMap.get(cardKey) === this.suit;
+        }).length;
+        totalCards += previewCards;
+      }
+      
+      const cardHeight = sizes.assignedCardHeight;
+      const cardOverlap = sizes.cardOverlap;
+      const stackHeight = totalCards > 0 
+        ? sizes.assignedCardsY + (totalCards - 1) * (cardHeight - cardOverlap) + cardHeight / 2
+        : sizes.assignedCardsY;
+      
+      // Position text below the stack with some spacing
+      const textY = stackHeight + gameHeight * 0.03;
+      
+      this.faceCardNameText = this.scene.add.text(0, textY, nameText, {
+        fontSize: sizes.faceCardNameFontSize,
+        fill: '#c9a961'
+      });
+      this.faceCardNameText.setOrigin(0.5, 0.5);
+      // Add tooltip for Russian face card names
+      if (this.scene.tooltipManager && faceCardNames.length > 0) {
+        const translations = faceCardNames.map(name => getTranslation(name));
+        this.scene.tooltipManager.addTooltip(this.faceCardNameText, translations.join(', '));
+      }
+      this.add(this.faceCardNameText);
+    }
+  }
+
+  // Update face card names display
+  updateFaceCardNames() {
+    // Remove existing text
+    if (this.faceCardNameText) {
+      this.faceCardNameText.destroy();
+      this.faceCardNameText = null;
+    }
+    
+    // Recreate with current data
+    this.createFaceCardNamesDisplay();
+  }
+
   createAssignedCardsArea() {
     const sizes = this.getResponsiveSizes();
     // Area where assigned worker cards will be displayed in a stack
@@ -202,6 +291,9 @@ export class JobPile extends Phaser.GameObjects.Container {
       // Show actual assigned cards from jobBuckets
       assignedCards = this.gameState.jobBuckets[this.suit] || [];
     }
+    
+    // Update face card names display when assigned cards change
+    this.updateFaceCardNames();
     
     if (assignedCards.length === 0) {
       return;
@@ -350,6 +442,9 @@ export class JobPile extends Phaser.GameObjects.Container {
   destroy() {
     this.jobCardSprites.forEach(card => card.destroy());
     this.assignedCardSprites.forEach(card => card.destroy());
+    if (this.faceCardNameText) {
+      this.faceCardNameText.destroy();
+    }
     super.destroy();
   }
 }

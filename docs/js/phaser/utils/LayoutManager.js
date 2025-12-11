@@ -16,8 +16,9 @@ export class LayoutManager {
 
   // Calculate positions for 4 players around a table
   // Adjusted to account for jobs on left and gulag on right
+  // Human player (index 0) is positioned at the bottom
   getPlayerPosition(playerIndex, totalPlayers = 4) {
-    const angle = (playerIndex * 2 * Math.PI) / totalPlayers - Math.PI / 2; // Start at top
+    const angle = (playerIndex * 2 * Math.PI) / totalPlayers + Math.PI / 2; // Start at bottom (human player at index 0)
     // Use a slightly smaller radius to account for side panels
     const radius = Math.min(this.gameWidth, this.gameHeight) * 0.30;
     

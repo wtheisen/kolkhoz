@@ -41,9 +41,64 @@
         <h2>Game Variants</h2>
         <button class="modal-close" id="modal-close">&times;</button>
       </div>
+      <div class="modal-actions modal-actions-top">
+        <button type="button" class="button button-secondary" id="modal-cancel">Cancel</button>
+        <button type="submit" class="button button-primary" id="modal-start" form="variant-form">Start Game</button>
+      </div>
       <div class="modal-body">
+        <div class="preset-buttons">
+          <button type="button" class="preset-button" data-preset="kolkhoz">
+            <div class="preset-title"><span class="russian-text">Колхоз</span></div>
+            <div class="preset-subtitle">52-Card Deck</div>
+            <div class="preset-tooltip">
+              <div class="tooltip-content">
+                <strong><span class="russian-text">Колхоз</span></strong>
+                <ul>
+                  <li>52-Card Deck</li>
+                  <li><span class="russian-text">Номенклатура живёт по своим законам</span></li>
+                  <li>Accumulate Unclaimed Field Rewards (52-Card Deck Only)</li>
+                  <li><span class="russian-text">Поменять шило на мыло</span></li>
+                </ul>
+              </div>
+            </div>
+          </button>
+          <button type="button" class="preset-button" data-preset="kolkhozik">
+            <div class="preset-title"><span class="russian-text">Колхозик</span></div>
+            <div class="preset-subtitle">36-Card Deck</div>
+            <div class="preset-tooltip">
+              <div class="tooltip-content">
+                <strong><span class="russian-text">Колхозик</span></strong>
+                <ul>
+                  <li>36-Card Deck</li>
+                  <li><span class="russian-text">Номенклатура живёт по своим законам</span></li>
+                  <li><span class="russian-text">Орден — начальнику, работа — нам</span> (36-Card Deck Only)</li>
+                  <li><span class="russian-text">Поменять шило на мыло</span></li>
+                </ul>
+              </div>
+            </div>
+          </button>
+          <button type="button" class="preset-button" data-preset="zonsky">
+            <div class="preset-title"><span class="russian-text">Зонский режим</span></div>
+            <div class="preset-subtitle">36-Card Deck</div>
+            <div class="preset-tooltip">
+              <div class="tooltip-content">
+                <strong><span class="russian-text">Зонский режим</span></strong>
+                <ul>
+                  <li>36-Card Deck</li>
+                  <li><span class="russian-text">Игра по-северному</span></li>
+                  <li><span class="russian-text">Номенклатура живёт по своим законам</span></li>
+                  <li><span class="russian-text">Разговоры вели даже с мышами</span></li>
+                  <li><span class="russian-text">Поменять шило на мыло</span></li>
+                </ul>
+              </div>
+            </div>
+          </button>
+        </div>
+        <div class="preset-divider">
+          <span>Or customize your own:</span>
+        </div>
         <form id="variant-form">
-          <div class="variant-option">
+          <div class="variant-option full-width">
             <label class="variant-label">Deck Type</label>
             <div class="radio-group">
               <label class="radio-label">
@@ -56,31 +111,32 @@
               </label>
             </div>
             <p class="variant-description">
-              Select the deck type. The 52-card deck uses cards 6-King for workers (32 cards) with Ace-5 as job rewards. The 36-card deck uses cards 6-King for workers (32 cards) with Aces only as job pile indicators (no rewards).
+              Select the deck type. The 52-card deck uses cards 6-King for workers (32 cards) with Ace-5 as field rewards. The 36-card deck uses cards 6-King for workers (32 cards) with Aces only as field pile indicators (no rewards).
             </p>
           </div>
           
+          <div class="variant-options-grid">
           <div class="variant-option">
             <label class="variant-checkbox">
               <input type="checkbox" id="northern-style" name="northernStyle">
-              <span class="checkbox-label">[Вариант] Игра по-северному</span>
+              <span class="checkbox-label"><span class="russian-text">Игра по-северному</span></span>
             </label>
             <p class="variant-description">
-              There is no reward for finishing a job and no need to remember who has been Бригадир. All players are vulnerable during requisition, not just brigade leaders.
+              There is no reward for finishing a field and no need to remember who has been <span class="russian-text">Бригадир</span>. All players are vulnerable during requisition, not just brigade leaders.
             </p>
           </div>
           
           <div class="variant-option">
             <label class="variant-checkbox">
               <input type="checkbox" id="nomenclature" name="nomenclature" checked>
-              <span class="checkbox-label">[Вариант] Номенклатура живёт по своим законам</span>
+              <span class="checkbox-label"><span class="russian-text">Номенклатура живёт по своим законам</span></span>
             </label>
             <p class="variant-description">
               Face cards (Jack, Queen, King) of the trump suit have special effects:
               <ul>
-                <li><strong>Jack (Пьяница - Drunkard):</strong> Contributes 0 work hours. If the job fails, the Drunkard is exiled instead of your cards.</li>
-                <li><strong>Queen (Информатор - Informant):</strong> If the job fails, all players must reveal their Personal Plots, not just the Brigade Leaders.</li>
-                <li><strong>King (Партийный чиновник - Party Official):</strong> If the job is requisitioned, two cards are exiled instead of one.</li>
+                <li><strong>Jack (<span class="russian-text">Пьяница</span> - Drunkard):</strong> Contributes 0 work hours. If the field fails, the Drunkard is exiled instead of your cards.</li>
+                <li><strong>Queen (<span class="russian-text">Информатор</span> - Informant):</strong> If the field fails, all players must reveal their Personal Plots, not just the Brigade Leaders.</li>
+                <li><strong>King (<span class="russian-text">партийец</span> - Party Official):</strong> If the field is requisitioned, two cards are exiled instead of one.</li>
               </ul>
             </p>
           </div>
@@ -88,20 +144,20 @@
           <div class="variant-option">
             <label class="variant-checkbox">
               <input type="checkbox" id="mice-variant" name="miceVariant">
-              <span class="checkbox-label">[Вариант] Разговоры вели даже с мышами</span>
+              <span class="checkbox-label"><span class="russian-text">Разговоры вели даже с мышами</span></span>
             </label>
             <p class="variant-description">
-              For each работа that did not reach the work-hour threshold, all players reveal the highest hidden card in their подвал that matches the failed работа. The highest card is then отправить на Север.
+              For each <span class="russian-text">работа</span> that did not reach the work-hour threshold, all players reveal the highest hidden card in their <span class="russian-text">подвал</span> that matches the failed <span class="russian-text">работа</span>. The highest card is then <span class="russian-text">отправить на Север</span>.
             </p>
           </div>
           
           <div class="variant-option" id="orden-nachalniku-option" style="display: none;">
             <label class="variant-checkbox">
               <input type="checkbox" id="orden-nachalniku" name="ordenNachalniku" checked>
-              <span class="checkbox-label">[Вариант] Орден — начальнику, работа — нам (36-Card Deck Only)</span>
+              <span class="checkbox-label"><span class="russian-text">Орден — начальнику, работа — нам</span> (36-Card Deck Only)</span>
             </label>
             <p class="variant-description">
-              When a работа is closed, the Бригадир that closes it immediately adds the workers assigned to the работа in a singular stack to their подвал with the lowest card face-up on top. Cards that are отправить на Север are shuffled back into the deck at the start of the next year.
+              When a <span class="russian-text">работа</span> is closed, the <span class="russian-text">Бригадир</span> that closes it immediately adds the workers assigned to the <span class="russian-text">работа</span> in a singular stack to their <span class="russian-text">подвал</span> with the lowest card face-up on top. Cards that are <span class="russian-text">отправить на Север</span> are shuffled back into the deck at the start of the next year.
             </p>
           </div>
           
@@ -117,24 +173,21 @@
           <div class="variant-option">
             <label class="variant-checkbox">
               <input type="checkbox" id="accumulate-jobs" name="accumulateUnclaimedJobs" checked>
-              <span class="checkbox-label">Accumulate Unclaimed Job Rewards (52-Card Deck Only)</span>
+              <span class="checkbox-label">Accumulate Unclaimed Field Rewards (52-Card Deck Only)</span>
             </label>
             <p class="variant-description">
-              When enabled, if a job is not completed (doesn't reach the work hour threshold), its reward value accumulates to the next year. The new year's job reward will be added to any unclaimed rewards from previous years. This option is only available for the 52-card deck, as the 36-card deck has no job rewards.
+              When enabled, if a field is not completed (doesn't reach the work hour threshold), its reward value accumulates to the next year. The new year's field reward will be added to any unclaimed rewards from previous years. This option is only available for the 52-card deck, as the 36-card deck has no field rewards.
             </p>
           </div>
           <div class="variant-option">
             <label class="variant-checkbox">
               <input type="checkbox" id="allow-swap" name="allowSwap">
-              <span class="checkbox-label">Allow Card Swap at Year Start</span>
+              <span class="checkbox-label"><span class="russian-text">Поменять шило на мыло</span></span>
             </label>
             <p class="variant-description">
               When enabled, at the start of each year, players can swap one of their face-down Personal Plot cards with one card from their hand. This happens before the planning phase.
             </p>
           </div>
-          <div class="modal-actions">
-            <button type="button" class="button button-secondary" id="modal-cancel">Cancel</button>
-            <button type="submit" class="button button-primary" id="modal-start">Start Game</button>
           </div>
         </form>
       </div>

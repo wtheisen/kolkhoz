@@ -83,7 +83,7 @@ docs/
 
 - **Jack (Пьяница - Drunkard)** - Contributes 0 hours, gets exiled instead of your cards
 - **Queen (Информатор - Informant)** - Reveals all hidden plots during requisition
-- **King (Партийный чиновник - Party Official)** - Exiles 2 cards instead of 1
+- **King (партийец - Party Official)** - Exiles 2 cards instead of 1
 
 ## 🚀 Deployment to GitHub Pages
 
