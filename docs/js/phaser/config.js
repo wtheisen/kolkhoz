@@ -6,11 +6,13 @@ export const phaserConfig = {
   height: window.innerHeight,
   parent: 'app',
   backgroundColor: '#000000',
+  // Match the canvas resolution to the device pixel ratio to avoid blur on HiDPI screens
+  resolution: Math.max(1, window.devicePixelRatio || 1),
   pixelArt: false, // Allow smooth scaling for non-pixel art
   scale: {
     mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    autoRound: true, // Round pixels for crisp rendering
+    autoRound: false, // Allow fractional positions to avoid jagged edges
     min: {
       width: 800,
       height: 600
@@ -32,8 +34,8 @@ export const phaserConfig = {
     createContainer: true
   },
   render: {
-    antialias: false, // Disable antialiasing for crisp, sharp rendering
-    roundPixels: true, // Round pixels for crisp rendering
+    antialias: true, // Smooth edges on hi-DPI devices
+    roundPixels: false, // Keep sub-pixel positioning for smoother rendering
     powerPreference: 'high-performance' // Use high-performance GPU rendering
   }
 };
