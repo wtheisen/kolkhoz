@@ -31,9 +31,9 @@ export const JOB_NAMES = {
 
 // Default game variants
 export const DEFAULT_VARIANTS = {
-  deckType: 36,           // 36 or 52 card deck
+  deckType: 52,           // 36 or 52 card deck
   nomenclature: true,     // Face card special effects
-  allowSwap: false,       // Swap hand/plot at year start
+  allowSwap: true,        // Swap hand/plot at year start
   northernStyle: false,   // No job rewards, all vulnerable
   miceVariant: false,     // All reveal during requisition
   ordenNachalniku: false, // Stack cards (36-card only)
