@@ -408,6 +408,12 @@ export const KolkhozGame = {
         console.log('[swap onBegin] year:', G.year, 'hands:', G.players.map(p => p.hand.length), 'plots:', G.players.map(p => p.plot.hidden.length));
         // Reset swap confirmation tracking
         G.swapConfirmed = {};
+        // Auto-confirm AI players (they don't swap strategically)
+        for (const player of G.players) {
+          if (!player.isHuman) {
+            G.swapConfirmed[player.idx] = true;
+          }
+        }
       },
       endIf: ({ G, ctx }) => {
         // End when all players have confirmed
