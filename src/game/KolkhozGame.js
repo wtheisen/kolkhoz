@@ -204,24 +204,28 @@ export const KolkhozGame = {
       start: true,
       moves: { setTrump },
       onBegin: ({ G }) => {
+        console.log('[planning onBegin] year:', G.year, 'isFamine:', G.isFamine, 'hands:', G.players.map(p => p.hand.length));
         // Famine year (Ace of Clubs revealed): no trump
         if (G.isFamine) {
           G.trump = null;
         }
       },
-      endIf: ({ G }) => G.isFamine || G.trump !== null,
+      endIf: ({ G }) => {
+        const shouldEnd = G.isFamine || G.trump !== null;
+        console.log('[planning endIf]', shouldEnd, '- isFamine:', G.isFamine, 'trump:', G.trump);
+        return shouldEnd;
+      },
       onEnd: ({ G, random }) => {
+        console.log('[planning onEnd] year:', G.year);
         // If trump wasn't set (and not famine), set it randomly
         if (!G.isFamine && !G.trump) {
           setRandomTrump(G, random);
         }
       },
       next: ({ G }) => {
-        // After planning, go to swap if enabled, else straight to trick
-        if (G.variants.allowSwap && G.year > 1) {
-          return 'swap';
-        }
-        return 'trick';
+        const next = (G.variants.allowSwap && G.year > 1) ? 'swap' : 'trick';
+        console.log('[planning next] ->', next, '- allowSwap:', G.variants.allowSwap, 'year:', G.year);
+        return next;
       },
     },
 
@@ -291,6 +295,8 @@ export const KolkhozGame = {
 
     plotSelection: {
       onBegin: ({ G, events }) => {
+        console.log('[plotSelection onBegin] START - hands before:', G.players.map(p => p.hand.length));
+        console.log('[plotSelection onBegin] plots before:', G.players.map(p => p.plot.hidden.length));
         // Auto-add all remaining cards to plot
         for (const player of G.players) {
           while (player.hand.length > 0) {
@@ -298,6 +304,8 @@ export const KolkhozGame = {
             player.plot.hidden.push(card);
           }
         }
+        console.log('[plotSelection onBegin] END - hands after:', G.players.map(p => p.hand.length));
+        console.log('[plotSelection onBegin] plots after:', G.players.map(p => p.plot.hidden.length));
         // Transition immediately after onBegin runs
         events.setPhase('requisition');
       },
@@ -306,16 +314,22 @@ export const KolkhozGame = {
 
     requisition: {
       onBegin: ({ G, random, events }) => {
+        console.log('[requisition onBegin] START - year:', G.year);
+        console.log('[requisition onBegin] hands before transition:', G.players.map(p => p.hand.length));
         performRequisition(G, G.variants);
 
         // Transition to next year
         transitionToNextYear(G, G.variants, random);
+        console.log('[requisition onBegin] after transition - year:', G.year);
+        console.log('[requisition onBegin] hands after transition:', G.players.map(p => p.hand.length));
+        console.log('[requisition onBegin] isFamine:', G.isFamine);
 
         // Transition to next phase based on game state
         if (G.year > 5) {
           // Game over - don't transition
           return;
         }
+        console.log('[requisition onBegin] calling setPhase(planning)');
         events.setPhase('planning');
       },
       next: ({ G }) => {
@@ -336,6 +350,7 @@ export const KolkhozGame = {
         },
       },
       onBegin: ({ G }) => {
+        console.log('[swap onBegin] year:', G.year, 'hands:', G.players.map(p => p.hand.length), 'plots:', G.players.map(p => p.plot.hidden.length));
         // Reset swap confirmation tracking
         G.swapConfirmed = {};
       },
