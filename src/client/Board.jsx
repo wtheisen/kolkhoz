@@ -16,8 +16,6 @@ export function Board({ G, ctx, moves, playerID }) {
   const handlePlayCard = (cardIndex) => {
     if (phase === 'trick' && isMyTurn) {
       moves.playCard(cardIndex);
-    } else if (phase === 'plotSelection') {
-      moves.selectPlotCard(cardIndex);
     }
   };
 
@@ -148,51 +146,48 @@ export function Board({ G, ctx, moves, playerID }) {
       <Hand
         cards={G.players[currentPlayer]?.hand || []}
         onPlayCard={handlePlayCard}
-        canPlay={
-          (phase === 'trick' && isMyTurn) ||
-          phase === 'plotSelection'
-        }
+        canPlay={phase === 'trick' && isMyTurn}
         leadSuit={G.currentTrick[0]?.[1]?.suit}
         trump={G.trump}
         validIndices={getValidIndices(G, currentPlayer, phase)}
       />
 
       {/* Assignment phase UI */}
-      {phase === 'assignment' && G.lastWinner === currentPlayer && (
-        <div className="assignment-ui">
-          <h3>Assign cards to jobs</h3>
-          <p>Drag cards to job piles or click to assign</p>
-          <div className="assignment-cards">
-            {G.lastTrick.map(([pid, card], idx) => {
-              const cardKey = `${card.suit}-${card.value}`;
-              const assigned = G.pendingAssignments?.[cardKey];
-              return (
-                <div key={idx} className="assignment-card">
-                  <CardSVG card={card} width={80} />
-                  <select
-                    value={assigned || card.suit}
-                    onChange={(e) => handleAssign(cardKey, e.target.value)}
-                  >
-                    {card.suit === G.trump ? (
-                      SUITS.map((s) => (
+      {phase === 'assignment' && G.lastWinner === currentPlayer && (() => {
+        // Get all suits represented in the trick
+        const suitsInTrick = [...new Set(G.lastTrick.map(([, c]) => c.suit))];
+        return (
+          <div className="assignment-ui">
+            <h3>Assign cards to jobs</h3>
+            <p>Assign each card to a job from this trick</p>
+            <div className="assignment-cards">
+              {G.lastTrick.map(([pid, card], idx) => {
+                const cardKey = `${card.suit}-${card.value}`;
+                const assigned = G.pendingAssignments?.[cardKey];
+                return (
+                  <div key={idx} className="assignment-card">
+                    <CardSVG card={card} width={80} />
+                    <select
+                      value={assigned || card.suit}
+                      onChange={(e) => handleAssign(cardKey, e.target.value)}
+                    >
+                      {suitsInTrick.map((s) => (
                         <option key={s} value={s}>{s}</option>
-                      ))
-                    ) : (
-                      <option value={card.suit}>{card.suit}</option>
-                    )}
-                  </select>
-                </div>
-              );
-            })}
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+            <button
+              onClick={handleSubmitAssignments}
+              disabled={Object.keys(G.pendingAssignments || {}).length !== G.lastTrick.length}
+            >
+              Submit Assignments
+            </button>
           </div>
-          <button
-            onClick={handleSubmitAssignments}
-            disabled={Object.keys(G.pendingAssignments || {}).length !== G.lastTrick.length}
-          >
-            Submit Assignments
-          </button>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Player's plot */}
       <div className="player-plot">

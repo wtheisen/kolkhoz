@@ -136,11 +136,12 @@ function submitAssignments({ G, events }) {
     return INVALID_MOVE;
   }
 
-  // Validate assignments
-  for (const [cardKey, targetSuit] of Object.entries(G.pendingAssignments)) {
-    const [suit] = cardKey.split('-');
-    // Non-trump cards must go to their own suit
-    if (suit !== G.trump && suit !== targetSuit) {
+  // Get all suits represented in the trick
+  const suitsInTrick = new Set(G.lastTrick.map(([, card]) => card.suit));
+
+  // Validate assignments - cards can only go to jobs represented in the trick
+  for (const [, targetSuit] of Object.entries(G.pendingAssignments)) {
+    if (!suitsInTrick.has(targetSuit)) {
       return INVALID_MOVE;
     }
   }
@@ -155,19 +156,6 @@ function submitAssignments({ G, events }) {
   } else {
     events.setPhase('trick');
   }
-}
-
-// Move: Select a card for personal plot
-function selectPlotCard({ G, ctx, playerID }, cardIndex) {
-  const playerIdx = parseInt(playerID, 10);
-  const player = G.players[playerIdx];
-
-  if (cardIndex < 0 || cardIndex >= player.hand.length) {
-    return INVALID_MOVE;
-  }
-
-  const card = player.hand.splice(cardIndex, 1)[0];
-  player.plot.hidden.push(card);
 }
 
 // Move: Swap a hidden plot card with a hand card
@@ -268,7 +256,12 @@ export const KolkhozGame = {
         },
       },
       onBegin: ({ G }) => {
+        // Pre-populate with default assignments (each card to its own suit)
         G.pendingAssignments = {};
+        for (const [, card] of G.lastTrick) {
+          const cardKey = `${card.suit}-${card.value}`;
+          G.pendingAssignments[cardKey] = card.suit;
+        }
       },
       next: ({ G }) => {
         const tricksPerYear = getTricksPerYear(G.year);
@@ -280,18 +273,16 @@ export const KolkhozGame = {
     },
 
     plotSelection: {
-      turn: {
-        activePlayers: { all: 'selectPlot' },
-        stages: {
-          selectPlot: {
-            moves: { selectPlotCard },
-          },
-        },
+      onBegin: ({ G }) => {
+        // Auto-select the remaining card for all players (only 1 card left)
+        for (const player of G.players) {
+          if (player.hand.length === 1) {
+            const card = player.hand.pop();
+            player.plot.hidden.push(card);
+          }
+        }
       },
-      endIf: ({ G }) => {
-        // End when all players have selected (hand is empty after 4 tricks)
-        return G.players.every((p) => p.hand.length === 0);
-      },
+      endIf: () => true, // Ends immediately after onBegin
       next: 'requisition',
     },
 
@@ -397,26 +388,20 @@ export const KolkhozGame = {
         if (pendingCount === G.lastTrick.length) {
           moves.push({ move: 'submitAssignments', args: [] });
         } else {
+          // Get all suits represented in the trick
+          const suitsInTrick = [...new Set(G.lastTrick.map(([, c]) => c.suit))];
+
           // Find next unassigned card and assign it
           for (const [, card] of G.lastTrick) {
             const key = `${card.suit}-${card.value}`;
             if (!pending[key]) {
-              // Non-trump must go to own suit, trump can go anywhere
-              if (card.suit === G.trump) {
-                for (const targetSuit of SUITS) {
-                  moves.push({ move: 'assignCard', args: [key, targetSuit] });
-                }
-              } else {
-                moves.push({ move: 'assignCard', args: [key, card.suit] });
+              // Any card can go to any suit in the trick
+              for (const targetSuit of suitsInTrick) {
+                moves.push({ move: 'assignCard', args: [key, targetSuit] });
               }
               break; // Only enumerate for first unassigned card
             }
           }
-        }
-      } else if (ctx.phase === 'plotSelection' || ctx.activePlayers?.[playerID] === 'selectPlot') {
-        // Enumerate all valid card selections
-        for (let i = 0; i < player.hand.length; i++) {
-          moves.push({ move: 'selectPlotCard', args: [i] });
         }
       } else if (ctx.phase === 'swap' || ctx.activePlayers?.[playerID] === 'swapping') {
         // AI can skip swapping by confirming
