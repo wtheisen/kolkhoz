@@ -290,7 +290,7 @@ export const KolkhozGame = {
     },
 
     plotSelection: {
-      onBegin: ({ G }) => {
+      onBegin: ({ G, events }) => {
         // Auto-add all remaining cards to plot
         for (const player of G.players) {
           while (player.hand.length > 0) {
@@ -298,25 +298,30 @@ export const KolkhozGame = {
             player.plot.hidden.push(card);
           }
         }
+        // Transition immediately after onBegin runs
+        events.setPhase('requisition');
       },
-      endIf: () => true, // Ends immediately after onBegin
       next: 'requisition',
     },
 
     requisition: {
-      // Automatic phase - no moves, ends immediately
-      onBegin: ({ G, random }) => {
+      onBegin: ({ G, random, events }) => {
         performRequisition(G, G.variants);
 
         // Transition to next year
         transitionToNextYear(G, G.variants, random);
+
+        // Transition to next phase based on game state
+        if (G.year > 5) {
+          // Game over - don't transition
+          return;
+        }
+        events.setPhase('planning');
       },
-      endIf: () => true,
       next: ({ G }) => {
         if (G.year > 5) {
           return undefined; // Game over handled by endIf at game level
         }
-        // Always go to planning next (swap happens after planning)
         return 'planning';
       },
     },

@@ -605,5 +605,164 @@ describe('KolkhozGame', () => {
       // After trick completes, should be in assignment or next trick
       expect(['assignment', 'trick', 'plotSelection']).toContain(ctx.phase);
     });
+
+    it('famine year: should transition to plotSelection after exactly 3 tricks', () => {
+      // Create a custom game that forces famine
+      const FamineTestGame = {
+        ...KolkhozGame,
+        setup: (context, setupData) => {
+          const G = KolkhozGame.setup(context, setupData);
+          // Force famine state
+          G.isFamine = true;
+          G.trump = null;
+          // Give each player exactly 4 cards (Hearts 6-9 for simplicity)
+          for (let i = 0; i < G.players.length; i++) {
+            G.players[i].hand = [
+              { suit: 'Hearts', value: 6 + i },
+              { suit: 'Hearts', value: 10 + i },
+              { suit: 'Diamonds', value: 6 + i },
+              { suit: 'Diamonds', value: 10 + i },
+            ];
+          }
+          return G;
+        },
+      };
+
+      const client = Client({
+        game: FamineTestGame,
+        numPlayers: 4,
+      });
+
+      let { G, ctx } = client.getState();
+
+      // Verify famine is set
+      expect(G.isFamine).toBe(true);
+      expect(G.trump).toBeNull();
+
+      // Should be in trick phase (planning skipped during famine)
+      expect(ctx.phase).toBe('trick');
+
+      // Helper to play one complete trick
+      const playOneTrick = () => {
+        const state = client.getState();
+        const leadPlayer = state.G.lead;
+        const numPlayers = state.ctx.numPlayers;
+
+        for (let i = 0; i < numPlayers; i++) {
+          const playerIdx = (leadPlayer + i) % numPlayers;
+          client.updatePlayerID(String(playerIdx));
+          const currentState = client.getState();
+          const player = currentState.G.players[playerIdx];
+
+          if (player.hand.length > 0) {
+            client.moves.playCard(0);
+          }
+        }
+      };
+
+      // Helper to handle assignment phase if needed
+      const handleAssignmentIfNeeded = () => {
+        let { G: currentG, ctx: currentCtx } = client.getState();
+        if (currentCtx.phase === 'assignment') {
+          // The winner makes the assignment
+          client.updatePlayerID(String(currentG.lastWinner));
+          client.moves.submitAssignments();
+        }
+      };
+
+      // Play 3 tricks (the expected number for famine)
+      for (let trick = 0; trick < 3; trick++) {
+        playOneTrick();
+        handleAssignmentIfNeeded();
+      }
+
+      // After 3 tricks in famine year, game should have transitioned to year 2
+      // (plotSelection and requisition phases run and transition immediately)
+      ({ G, ctx } = client.getState());
+
+      // The key assertion: year should be 2 (proving we completed year 1 after 3 tricks)
+      expect(G.year).toBe(2);
+      // trickCount resets to 0 for new year
+      expect(G.trickCount).toBe(0);
+    });
+
+    it('normal year: should transition to plotSelection after exactly 4 tricks', () => {
+      // Create a custom game that ensures non-famine
+      const NormalTestGame = {
+        ...KolkhozGame,
+        setup: (context, setupData) => {
+          const G = KolkhozGame.setup(context, setupData);
+          // Force non-famine state
+          G.isFamine = false;
+          G.trump = 'Hearts';
+          // Give each player exactly 5 cards
+          for (let i = 0; i < G.players.length; i++) {
+            G.players[i].hand = [
+              { suit: 'Hearts', value: 6 + i },
+              { suit: 'Hearts', value: 10 + i },
+              { suit: 'Diamonds', value: 6 + i },
+              { suit: 'Diamonds', value: 10 + i },
+              { suit: 'Clubs', value: 6 + i },
+            ];
+          }
+          return G;
+        },
+      };
+
+      const client = Client({
+        game: NormalTestGame,
+        numPlayers: 4,
+      });
+
+      let { G, ctx } = client.getState();
+
+      // Verify non-famine
+      expect(G.isFamine).toBe(false);
+      expect(G.trump).toBe('Hearts');
+
+      // Should be in trick phase (planning ends because trump is set)
+      expect(ctx.phase).toBe('trick');
+
+      // Helper to play one complete trick
+      const playOneTrick = () => {
+        const state = client.getState();
+        const leadPlayer = state.G.lead;
+        const numPlayers = state.ctx.numPlayers;
+
+        for (let i = 0; i < numPlayers; i++) {
+          const playerIdx = (leadPlayer + i) % numPlayers;
+          client.updatePlayerID(String(playerIdx));
+          const currentState = client.getState();
+          const player = currentState.G.players[playerIdx];
+
+          if (player.hand.length > 0) {
+            client.moves.playCard(0);
+          }
+        }
+      };
+
+      // Helper to handle assignment phase if needed
+      const handleAssignmentIfNeeded = () => {
+        let { G: currentG, ctx: currentCtx } = client.getState();
+        if (currentCtx.phase === 'assignment') {
+          client.updatePlayerID(String(currentG.lastWinner));
+          client.moves.submitAssignments();
+        }
+      };
+
+      // Play 4 tricks (the expected number for normal year)
+      for (let trick = 0; trick < 4; trick++) {
+        playOneTrick();
+        handleAssignmentIfNeeded();
+      }
+
+      // After 4 tricks in normal year, game should have transitioned to year 2
+      ({ G, ctx } = client.getState());
+
+      // The key assertion: year should be 2 (proving we completed year 1 after 4 tricks)
+      expect(G.year).toBe(2);
+      // trickCount resets to 0 for new year
+      expect(G.trickCount).toBe(0);
+    });
   });
 });
