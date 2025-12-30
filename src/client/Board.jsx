@@ -15,6 +15,7 @@ export function Board({ G, ctx, moves, playerID }) {
   // State for swap phase
   const [selectedHandCard, setSelectedHandCard] = useState(null);
   const [selectedPlotCard, setSelectedPlotCard] = useState(null);
+  const [selectedPlotType, setSelectedPlotType] = useState(null); // 'hidden' or 'revealed'
 
   // Handle card play
   const handlePlayCard = (cardIndex) => {
@@ -41,10 +42,23 @@ export function Board({ G, ctx, moves, playerID }) {
 
   // Handle swap phase
   const handleSwap = () => {
-    if (selectedHandCard !== null && selectedPlotCard !== null) {
-      moves.swapCard(selectedPlotCard, selectedHandCard);
+    if (selectedHandCard !== null && selectedPlotCard !== null && selectedPlotType !== null) {
+      moves.swapCard(selectedPlotCard, selectedHandCard, selectedPlotType);
       setSelectedHandCard(null);
       setSelectedPlotCard(null);
+      setSelectedPlotType(null);
+    }
+  };
+
+  // Handle plot card selection for swap
+  const handleSelectPlotCard = (idx, type) => {
+    if (selectedPlotCard === idx && selectedPlotType === type) {
+      // Deselect
+      setSelectedPlotCard(null);
+      setSelectedPlotType(null);
+    } else {
+      setSelectedPlotCard(idx);
+      setSelectedPlotType(type);
     }
   };
 
@@ -227,25 +241,44 @@ export function Board({ G, ctx, moves, playerID }) {
             </div>
           </div>
 
-          <div className="swap-section">
-            <h4>Your Hidden Plot</h4>
-            <div className="swap-cards">
-              {G.players[currentPlayer]?.plot.hidden.map((card, idx) => (
-                <div
-                  key={`plot-${idx}`}
-                  className={`swap-card ${selectedPlotCard === idx ? 'selected' : ''}`}
-                  onClick={() => setSelectedPlotCard(selectedPlotCard === idx ? null : idx)}
-                >
-                  <CardSVG card={card} width={80} />
-                </div>
-              ))}
+          {G.players[currentPlayer]?.plot.revealed.length > 0 && (
+            <div className="swap-section">
+              <h4>Your Revealed Cards (Rewards)</h4>
+              <div className="swap-cards">
+                {G.players[currentPlayer]?.plot.revealed.map((card, idx) => (
+                  <div
+                    key={`revealed-${idx}`}
+                    className={`swap-card ${selectedPlotCard === idx && selectedPlotType === 'revealed' ? 'selected' : ''}`}
+                    onClick={() => handleSelectPlotCard(idx, 'revealed')}
+                  >
+                    <CardSVG card={card} width={80} />
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+
+          {G.players[currentPlayer]?.plot.hidden.length > 0 && (
+            <div className="swap-section">
+              <h4>Your Hidden Plot</h4>
+              <div className="swap-cards">
+                {G.players[currentPlayer]?.plot.hidden.map((card, idx) => (
+                  <div
+                    key={`hidden-${idx}`}
+                    className={`swap-card ${selectedPlotCard === idx && selectedPlotType === 'hidden' ? 'selected' : ''}`}
+                    onClick={() => handleSelectPlotCard(idx, 'hidden')}
+                  >
+                    <CardSVG card={card} width={80} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="swap-buttons">
             <button
               onClick={handleSwap}
-              disabled={selectedHandCard === null || selectedPlotCard === null}
+              disabled={selectedHandCard === null || selectedPlotCard === null || selectedPlotType === null}
             >
               Swap Selected Cards
             </button>
