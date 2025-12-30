@@ -5,8 +5,9 @@ export default defineConfig({
   plugins: [react()],
   root: '.',
   publicDir: 'public',
+  base: '/kolkhoz/',
   build: {
-    outDir: 'dist',
+    outDir: 'docs',
   },
   server: {
     port: 3000,
