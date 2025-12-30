@@ -35,14 +35,14 @@ export function JobPilesArea({
       {SUITS.map((suit, idx) => {
         const x = startX + idx * horizontalSpacing;
         const y = startY;
-        const hours = workHours[suit] || 0;
+        const hours = workHours?.[suit] || 0;
         const isClaimed = claimedJobs?.includes(suit);
         const isTrump = suit === trump;
-        const bucket = jobBuckets[suit] || [];
+        const bucket = jobBuckets?.[suit] || [];
         const progress = Math.min(80, (hours / THRESHOLD) * 80);
 
         // Get job reward card
-        const jobCard = revealedJobs[suit];
+        const jobCard = revealedJobs?.[suit];
         const jobCards = Array.isArray(jobCard) ? jobCard : jobCard ? [jobCard] : [];
 
         // Calculate total height needed for assigned cards
