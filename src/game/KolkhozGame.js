@@ -180,25 +180,41 @@ function submitAssignments({ G, events, random }) {
   }
 }
 
-// Move: Swap a hidden plot card with a hand card
-function swapCard({ G, playerID }, hiddenCardIndex, handCardIndex) {
+// Move: Swap a plot card with a hand card
+// plotType: 'hidden' or 'revealed'
+function swapCard({ G, playerID }, plotCardIndex, handCardIndex, plotType = 'hidden') {
   const playerIdx = parseInt(playerID, 10);
   const player = G.players[playerIdx];
 
-  if (hiddenCardIndex < 0 || handCardIndex < 0) {
+  if (plotCardIndex < 0 || handCardIndex < 0) {
     return;
   }
 
-  if (
-    hiddenCardIndex >= player.plot.hidden.length ||
-    handCardIndex >= player.hand.length
-  ) {
+  if (handCardIndex >= player.hand.length) {
     return INVALID_MOVE;
   }
 
-  const temp = player.plot.hidden[hiddenCardIndex];
-  player.plot.hidden[hiddenCardIndex] = player.hand[handCardIndex];
-  player.hand[handCardIndex] = temp;
+  const plotArray = plotType === 'revealed' ? player.plot.revealed : player.plot.hidden;
+
+  if (plotCardIndex >= plotArray.length) {
+    return INVALID_MOVE;
+  }
+
+  // Take the plot card into hand
+  const plotCard = plotArray[plotCardIndex];
+  const handCard = player.hand[handCardIndex];
+
+  // Put hand card into hidden pile, take plot card into hand
+  player.hand[handCardIndex] = plotCard;
+
+  if (plotType === 'revealed') {
+    // Remove from revealed, add hand card to hidden
+    plotArray.splice(plotCardIndex, 1);
+    player.plot.hidden.push(handCard);
+  } else {
+    // Direct swap with hidden
+    plotArray[plotCardIndex] = handCard;
+  }
 }
 
 // Move: Confirm swap is complete
