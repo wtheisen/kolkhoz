@@ -71,16 +71,20 @@ export function getWinner(G, variants) {
 // Transition to next year
 export function transitionToNextYear(G, variants, random) {
   // Handle unclaimed job rewards (52-card deck only)
-  if (variants.deckType !== 36 && !variants.northernStyle) {
+  if (variants?.deckType !== 36 && !variants?.northernStyle && G.revealedJobs) {
     for (const suit of SUITS) {
-      if (!G.claimedJobs.includes(suit)) {
-        const jobRewards = Array.isArray(G.revealedJobs[suit])
-          ? G.revealedJobs[suit]
-          : [G.revealedJobs[suit]];
+      if (!G.claimedJobs?.includes(suit)) {
+        const revealed = G.revealedJobs[suit];
+        if (!revealed) continue;
+
+        const jobRewards = Array.isArray(revealed) ? revealed : [revealed];
 
         if (variants.accumulateJobs) {
           // Accumulate for next year
-          G.accumulatedJobCards[suit].push(...jobRewards);
+          if (!G.accumulatedJobCards[suit]) {
+            G.accumulatedJobCards[suit] = [];
+          }
+          G.accumulatedJobCards[suit].push(...jobRewards.filter(Boolean));
         } else {
           // Send unclaimed rewards to gulag
           if (!G.exiled[G.year]) {

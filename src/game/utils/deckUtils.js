@@ -27,25 +27,49 @@ export function prepareJobPiles(variants, random) {
 }
 
 // Reveal jobs for the current year
+// Returns { jobs, isFamine } where isFamine is true if Ace of Clubs is revealed
 export function revealJobs(jobPiles, accumulatedJobCards, variants) {
   const revealedJobs = {};
+  let isFamine = false;
+
+  // Safety check
+  if (!jobPiles) {
+    console.error('revealJobs called with undefined jobPiles');
+    return { jobs: revealedJobs, isFamine };
+  }
 
   for (const suit of SUITS) {
-    if (variants.deckType === 36) {
+    const pile = jobPiles[suit];
+    if (!pile || pile.length === 0) {
+      // No cards left in this pile
+      revealedJobs[suit] = null;
+      continue;
+    }
+
+    if (variants?.deckType === 36) {
       // For 36-card deck, no job rewards - just show the Ace
-      revealedJobs[suit] = jobPiles[suit][0];
-    } else if (variants.accumulateJobs && accumulatedJobCards[suit]?.length > 0) {
+      revealedJobs[suit] = pile[0];
+    } else if (variants?.accumulateJobs && accumulatedJobCards?.[suit]?.length > 0) {
       // Reveal next card and combine with accumulated cards
-      const nextCard = jobPiles[suit].pop();
+      const nextCard = pile.pop();
       const accumulated = accumulatedJobCards[suit] || [];
-      revealedJobs[suit] = [...accumulated, nextCard];
+      revealedJobs[suit] = [...accumulated, nextCard].filter(Boolean);
     } else {
       // Standard: just reveal next card
-      revealedJobs[suit] = jobPiles[suit].pop();
+      revealedJobs[suit] = pile.pop();
+    }
+
+    // Check for famine: Ace of Clubs revealed
+    const revealed = revealedJobs[suit];
+    const cards = Array.isArray(revealed) ? revealed : [revealed];
+    for (const card of cards) {
+      if (card && card.suit === 'Clubs' && card.value === 1) {
+        isFamine = true;
+      }
     }
   }
 
-  return revealedJobs;
+  return { jobs: revealedJobs, isFamine };
 }
 
 // Check if a card value is valid for the deck type
@@ -103,35 +127,23 @@ export function prepareWorkersDeck(players, jobBuckets, exiled, variants, random
 }
 
 // Deal hands to players
-export function dealHands(players, workersDeck) {
+// During famine (Ace of Clubs revealed), deal 4 cards instead of 5
+export function dealHands(players, workersDeck, isFamine = false) {
   const numPlayers = players.length;
-  const cardsPerPlayer = 5;
-  const requiredCards = numPlayers * cardsPerPlayer;
+  const cardsPerPlayer = isFamine ? 4 : 5;
 
   // Clear existing hands
   for (const p of players) {
     p.hand = [];
   }
 
-  if (workersDeck.length >= requiredCards) {
-    // Normal dealing: 5 cards to each player
-    for (let round = 0; round < cardsPerPlayer; round++) {
-      for (const p of players) {
+  // Deal cards
+  for (let round = 0; round < cardsPerPlayer; round++) {
+    for (const p of players) {
+      if (workersDeck.length > 0) {
         p.hand.push(workersDeck.pop());
       }
     }
-    return false; // Not a famine year
-  } else {
-    // Famine year: deal equal amounts to all players
-    const cardsPerPlayerFamine = Math.floor(workersDeck.length / numPlayers);
-
-    for (let i = 0; i < cardsPerPlayerFamine; i++) {
-      for (const p of players) {
-        if (workersDeck.length > 0) {
-          p.hand.push(workersDeck.pop());
-        }
-      }
-    }
-    return true; // This is a famine year
   }
 }
+
