@@ -329,18 +329,24 @@ describe('KolkhozGame', () => {
       });
 
       let { G, ctx } = client.getState();
-      expect(ctx.phase).toBe('planning');
 
-      // Set trump
-      client.moves.setTrump('Hearts');
+      // If famine, planning is skipped automatically
+      if (G.isFamine) {
+        expect(ctx.phase).toBe('trick');
+        expect(G.trump).toBeNull();
+      } else {
+        expect(ctx.phase).toBe('planning');
 
-      ({ G, ctx } = client.getState());
-      expect(G.trump).toBe('Hearts');
-      expect(ctx.phase).toBe('trick');
+        // Set trump
+        client.moves.setTrump('Hearts');
+
+        ({ G, ctx } = client.getState());
+        expect(G.trump).toBe('Hearts');
+        expect(ctx.phase).toBe('trick');
+      }
     });
 
     it('should skip planning during famine (no trump)', () => {
-      // This is harder to test without mocking the setup
       // Just verify getTricksPerYear behavior
       expect(getTricksPerYear(true)).toBe(3);
     });
