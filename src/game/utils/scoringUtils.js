@@ -110,7 +110,6 @@ export function transitionToNextYear(G, variants, random) {
   G.trickCount = 0;
   G.currentTrick = [];
   G.trump = null; // Reset trump for new year - will be set in planning phase
-  G.swapCompletedThisYear = false; // Allow swap at start of new year
 
   // Reset work hours
   for (const suit of SUITS) {
