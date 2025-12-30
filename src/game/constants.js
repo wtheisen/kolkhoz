@@ -21,12 +21,12 @@ export const PLAYER_NAMES = [
   'Катерина'
 ];
 
-// Job names (Russian) mapped to suits
+// Job names (Russian) mapped to suits - crop fields
 export const JOB_NAMES = {
-  Hearts: 'Пахота',      // Plowing
-  Diamonds: 'Жатва',     // Harvesting
-  Clubs: 'Мастерская',   // Workshop
-  Spades: 'Зерно'        // Grain
+  Hearts: 'Пшеница',        // Wheat
+  Diamonds: 'Свёкла',       // Beets
+  Clubs: 'Картофель',       // Potatoes
+  Spades: 'Подсолнечник'    // Sunflowers
 };
 
 // Default game variants

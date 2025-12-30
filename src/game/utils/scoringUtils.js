@@ -70,14 +70,28 @@ export function getWinner(G, variants) {
 
 // Transition to next year
 export function transitionToNextYear(G, variants, random) {
-  // Store accumulated cards for unclaimed jobs
-  if (variants.accumulateJobs && variants.deckType !== 36 && !variants.northernStyle) {
+  // Handle unclaimed job rewards (52-card deck only)
+  if (variants.deckType !== 36 && !variants.northernStyle) {
     for (const suit of SUITS) {
       if (!G.claimedJobs.includes(suit)) {
         const jobRewards = Array.isArray(G.revealedJobs[suit])
           ? G.revealedJobs[suit]
           : [G.revealedJobs[suit]];
-        G.accumulatedJobCards[suit].push(...jobRewards);
+
+        if (variants.accumulateJobs) {
+          // Accumulate for next year
+          G.accumulatedJobCards[suit].push(...jobRewards);
+        } else {
+          // Send unclaimed rewards to gulag
+          if (!G.exiled[G.year]) {
+            G.exiled[G.year] = [];
+          }
+          for (const card of jobRewards) {
+            if (card) {
+              G.exiled[G.year].push(`${card.suit}-${card.value}`);
+            }
+          }
+        }
       }
     }
   }
@@ -97,8 +111,10 @@ export function transitionToNextYear(G, variants, random) {
     G.workHours[suit] = 0;
   }
 
-  // Reveal new jobs
-  G.revealedJobs = revealJobs(G.jobPiles, G.accumulatedJobCards, variants);
+  // Reveal new jobs and check for famine (Ace of Clubs)
+  const { jobs, isFamine } = revealJobs(G.jobPiles, G.accumulatedJobCards, variants);
+  G.revealedJobs = jobs;
+  G.isFamine = isFamine;
 
   // Handle ordenNachalniku variant: move revealed cards from stacks to plot
   if (variants.ordenNachalniku && variants.deckType === 36) {
@@ -139,7 +155,7 @@ export function transitionToNextYear(G, variants, random) {
     variants,
     random
   );
-  G.isFamine = dealHands(G.players, G.workersDeck);
+  dealHands(G.players, G.workersDeck, G.isFamine);
 
   return false; // Game continues
 }
