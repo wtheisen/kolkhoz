@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CardSVG } from './components/CardSVG.jsx';
 import { Hand } from './components/Hand.jsx';
 import { TrickArea } from './components/TrickArea.jsx';
@@ -11,6 +11,10 @@ export function Board({ G, ctx, moves, playerID }) {
   const currentPlayer = parseInt(playerID, 10);
   const isMyTurn = ctx.currentPlayer === playerID;
   const phase = ctx.phase;
+
+  // State for swap phase
+  const [selectedHandCard, setSelectedHandCard] = useState(null);
+  const [selectedPlotCard, setSelectedPlotCard] = useState(null);
 
   // Handle card play
   const handlePlayCard = (cardIndex) => {
@@ -33,6 +37,19 @@ export function Board({ G, ctx, moves, playerID }) {
 
   const handleSubmitAssignments = () => {
     moves.submitAssignments();
+  };
+
+  // Handle swap phase
+  const handleSwap = () => {
+    if (selectedHandCard !== null && selectedPlotCard !== null) {
+      moves.swapCard(selectedPlotCard, selectedHandCard);
+      setSelectedHandCard(null);
+      setSelectedPlotCard(null);
+    }
+  };
+
+  const handleConfirmSwap = () => {
+    moves.confirmSwap();
   };
 
   // Center of play area (between jobs on left and sidebar on right)
@@ -188,6 +205,63 @@ export function Board({ G, ctx, moves, playerID }) {
           </div>
         );
       })()}
+
+      {/* Swap phase UI */}
+      {phase === 'swap' && !G.swapConfirmed?.[currentPlayer] && (
+        <div className="swap-ui">
+          <h3>Swap Cards (Year {G.year})</h3>
+          <p>Select a card from your hand and one from your plot to swap, or skip</p>
+
+          <div className="swap-section">
+            <h4>Your Hand</h4>
+            <div className="swap-cards">
+              {G.players[currentPlayer]?.hand.map((card, idx) => (
+                <div
+                  key={`hand-${idx}`}
+                  className={`swap-card ${selectedHandCard === idx ? 'selected' : ''}`}
+                  onClick={() => setSelectedHandCard(selectedHandCard === idx ? null : idx)}
+                >
+                  <CardSVG card={card} width={80} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="swap-section">
+            <h4>Your Hidden Plot</h4>
+            <div className="swap-cards">
+              {G.players[currentPlayer]?.plot.hidden.map((card, idx) => (
+                <div
+                  key={`plot-${idx}`}
+                  className={`swap-card ${selectedPlotCard === idx ? 'selected' : ''}`}
+                  onClick={() => setSelectedPlotCard(selectedPlotCard === idx ? null : idx)}
+                >
+                  <CardSVG card={card} width={80} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="swap-buttons">
+            <button
+              onClick={handleSwap}
+              disabled={selectedHandCard === null || selectedPlotCard === null}
+            >
+              Swap Selected Cards
+            </button>
+            <button onClick={handleConfirmSwap}>
+              Done Swapping
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Waiting for others during swap */}
+      {phase === 'swap' && G.swapConfirmed?.[currentPlayer] && (
+        <div className="swap-ui">
+          <h3>Waiting for other players...</h3>
+        </div>
+      )}
 
       {/* Player's plot */}
       <div className="player-plot">

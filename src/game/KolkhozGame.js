@@ -89,12 +89,14 @@ function setup({ ctx, random }, setupData) {
     G.jobBuckets[suit] = [];
   }
 
-  // Reveal jobs for year 1
-  G.revealedJobs = revealJobs(G.jobPiles, G.accumulatedJobCards, variants);
+  // Reveal jobs for year 1 and check for famine (Ace of Clubs)
+  const { jobs, isFamine } = revealJobs(G.jobPiles, G.accumulatedJobCards, variants);
+  G.revealedJobs = jobs;
+  G.isFamine = isFamine;
 
-  // Prepare deck and deal hands
+  // Prepare deck and deal hands (4 cards during famine, 5 otherwise)
   G.workersDeck = prepareWorkersDeck(G.players, G.jobBuckets, G.exiled, variants, random);
-  G.isFamine = dealHands(G.players, G.workersDeck);
+  dealHands(G.players, G.workersDeck, G.isFamine);
 
   return G;
 }
@@ -150,7 +152,7 @@ function submitAssignments({ G, events }) {
   G.pendingAssignments = {};
 
   // Check if all tricks are done
-  const tricksPerYear = getTricksPerYear(G.year);
+  const tricksPerYear = getTricksPerYear(G.isFamine);
   if (G.trickCount >= tricksPerYear) {
     events.endPhase();
   } else {
@@ -180,9 +182,12 @@ function swapCard({ G, playerID }, hiddenCardIndex, handCardIndex) {
 }
 
 // Move: Confirm swap is complete
-function confirmSwap({ G, events, playerID }) {
-  // Player confirms they're done swapping
-  // Move to next player or end phase
+function confirmSwap({ G, playerID }) {
+  const playerIdx = parseInt(playerID, 10);
+  if (!G.swapConfirmed) {
+    G.swapConfirmed = {};
+  }
+  G.swapConfirmed[playerIdx] = true;
 }
 
 // Export the game definition
@@ -199,10 +204,16 @@ export const KolkhozGame = {
       start: true,
       moves: { setTrump },
       next: 'trick',
-      endIf: ({ G }) => G.trump !== null,
+      onBegin: ({ G }) => {
+        // Famine year (Ace of Clubs revealed): no trump
+        if (G.isFamine) {
+          G.trump = null;
+        }
+      },
+      endIf: ({ G }) => G.isFamine || G.trump !== null,
       onEnd: ({ G, random }) => {
-        // If trump wasn't set, set it randomly
-        if (!G.trump) {
+        // If trump wasn't set (and not famine), set it randomly
+        if (!G.isFamine && !G.trump) {
           setRandomTrump(G, random);
         }
       },
@@ -239,7 +250,7 @@ export const KolkhozGame = {
         if (G.needsManualAssignment) {
           return 'assignment';
         }
-        const tricksPerYear = getTricksPerYear(G.year);
+        const tricksPerYear = getTricksPerYear(G.isFamine);
         if (G.trickCount >= tricksPerYear) {
           return 'plotSelection';
         }
@@ -264,7 +275,7 @@ export const KolkhozGame = {
         }
       },
       next: ({ G }) => {
-        const tricksPerYear = getTricksPerYear(G.year);
+        const tricksPerYear = getTricksPerYear(G.isFamine);
         if (G.trickCount >= tricksPerYear) {
           return 'plotSelection';
         }
@@ -274,7 +285,7 @@ export const KolkhozGame = {
 
     plotSelection: {
       onBegin: ({ G }) => {
-        // Auto-select all remaining cards for all players
+        // Auto-add all remaining cards to plot
         for (const player of G.players) {
           while (player.hand.length > 0) {
             const card = player.hand.pop();
@@ -307,19 +318,27 @@ export const KolkhozGame = {
     },
 
     swap: {
+      moves: { swapCard, confirmSwap },
       turn: {
-        activePlayers: { all: 'swapping' },
-        stages: {
-          swapping: {
-            moves: { swapCard, confirmSwap },
-          },
-        },
+        activePlayers: { all: 'swap' },
+      },
+      onBegin: ({ G }) => {
+        // Reset swap confirmation tracking
+        G.swapConfirmed = {};
+      },
+      endIf: ({ G, ctx }) => {
+        // End when all players have confirmed
+        if (!G.swapConfirmed) return false;
+        for (let i = 0; i < ctx.numPlayers; i++) {
+          if (!G.swapConfirmed[i]) return false;
+        }
+        return true;
+      },
+      onEnd: ({ G }) => {
+        // Clean up
+        delete G.swapConfirmed;
       },
       next: 'planning',
-      onEnd: ({ G, random }) => {
-        // Set trump for new year
-        setRandomTrump(G, random);
-      },
     },
   },
 

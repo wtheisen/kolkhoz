@@ -280,6 +280,103 @@
   background: #45a049;
 }
 
+/* Swap Phase UI */
+.swap-ui {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.95);
+  padding: 2rem;
+  border-radius: 15px;
+  z-index: 200;
+  text-align: center;
+  min-width: 500px;
+}
+
+.swap-ui h3 {
+  color: #FFD700;
+  margin-bottom: 0.5rem;
+}
+
+.swap-ui p {
+  color: #888;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.swap-section {
+  margin-bottom: 1.5rem;
+}
+
+.swap-section h4 {
+  color: #aaa;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.swap-cards {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.swap-card {
+  cursor: pointer;
+  border: 3px solid transparent;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.swap-card:hover {
+  transform: translateY(-5px);
+}
+
+.swap-card.selected {
+  border-color: #FFD700;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+}
+
+.swap-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.swap-buttons button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.swap-buttons button:first-child {
+  background: #4CAF50;
+  color: white;
+}
+
+.swap-buttons button:first-child:disabled {
+  background: #555;
+  cursor: not-allowed;
+}
+
+.swap-buttons button:first-child:not(:disabled):hover {
+  background: #45a049;
+}
+
+.swap-buttons button:last-child {
+  background: #2196F3;
+  color: white;
+}
+
+.swap-buttons button:last-child:hover {
+  background: #1976D2;
+}
+
 /* Player Plot */
 .player-plot {
   position: absolute;
