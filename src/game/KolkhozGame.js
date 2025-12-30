@@ -318,9 +318,13 @@ export const KolkhozGame = {
     },
 
     swap: {
-      moves: { swapCard, confirmSwap },
       turn: {
-        activePlayers: { all: 'swap' },
+        activePlayers: { all: 'swapping' },
+        stages: {
+          swapping: {
+            moves: { swapCard, confirmSwap },
+          },
+        },
       },
       onBegin: ({ G }) => {
         // Reset swap confirmation tracking
@@ -423,14 +427,8 @@ export const KolkhozGame = {
           }
         }
       } else if (ctx.phase === 'swap' || ctx.activePlayers?.[playerID] === 'swapping') {
-        // AI can skip swapping by confirming
+        // AI just confirms without swapping
         moves.push({ move: 'confirmSwap', args: [] });
-        // Or enumerate possible swaps
-        for (let h = 0; h < player.plot.hidden.length; h++) {
-          for (let c = 0; c < player.hand.length; c++) {
-            moves.push({ move: 'swapCard', args: [h, c] });
-          }
-        }
       }
 
       return moves;
