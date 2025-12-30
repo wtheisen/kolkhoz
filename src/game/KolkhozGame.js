@@ -79,6 +79,7 @@ function setup({ ctx, random }, setupData) {
     variants,
     // For assignment phase
     pendingAssignments: {},
+    needsManualAssignment: false,
   };
 
   // Initialize per-suit state
@@ -230,7 +231,7 @@ export const KolkhozGame = {
         maxMoves: 1,
       },
       endIf: ({ G, ctx }) => G.currentTrick.length === ctx.numPlayers,
-      onEnd: ({ G, events }) => {
+      onEnd: ({ G }) => {
         // Resolve the trick
         const winner = resolveTrick(G);
         if (winner !== null) {
@@ -240,17 +241,21 @@ export const KolkhozGame = {
           const autoAssign = generateAutoAssignment(G.lastTrick);
           if (autoAssign) {
             applyAssignments(G, autoAssign, G.variants);
-
-            // Check if all tricks are done
-            const tricksPerYear = getTricksPerYear(G.year);
-            if (G.trickCount >= tricksPerYear) {
-              events.setPhase('plotSelection');
-            }
-            // Otherwise stay in trick phase for next trick
+            G.needsManualAssignment = false;
           } else {
-            events.setPhase('assignment');
+            G.needsManualAssignment = true;
           }
         }
+      },
+      next: ({ G }) => {
+        if (G.needsManualAssignment) {
+          return 'assignment';
+        }
+        const tricksPerYear = getTricksPerYear(G.year);
+        if (G.trickCount >= tricksPerYear) {
+          return 'plotSelection';
+        }
+        return 'trick';
       },
     },
 
@@ -291,20 +296,22 @@ export const KolkhozGame = {
     },
 
     requisition: {
-      // Automatic phase - no moves
-      onBegin: ({ G, events, random }) => {
+      // Automatic phase - no moves, ends immediately
+      onBegin: ({ G, random }) => {
         performRequisition(G, G.variants);
 
         // Transition to next year
-        const gameOver = transitionToNextYear(G, G.variants, random);
-
-        if (gameOver) {
-          events.endGame(getWinner(G, G.variants));
-        } else if (G.variants.allowSwap) {
-          events.setPhase('swap');
-        } else {
-          events.setPhase('planning');
+        transitionToNextYear(G, G.variants, random);
+      },
+      endIf: () => true,
+      next: ({ G }) => {
+        if (G.year > 5) {
+          return undefined; // Game over handled by endIf at game level
         }
+        if (G.variants.allowSwap) {
+          return 'swap';
+        }
+        return 'planning';
       },
     },
 
