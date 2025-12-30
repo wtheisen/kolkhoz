@@ -274,9 +274,9 @@ export const KolkhozGame = {
 
     plotSelection: {
       onBegin: ({ G }) => {
-        // Auto-select the remaining card for all players (only 1 card left)
+        // Auto-select all remaining cards for all players
         for (const player of G.players) {
-          if (player.hand.length === 1) {
+          while (player.hand.length > 0) {
             const card = player.hand.pop();
             player.plot.hidden.push(card);
           }
