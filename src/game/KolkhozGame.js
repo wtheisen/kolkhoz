@@ -225,6 +225,8 @@ export const KolkhozGame = {
       moves: { setTrump },
       onBegin: ({ G }) => {
         console.log('[planning onBegin] year:', G.year, 'isFamine:', G.isFamine, 'hands:', G.players.map(p => p.hand.length));
+        // Reset year-end flag
+        G.yearEndProcessed = false;
         // Famine year (Ace of Clubs revealed): no trump
         if (G.isFamine) {
           G.trump = null;
@@ -303,16 +305,23 @@ export const KolkhozGame = {
         }
       },
       next: ({ G }) => {
+        // IMPORTANT: Check yearEndProcessed FIRST because transitionToNextYear
+        // resets trickCount to 0, so the trickCount check would fail
+        if (G.yearEndProcessed) {
+          // Note: yearEndProcessed is reset in planning.onBegin
+          console.log('[trick next] Year end processed, going to planning');
+          return 'planning';
+        }
+
         if (G.needsManualAssignment) {
           return 'assignment';
         }
+
         const tricksPerYear = getTricksPerYear(G.isFamine);
+        console.log('[trick next] trickCount:', G.trickCount, 'tricksPerYear:', tricksPerYear, 'isFamine:', G.isFamine);
+
         if (G.trickCount >= tricksPerYear) {
-          // Year end was processed in onEnd, go directly to planning
-          if (G.yearEndProcessed) {
-            G.yearEndProcessed = false; // Reset for next year
-            return 'planning';
-          }
+          // Should not reach here with new logic, but keep as fallback
           return 'plotSelection';
         }
         return 'trick';
