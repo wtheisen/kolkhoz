@@ -4,7 +4,7 @@ import { Hand } from './components/Hand.jsx';
 import { TrickArea } from './components/TrickArea.jsx';
 import { JobPilesArea } from './components/JobPilesArea.jsx';
 import { PlayerArea } from './components/PlayerArea.jsx';
-import { GameHUD } from './components/GameHUD.jsx';
+import { RightSidebar } from './components/RightSidebar.jsx';
 import { SUITS } from '../game/constants.js';
 
 export function Board({ G, ctx, moves, playerID }) {
@@ -37,15 +37,19 @@ export function Board({ G, ctx, moves, playerID }) {
     moves.submitAssignments();
   };
 
-  // Get player positions around the board
+  // Center of play area (between jobs on left and sidebar on right)
+  const playCenterX = 1000;
+  const playCenterY = 450;
+
+  // Get player positions around the board - closer to center
   const getPlayerPosition = (idx, total) => {
-    // Position players around the board
-    // Player 0 (human) at bottom, others distributed
+    // Position players around the play area, closer to center
+    // Player 0 (human) at bottom (not shown in SVG, uses Hand component)
     const positions = [
-      { x: 960, y: 900 },  // Bottom (human)
-      { x: 100, y: 500 },  // Left
-      { x: 960, y: 100 },  // Top
-      { x: 1820, y: 500 }, // Right
+      { x: playCenterX, y: 750 },       // Bottom (human) - not rendered
+      { x: playCenterX - 280, y: 450 }, // Left
+      { x: playCenterX, y: 150 },       // Top
+      { x: playCenterX + 280, y: 450 }, // Right
     ];
     return positions[idx] || positions[0];
   };
@@ -71,16 +75,6 @@ export function Board({ G, ctx, moves, playerID }) {
 
   return (
     <div className="game-board">
-      {/* Game HUD */}
-      <GameHUD
-        year={G.year}
-        trump={G.trump}
-        phase={phase}
-        currentPlayer={ctx.currentPlayer}
-        players={G.players}
-        isMyTurn={isMyTurn}
-      />
-
       {/* Trump selection UI */}
       {phase === 'planning' && !G.trump && (
         <div className="trump-selection">
@@ -101,7 +95,7 @@ export function Board({ G, ctx, moves, playerID }) {
 
       {/* Main SVG board */}
       <svg viewBox="0 0 1920 1080" className="board-svg">
-        {/* Job Piles (center-top) */}
+        {/* Job Piles (left side) */}
         <JobPilesArea
           revealedJobs={G.revealedJobs}
           workHours={G.workHours}
@@ -119,6 +113,8 @@ export function Board({ G, ctx, moves, playerID }) {
           trick={phase === 'assignment' ? G.lastTrick : G.currentTrick}
           numPlayers={G.numPlayers}
           lead={G.lead}
+          centerX={playCenterX}
+          centerY={playCenterY}
         />
 
         {/* Other players */}
@@ -135,6 +131,17 @@ export function Board({ G, ctx, moves, playerID }) {
             />
           );
         })}
+
+        {/* Right Sidebar with game info and gulag */}
+        <RightSidebar
+          year={G.year}
+          trump={G.trump}
+          phase={phase}
+          currentPlayer={ctx.currentPlayer}
+          players={G.players}
+          isMyTurn={isMyTurn}
+          exiled={G.exiled}
+        />
       </svg>
 
       {/* Player's hand (HTML for interactivity) */}

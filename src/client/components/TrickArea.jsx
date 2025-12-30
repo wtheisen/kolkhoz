@@ -1,11 +1,9 @@
 import React from 'react';
 import { CardSVG } from './CardSVG.jsx';
 
-export function TrickArea({ trick, numPlayers, lead }) {
-  // Center of the trick area
-  const centerX = 960;
-  const centerY = 450;
-  const radius = 120;
+export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 450 }) {
+  // Center of the trick area (can be overridden via props)
+  const radius = 100;
 
   // Calculate positions for cards in circular arrangement
   const getCardPosition = (playerIdx) => {
