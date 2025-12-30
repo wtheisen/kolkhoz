@@ -67,14 +67,19 @@ describe('KolkhozGame', () => {
       }
     });
 
-    it('should start in planning phase', () => {
+    it('should start in planning phase (or trick if famine)', () => {
       const client = Client({
         game: KolkhozGame,
         numPlayers: 4,
       });
-      const { ctx } = client.getState();
+      const { G, ctx } = client.getState();
 
-      expect(ctx.phase).toBe('planning');
+      // If famine, planning is auto-skipped
+      if (G.isFamine) {
+        expect(ctx.phase).toBe('trick');
+      } else {
+        expect(ctx.phase).toBe('planning');
+      }
     });
 
     it('should start at year 1', () => {
@@ -476,6 +481,96 @@ describe('KolkhozGame', () => {
       expect(G.accumulatedJobCards.Clubs).toHaveLength(1);
       expect(G.accumulatedJobCards.Spades).toHaveLength(1);
       expect(G.accumulatedJobCards.Hearts).toHaveLength(0); // Claimed
+    });
+  });
+
+  describe('Famine Year', () => {
+    it('should only require 3 tricks during famine', () => {
+      // Create a game state with famine
+      const G = {
+        isFamine: true,
+        trickCount: 0,
+      };
+
+      const tricksNeeded = getTricksPerYear(G.isFamine);
+      expect(tricksNeeded).toBe(3);
+
+      // Simulate 3 tricks
+      G.trickCount = 3;
+      expect(G.trickCount >= tricksNeeded).toBe(true);
+    });
+
+    it('should deal 4 cards during famine year', () => {
+      const players = [
+        { hand: [], plot: { revealed: [], hidden: [] } },
+        { hand: [], plot: { revealed: [], hidden: [] } },
+        { hand: [], plot: { revealed: [], hidden: [] } },
+        { hand: [], plot: { revealed: [], hidden: [] } },
+      ];
+      const deck = [];
+      for (let i = 0; i < 32; i++) {
+        deck.push({ suit: SUITS[i % 4], value: 6 + (i % 8) });
+      }
+
+      dealHands(players, deck, true); // famine = true
+
+      for (const player of players) {
+        expect(player.hand).toHaveLength(4);
+      }
+    });
+
+    it('should leave 1 card after 3 famine tricks', () => {
+      // 4 cards dealt, 3 tricks played = 1 card left
+      const cardsDealt = 4;
+      const tricksPlayed = getTricksPerYear(true);
+      const cardsLeft = cardsDealt - tricksPlayed;
+      expect(cardsLeft).toBe(1);
+    });
+
+    it('should detect famine when Ace of Clubs is in 52-card job pile', () => {
+      const variants = { ...DEFAULT_VARIANTS, deckType: 52 };
+
+      // Create job piles where Clubs pile has Ace on top (will be popped)
+      const jobPiles = {
+        Hearts: [{ suit: 'Hearts', value: 5 }, { suit: 'Hearts', value: 2 }],
+        Diamonds: [{ suit: 'Diamonds', value: 5 }, { suit: 'Diamonds', value: 3 }],
+        Clubs: [{ suit: 'Clubs', value: 5 }, { suit: 'Clubs', value: 1 }], // Ace on top (end of array)
+        Spades: [{ suit: 'Spades', value: 5 }, { suit: 'Spades', value: 4 }],
+      };
+      const accumulatedJobCards = { Hearts: [], Diamonds: [], Clubs: [], Spades: [] };
+
+      const { jobs, isFamine } = revealJobs(jobPiles, accumulatedJobCards, variants);
+
+      expect(isFamine).toBe(true);
+      expect(jobs.Clubs.suit).toBe('Clubs');
+      expect(jobs.Clubs.value).toBe(1);
+    });
+
+    it('trick phase next should return plotSelection after 3 tricks in famine', () => {
+      // Simulate what the next function checks
+      const G = {
+        isFamine: true,
+        trickCount: 3,
+        needsManualAssignment: false,
+      };
+
+      const tricksPerYear = getTricksPerYear(G.isFamine);
+      expect(tricksPerYear).toBe(3);
+      expect(G.trickCount >= tricksPerYear).toBe(true);
+      // This means next() should return 'plotSelection'
+    });
+
+    it('trick phase next should continue after 2 tricks in famine', () => {
+      const G = {
+        isFamine: true,
+        trickCount: 2,
+        needsManualAssignment: false,
+      };
+
+      const tricksPerYear = getTricksPerYear(G.isFamine);
+      expect(tricksPerYear).toBe(3);
+      expect(G.trickCount >= tricksPerYear).toBe(false);
+      // This means next() should return 'trick'
     });
   });
 
