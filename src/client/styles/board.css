@@ -1,0 +1,427 @@
+/* Kolkhoz Game Board Styles */
+
+/* Lobby */
+.lobby {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+
+.lobby h1 {
+  font-size: 4rem;
+  color: #c41e3a;
+  margin-bottom: 0.5rem;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+.lobby h2 {
+  font-size: 1.5rem;
+  color: #FFD700;
+  margin-bottom: 2rem;
+}
+
+.variant-options {
+  background: rgba(255,255,255,0.1);
+  padding: 1.5rem;
+  border-radius: 10px;
+  margin-bottom: 2rem;
+}
+
+.variant-options h3 {
+  margin-bottom: 1rem;
+  color: #fff;
+}
+
+.variant-options label {
+  display: block;
+  margin: 0.5rem 0;
+  cursor: pointer;
+  color: #ccc;
+}
+
+.variant-options input {
+  margin-right: 0.5rem;
+}
+
+.lobby button {
+  padding: 1rem 3rem;
+  font-size: 1.2rem;
+  background: #c41e3a;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.lobby button:hover {
+  background: #a01830;
+  transform: scale(1.05);
+}
+
+/* Game Board */
+.game-board {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  overflow: hidden;
+}
+
+.board-svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Game HUD */
+.game-hud {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2rem;
+  background: rgba(0,0,0,0.7);
+  padding: 0.75rem 2rem;
+  border-radius: 25px;
+  z-index: 100;
+}
+
+.hud-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.hud-section .label {
+  font-size: 0.7rem;
+  color: #888;
+  text-transform: uppercase;
+}
+
+.hud-section .value {
+  font-size: 1.1rem;
+  color: #fff;
+  font-weight: bold;
+}
+
+.hud-section.turn .your-turn {
+  color: #4CAF50;
+  font-weight: bold;
+  animation: pulse 1s infinite;
+}
+
+.hud-section.turn .waiting {
+  color: #888;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Trump Selection */
+.trump-selection {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.9);
+  padding: 2rem;
+  border-radius: 15px;
+  z-index: 200;
+  text-align: center;
+}
+
+.trump-selection h3 {
+  color: #FFD700;
+  margin-bottom: 1.5rem;
+}
+
+.suit-buttons {
+  display: flex;
+  gap: 1rem;
+}
+
+.suit-btn {
+  padding: 1rem 1.5rem;
+  font-size: 1.5rem;
+  border: 2px solid #444;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #222;
+  color: #fff;
+}
+
+.suit-btn:hover {
+  transform: scale(1.1);
+  border-color: #FFD700;
+}
+
+.suit-btn.hearts, .suit-btn.diamonds {
+  color: #c41e3a;
+}
+
+.suit-btn.clubs, .suit-btn.spades {
+  color: #1a1a2e;
+}
+
+/* Player Hand */
+.hand {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  min-height: 160px;
+  z-index: 50;
+}
+
+.hand.empty {
+  color: #666;
+  font-style: italic;
+}
+
+.hand-card {
+  position: relative;
+  margin: 0 -20px;
+  transition: transform 0.2s, margin 0.2s;
+  transform-origin: bottom center;
+}
+
+.hand-card:hover {
+  transform: translateY(-20px) scale(1.1) !important;
+  z-index: 100 !important;
+  margin: 0 10px;
+}
+
+.hand-card.playable {
+  cursor: pointer;
+}
+
+.hand-card.playable:hover {
+  filter: brightness(1.1);
+}
+
+.hand-card.invalid {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Card Styles */
+.card-html {
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card-html.highlight {
+  box-shadow: 0 0 15px 5px rgba(76, 175, 80, 0.5);
+}
+
+.card-html.dimmed {
+  opacity: 0.4;
+}
+
+.card-html img {
+  border-radius: 8px;
+}
+
+.card-svg {
+  cursor: default;
+  transition: transform 0.3s ease-out;
+}
+
+.card-svg.highlight {
+  filter: drop-shadow(0 0 10px rgba(76, 175, 80, 0.8));
+}
+
+.card-svg.dimmed {
+  opacity: 0.4;
+}
+
+/* Assignment UI */
+.assignment-ui {
+  position: absolute;
+  bottom: 200px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.9);
+  padding: 1.5rem;
+  border-radius: 15px;
+  z-index: 150;
+  text-align: center;
+}
+
+.assignment-ui h3 {
+  color: #FFD700;
+  margin-bottom: 0.5rem;
+}
+
+.assignment-ui p {
+  color: #888;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.assignment-cards {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.assignment-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.assignment-card select {
+  padding: 0.5rem;
+  border-radius: 5px;
+  background: #333;
+  color: #fff;
+  border: 1px solid #555;
+}
+
+.assignment-ui button {
+  padding: 0.75rem 2rem;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.assignment-ui button:disabled {
+  background: #555;
+  cursor: not-allowed;
+}
+
+.assignment-ui button:not(:disabled):hover {
+  background: #45a049;
+}
+
+/* Player Plot */
+.player-plot {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(0,0,0,0.7);
+  padding: 1rem;
+  border-radius: 10px;
+  z-index: 50;
+}
+
+.player-plot h4 {
+  color: #888;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.plot-cards {
+  display: flex;
+  gap: 0.25rem;
+}
+
+/* Game Over */
+.game-over {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  text-align: center;
+}
+
+.game-over h1 {
+  font-size: 3rem;
+  color: #FFD700;
+  margin-bottom: 1rem;
+}
+
+.game-over h2 {
+  font-size: 2rem;
+  color: #4CAF50;
+  margin-bottom: 2rem;
+}
+
+.final-scores {
+  background: rgba(0,0,0,0.5);
+  padding: 1.5rem;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+}
+
+.final-scores div {
+  padding: 0.5rem 1rem;
+  font-size: 1.2rem;
+  color: #ccc;
+}
+
+.final-scores .winner {
+  color: #FFD700;
+  font-weight: bold;
+  background: rgba(255,215,0,0.1);
+  border-radius: 5px;
+}
+
+/* Animations */
+@keyframes card-deal {
+  from {
+    transform: translate(50%, -100%) scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes card-play {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-100px);
+  }
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .hand-card {
+    margin: 0 -25px;
+  }
+
+  .card-html {
+    width: 80px !important;
+    height: 112px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .game-hud {
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .hand-card {
+    margin: 0 -30px;
+  }
+
+  .card-html {
+    width: 60px !important;
+    height: 84px !important;
+  }
+}

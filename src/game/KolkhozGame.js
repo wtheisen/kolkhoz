@@ -1,0 +1,428 @@
+// Kolkhoz - boardgame.io Game Definition
+// A Soviet-themed trick-taking card game
+
+import { INVALID_MOVE } from 'boardgame.io/core';
+import { SUITS, PLAYER_NAMES, DEFAULT_VARIANTS } from './constants.js';
+import { prepareJobPiles, revealJobs, prepareWorkersDeck, dealHands } from './utils/deckUtils.js';
+import {
+  isValidPlay,
+  resolveTrick,
+  applyTrickResult,
+  applyAssignments,
+  generateAutoAssignment,
+  getTricksPerYear,
+} from './utils/trickUtils.js';
+import { performRequisition } from './utils/requisitionUtils.js';
+import { getWinner, transitionToNextYear, setRandomTrump } from './utils/scoringUtils.js';
+
+// Initialize a player
+function createPlayer(idx, isHuman, name) {
+  return {
+    idx,
+    isHuman,
+    name,
+    hand: [],
+    plot: {
+      revealed: [],
+      hidden: [],
+      medals: 0,
+      stacks: [],
+    },
+    brigadeLeader: false,
+    hasWonTrickThisYear: false,
+    medals: 0,
+  };
+}
+
+// Game setup function
+function setup({ ctx, random }, setupData) {
+  const variants = { ...DEFAULT_VARIANTS, ...(setupData?.variants || {}) };
+  const numPlayers = ctx.numPlayers;
+
+  // Create players
+  const availableNames = [...PLAYER_NAMES];
+  const players = [];
+
+  for (let i = 0; i < numPlayers; i++) {
+    if (i === 0) {
+      // Human player
+      players.push(createPlayer(0, true, 'Игрок'));
+    } else {
+      // AI player with random Russian name
+      const nameIndex = Math.floor(random.Number() * availableNames.length);
+      const name = availableNames.splice(nameIndex, 1)[0];
+      players.push(createPlayer(i, false, name));
+    }
+  }
+
+  // Initialize game state
+  const G = {
+    numPlayers,
+    players,
+    lead: Math.floor(random.Number() * numPlayers),
+    year: 1,
+    trump: null,
+    jobPiles: prepareJobPiles(variants, random),
+    revealedJobs: {},
+    claimedJobs: [],
+    accumulatedJobCards: {},
+    workHours: {},
+    jobBuckets: {},
+    currentTrick: [],
+    lastTrick: [],
+    lastWinner: null,
+    trickHistory: [],
+    trickCount: 0,
+    exiled: {},
+    workersDeck: [],
+    isFamine: false,
+    variants,
+    // For assignment phase
+    pendingAssignments: {},
+  };
+
+  // Initialize per-suit state
+  for (const suit of SUITS) {
+    G.accumulatedJobCards[suit] = [];
+    G.workHours[suit] = 0;
+    G.jobBuckets[suit] = [];
+  }
+
+  // Reveal jobs for year 1
+  G.revealedJobs = revealJobs(G.jobPiles, G.accumulatedJobCards, variants);
+
+  // Prepare deck and deal hands
+  G.workersDeck = prepareWorkersDeck(G.players, G.jobBuckets, G.exiled, variants, random);
+  G.isFamine = dealHands(G.players, G.workersDeck);
+
+  return G;
+}
+
+// Move: Set trump suit (planning phase)
+function setTrump({ G, random }, suit) {
+  if (suit && SUITS.includes(suit)) {
+    G.trump = suit;
+  } else {
+    setRandomTrump(G, random);
+  }
+}
+
+// Move: Play a card (trick phase)
+function playCard({ G, ctx, playerID }, cardIndex) {
+  const playerIdx = parseInt(playerID, 10);
+
+  if (!isValidPlay(G, playerIdx, cardIndex)) {
+    return INVALID_MOVE;
+  }
+
+  const player = G.players[playerIdx];
+  const card = player.hand.splice(cardIndex, 1)[0];
+  G.currentTrick.push([playerIdx, card]);
+}
+
+// Move: Assign a card to a job (assignment phase)
+function assignCard({ G }, cardKey, targetSuit) {
+  if (!G.pendingAssignments) {
+    G.pendingAssignments = {};
+  }
+  G.pendingAssignments[cardKey] = targetSuit;
+}
+
+// Move: Submit all assignments
+function submitAssignments({ G, events }) {
+  // Validate all cards are assigned
+  if (Object.keys(G.pendingAssignments).length !== G.lastTrick.length) {
+    return INVALID_MOVE;
+  }
+
+  // Validate assignments
+  for (const [cardKey, targetSuit] of Object.entries(G.pendingAssignments)) {
+    const [suit] = cardKey.split('-');
+    // Non-trump cards must go to their own suit
+    if (suit !== G.trump && suit !== targetSuit) {
+      return INVALID_MOVE;
+    }
+  }
+
+  applyAssignments(G, G.pendingAssignments, G.variants);
+  G.pendingAssignments = {};
+
+  // Check if all tricks are done
+  const tricksPerYear = getTricksPerYear(G.year);
+  if (G.trickCount >= tricksPerYear) {
+    events.endPhase();
+  } else {
+    events.setPhase('trick');
+  }
+}
+
+// Move: Select a card for personal plot
+function selectPlotCard({ G, ctx, playerID }, cardIndex) {
+  const playerIdx = parseInt(playerID, 10);
+  const player = G.players[playerIdx];
+
+  if (cardIndex < 0 || cardIndex >= player.hand.length) {
+    return INVALID_MOVE;
+  }
+
+  const card = player.hand.splice(cardIndex, 1)[0];
+  player.plot.hidden.push(card);
+}
+
+// Move: Swap a hidden plot card with a hand card
+function swapCard({ G, playerID }, hiddenCardIndex, handCardIndex) {
+  const playerIdx = parseInt(playerID, 10);
+  const player = G.players[playerIdx];
+
+  if (hiddenCardIndex < 0 || handCardIndex < 0) {
+    return;
+  }
+
+  if (
+    hiddenCardIndex >= player.plot.hidden.length ||
+    handCardIndex >= player.hand.length
+  ) {
+    return INVALID_MOVE;
+  }
+
+  const temp = player.plot.hidden[hiddenCardIndex];
+  player.plot.hidden[hiddenCardIndex] = player.hand[handCardIndex];
+  player.hand[handCardIndex] = temp;
+}
+
+// Move: Confirm swap is complete
+function confirmSwap({ G, events, playerID }) {
+  // Player confirms they're done swapping
+  // Move to next player or end phase
+}
+
+// Export the game definition
+export const KolkhozGame = {
+  name: 'kolkhoz',
+
+  setup,
+
+  minPlayers: 2,
+  maxPlayers: 4,
+
+  phases: {
+    planning: {
+      start: true,
+      moves: { setTrump },
+      next: 'trick',
+      endIf: ({ G }) => G.trump !== null,
+      onEnd: ({ G, random }) => {
+        // If trump wasn't set, set it randomly
+        if (!G.trump) {
+          setRandomTrump(G, random);
+        }
+      },
+    },
+
+    trick: {
+      moves: { playCard },
+      turn: {
+        order: {
+          first: ({ G }) => G.lead,
+          next: ({ G, ctx }) => (ctx.playOrderPos + 1) % ctx.numPlayers,
+        },
+        minMoves: 1,
+        maxMoves: 1,
+      },
+      endIf: ({ G, ctx }) => G.currentTrick.length === ctx.numPlayers,
+      onEnd: ({ G, events }) => {
+        // Resolve the trick
+        const winner = resolveTrick(G);
+        if (winner !== null) {
+          applyTrickResult(G, winner);
+
+          // Check for auto-assignment
+          const autoAssign = generateAutoAssignment(G.lastTrick);
+          if (autoAssign) {
+            applyAssignments(G, autoAssign, G.variants);
+
+            // Check if all tricks are done
+            const tricksPerYear = getTricksPerYear(G.year);
+            if (G.trickCount >= tricksPerYear) {
+              events.setPhase('plotSelection');
+            }
+            // Otherwise stay in trick phase for next trick
+          } else {
+            events.setPhase('assignment');
+          }
+        }
+      },
+    },
+
+    assignment: {
+      moves: { assignCard, submitAssignments },
+      turn: {
+        order: {
+          first: ({ G }) => G.lastWinner,
+          next: () => undefined, // Only one player acts
+        },
+      },
+      onBegin: ({ G }) => {
+        G.pendingAssignments = {};
+      },
+      next: ({ G }) => {
+        const tricksPerYear = getTricksPerYear(G.year);
+        if (G.trickCount >= tricksPerYear) {
+          return 'plotSelection';
+        }
+        return 'trick';
+      },
+    },
+
+    plotSelection: {
+      turn: {
+        activePlayers: { all: 'selectPlot' },
+        stages: {
+          selectPlot: {
+            moves: { selectPlotCard },
+          },
+        },
+      },
+      endIf: ({ G }) => {
+        // End when all players have selected (hand is empty after 4 tricks)
+        return G.players.every((p) => p.hand.length === 0);
+      },
+      next: 'requisition',
+    },
+
+    requisition: {
+      // Automatic phase - no moves
+      onBegin: ({ G, events, random }) => {
+        performRequisition(G, G.variants);
+
+        // Transition to next year
+        const gameOver = transitionToNextYear(G, G.variants, random);
+
+        if (gameOver) {
+          events.endGame(getWinner(G, G.variants));
+        } else if (G.variants.allowSwap) {
+          events.setPhase('swap');
+        } else {
+          events.setPhase('planning');
+        }
+      },
+    },
+
+    swap: {
+      turn: {
+        activePlayers: { all: 'swapping' },
+        stages: {
+          swapping: {
+            moves: { swapCard, confirmSwap },
+          },
+        },
+      },
+      next: 'planning',
+      onEnd: ({ G, random }) => {
+        // Set trump for new year
+        setRandomTrump(G, random);
+      },
+    },
+  },
+
+  endIf: ({ G }) => {
+    if (G.year > 5) {
+      return getWinner(G, G.variants);
+    }
+  },
+
+  // Hide other players' hands and hidden plots for multiplayer
+  playerView: ({ G, ctx, playerID }) => {
+    if (playerID === null) return G; // Spectator sees all
+
+    const pid = parseInt(playerID, 10);
+    const filteredG = JSON.parse(JSON.stringify(G)); // Deep clone
+
+    filteredG.players = G.players.map((player, idx) => {
+      const isCurrentPlayer = idx === pid;
+
+      return {
+        ...player,
+        // Other players' hands show card count only
+        hand: isCurrentPlayer
+          ? player.hand
+          : player.hand.map(() => ({ hidden: true })),
+        plot: {
+          ...player.plot,
+          // Hidden plot cards stay hidden
+          hidden: isCurrentPlayer
+            ? player.plot.hidden
+            : player.plot.hidden.map(() => ({ hidden: true })),
+        },
+      };
+    });
+
+    // Hide remaining deck
+    filteredG.workersDeck = G.workersDeck.map(() => ({ hidden: true }));
+
+    return filteredG;
+  },
+
+  // AI configuration
+  ai: {
+    enumerate: (G, ctx, playerID) => {
+      const moves = [];
+      const playerIdx = parseInt(playerID, 10);
+      const player = G.players[playerIdx];
+
+      if (ctx.phase === 'planning') {
+        // AI can set any trump
+        for (const suit of SUITS) {
+          moves.push({ move: 'setTrump', args: [suit] });
+        }
+      } else if (ctx.phase === 'trick') {
+        // Enumerate valid card plays
+        for (let i = 0; i < player.hand.length; i++) {
+          if (isValidPlay(G, playerIdx, i)) {
+            moves.push({ move: 'playCard', args: [i] });
+          }
+        }
+      } else if (ctx.phase === 'assignment' && playerIdx === G.lastWinner) {
+        const pending = G.pendingAssignments || {};
+        const pendingCount = Object.keys(pending).length;
+
+        // If all cards assigned, submit
+        if (pendingCount === G.lastTrick.length) {
+          moves.push({ move: 'submitAssignments', args: [] });
+        } else {
+          // Find next unassigned card and assign it
+          for (const [, card] of G.lastTrick) {
+            const key = `${card.suit}-${card.value}`;
+            if (!pending[key]) {
+              // Non-trump must go to own suit, trump can go anywhere
+              if (card.suit === G.trump) {
+                for (const targetSuit of SUITS) {
+                  moves.push({ move: 'assignCard', args: [key, targetSuit] });
+                }
+              } else {
+                moves.push({ move: 'assignCard', args: [key, card.suit] });
+              }
+              break; // Only enumerate for first unassigned card
+            }
+          }
+        }
+      } else if (ctx.phase === 'plotSelection' || ctx.activePlayers?.[playerID] === 'selectPlot') {
+        // Enumerate all valid card selections
+        for (let i = 0; i < player.hand.length; i++) {
+          moves.push({ move: 'selectPlotCard', args: [i] });
+        }
+      } else if (ctx.phase === 'swap' || ctx.activePlayers?.[playerID] === 'swapping') {
+        // AI can skip swapping by confirming
+        moves.push({ move: 'confirmSwap', args: [] });
+        // Or enumerate possible swaps
+        for (let h = 0; h < player.plot.hidden.length; h++) {
+          for (let c = 0; c < player.hand.length; c++) {
+            moves.push({ move: 'swapCard', args: [h, c] });
+          }
+        }
+      }
+
+      return moves;
+    },
+  },
+};
