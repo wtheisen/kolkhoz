@@ -132,7 +132,7 @@ function assignCard({ G }, cardKey, targetSuit) {
 }
 
 // Move: Submit all assignments
-function submitAssignments({ G, events }) {
+function submitAssignments({ G, events, random }) {
   // Validate all cards are assigned
   if (Object.keys(G.pendingAssignments).length !== G.lastTrick.length) {
     return INVALID_MOVE;
@@ -154,7 +154,27 @@ function submitAssignments({ G, events }) {
   // Check if all tricks are done
   const tricksPerYear = getTricksPerYear(G.isFamine);
   if (G.trickCount >= tricksPerYear) {
-    events.endPhase();
+    console.log('[submitAssignments] Last trick - processing year end');
+
+    // Move remaining hand cards to plot
+    for (const player of G.players) {
+      while (player.hand.length > 0) {
+        const card = player.hand.pop();
+        player.plot.hidden.push(card);
+      }
+    }
+    console.log('[submitAssignments] Cards moved to plots:', G.players.map(p => p.plot.hidden.length));
+
+    // Perform requisition
+    performRequisition(G, G.variants);
+
+    // Transition to next year (deals new hands)
+    transitionToNextYear(G, G.variants, random);
+    console.log('[submitAssignments] After transition - year:', G.year, 'hands:', G.players.map(p => p.hand.length));
+
+    // Mark that year-end processing is complete and go to planning
+    G.yearEndProcessed = true;
+    events.setPhase('planning');
   } else {
     events.setPhase('trick');
   }
@@ -240,7 +260,7 @@ export const KolkhozGame = {
         maxMoves: 1,
       },
       endIf: ({ G, ctx }) => G.currentTrick.length === ctx.numPlayers,
-      onEnd: ({ G }) => {
+      onEnd: ({ G, random }) => {
         // Resolve the trick
         const winner = resolveTrick(G);
         if (winner !== null) {
@@ -254,6 +274,32 @@ export const KolkhozGame = {
           } else {
             G.needsManualAssignment = true;
           }
+
+          // If this was the last trick of the year and no manual assignment needed,
+          // do the year-end processing right here
+          const tricksPerYear = getTricksPerYear(G.isFamine);
+          if (!G.needsManualAssignment && G.trickCount >= tricksPerYear) {
+            console.log('[trick onEnd] Last trick - processing year end');
+
+            // Move remaining hand cards to plot (what plotSelection.onBegin did)
+            for (const player of G.players) {
+              while (player.hand.length > 0) {
+                const card = player.hand.pop();
+                player.plot.hidden.push(card);
+              }
+            }
+            console.log('[trick onEnd] Cards moved to plots:', G.players.map(p => p.plot.hidden.length));
+
+            // Perform requisition
+            performRequisition(G, G.variants);
+
+            // Transition to next year (deals new hands)
+            transitionToNextYear(G, G.variants, random);
+            console.log('[trick onEnd] After transition - year:', G.year, 'hands:', G.players.map(p => p.hand.length));
+
+            // Mark that year-end processing is complete
+            G.yearEndProcessed = true;
+          }
         }
       },
       next: ({ G }) => {
@@ -262,6 +308,11 @@ export const KolkhozGame = {
         }
         const tricksPerYear = getTricksPerYear(G.isFamine);
         if (G.trickCount >= tricksPerYear) {
+          // Year end was processed in onEnd, go directly to planning
+          if (G.yearEndProcessed) {
+            G.yearEndProcessed = false; // Reset for next year
+            return 'planning';
+          }
           return 'plotSelection';
         }
         return 'trick';
@@ -284,13 +335,8 @@ export const KolkhozGame = {
           G.pendingAssignments[cardKey] = card.suit;
         }
       },
-      next: ({ G }) => {
-        const tricksPerYear = getTricksPerYear(G.isFamine);
-        if (G.trickCount >= tricksPerYear) {
-          return 'plotSelection';
-        }
-        return 'trick';
-      },
+      // next is handled by submitAssignments using events.setPhase()
+      next: 'trick',
     },
 
     plotSelection: {
