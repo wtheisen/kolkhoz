@@ -97,9 +97,9 @@ export function allCardsSameSuit(trick) {
   return trick.every(([, card]) => card.suit === firstSuit);
 }
 
-// Get number of tricks per year
-export function getTricksPerYear(year) {
-  return year === 5 ? 3 : 4;
+// Get number of tricks (3 during famine, 4 otherwise)
+export function getTricksPerYear(isFamine) {
+  return isFamine ? 3 : 4;
 }
 
 // Apply card assignments to jobs
