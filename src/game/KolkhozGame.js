@@ -250,8 +250,10 @@ export const KolkhozGame = {
         }
       },
       next: ({ G }) => {
-        const next = (G.variants.allowSwap && G.year > 1) ? 'swap' : 'trick';
-        console.log('[planning next] ->', next, '- allowSwap:', G.variants.allowSwap, 'year:', G.year);
+        // Only go to swap once per year (at year start, not after mid-year assignments)
+        const shouldSwap = G.variants.allowSwap && G.year > 1 && !G.swapCompletedThisYear;
+        const next = shouldSwap ? 'swap' : 'trick';
+        console.log('[planning next] ->', next, '- allowSwap:', G.variants.allowSwap, 'year:', G.year, 'swapCompleted:', G.swapCompletedThisYear);
         return next;
       },
     },
@@ -429,8 +431,9 @@ export const KolkhozGame = {
         return true;
       },
       onEnd: ({ G }) => {
-        // Clean up
+        // Clean up and mark swap as completed for this year
         delete G.swapConfirmed;
+        G.swapCompletedThisYear = true;
       },
       next: 'trick',
     },
