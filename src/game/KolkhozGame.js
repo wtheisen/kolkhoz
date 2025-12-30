@@ -203,7 +203,6 @@ export const KolkhozGame = {
     planning: {
       start: true,
       moves: { setTrump },
-      next: 'trick',
       onBegin: ({ G }) => {
         // Famine year (Ace of Clubs revealed): no trump
         if (G.isFamine) {
@@ -216,6 +215,13 @@ export const KolkhozGame = {
         if (!G.isFamine && !G.trump) {
           setRandomTrump(G, random);
         }
+      },
+      next: ({ G }) => {
+        // After planning, go to swap if enabled, else straight to trick
+        if (G.variants.allowSwap && G.year > 1) {
+          return 'swap';
+        }
+        return 'trick';
       },
     },
 
@@ -310,9 +316,7 @@ export const KolkhozGame = {
         if (G.year > 5) {
           return undefined; // Game over handled by endIf at game level
         }
-        if (G.variants.allowSwap) {
-          return 'swap';
-        }
+        // Always go to planning next (swap happens after planning)
         return 'planning';
       },
     },
@@ -342,7 +346,7 @@ export const KolkhozGame = {
         // Clean up
         delete G.swapConfirmed;
       },
-      next: 'planning',
+      next: 'trick',
     },
   },
 
