@@ -1,13 +1,10 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CardSVG } from './components/CardSVG.jsx';
 import { Hand } from './components/Hand.jsx';
 import { TrickArea } from './components/TrickArea.jsx';
-import { JobPilesArea } from './components/JobPilesArea.jsx';
-import { RightSidebar } from './components/RightSidebar.jsx';
 import { AssignmentDragDrop } from './components/AssignmentDragDrop.jsx';
 import { SwapDragDrop } from './components/SwapDragDrop.jsx';
 import { SUITS } from '../game/constants.js';
-import { getCardImagePath } from '../game/Card.js';
 
 export function Board({ G, ctx, moves, playerID }) {
   const currentPlayer = parseInt(playerID, 10);
@@ -33,27 +30,8 @@ export function Board({ G, ctx, moves, playerID }) {
   // Ref to SVG element for coordinate conversion in drag-drop
   const svgRef = useRef(null);
 
-  // Track window size for responsive scaling
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-  useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Calculate layout dynamically based on sidebar visibility
-  // Sidebars are hidden when viewport <= 1024px (matches CSS media query)
-  const sidebarsVisible = windowWidth > 1024;
-
-  // SVG coordinate space: 1920x1080
-  // Left sidebar (jobs): 0-350, Right sidebar: 1570-1920
-  const leftBound = sidebarsVisible ? 350 : 0;
-  const rightBound = sidebarsVisible ? 1570 : 1920;
-  const availableWidth = rightBound - leftBound;
-
-  // Scale factor: how much larger the play area is compared to desktop baseline
-  const desktopPlayWidth = 1220; // 1570 - 350
-  const scaleFactor = availableWidth / desktopPlayWidth;
+  // SVG uses full width - no sidebars, nav bar is separate HTML element
+  const scaleFactor = 1;
 
   // Reset local swap confirmation when year changes
   useEffect(() => {
@@ -113,8 +91,8 @@ export function Board({ G, ctx, moves, playerID }) {
     moves.confirmSwap();
   };
 
-  // Center of play area - calculated from visible bounds
-  const playCenterX = (leftBound + rightBound) / 2;
+  // Center of play area - full width SVG
+  const playCenterX = 960; // Center of 1920
   const playCenterY = 470; // Moved down so top border fully visible
 
   // Render game over screen
@@ -138,9 +116,8 @@ export function Board({ G, ctx, moves, playerID }) {
 
   return (
     <div className="game-board">
-      {/* Mobile navigation bar - vertical on left side */}
-      {!sidebarsVisible && (
-        <div className="mobile-nav-bar">
+      {/* Navigation bar - vertical on left side */}
+      <div className="mobile-nav-bar">
           <button
             className={`nav-btn ${activePanel === 'options' ? 'active' : ''}`}
             onClick={() => togglePanel('options')}
@@ -181,11 +158,10 @@ export function Board({ G, ctx, moves, playerID }) {
             <span className="nav-icon">🌱</span>
             <span className="nav-label" title="Plot">Подвал</span>
           </button>
-        </div>
-      )}
+      </div>
 
-      {/* Mobile panel content - only shows for options panel */}
-      {!sidebarsVisible && activePanel === 'options' && (
+      {/* Panel content - only shows for options panel */}
+      {activePanel === 'options' && (
         <div className="mobile-panel-content">
           <div className="options-panel">
             <h3 title="Menu">Меню</h3>
@@ -247,20 +223,7 @@ export function Board({ G, ctx, moves, playerID }) {
         {/* SVG container - scales to fill available space */}
         <div className="svg-container">
           <svg ref={svgRef} viewBox="0 0 1920 1080" className="board-svg">
-            {/* Job Piles (left side) */}
-            <JobPilesArea
-              revealedJobs={G.revealedJobs}
-              workHours={G.workHours}
-              jobBuckets={G.jobBuckets}
-              claimedJobs={G.claimedJobs}
-              trump={G.trump}
-              phase={phase}
-              pendingAssignments={G.pendingAssignments}
-              onAssign={handleAssign}
-              lastTrick={G.lastTrick}
-            />
-
-            {/* Trick Area (center) - includes bot player areas */}
+            {/* Trick Area (center) - includes bot player areas and info */}
             <TrickArea
               trick={phase === 'assignment' ? G.lastTrick : G.currentTrick}
               numPlayers={G.numPlayers}
@@ -273,16 +236,16 @@ export function Board({ G, ctx, moves, playerID }) {
               phase={phase}
               isMyTurn={isMyTurn}
               currentPlayerName={G.players[ctx.currentPlayer]?.name}
-              showInfo={!sidebarsVisible}
+              showInfo={true}
               players={G.players}
               currentPlayer={parseInt(ctx.currentPlayer, 10)}
               brigadeLeader={G.players.findIndex(p => p.brigadeLeader)}
               displayMode={
                 phase === 'assignment' ? 'jobs' :
                 phase === 'swap' ? 'plot' :
-                !sidebarsVisible && activePanel === 'jobs' ? 'jobs' :
-                !sidebarsVisible && activePanel === 'gulag' ? 'gulag' :
-                !sidebarsVisible && activePanel === 'plot' ? 'plot' :
+                activePanel === 'jobs' ? 'jobs' :
+                activePanel === 'gulag' ? 'gulag' :
+                activePanel === 'plot' ? 'plot' :
                 'game'
               }
               workHours={G.workHours}
@@ -291,17 +254,6 @@ export function Board({ G, ctx, moves, playerID }) {
               revealedJobs={G.revealedJobs}
               exiled={G.exiled}
               playerPlot={G.players[currentPlayer]?.plot}
-            />
-
-            {/* Right Sidebar with game info and gulag */}
-            <RightSidebar
-              year={G.year}
-              trump={G.trump}
-              phase={phase}
-              currentPlayer={ctx.currentPlayer}
-              players={G.players}
-              isMyTurn={isMyTurn}
-              exiled={G.exiled}
             />
           </svg>
 

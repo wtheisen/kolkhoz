@@ -1324,9 +1324,9 @@ html, body {
   75% { transform: rotate(90deg); }
 }
 
-/* Mobile Navigation Bar - vertical left column */
+/* Navigation Bar - vertical left column */
 .mobile-nav-bar {
-  display: none;
+  display: flex;
   flex-shrink: 0;
   width: 100px;
   flex-direction: column;
@@ -1337,12 +1337,6 @@ html, body {
   z-index: 100;
   justify-content: flex-start;
   padding-top: 20px;
-}
-
-@media (max-width: 1024px) {
-  .mobile-nav-bar {
-    display: flex;
-  }
 }
 
 .mobile-nav-bar .nav-btn {
@@ -1771,19 +1765,18 @@ html, body {
   color: var(--gold);
 }
 
-/* Mobile layout - flex with nav bar on left */
+/* Hide game content when panel is active */
+.game-board:has(.mobile-panel-content) .game-content {
+  display: none;
+}
+
+/* Hide player plot - shown in trick area via nav */
+.player-plot {
+  display: none;
+}
+
+/* Smaller layout on mobile */
 @media (max-width: 1024px) {
-  /* Hide SVG sidebars - use mobile panels instead */
-  .job-piles-area,
-  .right-sidebar {
-    display: none;
-  }
-
-  /* Hide game content when panel is active */
-  .game-board:has(.mobile-panel-content) .game-content {
-    display: none;
-  }
-
   /* Hand cards spread out on mobile */
   .hand .hand-card {
     margin: 0 -10px;
@@ -1792,10 +1785,5 @@ html, body {
   /* Smaller hand area on mobile */
   .hand-area {
     height: 140px;
-  }
-
-  /* Hide player plot on mobile - shown in trick area instead */
-  .player-plot {
-    display: none;
   }
 }
