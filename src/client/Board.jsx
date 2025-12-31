@@ -80,7 +80,7 @@ export function Board({ G, ctx, moves, playerID }) {
   };
 
   // Center of play area (between jobs on left and sidebar on right)
-  const playCenterX = 1000;
+  const playCenterX = 1080;
   const playCenterY = 450;
 
   // Get player positions around the board - closer to center
