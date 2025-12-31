@@ -21,11 +21,9 @@ export function Board({ G, ctx, moves, playerID }) {
   // State for tap-to-reveal on touch devices
   const [revealedHiddenCard, setRevealedHiddenCard] = useState(null);
 
-  // Mobile panel toggles
-  const [showJobsPanel, setShowJobsPanel] = useState(false);
-  const [showInfoPanel, setShowInfoPanel] = useState(false);
-  const [showMenuPanel, setShowMenuPanel] = useState(false);
-  const [showRules, setShowRules] = useState(false);
+  // Mobile panel toggle - null = game board, 'options' | 'jobs' | 'gulag'
+  const [activePanel, setActivePanel] = useState(null);
+  const togglePanel = (panel) => setActivePanel(activePanel === panel ? null : panel);
 
   // Track if user has confirmed swap locally (to prevent modal reappearing due to race conditions)
   const [swapConfirmedLocally, setSwapConfirmedLocally] = useState(false);
@@ -238,47 +236,76 @@ export function Board({ G, ctx, moves, playerID }) {
         />
       </svg>
 
-      {/* Mobile toggle buttons - Jobs on left, Gulag and menu on right */}
-      <div className="mobile-toggles mobile-toggles-left">
-        <button
-          className={`mobile-toggle-btn ${showJobsPanel ? 'active' : ''}`}
-          onClick={() => { setShowJobsPanel(!showJobsPanel); setShowInfoPanel(false); setShowMenuPanel(false); }}
-          title="Jobs"
-        >
-          Работы
-        </button>
-      </div>
-      <div className="mobile-toggles mobile-toggles-right">
-        <button
-          className={`mobile-toggle-btn ${showInfoPanel ? 'active' : ''}`}
-          onClick={() => { setShowInfoPanel(!showInfoPanel); setShowJobsPanel(false); setShowMenuPanel(false); }}
-          title="The North (Gulag)"
-        >
-          Север
-        </button>
-        <button
-          className={`mobile-toggle-btn menu-btn ${showMenuPanel ? 'active' : ''}`}
-          onClick={() => { setShowMenuPanel(!showMenuPanel); setShowJobsPanel(false); setShowInfoPanel(false); }}
-        >
-          ☰
-        </button>
-      </div>
+      {/* Mobile navigation bar - vertical on left side */}
+      {!sidebarsVisible && (
+        <div className="mobile-nav-bar">
+          <button
+            className={`nav-btn ${activePanel === 'options' ? 'active' : ''}`}
+            onClick={() => togglePanel('options')}
+            title="Menu"
+          >
+            <span className="nav-icon">☰</span>
+            <span className="nav-label">Menu</span>
+          </button>
+          <button
+            className={`nav-btn ${activePanel === 'jobs' ? 'active' : ''}`}
+            onClick={() => togglePanel('jobs')}
+            title="Jobs"
+          >
+            <span className="nav-icon">⚒</span>
+            <span className="nav-label" title="Jobs">Работы</span>
+          </button>
+          <button
+            className={`nav-btn ${activePanel === 'gulag' ? 'active' : ''}`}
+            onClick={() => togglePanel('gulag')}
+            title="The North (Gulag)"
+          >
+            <span className="nav-icon">❄</span>
+            <span className="nav-label" title="The North">Север</span>
+          </button>
+        </div>
+      )}
 
-      {/* Mobile Jobs Panel - horizontal layout like lobby */}
-      {showJobsPanel && (
-        <div className="mobile-panel jobs-panel" onClick={() => setShowJobsPanel(false)}>
-          <div className="mobile-panel-content jobs-content" onClick={(e) => e.stopPropagation()}>
-            <button className="mobile-panel-close" onClick={() => setShowJobsPanel(false)}>×</button>
-            <div className="jobs-layout">
-              {/* Title on left */}
-              <div className="jobs-title-section">
-                <h3 className="jobs-title" title="Jobs">РАБОТЫ</h3>
-                <div className="jobs-subtitle" title="Jobs completed">
-                  {G.claimedJobs?.length || 0}/4 готово
+      {/* Mobile panel content - shows when a panel is active */}
+      {!sidebarsVisible && activePanel !== null && (
+        <div className="mobile-panel-content">
+          {/* Options/Menu Panel */}
+          {activePanel === 'options' && (
+            <div className="options-panel">
+              <h3 title="Menu">Меню</h3>
+              <div className="menu-options">
+                <div className="rules-section">
+                  <h4>Kolkhoz Rules</h4>
+                  <div className="rules-text">
+                    <h5>Objective</h5>
+                    <p>Complete collective farm jobs while protecting your private plot. Lowest score wins!</p>
+
+                    <h5>Gameplay</h5>
+                    <p>• Play cards to tricks - must follow lead suit if able</p>
+                    <p>• Trick winner assigns cards to matching job suits</p>
+                    <p>• Jobs need 40 work hours to complete</p>
+
+                    <h5>Trump Face Cards</h5>
+                    <p>• <strong>Jack (Пьяница)</strong>: Worth 0 hours, gets exiled instead of your cards</p>
+                    <p>• <strong>Queen (Доносчик)</strong>: All players become vulnerable</p>
+                    <p>• <strong>King (Чиновник)</strong>: Exiles two cards instead of one</p>
+                  </div>
                 </div>
+                <button className="menu-btn-action" onClick={() => window.location.reload()}>
+                  🔄 New Game
+                </button>
               </div>
-              {/* Job columns */}
-              <div className="mobile-jobs-row">
+            </div>
+          )}
+
+          {/* Jobs Panel */}
+          {activePanel === 'jobs' && (
+            <div className="jobs-panel">
+              <div className="jobs-header">
+                <h3 title="Jobs">Работы</h3>
+                <span className="jobs-count">{G.claimedJobs?.length || 0}/4</span>
+              </div>
+              <div className="jobs-grid">
                 {SUITS.map((suit) => {
                   const hours = G.workHours?.[suit] || 0;
                   const isClaimed = G.claimedJobs?.includes(suit);
@@ -289,169 +316,74 @@ export function Board({ G, ctx, moves, playerID }) {
                   const progressPct = Math.min(100, (hours / 40) * 100);
 
                   return (
-                    <div key={suit} className={`mobile-job-column ${isTrump ? 'trump' : ''} ${isClaimed ? 'claimed' : ''}`}>
-                      {/* Compact header: icon + progress inline */}
+                    <div key={suit} className={`job-column ${isTrump ? 'trump' : ''} ${isClaimed ? 'claimed' : ''}`}>
                       <div className="job-header-row">
                         <span className={`suit-symbol ${suit.toLowerCase()}`}>{getSuitSymbol(suit)}</span>
                         <div className="progress-bar-container">
-                          <div
-                            className={`progress-bar-fill ${isClaimed ? 'complete' : ''}`}
-                            style={{ width: `${progressPct}%` }}
-                          />
-                          <span className="progress-text">
-                            {isClaimed ? '✓' : `${hours}/40`}
-                          </span>
+                          <div className={`progress-bar-fill ${isClaimed ? 'complete' : ''}`} style={{ width: `${progressPct}%` }} />
+                          <span className="progress-text">{isClaimed ? '✓' : `${hours}/40`}</span>
                         </div>
                       </div>
-
-                      {/* Cards stack */}
                       <div className="job-cards-stack">
-                        {/* Reward card */}
                         {isClaimed ? (
                           <img src="assets/cards/back.svg" alt="claimed" className="job-card" />
                         ) : (
                           jobCards.map((card, idx) => (
-                            <img
-                              key={`reward-${idx}`}
-                              src={getCardImagePath(card)}
-                              alt={`${card.value} of ${card.suit}`}
-                              className="job-card reward"
-                            />
+                            <img key={`reward-${idx}`} src={getCardImagePath(card)} alt={`${card.value} of ${card.suit}`} className="job-card reward" />
                           ))
                         )}
-                        {/* Assigned cards stacked below */}
-                        {bucket.slice(0, 12).map((card, idx) => (
-                          <img
-                            key={`assigned-${idx}`}
-                            src={getCardImagePath(card)}
-                            alt={`${card.value} of ${card.suit}`}
-                            className="job-card"
-                            style={{ marginTop: '-45px' }}
-                          />
+                        {bucket.slice(0, 8).map((card, idx) => (
+                          <img key={`assigned-${idx}`} src={getCardImagePath(card)} alt={`${card.value} of ${card.suit}`} className="job-card" style={{ marginTop: '-40px' }} />
                         ))}
-                        {bucket.length > 12 && (
-                          <div className="more-cards">+{bucket.length - 12}</div>
-                        )}
+                        {bucket.length > 8 && <div className="more-cards">+{bucket.length - 8}</div>}
                       </div>
                     </div>
                   );
                 })}
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Mobile Gulag Panel - horizontal layout like lobby */}
-      {showInfoPanel && (
-        <div className="mobile-panel gulag-panel" onClick={() => setShowInfoPanel(false)}>
-          <div className="mobile-panel-content gulag-content" onClick={(e) => e.stopPropagation()}>
-            <button className="mobile-panel-close" onClick={() => setShowInfoPanel(false)}>×</button>
-            <div className="gulag-layout">
-              {/* Title on left */}
-              <div className="gulag-title-section">
-                <h3 className="gulag-title" title="The North (Gulag)">СЕВЕР</h3>
-                <div className="gulag-subtitle" title="Cards exiled">
-                  {Object.values(G.exiled || {}).flat().length} сослано
-                </div>
+          {/* Gulag Panel */}
+          {activePanel === 'gulag' && (
+            <div className="gulag-panel">
+              <div className="gulag-header">
+                <h3 title="The North (Gulag)">Север</h3>
+                <span className="gulag-count">{Object.values(G.exiled || {}).flat().length} сослано</span>
               </div>
-              {/* Year columns */}
-              <div className="mobile-gulag-years">
+              <div className="gulag-grid">
                 {[1, 2, 3, 4, 5].map((year) => {
                   const yearCards = G.exiled?.[year] || [];
                   const isCurrent = year === G.year;
                   const isPast = year < G.year;
-
-                  // Parse card keys like "Hearts-11" into card objects
                   const parseCardKey = (cardKey) => {
                     const [suit, value] = cardKey.split('-');
                     return { suit, value: parseInt(value, 10) };
                   };
 
                   return (
-                    <div key={year} className={`gulag-year-column ${isCurrent ? 'current' : ''} ${isPast ? 'past' : ''}`}>
+                    <div key={year} className={`year-column ${isCurrent ? 'current' : ''} ${isPast ? 'past' : ''}`}>
                       <div className="year-header">
                         <span className="year-number">{year}</span>
-                        {yearCards.length > 0 && (
-                          <span className="year-badge">{yearCards.length}</span>
-                        )}
+                        {yearCards.length > 0 && <span className="year-badge">{yearCards.length}</span>}
                       </div>
                       <div className="year-cards">
                         {yearCards.length > 0 ? (
-                          yearCards.slice(0, 10).map((cardKey, idx) => {
+                          yearCards.slice(0, 8).map((cardKey, idx) => {
                             const card = parseCardKey(cardKey);
-                            return (
-                              <img
-                                key={idx}
-                                src={getCardImagePath(card)}
-                                alt={cardKey}
-                                className="gulag-card"
-                                style={{ marginTop: idx > 0 ? '-40px' : '0' }}
-                              />
-                            );
+                            return <img key={idx} src={getCardImagePath(card)} alt={cardKey} className="gulag-card" style={{ marginTop: idx > 0 ? '-35px' : '0' }} />;
                           })
                         ) : (
                           <div className="empty-slot" />
                         )}
-                        {yearCards.length > 10 && (
-                          <div className="more-cards">+{yearCards.length - 10}</div>
-                        )}
+                        {yearCards.length > 8 && <div className="more-cards">+{yearCards.length - 8}</div>}
                       </div>
                     </div>
                   );
                 })}
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Mobile Menu Panel */}
-      {showMenuPanel && (
-        <div className="mobile-panel" onClick={() => setShowMenuPanel(false)}>
-          <div className="mobile-panel-content menu-panel" onClick={(e) => e.stopPropagation()}>
-            <button className="mobile-panel-close" onClick={() => setShowMenuPanel(false)}>×</button>
-            <h3>Menu</h3>
-            <div className="menu-options">
-              <button className="menu-option" onClick={() => { setShowRules(true); setShowMenuPanel(false); }}>
-                📖 Rules
-              </button>
-              <button className="menu-option" onClick={() => window.location.reload()}>
-                🔄 New Game
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Rules Panel */}
-      {showRules && (
-        <div className="mobile-panel rules-panel" onClick={() => setShowRules(false)}>
-          <div className="mobile-panel-content rules-content" onClick={(e) => e.stopPropagation()}>
-            <button className="mobile-panel-close" onClick={() => setShowRules(false)}>×</button>
-            <h3>Kolkhoz Rules</h3>
-            <div className="rules-text">
-              <h4>Objective</h4>
-              <p>Complete collective farm jobs while protecting your private plot. Lowest score wins!</p>
-
-              <h4>Gameplay</h4>
-              <p>• Play cards to tricks - must follow lead suit if able</p>
-              <p>• Trick winner assigns cards to matching job suits</p>
-              <p>• Jobs need 40 work hours to complete</p>
-              <p>• Face cards (J/Q/K) of trump have special powers</p>
-
-              <h4>Trump Face Cards</h4>
-              <p>• <strong>Jack (Пьяница)</strong>: Worth 0 hours, gets exiled instead of your cards</p>
-              <p>• <strong>Queen (Доносчик)</strong>: All players become vulnerable to requisition</p>
-              <p>• <strong>King (Чиновник)</strong>: Exiles two cards instead of one</p>
-
-              <h4>Requisition</h4>
-              <p>At year end, failed jobs trigger requisition - your highest matching card goes to the Gulag!</p>
-
-              <h4>Scoring</h4>
-              <p>Cards in your plot = penalty points. Protect your plot to win!</p>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
