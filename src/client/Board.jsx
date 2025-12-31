@@ -5,6 +5,7 @@ import { TrickArea } from './components/TrickArea.jsx';
 import { JobPilesArea } from './components/JobPilesArea.jsx';
 import { RightSidebar } from './components/RightSidebar.jsx';
 import { AssignmentDragDrop } from './components/AssignmentDragDrop.jsx';
+import { SwapDragDrop } from './components/SwapDragDrop.jsx';
 import { SUITS } from '../game/constants.js';
 import { getCardImagePath } from '../game/Card.js';
 
@@ -196,12 +197,20 @@ export function Board({ G, ctx, moves, playerID }) {
           players={G.players}
           currentPlayer={parseInt(ctx.currentPlayer, 10)}
           brigadeLeader={G.players.findIndex(p => p.brigadeLeader)}
-          displayMode={phase === 'assignment' ? 'jobs' : !sidebarsVisible && activePanel === 'jobs' ? 'jobs' : !sidebarsVisible && activePanel === 'gulag' ? 'gulag' : 'game'}
+          displayMode={
+            phase === 'assignment' ? 'jobs' :
+            phase === 'swap' ? 'plot' :
+            !sidebarsVisible && activePanel === 'jobs' ? 'jobs' :
+            !sidebarsVisible && activePanel === 'gulag' ? 'gulag' :
+            !sidebarsVisible && activePanel === 'plot' ? 'plot' :
+            'game'
+          }
           workHours={G.workHours}
           claimedJobs={G.claimedJobs}
           jobBuckets={G.jobBuckets}
           revealedJobs={G.revealedJobs}
           exiled={G.exiled}
+          playerPlot={G.players[currentPlayer]?.plot}
         />
 
         {/* Right Sidebar with game info and gulag */}
@@ -250,6 +259,14 @@ export function Board({ G, ctx, moves, playerID }) {
           >
             <span className="nav-icon">❄</span>
             <span className="nav-label" title="The North">Север</span>
+          </button>
+          <button
+            className={`nav-btn ${activePanel === 'plot' ? 'active' : ''}`}
+            onClick={() => togglePanel('plot')}
+            title="Your Plot (Cellar)"
+          >
+            <span className="nav-icon">🌱</span>
+            <span className="nav-label" title="Plot">Подвал</span>
           </button>
         </div>
       )}
@@ -313,73 +330,18 @@ export function Board({ G, ctx, moves, playerID }) {
         />
       )}
 
-      {/* Swap phase UI */}
+      {/* Swap phase UI - Drag and Drop */}
       {phase === 'swap' && !G.swapConfirmed?.[currentPlayer] && !swapConfirmedLocally && (
-        <div className="swap-ui">
-          <h3>Swap Cards (Year {G.year})</h3>
-          <p>Select a card from your hand and one from your plot to swap, or skip</p>
-
-          <div className="swap-section">
-            <h4>Your Hand</h4>
-            <div className="swap-cards">
-              {G.players[currentPlayer]?.hand.map((card, idx) => (
-                <div
-                  key={`hand-${idx}`}
-                  className={`swap-card ${selectedHandCard === idx ? 'selected' : ''}`}
-                  onClick={() => setSelectedHandCard(selectedHandCard === idx ? null : idx)}
-                >
-                  <CardSVG card={card} width={80} />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {G.players[currentPlayer]?.plot.revealed.length > 0 && (
-            <div className="swap-section">
-              <h4>Your Revealed Cards (Rewards)</h4>
-              <div className="swap-cards">
-                {G.players[currentPlayer]?.plot.revealed.map((card, idx) => (
-                  <div
-                    key={`revealed-${idx}`}
-                    className={`swap-card ${selectedPlotCard === idx && selectedPlotType === 'revealed' ? 'selected' : ''}`}
-                    onClick={() => handleSelectPlotCard(idx, 'revealed')}
-                  >
-                    <CardSVG card={card} width={80} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {G.players[currentPlayer]?.plot.hidden.length > 0 && (
-            <div className="swap-section">
-              <h4>Your Hidden Plot</h4>
-              <div className="swap-cards">
-                {G.players[currentPlayer]?.plot.hidden.map((card, idx) => (
-                  <div
-                    key={`hidden-${idx}`}
-                    className={`swap-card ${selectedPlotCard === idx && selectedPlotType === 'hidden' ? 'selected' : ''}`}
-                    onClick={() => handleSelectPlotCard(idx, 'hidden')}
-                  >
-                    <CardSVG card={card} width={80} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="swap-buttons">
-            <button
-              onClick={handleSwap}
-              disabled={selectedHandCard === null || selectedPlotCard === null || selectedPlotType === null}
-            >
-              Swap Selected Cards
-            </button>
-            <button onClick={handleConfirmSwap}>
-              Done Swapping
-            </button>
-          </div>
-        </div>
+        <SwapDragDrop
+          hand={G.players[currentPlayer]?.hand || []}
+          plot={G.players[currentPlayer]?.plot}
+          onSwap={(plotIdx, handIdx, plotType) => moves.swapCard(plotIdx, handIdx, plotType)}
+          onConfirm={handleConfirmSwap}
+          svgRef={svgRef}
+          centerY={playCenterY}
+          scale={scaleFactor}
+          year={G.year}
+        />
       )}
 
       {/* Waiting for others during swap */}

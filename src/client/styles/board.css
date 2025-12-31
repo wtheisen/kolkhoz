@@ -741,7 +741,163 @@ html, body {
   transform: translateX(-50%);
 }
 
-/* Swap Phase UI */
+/* Swap Drag and Drop */
+.swap-drag-drop {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  pointer-events: none;
+}
+
+.swap-drag-drop > * {
+  pointer-events: auto;
+}
+
+.swap-header {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  background: var(--bg-primary);
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  border: 2px solid var(--gold);
+  z-index: 160;
+}
+
+.swap-header h3 {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  color: var(--gold);
+  margin: 0 0 0.25rem 0;
+  font-size: 1.1rem;
+  letter-spacing: 0.1em;
+}
+
+.swap-header p {
+  color: var(--text-secondary);
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+/* Swap drop zones */
+.swap-drag-drop .drop-zones {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.swap-drag-drop .drop-zone {
+  position: absolute;
+  border-radius: 6px;
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+
+.swap-drag-drop .drop-zone.hover {
+  background: rgba(212, 168, 87, 0.15);
+  box-shadow: inset 0 0 30px rgba(212, 168, 87, 0.1);
+}
+
+.swap-drag-drop .drop-zone.target-selected {
+  border: 3px solid var(--gold) !important;
+  box-shadow: 0 0 20px rgba(212, 168, 87, 0.3);
+}
+
+.swap-drag-drop .drop-zone.revealed {
+  border: 2px dashed rgba(76, 175, 80, 0.4);
+}
+
+.swap-drag-drop .drop-zone.hidden {
+  border: 2px dashed rgba(196, 30, 58, 0.4);
+}
+
+/* Plot card overlays for clicking */
+.plot-card-overlays {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.plot-card-overlay {
+  position: absolute;
+  cursor: pointer;
+  pointer-events: auto;
+  border: 3px solid transparent;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.plot-card-overlay:hover {
+  border-color: rgba(212, 168, 87, 0.5);
+  background: rgba(212, 168, 87, 0.1);
+}
+
+.plot-card-overlay.selected {
+  border-color: var(--gold);
+  box-shadow: 0 0 15px rgba(212, 168, 87, 0.5);
+  background: rgba(212, 168, 87, 0.15);
+}
+
+/* Swap hand cards */
+.swap-hand-cards {
+  position: absolute;
+  bottom: 220px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 16px;
+  z-index: 155;
+  pointer-events: auto;
+}
+
+.swap-card {
+  cursor: grab;
+  touch-action: none;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.swap-card:hover {
+  transform: translateY(-8px);
+}
+
+.swap-card:active {
+  cursor: grabbing;
+}
+
+.swap-card.placeholder {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* Swap confirm button */
+.swap-confirm {
+  position: absolute;
+  bottom: 130px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 160;
+  padding: 0.75rem 2rem;
+  background: var(--red);
+  color: var(--cream);
+  border: 2px solid var(--gold-dark);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+  pointer-events: auto;
+}
+
+.swap-confirm:hover {
+  background: var(--red-dark);
+  border-color: var(--gold);
+  box-shadow: 0 0 20px rgba(196, 30, 58, 0.3);
+}
+
+/* Swap Phase UI (old modal - keep for fallback) */
 .swap-ui {
   position: absolute;
   top: 50%;

@@ -9,8 +9,8 @@ export function TrickArea({
   trick, numPlayers, lead, centerX = 960, centerY = 450, scale = 1,
   year, trump, phase, isMyTurn, currentPlayerName, showInfo = false,
   players, currentPlayer, brigadeLeader,
-  displayMode = 'game', // 'game' | 'jobs' | 'gulag'
-  workHours, claimedJobs, jobBuckets, revealedJobs, exiled
+  displayMode = 'game', // 'game' | 'jobs' | 'gulag' | 'plot'
+  workHours, claimedJobs, jobBuckets, revealedJobs, exiled, playerPlot
 }) {
   const suitSymbols = { Hearts: '♥', Diamonds: '♦', Clubs: '♣', Spades: '♠' };
   // Rectangular trick area dimensions - fits visible area
@@ -522,6 +522,225 @@ export function TrickArea({
               </g>
             );
           })}
+        </g>
+      )}
+
+      {/* PLOT MODE CONTENT - Player's private plot */}
+      {displayMode === 'plot' && (
+        <g className="plot-content">
+          {/* Title centered below info bar */}
+          <text
+            x={centerX}
+            y={centerY - height / 2 + 70 * scale}
+            textAnchor="middle"
+            fill="#d4a857"
+            fontSize={24 * scale}
+            fontFamily="'Russo One', 'Oswald', sans-serif"
+          >
+            Подвал
+          </text>
+
+          {/* Revealed cards row (rewards) */}
+          {(() => {
+            const revealedCards = playerPlot?.revealed || [];
+            const rowHeight = 120 * scale;
+            const rowY = centerY - height / 2 + 95 * scale;
+            const rowLeft = centerX - width / 2 + 20 * scale;
+            const rowWidth = width - 40 * scale;
+            const plotCardWidth = 70 * scale;
+            const plotCardHeight = plotCardWidth * 1.4;
+            const cardSpacing = 55 * scale;
+            const cardsStartX = rowLeft + 120 * scale;
+
+            return (
+              <g className="revealed-row">
+                {/* Row background */}
+                <rect
+                  x={rowLeft}
+                  y={rowY}
+                  width={rowWidth}
+                  height={rowHeight}
+                  fill="rgba(76, 175, 80, 0.1)"
+                  stroke="#4CAF50"
+                  strokeWidth={1}
+                  rx={4 * scale}
+                />
+
+                {/* Row label */}
+                <text
+                  x={rowLeft + 15 * scale}
+                  y={rowY + 35 * scale}
+                  textAnchor="start"
+                  fill="#4CAF50"
+                  fontSize={14 * scale}
+                  fontFamily="'Oswald', sans-serif"
+                >
+                  Награды
+                </text>
+                <text
+                  x={rowLeft + 15 * scale}
+                  y={rowY + 55 * scale}
+                  textAnchor="start"
+                  fill="#888"
+                  fontSize={12 * scale}
+                  fontFamily="'Oswald', sans-serif"
+                >
+                  (Revealed)
+                </text>
+
+                {/* Separator */}
+                <line
+                  x1={rowLeft + 100 * scale}
+                  y1={rowY + 10 * scale}
+                  x2={rowLeft + 100 * scale}
+                  y2={rowY + rowHeight - 10 * scale}
+                  stroke="#555"
+                  strokeWidth={1}
+                />
+
+                {/* Revealed cards */}
+                {revealedCards.map((card, idx) => (
+                  <image
+                    key={`revealed-${idx}`}
+                    href={getCardImagePath(card)}
+                    x={cardsStartX + idx * cardSpacing}
+                    y={rowY + (rowHeight - plotCardHeight) / 2}
+                    width={plotCardWidth}
+                    height={plotCardHeight}
+                    className="plot-card"
+                    data-type="revealed"
+                    data-index={idx}
+                  />
+                ))}
+
+                {/* Empty slot if no cards */}
+                {revealedCards.length === 0 && (
+                  <rect
+                    x={cardsStartX}
+                    y={rowY + (rowHeight - plotCardHeight) / 2}
+                    width={plotCardWidth}
+                    height={plotCardHeight}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.1)"
+                    strokeDasharray={`${4 * scale},${4 * scale}`}
+                    rx={4 * scale}
+                  />
+                )}
+              </g>
+            );
+          })()}
+
+          {/* Hidden cards row */}
+          {(() => {
+            const hiddenCards = playerPlot?.hidden || [];
+            const rowHeight = 120 * scale;
+            const rowY = centerY - height / 2 + 230 * scale;
+            const rowLeft = centerX - width / 2 + 20 * scale;
+            const rowWidth = width - 40 * scale;
+            const plotCardWidth = 70 * scale;
+            const plotCardHeight = plotCardWidth * 1.4;
+            const cardSpacing = 55 * scale;
+            const cardsStartX = rowLeft + 120 * scale;
+
+            return (
+              <g className="hidden-row">
+                {/* Row background */}
+                <rect
+                  x={rowLeft}
+                  y={rowY}
+                  width={rowWidth}
+                  height={rowHeight}
+                  fill="rgba(196, 30, 58, 0.1)"
+                  stroke="#c41e3a"
+                  strokeWidth={1}
+                  rx={4 * scale}
+                />
+
+                {/* Row label */}
+                <text
+                  x={rowLeft + 15 * scale}
+                  y={rowY + 35 * scale}
+                  textAnchor="start"
+                  fill="#c41e3a"
+                  fontSize={14 * scale}
+                  fontFamily="'Oswald', sans-serif"
+                >
+                  Скрытые
+                </text>
+                <text
+                  x={rowLeft + 15 * scale}
+                  y={rowY + 55 * scale}
+                  textAnchor="start"
+                  fill="#888"
+                  fontSize={12 * scale}
+                  fontFamily="'Oswald', sans-serif"
+                >
+                  (Hidden)
+                </text>
+
+                {/* Separator */}
+                <line
+                  x1={rowLeft + 100 * scale}
+                  y1={rowY + 10 * scale}
+                  x2={rowLeft + 100 * scale}
+                  y2={rowY + rowHeight - 10 * scale}
+                  stroke="#555"
+                  strokeWidth={1}
+                />
+
+                {/* Hidden cards - shown face up since this is YOUR plot */}
+                {hiddenCards.map((card, idx) => (
+                  <image
+                    key={`hidden-${idx}`}
+                    href={getCardImagePath(card)}
+                    x={cardsStartX + idx * cardSpacing}
+                    y={rowY + (rowHeight - plotCardHeight) / 2}
+                    width={plotCardWidth}
+                    height={plotCardHeight}
+                    className="plot-card"
+                    data-type="hidden"
+                    data-index={idx}
+                  />
+                ))}
+
+                {/* Empty slot if no cards */}
+                {hiddenCards.length === 0 && (
+                  <rect
+                    x={cardsStartX}
+                    y={rowY + (rowHeight - plotCardHeight) / 2}
+                    width={plotCardWidth}
+                    height={plotCardHeight}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.1)"
+                    strokeDasharray={`${4 * scale},${4 * scale}`}
+                    rx={4 * scale}
+                  />
+                )}
+              </g>
+            );
+          })()}
+
+          {/* Total points display */}
+          {(() => {
+            const revealed = playerPlot?.revealed || [];
+            const hidden = playerPlot?.hidden || [];
+            const totalPoints = revealed.reduce((sum, c) => sum + c.value, 0) +
+                               hidden.reduce((sum, c) => sum + c.value, 0);
+            const rowY = centerY - height / 2 + 365 * scale;
+
+            return (
+              <text
+                x={centerX}
+                y={rowY}
+                textAnchor="middle"
+                fill={totalPoints > 0 ? '#c41e3a' : '#888'}
+                fontSize={18 * scale}
+                fontFamily="'Oswald', sans-serif"
+              >
+                Total: {totalPoints} points ({revealed.length + hidden.length} cards)
+              </text>
+            );
+          })()}
         </g>
       )}
     </g>
