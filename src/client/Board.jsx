@@ -17,6 +17,15 @@ export function Board({ G, ctx, moves, playerID }) {
   const [selectedPlotCard, setSelectedPlotCard] = useState(null);
   const [selectedPlotType, setSelectedPlotType] = useState(null); // 'hidden' or 'revealed'
 
+  // State for tap-to-reveal on touch devices
+  const [revealedHiddenCard, setRevealedHiddenCard] = useState(null);
+
+  // Mobile panel toggles
+  const [showJobsPanel, setShowJobsPanel] = useState(false);
+  const [showInfoPanel, setShowInfoPanel] = useState(false);
+  const [showMenuPanel, setShowMenuPanel] = useState(false);
+  const [showRules, setShowRules] = useState(false);
+
   // Track if user has confirmed swap locally (to prevent modal reappearing due to race conditions)
   const [swapConfirmedLocally, setSwapConfirmedLocally] = useState(false);
   const lastYearRef = useRef(G.year);
@@ -186,6 +195,134 @@ export function Board({ G, ctx, moves, playerID }) {
         />
       </svg>
 
+      {/* Mobile toggle buttons */}
+      <div className="mobile-toggles">
+        <button
+          className={`mobile-toggle-btn ${showJobsPanel ? 'active' : ''}`}
+          onClick={() => { setShowJobsPanel(!showJobsPanel); setShowInfoPanel(false); setShowMenuPanel(false); }}
+        >
+          Jobs
+        </button>
+        <button
+          className={`mobile-toggle-btn ${showInfoPanel ? 'active' : ''}`}
+          onClick={() => { setShowInfoPanel(!showInfoPanel); setShowJobsPanel(false); setShowMenuPanel(false); }}
+        >
+          Info
+        </button>
+        <button
+          className={`mobile-toggle-btn menu-btn ${showMenuPanel ? 'active' : ''}`}
+          onClick={() => { setShowMenuPanel(!showMenuPanel); setShowJobsPanel(false); setShowInfoPanel(false); }}
+        >
+          ☰
+        </button>
+      </div>
+
+      {/* Mobile Jobs Panel */}
+      {showJobsPanel && (
+        <div className="mobile-panel" onClick={() => setShowJobsPanel(false)}>
+          <div className="mobile-panel-content" onClick={(e) => e.stopPropagation()}>
+            <button className="mobile-panel-close" onClick={() => setShowJobsPanel(false)}>×</button>
+            <h3>Job Progress</h3>
+            <div className="mobile-jobs-grid">
+              {SUITS.map((suit) => {
+                const hours = G.workHours?.[suit] || 0;
+                const isClaimed = G.claimedJobs?.includes(suit);
+                const isTrump = suit === G.trump;
+                return (
+                  <div key={suit} className={`mobile-job ${isTrump ? 'trump' : ''} ${isClaimed ? 'claimed' : ''}`}>
+                    <span className={`suit-icon ${suit.toLowerCase()}`}>{getSuitSymbol(suit)}</span>
+                    <span className="job-progress">{isClaimed ? '✓' : `${hours}/40`}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Info Panel */}
+      {showInfoPanel && (
+        <div className="mobile-panel" onClick={() => setShowInfoPanel(false)}>
+          <div className="mobile-panel-content" onClick={(e) => e.stopPropagation()}>
+            <button className="mobile-panel-close" onClick={() => setShowInfoPanel(false)}>×</button>
+            <h3>Game Info</h3>
+            <div className="mobile-info-grid">
+              <div className="info-item">
+                <span className="info-label">Year</span>
+                <span className="info-value">{G.year}/5</span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">Trump</span>
+                <span className={`info-value suit-icon ${G.trump?.toLowerCase()}`}>{G.trump ? getSuitSymbol(G.trump) : '?'}</span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">Phase</span>
+                <span className="info-value">{phase}</span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">Turn</span>
+                <span className="info-value">{isMyTurn ? 'Your turn!' : G.players[ctx.currentPlayer]?.name}</span>
+              </div>
+            </div>
+            {Object.keys(G.exiled || {}).length > 0 && (
+              <div className="mobile-gulag">
+                <h4>Gulag</h4>
+                <span>{Object.values(G.exiled).flat().length} cards exiled</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Menu Panel */}
+      {showMenuPanel && (
+        <div className="mobile-panel" onClick={() => setShowMenuPanel(false)}>
+          <div className="mobile-panel-content menu-panel" onClick={(e) => e.stopPropagation()}>
+            <button className="mobile-panel-close" onClick={() => setShowMenuPanel(false)}>×</button>
+            <h3>Menu</h3>
+            <div className="menu-options">
+              <button className="menu-option" onClick={() => { setShowRules(true); setShowMenuPanel(false); }}>
+                📖 Rules
+              </button>
+              <button className="menu-option" onClick={() => window.location.reload()}>
+                🔄 New Game
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rules Panel */}
+      {showRules && (
+        <div className="mobile-panel rules-panel" onClick={() => setShowRules(false)}>
+          <div className="mobile-panel-content rules-content" onClick={(e) => e.stopPropagation()}>
+            <button className="mobile-panel-close" onClick={() => setShowRules(false)}>×</button>
+            <h3>Kolkhoz Rules</h3>
+            <div className="rules-text">
+              <h4>Objective</h4>
+              <p>Complete collective farm jobs while protecting your private plot. Lowest score wins!</p>
+
+              <h4>Gameplay</h4>
+              <p>• Play cards to tricks - must follow lead suit if able</p>
+              <p>• Trick winner assigns cards to matching job suits</p>
+              <p>• Jobs need 40 work hours to complete</p>
+              <p>• Face cards (J/Q/K) of trump have special powers</p>
+
+              <h4>Trump Face Cards</h4>
+              <p>• <strong>Jack (Пьяница)</strong>: Worth 0 hours, gets exiled instead of your cards</p>
+              <p>• <strong>Queen (Доносчик)</strong>: All players become vulnerable to requisition</p>
+              <p>• <strong>King (Чиновник)</strong>: Exiles two cards instead of one</p>
+
+              <h4>Requisition</h4>
+              <p>At year end, failed jobs trigger requisition - your highest matching card goes to the Gulag!</p>
+
+              <h4>Scoring</h4>
+              <p>Cards in your plot = penalty points. Protect your plot to win!</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Player's hand (HTML for interactivity) */}
       <Hand
         cards={G.players[currentPlayer]?.hand || []}
@@ -317,7 +454,12 @@ export function Board({ G, ctx, moves, playerID }) {
             <CardSVG key={`r-${idx}`} card={card} width={60} />
           ))}
           {G.players[currentPlayer]?.plot.hidden.map((card, idx) => (
-            <div key={`h-${idx}`} className="hidden-plot-card" title="Hover to reveal">
+            <div
+              key={`h-${idx}`}
+              className={`hidden-plot-card ${revealedHiddenCard === idx ? 'revealed' : ''}`}
+              title="Tap to reveal"
+              onClick={() => setRevealedHiddenCard(revealedHiddenCard === idx ? null : idx)}
+            >
               <CardSVG card={card} width={60} faceDown className="card-back" />
               <CardSVG card={card} width={60} className="card-front" />
             </div>
