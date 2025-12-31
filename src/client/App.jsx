@@ -43,14 +43,37 @@ export function App() {
             <button className="start-btn" onClick={() => setGameStarted(true)}>
               Start Game
             </button>
-            <button className="rules-btn" onClick={() => setShowRules(true)}>
-              Rules
+            <button
+              className={`rules-btn ${showRules ? 'active' : ''}`}
+              onClick={() => setShowRules(!showRules)}
+            >
+              {showRules ? 'Options' : 'Rules'}
             </button>
           </div>
         </div>
 
-        {/* Right: Variant options */}
-        <div className="variant-options">
+        {/* Right: Variant options OR Rules */}
+        <div className="lobby-right-panel">
+          {showRules ? (
+            <div className="rules-panel">
+              <h3>Kolkhoz Rules</h3>
+              <div className="rules-text">
+                <h4>Objective</h4>
+                <p>Complete collective farm jobs while protecting your private plot. Lowest score wins!</p>
+                <h4>Gameplay</h4>
+                <p>• Play cards to tricks - must follow lead suit if able</p>
+                <p>• Trick winner assigns cards to matching job suits</p>
+                <p>• Jobs need 40 work hours to complete</p>
+                <h4>Trump Face Cards</h4>
+                <p>• <strong>Jack (Пьяница)</strong>: Worth 0, gets exiled instead of your cards</p>
+                <p>• <strong>Queen (Доносчик)</strong>: All players become vulnerable</p>
+                <p>• <strong>King (Чиновник)</strong>: Exiles two cards instead of one</p>
+                <h4>Scoring</h4>
+                <p>Cards in your plot = penalty points. Lowest score wins!</p>
+              </div>
+            </div>
+          ) : (
+            <div className="variant-options">
           <h3>Deck Type</h3>
 
           <label>
@@ -139,31 +162,9 @@ export function App() {
               <strong title="Nakoplenie - Accumulation">Накопление</strong> - Job rewards carry over
             </label>
           )}
-        </div>
-
-        {/* Rules modal */}
-        {showRules && (
-          <div className="lobby-rules-overlay" onClick={() => setShowRules(false)}>
-            <div className="lobby-rules" onClick={(e) => e.stopPropagation()}>
-              <button className="close-btn" onClick={() => setShowRules(false)}>×</button>
-              <h3>Kolkhoz Rules</h3>
-              <div className="rules-text">
-                <h4>Objective</h4>
-                <p>Complete collective farm jobs while protecting your private plot. Lowest score wins!</p>
-                <h4>Gameplay</h4>
-                <p>• Play cards to tricks - must follow lead suit if able</p>
-                <p>• Trick winner assigns cards to matching job suits</p>
-                <p>• Jobs need 40 work hours to complete</p>
-                <h4>Trump Face Cards</h4>
-                <p>• <strong>Jack (Пьяница)</strong>: Worth 0, gets exiled instead of your cards</p>
-                <p>• <strong>Queen (Доносчик)</strong>: All players become vulnerable</p>
-                <p>• <strong>King (Чиновник)</strong>: Exiles two cards instead of one</p>
-                <h4>Scoring</h4>
-                <p>Cards in your plot = penalty points. Lowest score wins!</p>
-              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     );
   }
