@@ -138,93 +138,6 @@ export function Board({ G, ctx, moves, playerID }) {
 
   return (
     <div className="game-board">
-      {/* Trump selection UI */}
-      {phase === 'planning' && !G.trump && (
-        <div className="trump-selection">
-          <h3 title="Select Trump Suit">Выберите главную задачу</h3>
-          <div className="suit-buttons">
-            {SUITS.map((suit) => {
-              const suitNames = {
-                Hearts: { ru: 'Пшеница', en: 'Hearts (Wheat)' },
-                Diamonds: { ru: 'Свёкла', en: 'Diamonds (Beets)' },
-                Clubs: { ru: 'Картофель', en: 'Clubs (Potatoes)' },
-                Spades: { ru: 'Подсолнечник', en: 'Spades (Sunflowers)' },
-              };
-              return (
-                <button
-                  key={suit}
-                  onClick={() => handleSetTrump(suit)}
-                  className={`suit-btn ${suit.toLowerCase()}`}
-                  title={suitNames[suit].en}
-                >
-                  {getSuitSymbol(suit)} {suitNames[suit].ru}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Main SVG board */}
-      <svg ref={svgRef} viewBox="0 0 1920 1080" className="board-svg">
-        {/* Job Piles (left side) */}
-        <JobPilesArea
-          revealedJobs={G.revealedJobs}
-          workHours={G.workHours}
-          jobBuckets={G.jobBuckets}
-          claimedJobs={G.claimedJobs}
-          trump={G.trump}
-          phase={phase}
-          pendingAssignments={G.pendingAssignments}
-          onAssign={handleAssign}
-          lastTrick={G.lastTrick}
-        />
-
-        {/* Trick Area (center) - includes bot player areas */}
-        <TrickArea
-          trick={phase === 'assignment' ? G.lastTrick : G.currentTrick}
-          numPlayers={G.numPlayers}
-          lead={G.lead}
-          centerX={playCenterX}
-          centerY={playCenterY}
-          scale={scaleFactor}
-          year={G.year}
-          trump={G.trump}
-          phase={phase}
-          isMyTurn={isMyTurn}
-          currentPlayerName={G.players[ctx.currentPlayer]?.name}
-          showInfo={!sidebarsVisible}
-          players={G.players}
-          currentPlayer={parseInt(ctx.currentPlayer, 10)}
-          brigadeLeader={G.players.findIndex(p => p.brigadeLeader)}
-          displayMode={
-            phase === 'assignment' ? 'jobs' :
-            phase === 'swap' ? 'plot' :
-            !sidebarsVisible && activePanel === 'jobs' ? 'jobs' :
-            !sidebarsVisible && activePanel === 'gulag' ? 'gulag' :
-            !sidebarsVisible && activePanel === 'plot' ? 'plot' :
-            'game'
-          }
-          workHours={G.workHours}
-          claimedJobs={G.claimedJobs}
-          jobBuckets={G.jobBuckets}
-          revealedJobs={G.revealedJobs}
-          exiled={G.exiled}
-          playerPlot={G.players[currentPlayer]?.plot}
-        />
-
-        {/* Right Sidebar with game info and gulag */}
-        <RightSidebar
-          year={G.year}
-          trump={G.trump}
-          phase={phase}
-          currentPlayer={ctx.currentPlayer}
-          players={G.players}
-          isMyTurn={isMyTurn}
-          exiled={G.exiled}
-        />
-      </svg>
-
       {/* Mobile navigation bar - vertical on left side */}
       {!sidebarsVisible && (
         <div className="mobile-nav-bar">
@@ -271,104 +184,194 @@ export function Board({ G, ctx, moves, playerID }) {
         </div>
       )}
 
-      {/* Mobile panel content - only shows for options panel (jobs/gulag now in SVG) */}
+      {/* Mobile panel content - only shows for options panel */}
       {!sidebarsVisible && activePanel === 'options' && (
         <div className="mobile-panel-content">
-          {/* Options/Menu Panel */}
-          {activePanel === 'options' && (
-            <div className="options-panel">
-              <h3 title="Menu">Меню</h3>
-              <div className="menu-options">
-                <div className="rules-section">
-                  <h4>Kolkhoz Rules</h4>
-                  <div className="rules-text">
-                    <h5>Objective</h5>
-                    <p>Complete collective farm jobs while protecting your private plot. Lowest score wins!</p>
+          <div className="options-panel">
+            <h3 title="Menu">Меню</h3>
+            <div className="menu-options">
+              <div className="rules-section">
+                <h4>Kolkhoz Rules</h4>
+                <div className="rules-text">
+                  <h5>Objective</h5>
+                  <p>Complete collective farm jobs while protecting your private plot. Lowest score wins!</p>
 
-                    <h5>Gameplay</h5>
-                    <p>• Play cards to tricks - must follow lead suit if able</p>
-                    <p>• Trick winner assigns cards to matching job suits</p>
-                    <p>• Jobs need 40 work hours to complete</p>
+                  <h5>Gameplay</h5>
+                  <p>• Play cards to tricks - must follow lead suit if able</p>
+                  <p>• Trick winner assigns cards to matching job suits</p>
+                  <p>• Jobs need 40 work hours to complete</p>
 
-                    <h5>Trump Face Cards</h5>
-                    <p>• <strong>Jack (Пьяница)</strong>: Worth 0 hours, gets exiled instead of your cards</p>
-                    <p>• <strong>Queen (Доносчик)</strong>: All players become vulnerable</p>
-                    <p>• <strong>King (Чиновник)</strong>: Exiles two cards instead of one</p>
-                  </div>
+                  <h5>Trump Face Cards</h5>
+                  <p>• <strong>Jack (Пьяница)</strong>: Worth 0 hours, gets exiled instead of your cards</p>
+                  <p>• <strong>Queen (Доносчик)</strong>: All players become vulnerable</p>
+                  <p>• <strong>King (Чиновник)</strong>: Exiles two cards instead of one</p>
                 </div>
-                <button className="menu-btn-action" onClick={() => window.location.reload()}>
-                  🔄 New Game
-                </button>
               </div>
+              <button className="menu-btn-action" onClick={() => window.location.reload()}>
+                🔄 New Game
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main content area */}
+      <div className="game-content">
+        {/* Trump selection UI */}
+        {phase === 'planning' && !G.trump && (
+          <div className="trump-selection">
+            <h3 title="Select Trump Suit">Выберите главную задачу</h3>
+            <div className="suit-buttons">
+              {SUITS.map((suit) => {
+                const suitNames = {
+                  Hearts: { ru: 'Пшеница', en: 'Hearts (Wheat)' },
+                  Diamonds: { ru: 'Свёкла', en: 'Diamonds (Beets)' },
+                  Clubs: { ru: 'Картофель', en: 'Clubs (Potatoes)' },
+                  Spades: { ru: 'Подсолнечник', en: 'Spades (Sunflowers)' },
+                };
+                return (
+                  <button
+                    key={suit}
+                    onClick={() => handleSetTrump(suit)}
+                    className={`suit-btn ${suit.toLowerCase()}`}
+                    title={suitNames[suit].en}
+                  >
+                    {getSuitSymbol(suit)} {suitNames[suit].ru}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* SVG container - scales to fill available space */}
+        <div className="svg-container">
+          <svg ref={svgRef} viewBox="0 0 1920 1080" className="board-svg">
+            {/* Job Piles (left side) */}
+            <JobPilesArea
+              revealedJobs={G.revealedJobs}
+              workHours={G.workHours}
+              jobBuckets={G.jobBuckets}
+              claimedJobs={G.claimedJobs}
+              trump={G.trump}
+              phase={phase}
+              pendingAssignments={G.pendingAssignments}
+              onAssign={handleAssign}
+              lastTrick={G.lastTrick}
+            />
+
+            {/* Trick Area (center) - includes bot player areas */}
+            <TrickArea
+              trick={phase === 'assignment' ? G.lastTrick : G.currentTrick}
+              numPlayers={G.numPlayers}
+              lead={G.lead}
+              centerX={playCenterX}
+              centerY={playCenterY}
+              scale={scaleFactor}
+              year={G.year}
+              trump={G.trump}
+              phase={phase}
+              isMyTurn={isMyTurn}
+              currentPlayerName={G.players[ctx.currentPlayer]?.name}
+              showInfo={!sidebarsVisible}
+              players={G.players}
+              currentPlayer={parseInt(ctx.currentPlayer, 10)}
+              brigadeLeader={G.players.findIndex(p => p.brigadeLeader)}
+              displayMode={
+                phase === 'assignment' ? 'jobs' :
+                phase === 'swap' ? 'plot' :
+                !sidebarsVisible && activePanel === 'jobs' ? 'jobs' :
+                !sidebarsVisible && activePanel === 'gulag' ? 'gulag' :
+                !sidebarsVisible && activePanel === 'plot' ? 'plot' :
+                'game'
+              }
+              workHours={G.workHours}
+              claimedJobs={G.claimedJobs}
+              jobBuckets={G.jobBuckets}
+              revealedJobs={G.revealedJobs}
+              exiled={G.exiled}
+              playerPlot={G.players[currentPlayer]?.plot}
+            />
+
+            {/* Right Sidebar with game info and gulag */}
+            <RightSidebar
+              year={G.year}
+              trump={G.trump}
+              phase={phase}
+              currentPlayer={ctx.currentPlayer}
+              players={G.players}
+              isMyTurn={isMyTurn}
+              exiled={G.exiled}
+            />
+          </svg>
+
+          {/* Assignment phase UI - Drag and Drop */}
+          {phase === 'assignment' && G.lastWinner === currentPlayer && (
+            <AssignmentDragDrop
+              lastTrick={G.lastTrick}
+              pendingAssignments={G.pendingAssignments}
+              onAssign={handleAssign}
+              onSubmit={handleSubmitAssignments}
+              svgRef={svgRef}
+              centerY={playCenterY}
+              scale={scaleFactor}
+            />
+          )}
+
+          {/* Swap phase UI - Drag and Drop */}
+          {phase === 'swap' && !G.swapConfirmed?.[currentPlayer] && !swapConfirmedLocally && (
+            <SwapDragDrop
+              hand={G.players[currentPlayer]?.hand || []}
+              plot={G.players[currentPlayer]?.plot}
+              onSwap={(plotIdx, handIdx, plotType) => moves.swapCard(plotIdx, handIdx, plotType)}
+              onConfirm={handleConfirmSwap}
+              svgRef={svgRef}
+              centerY={playCenterY}
+              scale={scaleFactor}
+              year={G.year}
+            />
+          )}
+
+          {/* Waiting for others during swap */}
+          {phase === 'swap' && (G.swapConfirmed?.[currentPlayer] || swapConfirmedLocally) && (
+            <div className="swap-ui">
+              <h3>Waiting for other players...</h3>
             </div>
           )}
 
-        </div>
-      )}
-
-      {/* Player's hand (HTML for interactivity) */}
-      <Hand
-        cards={G.players[currentPlayer]?.hand || []}
-        onPlayCard={handlePlayCard}
-        canPlay={phase === 'trick' && isMyTurn}
-        leadSuit={G.currentTrick[0]?.[1]?.suit}
-        trump={G.trump}
-        validIndices={getValidIndices(G, currentPlayer, phase)}
-        className={phase === 'assignment' ? 'shifted' : ''}
-      />
-
-      {/* Assignment phase UI - Drag and Drop */}
-      {phase === 'assignment' && G.lastWinner === currentPlayer && (
-        <AssignmentDragDrop
-          lastTrick={G.lastTrick}
-          pendingAssignments={G.pendingAssignments}
-          onAssign={handleAssign}
-          onSubmit={handleSubmitAssignments}
-          svgRef={svgRef}
-          centerY={playCenterY}
-          scale={scaleFactor}
-        />
-      )}
-
-      {/* Swap phase UI - Drag and Drop */}
-      {phase === 'swap' && !G.swapConfirmed?.[currentPlayer] && !swapConfirmedLocally && (
-        <SwapDragDrop
-          hand={G.players[currentPlayer]?.hand || []}
-          plot={G.players[currentPlayer]?.plot}
-          onSwap={(plotIdx, handIdx, plotType) => moves.swapCard(plotIdx, handIdx, plotType)}
-          onConfirm={handleConfirmSwap}
-          svgRef={svgRef}
-          centerY={playCenterY}
-          scale={scaleFactor}
-          year={G.year}
-        />
-      )}
-
-      {/* Waiting for others during swap */}
-      {phase === 'swap' && (G.swapConfirmed?.[currentPlayer] || swapConfirmedLocally) && (
-        <div className="swap-ui">
-          <h3>Waiting for other players...</h3>
-        </div>
-      )}
-
-      {/* Player's plot */}
-      <div className="player-plot">
-        <h4 title="Your Plot (Cellar)">Подвал</h4>
-        <div className="plot-cards">
-          {G.players[currentPlayer]?.plot.revealed.map((card, idx) => (
-            <CardSVG key={`r-${idx}`} card={card} width={60} />
-          ))}
-          {G.players[currentPlayer]?.plot.hidden.map((card, idx) => (
-            <div
-              key={`h-${idx}`}
-              className={`hidden-plot-card ${revealedHiddenCard === idx ? 'revealed' : ''}`}
-              title="Tap to reveal"
-              onClick={() => setRevealedHiddenCard(revealedHiddenCard === idx ? null : idx)}
-            >
-              <CardSVG card={card} width={60} faceDown className="card-back" />
-              <CardSVG card={card} width={60} className="card-front" />
+          {/* Player's plot - desktop only */}
+          <div className="player-plot">
+            <h4 title="Your Plot (Cellar)">Подвал</h4>
+            <div className="plot-cards">
+              {G.players[currentPlayer]?.plot.revealed.map((card, idx) => (
+                <CardSVG key={`r-${idx}`} card={card} width={60} />
+              ))}
+              {G.players[currentPlayer]?.plot.hidden.map((card, idx) => (
+                <div
+                  key={`h-${idx}`}
+                  className={`hidden-plot-card ${revealedHiddenCard === idx ? 'revealed' : ''}`}
+                  title="Tap to reveal"
+                  onClick={() => setRevealedHiddenCard(revealedHiddenCard === idx ? null : idx)}
+                >
+                  <CardSVG card={card} width={60} faceDown className="card-back" />
+                  <CardSVG card={card} width={60} className="card-front" />
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+        </div>
+
+        {/* Hand area - fixed height at bottom */}
+        <div className="hand-area">
+          <Hand
+            cards={G.players[currentPlayer]?.hand || []}
+            onPlayCard={handlePlayCard}
+            canPlay={phase === 'trick' && isMyTurn}
+            leadSuit={G.currentTrick[0]?.[1]?.suit}
+            trump={G.trump}
+            validIndices={getValidIndices(G, currentPlayer, phase)}
+            className={phase === 'assignment' ? 'shifted' : ''}
+          />
         </div>
       </div>
     </div>
