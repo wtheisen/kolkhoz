@@ -36,7 +36,7 @@ export function JobPilesArea({
       11: {
         russian: 'Пьяница',
         english: 'Jack (Drunkard)',
-        power: 'Gets exiled instead of player cards',
+        power: 'Worth 0 work hours. Gets exiled instead of player cards',
       },
       12: {
         russian: 'Доносчик',
