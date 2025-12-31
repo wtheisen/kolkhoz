@@ -3,21 +3,22 @@ import { CardSVG } from './CardSVG.jsx';
 
 export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 450, scale = 1, year, trump, phase, isMyTurn, currentPlayerName, showInfo = false }) {
   const suitSymbols = { Hearts: '♥', Diamonds: '♦', Clubs: '♣', Spades: '♠' };
-  // Rectangular trick area dimensions - fit between bot areas and hand
+  // Rectangular trick area dimensions - expanded to include bot areas
   const width = 800 * scale;
-  const height = 280 * scale;
+  const height = 420 * scale;
   const cardWidth = 110 * scale;
   const cardHeight = cardWidth * 1.4;
   const cardSpacing = 160 * scale;
 
-  // Card positions in a horizontal line
+  // Card positions in a horizontal line - shifted down to make room for bot areas
   // Order: player 1, player 2, player 3, player 0 (human last on right)
+  const cardYOffset = 50 * scale; // Push cards down from center
   const getCardPosition = (playerIdx) => {
     // Map player index to slot position (0-3 from left to right)
     const slotOrder = [3, 0, 1, 2]; // player 0 -> slot 3, player 1 -> slot 0, etc.
     const slot = slotOrder[playerIdx];
     const startX = -1.5 * cardSpacing; // Center the 4 cards
-    return { x: startX + slot * cardSpacing, y: 0 };
+    return { x: startX + slot * cardSpacing, y: cardYOffset };
   };
 
   // Scaled values for borders and text

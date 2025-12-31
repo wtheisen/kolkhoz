@@ -19,12 +19,12 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader, player
   // Calculate visible score (sum of revealed card values + hidden count as penalty)
   const visibleScore = revealedCards.reduce((sum, card) => sum + card.value, 0) + hiddenCount;
 
-  // Sizing for compact two-row layout
-  const cardWidth = 32 * scale;
+  // Sizing for two-row layout - larger and more readable
+  const cardWidth = 45 * scale;
   const cardHeight = cardWidth * 1.4;
-  const cardOverlap = 14 * scale;
-  const rowGap = 4 * scale;
-  const padding = 6 * scale;
+  const cardOverlap = 20 * scale;
+  const rowGap = 6 * scale;
+  const padding = 10 * scale;
 
   // Two rows of cards - split hand cards
   const cardsPerRow = 3;
@@ -34,17 +34,17 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader, player
   // Width based on cards per row
   const cardsWidth = cardsPerRow * cardOverlap + cardWidth - cardOverlap;
 
-  // Box dimensions - compact vertical layout
+  // Box dimensions
   const boxWidth = cardsWidth + padding * 2;
-  const boxHeight = padding + 20 * scale + rowGap + cardHeight + rowGap + cardHeight + padding;
+  const boxHeight = padding + 22 * scale + cardHeight + rowGap + cardHeight + padding;
 
   // Layout positions - centered on x
   const boxLeft = x - boxWidth / 2;
   const boxTop = y - boxHeight / 2;
 
   // Vertical positions
-  const nameY = boxTop + padding + 12 * scale;
-  const row1Y = nameY + 8 * scale;
+  const nameY = boxTop + padding + 14 * scale;
+  const row1Y = nameY + 10 * scale;
   const row2Y = row1Y + cardHeight + rowGap;
 
   // Cards start position (centered)
@@ -70,7 +70,7 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader, player
         y={nameY}
         textAnchor="middle"
         fill={isActive ? '#d4a857' : '#e8dcc4'}
-        fontSize={11 * scale}
+        fontSize={14 * scale}
         fontWeight={isActive ? 'bold' : 'normal'}
         fontFamily="'Oswald', sans-serif"
       >

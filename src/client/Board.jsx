@@ -113,22 +113,19 @@ export function Board({ G, ctx, moves, playerID }) {
   const playCenterX = (leftBound + rightBound) / 2;
   const playCenterY = 460;
 
-  // Player positions - above their trick slots
-  // Trick area center is at playCenterY (460), height 280, so top is at 320
-  // Position bots above the trick area, aligned with their card slots
-  const trickAreaTop = playCenterY - 140 * scaleFactor;
-  const botY = trickAreaTop - 60 * scaleFactor; // Above trick area
-  const cardSpacing = 160 * scaleFactor;
+  // Player positions - inside the expanded trick area, above card slots
+  // Trick area: center at playCenterY (460), height 420, so top at 460-210=250
+  // Bot areas positioned in upper portion of trick area
+  const trickAreaTop = playCenterY - 210; // Top of expanded trick area
+  const botY = trickAreaTop + 70; // Inside trick area, near top
   const getPlayerPosition = (idx, total) => {
-    // Match TrickArea slot positions: player 1->slot 0, player 2->slot 1, player 3->slot 2
-    const slotOrder = [3, 0, 1, 2]; // player 0 -> slot 3 (not rendered), player 1 -> slot 0, etc.
-    const slot = slotOrder[idx];
-    const startX = -1.5 * cardSpacing;
+    // Slot X positions matching TrickArea: slot 0 = -240, slot 1 = -80, slot 2 = +80
+    const slotXOffsets = [-240, -80, 80]; // For players 1, 2, 3
     const positions = [
-      { x: playCenterX, y: 800 },                              // Player 0 (human) - not rendered
-      { x: playCenterX + startX + 0 * cardSpacing, y: botY },  // Player 1 - slot 0 (left)
-      { x: playCenterX + startX + 1 * cardSpacing, y: botY },  // Player 2 - slot 1
-      { x: playCenterX + startX + 2 * cardSpacing, y: botY },  // Player 3 - slot 2
+      { x: playCenterX, y: 800 },                           // Player 0 (human) - not rendered
+      { x: playCenterX + slotXOffsets[0], y: botY },        // Player 1 - leftmost slot
+      { x: playCenterX + slotXOffsets[1], y: botY },        // Player 2 - center-left slot
+      { x: playCenterX + slotXOffsets[2], y: botY },        // Player 3 - center-right slot
     ];
     return positions[idx] || positions[0];
   };
