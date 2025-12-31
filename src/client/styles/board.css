@@ -1413,11 +1413,13 @@ html, body {
     display: none;
   }
 
-  /* Adjust hand position - account for nav bar */
+  /* Adjust hand position - center in area right of nav bar */
   .hand {
     bottom: 10px;
-    left: 130px;
-    right: 10px;
+    left: 120px;
+    right: 0;
+    transform: none;
+    justify-content: center;
   }
 
   /* Player plot adjustments */
