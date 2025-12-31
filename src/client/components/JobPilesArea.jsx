@@ -210,16 +210,35 @@ export function JobPilesArea({
               </text>
             )}
 
-            {bucket.map((card, cardIdx) => (
-              <g key={`assigned-${cardIdx}`}>
-                <CardSVG
-                  card={card}
-                  x={centerX}
-                  y={assignedY + cardHeight / 2 + cardIdx * stackOffset}
-                  width={cardWidth}
-                />
-              </g>
-            ))}
+            {bucket.map((card, cardIdx) => {
+              const faceCardInfo = getFaceCardInfo(card.value);
+              const isTrumpFaceCard = card.suit === trump && faceCardInfo;
+              const cardY = assignedY + cardHeight / 2 + cardIdx * stackOffset;
+              return (
+                <g key={`assigned-${cardIdx}`}>
+                  <CardSVG
+                    card={card}
+                    x={centerX}
+                    y={cardY}
+                    width={cardWidth}
+                  />
+                  {isTrumpFaceCard && (
+                    <text
+                      x={centerX + cardWidth / 2 + 8}
+                      y={cardY + 5}
+                      textAnchor="start"
+                      fill="#FFD700"
+                      fontSize="11"
+                      fontWeight="600"
+                      style={{ cursor: 'help' }}
+                    >
+                      <title>{faceCardInfo.english}: {faceCardInfo.power}</title>
+                      {faceCardInfo.russian}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
           </g>
         );
       })}
