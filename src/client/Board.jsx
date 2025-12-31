@@ -88,10 +88,10 @@ export function Board({ G, ctx, moves, playerID }) {
     // Position players around the play area, closer to center
     // Player 0 (human) at bottom (not shown in SVG, uses Hand component)
     const positions = [
-      { x: playCenterX, y: 750 },       // Bottom (human) - not rendered
-      { x: playCenterX - 280, y: 450 }, // Left
-      { x: playCenterX, y: 150 },       // Top
-      { x: playCenterX + 280, y: 450 }, // Right
+      { x: playCenterX, y: 800 },       // Bottom (human) - not rendered
+      { x: playCenterX - 380, y: 450 }, // Left
+      { x: playCenterX, y: 120 },       // Top
+      { x: playCenterX + 380, y: 450 }, // Right
     ];
     return positions[idx] || positions[0];
   };

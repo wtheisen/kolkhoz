@@ -14,12 +14,12 @@ export function JobPilesArea({
   lastTrick,
 }) {
   // Layout constants
-  const startX = 95;
-  const startY = 70;
-  const columnWidth = 120;
-  const cardWidth = 50;
-  const cardHeight = 70;
-  const stackOffset = 16;
+  const startX = 110;
+  const startY = 60;
+  const columnWidth = 145;
+  const cardWidth = 70;
+  const cardHeight = 98;
+  const stackOffset = 22;
 
   const getSuitColor = (suit) => {
     return suit === 'Hearts' || suit === 'Diamonds' ? '#c41e3a' : '#e8dcc4';
@@ -67,17 +67,17 @@ export function JobPilesArea({
 
         // Vertical rhythm - each section starts at a clear position
         const headerY = startY;
-        const rewardY = startY + 95;
-        const assignedY = rewardY + cardHeight + 25;
+        const rewardY = startY + 110;
+        const assignedY = rewardY + cardHeight + 30;
 
         return (
           <g key={suit} className={`job-pile ${isClaimed ? 'claimed' : ''}`}>
             {/* Header box */}
             <rect
-              x={centerX - 55}
+              x={centerX - 65}
               y={headerY}
-              width={110}
-              height={88}
+              width={130}
+              height={100}
               fill={isTrump ? 'rgba(255,215,0,0.12)' : 'rgba(0,0,0,0.5)'}
               stroke={isTrump ? '#FFD700' : '#444'}
               strokeWidth={isTrump ? 2 : 1}
@@ -88,10 +88,10 @@ export function JobPilesArea({
             {isTrump && (
               <text
                 x={centerX}
-                y={headerY + 18}
+                y={headerY + 20}
                 textAnchor="middle"
                 fill="#FFD700"
-                fontSize="14"
+                fontSize="16"
                 fontWeight="bold"
               >
                 TRUMP
@@ -101,10 +101,10 @@ export function JobPilesArea({
             {/* Suit symbol - large and centered */}
             <text
               x={centerX}
-              y={headerY + (isTrump ? 46 : 38)}
+              y={headerY + (isTrump ? 50 : 42)}
               textAnchor="middle"
               fill={getSuitColor(suit)}
-              fontSize="28"
+              fontSize="32"
             >
               {getSuitSymbol(suit)}
             </text>
@@ -114,10 +114,10 @@ export function JobPilesArea({
               <title>{JOB_TRANSLATIONS[suit]}</title>
               <text
                 x={centerX}
-                y={headerY + (isTrump ? 64 : 58)}
+                y={headerY + (isTrump ? 70 : 64)}
                 textAnchor="middle"
                 fill="#ccc"
-                fontSize="14"
+                fontSize="16"
                 fontWeight="600"
                 pointerEvents="all"
               >
@@ -127,27 +127,27 @@ export function JobPilesArea({
 
             {/* Progress bar */}
             <rect
-              x={centerX - 45}
-              y={headerY + 72}
-              width={90}
-              height={12}
+              x={centerX - 55}
+              y={headerY + 82}
+              width={110}
+              height={14}
               fill="#222"
-              rx="6"
+              rx="7"
             />
             <rect
-              x={centerX - 45}
-              y={headerY + 72}
-              width={progress}
-              height={12}
+              x={centerX - 55}
+              y={headerY + 82}
+              width={Math.min(110, (hours / THRESHOLD) * 110)}
+              height={14}
               fill={isClaimed ? '#4CAF50' : hours >= THRESHOLD ? '#4CAF50' : '#2196F3'}
-              rx="6"
+              rx="7"
             />
             <text
               x={centerX}
-              y={headerY + 82}
+              y={headerY + 93}
               textAnchor="middle"
               fill="white"
-              fontSize="10"
+              fontSize="11"
               fontWeight="bold"
             >
               {isClaimed ? '✓ DONE' : `${hours}/${THRESHOLD}`}
@@ -171,10 +171,10 @@ export function JobPilesArea({
                       <title>{faceCardInfo.english}: {faceCardInfo.power}</title>
                       <text
                         x={centerX + offsetX}
-                        y={rewardY + cardHeight + 18}
+                        y={rewardY + cardHeight + 22}
                         textAnchor="middle"
                         fill="#FFD700"
-                        fontSize="13"
+                        fontSize="14"
                         fontWeight="600"
                         pointerEvents="all"
                       >
@@ -190,10 +190,10 @@ export function JobPilesArea({
             {bucket.length > 0 && (
               <text
                 x={centerX}
-                y={assignedY - 6}
+                y={assignedY - 8}
                 textAnchor="middle"
                 fill="#999"
-                fontSize="12"
+                fontSize="13"
                 fontWeight="500"
               >
                 {bucket.length} assigned
@@ -231,10 +231,10 @@ export function JobPilesArea({
                   <title>{info.english}: {info.power}</title>
                   <text
                     x={centerX}
-                    y={labelsStartY + labelIdx * 14}
+                    y={labelsStartY + labelIdx * 16}
                     textAnchor="middle"
                     fill="#FFD700"
-                    fontSize="11"
+                    fontSize="13"
                     fontWeight="600"
                     pointerEvents="all"
                   >

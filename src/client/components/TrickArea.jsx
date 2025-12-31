@@ -3,7 +3,8 @@ import { CardSVG } from './CardSVG.jsx';
 
 export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 450 }) {
   // Center of the trick area (can be overridden via props)
-  const radius = 100;
+  const radius = 140;
+  const cardWidth = 100;
 
   // Calculate positions for cards in circular arrangement
   const getCardPosition = (playerIdx) => {
@@ -24,7 +25,7 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
       <circle
         cx={centerX}
         cy={centerY}
-        r={radius + 80}
+        r={radius + 100}
         fill="#1a1a1a"
         stroke="#d4a857"
         strokeWidth="3"
@@ -32,7 +33,7 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
       <circle
         cx={centerX}
         cy={centerY}
-        r={radius + 60}
+        r={radius + 80}
         fill="none"
         stroke="#8b0000"
         strokeWidth="2"
@@ -72,7 +73,7 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
             card={card}
             x={centerX + pos.x}
             y={centerY + pos.y}
-            width={80}
+            width={cardWidth}
             rotation={playerIdx * 90}
           />
         );
@@ -84,13 +85,14 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
         if (hasPlayed) return null;
 
         const pos = getCardPosition(idx);
+        const cardHeight = cardWidth * 1.4;
         return (
           <rect
             key={`slot-${idx}`}
-            x={centerX + pos.x - 40}
-            y={centerY + pos.y - 56}
-            width={80}
-            height={112}
+            x={centerX + pos.x - cardWidth / 2}
+            y={centerY + pos.y - cardHeight / 2}
+            width={cardWidth}
+            height={cardHeight}
             fill="none"
             stroke="rgba(255,255,255,0.2)"
             strokeWidth="2"
