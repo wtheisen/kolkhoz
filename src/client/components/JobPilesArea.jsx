@@ -31,7 +31,7 @@ export function JobPilesArea({
   };
 
   const getCardName = (value) => {
-    const names = { 11: 'Jack', 12: 'Queen', 13: 'King', 1: 'Ace' };
+    const names = { 11: 'Jack', 12: 'Queen', 13: 'King' };
     return names[value] || null;
   };
 
