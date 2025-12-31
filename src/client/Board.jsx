@@ -5,6 +5,7 @@ import { TrickArea } from './components/TrickArea.jsx';
 import { AssignmentDragDrop } from './components/AssignmentDragDrop.jsx';
 import { SwapDragDrop } from './components/SwapDragDrop.jsx';
 import { SUITS } from '../game/constants.js';
+import { getCardImagePath } from '../game/Card.js';
 
 export function Board({ G, ctx, moves, playerID }) {
   const currentPlayer = parseInt(playerID, 10);
@@ -32,6 +33,130 @@ export function Board({ G, ctx, moves, playerID }) {
 
   // SVG uses full width - no sidebars, nav bar is separate HTML element
   const scaleFactor = 1;
+
+  // AI Assignment Animation state
+  const [flyingCards, setFlyingCards] = useState([]);
+  const prevJobBucketsRef = useRef(null);
+  const prevPhaseRef = useRef(phase);
+  const lastTrickSnapshotRef = useRef(null);
+
+  // Snapshot the trick when entering assignment phase
+  useEffect(() => {
+    if (phase === 'assignment' && prevPhaseRef.current !== 'assignment') {
+      // Just entered assignment phase - snapshot the trick for potential animation
+      lastTrickSnapshotRef.current = {
+        trick: G.lastTrick,
+        winner: G.lastWinner,
+        jobBuckets: JSON.parse(JSON.stringify(G.jobBuckets)),
+      };
+    }
+    prevPhaseRef.current = phase;
+  }, [phase, G.lastTrick, G.lastWinner, G.jobBuckets]);
+
+  // Detect AI assignment completion and trigger animation
+  useEffect(() => {
+    // Only animate if AI won (not the human player)
+    if (G.lastWinner === currentPlayer) {
+      prevJobBucketsRef.current = G.jobBuckets;
+      return;
+    }
+
+    // Check if jobBuckets changed (cards were assigned)
+    const snapshot = lastTrickSnapshotRef.current;
+    if (!snapshot || !prevJobBucketsRef.current) {
+      prevJobBucketsRef.current = G.jobBuckets;
+      return;
+    }
+
+    // Find newly assigned cards by comparing bucket sizes
+    const newCards = [];
+    for (const suit of SUITS) {
+      const prevCount = prevJobBucketsRef.current[suit]?.length || 0;
+      const newCount = G.jobBuckets[suit]?.length || 0;
+      if (newCount > prevCount) {
+        // Cards were added to this suit's bucket
+        const addedCards = G.jobBuckets[suit].slice(prevCount);
+        addedCards.forEach(card => {
+          newCards.push({ card, targetSuit: suit });
+        });
+      }
+    }
+
+    // If cards were assigned by AI, animate them
+    if (newCards.length > 0 && snapshot.trick && svgRef.current) {
+      const svgRect = svgRef.current.getBoundingClientRect();
+      const viewBoxWidth = 1920;
+      const viewBoxHeight = 1080;
+      const scaleX = svgRect.width / viewBoxWidth;
+      const scaleY = svgRect.height / viewBoxHeight;
+
+      // TrickArea dimensions (must match TrickArea.jsx)
+      const centerX = 960;
+      const centerY = 470;
+      const width = 1100;
+      const height = 540;
+      const cardSpacing = 265;
+
+      // Calculate card source positions (trick card slots)
+      const getCardPosition = (playerIdx) => {
+        const slotOrder = [3, 0, 1, 2];
+        const slot = slotOrder[playerIdx];
+        const startX = -1.5 * cardSpacing;
+        return { x: centerX + startX + slot * cardSpacing, y: centerY + 85 };
+      };
+
+      // Calculate job icon target positions (info bar)
+      const leftEdge = centerX - width / 2 + 20;
+      const infoY = centerY - height / 2 + 38;
+      const jobStartX = leftEdge + 320;
+      const jobSpacing = 70;
+      const suitIndex = { Hearts: 0, Diamonds: 1, Clubs: 2, Spades: 3 };
+
+      const getJobPosition = (suit) => {
+        const idx = suitIndex[suit];
+        return { x: jobStartX + idx * jobSpacing, y: infoY };
+      };
+
+      // Create flying card animations
+      const animations = newCards.map((item, index) => {
+        // Find which player played this card in the trick
+        const trickEntry = snapshot.trick.find(([, c]) =>
+          c.suit === item.card.suit && c.value === item.card.value
+        );
+        const playerIdx = trickEntry ? trickEntry[0] : 0;
+
+        const sourcePos = getCardPosition(playerIdx);
+        const targetPos = getJobPosition(item.targetSuit);
+
+        // Convert SVG coords to screen coords
+        const fromX = svgRect.left + sourcePos.x * scaleX;
+        const fromY = svgRect.top + sourcePos.y * scaleY;
+        const toX = svgRect.left + targetPos.x * scaleX;
+        const toY = svgRect.top + targetPos.y * scaleY;
+
+        return {
+          id: `${item.card.suit}-${item.card.value}-${Date.now()}-${index}`,
+          card: item.card,
+          fromX,
+          fromY,
+          toX,
+          toY,
+          delay: index * 100, // Stagger animations
+        };
+      });
+
+      setFlyingCards(animations);
+
+      // Clear animations after they complete
+      const maxDelay = animations.length * 100;
+      setTimeout(() => {
+        setFlyingCards([]);
+        lastTrickSnapshotRef.current = null;
+      }, 500 + maxDelay);
+    }
+
+    prevJobBucketsRef.current = G.jobBuckets;
+  }, [G.jobBuckets, G.lastWinner, currentPlayer]);
 
   // Reset local swap confirmation when year changes
   useEffect(() => {
@@ -311,6 +436,28 @@ export function Board({ G, ctx, moves, playerID }) {
               ))}
             </div>
           </div>
+
+          {/* AI Assignment Flying Cards Animation */}
+          {flyingCards.map((fc) => (
+            <div
+              key={fc.id}
+              className="ai-flying-card"
+              style={{
+                '--from-x': `${fc.fromX}px`,
+                '--from-y': `${fc.fromY}px`,
+                '--to-x': `${fc.toX}px`,
+                '--to-y': `${fc.toY}px`,
+                '--delay': `${fc.delay}ms`,
+              }}
+            >
+              <img
+                src={getCardImagePath(fc.card)}
+                alt={`${fc.card.value} of ${fc.card.suit}`}
+                width={80}
+                height={112}
+              />
+            </div>
+          ))}
         </div>
 
         {/* Hand area - fixed height at bottom */}

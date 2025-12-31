@@ -715,6 +715,44 @@ html, body {
   }
 }
 
+/* AI Assignment Flying Cards */
+.ai-flying-card {
+  position: fixed;
+  pointer-events: none;
+  z-index: 999;
+  left: var(--from-x);
+  top: var(--from-y);
+  transform: translate(-50%, -50%);
+  animation: ai-fly-to-job 0.4s ease-in-out forwards;
+  animation-delay: var(--delay);
+  opacity: 0;
+}
+
+.ai-flying-card img {
+  border-radius: 6px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5),
+              0 0 15px rgba(212, 168, 87, 0.4);
+}
+
+@keyframes ai-fly-to-job {
+  0% {
+    left: var(--from-x);
+    top: var(--from-y);
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1) rotate(-5deg);
+    opacity: 1;
+  }
+  100% {
+    left: var(--to-x);
+    top: var(--to-y);
+    transform: translate(-50%, -50%) scale(0.3) rotate(5deg);
+    opacity: 0;
+  }
+}
+
 /* Submit button */
 .assignment-submit {
   position: absolute;
