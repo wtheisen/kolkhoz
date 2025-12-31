@@ -42,10 +42,11 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
       {trick.length > 0 && (
         <text
           x={centerX}
-          y={centerY - radius - 70}
+          y={centerY}
           textAnchor="middle"
+          dominantBaseline="middle"
           fill="#FFD700"
-          fontSize="14"
+          fontSize="16"
           fontWeight="bold"
         >
           Lead: {trick[0][1].suit}
