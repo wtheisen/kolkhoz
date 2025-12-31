@@ -1,29 +1,78 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" shape-rendering="crispEdges">
   <!-- Background -->
-  <rect width="32" height="32" fill="#1a4a1a"/>
-  <!-- Face -->
-  <rect x="10" y="10" width="12" height="10" fill="#d4a574"/>
-  <!-- Hair/Headscarf -->
-  <rect x="8" y="4" width="16" height="8" fill="#c41e3a"/>
-  <rect x="6" y="8" width="4" height="6" fill="#c41e3a"/>
-  <rect x="22" y="8" width="4" height="6" fill="#c41e3a"/>
-  <rect x="10" y="6" width="12" height="2" fill="#c41e3a"/>
-  <!-- Headscarf knot -->
-  <rect x="12" y="12" width="2" height="2" fill="#c41e3a"/>
-  <!-- Eyes -->
-  <rect x="12" y="12" width="2" height="2" fill="#2d5a5a"/>
-  <rect x="18" y="12" width="2" height="2" fill="#2d5a5a"/>
+  <rect width="64" height="64" fill="#1a4a1a"/>
+
+  <!-- Neck -->
+  <rect x="24" y="48" width="16" height="16" fill="#d4a574"/>
+
+  <!-- Face base -->
+  <rect x="18" y="18" width="28" height="24" fill="#d4a574"/>
+  <rect x="20" y="16" width="24" height="4" fill="#d4a574"/>
+  <rect x="16" y="22" width="4" height="16" fill="#d4a574"/>
+  <rect x="44" y="22" width="4" height="16" fill="#d4a574"/>
+
+  <!-- Red headscarf (babushka style) -->
+  <rect x="10" y="6" width="44" height="14" fill="#c41e3a"/>
+  <rect x="14" y="4" width="36" height="4" fill="#c41e3a"/>
+  <rect x="8" y="12" width="8" height="14" fill="#c41e3a"/>
+  <rect x="48" y="12" width="8" height="14" fill="#c41e3a"/>
+  <!-- Headscarf sides hanging down -->
+  <rect x="6" y="20" width="6" height="20" fill="#c41e3a"/>
+  <rect x="52" y="20" width="6" height="20" fill="#c41e3a"/>
+  <!-- Headscarf pattern/folds -->
+  <rect x="12" y="8" width="2" height="4" fill="#a01830"/>
+  <rect x="20" y="6" width="2" height="4" fill="#a01830"/>
+  <rect x="42" y="6" width="2" height="4" fill="#a01830"/>
+  <rect x="50" y="8" width="2" height="4" fill="#a01830"/>
+  <!-- Headscarf knot under chin -->
+  <rect x="26" y="44" width="12" height="6" fill="#c41e3a"/>
+  <rect x="24" y="46" width="4" height="6" fill="#c41e3a"/>
+  <rect x="36" y="46" width="4" height="6" fill="#c41e3a"/>
+
+  <!-- Hair peeking out -->
+  <rect x="16" y="16" width="6" height="4" fill="#5a4030"/>
+  <rect x="42" y="16" width="6" height="4" fill="#5a4030"/>
+
   <!-- Eyebrows -->
-  <rect x="12" y="10" width="3" height="1" fill="#4a3728"/>
-  <rect x="17" y="10" width="3" height="1" fill="#4a3728"/>
-  <!-- Nose -->
-  <rect x="15" y="14" width="2" height="2" fill="#c49474"/>
-  <!-- Mouth -->
-  <rect x="14" y="17" width="4" height="1" fill="#b87a6a"/>
+  <rect x="22" y="22" width="6" height="2" fill="#4a3728"/>
+  <rect x="36" y="22" width="6" height="2" fill="#4a3728"/>
+
+  <!-- Eyes -->
+  <rect x="22" y="26" width="8" height="6" fill="#ffffff"/>
+  <rect x="34" y="26" width="8" height="6" fill="#ffffff"/>
+  <rect x="24" y="26" width="6" height="6" fill="#2d5a5a"/>
+  <rect x="36" y="26" width="6" height="6" fill="#2d5a5a"/>
+  <rect x="26" y="28" width="2" height="2" fill="#1a1a1a"/>
+  <rect x="38" y="28" width="2" height="2" fill="#1a1a1a"/>
+  <!-- Eye highlights -->
+  <rect x="24" y="26" width="2" height="2" fill="#ffffff"/>
+  <rect x="36" y="26" width="2" height="2" fill="#ffffff"/>
+  <!-- Eyelashes -->
+  <rect x="22" y="24" width="2" height="2" fill="#3a2718"/>
+  <rect x="28" y="24" width="2" height="2" fill="#3a2718"/>
+  <rect x="34" y="24" width="2" height="2" fill="#3a2718"/>
+  <rect x="40" y="24" width="2" height="2" fill="#3a2718"/>
+
   <!-- Blush -->
-  <rect x="10" y="14" width="2" height="2" fill="#e8a090"/>
-  <rect x="20" y="14" width="2" height="2" fill="#e8a090"/>
-  <!-- Collar/Dress -->
-  <rect x="8" y="20" width="16" height="8" fill="#2d5a2d"/>
-  <rect x="14" y="20" width="4" height="2" fill="#e8dcc4"/>
+  <rect x="16" y="30" width="4" height="4" fill="#e8a090"/>
+  <rect x="44" y="30" width="4" height="4" fill="#e8a090"/>
+
+  <!-- Nose -->
+  <rect x="30" y="30" width="4" height="4" fill="#c49474"/>
+  <rect x="28" y="32" width="2" height="2" fill="#b48464"/>
+  <rect x="34" y="32" width="2" height="2" fill="#b48464"/>
+
+  <!-- Mouth (slight smile) -->
+  <rect x="28" y="38" width="8" height="2" fill="#b87a6a"/>
+  <rect x="26" y="36" width="2" height="2" fill="#c4948c"/>
+  <rect x="36" y="36" width="2" height="2" fill="#c4948c"/>
+
+  <!-- Dress collar -->
+  <rect x="14" y="52" width="36" height="12" fill="#2d5a2d"/>
+  <rect x="28" y="52" width="8" height="4" fill="#e8dcc4"/>
+  <!-- Embroidery pattern on collar -->
+  <rect x="18" y="56" width="4" height="2" fill="#ffd700"/>
+  <rect x="42" y="56" width="4" height="2" fill="#ffd700"/>
+  <rect x="20" y="60" width="2" height="2" fill="#c41e3a"/>
+  <rect x="42" y="60" width="2" height="2" fill="#c41e3a"/>
 </svg>

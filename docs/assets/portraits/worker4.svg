@@ -1,32 +1,84 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" shape-rendering="crispEdges">
   <!-- Background -->
-  <rect width="32" height="32" fill="#5a3a1a"/>
-  <!-- Face -->
-  <rect x="10" y="10" width="12" height="12" fill="#c49878"/>
-  <!-- Military cap -->
-  <rect x="8" y="4" width="16" height="4" fill="#3a5a3a"/>
-  <rect x="6" y="8" width="20" height="4" fill="#4a6a4a"/>
-  <rect x="12" y="5" width="8" height="2" fill="#2a4a2a"/>
-  <!-- Cap badge -->
-  <rect x="14" y="9" width="4" height="2" fill="#ffd700"/>
-  <!-- Hair -->
-  <rect x="8" y="12" width="2" height="2" fill="#2d2d2d"/>
-  <rect x="22" y="12" width="2" height="2" fill="#2d2d2d"/>
-  <!-- Eyes -->
-  <rect x="12" y="14" width="2" height="2" fill="#3d3d3d"/>
-  <rect x="18" y="14" width="2" height="2" fill="#3d3d3d"/>
-  <!-- Eyebrows (stern) -->
-  <rect x="11" y="12" width="4" height="1" fill="#2d2d2d"/>
-  <rect x="17" y="12" width="4" height="1" fill="#2d2d2d"/>
+  <rect width="64" height="64" fill="#5a3a1a"/>
+
+  <!-- Neck -->
+  <rect x="24" y="48" width="16" height="16" fill="#c49878"/>
+
+  <!-- Face base -->
+  <rect x="18" y="20" width="28" height="24" fill="#c49878"/>
+  <rect x="20" y="18" width="24" height="4" fill="#c49878"/>
+  <rect x="16" y="24" width="4" height="16" fill="#c49878"/>
+  <rect x="44" y="24" width="4" height="16" fill="#c49878"/>
+
+  <!-- Military officer cap -->
+  <rect x="12" y="8" width="40" height="8" fill="#3a5a3a"/>
+  <rect x="16" y="6" width="32" height="4" fill="#3a5a3a"/>
+  <!-- Cap band -->
+  <rect x="10" y="14" width="44" height="6" fill="#4a6a4a"/>
+  <!-- Cap brim -->
+  <rect x="8" y="18" width="48" height="4" fill="#2a4a2a"/>
+  <rect x="6" y="20" width="52" height="2" fill="#1a3a1a"/>
+  <!-- Gold cap badge -->
+  <rect x="26" y="8" width="12" height="8" fill="#ffd700"/>
+  <rect x="28" y="6" width="8" height="2" fill="#ffd700"/>
+  <!-- Badge detail (star) -->
+  <rect x="30" y="10" width="4" height="4" fill="#c41e3a"/>
+  <!-- Cap crown detail -->
+  <rect x="18" y="8" width="4" height="2" fill="#4a6a4a"/>
+  <rect x="42" y="8" width="4" height="2" fill="#4a6a4a"/>
+
+  <!-- Hair (short, dark, military cut) -->
+  <rect x="16" y="20" width="4" height="6" fill="#2d2d2d"/>
+  <rect x="44" y="20" width="4" height="6" fill="#2d2d2d"/>
+
+  <!-- Stern eyebrows -->
+  <rect x="20" y="24" width="10" height="2" fill="#2d2d2d"/>
+  <rect x="34" y="24" width="10" height="2" fill="#2d2d2d"/>
+  <rect x="18" y="22" width="4" height="2" fill="#2d2d2d"/>
+  <rect x="42" y="22" width="4" height="2" fill="#2d2d2d"/>
+
+  <!-- Eyes (stern look) -->
+  <rect x="22" y="28" width="6" height="4" fill="#ffffff"/>
+  <rect x="36" y="28" width="6" height="4" fill="#ffffff"/>
+  <rect x="24" y="28" width="4" height="4" fill="#3d3d3d"/>
+  <rect x="38" y="28" width="4" height="4" fill="#3d3d3d"/>
+  <rect x="26" y="30" width="2" height="2" fill="#1a1a1a"/>
+  <rect x="40" y="30" width="2" height="2" fill="#1a1a1a"/>
+
   <!-- Nose -->
-  <rect x="15" y="15" width="2" height="3" fill="#b48868"/>
-  <!-- Mouth (serious) -->
-  <rect x="13" y="19" width="6" height="1" fill="#8a6858"/>
+  <rect x="30" y="30" width="4" height="8" fill="#b48868"/>
+  <rect x="28" y="36" width="2" height="2" fill="#a47858"/>
+  <rect x="34" y="36" width="2" height="2" fill="#a47858"/>
+
+  <!-- Mouth (serious, thin) -->
+  <rect x="26" y="40" width="12" height="2" fill="#8a6858"/>
+  <rect x="28" y="42" width="8" height="2" fill="#9a7868"/>
+
   <!-- Uniform collar -->
-  <rect x="6" y="22" width="20" height="8" fill="#3a5a3a"/>
-  <rect x="10" y="22" width="4" height="2" fill="#ffd700"/>
-  <rect x="18" y="22" width="4" height="2" fill="#ffd700"/>
-  <!-- Medals -->
-  <rect x="8" y="26" width="3" height="3" fill="#c41e3a"/>
-  <rect x="12" y="26" width="3" height="3" fill="#ffd700"/>
+  <rect x="10" y="48" width="44" height="16" fill="#3a5a3a"/>
+  <!-- Collar tabs -->
+  <rect x="14" y="50" width="12" height="6" fill="#2a4a2a"/>
+  <rect x="38" y="50" width="12" height="6" fill="#2a4a2a"/>
+  <!-- Gold collar insignia -->
+  <rect x="16" y="52" width="8" height="2" fill="#ffd700"/>
+  <rect x="40" y="52" width="8" height="2" fill="#ffd700"/>
+  <!-- Shoulder boards (gold) -->
+  <rect x="8" y="50" width="4" height="10" fill="#ffd700"/>
+  <rect x="52" y="50" width="4" height="10" fill="#ffd700"/>
+  <rect x="8" y="52" width="4" height="2" fill="#c4a030"/>
+  <rect x="52" y="54" width="4" height="2" fill="#c4a030"/>
+
+  <!-- Medals row -->
+  <rect x="16" y="58" width="6" height="6" fill="#c41e3a"/>
+  <rect x="24" y="58" width="6" height="6" fill="#ffd700"/>
+  <rect x="32" y="58" width="6" height="6" fill="#4169e1"/>
+  <!-- Medal ribbons -->
+  <rect x="16" y="56" width="6" height="2" fill="#ff6b6b"/>
+  <rect x="24" y="56" width="6" height="2" fill="#ffeb3b"/>
+  <rect x="32" y="56" width="6" height="2" fill="#64b5f6"/>
+
+  <!-- Center buttons -->
+  <rect x="30" y="52" width="4" height="4" fill="#ffd700"/>
+  <rect x="30" y="58" width="4" height="4" fill="#ffd700"/>
 </svg>

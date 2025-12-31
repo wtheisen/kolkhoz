@@ -15,9 +15,9 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader, player
   const handSize = player.hand?.length || 0;
   const revealedCards = player.plot?.revealed || [];
   const hiddenCount = player.plot?.hidden?.length || 0;
-  const cardWidth = 50;
-  const cardSpacing = 12;
-  const portraitSize = 48;
+  const cardWidth = 42;
+  const cardSpacing = 8;
+  const portraitSize = 56;
 
   // Get portrait based on player index (wraps around if more than 4 players)
   const portraitSrc = PORTRAITS[(playerIndex - 1) % PORTRAITS.length];
@@ -27,35 +27,41 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader, player
     ? revealedCards.length * (cardWidth + cardSpacing) - cardSpacing
     : 0;
 
+  // Layout constants
+  const boxWidth = 210;
+  const boxHeight = 150;
+  const boxLeft = x - boxWidth / 2;
+  const boxTop = y - boxHeight / 2;
+
   return (
     <g className={`player-area ${isActive ? 'active' : ''}`}>
-      {/* Background - expanded to fit content */}
+      {/* Background */}
       <rect
-        x={x - 120}
-        y={y - 90}
-        width={240}
-        height={180}
+        x={boxLeft}
+        y={boxTop}
+        width={boxWidth}
+        height={boxHeight}
         fill={isActive ? 'rgba(196, 30, 58, 0.2)' : 'rgba(20,20,20,0.8)'}
         stroke={isActive ? '#d4a857' : '#333'}
         strokeWidth={isActive ? 2 : 1}
-        rx="10"
+        rx="8"
       />
 
-      {/* Portrait */}
+      {/* Portrait - upper left */}
       <image
         href={portraitSrc}
-        x={x - portraitSize / 2}
-        y={y - 82}
+        x={boxLeft + 8}
+        y={boxTop + 8}
         width={portraitSize}
         height={portraitSize}
         style={{ imageRendering: 'pixelated' }}
       />
 
-      {/* Player name */}
+      {/* Player name - to the right of portrait */}
       <text
-        x={x}
-        y={y - 25}
-        textAnchor="middle"
+        x={boxLeft + 8 + portraitSize + 10}
+        y={boxTop + 24}
+        textAnchor="start"
         fill={isActive ? '#d4a857' : '#e8dcc4'}
         fontSize="14"
         fontWeight={isActive ? 'bold' : 'normal'}
@@ -64,50 +70,53 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader, player
         {isBrigadeLeader && ' ☆'}
       </text>
 
-      {/* Medals */}
+      {/* Hand count - below name */}
+      <text
+        x={boxLeft + 8 + portraitSize + 10}
+        y={boxTop + 42}
+        textAnchor="start"
+        fill="#a09080"
+        fontSize="12"
+      >
+        Hand: {handSize}
+      </text>
+
+      {/* Medals - below hand count */}
       {player.medals > 0 && (
         <text
-          x={x + 85}
-          y={y - 25}
+          x={boxLeft + 8 + portraitSize + 10}
+          y={boxTop + 58}
+          textAnchor="start"
           fill="#FFD700"
-          fontSize="14"
+          fontSize="12"
         >
           🏅 {player.medals}
         </text>
       )}
 
-      {/* Hand (card backs using actual card back asset) */}
-      <g transform={`translate(${x - 55}, ${y - 5})`}>
+      {/* Hand (card backs) - below portrait row */}
+      <g transform={`translate(${boxLeft + 12}, ${boxTop + 68})`}>
         {Array.from({ length: Math.min(5, handSize) }).map((_, idx) => (
           <CardSVG
             key={`hand-${idx}`}
             card={{}}
             faceDown={true}
-            x={idx * 20 + cardWidth / 2}
+            x={idx * 15 + cardWidth / 2}
             y={cardWidth * 0.7}
             width={cardWidth}
           />
         ))}
-        <text
-          x={55}
-          y={cardWidth * 1.4 + 22}
-          textAnchor="middle"
-          fill="#a09080"
-          fontSize="12"
-        >
-          Hand: {handSize}
-        </text>
       </g>
 
-      {/* Revealed plot cards (visible to all) */}
+      {/* Revealed plot cards (visible to all) - at bottom */}
       {revealedCards.length > 0 && (
-        <g transform={`translate(${x - revealedWidth / 2}, ${y + 35})`}>
+        <g transform={`translate(${x - revealedWidth / 2}, ${boxTop + boxHeight - 10})`}>
           {revealedCards.map((card, idx) => (
             <CardSVG
               key={`revealed-${idx}`}
               card={card}
               x={idx * (cardWidth + cardSpacing) + cardWidth / 2}
-              y={cardWidth * 0.7}
+              y={0}
               width={cardWidth}
             />
           ))}
@@ -117,11 +126,11 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader, player
       {/* Hidden plot indicator */}
       {hiddenCount > 0 && (
         <text
-          x={x}
-          y={y + 78}
-          textAnchor="middle"
+          x={boxLeft + boxWidth - 10}
+          y={boxTop + boxHeight - 8}
+          textAnchor="end"
           fill="#a09080"
-          fontSize="12"
+          fontSize="11"
         >
           +{hiddenCount} hidden
         </text>

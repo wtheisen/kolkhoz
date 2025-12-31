@@ -1,26 +1,76 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" shape-rendering="crispEdges">
   <!-- Background -->
-  <rect width="32" height="32" fill="#8b0000"/>
-  <!-- Face -->
-  <rect x="10" y="8" width="12" height="12" fill="#e8b89d"/>
-  <!-- Hair -->
-  <rect x="10" y="6" width="12" height="4" fill="#4a3728"/>
-  <rect x="8" y="8" width="2" height="6" fill="#4a3728"/>
-  <rect x="22" y="8" width="2" height="6" fill="#4a3728"/>
+  <rect width="64" height="64" fill="#8b0000"/>
+
+  <!-- Neck -->
+  <rect x="24" y="52" width="16" height="12" fill="#e8b89d"/>
+
+  <!-- Face base -->
+  <rect x="18" y="16" width="28" height="28" fill="#e8b89d"/>
+  <rect x="20" y="14" width="24" height="4" fill="#e8b89d"/>
+  <rect x="16" y="20" width="4" height="20" fill="#e8b89d"/>
+  <rect x="44" y="20" width="4" height="20" fill="#e8b89d"/>
+
+  <!-- Ushanka hat - main body -->
+  <rect x="12" y="4" width="40" height="14" fill="#5c4033"/>
+  <rect x="16" y="2" width="32" height="4" fill="#5c4033"/>
+  <!-- Ushanka fur trim -->
+  <rect x="8" y="14" width="12" height="10" fill="#6d5040"/>
+  <rect x="44" y="14" width="12" height="10" fill="#6d5040"/>
+  <rect x="10" y="12" width="8" height="4" fill="#7d6050"/>
+  <rect x="46" y="12" width="8" height="4" fill="#7d6050"/>
+  <!-- Fur texture -->
+  <rect x="10" y="16" width="2" height="2" fill="#7d6050"/>
+  <rect x="14" y="18" width="2" height="2" fill="#7d6050"/>
+  <rect x="48" y="16" width="2" height="2" fill="#7d6050"/>
+  <rect x="50" y="20" width="2" height="2" fill="#7d6050"/>
+  <!-- Red star on hat -->
+  <rect x="28" y="6" width="8" height="8" fill="#ffd700"/>
+  <rect x="30" y="4" width="4" height="2" fill="#ffd700"/>
+  <rect x="30" y="14" width="4" height="2" fill="#ffd700"/>
+  <rect x="26" y="8" width="2" height="4" fill="#ffd700"/>
+  <rect x="36" y="8" width="2" height="4" fill="#ffd700"/>
+
+  <!-- Hair sides -->
+  <rect x="16" y="16" width="4" height="10" fill="#4a3728"/>
+  <rect x="44" y="16" width="4" height="10" fill="#4a3728"/>
+
+  <!-- Eyebrows -->
+  <rect x="22" y="22" width="8" height="2" fill="#3a2718"/>
+  <rect x="34" y="22" width="8" height="2" fill="#3a2718"/>
+
   <!-- Eyes -->
-  <rect x="12" y="12" width="2" height="2" fill="#2d2d2d"/>
-  <rect x="18" y="12" width="2" height="2" fill="#2d2d2d"/>
-  <!-- Mouth -->
-  <rect x="14" y="16" width="4" height="2" fill="#c4846c"/>
+  <rect x="24" y="26" width="6" height="4" fill="#ffffff"/>
+  <rect x="34" y="26" width="6" height="4" fill="#ffffff"/>
+  <rect x="26" y="26" width="4" height="4" fill="#2d4a1a"/>
+  <rect x="36" y="26" width="4" height="4" fill="#2d4a1a"/>
+  <rect x="28" y="28" width="2" height="2" fill="#1a1a1a"/>
+  <rect x="38" y="28" width="2" height="2" fill="#1a1a1a"/>
+  <!-- Eye highlights -->
+  <rect x="26" y="26" width="2" height="2" fill="#ffffff"/>
+  <rect x="36" y="26" width="2" height="2" fill="#ffffff"/>
+
+  <!-- Nose -->
+  <rect x="30" y="30" width="4" height="6" fill="#d8a080"/>
+  <rect x="28" y="34" width="2" height="2" fill="#c89070"/>
+  <rect x="34" y="34" width="2" height="2" fill="#c89070"/>
+
   <!-- Mustache -->
-  <rect x="12" y="14" width="8" height="2" fill="#4a3728"/>
-  <!-- Ushanka hat -->
-  <rect x="8" y="2" width="16" height="6" fill="#5c4033"/>
-  <rect x="6" y="4" width="4" height="4" fill="#5c4033"/>
-  <rect x="22" y="4" width="4" height="4" fill="#5c4033"/>
-  <!-- Star on hat -->
-  <rect x="14" y="3" width="4" height="4" fill="#ffd700"/>
-  <!-- Collar -->
-  <rect x="8" y="20" width="16" height="6" fill="#2d5a2d"/>
-  <rect x="10" y="22" width="4" height="4" fill="#8b0000"/>
+  <rect x="22" y="36" width="20" height="4" fill="#4a3728"/>
+  <rect x="20" y="38" width="4" height="2" fill="#4a3728"/>
+  <rect x="40" y="38" width="4" height="2" fill="#4a3728"/>
+  <rect x="30" y="36" width="4" height="2" fill="#e8b89d"/>
+
+  <!-- Mouth -->
+  <rect x="28" y="42" width="8" height="2" fill="#c4846c"/>
+
+  <!-- Collar - green military -->
+  <rect x="12" y="52" width="40" height="12" fill="#2d5a2d"/>
+  <rect x="16" y="56" width="12" height="8" fill="#3d6a3d"/>
+  <rect x="36" y="56" width="12" height="8" fill="#3d6a3d"/>
+  <!-- Red collar tabs -->
+  <rect x="18" y="54" width="8" height="6" fill="#8b0000"/>
+  <rect x="38" y="54" width="8" height="6" fill="#8b0000"/>
+  <!-- Gold buttons -->
+  <rect x="30" y="56" width="4" height="4" fill="#ffd700"/>
 </svg>
