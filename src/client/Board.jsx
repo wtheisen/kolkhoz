@@ -113,17 +113,22 @@ export function Board({ G, ctx, moves, playerID }) {
   const playCenterX = (leftBound + rightBound) / 2;
   const playCenterY = 460;
 
-  // Player positions - align with top button row
-  // Buttons are at CSS top:10px with 44px height, center at ~32px viewport
-  // Map to SVG: ~75 units at typical viewport, scaled for different widths
-  const playerY = 80;
-  const playerSpacing = 320 * scaleFactor;
+  // Player positions - above their trick slots
+  // Trick area center is at playCenterY (460), height 280, so top is at 320
+  // Position bots above the trick area, aligned with their card slots
+  const trickAreaTop = playCenterY - 140 * scaleFactor;
+  const botY = trickAreaTop - 60 * scaleFactor; // Above trick area
+  const cardSpacing = 160 * scaleFactor;
   const getPlayerPosition = (idx, total) => {
+    // Match TrickArea slot positions: player 1->slot 0, player 2->slot 1, player 3->slot 2
+    const slotOrder = [3, 0, 1, 2]; // player 0 -> slot 3 (not rendered), player 1 -> slot 0, etc.
+    const slot = slotOrder[idx];
+    const startX = -1.5 * cardSpacing;
     const positions = [
-      { x: playCenterX, y: 800 },                     // Bottom (human) - not rendered
-      { x: playCenterX - playerSpacing, y: playerY }, // Top-left
-      { x: playCenterX, y: playerY },                 // Top-center
-      { x: playCenterX + playerSpacing, y: playerY }, // Top-right
+      { x: playCenterX, y: 800 },                              // Player 0 (human) - not rendered
+      { x: playCenterX + startX + 0 * cardSpacing, y: botY },  // Player 1 - slot 0 (left)
+      { x: playCenterX + startX + 1 * cardSpacing, y: botY },  // Player 2 - slot 1
+      { x: playCenterX + startX + 2 * cardSpacing, y: botY },  // Player 3 - slot 2
     ];
     return positions[idx] || positions[0];
   };
