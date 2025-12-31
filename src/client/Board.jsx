@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { CardSVG } from './components/CardSVG.jsx';
 import { Hand } from './components/Hand.jsx';
 import { TrickArea } from './components/TrickArea.jsx';
@@ -6,6 +6,7 @@ import { JobPilesArea } from './components/JobPilesArea.jsx';
 import { PlayerArea } from './components/PlayerArea.jsx';
 import { RightSidebar } from './components/RightSidebar.jsx';
 import { SUITS } from '../game/constants.js';
+import { getCardImagePath } from '../game/Card.js';
 
 export function Board({ G, ctx, moves, playerID }) {
   const currentPlayer = parseInt(playerID, 10);
@@ -29,6 +30,28 @@ export function Board({ G, ctx, moves, playerID }) {
   // Track if user has confirmed swap locally (to prevent modal reappearing due to race conditions)
   const [swapConfirmedLocally, setSwapConfirmedLocally] = useState(false);
   const lastYearRef = useRef(G.year);
+
+  // Track window size for responsive scaling
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Calculate layout dynamically based on sidebar visibility
+  // Sidebars are hidden when viewport <= 1024px (matches CSS media query)
+  const sidebarsVisible = windowWidth > 1024;
+
+  // SVG coordinate space: 1920x1080
+  // Left sidebar (jobs): 0-350, Right sidebar: 1570-1920
+  const leftBound = sidebarsVisible ? 350 : 0;
+  const rightBound = sidebarsVisible ? 1570 : 1920;
+  const availableWidth = rightBound - leftBound;
+
+  // Scale factor: how much larger the play area is compared to desktop baseline
+  const desktopPlayWidth = 1220; // 1570 - 350
+  const scaleFactor = availableWidth / desktopPlayWidth;
 
   // Reset local swap confirmation when year changes
   useEffect(() => {
@@ -88,19 +111,21 @@ export function Board({ G, ctx, moves, playerID }) {
     moves.confirmSwap();
   };
 
-  // Center of play area (between jobs on left and sidebar on right)
-  const playCenterX = 1000;
-  const playCenterY = 450;
+  // Center of play area - calculated from visible bounds
+  const playCenterX = (leftBound + rightBound) / 2;
+  const playCenterY = 460;
 
-  // Get player positions around the board - closer to center
+  // Player positions - align with top button row
+  // Buttons are at CSS top:10px with 44px height, center at ~32px viewport
+  // Map to SVG: ~75 units at typical viewport, scaled for different widths
+  const playerY = 80;
+  const playerSpacing = 320 * scaleFactor;
   const getPlayerPosition = (idx, total) => {
-    // Position players around the play area, closer to center
-    // Player 0 (human) at bottom (not shown in SVG, uses Hand component)
     const positions = [
-      { x: playCenterX, y: 800 },       // Bottom (human) - not rendered
-      { x: playCenterX - 380, y: 450 }, // Left
-      { x: playCenterX, y: 120 },       // Top
-      { x: playCenterX + 380, y: 450 }, // Right
+      { x: playCenterX, y: 800 },                     // Bottom (human) - not rendered
+      { x: playCenterX - playerSpacing, y: playerY }, // Top-left
+      { x: playCenterX, y: playerY },                 // Top-center
+      { x: playCenterX + playerSpacing, y: playerY }, // Top-right
     ];
     return positions[idx] || positions[0];
   };
@@ -166,6 +191,13 @@ export function Board({ G, ctx, moves, playerID }) {
           lead={G.lead}
           centerX={playCenterX}
           centerY={playCenterY}
+          scale={scaleFactor}
+          year={G.year}
+          trump={G.trump}
+          phase={phase}
+          isMyTurn={isMyTurn}
+          currentPlayerName={G.players[ctx.currentPlayer]?.name}
+          showInfo={!sidebarsVisible}
         />
 
         {/* Other players */}
@@ -180,6 +212,7 @@ export function Board({ G, ctx, moves, playerID }) {
               isActive={parseInt(ctx.currentPlayer, 10) === idx}
               isBrigadeLeader={player.brigadeLeader}
               playerIndex={idx}
+              scale={scaleFactor}
             />
           );
         })}
@@ -196,19 +229,21 @@ export function Board({ G, ctx, moves, playerID }) {
         />
       </svg>
 
-      {/* Mobile toggle buttons */}
-      <div className="mobile-toggles">
+      {/* Mobile toggle buttons - Jobs on left, Gulag and menu on right */}
+      <div className="mobile-toggles mobile-toggles-left">
         <button
           className={`mobile-toggle-btn ${showJobsPanel ? 'active' : ''}`}
           onClick={() => { setShowJobsPanel(!showJobsPanel); setShowInfoPanel(false); setShowMenuPanel(false); }}
         >
           Jobs
         </button>
+      </div>
+      <div className="mobile-toggles mobile-toggles-right">
         <button
           className={`mobile-toggle-btn ${showInfoPanel ? 'active' : ''}`}
           onClick={() => { setShowInfoPanel(!showInfoPanel); setShowJobsPanel(false); setShowMenuPanel(false); }}
         >
-          Info
+          Gulag
         </button>
         <button
           className={`mobile-toggle-btn menu-btn ${showMenuPanel ? 'active' : ''}`}
@@ -218,59 +253,144 @@ export function Board({ G, ctx, moves, playerID }) {
         </button>
       </div>
 
-      {/* Mobile Jobs Panel */}
+      {/* Mobile Jobs Panel - horizontal layout like lobby */}
       {showJobsPanel && (
-        <div className="mobile-panel" onClick={() => setShowJobsPanel(false)}>
-          <div className="mobile-panel-content" onClick={(e) => e.stopPropagation()}>
+        <div className="mobile-panel jobs-panel" onClick={() => setShowJobsPanel(false)}>
+          <div className="mobile-panel-content jobs-content" onClick={(e) => e.stopPropagation()}>
             <button className="mobile-panel-close" onClick={() => setShowJobsPanel(false)}>×</button>
-            <h3>Job Progress</h3>
-            <div className="mobile-jobs-grid">
-              {SUITS.map((suit) => {
-                const hours = G.workHours?.[suit] || 0;
-                const isClaimed = G.claimedJobs?.includes(suit);
-                const isTrump = suit === G.trump;
-                return (
-                  <div key={suit} className={`mobile-job ${isTrump ? 'trump' : ''} ${isClaimed ? 'claimed' : ''}`}>
-                    <span className={`suit-icon ${suit.toLowerCase()}`}>{getSuitSymbol(suit)}</span>
-                    <span className="job-progress">{isClaimed ? '✓' : `${hours}/40`}</span>
-                  </div>
-                );
-              })}
+            <div className="jobs-layout">
+              {/* Title on left */}
+              <div className="jobs-title-section">
+                <h3 className="jobs-title">JOBS</h3>
+                <div className="jobs-subtitle">
+                  {G.claimedJobs?.length || 0}/4 done
+                </div>
+              </div>
+              {/* Job columns */}
+              <div className="mobile-jobs-row">
+                {SUITS.map((suit) => {
+                  const hours = G.workHours?.[suit] || 0;
+                  const isClaimed = G.claimedJobs?.includes(suit);
+                  const isTrump = suit === G.trump;
+                  const bucket = G.jobBuckets?.[suit] || [];
+                  const jobCard = G.revealedJobs?.[suit];
+                  const jobCards = Array.isArray(jobCard) ? jobCard : jobCard ? [jobCard] : [];
+                  const progressPct = Math.min(100, (hours / 40) * 100);
+
+                  return (
+                    <div key={suit} className={`mobile-job-column ${isTrump ? 'trump' : ''} ${isClaimed ? 'claimed' : ''}`}>
+                      {/* Compact header: icon + progress inline */}
+                      <div className="job-header-row">
+                        <span className={`suit-symbol ${suit.toLowerCase()}`}>{getSuitSymbol(suit)}</span>
+                        <div className="progress-bar-container">
+                          <div
+                            className={`progress-bar-fill ${isClaimed ? 'complete' : ''}`}
+                            style={{ width: `${progressPct}%` }}
+                          />
+                          <span className="progress-text">
+                            {isClaimed ? '✓' : `${hours}/40`}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Cards stack */}
+                      <div className="job-cards-stack">
+                        {/* Reward card */}
+                        {isClaimed ? (
+                          <img src="assets/cards/back.svg" alt="claimed" className="job-card" />
+                        ) : (
+                          jobCards.map((card, idx) => (
+                            <img
+                              key={`reward-${idx}`}
+                              src={getCardImagePath(card)}
+                              alt={`${card.value} of ${card.suit}`}
+                              className="job-card reward"
+                            />
+                          ))
+                        )}
+                        {/* Assigned cards stacked below */}
+                        {bucket.slice(0, 12).map((card, idx) => (
+                          <img
+                            key={`assigned-${idx}`}
+                            src={getCardImagePath(card)}
+                            alt={`${card.value} of ${card.suit}`}
+                            className="job-card"
+                            style={{ marginTop: '-45px' }}
+                          />
+                        ))}
+                        {bucket.length > 12 && (
+                          <div className="more-cards">+{bucket.length - 12}</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Mobile Info Panel */}
+      {/* Mobile Gulag Panel - horizontal layout like lobby */}
       {showInfoPanel && (
-        <div className="mobile-panel" onClick={() => setShowInfoPanel(false)}>
-          <div className="mobile-panel-content" onClick={(e) => e.stopPropagation()}>
+        <div className="mobile-panel gulag-panel" onClick={() => setShowInfoPanel(false)}>
+          <div className="mobile-panel-content gulag-content" onClick={(e) => e.stopPropagation()}>
             <button className="mobile-panel-close" onClick={() => setShowInfoPanel(false)}>×</button>
-            <h3>Game Info</h3>
-            <div className="mobile-info-grid">
-              <div className="info-item">
-                <span className="info-label">Year</span>
-                <span className="info-value">{G.year}/5</span>
+            <div className="gulag-layout">
+              {/* Title on left */}
+              <div className="gulag-title-section">
+                <h3 className="gulag-title">GULAG</h3>
+                <div className="gulag-subtitle">
+                  {Object.values(G.exiled || {}).flat().length} exiled
+                </div>
               </div>
-              <div className="info-item">
-                <span className="info-label">Trump</span>
-                <span className={`info-value suit-icon ${G.trump?.toLowerCase()}`}>{G.trump ? getSuitSymbol(G.trump) : '?'}</span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Phase</span>
-                <span className="info-value">{phase}</span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Turn</span>
-                <span className="info-value">{isMyTurn ? 'Your turn!' : G.players[ctx.currentPlayer]?.name}</span>
+              {/* Year columns */}
+              <div className="mobile-gulag-years">
+                {[1, 2, 3, 4, 5].map((year) => {
+                  const yearCards = G.exiled?.[year] || [];
+                  const isCurrent = year === G.year;
+                  const isPast = year < G.year;
+
+                  // Parse card keys like "Hearts-11" into card objects
+                  const parseCardKey = (cardKey) => {
+                    const [suit, value] = cardKey.split('-');
+                    return { suit, value: parseInt(value, 10) };
+                  };
+
+                  return (
+                    <div key={year} className={`gulag-year-column ${isCurrent ? 'current' : ''} ${isPast ? 'past' : ''}`}>
+                      <div className="year-header">
+                        <span className="year-number">{year}</span>
+                        {yearCards.length > 0 && (
+                          <span className="year-badge">{yearCards.length}</span>
+                        )}
+                      </div>
+                      <div className="year-cards">
+                        {yearCards.length > 0 ? (
+                          yearCards.slice(0, 10).map((cardKey, idx) => {
+                            const card = parseCardKey(cardKey);
+                            return (
+                              <img
+                                key={idx}
+                                src={getCardImagePath(card)}
+                                alt={cardKey}
+                                className="gulag-card"
+                                style={{ marginTop: idx > 0 ? '-40px' : '0' }}
+                              />
+                            );
+                          })
+                        ) : (
+                          <div className="empty-slot" />
+                        )}
+                        {yearCards.length > 10 && (
+                          <div className="more-cards">+{yearCards.length - 10}</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-            {Object.keys(G.exiled || {}).length > 0 && (
-              <div className="mobile-gulag">
-                <h4>Gulag</h4>
-                <span>{Object.values(G.exiled).flat().length} cards exiled</span>
-              </div>
-            )}
           </div>
         </div>
       )}

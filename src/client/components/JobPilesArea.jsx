@@ -154,37 +154,48 @@ export function JobPilesArea({
             </text>
 
             {/* Reward card - centered below header */}
-            {jobCards.map((card, cardIdx) => {
-              const faceCardInfo = getFaceCardInfo(card.value);
-              const isTrumpFaceCard = card.suit === trump && faceCardInfo;
-              const offsetX = jobCards.length > 1 ? (cardIdx - (jobCards.length - 1) / 2) * 15 : 0;
-              return (
-                <g key={`reward-${cardIdx}`}>
-                  <CardSVG
-                    card={card}
-                    x={centerX + offsetX}
-                    y={rewardY + cardHeight / 2}
-                    width={cardWidth}
-                  />
-                  {isTrumpFaceCard && (
-                    <g style={{ cursor: 'help' }}>
-                      <title>{faceCardInfo.english}: {faceCardInfo.power}</title>
-                      <text
-                        x={centerX + offsetX}
-                        y={rewardY + cardHeight + 22}
-                        textAnchor="middle"
-                        fill="#FFD700"
-                        fontSize="14"
-                        fontWeight="600"
-                        pointerEvents="all"
-                      >
-                        {faceCardInfo.russian}
-                      </text>
-                    </g>
-                  )}
-                </g>
-              );
-            })}
+            {isClaimed ? (
+              /* Show face-down card for claimed jobs - reward has been taken */
+              <CardSVG
+                card={{}}
+                faceDown={true}
+                x={centerX}
+                y={rewardY + cardHeight / 2}
+                width={cardWidth}
+              />
+            ) : (
+              jobCards.map((card, cardIdx) => {
+                const faceCardInfo = getFaceCardInfo(card.value);
+                const isTrumpFaceCard = card.suit === trump && faceCardInfo;
+                const offsetX = jobCards.length > 1 ? (cardIdx - (jobCards.length - 1) / 2) * 15 : 0;
+                return (
+                  <g key={`reward-${cardIdx}`}>
+                    <CardSVG
+                      card={card}
+                      x={centerX + offsetX}
+                      y={rewardY + cardHeight / 2}
+                      width={cardWidth}
+                    />
+                    {isTrumpFaceCard && (
+                      <g style={{ cursor: 'help' }}>
+                        <title>{faceCardInfo.english}: {faceCardInfo.power}</title>
+                        <text
+                          x={centerX + offsetX}
+                          y={rewardY + cardHeight + 22}
+                          textAnchor="middle"
+                          fill="#FFD700"
+                          fontSize="14"
+                          fontWeight="600"
+                          pointerEvents="all"
+                        >
+                          {faceCardInfo.russian}
+                        </text>
+                      </g>
+                    )}
+                  </g>
+                );
+              })
+            )}
 
             {/* Assigned cards section */}
             {bucket.length > 0 && (

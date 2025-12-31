@@ -81,6 +81,8 @@ function setup({ ctx, random }, setupData) {
     // For assignment phase
     pendingAssignments: {},
     needsManualAssignment: false,
+    // Trump selector rotates each year
+    trumpSelector: Math.floor(random.Number() * numPlayers),
   };
 
   // Initialize per-suit state
@@ -228,8 +230,14 @@ export const KolkhozGame = {
     planning: {
       start: true,
       moves: { setTrump },
+      turn: {
+        order: {
+          first: ({ G }) => G.trumpSelector,
+          next: () => undefined, // Only one player selects trump
+        },
+      },
       onBegin: ({ G }) => {
-        console.log('[planning onBegin] year:', G.year, 'isFamine:', G.isFamine, 'hands:', G.players.map(p => p.hand.length));
+        console.log('[planning onBegin] year:', G.year, 'trumpSelector:', G.trumpSelector, 'isFamine:', G.isFamine, 'hands:', G.players.map(p => p.hand.length));
         // Reset year-end flag
         G.yearEndProcessed = false;
         // Famine year (Ace of Clubs revealed): no trump
@@ -401,6 +409,12 @@ export const KolkhozGame = {
 
     swap: {
       moves: { swapCard, confirmSwap },
+      turn: {
+        order: {
+          first: () => 0, // Human player always acts in swap phase
+          next: () => undefined, // No turn rotation - human stays active
+        },
+      },
       onBegin: ({ G, ctx }) => {
         console.log('[swap onBegin] year:', G.year, 'hands:', G.players.map(p => p.hand.length), 'plots:', G.players.map(p => p.plot.hidden.length));
         // Reset swap confirmation tracking

@@ -145,8 +145,8 @@ export function RightSidebar({
         </text>
       )}
 
-      {/* Gulag section */}
-      <g transform={`translate(${startX + 5}, ${startY + 200})`}>
+      {/* Gulag section - centered in sidebar */}
+      <g transform={`translate(${startX + 5}, ${startY + 195})`}>
         <GulagArea exiled={exiled} currentYear={year} />
       </g>
     </g>

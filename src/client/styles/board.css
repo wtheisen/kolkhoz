@@ -32,61 +32,83 @@ html, body {
   --border-dark: #333;
 }
 
-/* Lobby */
+/* Lobby - horizontal 3-column layout */
 .lobby {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
+  gap: clamp(2rem, 5vw, 6rem);
   min-height: 100vh;
-  padding: 2rem;
+  height: 100vh;
+  padding: clamp(1rem, 3vw, 3rem);
   background: var(--bg-primary);
   background-image:
     radial-gradient(ellipse at top, rgba(212, 168, 87, 0.03) 0%, transparent 50%),
     radial-gradient(ellipse at bottom, rgba(196, 30, 58, 0.03) 0%, transparent 50%);
+  overflow: hidden;
+}
+
+.lobby-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .lobby h1 {
   font-family: 'Russo One', 'Oswald', sans-serif;
-  font-size: 4.5rem;
+  font-size: clamp(2.5rem, 6vw, 5rem);
   color: var(--red);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
   text-shadow: 3px 3px 0 var(--gold-dark), 0 0 30px rgba(196, 30, 58, 0.3);
   letter-spacing: 0.1em;
   text-transform: uppercase;
+  line-height: 1;
 }
 
 .lobby h2 {
   font-family: 'Russo One', 'Oswald', sans-serif;
-  font-size: 1.5rem;
+  font-size: clamp(0.8rem, 2vw, 1.5rem);
   color: var(--gold);
-  margin-bottom: 2rem;
+  margin: 0;
   letter-spacing: 0.2em;
   text-transform: uppercase;
 }
 
 .variant-options {
   background: var(--bg-secondary);
-  padding: 1.5rem;
+  padding: clamp(0.75rem, 2vh, 1.5rem);
   border-radius: 4px;
-  margin-bottom: 2rem;
   border: 1px solid var(--border-gold);
   box-shadow: 0 0 20px rgba(212, 168, 87, 0.1);
+  max-height: 70vh;
+  overflow-y: auto;
+  flex-shrink: 1;
+  min-width: 280px;
 }
 
 .variant-options h3 {
-  margin-bottom: 1rem;
+  margin-bottom: clamp(0.4rem, 1vh, 0.75rem);
+  margin-top: 0.5rem;
   color: var(--cream);
   font-family: 'Russo One', 'Oswald', sans-serif;
   letter-spacing: 0.1em;
+  font-size: clamp(0.85rem, 1.5vw, 1rem);
+}
+
+.variant-options h3:first-child {
+  margin-top: 0;
 }
 
 .variant-options label {
   display: block;
-  margin: 0.5rem 0;
+  margin: clamp(0.2rem, 0.4vh, 0.4rem) 0;
   cursor: pointer;
   color: var(--cream-dark);
   font-weight: 400;
+  font-size: clamp(0.75rem, 1.2vw, 0.9rem);
 }
 
 .variant-options label:hover {
@@ -94,30 +116,95 @@ html, body {
 }
 
 .variant-options input {
-  margin-right: 0.5rem;
+  margin-right: 0.4rem;
   accent-color: var(--red);
 }
 
+.lobby-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
 .lobby button {
-  padding: 1rem 3rem;
-  font-size: 1.2rem;
+  padding: clamp(0.75rem, 1.5vh, 1rem) clamp(2rem, 4vw, 3rem);
+  font-size: clamp(1rem, 1.8vw, 1.2rem);
   font-family: 'Russo One', 'Oswald', sans-serif;
-  background: var(--red);
-  color: var(--cream);
   border: 2px solid var(--gold-dark);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+}
+
+.lobby button.start-btn {
+  background: var(--red);
+  color: var(--cream);
   box-shadow: 0 4px 15px rgba(196, 30, 58, 0.3);
 }
 
-.lobby button:hover {
+.lobby button.start-btn:hover {
   background: var(--red-dark);
   border-color: var(--gold);
   transform: scale(1.05);
   box-shadow: 0 6px 20px rgba(196, 30, 58, 0.5);
+}
+
+.lobby button.rules-btn {
+  background: var(--bg-secondary);
+  color: var(--cream);
+}
+
+.lobby button.rules-btn:hover {
+  background: var(--gold-dark);
+  color: var(--bg-primary);
+  border-color: var(--gold);
+}
+
+/* Rules modal in lobby */
+.lobby-rules-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.lobby-rules {
+  background: var(--bg-primary);
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  padding: 2rem;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+.lobby-rules .close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--cream);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+}
+
+.lobby-rules h3 {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  color: var(--gold);
+  margin-bottom: 1rem;
+  text-align: center;
 }
 
 /* Game Board */
@@ -791,27 +878,38 @@ html, body {
   display: none;
   position: fixed;
   top: 10px;
-  right: 10px;
   z-index: 500;
   gap: 8px;
+}
+
+.mobile-toggles-left {
+  left: 10px;
+}
+
+.mobile-toggles-right {
+  right: 10px;
 }
 
 .mobile-toggle-btn {
   padding: 10px 16px;
   font-family: 'Russo One', 'Oswald', sans-serif;
   font-size: 14px;
-  background: var(--bg-secondary);
+  background: var(--red);
   color: var(--cream);
   border: 2px solid var(--gold-dark);
   border-radius: 4px;
   cursor: pointer;
   min-height: 44px;
   min-width: 44px;
+  box-shadow: 0 4px 15px rgba(196, 30, 58, 0.3);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .mobile-toggle-btn.active {
-  background: var(--gold-dark);
-  color: var(--bg-primary);
+  background: var(--red-dark);
+  border-color: var(--gold);
+  box-shadow: 0 6px 20px rgba(196, 30, 58, 0.5);
 }
 
 .mobile-toggle-btn.menu-btn {
@@ -867,41 +965,213 @@ html, body {
   font-size: 1.3rem;
 }
 
-/* Mobile Jobs Grid */
-.mobile-jobs-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+/* Mobile Jobs Panel - horizontal layout like lobby */
+.jobs-panel .mobile-panel-content.jobs-content {
+  max-width: 95vw;
+  width: 95vw;
+  height: 75vh;
+  max-height: 75vh;
+  padding: 15px 20px;
+  display: flex;
+  flex-direction: column;
 }
 
-.mobile-job {
+.jobs-layout {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  flex: 1;
+  gap: 20px;
+}
+
+.jobs-title-section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-width: 70px;
+  padding-right: 15px;
+  border-right: 1px solid #333;
+}
+
+.jobs-title {
+  color: var(--gold) !important;
+  letter-spacing: 0.15em;
+  font-family: 'Russo One', sans-serif !important;
+  font-size: 1.5rem !important;
+  margin: 0 !important;
+}
+
+.jobs-subtitle {
+  color: #666;
+  font-size: 13px;
+  font-family: 'Oswald', sans-serif;
+  margin-top: 5px;
+}
+
+/* Mobile Gulag Panel - matches desktop layout */
+.gulag-panel .mobile-panel-content.gulag-content {
+  max-width: 95vw;
+  width: 95vw;
+  max-height: 85vh;
+  padding: 20px;
+}
+
+.mobile-jobs-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex: 1;
+  align-items: stretch;
+}
+
+.mobile-job-column {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-job-column.trump {
+  background: rgba(255, 215, 0, 0.12);
+  border-color: var(--gold);
+  border-width: 2px;
+  box-shadow: 0 0 12px rgba(212, 168, 87, 0.35);
+}
+
+.mobile-job-column.claimed {
+  background: rgba(76, 175, 80, 0.15);
+}
+
+/* Compact header: icon + progress bar inline */
+.job-header-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  background: var(--bg-secondary);
-  border-radius: 6px;
-  border: 1px solid var(--border-dark);
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 8px;
 }
 
-.mobile-job.trump {
-  border-color: var(--gold);
-  background: rgba(255, 215, 0, 0.1);
-}
-
-.mobile-job.claimed {
-  background: rgba(76, 175, 80, 0.2);
-  border-color: #4CAF50;
-}
-
-.mobile-job .suit-icon {
+.job-header-row .suit-symbol {
   font-size: 24px;
+  flex-shrink: 0;
 }
 
-.mobile-job .job-progress {
-  font-family: 'Oswald', sans-serif;
-  font-size: 16px;
+.job-header-row .progress-bar-container {
+  flex: 1;
+  height: 18px;
+  margin-top: 0;
+}
+
+/* Card stack */
+.job-cards-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-height: 0;
+}
+
+.job-card {
+  width: 55px;
+  height: auto;
+  border-radius: 3px;
+}
+
+.job-card.reward {
+  /* First card - no negative margin */
+}
+
+.suit-symbol {
+  font-size: 42px;
+}
+
+.suit-symbol.hearts, .suit-symbol.diamonds {
+  color: var(--red);
+}
+
+.suit-symbol.clubs, .suit-symbol.spades {
   color: var(--cream);
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 20px;
+  background: #222;
+  border-radius: 10px;
+  position: relative;
+  margin-top: 10px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: #2196F3;
+  border-radius: 10px;
+  transition: width 0.3s;
+}
+
+.progress-bar-fill.complete {
+  background: #4CAF50;
+}
+
+.progress-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+  font-family: 'Oswald', sans-serif;
+}
+
+.job-reward {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+.reward-card {
+  width: 60px;
+  height: auto;
+  border-radius: 4px;
+}
+
+.job-assigned {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.assigned-label {
+  font-size: 11px;
+  color: #999;
+  margin-bottom: 4px;
+  font-family: 'Oswald', sans-serif;
+}
+
+.assigned-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.assigned-card {
+  width: 55px;
+  height: auto;
+  border-radius: 3px;
+}
+
+.more-cards {
+  font-size: 11px;
+  color: #888;
+  margin-top: 4px;
 }
 
 /* Suit icon colors */
@@ -913,52 +1183,129 @@ html, body {
   color: var(--cream);
 }
 
-/* Mobile Info Grid */
-.mobile-info-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
-.info-item {
+/* Mobile Gulag Panel - horizontal layout like lobby */
+.gulag-panel .mobile-panel-content.gulag-content {
+  max-width: 95vw;
+  width: 95vw;
+  height: 75vh;
+  max-height: 75vh;
+  padding: 15px 20px;
   display: flex;
   flex-direction: column;
-  padding: 12px;
-  background: var(--bg-secondary);
-  border-radius: 6px;
-  text-align: center;
 }
 
-.info-label {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-bottom: 4px;
-  text-transform: uppercase;
+.gulag-layout {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  flex: 1;
+  gap: 20px;
 }
 
-.info-value {
+.gulag-title-section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-width: 80px;
+  padding-right: 15px;
+  border-right: 1px solid #333;
+}
+
+.gulag-title {
+  color: var(--red) !important;
+  letter-spacing: 0.15em;
+  font-family: 'Russo One', monospace !important;
+  font-size: 1.5rem !important;
+  margin: 0 !important;
+}
+
+.gulag-subtitle {
+  color: #666;
+  font-size: 13px;
   font-family: 'Oswald', sans-serif;
-  font-size: 18px;
-  color: var(--cream);
+  margin-top: 5px;
 }
 
-.mobile-gulag {
-  margin-top: 15px;
-  padding: 12px;
-  background: rgba(139, 0, 0, 0.2);
-  border: 1px solid var(--red-dark);
-  border-radius: 6px;
+.mobile-gulag-years {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex: 1;
+  align-items: flex-start;
+}
+
+.gulag-year-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  max-width: 90px;
+}
+
+.gulag-year-column.past {
+  opacity: 0.5;
+}
+
+.year-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(30, 30, 30, 0.9);
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  width: 100%;
+}
+
+.gulag-year-column.current .year-header {
+  background: rgba(196, 30, 58, 0.35);
+  border-color: var(--red);
+  border-width: 2px;
+}
+
+.year-number {
+  font-family: 'Oswald', monospace;
+  font-size: 14px;
+  color: #888;
+  font-weight: bold;
+}
+
+.gulag-year-column.current .year-number {
+  color: #ff4757;
+}
+
+.year-badge {
+  background: var(--red);
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 5px;
+  border-radius: 8px;
+  min-width: 16px;
   text-align: center;
 }
 
-.mobile-gulag h4 {
-  color: var(--red);
-  margin-bottom: 5px;
-  font-family: 'Russo One', 'Oswald', sans-serif;
+.year-cards {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
 }
 
-.mobile-gulag span {
-  color: var(--cream-dark);
+.gulag-card {
+  width: 55px;
+  height: auto;
+  border-radius: 3px;
+}
+
+.empty-slot {
+  width: 55px;
+  height: 77px;
+  border: 1px dashed #2a2a2a;
+  border-radius: 3px;
 }
 
 /* Menu Panel */
@@ -1019,17 +1366,20 @@ html, body {
   color: var(--gold);
 }
 
-/* Show mobile elements on touch/small screens */
-@media (pointer: coarse), (max-width: 1024px) {
+/* Show mobile elements on small screens */
+@media (max-width: 1024px) {
   .mobile-toggles {
     display: flex;
   }
-}
 
-/* Hide SVG panels on small screens */
-@media (max-width: 900px) {
+  /* Hide SVG panels when mobile buttons are visible */
   .job-piles-area,
   .right-sidebar {
     display: none;
+  }
+
+  /* Let the SVG scale naturally - JS handles positioning */
+  .hand {
+    bottom: 10px;
   }
 }

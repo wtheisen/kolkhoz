@@ -152,6 +152,9 @@ export function transitionToNextYear(G, variants, random) {
     p.brigadeLeader = false;
   }
 
+  // Rotate trump selector for next year
+  G.trumpSelector = (G.trumpSelector + 1) % G.numPlayers;
+
   // Prepare new deck and deal cards
   G.workersDeck = prepareWorkersDeck(
     G.players,

@@ -177,6 +177,9 @@ function handleCompletedJob(G, suit, variants) {
       winner.plot.revealed.push(card);
     }
 
+    // Clear the revealed job cards - they've been claimed
+    G.revealedJobs[suit] = null;
+
     // Clear accumulated cards for this job
     if (variants.accumulateJobs) {
       G.accumulatedJobCards[suit] = [];

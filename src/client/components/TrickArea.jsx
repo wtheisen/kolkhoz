@@ -1,70 +1,162 @@
 import React from 'react';
 import { CardSVG } from './CardSVG.jsx';
 
-export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 450 }) {
-  // Center of the trick area (can be overridden via props)
-  const radius = 140;
-  const cardWidth = 100;
+export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 450, scale = 1, year, trump, phase, isMyTurn, currentPlayerName, showInfo = false }) {
+  const suitSymbols = { Hearts: '♥', Diamonds: '♦', Clubs: '♣', Spades: '♠' };
+  // Rectangular trick area dimensions - fit between bot areas and hand
+  const width = 800 * scale;
+  const height = 280 * scale;
+  const cardWidth = 110 * scale;
+  const cardHeight = cardWidth * 1.4;
+  const cardSpacing = 160 * scale;
 
-  // Calculate positions for cards in circular arrangement
+  // Card positions in a horizontal line
+  // Order: player 1, player 2, player 3, player 0 (human last on right)
   const getCardPosition = (playerIdx) => {
-    // Positions relative to center
-    // Player 0 at bottom, going clockwise
-    const positions = [
-      { x: 0, y: radius },      // Bottom (player 0)
-      { x: -radius, y: 0 },     // Left (player 1)
-      { x: 0, y: -radius },     // Top (player 2)
-      { x: radius, y: 0 },      // Right (player 3)
-    ];
-    return positions[playerIdx] || positions[0];
+    // Map player index to slot position (0-3 from left to right)
+    const slotOrder = [3, 0, 1, 2]; // player 0 -> slot 3, player 1 -> slot 0, etc.
+    const slot = slotOrder[playerIdx];
+    const startX = -1.5 * cardSpacing; // Center the 4 cards
+    return { x: startX + slot * cardSpacing, y: 0 };
   };
+
+  // Scaled values for borders and text
+  const borderInset = 6 * scale;
+  const outerRadius = 10 * scale;
+  const innerRadius = 6 * scale;
+
+  // Info positioning inside the trick area
+  const infoY = centerY - height / 2 + 32 * scale;
+  const infoFontSize = 18 * scale;
+  const leftEdge = centerX - width / 2 + 15 * scale;
+  const rightEdge = centerX + width / 2 - 15 * scale;
 
   return (
     <g className="trick-area">
-      {/* Table circle - Soviet theme with dark background and gold border */}
-      <circle
-        cx={centerX}
-        cy={centerY}
-        r={radius + 100}
+      {/* Rectangular table - Soviet theme */}
+      <rect
+        x={centerX - width / 2}
+        y={centerY - height / 2}
+        width={width}
+        height={height}
         fill="#1a1a1a"
         stroke="#d4a857"
-        strokeWidth="3"
+        strokeWidth={3 * scale}
+        rx={outerRadius}
       />
-      <circle
-        cx={centerX}
-        cy={centerY}
-        r={radius + 80}
+      <rect
+        x={centerX - width / 2 + borderInset}
+        y={centerY - height / 2 + borderInset}
+        width={width - borderInset * 2}
+        height={height - borderInset * 2}
         fill="none"
         stroke="#8b0000"
-        strokeWidth="2"
+        strokeWidth={2 * scale}
+        rx={innerRadius}
       />
 
-      {/* Lead indicator - centered in play area */}
-      {trick.length > 0 && (
-        <g>
-          <text
-            x={centerX}
-            y={centerY - 14}
-            textAnchor="middle"
-            fill="#FFD700"
-            fontSize="14"
-            fontWeight="bold"
-          >
-            Lead:
-          </text>
-          <text
-            x={centerX}
-            y={centerY + 16}
-            textAnchor="middle"
-            fill={trick[0][1].suit === 'Hearts' || trick[0][1].suit === 'Diamonds' ? '#c41e3a' : '#e8dcc4'}
-            fontSize="28"
-          >
-            {{ Hearts: '♥', Diamonds: '♦', Clubs: '♣', Spades: '♠' }[trick[0][1].suit]}
-          </text>
-        </g>
-      )}
+      {/* Info bar inside trick area - top edge */}
+      <g className="trick-info-bar">
+        {/* Left side: Year and Trump (or Lead if trick started) */}
+        {showInfo ? (
+          <>
+            <text
+              x={leftEdge}
+              y={infoY}
+              textAnchor="start"
+              fill="#d4a857"
+              fontSize={infoFontSize}
+              fontFamily="'Oswald', sans-serif"
+            >
+              Year {year}/5
+            </text>
+            <text
+              x={leftEdge + 75 * scale}
+              y={infoY}
+              textAnchor="start"
+              fill="#888"
+              fontSize={infoFontSize}
+              fontFamily="'Oswald', sans-serif"
+            >
+              Trump:
+            </text>
+            <text
+              x={leftEdge + 120 * scale}
+              y={infoY}
+              textAnchor="start"
+              fill={trump === 'Hearts' || trump === 'Diamonds' ? '#c41e3a' : '#e8dcc4'}
+              fontSize={14 * scale}
+              fontFamily="'Oswald', sans-serif"
+            >
+              {trump ? suitSymbols[trump] : '?'}
+            </text>
+          </>
+        ) : null}
 
-      {/* Cards played */}
+        {/* Center: Lead suit if trick has started */}
+        {trick.length > 0 && (
+          <>
+            <text
+              x={centerX - 25 * scale}
+              y={infoY}
+              textAnchor="end"
+              fill="#888"
+              fontSize={infoFontSize}
+              fontFamily="'Oswald', sans-serif"
+            >
+              Lead:
+            </text>
+            <text
+              x={centerX - 20 * scale}
+              y={infoY}
+              textAnchor="start"
+              fill={trick[0][1].suit === 'Hearts' || trick[0][1].suit === 'Diamonds' ? '#c41e3a' : '#e8dcc4'}
+              fontSize={14 * scale}
+            >
+              {suitSymbols[trick[0][1].suit]}
+            </text>
+          </>
+        )}
+
+        {/* Right side: Turn indicator */}
+        {showInfo && (
+          <text
+            x={rightEdge}
+            y={infoY}
+            textAnchor="end"
+            fill={isMyTurn ? '#4CAF50' : '#e8dcc4'}
+            fontSize={infoFontSize}
+            fontWeight={isMyTurn ? 'bold' : 'normal'}
+            fontFamily="'Oswald', sans-serif"
+          >
+            {isMyTurn ? 'Your turn' : currentPlayerName}
+          </text>
+        )}
+      </g>
+
+      {/* Empty slots for players who haven't played */}
+      {Array.from({ length: numPlayers }).map((_, idx) => {
+        const hasPlayed = trick.some(([pid]) => pid === idx);
+        if (hasPlayed) return null;
+
+        const pos = getCardPosition(idx);
+        return (
+          <rect
+            key={`slot-${idx}`}
+            x={centerX + pos.x - cardWidth / 2}
+            y={centerY + pos.y - cardHeight / 2}
+            width={cardWidth}
+            height={cardHeight}
+            fill="none"
+            stroke="rgba(255,255,255,0.15)"
+            strokeWidth={1 * scale}
+            strokeDasharray={`${4 * scale},${4 * scale}`}
+            rx={4 * scale}
+          />
+        );
+      })}
+
+      {/* Cards played - rendered after slots so they appear on top */}
       {trick.map(([playerIdx, card], idx) => {
         const pos = getCardPosition(playerIdx);
         return (
@@ -74,30 +166,6 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
             x={centerX + pos.x}
             y={centerY + pos.y}
             width={cardWidth}
-            rotation={playerIdx * 90}
-          />
-        );
-      })}
-
-      {/* Empty slots for players who haven't played */}
-      {Array.from({ length: numPlayers }).map((_, idx) => {
-        const hasPlayed = trick.some(([pid]) => pid === idx);
-        if (hasPlayed) return null;
-
-        const pos = getCardPosition(idx);
-        const cardHeight = cardWidth * 1.4;
-        return (
-          <rect
-            key={`slot-${idx}`}
-            x={centerX + pos.x - cardWidth / 2}
-            y={centerY + pos.y - cardHeight / 2}
-            width={cardWidth}
-            height={cardHeight}
-            fill="none"
-            stroke="rgba(255,255,255,0.2)"
-            strokeWidth="2"
-            strokeDasharray="5,5"
-            rx="8"
           />
         );
       })}

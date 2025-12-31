@@ -1,12 +1,13 @@
 import React from 'react';
-import { CardSVG } from './CardSVG.jsx';
+import { getCardImagePath } from '../../game/Card.js';
 
 export function GulagArea({ exiled, currentYear }) {
-  const startX = 0;
+  // Layout for sidebar - simple explicit positions
+  const cardWidth = 55;
+  const cardHeight = cardWidth * 1.4;
+  const cardStackOffset = 16;
+
   const startY = 0;
-  const yearSpacing = 70;
-  const cardWidth = 40;
-  const cardStackOffset = 18;
 
   // Parse card key like "Hearts-11" into a card object
   const parseCardKey = (cardKey) => {
@@ -14,105 +15,144 @@ export function GulagArea({ exiled, currentYear }) {
     return { suit, value: parseInt(value, 10) };
   };
 
-  // Get display name for face cards
-  const getCardName = (value) => {
-    const names = { 11: 'Jack', 12: 'Queen', 13: 'King', 1: 'Ace' };
-    return names[value] || null;
+  // Calculate total exiled cards
+  const totalExiled = Object.values(exiled || {}).flat().length;
+
+  // Explicit pixel positions - evenly distributed in ~350px width
+  const row1Y = startY + 32;
+  const row1X = [58, 175, 292];
+  const row2Y = row1Y + 145;
+  const row2X = [116, 233];
+
+  const yearBoxWidth = 50;
+  const yearBoxHeight = 22;
+
+  const renderYearColumn = (year, centerX, y) => {
+    const yearCards = exiled?.[year] || [];
+    const isPast = year < currentYear;
+    const isCurrent = year === currentYear;
+
+    return (
+      <g key={year} className="gulag-year">
+        {/* Year indicator box */}
+        <rect
+          x={centerX - yearBoxWidth / 2}
+          y={y}
+          width={yearBoxWidth}
+          height={yearBoxHeight}
+          fill={isCurrent ? 'rgba(196,30,58,0.35)' : 'rgba(30,30,30,0.9)'}
+          stroke={isCurrent ? '#c41e3a' : '#3a3a3a'}
+          strokeWidth={isCurrent ? 2 : 1}
+        />
+
+        {/* Year number */}
+        <text
+          x={centerX}
+          y={y + 15}
+          textAnchor="middle"
+          fill={isPast ? '#5a5a5a' : isCurrent ? '#ff4757' : '#888'}
+          fontSize="12"
+          fontWeight={isCurrent ? 'bold' : 'normal'}
+          fontFamily="monospace"
+        >
+          {year}
+        </text>
+
+        {/* Exiled cards - using direct image elements for proper alignment */}
+        {yearCards.map((cardKey, cardIdx) => {
+          const card = parseCardKey(cardKey);
+          const cardY = y + yearBoxHeight + 8 + cardIdx * cardStackOffset;
+          const imagePath = getCardImagePath(card);
+          return (
+            <image
+              key={cardIdx}
+              href={imagePath}
+              x={centerX - cardWidth / 2}
+              y={cardY}
+              width={cardWidth}
+              height={cardHeight}
+            />
+          );
+        })}
+
+        {/* Empty slot for past years */}
+        {yearCards.length === 0 && isPast && (
+          <rect
+            x={centerX - cardWidth / 2}
+            y={y + yearBoxHeight + 8}
+            width={cardWidth}
+            height={cardHeight}
+            fill="none"
+            stroke="#2a2a2a"
+            strokeWidth={1}
+            strokeDasharray="4,4"
+            rx="3"
+          />
+        )}
+
+        {/* Card count badge */}
+        {yearCards.length > 0 && (
+          <g>
+            <circle
+              cx={centerX + cardWidth / 2}
+              cy={y + yearBoxHeight + 14}
+              r={9}
+              fill="#c41e3a"
+            />
+            <text
+              x={centerX + cardWidth / 2}
+              y={y + yearBoxHeight + 18}
+              textAnchor="middle"
+              fill="white"
+              fontSize="10"
+              fontWeight="bold"
+            >
+              {yearCards.length}
+            </text>
+          </g>
+        )}
+      </g>
+    );
   };
-
-  const cardHeight = cardWidth * 1.4; // Standard card ratio
-
-  // Get all years (1 to 5)
-  const years = [1, 2, 3, 4, 5];
 
   return (
     <g className="gulag-area">
       {/* Title */}
       <text
-        x={startX + 140}
-        y={startY}
+        x={175}
+        y={startY + 4}
         textAnchor="middle"
         fill="#c41e3a"
-        fontSize="12"
+        fontSize="14"
         fontWeight="bold"
-        letterSpacing="0.1em"
+        letterSpacing="0.2em"
+        fontFamily="monospace"
       >
         GULAG
       </text>
 
-      {years.map((year, idx) => {
-        const x = startX + idx * yearSpacing;
-        const y = startY + 20;
-        const yearCards = exiled[year] || [];
-        const isPast = year < currentYear;
-        const isCurrent = year === currentYear;
+      {/* Subtitle with count */}
+      {totalExiled > 0 && (
+        <text
+          x={175}
+          y={startY + 20}
+          textAnchor="middle"
+          fill="#555"
+          fontSize="10"
+          fontFamily="monospace"
+        >
+          [{totalExiled} exiled]
+        </text>
+      )}
 
-        return (
-          <g key={year} className="gulag-year">
-            {/* Year header */}
-            <rect
-              x={x}
-              y={y}
-              width={60}
-              height={25}
-              fill={isCurrent ? 'rgba(196,30,58,0.3)' : 'rgba(20,20,20,0.6)'}
-              stroke={isCurrent ? '#c41e3a' : '#333'}
-              strokeWidth={1}
-              rx="4"
-            />
-            <text
-              x={x + 30}
-              y={y + 17}
-              textAnchor="middle"
-              fill={isPast ? '#a09080' : isCurrent ? '#c41e3a' : '#e8dcc4'}
-              fontSize="11"
-            >
-              Year {year}
-            </text>
+      {/* Row 1: Years 1, 2, 3 */}
+      {renderYearColumn(1, row1X[0], row1Y)}
+      {renderYearColumn(2, row1X[1], row1Y)}
+      {renderYearColumn(3, row1X[2], row1Y)}
 
-            {/* Exiled cards stacked vertically */}
-            {yearCards.map((cardKey, cardIdx) => {
-              const card = parseCardKey(cardKey);
-              const cardName = getCardName(card.value);
-              const cardY = y + 35 + cardIdx * cardStackOffset;
-              return (
-                <g key={cardIdx}>
-                  <CardSVG
-                    card={card}
-                    x={x + 10}
-                    y={cardY}
-                    width={cardWidth}
-                  />
-                  {cardName && (
-                    <text
-                      x={x + 30}
-                      y={cardY + cardHeight + 8}
-                      textAnchor="middle"
-                      fill="#aaa"
-                      fontSize="7"
-                    >
-                      {cardName}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
-
-            {/* Empty state indicator */}
-            {yearCards.length === 0 && isPast && (
-              <text
-                x={x + 30}
-                y={y + 55}
-                textAnchor="middle"
-                fill="#333"
-                fontSize="9"
-              >
-                -
-              </text>
-            )}
-          </g>
-        );
-      })}
+      {/* Row 2: Years 4, 5 */}
+      {renderYearColumn(4, row2X[0], row2Y)}
+      {renderYearColumn(5, row2X[1], row2Y)}
     </g>
   );
 }

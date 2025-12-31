@@ -53,42 +53,52 @@ export function scoreAssignment(G, card, targetSuit, playerIdx) {
   const newHours = hours + cardHours;
   const isCompleted = G.claimedJobs?.includes(targetSuit);
 
-  // If job already completed, waste of hours (slightly negative)
+  // If job already completed, this is a safe dump (neutral)
   if (isCompleted) {
-    return -5;
+    return 0;
   }
 
-  // BONUS: Completing a job is very good
+  const player = G.players[playerIdx];
+  const plotCards = [...(player.plot?.revealed || []), ...(player.plot?.hidden || [])];
+  const atRiskCount = plotCards.filter(c => c.suit === targetSuit).length;
+
+  // HUGE BONUS: Completing a job is extremely valuable
   if (hours < 40 && newHours >= 40) {
-    score += 50;
-
-    // Extra bonus if this player has cards at risk for this suit
-    const player = G.players[playerIdx];
-    const plotCards = [...(player.plot?.revealed || []), ...(player.plot?.hidden || [])];
-    const atRiskCount = plotCards.filter(c => c.suit === targetSuit).length;
-    score += atRiskCount * 20;
+    score += 100;
+    // Even more if this player has cards at risk for this suit
+    score += atRiskCount * 30;
   }
 
-  // BONUS: Making progress on jobs we're at risk for
-  if (hours < 40) {
-    const player = G.players[playerIdx];
-    const plotCards = [...(player.plot?.revealed || []), ...(player.plot?.hidden || [])];
-    const atRiskCount = plotCards.filter(c => c.suit === targetSuit).length;
-    score += atRiskCount * 5;
-
-    // Bonus for getting closer to completion
-    score += Math.min(cardHours, 40 - hours) * 0.5;
+  // STRONG BONUS: Jobs that are close to completion (20+ hours)
+  // Concentrate cards here to finish them!
+  if (hours >= 20 && hours < 40) {
+    score += 40 + (hours - 20); // 40-59 bonus based on progress
+    score += atRiskCount * 15;
   }
 
-  // PENALTY: Don't waste high cards on jobs that can't be completed this year
-  // (already at low hours and no path to 40)
-  if (hours < 20 && cardHours > 8) {
-    score -= 5;
+  // MODERATE BONUS: Jobs with some progress (10-19 hours)
+  if (hours >= 10 && hours < 20) {
+    score += 15;
+    score += atRiskCount * 10;
   }
 
-  // Slight preference for matching suit (thematic, predictable)
-  if (card.suit === targetSuit) {
-    score += 2;
+  // PENALTY: Jobs with little progress - don't spread cards thin!
+  // Better to concentrate on jobs already started
+  if (hours < 10) {
+    score -= 10;
+    // Unless we have cards at risk, then it's worth starting
+    score += atRiskCount * 8;
+  }
+
+  // BONUS: High value cards should go to jobs close to completion
+  if (cardHours >= 10 && hours >= 25) {
+    score += 20; // Use high cards to push over the finish line
+  }
+
+  // NO preference for matching suit - strategy over theme!
+  // Actually SLIGHT PENALTY for matching to encourage off-suit thinking
+  if (card.suit === targetSuit && hours < 20) {
+    score -= 5; // Discourage lazy matching on low-progress jobs
   }
 
   return score;
@@ -298,28 +308,121 @@ export function getPrioritizedMoves(G, ctx, playerIdx) {
       moves.push({ move: 'playCard', args: [i], score });
     }
   } else if (ctx.phase === 'assignment' && playerIdx === G.lastWinner) {
-    const pending = G.pendingAssignments || {};
-    const pendingCount = Object.keys(pending).length;
+    const suitsInTrick = [...new Set(G.lastTrick.map(([, c]) => c.suit))];
+    const player = G.players[playerIdx];
+    const plotCards = [...(player.plot?.revealed || []), ...(player.plot?.hidden || [])];
 
-    if (pendingCount === G.lastTrick.length) {
-      moves.push({ move: 'submitAssignments', args: [], score: 100 });
-    } else {
-      const suitsInTrick = [...new Set(G.lastTrick.map(([, c]) => c.suit))];
+    // Calculate total work hours in this trick
+    const totalTrickHours = G.lastTrick.reduce((sum, [, card]) => {
+      return sum + getCardWorkHours(card, G.trump, G.variants?.nomenclature);
+    }, 0);
 
-      // Find first unassigned card and score all assignment options
-      for (const [, card] of G.lastTrick) {
-        const key = `${card.suit}-${card.value}`;
-        if (!pending[key]) {
-          for (const targetSuit of suitsInTrick) {
-            const score = scoreAssignment(G, card, targetSuit, playerIdx);
-            moves.push({ move: 'assignCard', args: [key, targetSuit], score });
-          }
-          break;
+    // STRATEGY A: Concentrate all cards into one suit
+    let bestConcentrateSuit = suitsInTrick[0];
+    let bestConcentrateScore = -Infinity;
+
+    for (const targetSuit of suitsInTrick) {
+      const currentHours = G.workHours[targetSuit] || 0;
+      const isCompleted = G.claimedJobs?.includes(targetSuit);
+
+      if (isCompleted) {
+        if (bestConcentrateScore < 0) {
+          bestConcentrateScore = 0;
+          bestConcentrateSuit = targetSuit;
         }
+        continue;
+      }
+
+      const newHours = currentHours + totalTrickHours;
+      let score = 0;
+
+      if (newHours >= 40) {
+        score += 200; // Huge bonus for completing
+        score -= (newHours - 40) * 2; // Penalize waste
+      } else {
+        score += newHours;
+        if (newHours >= 30) score += 30;
+        else if (newHours >= 20) score += 15;
+      }
+
+      const atRiskCount = plotCards.filter(c => c.suit === targetSuit).length;
+      score += atRiskCount * 20;
+
+      if (score > bestConcentrateScore) {
+        bestConcentrateScore = score;
+        bestConcentrateSuit = targetSuit;
       }
     }
+
+    // STRATEGY B: Split cards to their matching suits (or best individual assignments)
+    let splitScore = 0;
+    const splitAssignments = {};
+
+    for (const [, card] of G.lastTrick) {
+      const cardHours = getCardWorkHours(card, G.trump, G.variants?.nomenclature);
+      let bestSuitForCard = card.suit;
+      let bestCardScore = -Infinity;
+
+      for (const targetSuit of suitsInTrick) {
+        const currentHours = G.workHours[targetSuit] || 0;
+        const isCompleted = G.claimedJobs?.includes(targetSuit);
+        let cardScore = 0;
+
+        if (isCompleted) {
+          cardScore = 0; // Neutral
+        } else {
+          const newHours = currentHours + cardHours;
+          if (newHours >= 40) {
+            cardScore += 150; // Good but not as good as concentrate
+          } else {
+            cardScore += newHours * 0.5;
+            if (newHours >= 30) cardScore += 15;
+          }
+
+          const atRiskCount = plotCards.filter(c => c.suit === targetSuit).length;
+          cardScore += atRiskCount * 10;
+        }
+
+        if (cardScore > bestCardScore) {
+          bestCardScore = cardScore;
+          bestSuitForCard = targetSuit;
+        }
+      }
+
+      splitAssignments[`${card.suit}-${card.value}`] = bestSuitForCard;
+      splitScore += bestCardScore;
+    }
+
+    // Choose the better strategy
+    const pending = G.pendingAssignments || {};
+    let targetAssignments;
+
+    if (bestConcentrateScore >= splitScore) {
+      // Concentrate strategy wins - all cards to one suit
+      targetAssignments = {};
+      for (const [, card] of G.lastTrick) {
+        targetAssignments[`${card.suit}-${card.value}`] = bestConcentrateSuit;
+      }
+    } else {
+      // Split strategy wins
+      targetAssignments = splitAssignments;
+    }
+
+    // Check if we need to reassign any cards
+    let needsReassignment = false;
+    for (const [cardKey, targetSuit] of Object.entries(targetAssignments)) {
+      if (pending[cardKey] !== targetSuit) {
+        needsReassignment = true;
+        moves.push({ move: 'assignCard', args: [cardKey, targetSuit], score: 100 });
+      }
+    }
+
+    if (!needsReassignment) {
+      moves.push({ move: 'submitAssignments', args: [], score: 100 });
+    }
   } else if (ctx.phase === 'swap') {
-    moves.push({ move: 'confirmSwap', args: [], score: 0 });
+    // AI players are auto-confirmed in swap phase onBegin, so no moves needed
+    // Don't enumerate confirmSwap - it causes "player not active" errors
   }
 
   // Sort by score (highest first)
