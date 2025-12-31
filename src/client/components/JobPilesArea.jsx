@@ -210,9 +210,8 @@ export function JobPilesArea({
               </text>
             )}
 
+            {/* Render assigned cards */}
             {bucket.map((card, cardIdx) => {
-              const faceCardInfo = getFaceCardInfo(card.value);
-              const isTrumpFaceCard = card.suit === trump && faceCardInfo;
               const cardY = assignedY + cardHeight / 2 + cardIdx * stackOffset;
               return (
                 <g key={`assigned-${cardIdx}`}>
@@ -222,23 +221,37 @@ export function JobPilesArea({
                     y={cardY}
                     width={cardWidth}
                   />
-                  {isTrumpFaceCard && (
-                    <text
-                      x={centerX + cardWidth / 2 + 8}
-                      y={cardY + 5}
-                      textAnchor="start"
-                      fill="#FFD700"
-                      fontSize="11"
-                      fontWeight="600"
-                      style={{ cursor: 'help' }}
-                    >
-                      <title>{faceCardInfo.english}: {faceCardInfo.power}</title>
-                      {faceCardInfo.russian}
-                    </text>
-                  )}
                 </g>
               );
             })}
+
+            {/* Face card labels below the pile */}
+            {(() => {
+              const trumpFaceCards = bucket
+                .map((card, idx) => ({ card, idx, info: getFaceCardInfo(card.value) }))
+                .filter(({ card, info }) => card.suit === trump && info);
+
+              if (trumpFaceCards.length === 0) return null;
+
+              const lastCardY = assignedY + cardHeight / 2 + (bucket.length - 1) * stackOffset;
+              const labelsStartY = lastCardY + cardHeight / 2 + 12;
+
+              return trumpFaceCards.map(({ info }, labelIdx) => (
+                <text
+                  key={`label-${labelIdx}`}
+                  x={centerX}
+                  y={labelsStartY + labelIdx * 14}
+                  textAnchor="middle"
+                  fill="#FFD700"
+                  fontSize="11"
+                  fontWeight="600"
+                  style={{ cursor: 'help' }}
+                >
+                  <title>{info.english}: {info.power}</title>
+                  {info.russian}
+                </text>
+              ));
+            })()}
           </g>
         );
       })}
