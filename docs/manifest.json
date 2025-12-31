@@ -1,0 +1,18 @@
+{
+  "name": "Kolkhoz - Pyatiletka",
+  "short_name": "Kolkhoz",
+  "description": "A Soviet-themed trick-taking card game",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#8b0000",
+  "orientation": "landscape",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
