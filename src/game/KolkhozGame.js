@@ -14,6 +14,7 @@ import {
 } from './utils/trickUtils.js';
 import { performRequisition } from './utils/requisitionUtils.js';
 import { getWinner, transitionToNextYear, setRandomTrump } from './utils/scoringUtils.js';
+import { getPrioritizedMoves } from './utils/aiUtils.js';
 
 // Initialize a player
 function createPlayer(idx, isHuman, name) {
@@ -462,54 +463,20 @@ export const KolkhozGame = {
     return filteredG;
   },
 
-  // AI configuration
+  // AI configuration - uses smart heuristics for better play
   ai: {
     enumerate: (G, ctx, playerID) => {
-      const moves = [];
       const playerIdx = parseInt(playerID, 10);
-      const player = G.players[playerIdx];
 
-      if (ctx.phase === 'planning') {
-        // AI can set any trump
-        for (const suit of SUITS) {
-          moves.push({ move: 'setTrump', args: [suit] });
-        }
-      } else if (ctx.phase === 'trick') {
-        // Enumerate valid card plays
-        for (let i = 0; i < player.hand.length; i++) {
-          if (isValidPlay(G, playerIdx, i)) {
-            moves.push({ move: 'playCard', args: [i] });
-          }
-        }
-      } else if (ctx.phase === 'assignment' && playerIdx === G.lastWinner) {
-        const pending = G.pendingAssignments || {};
-        const pendingCount = Object.keys(pending).length;
+      // Get moves sorted by strategic value (best first)
+      const prioritizedMoves = getPrioritizedMoves(G, ctx, playerIdx);
 
-        // If all cards assigned, submit
-        if (pendingCount === G.lastTrick.length) {
-          moves.push({ move: 'submitAssignments', args: [] });
-        } else {
-          // Get all suits represented in the trick
-          const suitsInTrick = [...new Set(G.lastTrick.map(([, c]) => c.suit))];
+      // Return only the top moves to guide MCTS toward better decisions
+      // Taking top 3 gives some variety while avoiding bad moves
+      const topMoves = prioritizedMoves.slice(0, Math.min(3, prioritizedMoves.length));
 
-          // Find next unassigned card and assign it
-          for (const [, card] of G.lastTrick) {
-            const key = `${card.suit}-${card.value}`;
-            if (!pending[key]) {
-              // Any card can go to any suit in the trick
-              for (const targetSuit of suitsInTrick) {
-                moves.push({ move: 'assignCard', args: [key, targetSuit] });
-              }
-              break; // Only enumerate for first unassigned card
-            }
-          }
-        }
-      } else if (ctx.phase === 'swap' || ctx.activePlayers?.[playerID] === 'swapping') {
-        // AI just confirms without swapping
-        moves.push({ move: 'confirmSwap', args: [] });
-      }
-
-      return moves;
+      // Return in boardgame.io format (without scores)
+      return topMoves.map(({ move, args }) => ({ move, args }));
     },
   },
 };

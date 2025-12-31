@@ -1,0 +1,329 @@
+/**
+ * AI Strategy Utilities for Kolkhoz
+ *
+ * Provides heuristic-based decision making for AI players.
+ */
+
+import { SUITS } from '../constants.js';
+
+/**
+ * Calculate card work hours (value for job progress)
+ */
+export function getCardWorkHours(card, trump, nomenclature = true) {
+  // Jack of trump = 0 hours in nomenclature variant
+  if (nomenclature && card.value === 11 && card.suit === trump) {
+    return 0;
+  }
+  return card.value;
+}
+
+/**
+ * Evaluate how valuable completing a job is
+ * Higher = more valuable to complete
+ */
+export function evaluateJobCompletion(G, suit, playerIdx) {
+  const hours = G.workHours[suit] || 0;
+  const isCompleted = G.claimedJobs?.includes(suit);
+
+  if (isCompleted) return -10; // Already done, low priority
+
+  // How close to completion (40 hours)
+  const remaining = Math.max(0, 40 - hours);
+  const closenessBonus = remaining < 20 ? (20 - remaining) * 2 : 0;
+
+  // Check player's risk - do they have cards of this suit in plot?
+  const player = G.players[playerIdx];
+  const plotCards = [...(player.plot?.revealed || []), ...(player.plot?.hidden || [])];
+  const plotSuitCount = plotCards.filter(c => c.suit === suit).length;
+
+  // High risk = high priority to complete (avoid requisition)
+  const riskBonus = plotSuitCount * 15;
+
+  return closenessBonus + riskBonus;
+}
+
+/**
+ * Score a potential assignment decision
+ * Higher = better assignment
+ */
+export function scoreAssignment(G, card, targetSuit, playerIdx) {
+  let score = 0;
+  const hours = G.workHours[targetSuit] || 0;
+  const cardHours = getCardWorkHours(card, G.trump, G.variants?.nomenclature);
+  const newHours = hours + cardHours;
+  const isCompleted = G.claimedJobs?.includes(targetSuit);
+
+  // If job already completed, waste of hours (slightly negative)
+  if (isCompleted) {
+    return -5;
+  }
+
+  // BONUS: Completing a job is very good
+  if (hours < 40 && newHours >= 40) {
+    score += 50;
+
+    // Extra bonus if this player has cards at risk for this suit
+    const player = G.players[playerIdx];
+    const plotCards = [...(player.plot?.revealed || []), ...(player.plot?.hidden || [])];
+    const atRiskCount = plotCards.filter(c => c.suit === targetSuit).length;
+    score += atRiskCount * 20;
+  }
+
+  // BONUS: Making progress on jobs we're at risk for
+  if (hours < 40) {
+    const player = G.players[playerIdx];
+    const plotCards = [...(player.plot?.revealed || []), ...(player.plot?.hidden || [])];
+    const atRiskCount = plotCards.filter(c => c.suit === targetSuit).length;
+    score += atRiskCount * 5;
+
+    // Bonus for getting closer to completion
+    score += Math.min(cardHours, 40 - hours) * 0.5;
+  }
+
+  // PENALTY: Don't waste high cards on jobs that can't be completed this year
+  // (already at low hours and no path to 40)
+  if (hours < 20 && cardHours > 8) {
+    score -= 5;
+  }
+
+  // Slight preference for matching suit (thematic, predictable)
+  if (card.suit === targetSuit) {
+    score += 2;
+  }
+
+  return score;
+}
+
+/**
+ * Get the best assignment for a card given current game state
+ */
+export function getBestAssignment(G, card, suitsInTrick, playerIdx) {
+  let bestSuit = card.suit; // Default to matching
+  let bestScore = -Infinity;
+
+  for (const suit of suitsInTrick) {
+    const score = scoreAssignment(G, card, suit, playerIdx);
+    if (score > bestScore) {
+      bestScore = score;
+      bestSuit = suit;
+    }
+  }
+
+  return { suit: bestSuit, score: bestScore };
+}
+
+/**
+ * Score playing a specific card in the current trick context
+ * Higher = better play
+ */
+export function scoreCardPlay(G, playerIdx, cardIndex) {
+  const player = G.players[playerIdx];
+  const card = player.hand[cardIndex];
+  let score = 0;
+
+  const isLeading = G.currentTrick.length === 0;
+  const leadSuit = G.currentTrick[0]?.[1]?.suit;
+  const trickCards = G.currentTrick.map(([, c]) => c);
+
+  // Estimate if we'd win with this card
+  const wouldWin = estimateWinProbability(G, card, trickCards);
+
+  // Do we WANT to win this trick?
+  const wantToWin = evaluateWinDesirability(G, playerIdx);
+
+  if (isLeading) {
+    // When leading, play suits we want to progress
+    const jobValue = evaluateJobCompletion(G, card.suit, playerIdx);
+    score += jobValue * 0.3;
+
+    // Lead with medium cards to feel out opponents
+    if (card.value >= 8 && card.value <= 11) {
+      score += 5;
+    }
+
+    // Don't lead trump early unless necessary
+    if (card.suit === G.trump && G.trickCount < 2) {
+      score -= 10;
+    }
+  } else {
+    // Following
+    if (wantToWin > 0 && wouldWin > 0.5) {
+      // We want to win and this card likely wins
+      score += wantToWin * wouldWin * 20;
+    } else if (wantToWin < 0 && wouldWin < 0.5) {
+      // We don't want to win and this card likely loses
+      score += Math.abs(wantToWin) * (1 - wouldWin) * 15;
+    }
+
+    // If we can't follow suit, consider dumping high-risk cards
+    if (card.suit !== leadSuit) {
+      const plotCards = [...(player.plot?.revealed || []), ...(player.plot?.hidden || [])];
+      const suitRisk = plotCards.filter(c => c.suit === card.suit).length;
+
+      // If job not completed, dumping cards of risky suits is good
+      if (!G.claimedJobs?.includes(card.suit)) {
+        score += suitRisk * 3;
+      }
+    }
+  }
+
+  // Slight randomness to prevent predictability
+  score += Math.random() * 2;
+
+  return score;
+}
+
+/**
+ * Estimate probability this card wins the trick
+ */
+function estimateWinProbability(G, card, trickCards) {
+  if (trickCards.length === 0) return 0.5; // Leading
+
+  const leadSuit = trickCards[0].suit;
+
+  // Find current winning card
+  let winningCard = trickCards[0];
+  for (const c of trickCards) {
+    if (c.suit === G.trump && winningCard.suit !== G.trump) {
+      winningCard = c;
+    } else if (c.suit === winningCard.suit && c.value > winningCard.value) {
+      winningCard = c;
+    }
+  }
+
+  // Would our card beat the current winner?
+  if (card.suit === G.trump && winningCard.suit !== G.trump) {
+    return 0.8; // Trump beats non-trump
+  }
+  if (card.suit === winningCard.suit && card.value > winningCard.value) {
+    return 0.7;
+  }
+  if (card.suit !== leadSuit && card.suit !== G.trump) {
+    return 0.1; // Off-suit non-trump rarely wins
+  }
+
+  return 0.3; // Default uncertainty
+}
+
+/**
+ * Evaluate how much we want to win the current trick
+ * Positive = want to win, Negative = don't want to win
+ */
+function evaluateWinDesirability(G, playerIdx) {
+  let desire = 0;
+
+  // Check what suits are in the trick
+  const trickSuits = [...new Set(G.currentTrick.map(([, c]) => c.suit))];
+
+  // If trick contains suits of jobs we want to complete, we want to win
+  for (const suit of trickSuits) {
+    const jobValue = evaluateJobCompletion(G, suit, playerIdx);
+    desire += jobValue * 0.1;
+  }
+
+  // If we're brigade leader, might want to keep control
+  const player = G.players[playerIdx];
+  if (player.brigadeLeader) {
+    desire += 5;
+  }
+
+  // Late game, winning is more important for final assignments
+  if (G.trickCount >= 2) {
+    desire += 3;
+  }
+
+  return desire;
+}
+
+/**
+ * Score trump suit selection
+ * Higher = better trump choice
+ */
+export function scoreTrumpSelection(G, suit, playerIdx) {
+  let score = 0;
+  const player = G.players[playerIdx];
+  const hand = player.hand || [];
+
+  // Count high cards in this suit (J, Q, K = 11, 12, 13)
+  const highCards = hand.filter(c => c.suit === suit && c.value >= 11).length;
+  score += highCards * 15;
+
+  // Count total cards in this suit
+  const suitCount = hand.filter(c => c.suit === suit).length;
+  score += suitCount * 5;
+
+  // Check job status - prefer trump where job is close to completion
+  const hours = G.workHours[suit] || 0;
+  if (hours >= 20 && hours < 40) {
+    score += 10; // Close to completion
+  }
+
+  // PENALTY: Avoid trump where we have many plot cards (requisition risk)
+  const plotCards = [...(player.plot?.revealed || []), ...(player.plot?.hidden || [])];
+  const plotSuitCount = plotCards.filter(c => c.suit === suit).length;
+  score -= plotSuitCount * 8;
+
+  // Slight randomness
+  score += Math.random() * 5;
+
+  return score;
+}
+
+/**
+ * Get prioritized moves for AI (ordered by score)
+ */
+export function getPrioritizedMoves(G, ctx, playerIdx) {
+  const moves = [];
+  const player = G.players[playerIdx];
+
+  if (ctx.phase === 'planning' && !G.trump) {
+    // Trump selection - score each option
+    for (const suit of SUITS) {
+      const score = scoreTrumpSelection(G, suit, playerIdx);
+      moves.push({ move: 'setTrump', args: [suit], score });
+    }
+  } else if (ctx.phase === 'trick') {
+    // Card play - score each valid card
+    for (let i = 0; i < player.hand.length; i++) {
+      const card = player.hand[i];
+      const leadSuit = G.currentTrick[0]?.[1]?.suit;
+
+      // Check if valid play
+      if (G.currentTrick.length > 0) {
+        const hasLeadSuit = player.hand.some(c => c.suit === leadSuit);
+        if (hasLeadSuit && card.suit !== leadSuit) continue;
+      }
+
+      const score = scoreCardPlay(G, playerIdx, i);
+      moves.push({ move: 'playCard', args: [i], score });
+    }
+  } else if (ctx.phase === 'assignment' && playerIdx === G.lastWinner) {
+    const pending = G.pendingAssignments || {};
+    const pendingCount = Object.keys(pending).length;
+
+    if (pendingCount === G.lastTrick.length) {
+      moves.push({ move: 'submitAssignments', args: [], score: 100 });
+    } else {
+      const suitsInTrick = [...new Set(G.lastTrick.map(([, c]) => c.suit))];
+
+      // Find first unassigned card and score all assignment options
+      for (const [, card] of G.lastTrick) {
+        const key = `${card.suit}-${card.value}`;
+        if (!pending[key]) {
+          for (const targetSuit of suitsInTrick) {
+            const score = scoreAssignment(G, card, targetSuit, playerIdx);
+            moves.push({ move: 'assignCard', args: [key, targetSuit], score });
+          }
+          break;
+        }
+      }
+    }
+  } else if (ctx.phase === 'swap') {
+    moves.push({ move: 'confirmSwap', args: [], score: 0 });
+  }
+
+  // Sort by score (highest first)
+  moves.sort((a, b) => b.score - a.score);
+
+  return moves;
+}
