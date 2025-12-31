@@ -521,6 +521,226 @@ html, body {
   border-color: var(--gold);
 }
 
+/* Assignment Drag and Drop */
+.assignment-drag-drop {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  pointer-events: none;
+}
+
+.assignment-drag-drop > * {
+  pointer-events: auto;
+}
+
+.assignment-header {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  background: var(--bg-primary);
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  border: 2px solid var(--gold);
+  z-index: 160;
+}
+
+.assignment-header h3 {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  color: var(--gold);
+  margin: 0 0 0.25rem 0;
+  font-size: 1.1rem;
+  letter-spacing: 0.1em;
+}
+
+.assignment-header p {
+  color: var(--text-secondary);
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+/* Drop zones */
+.drop-zones {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.drop-zone {
+  position: absolute;
+  border-radius: 6px;
+  pointer-events: auto;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drop-zone.valid {
+  border: 2px dashed rgba(212, 168, 87, 0.4);
+  background: transparent;
+}
+
+.drop-zone.valid.hover {
+  background: rgba(212, 168, 87, 0.15);
+  border: 2px solid var(--gold);
+  box-shadow: inset 0 0 30px rgba(212, 168, 87, 0.1);
+}
+
+.drop-zone.invalid {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.drop-hint {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  color: var(--gold);
+  font-size: 1.2rem;
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 10px rgba(212, 168, 87, 0.5);
+  animation: pulse-hint 1s ease-in-out infinite;
+}
+
+@keyframes pulse-hint {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Draggable cards area */
+.drag-cards {
+  position: absolute;
+  bottom: 220px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 20px;
+  z-index: 155;
+  pointer-events: auto;
+}
+
+.drag-card {
+  cursor: grab;
+  touch-action: none;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  position: relative;
+}
+
+.drag-card:hover {
+  transform: translateY(-8px);
+}
+
+.drag-card:active {
+  cursor: grabbing;
+}
+
+.drag-card.assigned {
+  opacity: 0.5;
+  transform: scale(0.9);
+  cursor: default;
+}
+
+.drag-card.assigned:hover {
+  transform: scale(0.9);
+}
+
+.drag-card.placeholder {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.assigned-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 28px;
+  height: 28px;
+  background: var(--gold);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: var(--bg-primary);
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* Ghost card following cursor */
+.drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1000;
+  transform: translate(-50%, -50%) scale(1.1) rotate(3deg);
+  filter: drop-shadow(0 15px 25px rgba(0,0,0,0.5));
+}
+
+/* Flying card animation */
+.flying-card {
+  position: fixed;
+  pointer-events: none;
+  z-index: 999;
+  left: var(--from-x);
+  top: var(--from-y);
+  transform: translate(-50%, -50%) scale(0.7);
+  animation: fly-to-pile 0.3s ease-out forwards;
+}
+
+@keyframes fly-to-pile {
+  0% {
+    left: var(--from-x);
+    top: var(--from-y);
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    left: var(--to-x);
+    top: var(--to-y);
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0.7;
+  }
+}
+
+/* Submit button */
+.assignment-submit {
+  position: absolute;
+  bottom: 130px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 160;
+  padding: 0.75rem 2rem;
+  background: var(--red);
+  color: var(--cream);
+  border: 2px solid var(--gold-dark);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+  pointer-events: auto;
+}
+
+.assignment-submit:disabled {
+  background: var(--bg-secondary);
+  border-color: var(--border-dark);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+
+.assignment-submit:not(:disabled):hover {
+  background: var(--red-dark);
+  border-color: var(--gold);
+  box-shadow: 0 0 20px rgba(196, 30, 58, 0.3);
+}
+
+/* Hand shift during assignment */
+.hand.shifted {
+  left: 25% !important;
+  transform: translateX(-50%);
+}
+
 /* Swap Phase UI */
 .swap-ui {
   position: absolute;

@@ -1,8 +1,17 @@
 import React from 'react';
 import { CardSVG } from './CardSVG.jsx';
 import { PlayerArea } from './PlayerArea.jsx';
+import { getCardImagePath } from '../../game/Card.js';
 
-export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 450, scale = 1, year, trump, phase, isMyTurn, currentPlayerName, showInfo = false, players, currentPlayer, brigadeLeader }) {
+const SUITS = ['Hearts', 'Diamonds', 'Clubs', 'Spades'];
+
+export function TrickArea({
+  trick, numPlayers, lead, centerX = 960, centerY = 450, scale = 1,
+  year, trump, phase, isMyTurn, currentPlayerName, showInfo = false,
+  players, currentPlayer, brigadeLeader,
+  displayMode = 'game', // 'game' | 'jobs' | 'gulag'
+  workHours, claimedJobs, jobBuckets, revealedJobs, exiled
+}) {
   const suitSymbols = { Hearts: '♥', Diamonds: '♦', Clubs: '♣', Spades: '♠' };
   // Rectangular trick area dimensions - fits visible area
   const width = 1100 * scale;
@@ -98,13 +107,13 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
           </>
         ) : null}
 
-        {/* Center: Lead suit if trick has started */}
+        {/* Lead suit next to trump */}
         {trick.length > 0 && (
           <>
             <text
-              x={centerX - 30 * scale}
+              x={leftEdge + 200 * scale}
               y={infoY}
-              textAnchor="end"
+              textAnchor="start"
               fill="#888"
               fontSize={infoFontSize}
               fontFamily="'Oswald', sans-serif"
@@ -113,7 +122,7 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
               Ведёт:
             </text>
             <text
-              x={centerX - 22 * scale}
+              x={leftEdge + 268 * scale}
               y={infoY}
               textAnchor="start"
               fill={trick[0][1].suit === 'Hearts' || trick[0][1].suit === 'Diamonds' ? '#c41e3a' : '#e8dcc4'}
@@ -122,6 +131,45 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
               {suitSymbols[trick[0][1].suit]}
             </text>
           </>
+        )}
+
+        {/* Job progress indicators (after lead suit) */}
+        {showInfo && workHours && (
+          <g className="job-progress-bar">
+            {SUITS.map((suit, idx) => {
+              const hours = workHours[suit] || 0;
+              const isClaimed = claimedJobs?.includes(suit);
+              const isTrump = suit === trump;
+              const spacing = 70 * scale;
+              const startX = leftEdge + 320 * scale; // After year, trump, and lead
+              const x = startX + idx * spacing;
+
+              return (
+                <g key={suit}>
+                  <text
+                    x={x}
+                    y={infoY}
+                    textAnchor="middle"
+                    fill={suit === 'Hearts' || suit === 'Diamonds' ? '#c41e3a' : '#e8dcc4'}
+                    fontSize={suitFontSize}
+                    opacity={isTrump ? 1 : 0.7}
+                  >
+                    {suitSymbols[suit]}
+                  </text>
+                  <text
+                    x={x + 16 * scale}
+                    y={infoY}
+                    textAnchor="start"
+                    fill={isClaimed ? '#4CAF50' : '#888'}
+                    fontSize={suitFontSize}
+                    fontFamily="'Oswald', sans-serif"
+                  >
+                    {isClaimed ? '✓' : `${hours}/40`}
+                  </text>
+                </g>
+              );
+            })}
+          </g>
         )}
 
         {/* Right side: Turn indicator */}
@@ -141,59 +189,341 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
         )}
       </g>
 
-      {/* Empty slots for players who haven't played */}
-      {Array.from({ length: numPlayers }).map((_, idx) => {
-        const hasPlayed = trick.some(([pid]) => pid === idx);
-        if (hasPlayed) return null;
+      {/* GAME MODE CONTENT */}
+      {displayMode === 'game' && (
+        <>
+          {/* Empty slots for players who haven't played */}
+          {Array.from({ length: numPlayers }).map((_, idx) => {
+            const hasPlayed = trick.some(([pid]) => pid === idx);
+            if (hasPlayed) return null;
 
-        const pos = getCardPosition(idx);
-        return (
-          <rect
-            key={`slot-${idx}`}
-            x={centerX + pos.x - cardWidth / 2}
-            y={centerY + pos.y - cardHeight / 2}
-            width={cardWidth}
-            height={cardHeight}
-            fill="none"
-            stroke="rgba(255,255,255,0.15)"
-            strokeWidth={1 * scale}
-            strokeDasharray={`${4 * scale},${4 * scale}`}
-            rx={4 * scale}
-          />
-        );
-      })}
+            const pos = getCardPosition(idx);
+            return (
+              <rect
+                key={`slot-${idx}`}
+                x={centerX + pos.x - cardWidth / 2}
+                y={centerY + pos.y - cardHeight / 2}
+                width={cardWidth}
+                height={cardHeight}
+                fill="none"
+                stroke="rgba(255,255,255,0.15)"
+                strokeWidth={1 * scale}
+                strokeDasharray={`${4 * scale},${4 * scale}`}
+                rx={4 * scale}
+              />
+            );
+          })}
 
-      {/* Cards played - rendered after slots so they appear on top */}
-      {trick.map(([playerIdx, card], idx) => {
-        const pos = getCardPosition(playerIdx);
-        return (
-          <CardSVG
-            key={`${card.suit}-${card.value}`}
-            card={card}
-            x={centerX + pos.x}
-            y={centerY + pos.y}
-            width={cardWidth}
-          />
-        );
-      })}
+          {/* Cards played - rendered after slots so they appear on top */}
+          {trick.map(([playerIdx, card], idx) => {
+            const pos = getCardPosition(playerIdx);
+            return (
+              <CardSVG
+                key={`${card.suit}-${card.value}`}
+                card={card}
+                x={centerX + pos.x}
+                y={centerY + pos.y}
+                width={cardWidth}
+              />
+            );
+          })}
 
-      {/* All player areas - positioned just below info bar */}
-      {players && [0, 1, 2, 3].map((playerIdx) => {
-        const pos = getCardPosition(playerIdx);
-        const areaY = centerY - height / 2 + 115 * scale; // Just below info bar
-        return (
-          <PlayerArea
-            key={`player-${playerIdx}`}
-            player={players[playerIdx]}
-            position={{ x: centerX + pos.x, y: areaY }}
-            isActive={currentPlayer === playerIdx}
-            isBrigadeLeader={brigadeLeader === playerIdx}
-            playerIndex={playerIdx}
-            scale={scale}
-            isHuman={playerIdx === 0}
-          />
-        );
-      })}
+          {/* All player areas - positioned just below info bar */}
+          {players && [0, 1, 2, 3].map((playerIdx) => {
+            const pos = getCardPosition(playerIdx);
+            const areaY = centerY - height / 2 + 115 * scale; // Just below info bar
+            return (
+              <PlayerArea
+                key={`player-${playerIdx}`}
+                player={players[playerIdx]}
+                position={{ x: centerX + pos.x, y: areaY }}
+                isActive={currentPlayer === playerIdx}
+                isBrigadeLeader={brigadeLeader === playerIdx}
+                playerIndex={playerIdx}
+                scale={scale}
+                isHuman={playerIdx === 0}
+              />
+            );
+          })}
+        </>
+      )}
+
+      {/* JOBS MODE CONTENT - Horizontal rows */}
+      {displayMode === 'jobs' && (
+        <g className="jobs-content">
+          {/* Title centered below info bar */}
+          <text
+            x={centerX}
+            y={centerY - height / 2 + 70 * scale}
+            textAnchor="middle"
+            fill="#d4a857"
+            fontSize={24 * scale}
+            fontFamily="'Russo One', 'Oswald', sans-serif"
+          >
+            Работы
+          </text>
+
+          {/* 4 suit rows */}
+          {SUITS.map((suit, suitIdx) => {
+            const hours = workHours?.[suit] || 0;
+            const isClaimed = claimedJobs?.includes(suit);
+            const isTrump = suit === trump;
+            const bucket = jobBuckets?.[suit] || [];
+            const jobCard = revealedJobs?.[suit];
+            const jobCards = Array.isArray(jobCard) ? jobCard : jobCard ? [jobCard] : [];
+            const progressPct = Math.min(100, (hours / 40) * 100);
+
+            const rowHeight = 95 * scale;
+            const rowSpacing = 100 * scale;
+            const rowY = centerY - height / 2 + 95 * scale + suitIdx * rowSpacing;
+            const rowLeft = centerX - width / 2 + 20 * scale;
+            const rowWidth = width - 40 * scale;
+            const jobCardWidth = 55 * scale;
+            const jobCardHeight = jobCardWidth * 1.4;
+            const cardSpacing = 42 * scale;
+
+            // Cards area starts after info section
+            const cardsStartX = rowLeft + 140 * scale;
+
+            return (
+              <g key={suit} className={`job-row ${isTrump ? 'trump' : ''}`}>
+                {/* Row background */}
+                <rect
+                  x={rowLeft}
+                  y={rowY}
+                  width={rowWidth}
+                  height={rowHeight}
+                  fill={isTrump ? 'rgba(196, 30, 58, 0.15)' : 'rgba(30,30,30,0.5)'}
+                  stroke={isClaimed ? '#4CAF50' : isTrump ? '#c41e3a' : '#444'}
+                  strokeWidth={isClaimed ? 2 : 1}
+                  rx={4 * scale}
+                />
+
+                {/* Suit symbol above progress text */}
+                <text
+                  x={rowLeft + 25 * scale}
+                  y={rowY + 35 * scale}
+                  textAnchor="middle"
+                  fill={suit === 'Hearts' || suit === 'Diamonds' ? '#c41e3a' : '#e8dcc4'}
+                  fontSize={28 * scale}
+                >
+                  {suitSymbols[suit]}
+                </text>
+
+                {/* Progress text below suit */}
+                <text
+                  x={rowLeft + 25 * scale}
+                  y={rowY + 65 * scale}
+                  textAnchor="middle"
+                  fill={isClaimed ? '#4CAF50' : '#e8dcc4'}
+                  fontSize={12 * scale}
+                  fontFamily="'Oswald', sans-serif"
+                >
+                  {isClaimed ? '✓' : `${hours}/40`}
+                </text>
+
+                {/* Reward card */}
+                {jobCards.length > 0 && !isClaimed ? (
+                  <image
+                    href={getCardImagePath(jobCards[0])}
+                    x={rowLeft + 55 * scale}
+                    y={rowY + (rowHeight - jobCardHeight) / 2}
+                    width={jobCardWidth}
+                    height={jobCardHeight}
+                  />
+                ) : (
+                  <image
+                    href="assets/cards/back.svg"
+                    x={rowLeft + 55 * scale}
+                    y={rowY + (rowHeight - jobCardHeight) / 2}
+                    width={jobCardWidth}
+                    height={jobCardHeight}
+                    opacity={isClaimed ? 0.3 : 0.5}
+                  />
+                )}
+
+                {/* Separator line */}
+                <line
+                  x1={rowLeft + 120 * scale}
+                  y1={rowY + 10 * scale}
+                  x2={rowLeft + 120 * scale}
+                  y2={rowY + rowHeight - 10 * scale}
+                  stroke="#555"
+                  strokeWidth={1}
+                />
+
+                {/* Assigned cards - horizontal spread */}
+                {bucket.slice(0, 16).map((card, idx) => (
+                  <image
+                    key={`assigned-${idx}`}
+                    href={getCardImagePath(card)}
+                    x={cardsStartX + idx * cardSpacing}
+                    y={rowY + (rowHeight - jobCardHeight) / 2}
+                    width={jobCardWidth}
+                    height={jobCardHeight}
+                  />
+                ))}
+                {bucket.length > 16 && (
+                  <text
+                    x={cardsStartX + 16 * cardSpacing + jobCardWidth / 2}
+                    y={rowY + rowHeight / 2 + 5 * scale}
+                    textAnchor="middle"
+                    fill="#888"
+                    fontSize={11 * scale}
+                  >
+                    +{bucket.length - 16}
+                  </text>
+                )}
+
+                {/* Empty slot indicator if no assigned cards */}
+                {bucket.length === 0 && (
+                  <rect
+                    x={cardsStartX}
+                    y={rowY + (rowHeight - jobCardHeight) / 2}
+                    width={jobCardWidth}
+                    height={jobCardHeight}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.1)"
+                    strokeDasharray={`${4 * scale},${4 * scale}`}
+                    rx={4 * scale}
+                  />
+                )}
+              </g>
+            );
+          })}
+        </g>
+      )}
+
+      {/* GULAG MODE CONTENT - Horizontal rows */}
+      {displayMode === 'gulag' && (
+        <g className="gulag-content">
+          {/* Title centered below info bar */}
+          <text
+            x={centerX}
+            y={centerY - height / 2 + 70 * scale}
+            textAnchor="middle"
+            fill="#d4a857"
+            fontSize={24 * scale}
+            fontFamily="'Russo One', 'Oswald', sans-serif"
+          >
+            Север
+          </text>
+
+          {/* 5 year rows */}
+          {[1, 2, 3, 4, 5].map((yr, yrIdx) => {
+            const yearCards = exiled?.[yr] || [];
+            const isCurrent = yr === year;
+            const isPast = yr < year;
+
+            const rowHeight = 80 * scale;
+            const rowSpacing = 85 * scale;
+            const rowY = centerY - height / 2 + 90 * scale + yrIdx * rowSpacing;
+            const rowLeft = centerX - width / 2 + 20 * scale;
+            const rowWidth = width - 40 * scale;
+            const gulagCardWidth = 50 * scale;
+            const gulagCardHeight = gulagCardWidth * 1.4;
+            const cardSpacing = 38 * scale;
+
+            // Cards area starts after year number
+            const cardsStartX = rowLeft + 80 * scale;
+
+            const parseCardKey = (cardKey) => {
+              const [suit, value] = cardKey.split('-');
+              return { suit, value: parseInt(value, 10) };
+            };
+
+            return (
+              <g key={yr} className={`year-row ${isCurrent ? 'current' : ''}`}>
+                {/* Row background */}
+                <rect
+                  x={rowLeft}
+                  y={rowY}
+                  width={rowWidth}
+                  height={rowHeight}
+                  fill={isCurrent ? 'rgba(196, 30, 58, 0.2)' : isPast ? 'rgba(50,50,50,0.3)' : 'rgba(30,30,30,0.5)'}
+                  stroke={isCurrent ? '#c41e3a' : '#444'}
+                  strokeWidth={isCurrent ? 2 : 1}
+                  rx={4 * scale}
+                />
+
+                {/* Year number */}
+                <text
+                  x={rowLeft + 35 * scale}
+                  y={rowY + rowHeight / 2 + 10 * scale}
+                  textAnchor="middle"
+                  fill={isCurrent ? '#c41e3a' : isPast ? '#666' : '#e8dcc4'}
+                  fontSize={28 * scale}
+                  fontFamily="'Russo One', 'Oswald', sans-serif"
+                  fontWeight={isCurrent ? 'bold' : 'normal'}
+                >
+                  {yr}
+                </text>
+
+                {/* Card count badge */}
+                {yearCards.length > 0 && (
+                  <g>
+                    <circle
+                      cx={rowLeft + 60 * scale}
+                      cy={rowY + 20 * scale}
+                      r={12 * scale}
+                      fill="#c41e3a"
+                    />
+                    <text
+                      x={rowLeft + 60 * scale}
+                      y={rowY + 24 * scale}
+                      textAnchor="middle"
+                      fill="#fff"
+                      fontSize={11 * scale}
+                      fontWeight="bold"
+                    >
+                      {yearCards.length}
+                    </text>
+                  </g>
+                )}
+
+                {/* Exiled cards - horizontal spread */}
+                {yearCards.length > 0 ? (
+                  yearCards.slice(0, 15).map((cardKey, idx) => {
+                    const card = parseCardKey(cardKey);
+                    return (
+                      <image
+                        key={idx}
+                        href={getCardImagePath(card)}
+                        x={cardsStartX + idx * cardSpacing}
+                        y={rowY + (rowHeight - gulagCardHeight) / 2}
+                        width={gulagCardWidth}
+                        height={gulagCardHeight}
+                      />
+                    );
+                  })
+                ) : (
+                  <rect
+                    x={cardsStartX}
+                    y={rowY + (rowHeight - gulagCardHeight) / 2}
+                    width={gulagCardWidth}
+                    height={gulagCardHeight}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.1)"
+                    strokeDasharray={`${4 * scale},${4 * scale}`}
+                    rx={4 * scale}
+                  />
+                )}
+                {yearCards.length > 15 && (
+                  <text
+                    x={cardsStartX + 15 * cardSpacing + gulagCardWidth / 2}
+                    y={rowY + rowHeight / 2 + 5 * scale}
+                    textAnchor="middle"
+                    fill="#888"
+                    fontSize={11 * scale}
+                  >
+                    +{yearCards.length - 15}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </g>
+      )}
     </g>
   );
 }

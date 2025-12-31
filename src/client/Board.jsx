@@ -4,6 +4,7 @@ import { Hand } from './components/Hand.jsx';
 import { TrickArea } from './components/TrickArea.jsx';
 import { JobPilesArea } from './components/JobPilesArea.jsx';
 import { RightSidebar } from './components/RightSidebar.jsx';
+import { AssignmentDragDrop } from './components/AssignmentDragDrop.jsx';
 import { SUITS } from '../game/constants.js';
 import { getCardImagePath } from '../game/Card.js';
 
@@ -27,6 +28,9 @@ export function Board({ G, ctx, moves, playerID }) {
   // Track if user has confirmed swap locally (to prevent modal reappearing due to race conditions)
   const [swapConfirmedLocally, setSwapConfirmedLocally] = useState(false);
   const lastYearRef = useRef(G.year);
+
+  // Ref to SVG element for coordinate conversion in drag-drop
+  const svgRef = useRef(null);
 
   // Track window size for responsive scaling
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -161,7 +165,7 @@ export function Board({ G, ctx, moves, playerID }) {
       )}
 
       {/* Main SVG board */}
-      <svg viewBox="0 0 1920 1080" className="board-svg">
+      <svg ref={svgRef} viewBox="0 0 1920 1080" className="board-svg">
         {/* Job Piles (left side) */}
         <JobPilesArea
           revealedJobs={G.revealedJobs}
@@ -192,6 +196,12 @@ export function Board({ G, ctx, moves, playerID }) {
           players={G.players}
           currentPlayer={parseInt(ctx.currentPlayer, 10)}
           brigadeLeader={G.players.findIndex(p => p.brigadeLeader)}
+          displayMode={phase === 'assignment' ? 'jobs' : !sidebarsVisible && activePanel === 'jobs' ? 'jobs' : !sidebarsVisible && activePanel === 'gulag' ? 'gulag' : 'game'}
+          workHours={G.workHours}
+          claimedJobs={G.claimedJobs}
+          jobBuckets={G.jobBuckets}
+          revealedJobs={G.revealedJobs}
+          exiled={G.exiled}
         />
 
         {/* Right Sidebar with game info and gulag */}
@@ -244,8 +254,8 @@ export function Board({ G, ctx, moves, playerID }) {
         </div>
       )}
 
-      {/* Mobile panel content - shows when a panel is active */}
-      {!sidebarsVisible && activePanel !== null && (
+      {/* Mobile panel content - only shows for options panel (jobs/gulag now in SVG) */}
+      {!sidebarsVisible && activePanel === 'options' && (
         <div className="mobile-panel-content">
           {/* Options/Menu Panel */}
           {activePanel === 'options' && (
@@ -276,92 +286,6 @@ export function Board({ G, ctx, moves, playerID }) {
             </div>
           )}
 
-          {/* Jobs Panel */}
-          {activePanel === 'jobs' && (
-            <div className="jobs-panel">
-              <div className="jobs-header">
-                <h3 title="Jobs">Работы</h3>
-                <span className="jobs-count">{G.claimedJobs?.length || 0}/4</span>
-              </div>
-              <div className="jobs-grid">
-                {SUITS.map((suit) => {
-                  const hours = G.workHours?.[suit] || 0;
-                  const isClaimed = G.claimedJobs?.includes(suit);
-                  const isTrump = suit === G.trump;
-                  const bucket = G.jobBuckets?.[suit] || [];
-                  const jobCard = G.revealedJobs?.[suit];
-                  const jobCards = Array.isArray(jobCard) ? jobCard : jobCard ? [jobCard] : [];
-                  const progressPct = Math.min(100, (hours / 40) * 100);
-
-                  return (
-                    <div key={suit} className={`job-column ${isTrump ? 'trump' : ''} ${isClaimed ? 'claimed' : ''}`}>
-                      <div className="job-header-row">
-                        <span className={`suit-symbol ${suit.toLowerCase()}`}>{getSuitSymbol(suit)}</span>
-                        <div className="progress-bar-container">
-                          <div className={`progress-bar-fill ${isClaimed ? 'complete' : ''}`} style={{ width: `${progressPct}%` }} />
-                          <span className="progress-text">{isClaimed ? '✓' : `${hours}/40`}</span>
-                        </div>
-                      </div>
-                      <div className="job-cards-stack">
-                        {isClaimed ? (
-                          <img src="assets/cards/back.svg" alt="claimed" className="job-card" />
-                        ) : (
-                          jobCards.map((card, idx) => (
-                            <img key={`reward-${idx}`} src={getCardImagePath(card)} alt={`${card.value} of ${card.suit}`} className="job-card reward" />
-                          ))
-                        )}
-                        {bucket.slice(0, 8).map((card, idx) => (
-                          <img key={`assigned-${idx}`} src={getCardImagePath(card)} alt={`${card.value} of ${card.suit}`} className="job-card" style={{ marginTop: '-40px' }} />
-                        ))}
-                        {bucket.length > 8 && <div className="more-cards">+{bucket.length - 8}</div>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Gulag Panel */}
-          {activePanel === 'gulag' && (
-            <div className="gulag-panel">
-              <div className="gulag-header">
-                <h3 title="The North (Gulag)">Север</h3>
-                <span className="gulag-count">{Object.values(G.exiled || {}).flat().length} сослано</span>
-              </div>
-              <div className="gulag-grid">
-                {[1, 2, 3, 4, 5].map((year) => {
-                  const yearCards = G.exiled?.[year] || [];
-                  const isCurrent = year === G.year;
-                  const isPast = year < G.year;
-                  const parseCardKey = (cardKey) => {
-                    const [suit, value] = cardKey.split('-');
-                    return { suit, value: parseInt(value, 10) };
-                  };
-
-                  return (
-                    <div key={year} className={`year-column ${isCurrent ? 'current' : ''} ${isPast ? 'past' : ''}`}>
-                      <div className="year-header">
-                        <span className="year-number">{year}</span>
-                        {yearCards.length > 0 && <span className="year-badge">{yearCards.length}</span>}
-                      </div>
-                      <div className="year-cards">
-                        {yearCards.length > 0 ? (
-                          yearCards.slice(0, 8).map((cardKey, idx) => {
-                            const card = parseCardKey(cardKey);
-                            return <img key={idx} src={getCardImagePath(card)} alt={cardKey} className="gulag-card" style={{ marginTop: idx > 0 ? '-35px' : '0' }} />;
-                          })
-                        ) : (
-                          <div className="empty-slot" />
-                        )}
-                        {yearCards.length > 8 && <div className="more-cards">+{yearCards.length - 8}</div>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -373,44 +297,21 @@ export function Board({ G, ctx, moves, playerID }) {
         leadSuit={G.currentTrick[0]?.[1]?.suit}
         trump={G.trump}
         validIndices={getValidIndices(G, currentPlayer, phase)}
+        className={phase === 'assignment' ? 'shifted' : ''}
       />
 
-      {/* Assignment phase UI */}
-      {phase === 'assignment' && G.lastWinner === currentPlayer && (() => {
-        // Get all suits represented in the trick
-        const suitsInTrick = [...new Set(G.lastTrick.map(([, c]) => c.suit))];
-        return (
-          <div className="assignment-ui">
-            <h3>Assign cards to jobs</h3>
-            <p>Assign each card to a job from this trick</p>
-            <div className="assignment-cards">
-              {G.lastTrick.map(([pid, card], idx) => {
-                const cardKey = `${card.suit}-${card.value}`;
-                const assigned = G.pendingAssignments?.[cardKey];
-                return (
-                  <div key={idx} className="assignment-card">
-                    <CardSVG card={card} width={80} />
-                    <select
-                      value={assigned || card.suit}
-                      onChange={(e) => handleAssign(cardKey, e.target.value)}
-                    >
-                      {suitsInTrick.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </div>
-                );
-              })}
-            </div>
-            <button
-              onClick={handleSubmitAssignments}
-              disabled={Object.keys(G.pendingAssignments || {}).length !== G.lastTrick.length}
-            >
-              Submit Assignments
-            </button>
-          </div>
-        );
-      })()}
+      {/* Assignment phase UI - Drag and Drop */}
+      {phase === 'assignment' && G.lastWinner === currentPlayer && (
+        <AssignmentDragDrop
+          lastTrick={G.lastTrick}
+          pendingAssignments={G.pendingAssignments}
+          onAssign={handleAssign}
+          onSubmit={handleSubmitAssignments}
+          svgRef={svgRef}
+          centerY={playCenterY}
+          scale={scaleFactor}
+        />
+      )}
 
       {/* Swap phase UI */}
       {phase === 'swap' && !G.swapConfirmed?.[currentPlayer] && !swapConfirmedLocally && (

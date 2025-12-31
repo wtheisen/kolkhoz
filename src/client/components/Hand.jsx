@@ -8,14 +8,15 @@ export function Hand({
   leadSuit,
   trump,
   validIndices,
+  className = '',
 }) {
   if (!cards || cards.length === 0) {
-    return <div className="hand empty">No cards in hand</div>;
+    return <div className={`hand empty ${className}`}>No cards in hand</div>;
   }
 
   // Straight horizontal layout - no fan
   return (
-    <div className="hand">
+    <div className={`hand ${className}`}>
       {cards.map((card, idx) => {
         const isValid = !validIndices || validIndices.includes(idx);
 
