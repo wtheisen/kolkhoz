@@ -10,7 +10,7 @@ import {
   applyTrickResult,
   applyAssignments,
   generateAutoAssignment,
-  getTricksPerYear,
+  isYearComplete,
 } from './utils/trickUtils.js';
 import { performRequisition } from './utils/requisitionUtils.js';
 import { getWinner, transitionToNextYear, setRandomTrump } from './utils/scoringUtils.js';
@@ -151,9 +151,8 @@ function submitAssignments({ G, events, random }) {
   applyAssignments(G, G.pendingAssignments, G.variants);
   G.pendingAssignments = {};
 
-  // Check if all tricks are done
-  const tricksPerYear = getTricksPerYear(G.isFamine);
-  if (G.trickCount >= tricksPerYear) {
+  // Check if all tricks are done (all players have 1 card left)
+  if (isYearComplete(G)) {
     console.log('[submitAssignments] Last trick - processing year end');
 
     // Move remaining hand cards to plot
@@ -284,8 +283,7 @@ export const KolkhozGame = {
 
           // If this was the last trick of the year and no manual assignment needed,
           // do the year-end processing right here
-          const tricksPerYear = getTricksPerYear(G.isFamine);
-          if (!G.needsManualAssignment && G.trickCount >= tricksPerYear) {
+          if (!G.needsManualAssignment && isYearComplete(G)) {
             console.log('[trick onEnd] Last trick - processing year end');
 
             // Move remaining hand cards to plot (what plotSelection.onBegin did)
@@ -322,10 +320,10 @@ export const KolkhozGame = {
           return 'assignment';
         }
 
-        const tricksPerYear = getTricksPerYear(G.isFamine);
-        console.log('[trick next] trickCount:', G.trickCount, 'tricksPerYear:', tricksPerYear, 'isFamine:', G.isFamine);
+        const yearComplete = isYearComplete(G);
+        console.log('[trick next] trickCount:', G.trickCount, 'yearComplete:', yearComplete, 'handSize:', G.players[0]?.hand.length);
 
-        if (G.trickCount >= tricksPerYear) {
+        if (yearComplete) {
           // Should not reach here with new logic, but keep as fallback
           return 'plotSelection';
         }
@@ -401,27 +399,18 @@ export const KolkhozGame = {
     },
 
     swap: {
-      turn: {
-        activePlayers: { all: 'swapping' },
-        stages: {
-          swapping: {
-            moves: { swapCard, confirmSwap },
-          },
-        },
-      },
-      onBegin: ({ G }) => {
+      moves: { swapCard, confirmSwap },
+      onBegin: ({ G, ctx }) => {
         console.log('[swap onBegin] year:', G.year, 'hands:', G.players.map(p => p.hand.length), 'plots:', G.players.map(p => p.plot.hidden.length));
         // Reset swap confirmation tracking
         G.swapConfirmed = {};
-        // Auto-confirm AI players (they don't swap strategically)
-        for (const player of G.players) {
-          if (!player.isHuman) {
-            G.swapConfirmed[player.idx] = true;
-          }
+        // Auto-confirm for AI players (1, 2, 3) - only human player 0 needs to manually confirm
+        for (let i = 1; i < ctx.numPlayers; i++) {
+          G.swapConfirmed[i] = true;
         }
       },
       endIf: ({ G, ctx }) => {
-        // End when all players have confirmed
+        // End when all players have confirmed (AI auto-confirmed, human must click)
         if (!G.swapConfirmed) return false;
         for (let i = 0; i < ctx.numPlayers; i++) {
           if (!G.swapConfirmed[i]) return false;

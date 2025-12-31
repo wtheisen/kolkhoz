@@ -1,6 +1,17 @@
 import React from 'react';
 import { getCardImagePath } from '../../game/Card.js';
 
+// Convert numeric card value to display name for accessibility
+function getCardValueName(value) {
+  const names = {
+    1: 'Ace',
+    11: 'Jack',
+    12: 'Queen',
+    13: 'King',
+  };
+  return names[value] || String(value);
+}
+
 export function CardSVG({
   card,
   x = 0,
@@ -61,7 +72,7 @@ export function CardSVG({
     >
       <img
         src={imagePath}
-        alt={faceDown ? 'Card back' : `${card.value} of ${card.suit}`}
+        alt={faceDown ? 'Card back' : `${getCardValueName(card.value)} of ${card.suit}`}
         style={{ width: '100%', height: '100%' }}
       />
     </div>

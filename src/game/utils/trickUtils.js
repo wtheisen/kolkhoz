@@ -98,8 +98,15 @@ export function allCardsSameSuit(trick) {
 }
 
 // Get number of tricks (3 during famine, 4 otherwise)
+// DEPRECATED: Use isYearComplete instead - kept for backward compatibility in tests
 export function getTricksPerYear(isFamine) {
   return isFamine ? 3 : 4;
+}
+
+// Check if year is complete (all players have exactly 1 card left)
+// This is cleaner than counting tricks - works regardless of famine
+export function isYearComplete(G) {
+  return G.players.every(p => p.hand.length === 1);
 }
 
 // Apply card assignments to jobs

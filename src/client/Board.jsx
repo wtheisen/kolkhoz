@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CardSVG } from './components/CardSVG.jsx';
 import { Hand } from './components/Hand.jsx';
 import { TrickArea } from './components/TrickArea.jsx';
@@ -16,6 +16,18 @@ export function Board({ G, ctx, moves, playerID }) {
   const [selectedHandCard, setSelectedHandCard] = useState(null);
   const [selectedPlotCard, setSelectedPlotCard] = useState(null);
   const [selectedPlotType, setSelectedPlotType] = useState(null); // 'hidden' or 'revealed'
+
+  // Track if user has confirmed swap locally (to prevent modal reappearing due to race conditions)
+  const [swapConfirmedLocally, setSwapConfirmedLocally] = useState(false);
+  const lastYearRef = useRef(G.year);
+
+  // Reset local swap confirmation when year changes
+  useEffect(() => {
+    if (G.year !== lastYearRef.current) {
+      setSwapConfirmedLocally(false);
+      lastYearRef.current = G.year;
+    }
+  }, [G.year]);
 
   // Handle card play
   const handlePlayCard = (cardIndex) => {
@@ -63,6 +75,7 @@ export function Board({ G, ctx, moves, playerID }) {
   };
 
   const handleConfirmSwap = () => {
+    setSwapConfirmedLocally(true);
     moves.confirmSwap();
   };
 
@@ -221,7 +234,7 @@ export function Board({ G, ctx, moves, playerID }) {
       })()}
 
       {/* Swap phase UI */}
-      {phase === 'swap' && !G.swapConfirmed?.[currentPlayer] && (
+      {phase === 'swap' && !G.swapConfirmed?.[currentPlayer] && !swapConfirmedLocally && (
         <div className="swap-ui">
           <h3>Swap Cards (Year {G.year})</h3>
           <p>Select a card from your hand and one from your plot to swap, or skip</p>
@@ -290,7 +303,7 @@ export function Board({ G, ctx, moves, playerID }) {
       )}
 
       {/* Waiting for others during swap */}
-      {phase === 'swap' && G.swapConfirmed?.[currentPlayer] && (
+      {phase === 'swap' && (G.swapConfirmed?.[currentPlayer] || swapConfirmedLocally) && (
         <div className="swap-ui">
           <h3>Waiting for other players...</h3>
         </div>
