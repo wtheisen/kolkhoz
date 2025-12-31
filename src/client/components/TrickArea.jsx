@@ -40,17 +40,27 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
 
       {/* Lead indicator - centered in play area */}
       {trick.length > 0 && (
-        <text
-          x={centerX}
-          y={centerY}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fill="#FFD700"
-          fontSize="16"
-          fontWeight="bold"
-        >
-          Lead: {trick[0][1].suit}
-        </text>
+        <g>
+          <text
+            x={centerX}
+            y={centerY - 14}
+            textAnchor="middle"
+            fill="#FFD700"
+            fontSize="14"
+            fontWeight="bold"
+          >
+            Lead:
+          </text>
+          <text
+            x={centerX}
+            y={centerY + 16}
+            textAnchor="middle"
+            fill={trick[0][1].suit === 'Hearts' || trick[0][1].suit === 'Diamonds' ? '#c41e3a' : '#e8dcc4'}
+            fontSize="28"
+          >
+            {{ Hearts: '♥', Diamonds: '♦', Clubs: '♣', Spades: '♠' }[trick[0][1].suit]}
+          </text>
+        </g>
       )}
 
       {/* Cards played */}
