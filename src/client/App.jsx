@@ -33,13 +33,23 @@ export function App() {
   if (!gameStarted) {
     return (
       <div className="lobby">
-        {/* Left: Title */}
-        <div className="lobby-title">
-          <h1 title="Kolkhoz - Collective Farm">Колхоз</h1>
-          <h2 title="Pyatiletka - Five-Year Plan">Пятилетка</h2>
+        {/* Left: Title + Buttons */}
+        <div className="lobby-left">
+          <div className="lobby-title">
+            <h1 title="Kolkhoz - Collective Farm">Колхоз</h1>
+            <h2 title="Pyatiletka - Five-Year Plan">Пятилетка</h2>
+          </div>
+          <div className="lobby-buttons">
+            <button className="start-btn" onClick={() => setGameStarted(true)}>
+              Start Game
+            </button>
+            <button className="rules-btn" onClick={() => setShowRules(true)}>
+              Rules
+            </button>
+          </div>
         </div>
 
-        {/* Center: Variant options */}
+        {/* Right: Variant options */}
         <div className="variant-options">
           <h3>Deck Type</h3>
 
@@ -129,16 +139,6 @@ export function App() {
               <strong title="Nakoplenie - Accumulation">Накопление</strong> - Job rewards carry over
             </label>
           )}
-        </div>
-
-        {/* Right: Buttons */}
-        <div className="lobby-buttons">
-          <button className="start-btn" onClick={() => setGameStarted(true)}>
-            Start Game
-          </button>
-          <button className="rules-btn" onClick={() => setShowRules(true)}>
-            Rules
-          </button>
         </div>
 
         {/* Rules modal */}
