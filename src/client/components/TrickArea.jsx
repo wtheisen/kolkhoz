@@ -1,18 +1,19 @@
 import React from 'react';
 import { CardSVG } from './CardSVG.jsx';
+import { PlayerArea } from './PlayerArea.jsx';
 
-export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 450, scale = 1, year, trump, phase, isMyTurn, currentPlayerName, showInfo = false }) {
+export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 450, scale = 1, year, trump, phase, isMyTurn, currentPlayerName, showInfo = false, players, currentPlayer, brigadeLeader }) {
   const suitSymbols = { Hearts: '♥', Diamonds: '♦', Clubs: '♣', Spades: '♠' };
-  // Rectangular trick area dimensions - expanded to include bot areas
-  const width = 800 * scale;
-  const height = 420 * scale;
-  const cardWidth = 110 * scale;
+  // Rectangular trick area dimensions - fits visible area
+  const width = 1100 * scale;
+  const height = 540 * scale;
+  const cardWidth = 220 * scale;
   const cardHeight = cardWidth * 1.4;
-  const cardSpacing = 160 * scale;
+  const cardSpacing = 265 * scale;
 
   // Card positions in a horizontal line - shifted down to make room for bot areas
   // Order: player 1, player 2, player 3, player 0 (human last on right)
-  const cardYOffset = 50 * scale; // Push cards down from center
+  const cardYOffset = 85 * scale; // Cards below bots with small gap
   const getCardPosition = (playerIdx) => {
     // Map player index to slot position (0-3 from left to right)
     const slotOrder = [3, 0, 1, 2]; // player 0 -> slot 3, player 1 -> slot 0, etc.
@@ -27,10 +28,11 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
   const innerRadius = 6 * scale;
 
   // Info positioning inside the trick area
-  const infoY = centerY - height / 2 + 32 * scale;
-  const infoFontSize = 18 * scale;
-  const leftEdge = centerX - width / 2 + 15 * scale;
-  const rightEdge = centerX + width / 2 - 15 * scale;
+  const infoY = centerY - height / 2 + 38 * scale;
+  const infoFontSize = 24 * scale;
+  const suitFontSize = 20 * scale;
+  const leftEdge = centerX - width / 2 + 20 * scale;
+  const rightEdge = centerX + width / 2 - 20 * scale;
 
   return (
     <g className="trick-area">
@@ -73,7 +75,7 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
               Год {year}/5
             </text>
             <text
-              x={leftEdge + 75 * scale}
+              x={leftEdge + 100 * scale}
               y={infoY}
               textAnchor="start"
               fill="#888"
@@ -84,11 +86,11 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
               Задача:
             </text>
             <text
-              x={leftEdge + 130 * scale}
+              x={leftEdge + 175 * scale}
               y={infoY}
               textAnchor="start"
               fill={trump === 'Hearts' || trump === 'Diamonds' ? '#c41e3a' : '#e8dcc4'}
-              fontSize={14 * scale}
+              fontSize={suitFontSize}
               fontFamily="'Oswald', sans-serif"
             >
               {trump ? suitSymbols[trump] : '?'}
@@ -100,7 +102,7 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
         {trick.length > 0 && (
           <>
             <text
-              x={centerX - 25 * scale}
+              x={centerX - 30 * scale}
               y={infoY}
               textAnchor="end"
               fill="#888"
@@ -111,11 +113,11 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
               Ведёт:
             </text>
             <text
-              x={centerX - 20 * scale}
+              x={centerX - 22 * scale}
               y={infoY}
               textAnchor="start"
               fill={trick[0][1].suit === 'Hearts' || trick[0][1].suit === 'Diamonds' ? '#c41e3a' : '#e8dcc4'}
-              fontSize={14 * scale}
+              fontSize={suitFontSize}
             >
               {suitSymbols[trick[0][1].suit]}
             </text>
@@ -171,6 +173,24 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
             x={centerX + pos.x}
             y={centerY + pos.y}
             width={cardWidth}
+          />
+        );
+      })}
+
+      {/* All player areas - positioned just below info bar */}
+      {players && [0, 1, 2, 3].map((playerIdx) => {
+        const pos = getCardPosition(playerIdx);
+        const areaY = centerY - height / 2 + 115 * scale; // Just below info bar
+        return (
+          <PlayerArea
+            key={`player-${playerIdx}`}
+            player={players[playerIdx]}
+            position={{ x: centerX + pos.x, y: areaY }}
+            isActive={currentPlayer === playerIdx}
+            isBrigadeLeader={brigadeLeader === playerIdx}
+            playerIndex={playerIdx}
+            scale={scale}
+            isHuman={playerIdx === 0}
           />
         );
       })}

@@ -963,13 +963,13 @@ html, body {
   justify-content: center;
   gap: 8px;
   padding: 12px 16px;
-  background: var(--red);
-  color: var(--cream);
-  border: 2px solid var(--gold-dark);
+  background: #1a1a1a;
+  color: var(--cream-dark);
+  border: 2px solid #333;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 15px rgba(196, 30, 58, 0.3);
+  box-shadow: none;
 }
 
 .mobile-nav-bar .nav-btn .nav-icon {
@@ -984,14 +984,16 @@ html, body {
 }
 
 .mobile-nav-bar .nav-btn:hover {
-  background: var(--red-dark);
-  border-color: var(--gold);
+  background: #2a2a2a;
+  border-color: var(--gold-dark);
+  color: var(--cream);
 }
 
 .mobile-nav-bar .nav-btn.active {
-  background: var(--red-dark);
+  background: var(--red);
+  color: var(--cream);
   border-color: var(--gold);
-  box-shadow: 0 6px 20px rgba(196, 30, 58, 0.5);
+  box-shadow: 0 4px 15px rgba(196, 30, 58, 0.4);
 }
 
 /* Mobile Panel Content - centered in area right of nav bar */
@@ -1413,17 +1415,21 @@ html, body {
     display: none;
   }
 
-  /* Adjust hand position - center in area right of nav bar */
+  /* Adjust hand position - closer to trick area, cards spread out */
   .hand {
-    bottom: 10px;
+    bottom: -50px;
     left: 120px;
     right: 0;
     transform: none;
     justify-content: center;
   }
 
-  /* Player plot adjustments */
+  .hand .hand-card {
+    margin: 0 5px;
+  }
+
+  /* Hide player plot on mobile - shown in trick area instead */
   .player-plot {
-    left: 130px;
+    display: none;
   }
 }

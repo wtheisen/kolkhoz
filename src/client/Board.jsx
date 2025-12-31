@@ -3,7 +3,6 @@ import { CardSVG } from './components/CardSVG.jsx';
 import { Hand } from './components/Hand.jsx';
 import { TrickArea } from './components/TrickArea.jsx';
 import { JobPilesArea } from './components/JobPilesArea.jsx';
-import { PlayerArea } from './components/PlayerArea.jsx';
 import { RightSidebar } from './components/RightSidebar.jsx';
 import { SUITS } from '../game/constants.js';
 import { getCardImagePath } from '../game/Card.js';
@@ -111,24 +110,7 @@ export function Board({ G, ctx, moves, playerID }) {
 
   // Center of play area - calculated from visible bounds
   const playCenterX = (leftBound + rightBound) / 2;
-  const playCenterY = 460;
-
-  // Player positions - inside the expanded trick area, above card slots
-  // Trick area: center at playCenterY (460), height 420, so top at 460-210=250
-  // Bot areas positioned in upper portion of trick area
-  const trickAreaTop = playCenterY - 210; // Top of expanded trick area
-  const botY = trickAreaTop + 70; // Inside trick area, near top
-  const getPlayerPosition = (idx, total) => {
-    // Slot X positions matching TrickArea: slot 0 = -240, slot 1 = -80, slot 2 = +80
-    const slotXOffsets = [-240, -80, 80]; // For players 1, 2, 3
-    const positions = [
-      { x: playCenterX, y: 800 },                           // Player 0 (human) - not rendered
-      { x: playCenterX + slotXOffsets[0], y: botY },        // Player 1 - leftmost slot
-      { x: playCenterX + slotXOffsets[1], y: botY },        // Player 2 - center-left slot
-      { x: playCenterX + slotXOffsets[2], y: botY },        // Player 3 - center-right slot
-    ];
-    return positions[idx] || positions[0];
-  };
+  const playCenterY = 470; // Moved down so top border fully visible
 
   // Render game over screen
   if (ctx.gameover) {
@@ -193,7 +175,7 @@ export function Board({ G, ctx, moves, playerID }) {
           lastTrick={G.lastTrick}
         />
 
-        {/* Trick Area (center) */}
+        {/* Trick Area (center) - includes bot player areas */}
         <TrickArea
           trick={phase === 'assignment' ? G.lastTrick : G.currentTrick}
           numPlayers={G.numPlayers}
@@ -207,24 +189,10 @@ export function Board({ G, ctx, moves, playerID }) {
           isMyTurn={isMyTurn}
           currentPlayerName={G.players[ctx.currentPlayer]?.name}
           showInfo={!sidebarsVisible}
+          players={G.players}
+          currentPlayer={parseInt(ctx.currentPlayer, 10)}
+          brigadeLeader={G.players.findIndex(p => p.brigadeLeader)}
         />
-
-        {/* Other players */}
-        {G.players.map((player, idx) => {
-          if (idx === currentPlayer) return null;
-          const pos = getPlayerPosition(idx, G.numPlayers);
-          return (
-            <PlayerArea
-              key={idx}
-              player={player}
-              position={pos}
-              isActive={parseInt(ctx.currentPlayer, 10) === idx}
-              isBrigadeLeader={player.brigadeLeader}
-              playerIndex={idx}
-              scale={scaleFactor}
-            />
-          );
-        })}
 
         {/* Right Sidebar with game info and gulag */}
         <RightSidebar
@@ -248,6 +216,14 @@ export function Board({ G, ctx, moves, playerID }) {
           >
             <span className="nav-icon">☰</span>
             <span className="nav-label">Menu</span>
+          </button>
+          <button
+            className={`nav-btn ${activePanel === null ? 'active' : ''}`}
+            onClick={() => setActivePanel(null)}
+            title="Brigade (Playing Area)"
+          >
+            <span className="nav-icon">👥</span>
+            <span className="nav-label" title="Brigade">Бригада</span>
           </button>
           <button
             className={`nav-btn ${activePanel === 'jobs' ? 'active' : ''}`}
