@@ -137,6 +137,7 @@ export function JobPilesArea({
             {/* Reward card - centered below header */}
             {jobCards.map((card, cardIdx) => {
               const cardName = getCardName(card.value);
+              const isTrumpFaceCard = card.suit === trump && cardName;
               const offsetX = jobCards.length > 1 ? (cardIdx - (jobCards.length - 1) / 2) * 15 : 0;
               return (
                 <g key={`reward-${cardIdx}`}>
@@ -146,16 +147,16 @@ export function JobPilesArea({
                     y={rewardY + cardHeight / 2}
                     width={cardWidth}
                   />
-                  {cardName && (
+                  {isTrumpFaceCard && (
                     <text
                       x={centerX + offsetX}
                       y={rewardY + cardHeight + 18}
                       textAnchor="middle"
-                      fill="#aaa"
+                      fill="#FFD700"
                       fontSize="13"
-                      fontWeight="500"
+                      fontWeight="600"
                     >
-                      {cardName}
+                      ★ {cardName}
                     </text>
                   )}
                 </g>
