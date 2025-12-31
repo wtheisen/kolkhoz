@@ -19,7 +19,7 @@ export function RightSidebar({
   };
 
   const getSuitColor = (suit) => {
-    return suit === 'Hearts' || suit === 'Diamonds' ? '#c41e3a' : '#1a1a2e';
+    return suit === 'Hearts' || suit === 'Diamonds' ? '#c41e3a' : '#e8dcc4';
   };
 
   const getPhaseDisplay = (phase) => {
@@ -42,8 +42,8 @@ export function RightSidebar({
         y={startY}
         width={360}
         height={180}
-        fill="rgba(0,0,0,0.5)"
-        stroke="#444"
+        fill="rgba(20,20,20,0.9)"
+        stroke="#d4a857"
         strokeWidth={1}
         rx="10"
       />
@@ -52,7 +52,7 @@ export function RightSidebar({
       <text
         x={startX + 20}
         y={startY + 30}
-        fill="#888"
+        fill="#a09080"
         fontSize="11"
       >
         Year
@@ -60,7 +60,7 @@ export function RightSidebar({
       <text
         x={startX + 20}
         y={startY + 50}
-        fill="#fff"
+        fill="#d4a857"
         fontSize="18"
         fontWeight="bold"
       >
@@ -71,7 +71,7 @@ export function RightSidebar({
       <text
         x={startX + 100}
         y={startY + 30}
-        fill="#888"
+        fill="#a09080"
         fontSize="11"
       >
         Trump
@@ -90,7 +90,7 @@ export function RightSidebar({
         <text
           x={startX + 100}
           y={startY + 50}
-          fill="#666"
+          fill="#a09080"
           fontSize="14"
         >
           Not selected
@@ -101,7 +101,7 @@ export function RightSidebar({
       <text
         x={startX + 20}
         y={startY + 85}
-        fill="#888"
+        fill="#a09080"
         fontSize="11"
       >
         Phase
@@ -109,7 +109,7 @@ export function RightSidebar({
       <text
         x={startX + 20}
         y={startY + 105}
-        fill="#fff"
+        fill="#e8dcc4"
         fontSize="14"
       >
         {getPhaseDisplay(phase)}
@@ -119,7 +119,7 @@ export function RightSidebar({
       <text
         x={startX + 20}
         y={startY + 135}
-        fill="#888"
+        fill="#a09080"
         fontSize="11"
       >
         Turn
@@ -128,7 +128,7 @@ export function RightSidebar({
         <text
           x={startX + 20}
           y={startY + 155}
-          fill="#4CAF50"
+          fill="#d4a857"
           fontSize="14"
           fontWeight="bold"
         >
@@ -138,7 +138,7 @@ export function RightSidebar({
         <text
           x={startX + 20}
           y={startY + 155}
-          fill="#888"
+          fill="#a09080"
           fontSize="12"
         >
           Waiting for {players[parseInt(currentPlayer, 10)]?.name}...

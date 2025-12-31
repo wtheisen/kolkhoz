@@ -50,7 +50,7 @@ export function CardSVG({
             width={width + 8}
             height={height + 8}
             fill="none"
-            stroke="#4CAF50"
+            stroke="#d4a857"
             strokeWidth="3"
             rx="8"
           />

@@ -14,6 +14,14 @@ export function GulagArea({ exiled, currentYear }) {
     return { suit, value: parseInt(value, 10) };
   };
 
+  // Get display name for face cards
+  const getCardName = (value) => {
+    const names = { 11: 'Jack', 12: 'Queen', 13: 'King', 1: 'Ace' };
+    return names[value] || null;
+  };
+
+  const cardHeight = cardWidth * 1.4; // Standard card ratio
+
   // Get all years (1 to 5)
   const years = [1, 2, 3, 4, 5];
 
@@ -24,9 +32,10 @@ export function GulagArea({ exiled, currentYear }) {
         x={startX + 140}
         y={startY}
         textAnchor="middle"
-        fill="#888"
+        fill="#c41e3a"
         fontSize="12"
         fontWeight="bold"
+        letterSpacing="0.1em"
       >
         GULAG
       </text>
@@ -46,8 +55,8 @@ export function GulagArea({ exiled, currentYear }) {
               y={y}
               width={60}
               height={25}
-              fill={isCurrent ? 'rgba(196,30,58,0.3)' : 'rgba(0,0,0,0.3)'}
-              stroke={isCurrent ? '#c41e3a' : '#444'}
+              fill={isCurrent ? 'rgba(196,30,58,0.3)' : 'rgba(20,20,20,0.6)'}
+              stroke={isCurrent ? '#c41e3a' : '#333'}
               strokeWidth={1}
               rx="4"
             />
@@ -55,7 +64,7 @@ export function GulagArea({ exiled, currentYear }) {
               x={x + 30}
               y={y + 17}
               textAnchor="middle"
-              fill={isPast ? '#666' : isCurrent ? '#c41e3a' : '#888'}
+              fill={isPast ? '#a09080' : isCurrent ? '#c41e3a' : '#e8dcc4'}
               fontSize="11"
             >
               Year {year}
@@ -64,14 +73,28 @@ export function GulagArea({ exiled, currentYear }) {
             {/* Exiled cards stacked vertically */}
             {yearCards.map((cardKey, cardIdx) => {
               const card = parseCardKey(cardKey);
+              const cardName = getCardName(card.value);
+              const cardY = y + 35 + cardIdx * cardStackOffset;
               return (
-                <CardSVG
-                  key={cardIdx}
-                  card={card}
-                  x={x + 10}
-                  y={y + 35 + cardIdx * cardStackOffset}
-                  width={cardWidth}
-                />
+                <g key={cardIdx}>
+                  <CardSVG
+                    card={card}
+                    x={x + 10}
+                    y={cardY}
+                    width={cardWidth}
+                  />
+                  {cardName && (
+                    <text
+                      x={x + 30}
+                      y={cardY + cardHeight + 8}
+                      textAnchor="middle"
+                      fill="#aaa"
+                      fontSize="7"
+                    >
+                      {cardName}
+                    </text>
+                  )}
+                </g>
               );
             })}
 
@@ -81,7 +104,7 @@ export function GulagArea({ exiled, currentYear }) {
                 x={x + 30}
                 y={y + 55}
                 textAnchor="middle"
-                fill="#444"
+                fill="#333"
                 fontSize="9"
               >
                 -

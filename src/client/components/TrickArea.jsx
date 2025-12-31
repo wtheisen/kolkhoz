@@ -20,32 +20,33 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
 
   return (
     <g className="trick-area">
-      {/* Table circle */}
+      {/* Table circle - Soviet theme with dark background and gold border */}
       <circle
         cx={centerX}
         cy={centerY}
         r={radius + 80}
-        fill="#2d5016"
-        stroke="#8B4513"
-        strokeWidth="8"
+        fill="#1a1a1a"
+        stroke="#d4a857"
+        strokeWidth="3"
       />
       <circle
         cx={centerX}
         cy={centerY}
         r={radius + 60}
         fill="none"
-        stroke="#3d6b1e"
+        stroke="#8b0000"
         strokeWidth="2"
       />
 
-      {/* Lead indicator */}
+      {/* Lead indicator - centered in play area */}
       {trick.length > 0 && (
         <text
           x={centerX}
-          y={centerY - radius - 40}
+          y={centerY - radius - 70}
           textAnchor="middle"
           fill="#FFD700"
           fontSize="14"
+          fontWeight="bold"
         >
           Lead: {trick[0][1].suit}
         </text>

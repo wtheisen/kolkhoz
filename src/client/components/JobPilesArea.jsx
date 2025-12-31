@@ -1,6 +1,6 @@
 import React from 'react';
 import { CardSVG } from './CardSVG.jsx';
-import { SUITS, THRESHOLD, JOB_NAMES } from '../../game/constants.js';
+import { SUITS, THRESHOLD, JOB_NAMES, JOB_TRANSLATIONS } from '../../game/constants.js';
 
 export function JobPilesArea({
   revealedJobs,
@@ -22,12 +22,18 @@ export function JobPilesArea({
   const cardStackOffset = 20; // Vertical offset for stacked cards
 
   const getSuitColor = (suit) => {
-    return suit === 'Hearts' || suit === 'Diamonds' ? '#c41e3a' : '#1a1a2e';
+    return suit === 'Hearts' || suit === 'Diamonds' ? '#c41e3a' : '#e8dcc4';
   };
 
   const getSuitSymbol = (suit) => {
     const symbols = { Hearts: '♥', Diamonds: '♦', Clubs: '♣', Spades: '♠' };
     return symbols[suit];
+  };
+
+  // Get display name for face cards
+  const getCardName = (value) => {
+    const names = { 11: 'Jack', 12: 'Queen', 13: 'King', 1: 'Ace' };
+    return names[value] || null;
   };
 
   return (
@@ -94,7 +100,9 @@ export function JobPilesArea({
               textAnchor="middle"
               fill="#bbb"
               fontSize="10"
+              style={{ cursor: 'help' }}
             >
+              <title>{JOB_TRANSLATIONS[suit]}</title>
               {JOB_NAMES[suit]}
             </text>
 
@@ -140,26 +148,58 @@ export function JobPilesArea({
             )}
 
             {/* Job reward card(s) - shown above the stack */}
-            {jobCards.map((card, cardIdx) => (
-              <CardSVG
-                key={`reward-${cardIdx}`}
-                card={card}
-                x={x - cardWidth / 2 + cardIdx * 8}
-                y={y + headerHeight - 25}
-                width={cardWidth}
-              />
-            ))}
+            {jobCards.map((card, cardIdx) => {
+              const cardName = getCardName(card.value);
+              const rewardY = y + headerHeight - 25;
+              return (
+                <g key={`reward-${cardIdx}`}>
+                  <CardSVG
+                    card={card}
+                    x={x - cardWidth / 2 + cardIdx * 8}
+                    y={rewardY}
+                    width={cardWidth}
+                  />
+                  {cardName && (
+                    <text
+                      x={x + cardIdx * 8}
+                      y={rewardY + cardHeight + 10}
+                      textAnchor="middle"
+                      fill="#aaa"
+                      fontSize="8"
+                    >
+                      {cardName}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
 
             {/* Assigned cards - stacked vertically beneath */}
-            {bucket.map((card, cardIdx) => (
-              <CardSVG
-                key={`assigned-${cardIdx}`}
-                card={card}
-                x={x - cardWidth / 2}
-                y={y + headerHeight + 50 + cardIdx * cardStackOffset}
-                width={cardWidth}
-              />
-            ))}
+            {bucket.map((card, cardIdx) => {
+              const cardName = getCardName(card.value);
+              const cardY = y + headerHeight + 50 + cardIdx * cardStackOffset;
+              return (
+                <g key={`assigned-${cardIdx}`}>
+                  <CardSVG
+                    card={card}
+                    x={x - cardWidth / 2}
+                    y={cardY}
+                    width={cardWidth}
+                  />
+                  {cardName && (
+                    <text
+                      x={x}
+                      y={cardY + cardHeight + 10}
+                      textAnchor="middle"
+                      fill="#aaa"
+                      fontSize="8"
+                    >
+                      {cardName}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
 
             {/* Card count if cards are assigned */}
             {bucket.length > 0 && (

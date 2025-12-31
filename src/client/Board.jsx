@@ -317,7 +317,10 @@ export function Board({ G, ctx, moves, playerID }) {
             <CardSVG key={`r-${idx}`} card={card} width={60} />
           ))}
           {G.players[currentPlayer]?.plot.hidden.map((card, idx) => (
-            <CardSVG key={`h-${idx}`} card={card} width={60} faceDown />
+            <div key={`h-${idx}`} className="hidden-plot-card" title="Hover to reveal">
+              <CardSVG card={card} width={60} faceDown className="card-back" />
+              <CardSVG card={card} width={60} className="card-front" />
+            </div>
           ))}
         </div>
       </div>

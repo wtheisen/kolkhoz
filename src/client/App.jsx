@@ -31,8 +31,8 @@ export function App() {
   if (!gameStarted) {
     return (
       <div className="lobby">
-        <h1>Колхоз</h1>
-        <h2>Пятилетка</h2>
+        <h1 title="Kolkhoz - Collective Farm">Колхоз</h1>
+        <h2 title="Pyatiletka - Five-Year Plan">Пятилетка</h2>
 
         <div className="variant-options">
           <h3>Deck Type</h3>
@@ -41,20 +41,20 @@ export function App() {
             <input
               type="radio"
               name="deckType"
-              checked={variants.deckType === 36}
-              onChange={() => setVariants({ ...variants, deckType: 36 })}
+              checked={variants.deckType === 52}
+              onChange={() => setVariants({ ...variants, deckType: 52 })}
             />
-            36-card deck (Classic)
+            52-card deck (Classic)
           </label>
 
           <label>
             <input
               type="radio"
               name="deckType"
-              checked={variants.deckType === 52}
-              onChange={() => setVariants({ ...variants, deckType: 52 })}
+              checked={variants.deckType === 36}
+              onChange={() => setVariants({ ...variants, deckType: 36 })}
             />
-            52-card deck (With job rewards)
+            36-card deck (Camp-style)
           </label>
 
           <h3>Variant Rules</h3>
@@ -65,7 +65,7 @@ export function App() {
               checked={variants.nomenclature}
               onChange={(e) => setVariants({ ...variants, nomenclature: e.target.checked })}
             />
-            <strong>Номенклатура</strong> - Face card special effects (Drunkard Jack, etc.)
+            <strong title="Nomenklatura - The Party Elite">Номенклатура</strong> - Face card special effects (Drunkard Jack, etc.)
           </label>
 
           <label>
@@ -74,7 +74,7 @@ export function App() {
               checked={variants.allowSwap}
               onChange={(e) => setVariants({ ...variants, allowSwap: e.target.checked })}
             />
-            <strong>Обмен</strong> - Swap hand/plot cards at year start
+            <strong title="Obmen - Exchange">Обмен</strong> - Swap hand/plot cards at year start
           </label>
 
           <label>
@@ -83,7 +83,7 @@ export function App() {
               checked={variants.northernStyle}
               onChange={(e) => setVariants({ ...variants, northernStyle: e.target.checked })}
             />
-            <strong>Северный стиль</strong> - Northern style (no job rewards, all vulnerable)
+            <strong title="Severny Stil - Northern Style">Северный стиль</strong> - Northern style (no job rewards, all vulnerable)
           </label>
 
           <label>
@@ -92,7 +92,7 @@ export function App() {
               checked={variants.miceVariant}
               onChange={(e) => setVariants({ ...variants, miceVariant: e.target.checked })}
             />
-            <strong>Мыши</strong> - Mice variant (all reveal during requisition)
+            <strong title="Myshi - Mice">Мыши</strong> - Mice variant (all reveal during requisition)
           </label>
 
           <label>
@@ -101,7 +101,7 @@ export function App() {
               checked={variants.ordenNachalniku}
               onChange={(e) => setVariants({ ...variants, ordenNachalniku: e.target.checked })}
             />
-            <strong>Орден Начальнику</strong> - Stack cards when jobs complete (36-card only)
+            <strong title="Orden Nachalniku - Medal for the Boss">Орден Начальнику</strong> - Stack cards when jobs complete (36-card only)
           </label>
 
           <label>
@@ -110,7 +110,7 @@ export function App() {
               checked={variants.medalsCount}
               onChange={(e) => setVariants({ ...variants, medalsCount: e.target.checked })}
             />
-            <strong>Медали</strong> - Trick wins contribute to final score
+            <strong title="Medali - Medals">Медали</strong> - Trick wins contribute to final score
           </label>
 
           {variants.deckType === 52 && (
@@ -120,7 +120,7 @@ export function App() {
                 checked={variants.accumulateJobs}
                 onChange={(e) => setVariants({ ...variants, accumulateJobs: e.target.checked })}
               />
-              <strong>Накопление</strong> - Unclaimed job rewards carry over to next year
+              <strong title="Nakoplenie - Accumulation">Накопление</strong> - Unclaimed job rewards carry over to next year
             </label>
           )}
         </div>

@@ -29,6 +29,14 @@ export const JOB_NAMES = {
   Spades: 'Подсолнечник'    // Sunflowers
 };
 
+// English translations for job names
+export const JOB_TRANSLATIONS = {
+  Hearts: 'Wheat',
+  Diamonds: 'Beets',
+  Clubs: 'Potatoes',
+  Spades: 'Sunflowers'
+};
+
 // Default game variants
 export const DEFAULT_VARIANTS = {
   deckType: 52,           // 36 or 52 card deck

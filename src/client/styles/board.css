@@ -1,4 +1,23 @@
-/* Kolkhoz Game Board Styles */
+/* Kolkhoz Game Board Styles - Soviet/Palekh Theme */
+
+/* Color Variables */
+:root {
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #141414;
+  --bg-card: #1a1a1a;
+  --gold: #d4a857;
+  --gold-bright: #ffd700;
+  --gold-dark: #b8860b;
+  --red: #c41e3a;
+  --red-dark: #8b0000;
+  --red-bright: #dc143c;
+  --cream: #e8dcc4;
+  --cream-dark: #c4b89a;
+  --text-primary: #e8dcc4;
+  --text-secondary: #a09080;
+  --border-gold: #d4a857;
+  --border-dark: #333;
+}
 
 /* Lobby */
 .lobby {
@@ -8,59 +27,84 @@
   justify-content: center;
   min-height: 100vh;
   padding: 2rem;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  background: var(--bg-primary);
+  background-image:
+    radial-gradient(ellipse at top, rgba(212, 168, 87, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom, rgba(196, 30, 58, 0.03) 0%, transparent 50%);
 }
 
 .lobby h1 {
-  font-size: 4rem;
-  color: #c41e3a;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: 4.5rem;
+  color: var(--red);
   margin-bottom: 0.5rem;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+  text-shadow: 3px 3px 0 var(--gold-dark), 0 0 30px rgba(196, 30, 58, 0.3);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .lobby h2 {
+  font-family: 'Russo One', 'Oswald', sans-serif;
   font-size: 1.5rem;
-  color: #FFD700;
+  color: var(--gold);
   margin-bottom: 2rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
 }
 
 .variant-options {
-  background: rgba(255,255,255,0.1);
+  background: var(--bg-secondary);
   padding: 1.5rem;
-  border-radius: 10px;
+  border-radius: 4px;
   margin-bottom: 2rem;
+  border: 1px solid var(--border-gold);
+  box-shadow: 0 0 20px rgba(212, 168, 87, 0.1);
 }
 
 .variant-options h3 {
   margin-bottom: 1rem;
-  color: #fff;
+  color: var(--cream);
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  letter-spacing: 0.1em;
 }
 
 .variant-options label {
   display: block;
   margin: 0.5rem 0;
   cursor: pointer;
-  color: #ccc;
+  color: var(--cream-dark);
+  font-weight: 400;
+}
+
+.variant-options label:hover {
+  color: var(--gold);
 }
 
 .variant-options input {
   margin-right: 0.5rem;
+  accent-color: var(--red);
 }
 
 .lobby button {
   padding: 1rem 3rem;
   font-size: 1.2rem;
-  background: #c41e3a;
-  color: white;
-  border: none;
-  border-radius: 8px;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  background: var(--red);
+  color: var(--cream);
+  border: 2px solid var(--gold-dark);
+  border-radius: 4px;
   cursor: pointer;
-  transition: transform 0.2s, background 0.2s;
+  transition: all 0.2s;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  box-shadow: 0 4px 15px rgba(196, 30, 58, 0.3);
 }
 
 .lobby button:hover {
-  background: #a01830;
+  background: var(--red-dark);
+  border-color: var(--gold);
   transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(196, 30, 58, 0.5);
 }
 
 /* Game Board */
@@ -68,7 +112,9 @@
   position: relative;
   width: 100vw;
   height: 100vh;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  background: var(--bg-primary);
+  background-image:
+    radial-gradient(ellipse at center, rgba(212, 168, 87, 0.02) 0%, transparent 70%);
   overflow: hidden;
 }
 
@@ -79,12 +125,12 @@
 
 /* Right Sidebar (SVG-based) */
 .right-sidebar text {
-  font-family: inherit;
+  font-family: 'Oswald', sans-serif;
 }
 
 /* Gulag Area */
 .gulag-area text {
-  font-family: inherit;
+  font-family: 'Oswald', sans-serif;
 }
 
 /* Pulse animation for turn indicator */
@@ -99,16 +145,21 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: rgba(0,0,0,0.9);
+  background: var(--bg-primary);
   padding: 2rem;
-  border-radius: 15px;
+  border-radius: 4px;
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 40px rgba(212, 168, 87, 0.2), inset 0 0 60px rgba(0,0,0,0.5);
   z-index: 200;
   text-align: center;
 }
 
 .trump-selection h3 {
-  color: #FFD700;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  color: var(--gold);
   margin-bottom: 1.5rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .suit-buttons {
@@ -119,25 +170,27 @@
 .suit-btn {
   padding: 1rem 1.5rem;
   font-size: 1.5rem;
-  border: 2px solid #444;
-  border-radius: 10px;
+  font-family: 'Oswald', sans-serif;
+  border: 2px solid var(--border-dark);
+  border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
-  background: #222;
-  color: #fff;
+  background: var(--bg-secondary);
+  color: var(--cream);
 }
 
 .suit-btn:hover {
   transform: scale(1.1);
-  border-color: #FFD700;
+  border-color: var(--gold);
+  box-shadow: 0 0 15px rgba(212, 168, 87, 0.3);
 }
 
 .suit-btn.hearts, .suit-btn.diamonds {
-  color: #c41e3a;
+  color: var(--red);
 }
 
 .suit-btn.clubs, .suit-btn.spades {
-  color: #e0e0e0;
+  color: var(--cream);
 }
 
 /* Player Hand */
@@ -192,7 +245,7 @@
 }
 
 .card-html.highlight {
-  box-shadow: 0 0 15px 5px rgba(76, 175, 80, 0.5);
+  box-shadow: 0 0 15px 5px rgba(212, 168, 87, 0.5);
 }
 
 .card-html.dimmed {
@@ -209,7 +262,7 @@
 }
 
 .card-svg.highlight {
-  filter: drop-shadow(0 0 10px rgba(76, 175, 80, 0.8));
+  filter: drop-shadow(0 0 10px rgba(212, 168, 87, 0.8));
 }
 
 .card-svg.dimmed {
@@ -222,20 +275,24 @@
   bottom: 200px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0,0,0,0.9);
+  background: var(--bg-primary);
   padding: 1.5rem;
-  border-radius: 15px;
+  border-radius: 4px;
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 30px rgba(212, 168, 87, 0.15);
   z-index: 150;
   text-align: center;
 }
 
 .assignment-ui h3 {
-  color: #FFD700;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  color: var(--gold);
   margin-bottom: 0.5rem;
+  letter-spacing: 0.1em;
 }
 
 .assignment-ui p {
-  color: #888;
+  color: var(--text-secondary);
   margin-bottom: 1rem;
   font-size: 0.9rem;
 }
@@ -255,29 +312,36 @@
 
 .assignment-card select {
   padding: 0.5rem;
-  border-radius: 5px;
-  background: #333;
-  color: #fff;
-  border: 1px solid #555;
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--cream);
+  border: 1px solid var(--border-gold);
+  font-family: 'Oswald', sans-serif;
 }
 
 .assignment-ui button {
   padding: 0.75rem 2rem;
-  background: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 8px;
+  background: var(--red);
+  color: var(--cream);
+  border: 2px solid var(--gold-dark);
+  border-radius: 4px;
   cursor: pointer;
   font-size: 1rem;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .assignment-ui button:disabled {
-  background: #555;
+  background: var(--bg-secondary);
+  border-color: var(--border-dark);
+  color: var(--text-secondary);
   cursor: not-allowed;
 }
 
 .assignment-ui button:not(:disabled):hover {
-  background: #45a049;
+  background: var(--red-dark);
+  border-color: var(--gold);
 }
 
 /* Swap Phase UI */
@@ -286,21 +350,25 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: rgba(0,0,0,0.95);
+  background: var(--bg-primary);
   padding: 2rem;
-  border-radius: 15px;
+  border-radius: 4px;
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 40px rgba(212, 168, 87, 0.2);
   z-index: 200;
   text-align: center;
   min-width: 500px;
 }
 
 .swap-ui h3 {
-  color: #FFD700;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  color: var(--gold);
   margin-bottom: 0.5rem;
+  letter-spacing: 0.1em;
 }
 
 .swap-ui p {
-  color: #888;
+  color: var(--text-secondary);
   margin-bottom: 1.5rem;
   font-size: 0.9rem;
 }
@@ -310,9 +378,12 @@
 }
 
 .swap-section h4 {
-  color: #aaa;
+  color: var(--cream-dark);
   margin-bottom: 0.5rem;
   font-size: 0.9rem;
+  font-family: 'Oswald', sans-serif;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .swap-cards {
@@ -325,7 +396,7 @@
 .swap-card {
   cursor: pointer;
   border: 3px solid transparent;
-  border-radius: 8px;
+  border-radius: 4px;
   transition: all 0.2s;
 }
 
@@ -334,8 +405,8 @@
 }
 
 .swap-card.selected {
-  border-color: #FFD700;
-  box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+  border-color: var(--gold);
+  box-shadow: 0 0 15px rgba(212, 168, 87, 0.5);
 }
 
 .swap-buttons {
@@ -348,33 +419,40 @@
 .swap-buttons button {
   padding: 0.75rem 1.5rem;
   font-size: 1rem;
-  border: none;
-  border-radius: 8px;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  border: 2px solid var(--gold-dark);
+  border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .swap-buttons button:first-child {
-  background: #4CAF50;
-  color: white;
+  background: var(--bg-secondary);
+  color: var(--cream);
 }
 
 .swap-buttons button:first-child:disabled {
-  background: #555;
+  background: var(--bg-secondary);
+  border-color: var(--border-dark);
+  color: var(--text-secondary);
   cursor: not-allowed;
 }
 
 .swap-buttons button:first-child:not(:disabled):hover {
-  background: #45a049;
+  background: var(--gold-dark);
+  color: var(--bg-primary);
 }
 
 .swap-buttons button:last-child {
-  background: #2196F3;
-  color: white;
+  background: var(--red);
+  color: var(--cream);
 }
 
 .swap-buttons button:last-child:hover {
-  background: #1976D2;
+  background: var(--red-dark);
+  border-color: var(--gold);
 }
 
 /* Player Plot */
@@ -382,21 +460,51 @@
   position: absolute;
   bottom: 20px;
   left: 20px;
-  background: rgba(0,0,0,0.7);
+  background: var(--bg-secondary);
   padding: 1rem;
-  border-radius: 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border-gold);
   z-index: 50;
 }
 
 .player-plot h4 {
-  color: #888;
+  font-family: 'Oswald', sans-serif;
+  color: var(--gold);
   margin-bottom: 0.5rem;
   font-size: 0.9rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .plot-cards {
   display: flex;
   gap: 0.25rem;
+}
+
+/* Hidden plot cards with hover-to-reveal */
+.hidden-plot-card {
+  position: relative;
+  cursor: pointer;
+}
+
+.hidden-plot-card .card-back,
+.hidden-plot-card .card-front {
+  transition: opacity 0.2s ease;
+}
+
+.hidden-plot-card .card-front {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+}
+
+.hidden-plot-card:hover .card-back {
+  opacity: 0;
+}
+
+.hidden-plot-card:hover .card-front {
+  opacity: 1;
 }
 
 /* Game Over */
@@ -406,40 +514,51 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  background: var(--bg-primary);
+  background-image:
+    radial-gradient(ellipse at top, rgba(212, 168, 87, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom, rgba(196, 30, 58, 0.05) 0%, transparent 50%);
   text-align: center;
 }
 
 .game-over h1 {
-  font-size: 3rem;
-  color: #FFD700;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: 3.5rem;
+  color: var(--gold);
   margin-bottom: 1rem;
+  text-shadow: 2px 2px 0 var(--gold-dark);
+  letter-spacing: 0.1em;
 }
 
 .game-over h2 {
+  font-family: 'Russo One', 'Oswald', sans-serif;
   font-size: 2rem;
-  color: #4CAF50;
+  color: var(--red);
   margin-bottom: 2rem;
+  letter-spacing: 0.1em;
 }
 
 .final-scores {
-  background: rgba(0,0,0,0.5);
+  background: var(--bg-secondary);
   padding: 1.5rem;
-  border-radius: 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border-gold);
   margin-bottom: 1rem;
 }
 
 .final-scores div {
   padding: 0.5rem 1rem;
   font-size: 1.2rem;
-  color: #ccc;
+  color: var(--cream-dark);
+  font-family: 'Oswald', sans-serif;
 }
 
 .final-scores .winner {
-  color: #FFD700;
+  color: var(--gold);
   font-weight: bold;
-  background: rgba(255,215,0,0.1);
-  border-radius: 5px;
+  background: rgba(212, 168, 87, 0.1);
+  border-radius: 4px;
+  border: 1px solid var(--gold-dark);
 }
 
 /* Animations */
@@ -461,6 +580,21 @@
   to {
     transform: translateY(-100px);
   }
+}
+
+/* Tooltips */
+[title] {
+  cursor: help;
+}
+
+.lobby h1[title],
+.lobby h2[title] {
+  cursor: help;
+}
+
+.variant-options strong[title] {
+  cursor: help;
+  border-bottom: 1px dotted var(--gold-dark);
 }
 
 /* Responsive */

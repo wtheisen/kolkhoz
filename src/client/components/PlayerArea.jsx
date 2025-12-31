@@ -23,8 +23,8 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader }) {
         y={y - 70}
         width={200}
         height={140}
-        fill={isActive ? 'rgba(76, 175, 80, 0.2)' : 'rgba(0,0,0,0.3)'}
-        stroke={isActive ? '#4CAF50' : '#444'}
+        fill={isActive ? 'rgba(196, 30, 58, 0.2)' : 'rgba(20,20,20,0.8)'}
+        stroke={isActive ? '#d4a857' : '#333'}
         strokeWidth={isActive ? 2 : 1}
         rx="10"
       />
@@ -34,12 +34,12 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader }) {
         x={x}
         y={y - 52}
         textAnchor="middle"
-        fill={isActive ? '#4CAF50' : '#fff'}
+        fill={isActive ? '#d4a857' : '#e8dcc4'}
         fontSize="14"
         fontWeight={isActive ? 'bold' : 'normal'}
       >
         {player.name}
-        {isBrigadeLeader && ' 🎖️'}
+        {isBrigadeLeader && ' ☆'}
       </text>
 
       {/* Medals */}
@@ -70,7 +70,7 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader }) {
           x={40}
           y={cardWidth * 1.4 + 18}
           textAnchor="middle"
-          fill="#888"
+          fill="#a09080"
           fontSize="10"
         >
           Hand: {handSize}
@@ -98,7 +98,7 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader }) {
           x={x}
           y={y + 62}
           textAnchor="middle"
-          fill="#888"
+          fill="#a09080"
           fontSize="10"
         >
           +{hiddenCount} hidden
