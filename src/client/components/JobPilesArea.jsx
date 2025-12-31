@@ -110,18 +110,20 @@ export function JobPilesArea({
             </text>
 
             {/* Job name */}
-            <text
-              x={centerX}
-              y={headerY + (isTrump ? 64 : 58)}
-              textAnchor="middle"
-              fill="#ccc"
-              fontSize="14"
-              fontWeight="600"
-              style={{ cursor: 'help' }}
-            >
+            <g style={{ cursor: 'help' }}>
               <title>{JOB_TRANSLATIONS[suit]}</title>
-              {JOB_NAMES[suit]}
-            </text>
+              <text
+                x={centerX}
+                y={headerY + (isTrump ? 64 : 58)}
+                textAnchor="middle"
+                fill="#ccc"
+                fontSize="14"
+                fontWeight="600"
+                pointerEvents="all"
+              >
+                {JOB_NAMES[suit]}
+              </text>
+            </g>
 
             {/* Progress bar */}
             <rect
@@ -165,18 +167,20 @@ export function JobPilesArea({
                     width={cardWidth}
                   />
                   {isTrumpFaceCard && (
-                    <text
-                      x={centerX + offsetX}
-                      y={rewardY + cardHeight + 18}
-                      textAnchor="middle"
-                      fill="#FFD700"
-                      fontSize="13"
-                      fontWeight="600"
-                      style={{ cursor: 'help' }}
-                    >
+                    <g style={{ cursor: 'help' }}>
                       <title>{faceCardInfo.english}: {faceCardInfo.power}</title>
-                      {faceCardInfo.russian}
-                    </text>
+                      <text
+                        x={centerX + offsetX}
+                        y={rewardY + cardHeight + 18}
+                        textAnchor="middle"
+                        fill="#FFD700"
+                        fontSize="13"
+                        fontWeight="600"
+                        pointerEvents="all"
+                      >
+                        {faceCardInfo.russian}
+                      </text>
+                    </g>
                   )}
                 </g>
               );
@@ -223,19 +227,20 @@ export function JobPilesArea({
               const labelsStartY = lastCardY + cardHeight / 2 + 12;
 
               return trumpFaceCards.map(({ info }, labelIdx) => (
-                <text
-                  key={`label-${labelIdx}`}
-                  x={centerX}
-                  y={labelsStartY + labelIdx * 14}
-                  textAnchor="middle"
-                  fill="#FFD700"
-                  fontSize="11"
-                  fontWeight="600"
-                  style={{ cursor: 'help' }}
-                >
+                <g key={`label-${labelIdx}`} style={{ cursor: 'help' }}>
                   <title>{info.english}: {info.power}</title>
-                  {info.russian}
-                </text>
+                  <text
+                    x={centerX}
+                    y={labelsStartY + labelIdx * 14}
+                    textAnchor="middle"
+                    fill="#FFD700"
+                    fontSize="11"
+                    fontWeight="600"
+                    pointerEvents="all"
+                  >
+                    {info.russian}
+                  </text>
+                </g>
               ));
             })()}
           </g>
