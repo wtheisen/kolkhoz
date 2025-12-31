@@ -1,7 +1,15 @@
 import React from 'react';
 import { CardSVG } from './CardSVG.jsx';
 
-export function PlayerArea({ player, position, isActive, isBrigadeLeader }) {
+// Portrait paths for AI players
+const PORTRAITS = [
+  '/assets/portraits/worker1.svg',
+  '/assets/portraits/worker2.svg',
+  '/assets/portraits/worker3.svg',
+  '/assets/portraits/worker4.svg',
+];
+
+export function PlayerArea({ player, position, isActive, isBrigadeLeader, playerIndex }) {
   const { x, y } = position;
 
   const handSize = player.hand?.length || 0;
@@ -9,6 +17,10 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader }) {
   const hiddenCount = player.plot?.hidden?.length || 0;
   const cardWidth = 50;
   const cardSpacing = 12;
+  const portraitSize = 48;
+
+  // Get portrait based on player index (wraps around if more than 4 players)
+  const portraitSrc = PORTRAITS[(playerIndex - 1) % PORTRAITS.length];
 
   // Calculate total width needed for revealed cards
   const revealedWidth = revealedCards.length > 0
@@ -20,22 +32,32 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader }) {
       {/* Background - expanded to fit content */}
       <rect
         x={x - 120}
-        y={y - 85}
+        y={y - 90}
         width={240}
-        height={170}
+        height={180}
         fill={isActive ? 'rgba(196, 30, 58, 0.2)' : 'rgba(20,20,20,0.8)'}
         stroke={isActive ? '#d4a857' : '#333'}
         strokeWidth={isActive ? 2 : 1}
         rx="10"
       />
 
+      {/* Portrait */}
+      <image
+        href={portraitSrc}
+        x={x - portraitSize / 2}
+        y={y - 82}
+        width={portraitSize}
+        height={portraitSize}
+        style={{ imageRendering: 'pixelated' }}
+      />
+
       {/* Player name */}
       <text
         x={x}
-        y={y - 65}
+        y={y - 25}
         textAnchor="middle"
         fill={isActive ? '#d4a857' : '#e8dcc4'}
-        fontSize="16"
+        fontSize="14"
         fontWeight={isActive ? 'bold' : 'normal'}
       >
         {player.name}
@@ -46,7 +68,7 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader }) {
       {player.medals > 0 && (
         <text
           x={x + 85}
-          y={y - 65}
+          y={y - 25}
           fill="#FFD700"
           fontSize="14"
         >
@@ -55,7 +77,7 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader }) {
       )}
 
       {/* Hand (card backs using actual card back asset) */}
-      <g transform={`translate(${x - 55}, ${y - 45})`}>
+      <g transform={`translate(${x - 55}, ${y - 5})`}>
         {Array.from({ length: Math.min(5, handSize) }).map((_, idx) => (
           <CardSVG
             key={`hand-${idx}`}

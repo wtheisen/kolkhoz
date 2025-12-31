@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Background -->
+  <rect width="32" height="32" fill="#2d2d5a"/>
+  <!-- Face -->
+  <rect x="10" y="10" width="12" height="12" fill="#e8c8a8"/>
+  <!-- Flat cap -->
+  <rect x="8" y="6" width="18" height="6" fill="#3d3d3d"/>
+  <rect x="6" y="10" width="22" height="2" fill="#4d4d4d"/>
+  <!-- Hair sides -->
+  <rect x="8" y="12" width="2" height="4" fill="#6a5a4a"/>
+  <rect x="22" y="12" width="2" height="4" fill="#6a5a4a"/>
+  <!-- Eyes -->
+  <rect x="12" y="14" width="2" height="2" fill="#4a6a8a"/>
+  <rect x="18" y="14" width="2" height="2" fill="#4a6a8a"/>
+  <!-- Glasses -->
+  <rect x="10" y="13" width="6" height="4" fill="none" stroke="#2d2d2d" stroke-width="1"/>
+  <rect x="16" y="13" width="6" height="4" fill="none" stroke="#2d2d2d" stroke-width="1"/>
+  <rect x="15" y="14" width="2" height="1" fill="#2d2d2d"/>
+  <!-- Nose -->
+  <rect x="15" y="16" width="2" height="2" fill="#d8b898"/>
+  <!-- Beard -->
+  <rect x="10" y="18" width="12" height="4" fill="#5a4a3a"/>
+  <rect x="12" y="22" width="8" height="2" fill="#5a4a3a"/>
+  <!-- Collar -->
+  <rect x="8" y="22" width="16" height="6" fill="#5a3a2a"/>
+  <rect x="14" y="24" width="4" height="4" fill="#e8dcc4"/>
+</svg>

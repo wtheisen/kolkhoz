@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Background -->
+  <rect width="32" height="32" fill="#8b0000"/>
+  <!-- Face -->
+  <rect x="10" y="8" width="12" height="12" fill="#e8b89d"/>
+  <!-- Hair -->
+  <rect x="10" y="6" width="12" height="4" fill="#4a3728"/>
+  <rect x="8" y="8" width="2" height="6" fill="#4a3728"/>
+  <rect x="22" y="8" width="2" height="6" fill="#4a3728"/>
+  <!-- Eyes -->
+  <rect x="12" y="12" width="2" height="2" fill="#2d2d2d"/>
+  <rect x="18" y="12" width="2" height="2" fill="#2d2d2d"/>
+  <!-- Mouth -->
+  <rect x="14" y="16" width="4" height="2" fill="#c4846c"/>
+  <!-- Mustache -->
+  <rect x="12" y="14" width="8" height="2" fill="#4a3728"/>
+  <!-- Ushanka hat -->
+  <rect x="8" y="2" width="16" height="6" fill="#5c4033"/>
+  <rect x="6" y="4" width="4" height="4" fill="#5c4033"/>
+  <rect x="22" y="4" width="4" height="4" fill="#5c4033"/>
+  <!-- Star on hat -->
+  <rect x="14" y="3" width="4" height="4" fill="#ffd700"/>
+  <!-- Collar -->
+  <rect x="8" y="20" width="16" height="6" fill="#2d5a2d"/>
+  <rect x="10" y="22" width="4" height="4" fill="#8b0000"/>
+</svg>

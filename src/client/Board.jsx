@@ -179,6 +179,7 @@ export function Board({ G, ctx, moves, playerID }) {
               position={pos}
               isActive={parseInt(ctx.currentPlayer, 10) === idx}
               isBrigadeLeader={player.brigadeLeader}
+              playerIndex={idx}
             />
           );
         })}
