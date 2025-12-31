@@ -14,9 +14,9 @@ export function JobPilesArea({
   lastTrick,
 }) {
   // Layout constants
-  const startX = 110;
+  const startX = 80;
   const startY = 60;
-  const columnWidth = 145;
+  const columnWidth = 140;
   const cardWidth = 70;
   const cardHeight = 98;
   const stackOffset = 22;
