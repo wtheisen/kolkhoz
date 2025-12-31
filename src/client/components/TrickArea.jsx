@@ -68,7 +68,8 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
               fontSize={infoFontSize}
               fontFamily="'Oswald', sans-serif"
             >
-              Year {year}/5
+              <title>Year {year} of 5</title>
+              Год {year}/5
             </text>
             <text
               x={leftEdge + 75 * scale}
@@ -78,10 +79,11 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
               fontSize={infoFontSize}
               fontFamily="'Oswald', sans-serif"
             >
-              Trump:
+              <title>Trump suit</title>
+              Задача:
             </text>
             <text
-              x={leftEdge + 120 * scale}
+              x={leftEdge + 130 * scale}
               y={infoY}
               textAnchor="start"
               fill={trump === 'Hearts' || trump === 'Diamonds' ? '#c41e3a' : '#e8dcc4'}
@@ -104,7 +106,8 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
               fontSize={infoFontSize}
               fontFamily="'Oswald', sans-serif"
             >
-              Lead:
+              <title>Lead suit</title>
+              Ведёт:
             </text>
             <text
               x={centerX - 20 * scale}
@@ -129,7 +132,8 @@ export function TrickArea({ trick, numPlayers, lead, centerX = 960, centerY = 45
             fontWeight={isMyTurn ? 'bold' : 'normal'}
             fontFamily="'Oswald', sans-serif"
           >
-            {isMyTurn ? 'Your turn' : currentPlayerName}
+            <title>{isMyTurn ? 'Your turn' : `${currentPlayerName}'s turn`}</title>
+            {isMyTurn ? 'Ваш ход' : currentPlayerName}
           </text>
         )}
       </g>

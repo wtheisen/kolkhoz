@@ -94,7 +94,8 @@ export function JobPilesArea({
                 fontSize="16"
                 fontWeight="bold"
               >
-                TRUMP
+                <title>Trump suit</title>
+                ЗАДАЧА
               </text>
             )}
 
@@ -150,7 +151,8 @@ export function JobPilesArea({
               fontSize="11"
               fontWeight="bold"
             >
-              {isClaimed ? '✓ DONE' : `${hours}/${THRESHOLD}`}
+              <title>{isClaimed ? 'Done' : `${hours} of ${THRESHOLD} work hours`}</title>
+              {isClaimed ? '✓ Готово' : `${hours}/${THRESHOLD}`}
             </text>
 
             {/* Reward card - centered below header */}

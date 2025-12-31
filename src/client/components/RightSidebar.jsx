@@ -24,14 +24,14 @@ export function RightSidebar({
 
   const getPhaseDisplay = (phase) => {
     const phases = {
-      planning: 'Select Trump',
-      trick: 'Trick Phase',
-      assignment: 'Assign Cards',
-      plotSelection: 'Select Plot Card',
-      requisition: 'Requisition',
-      swap: 'Swap Cards',
+      planning: { ru: 'Планирование', en: 'Select Trump' },
+      trick: { ru: 'Пора', en: 'Trick Phase' },
+      assignment: { ru: 'Назначение', en: 'Assign Cards' },
+      plotSelection: { ru: 'Выбор карты', en: 'Select Plot Card' },
+      requisition: { ru: 'Реквизиция', en: 'Requisition' },
+      swap: { ru: 'Обмен', en: 'Swap Cards' },
     };
-    return phases[phase] || phase;
+    return phases[phase] || { ru: phase, en: phase };
   };
 
   return (
@@ -55,7 +55,8 @@ export function RightSidebar({
         fill="#a09080"
         fontSize="11"
       >
-        Year
+        <title>Year</title>
+        Год
       </text>
       <text
         x={startX + 20}
@@ -74,7 +75,8 @@ export function RightSidebar({
         fill="#a09080"
         fontSize="11"
       >
-        Trump
+        <title>Trump suit (Main task)</title>
+        Задача
       </text>
       {trump ? (
         <text
@@ -93,7 +95,8 @@ export function RightSidebar({
           fill="#a09080"
           fontSize="14"
         >
-          Not selected
+          <title>Not selected</title>
+          Не выбрано
         </text>
       )}
 
@@ -104,7 +107,8 @@ export function RightSidebar({
         fill="#a09080"
         fontSize="11"
       >
-        Phase
+        <title>Phase</title>
+        Фаза
       </text>
       <text
         x={startX + 20}
@@ -112,7 +116,8 @@ export function RightSidebar({
         fill="#e8dcc4"
         fontSize="14"
       >
-        {getPhaseDisplay(phase)}
+        <title>{getPhaseDisplay(phase).en}</title>
+        {getPhaseDisplay(phase).ru}
       </text>
 
       {/* Turn status */}
@@ -122,7 +127,8 @@ export function RightSidebar({
         fill="#a09080"
         fontSize="11"
       >
-        Turn
+        <title>Turn</title>
+        Ход
       </text>
       {isMyTurn ? (
         <text
@@ -132,7 +138,8 @@ export function RightSidebar({
           fontSize="14"
           fontWeight="bold"
         >
-          Your Turn!
+          <title>Your Turn!</title>
+          Ваш ход!
         </text>
       ) : (
         <text
@@ -141,7 +148,8 @@ export function RightSidebar({
           fill="#a09080"
           fontSize="12"
         >
-          Waiting for {players[parseInt(currentPlayer, 10)]?.name}...
+          <title>Waiting for {players[parseInt(currentPlayer, 10)]?.name}...</title>
+          Ждём {players[parseInt(currentPlayer, 10)]?.name}...
         </text>
       )}
 

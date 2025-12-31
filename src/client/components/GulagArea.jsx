@@ -128,7 +128,8 @@ export function GulagArea({ exiled, currentYear }) {
         letterSpacing="0.2em"
         fontFamily="monospace"
       >
-        GULAG
+        <title>The North (Gulag)</title>
+        СЕВЕР
       </text>
 
       {/* Subtitle with count */}
@@ -141,7 +142,8 @@ export function GulagArea({ exiled, currentYear }) {
           fontSize="10"
           fontFamily="monospace"
         >
-          [{totalExiled} exiled]
+          <title>{totalExiled} exiled</title>
+          [{totalExiled} сослано]
         </text>
       )}
 

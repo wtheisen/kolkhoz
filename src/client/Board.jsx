@@ -154,17 +154,26 @@ export function Board({ G, ctx, moves, playerID }) {
       {/* Trump selection UI */}
       {phase === 'planning' && !G.trump && (
         <div className="trump-selection">
-          <h3>Select Trump Suit</h3>
+          <h3 title="Select Trump Suit">Выберите главную задачу</h3>
           <div className="suit-buttons">
-            {SUITS.map((suit) => (
-              <button
-                key={suit}
-                onClick={() => handleSetTrump(suit)}
-                className={`suit-btn ${suit.toLowerCase()}`}
-              >
-                {getSuitSymbol(suit)} {suit}
-              </button>
-            ))}
+            {SUITS.map((suit) => {
+              const suitNames = {
+                Hearts: { ru: 'Пшеница', en: 'Hearts (Wheat)' },
+                Diamonds: { ru: 'Свёкла', en: 'Diamonds (Beets)' },
+                Clubs: { ru: 'Картофель', en: 'Clubs (Potatoes)' },
+                Spades: { ru: 'Подсолнечник', en: 'Spades (Sunflowers)' },
+              };
+              return (
+                <button
+                  key={suit}
+                  onClick={() => handleSetTrump(suit)}
+                  className={`suit-btn ${suit.toLowerCase()}`}
+                  title={suitNames[suit].en}
+                >
+                  {getSuitSymbol(suit)} {suitNames[suit].ru}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -234,16 +243,18 @@ export function Board({ G, ctx, moves, playerID }) {
         <button
           className={`mobile-toggle-btn ${showJobsPanel ? 'active' : ''}`}
           onClick={() => { setShowJobsPanel(!showJobsPanel); setShowInfoPanel(false); setShowMenuPanel(false); }}
+          title="Jobs"
         >
-          Jobs
+          Работы
         </button>
       </div>
       <div className="mobile-toggles mobile-toggles-right">
         <button
           className={`mobile-toggle-btn ${showInfoPanel ? 'active' : ''}`}
           onClick={() => { setShowInfoPanel(!showInfoPanel); setShowJobsPanel(false); setShowMenuPanel(false); }}
+          title="The North (Gulag)"
         >
-          Gulag
+          Север
         </button>
         <button
           className={`mobile-toggle-btn menu-btn ${showMenuPanel ? 'active' : ''}`}
@@ -261,9 +272,9 @@ export function Board({ G, ctx, moves, playerID }) {
             <div className="jobs-layout">
               {/* Title on left */}
               <div className="jobs-title-section">
-                <h3 className="jobs-title">JOBS</h3>
-                <div className="jobs-subtitle">
-                  {G.claimedJobs?.length || 0}/4 done
+                <h3 className="jobs-title" title="Jobs">РАБОТЫ</h3>
+                <div className="jobs-subtitle" title="Jobs completed">
+                  {G.claimedJobs?.length || 0}/4 готово
                 </div>
               </div>
               {/* Job columns */}
@@ -339,9 +350,9 @@ export function Board({ G, ctx, moves, playerID }) {
             <div className="gulag-layout">
               {/* Title on left */}
               <div className="gulag-title-section">
-                <h3 className="gulag-title">GULAG</h3>
-                <div className="gulag-subtitle">
-                  {Object.values(G.exiled || {}).flat().length} exiled
+                <h3 className="gulag-title" title="The North (Gulag)">СЕВЕР</h3>
+                <div className="gulag-subtitle" title="Cards exiled">
+                  {Object.values(G.exiled || {}).flat().length} сослано
                 </div>
               </div>
               {/* Year columns */}
@@ -569,7 +580,7 @@ export function Board({ G, ctx, moves, playerID }) {
 
       {/* Player's plot */}
       <div className="player-plot">
-        <h4>Your Plot</h4>
+        <h4 title="Your Plot (Cellar)">Подвал</h4>
         <div className="plot-cards">
           {G.players[currentPlayer]?.plot.revealed.map((card, idx) => (
             <CardSVG key={`r-${idx}`} card={card} width={60} />
