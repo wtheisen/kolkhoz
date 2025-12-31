@@ -994,14 +994,30 @@ html, body {
   box-shadow: 0 6px 20px rgba(196, 30, 58, 0.5);
 }
 
-/* Mobile Panel Content - fills right side */
+/* Mobile Panel Content - centered in area right of nav bar */
 .mobile-panel-content {
-  flex: 1;
+  position: fixed;
+  top: 0;
+  left: 120px; /* nav bar width */
+  right: 0;
+  bottom: 0;
   background: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 20px;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
+}
+
+.mobile-panel-content > div {
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--bg-secondary);
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  padding: 20px;
 }
 
 .mobile-panel-content h3 {
