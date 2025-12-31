@@ -59,11 +59,11 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader, player
 
       {/* Player name - to the right of portrait */}
       <text
-        x={boxLeft + 8 + portraitSize + 10}
-        y={boxTop + 24}
+        x={boxLeft + 8 + portraitSize + 12}
+        y={boxTop + 28}
         textAnchor="start"
         fill={isActive ? '#d4a857' : '#e8dcc4'}
-        fontSize="14"
+        fontSize="20"
         fontWeight={isActive ? 'bold' : 'normal'}
       >
         {player.name}
@@ -72,11 +72,11 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader, player
 
       {/* Hand count - below name */}
       <text
-        x={boxLeft + 8 + portraitSize + 10}
-        y={boxTop + 42}
+        x={boxLeft + 8 + portraitSize + 12}
+        y={boxTop + 50}
         textAnchor="start"
         fill="#a09080"
-        fontSize="12"
+        fontSize="16"
       >
         Hand: {handSize}
       </text>
@@ -84,11 +84,11 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader, player
       {/* Medals - below hand count */}
       {player.medals > 0 && (
         <text
-          x={boxLeft + 8 + portraitSize + 10}
-          y={boxTop + 58}
+          x={boxLeft + 8 + portraitSize + 12}
+          y={boxTop + 70}
           textAnchor="start"
           fill="#FFD700"
-          fontSize="12"
+          fontSize="14"
         >
           🏅 {player.medals}
         </text>
