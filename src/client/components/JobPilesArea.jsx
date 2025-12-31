@@ -13,13 +13,13 @@ export function JobPilesArea({
   onAssign,
   lastTrick,
 }) {
-  // Vertical layout on the left side - 4 jobs in a row
-  const startX = 80;
-  const startY = 150;
-  const horizontalSpacing = 130; // Space between each job column
-  const cardWidth = 45;
-  const cardHeight = 63;
-  const cardStackOffset = 20; // Vertical offset for stacked cards
+  // Layout constants
+  const startX = 95;
+  const startY = 70;
+  const columnWidth = 120;
+  const cardWidth = 50;
+  const cardHeight = 70;
+  const stackOffset = 16;
 
   const getSuitColor = (suit) => {
     return suit === 'Hearts' || suit === 'Diamonds' ? '#c41e3a' : '#e8dcc4';
@@ -30,7 +30,6 @@ export function JobPilesArea({
     return symbols[suit];
   };
 
-  // Get display name for face cards
   const getCardName = (value) => {
     const names = { 11: 'Jack', 12: 'Queen', 13: 'King', 1: 'Ace' };
     return names[value] || null;
@@ -39,67 +38,68 @@ export function JobPilesArea({
   return (
     <g className="job-piles-area">
       {SUITS.map((suit, idx) => {
-        const x = startX + idx * horizontalSpacing;
-        const y = startY;
+        const centerX = startX + idx * columnWidth;
         const hours = workHours?.[suit] || 0;
         const isClaimed = claimedJobs?.includes(suit);
         const isTrump = suit === trump;
         const bucket = jobBuckets?.[suit] || [];
-        const progress = Math.min(80, (hours / THRESHOLD) * 80);
+        const progress = Math.min(90, (hours / THRESHOLD) * 90);
 
-        // Get job reward card
         const jobCard = revealedJobs?.[suit];
         const jobCards = Array.isArray(jobCard) ? jobCard : jobCard ? [jobCard] : [];
 
-        // Calculate total height needed for assigned cards
-        const headerHeight = 100;
+        // Vertical rhythm - each section starts at a clear position
+        const headerY = startY;
+        const rewardY = startY + 95;
+        const assignedY = rewardY + cardHeight + 25;
 
         return (
           <g key={suit} className={`job-pile ${isClaimed ? 'claimed' : ''}`}>
-            {/* Job header background */}
+            {/* Header box */}
             <rect
-              x={x - 55}
-              y={y - 30}
+              x={centerX - 55}
+              y={headerY}
               width={110}
-              height={headerHeight}
-              fill={isTrump ? 'rgba(255,215,0,0.15)' : 'rgba(0,0,0,0.4)'}
-              stroke={isTrump ? '#FFD700' : '#555'}
+              height={88}
+              fill={isTrump ? 'rgba(255,215,0,0.12)' : 'rgba(0,0,0,0.5)'}
+              stroke={isTrump ? '#FFD700' : '#444'}
               strokeWidth={isTrump ? 2 : 1}
-              rx="8"
+              rx="6"
             />
 
-            {/* Trump indicator */}
+            {/* Trump badge */}
             {isTrump && (
               <text
-                x={x}
-                y={y - 15}
+                x={centerX}
+                y={headerY + 18}
                 textAnchor="middle"
                 fill="#FFD700"
-                fontSize="9"
+                fontSize="14"
                 fontWeight="bold"
               >
                 TRUMP
               </text>
             )}
 
-            {/* Suit symbol */}
+            {/* Suit symbol - large and centered */}
             <text
-              x={x}
-              y={y + 8}
+              x={centerX}
+              y={headerY + (isTrump ? 46 : 38)}
               textAnchor="middle"
               fill={getSuitColor(suit)}
-              fontSize="20"
+              fontSize="28"
             >
               {getSuitSymbol(suit)}
             </text>
 
             {/* Job name */}
             <text
-              x={x}
-              y={y + 25}
+              x={centerX}
+              y={headerY + (isTrump ? 64 : 58)}
               textAnchor="middle"
-              fill="#bbb"
-              fontSize="10"
+              fill="#ccc"
+              fontSize="14"
+              fontWeight="600"
               style={{ cursor: 'help' }}
             >
               <title>{JOB_TRANSLATIONS[suit]}</title>
@@ -108,64 +108,52 @@ export function JobPilesArea({
 
             {/* Progress bar */}
             <rect
-              x={x - 40}
-              y={y + 35}
-              width={80}
-              height={8}
-              fill="#333"
-              rx="4"
+              x={centerX - 45}
+              y={headerY + 72}
+              width={90}
+              height={12}
+              fill="#222"
+              rx="6"
             />
             <rect
-              x={x - 40}
-              y={y + 35}
+              x={centerX - 45}
+              y={headerY + 72}
               width={progress}
-              height={8}
+              height={12}
               fill={isClaimed ? '#4CAF50' : hours >= THRESHOLD ? '#4CAF50' : '#2196F3'}
-              rx="4"
+              rx="6"
             />
             <text
-              x={x}
-              y={y + 42}
+              x={centerX}
+              y={headerY + 82}
               textAnchor="middle"
               fill="white"
-              fontSize="7"
+              fontSize="10"
+              fontWeight="bold"
             >
               {hours}/{THRESHOLD}
             </text>
 
-            {/* Claimed indicator */}
-            {isClaimed && (
-              <text
-                x={x}
-                y={y + 60}
-                textAnchor="middle"
-                fill="#4CAF50"
-                fontSize="9"
-                fontWeight="bold"
-              >
-                COMPLETE
-              </text>
-            )}
-
-            {/* Job reward card(s) - shown above the stack */}
+            {/* Reward card - centered below header */}
             {jobCards.map((card, cardIdx) => {
               const cardName = getCardName(card.value);
-              const rewardY = y + headerHeight - 25;
+              const offsetX = jobCards.length > 1 ? (cardIdx - (jobCards.length - 1) / 2) * 15 : 0;
               return (
                 <g key={`reward-${cardIdx}`}>
                   <CardSVG
                     card={card}
-                    x={x - cardWidth / 2 + cardIdx * 8}
-                    y={rewardY}
+                    x={centerX + offsetX}
+                    y={rewardY + cardHeight / 2}
                     width={cardWidth}
                   />
                   {cardName && (
                     <text
-                      x={x + cardIdx * 8}
-                      y={rewardY + cardHeight + 10}
+                      x={centerX + offsetX}
+                      y={rewardY + cardHeight + 18}
                       textAnchor="middle"
                       fill="#aaa"
-                      fontSize="8"
+                      fontSize="13"
+                      fontWeight="500"
                     >
                       {cardName}
                     </text>
@@ -174,45 +162,44 @@ export function JobPilesArea({
               );
             })}
 
-            {/* Assigned cards - stacked vertically beneath */}
-            {bucket.map((card, cardIdx) => {
-              const cardName = getCardName(card.value);
-              const cardY = y + headerHeight + 50 + cardIdx * cardStackOffset;
-              return (
-                <g key={`assigned-${cardIdx}`}>
-                  <CardSVG
-                    card={card}
-                    x={x - cardWidth / 2}
-                    y={cardY}
-                    width={cardWidth}
-                  />
-                  {cardName && (
-                    <text
-                      x={x}
-                      y={cardY + cardHeight + 10}
-                      textAnchor="middle"
-                      fill="#aaa"
-                      fontSize="8"
-                    >
-                      {cardName}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
+            {/* Complete badge */}
+            {isClaimed && (
+              <text
+                x={centerX}
+                y={rewardY - 8}
+                textAnchor="middle"
+                fill="#4CAF50"
+                fontSize="13"
+                fontWeight="bold"
+              >
+                ✓ COMPLETE
+              </text>
+            )}
 
-            {/* Card count if cards are assigned */}
+            {/* Assigned cards section */}
             {bucket.length > 0 && (
               <text
-                x={x}
-                y={y + headerHeight + 40}
+                x={centerX}
+                y={assignedY - 6}
                 textAnchor="middle"
-                fill="#888"
-                fontSize="9"
+                fill="#999"
+                fontSize="12"
+                fontWeight="500"
               >
                 {bucket.length} assigned
               </text>
             )}
+
+            {bucket.map((card, cardIdx) => (
+              <g key={`assigned-${cardIdx}`}>
+                <CardSVG
+                  card={card}
+                  x={centerX}
+                  y={assignedY + cardHeight / 2 + cardIdx * stackOffset}
+                  width={cardWidth}
+                />
+              </g>
+            ))}
           </g>
         );
       })}
