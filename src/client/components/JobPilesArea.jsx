@@ -30,9 +30,26 @@ export function JobPilesArea({
     return symbols[suit];
   };
 
-  const getCardName = (value) => {
-    const names = { 11: 'Jack', 12: 'Queen', 13: 'King' };
-    return names[value] || null;
+  // Face cards with powers (trump suit only)
+  const getFaceCardInfo = (value) => {
+    const cards = {
+      11: {
+        russian: 'Пьяница',
+        english: 'Jack (Drunkard)',
+        power: 'Gets exiled instead of player cards',
+      },
+      12: {
+        russian: 'Доносчик',
+        english: 'Queen (Informant)',
+        power: 'All players become vulnerable to requisition',
+      },
+      13: {
+        russian: 'Чиновник',
+        english: 'King (Party Official)',
+        power: 'Exiles two cards instead of one',
+      },
+    };
+    return cards[value] || null;
   };
 
   return (
@@ -136,8 +153,8 @@ export function JobPilesArea({
 
             {/* Reward card - centered below header */}
             {jobCards.map((card, cardIdx) => {
-              const cardName = getCardName(card.value);
-              const isTrumpFaceCard = card.suit === trump && cardName;
+              const faceCardInfo = getFaceCardInfo(card.value);
+              const isTrumpFaceCard = card.suit === trump && faceCardInfo;
               const offsetX = jobCards.length > 1 ? (cardIdx - (jobCards.length - 1) / 2) * 15 : 0;
               return (
                 <g key={`reward-${cardIdx}`}>
@@ -155,8 +172,10 @@ export function JobPilesArea({
                       fill="#FFD700"
                       fontSize="13"
                       fontWeight="600"
+                      style={{ cursor: 'help' }}
                     >
-                      ★ {cardName}
+                      <title>{faceCardInfo.english}: {faceCardInfo.power}</title>
+                      {faceCardInfo.russian}
                     </text>
                   )}
                 </g>
