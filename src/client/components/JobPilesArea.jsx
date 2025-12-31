@@ -148,7 +148,7 @@ export function JobPilesArea({
               fontSize="10"
               fontWeight="bold"
             >
-              {hours}/{THRESHOLD}
+              {isClaimed ? '✓ DONE' : `${hours}/${THRESHOLD}`}
             </text>
 
             {/* Reward card - centered below header */}
@@ -181,20 +181,6 @@ export function JobPilesArea({
                 </g>
               );
             })}
-
-            {/* Complete badge */}
-            {isClaimed && (
-              <text
-                x={centerX}
-                y={rewardY - 8}
-                textAnchor="middle"
-                fill="#4CAF50"
-                fontSize="13"
-                fontWeight="bold"
-              >
-                ✓ COMPLETE
-              </text>
-            )}
 
             {/* Assigned cards section */}
             {bucket.length > 0 && (
