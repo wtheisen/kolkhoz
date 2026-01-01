@@ -13,16 +13,16 @@ export function TrickArea({
   workHours, claimedJobs, jobBuckets, revealedJobs, exiled, playerPlot
 }) {
   const suitSymbols = { Hearts: '♥', Diamonds: '♦', Clubs: '♣', Spades: '♠' };
-  // Rectangular trick area dimensions - fits visible area
-  const width = 1100 * scale;
-  const height = 540 * scale;
-  const cardWidth = 220 * scale;
+  // Rectangular trick area dimensions - expanded to fill more space
+  const width = 1700 * scale;
+  const height = 750 * scale;
+  const cardWidth = 280 * scale;
   const cardHeight = cardWidth * 1.4;
-  const cardSpacing = 265 * scale;
+  const cardSpacing = 350 * scale;
 
   // Card positions in a horizontal line - shifted down to make room for bot areas
   // Order: player 1, player 2, player 3, player 0 (human last on right)
-  const cardYOffset = 85 * scale; // Cards below bots with small gap
+  const cardYOffset = 120 * scale; // Cards below bots with small gap
   const getCardPosition = (playerIdx) => {
     // Map player index to slot position (0-3 from left to right)
     const slotOrder = [3, 0, 1, 2]; // player 0 -> slot 3, player 1 -> slot 0, etc.
@@ -37,11 +37,11 @@ export function TrickArea({
   const innerRadius = 6 * scale;
 
   // Info positioning inside the trick area
-  const infoY = centerY - height / 2 + 38 * scale;
-  const infoFontSize = 24 * scale;
-  const suitFontSize = 20 * scale;
-  const leftEdge = centerX - width / 2 + 20 * scale;
-  const rightEdge = centerX + width / 2 - 20 * scale;
+  const infoY = centerY - height / 2 + 45 * scale;
+  const infoFontSize = 30 * scale;
+  const suitFontSize = 26 * scale;
+  const leftEdge = centerX - width / 2 + 30 * scale;
+  const rightEdge = centerX + width / 2 - 30 * scale;
 
   return (
     <g className="trick-area">
@@ -228,10 +228,10 @@ export function TrickArea({
             );
           })}
 
-          {/* All player areas - positioned just below info bar */}
+          {/* All player areas - positioned below info bar */}
           {players && [0, 1, 2, 3].map((playerIdx) => {
             const pos = getCardPosition(playerIdx);
-            const areaY = centerY - height / 2 + 115 * scale; // Just below info bar
+            const areaY = centerY - height / 2 + 160 * scale; // Below info bar with gap
             return (
               <PlayerArea
                 key={`player-${playerIdx}`}

@@ -19,18 +19,18 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader, player
   // Calculate visible score
   const visibleScore = revealedCards.reduce((sum, card) => sum + card.value, 0) + hiddenCount;
 
-  // Sizing for content
-  const cardWidth = 46 * scale;
+  // Sizing for content - scaled up for larger trick area
+  const cardWidth = 60 * scale;
   const cardHeight = cardWidth * 1.4;
-  const cardOverlap = 26 * scale;
-  const portraitSize = 52 * scale;
-  const padding = 8 * scale;
-  const rowGap = 6 * scale;
+  const cardOverlap = 34 * scale;
+  const portraitSize = 68 * scale;
+  const padding = 10 * scale;
+  const rowGap = 8 * scale;
 
   // Human player: just show plot cards with golden dashed border (same size as bot areas)
   if (isHuman) {
-    const boxWidth = 235 * scale;
-    const boxHeight = 130 * scale;
+    const boxWidth = 300 * scale;
+    const boxHeight = 170 * scale;
     const boxLeft = x - boxWidth / 2;
     const boxTop = y - boxHeight / 2;
 
@@ -56,11 +56,11 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader, player
         />
         {/* Label in upper left */}
         <text
-          x={boxLeft + 8 * scale}
-          y={boxTop + 16 * scale}
+          x={boxLeft + 10 * scale}
+          y={boxTop + 20 * scale}
           textAnchor="start"
           fill="#d4a857"
-          fontSize={11 * scale}
+          fontSize={14 * scale}
           fontFamily="'Oswald', sans-serif"
         >
           Подвал
@@ -92,9 +92,9 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader, player
     );
   }
 
-  // AI players: full layout
-  const boxWidth = 235 * scale;
-  const boxHeight = 130 * scale;
+  // AI players: full layout - scaled up
+  const boxWidth = 300 * scale;
+  const boxHeight = 170 * scale;
 
   // Center the box on x position
   const boxLeft = x - boxWidth / 2;
@@ -112,10 +112,10 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader, player
 
   // Row 1: Portrait | Name/Score | Plot (all fit in contentWidth)
   const portraitX = contentLeft;
-  const infoX = portraitX + portraitSize + 6 * scale;
-  const infoWidth = 65 * scale;
+  const infoX = portraitX + portraitSize + 8 * scale;
+  const infoWidth = 85 * scale;
   const separatorX = infoX + infoWidth;
-  const plotX = separatorX + 6 * scale;
+  const plotX = separatorX + 8 * scale;
 
   // Hand cards centered in box
   const handWidth = Math.min(4, handSize) * cardOverlap + cardWidth - cardOverlap;
@@ -148,10 +148,10 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader, player
       {/* Row 1: Name */}
       <text
         x={infoX}
-        y={row1CenterY - 6 * scale}
+        y={row1CenterY - 8 * scale}
         textAnchor="start"
         fill={isActive ? '#d4a857' : '#e8dcc4'}
-        fontSize={12 * scale}
+        fontSize={15 * scale}
         fontWeight={isActive ? 'bold' : 'normal'}
         fontFamily="'Oswald', sans-serif"
       >
@@ -162,10 +162,10 @@ export function PlayerArea({ player, position, isActive, isBrigadeLeader, player
       {/* Row 1: Score */}
       <text
         x={infoX}
-        y={row1CenterY + 10 * scale}
+        y={row1CenterY + 14 * scale}
         textAnchor="start"
         fill={visibleScore > 0 ? '#c41e3a' : '#888'}
-        fontSize={11 * scale}
+        fontSize={14 * scale}
         fontFamily="'Oswald', sans-serif"
       >
         {visibleScore > 0 ? `${visibleScore} pts` : `${handSize} cards`}

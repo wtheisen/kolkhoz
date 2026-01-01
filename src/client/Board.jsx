@@ -218,7 +218,7 @@ export function Board({ G, ctx, moves, playerID }) {
 
   // Center of play area - full width SVG
   const playCenterX = 960; // Center of 1920
-  const playCenterY = 470; // Moved down so top border fully visible
+  const playCenterY = 560; // Lower to ensure info bar visible
 
   // Render game over screen
   if (ctx.gameover) {
@@ -347,7 +347,7 @@ export function Board({ G, ctx, moves, playerID }) {
 
         {/* SVG container - scales to fill available space */}
         <div className="svg-container">
-          <svg ref={svgRef} viewBox="0 0 1920 1080" className="board-svg">
+          <svg ref={svgRef} viewBox="0 0 1920 1080" className="board-svg" preserveAspectRatio="xMidYMid slice">
             {/* Trick Area (center) - includes bot player areas and info */}
             <TrickArea
               trick={phase === 'assignment' ? G.lastTrick : G.currentTrick}
