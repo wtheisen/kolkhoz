@@ -75,8 +75,12 @@ export function Board({ G, ctx, moves, playerID }) {
     }
   }
 
-  // Get highlighted suits for job icons
-  const highlightedSuits = pending ? [...new Set(Object.values(pending.assignments))] : [];
+  // Get highlighted suits for job icons - during trick phase, show suits in current trick
+  const highlightedSuits = phase === 'trick' && G.currentTrick.length > 0
+    ? [...new Set(G.currentTrick.map(([, card]) => card.suit))]
+    : pending
+      ? [...new Set(Object.values(pending.assignments))]
+      : [];
 
   // Compute which trick to show
   let trickToShow;
@@ -334,7 +338,12 @@ export function Board({ G, ctx, moves, playerID }) {
             card={flyingCard.card}
             playerIdx={flyingCard.playerIdx}
             targetSuit={flyingCard.targetSuit}
-            onComplete={() => moves.applySingleAssignment(flyingCard.cardKey, flyingCard.targetSuit)}
+            cardValue={flyingCard.card.value}
+            onComplete={() => {
+              const cardKey = flyingCard.cardKey;
+              const targetSuit = flyingCard.targetSuit;
+              moves.applySingleAssignment(cardKey, targetSuit);
+            }}
           />
         )}
 
@@ -439,8 +448,9 @@ export function Board({ G, ctx, moves, playerID }) {
 }
 
 // Flying Card Component - uses Web Animations API
-function FlyingCard({ card, playerIdx, targetSuit, onComplete }) {
+function FlyingCard({ card, playerIdx, targetSuit, cardValue, onComplete }) {
   const cardRef = useRef(null);
+  const [showValue, setShowValue] = useState(false);
 
   useEffect(() => {
     const slotClasses = ['left', 'center-left', 'center-right', 'right'];
@@ -450,32 +460,49 @@ function FlyingCard({ card, playerIdx, targetSuit, onComplete }) {
     const sourceSlot = document.querySelector(`.player-column.${slotClass} .card-slot`);
     const targetJob = document.querySelector(`.job-indicator .suit-symbol.${targetSuit.toLowerCase()}`);
 
-    if (!sourceSlot || !targetJob || !cardRef.current) return;
+    if (!sourceSlot || !targetJob || !cardRef.current) {
+      onComplete();
+      return;
+    }
 
     const sourceRect = sourceSlot.getBoundingClientRect();
     const targetRect = targetJob.getBoundingClientRect();
+
+    const cardRect = cardRef.current.getBoundingClientRect();
+    const startScale = sourceRect.width / cardRect.width;
+    const endScale = targetRect.width / cardRect.width;
+
+    // Set initial position immediately to prevent jump
+    cardRef.current.style.left = `${sourceRect.left + sourceRect.width / 2}px`;
+    cardRef.current.style.top = `${sourceRect.top + sourceRect.height / 2}px`;
+    cardRef.current.style.transform = `translate(-50%, -50%) scale(${startScale})`;
 
     const animation = cardRef.current.animate([
       {
         left: `${sourceRect.left + sourceRect.width / 2}px`,
         top: `${sourceRect.top + sourceRect.height / 2}px`,
-        opacity: 1,
-        transform: 'translate(-50%, -50%) scale(1)'
+        transform: `translate(-50%, -50%) scale(${startScale})`
       },
       {
         left: `${targetRect.left + targetRect.width / 2}px`,
         top: `${targetRect.top + targetRect.height / 2}px`,
-        opacity: 0,
-        transform: 'translate(-50%, -50%) scale(0.3)'
+        transform: `translate(-50%, -50%) scale(${endScale})`
       }
-    ], { duration: 600, fill: 'forwards' });
+    ], { duration: 950, fill: 'forwards', easing: 'ease-in-out' });
 
-    animation.onfinish = onComplete;
+    // Show +X value at 60% through
+    setTimeout(() => setShowValue(true), 570);
+
+    // Delay completion to let the +X number persist
+    animation.onfinish = () => {
+      setTimeout(onComplete, 800);
+    };
   }, [playerIdx, targetSuit, onComplete]);
 
   return (
     <div ref={cardRef} className="flying-card-html">
       <img src={getCardImagePath(card)} alt={`${card.value} of ${card.suit}`} />
+      {showValue && <span className="flying-value">+{cardValue}</span>}
     </div>
   );
 }
@@ -489,7 +516,8 @@ function AIPlayCard({ card, playerIdx, onComplete }) {
     const slotOrder = [3, 0, 1, 2];
     const slotClass = slotClasses[slotOrder[playerIdx]];
 
-    // Source: player's panel (hand area) - find via column's slot class
+    // Source: the mini card in the player's hand display
+    const miniCard = document.querySelector(`.player-column.${slotClass} .player-panel .mini-card`);
     const playerPanel = document.querySelector(`.player-column.${slotClass} .player-panel`);
     // Target: the card slot
     const targetSlot = document.querySelector(`.player-column.${slotClass} .card-slot`);
@@ -500,23 +528,33 @@ function AIPlayCard({ card, playerIdx, onComplete }) {
       return;
     }
 
-    const sourceRect = playerPanel.getBoundingClientRect();
+    const sourceRect = miniCard ? miniCard.getBoundingClientRect() : playerPanel.getBoundingClientRect();
     const targetRect = targetSlot.getBoundingClientRect();
+
+    // Calculate scales based on source (mini card) and target (card slot) sizes
+    const cardRect = cardRef.current.getBoundingClientRect();
+    const startScale = (miniCard ? sourceRect.width : sourceRect.width * 0.3) / cardRect.width;
+    const targetScale = targetRect.width / cardRect.width;
+
+    // Set initial position immediately to prevent jump
+    cardRef.current.style.left = `${sourceRect.left + sourceRect.width / 2}px`;
+    cardRef.current.style.top = `${sourceRect.top + sourceRect.height / 2}px`;
+    cardRef.current.style.transform = `translate(-50%, -50%) scale(${startScale})`;
 
     const animation = cardRef.current.animate([
       {
         left: `${sourceRect.left + sourceRect.width / 2}px`,
         top: `${sourceRect.top + sourceRect.height / 2}px`,
-        opacity: 1,
-        transform: 'translate(-50%, -50%) scale(0.5)'
+        transform: `translate(-50%, -50%) scale(${startScale})`,
+        opacity: 1
       },
       {
         left: `${targetRect.left + targetRect.width / 2}px`,
         top: `${targetRect.top + targetRect.height / 2}px`,
-        opacity: 1,
-        transform: 'translate(-50%, -50%) scale(1)'
+        transform: `translate(-50%, -50%) scale(${targetScale})`,
+        opacity: 1
       }
-    ], { duration: 500, fill: 'forwards' });
+    ], { duration: 800, fill: 'forwards', easing: 'ease-out' });
 
     animation.onfinish = onComplete;
   }, [playerIdx, onComplete]);

@@ -478,11 +478,56 @@ html, body {
   z-index: 999;
   width: clamp(50px, 8vw, 100px);
   filter: drop-shadow(0 8px 25px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 15px rgba(212, 168, 87, 0.4));
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .flying-card-html img {
   width: 100%;
   border-radius: 6px;
+  animation: card-fade 0.95s ease-in-out forwards;
+}
+
+@keyframes card-fade {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.flying-card-html .flying-value {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(5rem, 12vw, 9rem);
+  font-weight: bold;
+  color: #ffd700;
+  text-shadow:
+    0 0 20px rgba(255, 215, 0, 1),
+    0 0 40px rgba(255, 215, 0, 0.8),
+    2px 2px 4px rgba(0, 0, 0, 0.9);
+  animation: value-pop 1.8s ease-out forwards;
+  z-index: 1000;
+}
+
+@keyframes value-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.4);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* Game Over */

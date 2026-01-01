@@ -92,28 +92,42 @@
 .job-indicator {
   display: flex;
   align-items: center;
-  gap: 0.25em;
-  opacity: 0.7;
+  gap: 0.2em;
+  opacity: 0.6;
+  padding: 0 0.25em;
+  border-radius: 3px;
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+  position: relative;
 }
 
+/* Golden border when suit is in current trick */
 .job-indicator.highlighted {
   opacity: 1;
-  animation: job-pulse 0.6s ease-in-out infinite;
+  border-color: #d4a857;
+  background: rgba(212, 168, 87, 0.15);
+  box-shadow: 0 0 8px rgba(212, 168, 87, 0.4);
+}
+
+.job-indicator.claimed {
+  border-color: #4CAF50;
+  background: rgba(76, 175, 80, 0.15);
 }
 
 .job-indicator.claimed .progress {
   color: #4CAF50;
 }
 
-.job-indicator .progress {
-  font-family: 'Oswald', sans-serif;
-  font-size: clamp(0.9rem, 1.6vw, 1.2rem);
-  color: #888;
+.job-indicator .suit-symbol {
+  font-size: clamp(1.1rem, 2vw, 1.45rem);
+  line-height: 1;
 }
 
-@keyframes job-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
+.job-indicator .progress {
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(0.8rem, 1.4vw, 1.05rem);
+  color: #888;
+  line-height: 1;
 }
 
 /* Play Area - fills available space in trick area */
