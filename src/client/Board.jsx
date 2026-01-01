@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CardSVG } from './components/CardSVG.jsx';
-import { Hand } from './components/Hand.jsx';
 import { TrickArea } from './components/TrickArea.jsx';
 import { AssignmentDragDrop } from './components/AssignmentDragDrop.jsx';
 import { SwapDragDrop } from './components/SwapDragDrop.jsx';
+import { PlayCardDragDrop } from './components/PlayCardDragDrop.jsx';
 import { SUITS } from '../game/constants.js';
 import { getCardImagePath } from '../game/Card.js';
 
@@ -39,6 +39,10 @@ export function Board({ G, ctx, moves, playerID }) {
   const prevJobBucketsRef = useRef(null);
   const prevPhaseRef = useRef(phase);
   const lastTrickSnapshotRef = useRef(null);
+
+  // AI Card Play Animation state - temporarily disabled
+  // const [aiPlayingCard, setAiPlayingCard] = useState(null);
+  // const prevTrickLengthRef = useRef(G.currentTrick?.length || 0);
 
   // Snapshot the trick when entering assignment phase
   useEffect(() => {
@@ -166,6 +170,9 @@ export function Board({ G, ctx, moves, playerID }) {
     }
   }, [G.year]);
 
+  // AI card play animation - temporarily disabled for debugging
+  // TODO: Re-enable after fixing infinite loop issue
+
   // Handle card play
   const handlePlayCard = (cardIndex) => {
     if (phase === 'trick' && isMyTurn) {
@@ -218,7 +225,7 @@ export function Board({ G, ctx, moves, playerID }) {
 
   // Center of play area - full width SVG
   const playCenterX = 960; // Center of 1920
-  const playCenterY = 560; // Lower to ensure info bar visible
+  const playCenterY = 450; // Centered between top and hand
 
   // Render game over screen
   if (ctx.gameover) {
@@ -318,33 +325,6 @@ export function Board({ G, ctx, moves, playerID }) {
 
       {/* Main content area */}
       <div className="game-content">
-        {/* Trump selection UI */}
-        {phase === 'planning' && !G.trump && (
-          <div className="trump-selection">
-            <h3 title="Select Trump Suit">Выберите главную задачу</h3>
-            <div className="suit-buttons">
-              {SUITS.map((suit) => {
-                const suitNames = {
-                  Hearts: { ru: 'Пшеница', en: 'Hearts (Wheat)' },
-                  Diamonds: { ru: 'Свёкла', en: 'Diamonds (Beets)' },
-                  Clubs: { ru: 'Картофель', en: 'Clubs (Potatoes)' },
-                  Spades: { ru: 'Подсолнечник', en: 'Spades (Sunflowers)' },
-                };
-                return (
-                  <button
-                    key={suit}
-                    onClick={() => handleSetTrump(suit)}
-                    className={`suit-btn ${suit.toLowerCase()}`}
-                    title={suitNames[suit].en}
-                  >
-                    {getSuitSymbol(suit)} {suitNames[suit].ru}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {/* SVG container - scales to fill available space */}
         <div className="svg-container">
           <svg ref={svgRef} viewBox="0 0 1920 1080" className="board-svg" preserveAspectRatio="xMidYMid slice">
@@ -379,6 +359,7 @@ export function Board({ G, ctx, moves, playerID }) {
               revealedJobs={G.revealedJobs}
               exiled={G.exiled}
               playerPlot={G.players[currentPlayer]?.plot}
+              onSetTrump={handleSetTrump}
             />
           </svg>
 
@@ -415,6 +396,19 @@ export function Board({ G, ctx, moves, playerID }) {
               <h3>Waiting for other players...</h3>
             </div>
           )}
+
+          {/* Player's hand - always shown via drag-drop component */}
+          <PlayCardDragDrop
+            hand={G.players[currentPlayer]?.hand || []}
+            onPlayCard={handlePlayCard}
+            canPlay={phase === 'trick' && isMyTurn}
+            validIndices={getValidIndices(G, currentPlayer, phase)}
+            svgRef={svgRef}
+            centerX={playCenterX}
+            centerY={playCenterY}
+            cardWidth={280}
+            cardSpacing={350}
+          />
 
           {/* Player's plot - desktop only */}
           <div className="player-plot">
@@ -458,20 +452,10 @@ export function Board({ G, ctx, moves, playerID }) {
               />
             </div>
           ))}
+
+          {/* AI Card Play Animation - temporarily disabled */}
         </div>
 
-        {/* Hand area - fixed height at bottom */}
-        <div className="hand-area">
-          <Hand
-            cards={G.players[currentPlayer]?.hand || []}
-            onPlayCard={handlePlayCard}
-            canPlay={phase === 'trick' && isMyTurn}
-            leadSuit={G.currentTrick[0]?.[1]?.suit}
-            trump={G.trump}
-            validIndices={getValidIndices(G, currentPlayer, phase)}
-            className={phase === 'assignment' ? 'shifted' : ''}
-          />
-        </div>
       </div>
     </div>
   );

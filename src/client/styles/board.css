@@ -319,6 +319,36 @@ html, body {
   50% { opacity: 0.6; }
 }
 
+/* Turn highlight animation for player's card slot */
+.turn-highlight {
+  animation: pulse-turn 1.5s ease-in-out infinite;
+}
+
+.turn-text {
+  animation: pulse-turn 1.5s ease-in-out infinite;
+  text-shadow: 0 0 20px rgba(212, 168, 87, 0.5);
+}
+
+/* Bot turn highlight - red */
+.turn-highlight.bot {
+  animation: pulse-turn-bot 1.5s ease-in-out infinite;
+}
+
+.turn-text.bot {
+  animation: pulse-turn-bot 1.5s ease-in-out infinite;
+  text-shadow: 0 0 20px rgba(196, 30, 58, 0.5);
+}
+
+@keyframes pulse-turn {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes pulse-turn-bot {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
 /* Trump Selection */
 .trump-selection {
   position: fixed;
@@ -371,6 +401,26 @@ html, body {
 
 .suit-btn.clubs, .suit-btn.spades {
   color: var(--cream);
+}
+
+/* SVG Trump Selection Buttons */
+.trump-btn {
+  cursor: pointer;
+}
+
+.trump-btn .trump-btn-bg {
+  transition: all 0.2s ease;
+}
+
+.trump-btn:hover .trump-btn-bg {
+  fill: rgba(212, 168, 87, 0.15);
+  stroke: var(--gold-bright);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 10px rgba(212, 168, 87, 0.4));
+}
+
+.trump-selection-content {
+  animation: fadeIn 0.3s ease;
 }
 
 /* Player Hand - Fixed height area at bottom, cards peek from bottom */
@@ -762,6 +812,42 @@ html, body {
   }
 }
 
+/* AI Card Play Animation */
+.ai-play-card {
+  position: fixed;
+  pointer-events: none;
+  z-index: 999;
+  left: var(--from-x);
+  top: var(--from-y);
+  transform: translate(-50%, -50%);
+  animation: ai-play-to-slot 0.3s ease-out forwards;
+}
+
+.ai-play-card img {
+  border-radius: 8px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5),
+              0 0 15px rgba(196, 30, 58, 0.4);
+}
+
+@keyframes ai-play-to-slot {
+  0% {
+    left: var(--from-x);
+    top: var(--from-y);
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    left: var(--to-x);
+    top: var(--to-y);
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
 /* Submit button */
 .assignment-submit {
   position: absolute;
@@ -956,6 +1042,155 @@ html, body {
   background: var(--red-dark);
   border-color: var(--gold);
   box-shadow: 0 0 20px rgba(196, 30, 58, 0.3);
+}
+
+/* Play Card Drag and Drop */
+.play-card-drag-drop {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  pointer-events: none;
+}
+
+.play-card-drag-drop > * {
+  pointer-events: auto;
+}
+
+/* Play card drop zone */
+.play-drop-zone {
+  position: absolute;
+  border-radius: 8px;
+  pointer-events: none;
+  transition: all 0.2s ease;
+  border: 3px dashed rgba(212, 168, 87, 0.5);
+  background: rgba(212, 168, 87, 0.05);
+}
+
+.play-drop-zone.hover {
+  background: rgba(212, 168, 87, 0.2);
+  border: 3px solid #d4a857;
+  box-shadow: 0 0 30px rgba(212, 168, 87, 0.3), inset 0 0 30px rgba(212, 168, 87, 0.1);
+}
+
+.play-drop-zone .drop-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  color: #d4a857;
+  font-size: 1.5rem;
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 10px rgba(212, 168, 87, 0.5);
+}
+
+/* Draggable play cards - positioned at bottom, centered on trick area */
+.play-hand-cards {
+  position: fixed;
+  bottom: 0;
+  left: 50%; /* fallback, overridden by JS */
+  transform: translateX(-50%) translateY(50%);
+  display: flex;
+  gap: 1.5vw;
+  z-index: 155;
+  pointer-events: auto;
+}
+
+.play-card {
+  touch-action: none;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  position: relative;
+}
+
+/* Scale play cards like regular hand cards */
+.play-card .card-html {
+  width: clamp(60px, 12vw, 130px) !important;
+  height: clamp(84px, 16.8vw, 182px) !important;
+}
+
+.play-card.valid {
+  cursor: grab;
+  position: relative;
+}
+
+.play-card.valid::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 8px;
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 12px rgba(212, 168, 87, 0.6), 0 0 24px rgba(212, 168, 87, 0.3);
+  pointer-events: none;
+  animation: pulse-gold 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-gold {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(212, 168, 87, 0.6), 0 0 24px rgba(212, 168, 87, 0.3);
+    border-color: var(--gold);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(212, 168, 87, 0.8), 0 0 32px rgba(212, 168, 87, 0.5);
+    border-color: var(--gold-bright);
+  }
+}
+
+.play-card.valid:hover {
+  transform: translateY(-20px) scale(1.1);
+  z-index: 100;
+}
+
+.play-card.valid:hover::before {
+  box-shadow: 0 0 20px rgba(212, 168, 87, 0.9), 0 0 40px rgba(212, 168, 87, 0.6);
+  border-color: var(--gold-bright);
+  animation: none;
+}
+
+.play-card.valid:active {
+  cursor: grabbing;
+}
+
+.play-card.invalid {
+  opacity: 0.4;
+  cursor: not-allowed;
+  filter: saturate(0.3) brightness(0.7);
+  position: relative;
+}
+
+.play-card.invalid::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 8px;
+  border: 2px solid var(--red);
+  box-shadow: 0 0 8px rgba(196, 30, 58, 0.4);
+  pointer-events: none;
+}
+
+.play-card.placeholder {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* Flying card for play action */
+.flying-card.play-flying {
+  animation: fly-to-slot 0.25s ease-out forwards;
+}
+
+@keyframes fly-to-slot {
+  0% {
+    left: var(--from-x);
+    top: var(--from-y);
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    left: var(--to-x);
+    top: var(--to-y);
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 0.9;
+  }
 }
 
 /* Swap Phase UI (old modal - keep for fallback) */

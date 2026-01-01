@@ -10,7 +10,8 @@ export function TrickArea({
   year, trump, phase, isMyTurn, currentPlayerName, showInfo = false,
   players, currentPlayer, brigadeLeader,
   displayMode = 'game', // 'game' | 'jobs' | 'gulag' | 'plot'
-  workHours, claimedJobs, jobBuckets, revealedJobs, exiled, playerPlot
+  workHours, claimedJobs, jobBuckets, revealedJobs, exiled, playerPlot,
+  onSetTrump // callback for trump selection
 }) {
   const suitSymbols = { Hearts: '♥', Diamonds: '♦', Clubs: '♣', Spades: '♠' };
   // Rectangular trick area dimensions - expanded to fill more space
@@ -67,126 +68,155 @@ export function TrickArea({
         rx={innerRadius}
       />
 
-      {/* Info bar inside trick area - top edge */}
+      {/* Info bar inside trick area - centered */}
       <g className="trick-info-bar">
-        {/* Left side: Year and Trump (or Lead if trick started) */}
-        {showInfo ? (
-          <>
-            <text
-              x={leftEdge}
-              y={infoY}
-              textAnchor="start"
-              fill="#d4a857"
-              fontSize={infoFontSize}
-              fontFamily="'Oswald', sans-serif"
-            >
-              <title>Year {year} of 5</title>
-              Год {year}/5
-            </text>
-            <text
-              x={leftEdge + 100 * scale}
-              y={infoY}
-              textAnchor="start"
-              fill="#888"
-              fontSize={infoFontSize}
-              fontFamily="'Oswald', sans-serif"
-            >
-              <title>Trump suit</title>
-              Задача:
-            </text>
-            <text
-              x={leftEdge + 175 * scale}
-              y={infoY}
-              textAnchor="start"
-              fill={trump === 'Hearts' || trump === 'Diamonds' ? '#c41e3a' : '#e8dcc4'}
-              fontSize={suitFontSize}
-              fontFamily="'Oswald', sans-serif"
-            >
-              {trump ? suitSymbols[trump] : '?'}
-            </text>
-          </>
-        ) : null}
+        {showInfo && (() => {
+          // Dynamic layout - pre-calculate all positions
+          const hasLead = trick.length > 0;
+          const isFamine = !trump;
+          const gap = 50 * scale;
+          const jobSpacing = 85 * scale;
 
-        {/* Lead suit next to trump */}
-        {trick.length > 0 && (
-          <>
-            <text
-              x={leftEdge + 200 * scale}
-              y={infoY}
-              textAnchor="start"
-              fill="#888"
-              fontSize={infoFontSize}
-              fontFamily="'Oswald', sans-serif"
-            >
-              <title>Lead suit</title>
-              Ведёт:
-            </text>
-            <text
-              x={leftEdge + 268 * scale}
-              y={infoY}
-              textAnchor="start"
-              fill={trick[0][1].suit === 'Hearts' || trick[0][1].suit === 'Diamonds' ? '#c41e3a' : '#e8dcc4'}
-              fontSize={suitFontSize}
-            >
-              {suitSymbols[trick[0][1].suit]}
-            </text>
-          </>
-        )}
+          // Define widths for each section
+          const yearWidth = 95 * scale;
+          const trumpLabelWidth = 90 * scale;
+          const trumpValueWidth = isFamine ? 175 * scale : 30 * scale;
+          const leadWidth = 105 * scale;
+          const jobsWidth = 4 * jobSpacing;
 
-        {/* Job progress indicators (after lead suit) */}
-        {showInfo && workHours && (
-          <g className="job-progress-bar">
-            {SUITS.map((suit, idx) => {
-              const hours = workHours[suit] || 0;
-              const isClaimed = claimedJobs?.includes(suit);
-              const isTrump = suit === trump;
-              const spacing = 70 * scale;
-              const startX = leftEdge + 320 * scale; // After year, trump, and lead
-              const x = startX + idx * spacing;
+          // Calculate total width
+          let totalWidth = yearWidth + gap + trumpLabelWidth + trumpValueWidth;
+          if (hasLead) totalWidth += gap + leadWidth;
+          totalWidth += gap + jobsWidth;
 
-              return (
-                <g key={suit}>
+          // Calculate starting X position (centered)
+          const startX = centerX - totalWidth / 2;
+
+          // Pre-calculate all X positions
+          const yearX = startX;
+          const trumpX = yearX + yearWidth + gap;
+          const trumpValueX = trumpX + trumpLabelWidth;
+          const leadX = trumpValueX + trumpValueWidth + gap;
+          const leadValueX = leadX + 78 * scale;
+          const jobsStartX = hasLead ? (leadX + leadWidth + gap) : (trumpValueX + trumpValueWidth + gap);
+
+          return (
+            <>
+              {/* Year */}
+              <text
+                x={yearX}
+                y={infoY}
+                textAnchor="start"
+                fill="#d4a857"
+                fontSize={infoFontSize}
+                fontFamily="'Oswald', sans-serif"
+              >
+                <title>Year {year} of 5</title>
+                Год {year}/5
+              </text>
+
+              {/* Trump or Famine */}
+              <text
+                x={trumpX}
+                y={infoY}
+                textAnchor="start"
+                fill="#888"
+                fontSize={infoFontSize}
+                fontFamily="'Oswald', sans-serif"
+              >
+                <title>Trump suit</title>
+                Задача:
+              </text>
+              {trump ? (
+                <text
+                  x={trumpValueX}
+                  y={infoY}
+                  textAnchor="start"
+                  fill={trump === 'Hearts' || trump === 'Diamonds' ? '#c41e3a' : '#e8dcc4'}
+                  fontSize={suitFontSize}
+                  fontFamily="'Oswald', sans-serif"
+                >
+                  {suitSymbols[trump]}
+                </text>
+              ) : (
+                <text
+                  x={trumpValueX}
+                  y={infoY}
+                  textAnchor="start"
+                  fill="#c41e3a"
+                  fontSize={infoFontSize}
+                  fontFamily="'Russo One', 'Oswald', sans-serif"
+                >
+                  <title>Famine Year - No Trump</title>
+                  Год неурожая
+                </text>
+              )}
+
+              {/* Lead suit (only when trick has started) */}
+              {hasLead && (
+                <>
                   <text
-                    x={x}
-                    y={infoY}
-                    textAnchor="middle"
-                    fill={suit === 'Hearts' || suit === 'Diamonds' ? '#c41e3a' : '#e8dcc4'}
-                    fontSize={suitFontSize}
-                    opacity={isTrump ? 1 : 0.7}
-                  >
-                    {suitSymbols[suit]}
-                  </text>
-                  <text
-                    x={x + 16 * scale}
+                    x={leadX}
                     y={infoY}
                     textAnchor="start"
-                    fill={isClaimed ? '#4CAF50' : '#888'}
-                    fontSize={suitFontSize}
+                    fill="#888"
+                    fontSize={infoFontSize}
                     fontFamily="'Oswald', sans-serif"
                   >
-                    {isClaimed ? '✓' : `${hours}/40`}
+                    <title>Lead suit</title>
+                    Ведёт:
                   </text>
-                </g>
-              );
-            })}
-          </g>
-        )}
+                  <text
+                    x={leadValueX}
+                    y={infoY}
+                    textAnchor="start"
+                    fill={trick[0][1].suit === 'Hearts' || trick[0][1].suit === 'Diamonds' ? '#c41e3a' : '#e8dcc4'}
+                    fontSize={suitFontSize}
+                  >
+                    {suitSymbols[trick[0][1].suit]}
+                  </text>
+                </>
+              )}
 
-        {/* Right side: Turn indicator */}
-        {showInfo && (
-          <text
-            x={rightEdge}
-            y={infoY}
-            textAnchor="end"
-            fill={isMyTurn ? '#4CAF50' : '#e8dcc4'}
-            fontSize={infoFontSize}
-            fontWeight={isMyTurn ? 'bold' : 'normal'}
-            fontFamily="'Oswald', sans-serif"
-          >
-            <title>{isMyTurn ? 'Your turn' : `${currentPlayerName}'s turn`}</title>
-            {isMyTurn ? 'Ваш ход' : currentPlayerName}
-          </text>
-        )}
+              {/* Job progress indicators */}
+              {workHours && (
+                <g className="job-progress-bar">
+                  {SUITS.map((suit, idx) => {
+                    const hours = workHours[suit] || 0;
+                    const isClaimed = claimedJobs?.includes(suit);
+                    const isTrump = suit === trump;
+                    const jobX = jobsStartX + idx * jobSpacing;
+
+                    return (
+                      <g key={suit}>
+                        <text
+                          x={jobX}
+                          y={infoY}
+                          textAnchor="start"
+                          fill={suit === 'Hearts' || suit === 'Diamonds' ? '#c41e3a' : '#e8dcc4'}
+                          fontSize={suitFontSize}
+                          opacity={isTrump ? 1 : 0.7}
+                        >
+                          {suitSymbols[suit]}
+                        </text>
+                        <text
+                          x={jobX + 22 * scale}
+                          y={infoY}
+                          textAnchor="start"
+                          fill={isClaimed ? '#4CAF50' : '#888'}
+                          fontSize={suitFontSize}
+                          fontFamily="'Oswald', sans-serif"
+                        >
+                          {isClaimed ? '✓' : `${hours}/40`}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </g>
+              )}
+            </>
+          );
+        })()}
       </g>
 
       {/* GAME MODE CONTENT */}
@@ -213,6 +243,69 @@ export function TrickArea({
               />
             );
           })}
+
+          {/* Highlight player's slot when it's their turn (gold for human) */}
+          {isMyTurn && !trick.some(([pid]) => pid === 0) && (
+            <g className="turn-highlight-group">
+              <rect
+                x={centerX + 1.5 * cardSpacing - cardWidth / 2}
+                y={centerY + cardYOffset - cardHeight / 2}
+                width={cardWidth}
+                height={cardHeight}
+                fill="rgba(212, 168, 87, 0.1)"
+                stroke="#d4a857"
+                strokeWidth={3 * scale}
+                strokeDasharray={`${8 * scale},${4 * scale}`}
+                rx={8 * scale}
+                className="turn-highlight"
+              />
+              <text
+                x={centerX + 1.5 * cardSpacing}
+                y={centerY + cardYOffset}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill="#d4a857"
+                fontSize={28 * scale}
+                fontFamily="'Russo One', 'Oswald', sans-serif"
+                className="turn-text"
+              >
+                Ваш ход
+              </text>
+            </g>
+          )}
+
+          {/* Highlight bot's slot when it's their turn (red for bots) */}
+          {!isMyTurn && currentPlayer !== 0 && !trick.some(([pid]) => pid === currentPlayer) && (() => {
+            const botPos = getCardPosition(currentPlayer);
+            return (
+              <g className="turn-highlight-group bot-turn">
+                <rect
+                  x={centerX + botPos.x - cardWidth / 2}
+                  y={centerY + botPos.y - cardHeight / 2}
+                  width={cardWidth}
+                  height={cardHeight}
+                  fill="rgba(196, 30, 58, 0.1)"
+                  stroke="#c41e3a"
+                  strokeWidth={3 * scale}
+                  strokeDasharray={`${8 * scale},${4 * scale}`}
+                  rx={8 * scale}
+                  className="turn-highlight bot"
+                />
+                <text
+                  x={centerX + botPos.x}
+                  y={centerY + botPos.y}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill="#c41e3a"
+                  fontSize={24 * scale}
+                  fontFamily="'Russo One', 'Oswald', sans-serif"
+                  className="turn-text bot"
+                >
+                  {currentPlayerName}
+                </text>
+              </g>
+            );
+          })()}
 
           {/* Cards played - rendered after slots so they appear on top */}
           {trick.map(([playerIdx, card], idx) => {
@@ -740,6 +833,88 @@ export function TrickArea({
                 Total: {totalPoints} points ({revealed.length + hidden.length} cards)
               </text>
             );
+          })()}
+        </g>
+      )}
+
+      {/* TRUMP SELECTION MODE CONTENT */}
+      {phase === 'planning' && !trump && onSetTrump && (
+        <g className="trump-selection-content">
+          {/* Title */}
+          <text
+            x={centerX}
+            y={centerY - 100 * scale}
+            textAnchor="middle"
+            fill="#d4a857"
+            fontSize={32 * scale}
+            fontFamily="'Russo One', 'Oswald', sans-serif"
+          >
+            Выберите главную задачу
+          </text>
+
+          {/* Suit buttons - 4 in a row */}
+          {(() => {
+            const suitNames = {
+              Hearts: { ru: 'Пшеница', symbol: '♥', color: '#c41e3a' },
+              Diamonds: { ru: 'Свёкла', symbol: '♦', color: '#c41e3a' },
+              Clubs: { ru: 'Картофель', symbol: '♣', color: '#e8dcc4' },
+              Spades: { ru: 'Подсолнечник', symbol: '♠', color: '#e8dcc4' },
+            };
+            const btnWidth = 180 * scale;
+            const btnHeight = 100 * scale;
+            const btnSpacing = 200 * scale;
+            const startX = centerX - 1.5 * btnSpacing;
+            const btnY = centerY - 20 * scale;
+
+            return SUITS.map((suit, idx) => {
+              const x = startX + idx * btnSpacing;
+              const info = suitNames[suit];
+
+              return (
+                <g
+                  key={suit}
+                  className="trump-btn"
+                  onClick={() => onSetTrump(suit)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {/* Button background */}
+                  <rect
+                    x={x - btnWidth / 2}
+                    y={btnY - btnHeight / 2}
+                    width={btnWidth}
+                    height={btnHeight}
+                    fill="rgba(30,30,30,0.9)"
+                    stroke="#d4a857"
+                    strokeWidth={2 * scale}
+                    rx={8 * scale}
+                    className="trump-btn-bg"
+                  />
+                  {/* Suit symbol */}
+                  <text
+                    x={x}
+                    y={btnY - 10 * scale}
+                    textAnchor="middle"
+                    fill={info.color}
+                    fontSize={36 * scale}
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    {info.symbol}
+                  </text>
+                  {/* Suit name */}
+                  <text
+                    x={x}
+                    y={btnY + 30 * scale}
+                    textAnchor="middle"
+                    fill="#e8dcc4"
+                    fontSize={18 * scale}
+                    fontFamily="'Oswald', sans-serif"
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    {info.ru}
+                  </text>
+                </g>
+              );
+            });
           })()}
         </g>
       )}
