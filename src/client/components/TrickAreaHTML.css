@@ -1,0 +1,529 @@
+/* TrickArea HTML/CSS Layout */
+
+:root {
+  /* Base card width - used for responsive calculations */
+  --card-width: clamp(50px, 10vw, 120px);
+  /* Visible hand height (50% of card shown, cards are 5:7 aspect ratio) */
+  --visible-hand-height: calc(var(--card-width) * 0.85);
+}
+
+.trick-area-html {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  background: #1a1a1a;
+  border: 3px solid #d4a857;
+  border-radius: 10px;
+  margin: 1vh;
+  /* Bottom margin to make room for the fixed player hand */
+  margin-bottom: var(--visible-hand-height);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Inner red border effect */
+.trick-area-html::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border: 2px solid #8b0000;
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+/* Info Bar */
+.info-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.8rem, 2.5vw, 2rem);
+  padding: 2px clamp(1rem, 2vw, 2rem);
+  margin: 4px 8px 0 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid #333;
+  flex-wrap: wrap;
+}
+
+.info-bar .label {
+  color: #888;
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(0.95rem, 2vw, 1.45rem);
+  margin-right: 0.2em;
+}
+
+.info-bar .value {
+  color: #d4a857;
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(1.1rem, 2.4vw, 1.6rem);
+}
+
+.info-bar .famine {
+  color: #c41e3a;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(0.95rem, 2vw, 1.45rem);
+}
+
+.suit-symbol {
+  font-size: clamp(1.3rem, 2.6vw, 1.75rem);
+}
+
+.suit-symbol.hearts,
+.suit-symbol.diamonds {
+  color: #c41e3a;
+}
+
+.suit-symbol.clubs,
+.suit-symbol.spades {
+  color: #e8dcc4;
+}
+
+.info-year,
+.info-trump,
+.info-lead {
+  display: flex;
+  align-items: center;
+}
+
+.info-jobs {
+  display: flex;
+  gap: clamp(0.5rem, 1.5vw, 1.5rem);
+}
+
+.job-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.25em;
+  opacity: 0.7;
+}
+
+.job-indicator.highlighted {
+  opacity: 1;
+  animation: job-pulse 0.6s ease-in-out infinite;
+}
+
+.job-indicator.claimed .progress {
+  color: #4CAF50;
+}
+
+.job-indicator .progress {
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(0.9rem, 1.6vw, 1.2rem);
+  color: #888;
+}
+
+@keyframes job-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* Play Area - fills available space in trick area */
+.play-area {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0; /* Required for nested flex percentage heights */
+  position: relative;
+  padding: clamp(0.25rem, 0.5vh, 0.5rem);
+}
+
+/* Player Panels - 4 slots (3 AI + 1 spacer) to align with card slots */
+.player-panels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: clamp(0.2rem, 0.4vh, 0.4rem) 2%;
+  gap: 1%;
+}
+
+.player-panel.spacer {
+  visibility: hidden;
+}
+
+.player-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.3rem, 0.8vw, 0.8rem);
+  padding: clamp(0.3rem, 0.8vh, 0.6rem) clamp(0.5rem, 1.2vw, 1.2rem);
+  background: rgba(20, 20, 20, 0.9);
+  border: 1px solid #444;
+  border-radius: 6px;
+  flex: 1;
+  max-width: 22%;
+}
+
+.player-panel.active {
+  background: rgba(196, 30, 58, 0.25);
+  border-color: #d4a857;
+  border-width: 2px;
+}
+
+.player-panel .portrait {
+  width: clamp(24px, 4vw, 48px);
+  height: clamp(24px, 4vw, 48px);
+  border-radius: 4px;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+
+.player-panel .player-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.player-panel .player-name {
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(0.7rem, 1.2vw, 1rem);
+  color: #e8dcc4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-panel.active .player-name {
+  color: #d4a857;
+  font-weight: bold;
+}
+
+.player-panel .leader-star {
+  color: #d4a857;
+  margin-left: 0.25em;
+}
+
+.player-panel .player-score {
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(0.6rem, 1vw, 0.85rem);
+  color: #888;
+}
+
+.player-panel .player-hand-cards {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.player-panel .mini-card {
+  width: clamp(14px, 2vw, 24px);
+  border-radius: 2px;
+  margin-left: -8px;
+}
+
+.player-panel .mini-card:first-child {
+  margin-left: 0;
+}
+
+.player-panel .extra-cards {
+  font-size: clamp(0.5rem, 0.8vw, 0.7rem);
+  color: #888;
+  margin-left: 0.25em;
+}
+
+/* Card Slots - fills remaining space after player panels */
+.card-slots {
+  flex: 1;
+  min-height: 0; /* Required for nested flex percentage heights */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 2% 10px 2%; /* Bottom padding to stay above inner red border */
+  gap: 3%;
+}
+
+.card-slot {
+  /* Constrained size with aspect ratio */
+  aspect-ratio: 5/7;
+  max-width: clamp(80px, 15vw, 140px);
+  max-height: clamp(112px, 21vw, 196px);
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+/* Order slots visually: left, center-left, center-right, right */
+.card-slot.left { order: 1; }
+.card-slot.center-left { order: 2; }
+.card-slot.center-right { order: 3; }
+.card-slot.right { order: 4; }
+
+.card-slot.current-turn {
+  border-color: #c41e3a;
+  background: rgba(196, 30, 58, 0.1);
+}
+
+.card-slot.human-turn {
+  border-color: #d4a857;
+  background: rgba(212, 168, 87, 0.1);
+  animation: turn-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes turn-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212, 168, 87, 0.4); }
+  50% { box-shadow: 0 0 20px 5px rgba(212, 168, 87, 0.2); }
+}
+
+.card-slot .played-card {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.card-slot .empty-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.card-slot .turn-text {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(0.6rem, 1.2vw, 1rem);
+  color: #d4a857;
+  text-align: center;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.card-slot .turn-text.bot {
+  color: #c41e3a;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Jobs View */
+.jobs-view,
+.gulag-view,
+.plot-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.3rem, 0.8vh, 0.6rem);
+  padding: clamp(0.5rem, 1vh, 1rem);
+  overflow-y: auto;
+}
+
+.view-title {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  color: #d4a857;
+  font-size: clamp(1rem, 2vw, 1.5rem);
+  text-align: center;
+  margin: 0 0 0.5rem 0;
+}
+
+.job-row,
+.year-row,
+.plot-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.5rem, 1vw, 1rem);
+  padding: clamp(0.4rem, 0.8vh, 0.8rem);
+  background: rgba(30, 30, 30, 0.5);
+  border: 1px solid #444;
+  border-radius: 4px;
+}
+
+.job-row.trump {
+  background: rgba(196, 30, 58, 0.15);
+  border-color: #c41e3a;
+}
+
+.job-row.claimed {
+  border-color: #4CAF50;
+}
+
+.year-row.current {
+  background: rgba(196, 30, 58, 0.2);
+  border-color: #c41e3a;
+}
+
+.job-info,
+.year-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: clamp(40px, 5vw, 60px);
+}
+
+.year-info .year-number {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(1rem, 2vw, 1.5rem);
+  color: #e8dcc4;
+}
+
+.year-info .card-count {
+  background: #c41e3a;
+  color: white;
+  font-size: clamp(0.6rem, 1vw, 0.8rem);
+  padding: 0.1em 0.4em;
+  border-radius: 10px;
+  font-weight: bold;
+}
+
+.job-reward {
+  flex-shrink: 0;
+}
+
+.reward-card {
+  width: clamp(35px, 5vw, 55px);
+  aspect-ratio: 5/7;
+  border-radius: 4px;
+}
+
+.reward-card.dimmed {
+  opacity: 0.4;
+}
+
+.job-cards,
+.year-cards,
+.plot-cards {
+  flex: 1;
+  display: flex;
+  gap: clamp(2px, 0.5vw, 6px);
+  overflow-x: auto;
+  padding: 2px;
+}
+
+.bucket-card,
+.exiled-card,
+.plot-card {
+  width: clamp(30px, 4vw, 50px);
+  aspect-ratio: 5/7;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.empty-bucket,
+.empty-year,
+.empty-plot {
+  width: clamp(30px, 4vw, 50px);
+  aspect-ratio: 5/7;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.more-cards {
+  font-size: clamp(0.6rem, 1vw, 0.8rem);
+  color: #888;
+  display: flex;
+  align-items: center;
+}
+
+/* Plot View */
+.plot-row.revealed {
+  background: rgba(76, 175, 80, 0.1);
+  border-color: #4CAF50;
+}
+
+.plot-row.hidden {
+  background: rgba(196, 30, 58, 0.1);
+  border-color: #c41e3a;
+}
+
+.plot-row .row-label {
+  display: flex;
+  flex-direction: column;
+  min-width: clamp(60px, 8vw, 100px);
+}
+
+.plot-row .row-label .title {
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(0.7rem, 1.2vw, 1rem);
+}
+
+.plot-row.revealed .row-label .title {
+  color: #4CAF50;
+}
+
+.plot-row.hidden .row-label .title {
+  color: #c41e3a;
+}
+
+.plot-row .row-label .subtitle {
+  font-size: clamp(0.5rem, 0.9vw, 0.75rem);
+  color: #888;
+}
+
+.plot-total {
+  text-align: center;
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(0.8rem, 1.4vw, 1.1rem);
+  color: #888;
+  margin-top: 0.5rem;
+}
+
+/* Trump Selection */
+.trump-selection {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 10;
+}
+
+.selection-title {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  color: #d4a857;
+  font-size: clamp(1.2rem, 2.5vw, 2rem);
+  margin-bottom: clamp(1rem, 3vh, 2rem);
+}
+
+.trump-buttons {
+  display: flex;
+  gap: clamp(0.5rem, 2vw, 1.5rem);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.trump-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: clamp(80px, 15vw, 140px);
+  padding: clamp(0.5rem, 1.5vh, 1rem);
+  background: rgba(30, 30, 30, 0.9);
+  border: 2px solid #d4a857;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.trump-btn:hover {
+  background: rgba(212, 168, 87, 0.15);
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(212, 168, 87, 0.3);
+}
+
+.trump-btn .suit-symbol {
+  font-size: clamp(1.5rem, 3vw, 2.5rem);
+}
+
+.trump-btn.hearts .suit-symbol,
+.trump-btn.diamonds .suit-symbol {
+  color: #c41e3a;
+}
+
+.trump-btn.clubs .suit-symbol,
+.trump-btn.spades .suit-symbol {
+  color: #e8dcc4;
+}
+
+.trump-btn .suit-name {
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(0.7rem, 1.3vw, 1rem);
+  color: #e8dcc4;
+  margin-top: 0.3em;
+}
