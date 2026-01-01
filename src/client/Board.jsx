@@ -480,6 +480,7 @@ export function Board({ G, ctx, moves, playerID }) {
 // Flying Card Component - uses Web Animations API
 function FlyingCard({ card, playerIdx, targetSuit, cardValue, onComplete }) {
   const cardRef = useRef(null);
+  const animationRef = useRef(null);
   const [showValue, setShowValue] = useState(false);
 
   useEffect(() => {
@@ -520,12 +521,24 @@ function FlyingCard({ card, playerIdx, targetSuit, cardValue, onComplete }) {
       }
     ], { duration: 950, fill: 'forwards', easing: 'ease-in-out' });
 
+    animationRef.current = animation;
+
     // Show +X value at 60% through
-    setTimeout(() => setShowValue(true), 570);
+    const valueTimeout = setTimeout(() => setShowValue(true), 570);
 
     // Delay completion to let the +X number persist
+    let completionTimeout;
     animation.onfinish = () => {
-      setTimeout(onComplete, 800);
+      completionTimeout = setTimeout(onComplete, 800);
+    };
+
+    // Cleanup function
+    return () => {
+      clearTimeout(valueTimeout);
+      clearTimeout(completionTimeout);
+      if (animationRef.current) {
+        animationRef.current.cancel();
+      }
     };
   }, [playerIdx, targetSuit, onComplete]);
 
@@ -540,6 +553,7 @@ function FlyingCard({ card, playerIdx, targetSuit, cardValue, onComplete }) {
 // AI Play Card Component - animates AI card from hand area to slot
 function AIPlayCard({ card, playerIdx, onComplete }) {
   const cardRef = useRef(null);
+  const animationRef = useRef(null);
 
   useEffect(() => {
     const slotClasses = ['left', 'center-left', 'center-right', 'right'];
@@ -586,7 +600,15 @@ function AIPlayCard({ card, playerIdx, onComplete }) {
       }
     ], { duration: 800, fill: 'forwards', easing: 'ease-out' });
 
+    animationRef.current = animation;
     animation.onfinish = onComplete;
+
+    // Cleanup function
+    return () => {
+      if (animationRef.current) {
+        animationRef.current.cancel();
+      }
+    };
   }, [playerIdx, onComplete]);
 
   return (
