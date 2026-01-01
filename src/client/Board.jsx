@@ -1,10 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CardSVG } from './components/CardSVG.jsx';
-import { TrickArea } from './components/TrickArea.jsx';
-import { AssignmentDragDrop } from './components/AssignmentDragDrop.jsx';
-import { SwapDragDrop } from './components/SwapDragDrop.jsx';
-import { PlayCardDragDrop } from './components/PlayCardDragDrop.jsx';
-import { SUITS } from '../game/constants.js';
+import { TrickAreaHTML } from './components/TrickAreaHTML.jsx';
 import { getCardImagePath } from '../game/Card.js';
 
 export function Board({ G, ctx, moves, playerID }) {
@@ -12,155 +7,46 @@ export function Board({ G, ctx, moves, playerID }) {
   const isMyTurn = ctx.currentPlayer === playerID;
   const phase = ctx.phase;
 
-  // State for swap phase
-  const [selectedHandCard, setSelectedHandCard] = useState(null);
-  const [selectedPlotCard, setSelectedPlotCard] = useState(null);
-  const [selectedPlotType, setSelectedPlotType] = useState(null); // 'hidden' or 'revealed'
-
-  // State for tap-to-reveal on touch devices
-  const [revealedHiddenCard, setRevealedHiddenCard] = useState(null);
-
-  // Mobile panel toggle - null = game board, 'options' | 'jobs' | 'gulag'
+  // Mobile panel toggle
   const [activePanel, setActivePanel] = useState(null);
   const togglePanel = (panel) => setActivePanel(activePanel === panel ? null : panel);
 
-  // Track if user has confirmed swap locally (to prevent modal reappearing due to race conditions)
+  // Track if user has confirmed swap locally
   const [swapConfirmedLocally, setSwapConfirmedLocally] = useState(false);
   const lastYearRef = useRef(G.year);
 
-  // Ref to SVG element for coordinate conversion in drag-drop
-  const svgRef = useRef(null);
+  // Ref to trick area for getting card slot positions
+  const trickAreaRef = useRef(null);
 
-  // SVG uses full width - no sidebars, nav bar is separate HTML element
-  const scaleFactor = 1;
+  // Drag state for playing cards
+  const [dragState, setDragState] = useState(null);
 
-  // AI Assignment Animation state
-  const [flyingCards, setFlyingCards] = useState([]);
-  const prevJobBucketsRef = useRef(null);
-  const prevPhaseRef = useRef(phase);
-  const lastTrickSnapshotRef = useRef(null);
+  // AI card play animation state
+  const [aiPlayingCard, setAiPlayingCard] = useState(null);
+  const prevTrickLengthRef = useRef(0);
 
-  // AI Card Play Animation state - temporarily disabled
-  // const [aiPlayingCard, setAiPlayingCard] = useState(null);
-  // const prevTrickLengthRef = useRef(G.currentTrick?.length || 0);
-
-  // Snapshot the trick when entering assignment phase
+  // Detect when AI plays a card and trigger animation
   useEffect(() => {
-    if (phase === 'assignment' && prevPhaseRef.current !== 'assignment') {
-      // Just entered assignment phase - snapshot the trick for potential animation
-      lastTrickSnapshotRef.current = {
-        trick: G.lastTrick,
-        winner: G.lastWinner,
-        jobBuckets: JSON.parse(JSON.stringify(G.jobBuckets)),
-      };
-    }
-    prevPhaseRef.current = phase;
-  }, [phase, G.lastTrick, G.lastWinner, G.jobBuckets]);
-
-  // Detect AI assignment completion and trigger animation
-  useEffect(() => {
-    // Only animate if AI won (not the human player)
-    if (G.lastWinner === currentPlayer) {
-      prevJobBucketsRef.current = G.jobBuckets;
+    if (phase !== 'trick') {
+      prevTrickLengthRef.current = 0;
       return;
     }
 
-    // Check if jobBuckets changed (cards were assigned)
-    const snapshot = lastTrickSnapshotRef.current;
-    if (!snapshot || !prevJobBucketsRef.current) {
-      prevJobBucketsRef.current = G.jobBuckets;
-      return;
-    }
+    const currentLength = G.currentTrick.length;
+    const prevLength = prevTrickLengthRef.current;
 
-    // Find newly assigned cards by comparing bucket sizes
-    const newCards = [];
-    for (const suit of SUITS) {
-      const prevCount = prevJobBucketsRef.current[suit]?.length || 0;
-      const newCount = G.jobBuckets[suit]?.length || 0;
-      if (newCount > prevCount) {
-        // Cards were added to this suit's bucket
-        const addedCards = G.jobBuckets[suit].slice(prevCount);
-        addedCards.forEach(card => {
-          newCards.push({ card, targetSuit: suit });
-        });
+    // A new card was added
+    if (currentLength > prevLength && currentLength > 0) {
+      const [playerIdx, card] = G.currentTrick[currentLength - 1];
+
+      // Only animate for AI players (not player 0)
+      if (playerIdx !== 0) {
+        setAiPlayingCard({ playerIdx, card, key: `${card.suit}-${card.value}` });
       }
     }
 
-    // If cards were assigned by AI, animate them
-    if (newCards.length > 0 && snapshot.trick && svgRef.current) {
-      const svgRect = svgRef.current.getBoundingClientRect();
-      const viewBoxWidth = 1920;
-      const viewBoxHeight = 1080;
-      const scaleX = svgRect.width / viewBoxWidth;
-      const scaleY = svgRect.height / viewBoxHeight;
-
-      // TrickArea dimensions (must match TrickArea.jsx)
-      const centerX = 960;
-      const centerY = 470;
-      const width = 1100;
-      const height = 540;
-      const cardSpacing = 265;
-
-      // Calculate card source positions (trick card slots)
-      const getCardPosition = (playerIdx) => {
-        const slotOrder = [3, 0, 1, 2];
-        const slot = slotOrder[playerIdx];
-        const startX = -1.5 * cardSpacing;
-        return { x: centerX + startX + slot * cardSpacing, y: centerY + 85 };
-      };
-
-      // Calculate job icon target positions (info bar)
-      const leftEdge = centerX - width / 2 + 20;
-      const infoY = centerY - height / 2 + 38;
-      const jobStartX = leftEdge + 320;
-      const jobSpacing = 70;
-      const suitIndex = { Hearts: 0, Diamonds: 1, Clubs: 2, Spades: 3 };
-
-      const getJobPosition = (suit) => {
-        const idx = suitIndex[suit];
-        return { x: jobStartX + idx * jobSpacing, y: infoY };
-      };
-
-      // Create flying card animations
-      const animations = newCards.map((item, index) => {
-        // Find which player played this card in the trick
-        const trickEntry = snapshot.trick.find(([, c]) =>
-          c.suit === item.card.suit && c.value === item.card.value
-        );
-        const playerIdx = trickEntry ? trickEntry[0] : 0;
-
-        const sourcePos = getCardPosition(playerIdx);
-        const targetPos = getJobPosition(item.targetSuit);
-
-        // Convert SVG coords to screen coords
-        const fromX = svgRect.left + sourcePos.x * scaleX;
-        const fromY = svgRect.top + sourcePos.y * scaleY;
-        const toX = svgRect.left + targetPos.x * scaleX;
-        const toY = svgRect.top + targetPos.y * scaleY;
-
-        return {
-          id: `${item.card.suit}-${item.card.value}-${Date.now()}-${index}`,
-          card: item.card,
-          fromX,
-          fromY,
-          toX,
-          toY,
-          delay: index * 100, // Stagger animations
-        };
-      });
-
-      setFlyingCards(animations);
-
-      // Clear animations after they complete
-      const maxDelay = animations.length * 100;
-      setTimeout(() => {
-        setFlyingCards([]);
-        lastTrickSnapshotRef.current = null;
-      }, 500 + maxDelay);
-    }
-
-    prevJobBucketsRef.current = G.jobBuckets;
-  }, [G.jobBuckets, G.lastWinner, currentPlayer]);
+    prevTrickLengthRef.current = currentLength;
+  }, [G.currentTrick, phase]);
 
   // Reset local swap confirmation when year changes
   useEffect(() => {
@@ -170,8 +56,47 @@ export function Board({ G, ctx, moves, playerID }) {
     }
   }, [G.year]);
 
-  // AI card play animation - temporarily disabled for debugging
-  // TODO: Re-enable after fixing infinite loop issue
+  // AI Assignment Animation - compute flying card data
+  const pending = G.pendingAIAssignments;
+  let flyingCard = null;
+
+  if (phase === 'aiAssignment' && pending) {
+    const entries = Object.entries(pending.assignments);
+    if (entries.length > 0) {
+      const [cardKey, targetSuit] = entries[0];
+      const [suit, valueStr] = cardKey.split('-');
+      const card = { suit, value: parseInt(valueStr, 10) };
+
+      // Find which player played this card
+      const trickEntry = pending.trick.find(([, c]) => c.suit === card.suit && c.value === card.value);
+      const playerIdx = trickEntry ? trickEntry[0] : 0;
+
+      flyingCard = { cardKey, targetSuit, card, playerIdx };
+    }
+  }
+
+  // Get highlighted suits for job icons
+  const highlightedSuits = pending ? [...new Set(Object.values(pending.assignments))] : [];
+
+  // Compute which trick to show
+  let trickToShow;
+  if (phase === 'assignment') {
+    trickToShow = G.lastTrick;
+  } else if (phase === 'aiAssignment' && pending) {
+    const pendingKeys = new Set(Object.keys(pending.assignments));
+    trickToShow = pending.trick.filter(([, card]) => {
+      const cardKey = `${card.suit}-${card.value}`;
+      if (flyingCard && cardKey === flyingCard.cardKey) return false;
+      return pendingKeys.has(cardKey);
+    });
+  } else {
+    // Filter out the card currently being animated
+    trickToShow = aiPlayingCard
+      ? G.currentTrick.filter(([, card]) =>
+          `${card.suit}-${card.value}` !== aiPlayingCard.key
+        )
+      : G.currentTrick;
+  }
 
   // Handle card play
   const handlePlayCard = (cardIndex) => {
@@ -179,6 +104,78 @@ export function Board({ G, ctx, moves, playerID }) {
       moves.playCard(cardIndex);
     }
   };
+
+  // Drag handlers for playing cards
+  const getEventPosition = (e) => {
+    if (e.touches && e.touches.length > 0) {
+      return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+    return { x: e.clientX, y: e.clientY };
+  };
+
+  const isOverDropZone = (x, y) => {
+    // Find player 0's card slot (the rightmost one)
+    const slot = document.querySelector('.card-slot.right');
+    if (!slot) return false;
+    const rect = slot.getBoundingClientRect();
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  };
+
+  const handleDragStart = (cardIndex, card, e) => {
+    if (phase !== 'trick' || !isMyTurn) return;
+    const validIndices = getValidIndices(G, currentPlayer, phase);
+    if (!validIndices?.includes(cardIndex)) return;
+
+    e.preventDefault();
+    const pos = getEventPosition(e);
+    const cardEl = e.currentTarget;
+    const cardRect = cardEl.getBoundingClientRect();
+
+    setDragState({
+      index: cardIndex,
+      card,
+      position: pos,
+      offset: {
+        x: pos.x - (cardRect.left + cardRect.width / 2),
+        y: pos.y - (cardRect.top + cardRect.height / 2),
+      },
+      isOverTarget: false,
+    });
+  };
+
+  // Handle drag movement and drop
+  useEffect(() => {
+    if (!dragState) return;
+
+    const handleMove = (e) => {
+      const pos = getEventPosition(e);
+      const isOverTarget = isOverDropZone(pos.x, pos.y);
+      setDragState((prev) => ({ ...prev, position: pos, isOverTarget }));
+    };
+
+    const handleEnd = (e) => {
+      const pos = e.changedTouches ?
+        { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY } :
+        { x: e.clientX, y: e.clientY };
+
+      if (isOverDropZone(pos.x, pos.y)) {
+        handlePlayCard(dragState.index);
+      }
+      setDragState(null);
+    };
+
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleMove, { passive: false });
+    document.addEventListener('touchend', handleEnd);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleMove);
+      document.removeEventListener('touchend', handleEnd);
+    };
+  }, [dragState]);
 
   // Handle trump selection
   const handleSetTrump = (suit) => {
@@ -196,36 +193,10 @@ export function Board({ G, ctx, moves, playerID }) {
     moves.submitAssignments();
   };
 
-  // Handle swap phase
-  const handleSwap = () => {
-    if (selectedHandCard !== null && selectedPlotCard !== null && selectedPlotType !== null) {
-      moves.swapCard(selectedPlotCard, selectedHandCard, selectedPlotType);
-      setSelectedHandCard(null);
-      setSelectedPlotCard(null);
-      setSelectedPlotType(null);
-    }
-  };
-
-  // Handle plot card selection for swap
-  const handleSelectPlotCard = (idx, type) => {
-    if (selectedPlotCard === idx && selectedPlotType === type) {
-      // Deselect
-      setSelectedPlotCard(null);
-      setSelectedPlotType(null);
-    } else {
-      setSelectedPlotCard(idx);
-      setSelectedPlotType(type);
-    }
-  };
-
   const handleConfirmSwap = () => {
     setSwapConfirmedLocally(true);
     moves.confirmSwap();
   };
-
-  // Center of play area - full width SVG
-  const playCenterX = 960; // Center of 1920
-  const playCenterY = 450; // Centered between top and hand
 
   // Render game over screen
   if (ctx.gameover) {
@@ -246,50 +217,59 @@ export function Board({ G, ctx, moves, playerID }) {
     );
   }
 
+  // Calculate display mode
+  const displayMode =
+    phase === 'assignment' && G.lastWinner === currentPlayer ? 'jobs' :
+    phase === 'swap' ? 'plot' :
+    activePanel === 'jobs' ? 'jobs' :
+    activePanel === 'gulag' ? 'gulag' :
+    activePanel === 'plot' ? 'plot' :
+    'game';
+
   return (
     <div className="game-board">
       {/* Navigation bar - vertical on left side */}
       <div className="mobile-nav-bar">
-          <button
-            className={`nav-btn ${activePanel === 'options' ? 'active' : ''}`}
-            onClick={() => togglePanel('options')}
-            title="Menu"
-          >
-            <span className="nav-icon">☰</span>
-            <span className="nav-label">Menu</span>
-          </button>
-          <button
-            className={`nav-btn ${activePanel === null ? 'active' : ''}`}
-            onClick={() => setActivePanel(null)}
-            title="Brigade (Playing Area)"
-          >
-            <span className="nav-icon">👥</span>
-            <span className="nav-label" title="Brigade">Бригада</span>
-          </button>
-          <button
-            className={`nav-btn ${activePanel === 'jobs' ? 'active' : ''}`}
-            onClick={() => togglePanel('jobs')}
-            title="Jobs"
-          >
-            <span className="nav-icon">⚒</span>
-            <span className="nav-label" title="Jobs">Работы</span>
-          </button>
-          <button
-            className={`nav-btn ${activePanel === 'gulag' ? 'active' : ''}`}
-            onClick={() => togglePanel('gulag')}
-            title="The North (Gulag)"
-          >
-            <span className="nav-icon">❄</span>
-            <span className="nav-label" title="The North">Север</span>
-          </button>
-          <button
-            className={`nav-btn ${activePanel === 'plot' ? 'active' : ''}`}
-            onClick={() => togglePanel('plot')}
-            title="Your Plot (Cellar)"
-          >
-            <span className="nav-icon">🌱</span>
-            <span className="nav-label" title="Plot">Подвал</span>
-          </button>
+        <button
+          className={`nav-btn ${activePanel === 'options' ? 'active' : ''}`}
+          onClick={() => togglePanel('options')}
+          title="Menu"
+        >
+          <span className="nav-icon">☰</span>
+          <span className="nav-label">Menu</span>
+        </button>
+        <button
+          className={`nav-btn ${activePanel === null ? 'active' : ''}`}
+          onClick={() => setActivePanel(null)}
+          title="Brigade (Playing Area)"
+        >
+          <span className="nav-icon">👥</span>
+          <span className="nav-label" title="Brigade">Бригада</span>
+        </button>
+        <button
+          className={`nav-btn ${activePanel === 'jobs' ? 'active' : ''}`}
+          onClick={() => togglePanel('jobs')}
+          title="Jobs"
+        >
+          <span className="nav-icon">⚒</span>
+          <span className="nav-label" title="Jobs">Работы</span>
+        </button>
+        <button
+          className={`nav-btn ${activePanel === 'gulag' ? 'active' : ''}`}
+          onClick={() => togglePanel('gulag')}
+          title="The North (Gulag)"
+        >
+          <span className="nav-icon">❄</span>
+          <span className="nav-label" title="The North">Север</span>
+        </button>
+        <button
+          className={`nav-btn ${activePanel === 'plot' ? 'active' : ''}`}
+          onClick={() => togglePanel('plot')}
+          title="Your Plot (Cellar)"
+        >
+          <span className="nav-icon">🌱</span>
+          <span className="nav-label" title="Plot">Подвал</span>
+        </button>
       </div>
 
       {/* Panel content - only shows for options panel */}
@@ -303,12 +283,10 @@ export function Board({ G, ctx, moves, playerID }) {
                 <div className="rules-text">
                   <h5>Objective</h5>
                   <p>Complete collective farm jobs while protecting your private plot. Lowest score wins!</p>
-
                   <h5>Gameplay</h5>
                   <p>• Play cards to tricks - must follow lead suit if able</p>
                   <p>• Trick winner assigns cards to matching job suits</p>
                   <p>• Jobs need 40 work hours to complete</p>
-
                   <h5>Trump Face Cards</h5>
                   <p>• <strong>Jack (Пьяница)</strong>: Worth 0 hours, gets exiled instead of your cards</p>
                   <p>• <strong>Queen (Доносчик)</strong>: All players become vulnerable</p>
@@ -325,151 +303,229 @@ export function Board({ G, ctx, moves, playerID }) {
 
       {/* Main content area */}
       <div className="game-content">
-        {/* SVG container - scales to fill available space */}
-        <div className="svg-container">
-          <svg ref={svgRef} viewBox="0 0 1920 1080" className="board-svg" preserveAspectRatio="xMidYMid slice">
-            {/* Trick Area (center) - includes bot player areas and info */}
-            <TrickArea
-              trick={phase === 'assignment' ? G.lastTrick : G.currentTrick}
-              numPlayers={G.numPlayers}
-              lead={G.lead}
-              centerX={playCenterX}
-              centerY={playCenterY}
-              scale={scaleFactor}
-              year={G.year}
-              trump={G.trump}
-              phase={phase}
-              isMyTurn={isMyTurn}
-              currentPlayerName={G.players[ctx.currentPlayer]?.name}
-              showInfo={true}
-              players={G.players}
-              currentPlayer={parseInt(ctx.currentPlayer, 10)}
-              brigadeLeader={G.players.findIndex(p => p.brigadeLeader)}
-              displayMode={
-                phase === 'assignment' ? 'jobs' :
-                phase === 'swap' ? 'plot' :
-                activePanel === 'jobs' ? 'jobs' :
-                activePanel === 'gulag' ? 'gulag' :
-                activePanel === 'plot' ? 'plot' :
-                'game'
-              }
-              workHours={G.workHours}
-              claimedJobs={G.claimedJobs}
-              jobBuckets={G.jobBuckets}
-              revealedJobs={G.revealedJobs}
-              exiled={G.exiled}
-              playerPlot={G.players[currentPlayer]?.plot}
-              onSetTrump={handleSetTrump}
-            />
-          </svg>
+        {/* Trick Area - now HTML instead of SVG */}
+        <TrickAreaHTML
+          ref={trickAreaRef}
+          trick={trickToShow}
+          numPlayers={G.numPlayers}
+          year={G.year}
+          trump={G.trump}
+          phase={phase}
+          isMyTurn={isMyTurn}
+          currentPlayerName={G.players[ctx.currentPlayer]?.name}
+          players={G.players}
+          currentPlayer={parseInt(ctx.currentPlayer, 10)}
+          brigadeLeader={G.players.findIndex(p => p.brigadeLeader)}
+          displayMode={displayMode}
+          workHours={G.workHours}
+          claimedJobs={G.claimedJobs}
+          jobBuckets={G.jobBuckets}
+          revealedJobs={G.revealedJobs}
+          exiled={G.exiled}
+          playerPlot={G.players[currentPlayer]?.plot}
+          onSetTrump={handleSetTrump}
+          highlightedSuits={highlightedSuits}
+        />
 
-          {/* Assignment phase UI - Drag and Drop */}
-          {phase === 'assignment' && G.lastWinner === currentPlayer && (
-            <AssignmentDragDrop
-              lastTrick={G.lastTrick}
-              pendingAssignments={G.pendingAssignments}
-              onAssign={handleAssign}
-              onSubmit={handleSubmitAssignments}
-              svgRef={svgRef}
-              centerY={playCenterY}
-              scale={scaleFactor}
-            />
-          )}
-
-          {/* Swap phase UI - Drag and Drop */}
-          {phase === 'swap' && !G.swapConfirmed?.[currentPlayer] && !swapConfirmedLocally && (
-            <SwapDragDrop
-              hand={G.players[currentPlayer]?.hand || []}
-              plot={G.players[currentPlayer]?.plot}
-              onSwap={(plotIdx, handIdx, plotType) => moves.swapCard(plotIdx, handIdx, plotType)}
-              onConfirm={handleConfirmSwap}
-              svgRef={svgRef}
-              centerY={playCenterY}
-              scale={scaleFactor}
-              year={G.year}
-            />
-          )}
-
-          {/* Waiting for others during swap */}
-          {phase === 'swap' && (G.swapConfirmed?.[currentPlayer] || swapConfirmedLocally) && (
-            <div className="swap-ui">
-              <h3>Waiting for other players...</h3>
-            </div>
-          )}
-
-          {/* Player's hand - always shown via drag-drop component */}
-          <PlayCardDragDrop
-            hand={G.players[currentPlayer]?.hand || []}
-            onPlayCard={handlePlayCard}
-            canPlay={phase === 'trick' && isMyTurn}
-            validIndices={getValidIndices(G, currentPlayer, phase)}
-            svgRef={svgRef}
-            centerX={playCenterX}
-            centerY={playCenterY}
-            cardWidth={280}
-            cardSpacing={350}
+        {/* Flying Card Animation */}
+        {flyingCard && (
+          <FlyingCard
+            key={flyingCard.cardKey}
+            card={flyingCard.card}
+            playerIdx={flyingCard.playerIdx}
+            targetSuit={flyingCard.targetSuit}
+            onComplete={() => moves.applySingleAssignment(flyingCard.cardKey, flyingCard.targetSuit)}
           />
+        )}
 
-          {/* Player's plot - desktop only */}
-          <div className="player-plot">
-            <h4 title="Your Plot (Cellar)">Подвал</h4>
-            <div className="plot-cards">
-              {G.players[currentPlayer]?.plot.revealed.map((card, idx) => (
-                <CardSVG key={`r-${idx}`} card={card} width={60} />
-              ))}
-              {G.players[currentPlayer]?.plot.hidden.map((card, idx) => (
-                <div
-                  key={`h-${idx}`}
-                  className={`hidden-plot-card ${revealedHiddenCard === idx ? 'revealed' : ''}`}
-                  title="Tap to reveal"
-                  onClick={() => setRevealedHiddenCard(revealedHiddenCard === idx ? null : idx)}
-                >
-                  <CardSVG card={card} width={60} faceDown className="card-back" />
-                  <CardSVG card={card} width={60} className="card-front" />
-                </div>
-              ))}
-            </div>
-          </div>
+        {/* AI Card Play Animation */}
+        {aiPlayingCard && (
+          <AIPlayCard
+            key={aiPlayingCard.key}
+            card={aiPlayingCard.card}
+            playerIdx={aiPlayingCard.playerIdx}
+            onComplete={() => setAiPlayingCard(null)}
+          />
+        )}
 
-          {/* AI Assignment Flying Cards Animation */}
-          {flyingCards.map((fc) => (
-            <div
-              key={fc.id}
-              className="ai-flying-card"
-              style={{
-                '--from-x': `${fc.fromX}px`,
-                '--from-y': `${fc.fromY}px`,
-                '--to-x': `${fc.toX}px`,
-                '--to-y': `${fc.toY}px`,
-                '--delay': `${fc.delay}ms`,
-              }}
-            >
-              <img
-                src={getCardImagePath(fc.card)}
-                alt={`${fc.card.value} of ${fc.card.suit}`}
-                width={80}
-                height={112}
-              />
-            </div>
-          ))}
+        {/* Player's hand */}
+        <div className="player-hand-area">
+          {G.players[currentPlayer]?.hand.map((card, idx) => {
+            const isValid = getValidIndices(G, currentPlayer, phase)?.includes(idx);
+            const canPlay = phase === 'trick' && isMyTurn;
+            const isDragging = dragState?.index === idx;
 
-          {/* AI Card Play Animation - temporarily disabled */}
+            return (
+              <div
+                key={`${card.suit}-${card.value}`}
+                className={`hand-card ${canPlay && isValid ? 'playable' : ''} ${canPlay && !isValid ? 'invalid' : ''} ${isDragging ? 'dragging' : ''}`}
+                onMouseDown={(e) => handleDragStart(idx, card, e)}
+                onTouchStart={(e) => handleDragStart(idx, card, e)}
+              >
+                <img
+                  src={getCardImagePath(card)}
+                  alt={`${card.value} of ${card.suit}`}
+                  draggable={false}
+                />
+              </div>
+            );
+          })}
         </div>
 
+        {/* Drag ghost card */}
+        {dragState && (
+          <div
+            className="drag-ghost"
+            style={{
+              position: 'fixed',
+              left: dragState.position.x - dragState.offset.x,
+              top: dragState.position.y - dragState.offset.y,
+              transform: 'translate(-50%, -50%)',
+              pointerEvents: 'none',
+              zIndex: 1000,
+            }}
+          >
+            <img
+              src={getCardImagePath(dragState.card)}
+              alt="dragging"
+              style={{ width: '80px', height: 'auto' }}
+            />
+          </div>
+        )}
+
+        {/* Drop zone highlight */}
+        {dragState && (
+          <div
+            className={`drop-zone-highlight ${dragState.isOverTarget ? 'active' : ''}`}
+            style={{
+              position: 'fixed',
+              ...(() => {
+                const slot = document.querySelector('.card-slot.right');
+                if (!slot) return { display: 'none' };
+                const rect = slot.getBoundingClientRect();
+                return {
+                  left: rect.left,
+                  top: rect.top,
+                  width: rect.width,
+                  height: rect.height,
+                };
+              })(),
+              pointerEvents: 'none',
+              zIndex: 999,
+              border: dragState.isOverTarget ? '3px solid #4CAF50' : '3px dashed #d4a857',
+              borderRadius: '8px',
+              backgroundColor: dragState.isOverTarget ? 'rgba(76, 175, 80, 0.2)' : 'rgba(212, 168, 87, 0.1)',
+            }}
+          />
+        )}
+
+        {/* Swap phase UI */}
+        {phase === 'swap' && !G.swapConfirmed?.[currentPlayer] && !swapConfirmedLocally && (
+          <div className="swap-overlay">
+            <button className="swap-confirm-btn" onClick={handleConfirmSwap}>
+              Confirm (No Swap)
+            </button>
+          </div>
+        )}
+
+        {phase === 'swap' && (G.swapConfirmed?.[currentPlayer] || swapConfirmedLocally) && (
+          <div className="swap-waiting">
+            <h3>Waiting for other players...</h3>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// Helper to get suit symbol
-function getSuitSymbol(suit) {
-  const symbols = {
-    Hearts: '♥',
-    Diamonds: '♦',
-    Clubs: '♣',
-    Spades: '♠',
-  };
-  return symbols[suit] || suit;
+// Flying Card Component - uses Web Animations API
+function FlyingCard({ card, playerIdx, targetSuit, onComplete }) {
+  const cardRef = useRef(null);
+
+  useEffect(() => {
+    const slotClasses = ['left', 'center-left', 'center-right', 'right'];
+    const slotOrder = [3, 0, 1, 2];
+    const slotClass = slotClasses[slotOrder[playerIdx]];
+
+    const sourceSlot = document.querySelector(`.card-slot.${slotClass}`);
+    const targetJob = document.querySelector(`.job-indicator .suit-symbol.${targetSuit.toLowerCase()}`);
+
+    if (!sourceSlot || !targetJob || !cardRef.current) return;
+
+    const sourceRect = sourceSlot.getBoundingClientRect();
+    const targetRect = targetJob.getBoundingClientRect();
+
+    const animation = cardRef.current.animate([
+      {
+        left: `${sourceRect.left + sourceRect.width / 2}px`,
+        top: `${sourceRect.top + sourceRect.height / 2}px`,
+        opacity: 1,
+        transform: 'translate(-50%, -50%) scale(1)'
+      },
+      {
+        left: `${targetRect.left + targetRect.width / 2}px`,
+        top: `${targetRect.top + targetRect.height / 2}px`,
+        opacity: 0,
+        transform: 'translate(-50%, -50%) scale(0.3)'
+      }
+    ], { duration: 600, fill: 'forwards' });
+
+    animation.onfinish = onComplete;
+  }, [playerIdx, targetSuit, onComplete]);
+
+  return (
+    <div ref={cardRef} className="flying-card-html">
+      <img src={getCardImagePath(card)} alt={`${card.value} of ${card.suit}`} />
+    </div>
+  );
+}
+
+// AI Play Card Component - animates AI card from hand area to slot
+function AIPlayCard({ card, playerIdx, onComplete }) {
+  const cardRef = useRef(null);
+
+  useEffect(() => {
+    const slotClasses = ['left', 'center-left', 'center-right', 'right'];
+    const slotOrder = [3, 0, 1, 2];
+    const slotClass = slotClasses[slotOrder[playerIdx]];
+
+    // Source: player's panel (hand area)
+    const playerPanel = document.querySelector(`.player-panel:nth-child(${slotOrder[playerIdx] + 1})`);
+    // Target: the card slot
+    const targetSlot = document.querySelector(`.card-slot.${slotClass}`);
+
+    if (!playerPanel || !targetSlot || !cardRef.current) {
+      // If elements not found, complete immediately
+      onComplete();
+      return;
+    }
+
+    const sourceRect = playerPanel.getBoundingClientRect();
+    const targetRect = targetSlot.getBoundingClientRect();
+
+    const animation = cardRef.current.animate([
+      {
+        left: `${sourceRect.left + sourceRect.width / 2}px`,
+        top: `${sourceRect.top + sourceRect.height / 2}px`,
+        opacity: 1,
+        transform: 'translate(-50%, -50%) scale(0.5)'
+      },
+      {
+        left: `${targetRect.left + targetRect.width / 2}px`,
+        top: `${targetRect.top + targetRect.height / 2}px`,
+        opacity: 1,
+        transform: 'translate(-50%, -50%) scale(1)'
+      }
+    ], { duration: 300, fill: 'forwards' });
+
+    animation.onfinish = onComplete;
+  }, [playerIdx, onComplete]);
+
+  return (
+    <div ref={cardRef} className="ai-play-card">
+      <img src={getCardImagePath(card)} alt={`${card.value} of ${card.suit}`} />
+    </div>
+  );
 }
 
 // Helper to get valid card indices
@@ -480,7 +536,6 @@ function getValidIndices(G, playerIdx, phase) {
   if (!player || !player.hand) return [];
 
   if (G.currentTrick.length === 0) {
-    // First card - all valid
     return player.hand.map((_, i) => i);
   }
 
@@ -493,6 +548,5 @@ function getValidIndices(G, playerIdx, phase) {
       .filter((i) => i >= 0);
   }
 
-  // Can't follow suit - all valid
   return player.hand.map((_, i) => i);
 }
