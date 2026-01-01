@@ -268,9 +268,10 @@ html, body {
   text-align: center;
 }
 
-/* Game Board */
+/* Game Board - Flexbox layout for proper scaling */
 .game-board {
-  position: relative;
+  display: flex;
+  flex-direction: row;
   width: 100vw;
   height: 100vh;
   background: var(--bg-primary);
@@ -279,18 +280,26 @@ html, body {
   overflow: hidden;
 }
 
+/* Main content area (SVG + hand) */
+.game-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  height: 100vh;
+}
+
+/* SVG area - fills available space above hand */
+.svg-container {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
 .board-svg {
   width: 100%;
   height: 100%;
   touch-action: none; /* Prevent scroll/zoom on the game board */
-}
-
-/* Ensure SVG scales properly on all screen sizes */
-@media (max-aspect-ratio: 16/9) {
-  .board-svg {
-    height: auto;
-    min-height: 100vh;
-  }
 }
 
 /* Right Sidebar (SVG-based) */
@@ -311,7 +320,7 @@ html, body {
 
 /* Trump Selection */
 .trump-selection {
-  position: absolute;
+  position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -363,17 +372,22 @@ html, body {
   color: var(--cream);
 }
 
-/* Player Hand */
+/* Player Hand - Fixed height area at bottom */
+.hand-area {
+  flex-shrink: 0;
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 50;
+}
+
 .hand {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
   justify-content: center;
   align-items: flex-end;
   min-height: 160px;
-  z-index: 50;
 }
 
 .hand.empty {
@@ -701,6 +715,44 @@ html, body {
   }
 }
 
+/* AI Assignment Flying Cards */
+.ai-flying-card {
+  position: fixed;
+  pointer-events: none;
+  z-index: 999;
+  left: var(--from-x);
+  top: var(--from-y);
+  transform: translate(-50%, -50%);
+  animation: ai-fly-to-job 0.4s ease-in-out forwards;
+  animation-delay: var(--delay);
+  opacity: 0;
+}
+
+.ai-flying-card img {
+  border-radius: 6px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5),
+              0 0 15px rgba(212, 168, 87, 0.4);
+}
+
+@keyframes ai-fly-to-job {
+  0% {
+    left: var(--from-x);
+    top: var(--from-y);
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1) rotate(-5deg);
+    opacity: 1;
+  }
+  100% {
+    left: var(--to-x);
+    top: var(--to-y);
+    transform: translate(-50%, -50%) scale(0.3) rotate(5deg);
+    opacity: 0;
+  }
+}
+
 /* Submit button */
 .assignment-submit {
   position: absolute;
@@ -1011,10 +1063,10 @@ html, body {
 /* Player Plot */
 .player-plot {
   position: absolute;
-  bottom: 20px;
-  left: 20px;
+  bottom: 10px;
+  left: 10px;
   background: var(--bg-secondary);
-  padding: 1rem;
+  padding: 0.75rem;
   border-radius: 4px;
   border: 1px solid var(--border-gold);
   z-index: 50;
@@ -1310,26 +1362,19 @@ html, body {
   75% { transform: rotate(90deg); }
 }
 
-/* Mobile Navigation Bar - vertical left column */
+/* Navigation Bar - vertical left column */
 .mobile-nav-bar {
-  display: none;
-}
-
-@media (max-width: 1024px) {
-  .mobile-nav-bar {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 10px;
-    background: var(--bg-primary);
-    z-index: 100;
-    height: 100vh;
-    position: fixed;
-    left: 0;
-    top: 0;
-    justify-content: flex-start;
-    padding-top: 20px;
-  }
+  display: flex;
+  flex-shrink: 0;
+  width: 100px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border-dark);
+  z-index: 100;
+  justify-content: flex-start;
+  padding-top: 20px;
 }
 
 .mobile-nav-bar .nav-btn {
@@ -1372,13 +1417,9 @@ html, body {
   box-shadow: 0 4px 15px rgba(196, 30, 58, 0.4);
 }
 
-/* Mobile Panel Content - centered in area right of nav bar */
+/* Mobile Panel Content - fills game-content area */
 .mobile-panel-content {
-  position: fixed;
-  top: 0;
-  left: 120px; /* nav bar width */
-  right: 0;
-  bottom: 0;
+  flex: 1;
   background: var(--bg-primary);
   display: flex;
   align-items: center;
@@ -1762,50 +1803,25 @@ html, body {
   color: var(--gold);
 }
 
-/* Mobile layout - flex with nav bar on left */
+/* Hide game content when panel is active */
+.game-board:has(.mobile-panel-content) .game-content {
+  display: none;
+}
+
+/* Hide player plot - shown in trick area via nav */
+.player-plot {
+  display: none;
+}
+
+/* Smaller layout on mobile */
 @media (max-width: 1024px) {
-  .game-board {
-    height: 100vh;
-    overflow: hidden;
-    padding-left: 120px; /* space for fixed nav bar */
-  }
-
-  /* Hide SVG sidebars - use mobile panels instead */
-  .job-piles-area,
-  .right-sidebar {
-    display: none;
-  }
-
-  /* SVG fills remaining space */
-  .board-svg {
-    width: 100%;
-    height: 100%;
-  }
-
-  /* Hide game content when panel is active */
-  .game-board:has(.mobile-panel-content) .board-svg,
-  .game-board:has(.mobile-panel-content) .hand,
-  .game-board:has(.mobile-panel-content) .player-plot,
-  .game-board:has(.mobile-panel-content) .assignment-ui,
-  .game-board:has(.mobile-panel-content) .swap-ui {
-    display: none;
-  }
-
-  /* Adjust hand position - closer to trick area, cards spread out */
-  .hand {
-    bottom: -50px;
-    left: 120px;
-    right: 0;
-    transform: none;
-    justify-content: center;
-  }
-
+  /* Hand cards spread out on mobile */
   .hand .hand-card {
-    margin: 0 5px;
+    margin: 0 -10px;
   }
 
-  /* Hide player plot on mobile - shown in trick area instead */
-  .player-plot {
-    display: none;
+  /* Smaller hand area on mobile */
+  .hand-area {
+    height: 140px;
   }
 }

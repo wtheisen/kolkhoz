@@ -1,9 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CardSVG } from './components/CardSVG.jsx';
 import { Hand } from './components/Hand.jsx';
 import { TrickArea } from './components/TrickArea.jsx';
-import { JobPilesArea } from './components/JobPilesArea.jsx';
-import { RightSidebar } from './components/RightSidebar.jsx';
 import { AssignmentDragDrop } from './components/AssignmentDragDrop.jsx';
 import { SwapDragDrop } from './components/SwapDragDrop.jsx';
 import { SUITS } from '../game/constants.js';
@@ -33,27 +31,132 @@ export function Board({ G, ctx, moves, playerID }) {
   // Ref to SVG element for coordinate conversion in drag-drop
   const svgRef = useRef(null);
 
-  // Track window size for responsive scaling
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  // SVG uses full width - no sidebars, nav bar is separate HTML element
+  const scaleFactor = 1;
+
+  // AI Assignment Animation state
+  const [flyingCards, setFlyingCards] = useState([]);
+  const prevJobBucketsRef = useRef(null);
+  const prevPhaseRef = useRef(phase);
+  const lastTrickSnapshotRef = useRef(null);
+
+  // Snapshot the trick when entering assignment phase
   useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    if (phase === 'assignment' && prevPhaseRef.current !== 'assignment') {
+      // Just entered assignment phase - snapshot the trick for potential animation
+      lastTrickSnapshotRef.current = {
+        trick: G.lastTrick,
+        winner: G.lastWinner,
+        jobBuckets: JSON.parse(JSON.stringify(G.jobBuckets)),
+      };
+    }
+    prevPhaseRef.current = phase;
+  }, [phase, G.lastTrick, G.lastWinner, G.jobBuckets]);
 
-  // Calculate layout dynamically based on sidebar visibility
-  // Sidebars are hidden when viewport <= 1024px (matches CSS media query)
-  const sidebarsVisible = windowWidth > 1024;
+  // Detect AI assignment completion and trigger animation
+  useEffect(() => {
+    // Only animate if AI won (not the human player)
+    if (G.lastWinner === currentPlayer) {
+      prevJobBucketsRef.current = G.jobBuckets;
+      return;
+    }
 
-  // SVG coordinate space: 1920x1080
-  // Left sidebar (jobs): 0-350, Right sidebar: 1570-1920
-  const leftBound = sidebarsVisible ? 350 : 0;
-  const rightBound = sidebarsVisible ? 1570 : 1920;
-  const availableWidth = rightBound - leftBound;
+    // Check if jobBuckets changed (cards were assigned)
+    const snapshot = lastTrickSnapshotRef.current;
+    if (!snapshot || !prevJobBucketsRef.current) {
+      prevJobBucketsRef.current = G.jobBuckets;
+      return;
+    }
 
-  // Scale factor: how much larger the play area is compared to desktop baseline
-  const desktopPlayWidth = 1220; // 1570 - 350
-  const scaleFactor = availableWidth / desktopPlayWidth;
+    // Find newly assigned cards by comparing bucket sizes
+    const newCards = [];
+    for (const suit of SUITS) {
+      const prevCount = prevJobBucketsRef.current[suit]?.length || 0;
+      const newCount = G.jobBuckets[suit]?.length || 0;
+      if (newCount > prevCount) {
+        // Cards were added to this suit's bucket
+        const addedCards = G.jobBuckets[suit].slice(prevCount);
+        addedCards.forEach(card => {
+          newCards.push({ card, targetSuit: suit });
+        });
+      }
+    }
+
+    // If cards were assigned by AI, animate them
+    if (newCards.length > 0 && snapshot.trick && svgRef.current) {
+      const svgRect = svgRef.current.getBoundingClientRect();
+      const viewBoxWidth = 1920;
+      const viewBoxHeight = 1080;
+      const scaleX = svgRect.width / viewBoxWidth;
+      const scaleY = svgRect.height / viewBoxHeight;
+
+      // TrickArea dimensions (must match TrickArea.jsx)
+      const centerX = 960;
+      const centerY = 470;
+      const width = 1100;
+      const height = 540;
+      const cardSpacing = 265;
+
+      // Calculate card source positions (trick card slots)
+      const getCardPosition = (playerIdx) => {
+        const slotOrder = [3, 0, 1, 2];
+        const slot = slotOrder[playerIdx];
+        const startX = -1.5 * cardSpacing;
+        return { x: centerX + startX + slot * cardSpacing, y: centerY + 85 };
+      };
+
+      // Calculate job icon target positions (info bar)
+      const leftEdge = centerX - width / 2 + 20;
+      const infoY = centerY - height / 2 + 38;
+      const jobStartX = leftEdge + 320;
+      const jobSpacing = 70;
+      const suitIndex = { Hearts: 0, Diamonds: 1, Clubs: 2, Spades: 3 };
+
+      const getJobPosition = (suit) => {
+        const idx = suitIndex[suit];
+        return { x: jobStartX + idx * jobSpacing, y: infoY };
+      };
+
+      // Create flying card animations
+      const animations = newCards.map((item, index) => {
+        // Find which player played this card in the trick
+        const trickEntry = snapshot.trick.find(([, c]) =>
+          c.suit === item.card.suit && c.value === item.card.value
+        );
+        const playerIdx = trickEntry ? trickEntry[0] : 0;
+
+        const sourcePos = getCardPosition(playerIdx);
+        const targetPos = getJobPosition(item.targetSuit);
+
+        // Convert SVG coords to screen coords
+        const fromX = svgRect.left + sourcePos.x * scaleX;
+        const fromY = svgRect.top + sourcePos.y * scaleY;
+        const toX = svgRect.left + targetPos.x * scaleX;
+        const toY = svgRect.top + targetPos.y * scaleY;
+
+        return {
+          id: `${item.card.suit}-${item.card.value}-${Date.now()}-${index}`,
+          card: item.card,
+          fromX,
+          fromY,
+          toX,
+          toY,
+          delay: index * 100, // Stagger animations
+        };
+      });
+
+      setFlyingCards(animations);
+
+      // Clear animations after they complete
+      const maxDelay = animations.length * 100;
+      setTimeout(() => {
+        setFlyingCards([]);
+        lastTrickSnapshotRef.current = null;
+      }, 500 + maxDelay);
+    }
+
+    prevJobBucketsRef.current = G.jobBuckets;
+  }, [G.jobBuckets, G.lastWinner, currentPlayer]);
 
   // Reset local swap confirmation when year changes
   useEffect(() => {
@@ -113,8 +216,8 @@ export function Board({ G, ctx, moves, playerID }) {
     moves.confirmSwap();
   };
 
-  // Center of play area - calculated from visible bounds
-  const playCenterX = (leftBound + rightBound) / 2;
+  // Center of play area - full width SVG
+  const playCenterX = 960; // Center of 1920
   const playCenterY = 470; // Moved down so top border fully visible
 
   // Render game over screen
@@ -138,96 +241,8 @@ export function Board({ G, ctx, moves, playerID }) {
 
   return (
     <div className="game-board">
-      {/* Trump selection UI */}
-      {phase === 'planning' && !G.trump && (
-        <div className="trump-selection">
-          <h3 title="Select Trump Suit">Выберите главную задачу</h3>
-          <div className="suit-buttons">
-            {SUITS.map((suit) => {
-              const suitNames = {
-                Hearts: { ru: 'Пшеница', en: 'Hearts (Wheat)' },
-                Diamonds: { ru: 'Свёкла', en: 'Diamonds (Beets)' },
-                Clubs: { ru: 'Картофель', en: 'Clubs (Potatoes)' },
-                Spades: { ru: 'Подсолнечник', en: 'Spades (Sunflowers)' },
-              };
-              return (
-                <button
-                  key={suit}
-                  onClick={() => handleSetTrump(suit)}
-                  className={`suit-btn ${suit.toLowerCase()}`}
-                  title={suitNames[suit].en}
-                >
-                  {getSuitSymbol(suit)} {suitNames[suit].ru}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Main SVG board */}
-      <svg ref={svgRef} viewBox="0 0 1920 1080" className="board-svg">
-        {/* Job Piles (left side) */}
-        <JobPilesArea
-          revealedJobs={G.revealedJobs}
-          workHours={G.workHours}
-          jobBuckets={G.jobBuckets}
-          claimedJobs={G.claimedJobs}
-          trump={G.trump}
-          phase={phase}
-          pendingAssignments={G.pendingAssignments}
-          onAssign={handleAssign}
-          lastTrick={G.lastTrick}
-        />
-
-        {/* Trick Area (center) - includes bot player areas */}
-        <TrickArea
-          trick={phase === 'assignment' ? G.lastTrick : G.currentTrick}
-          numPlayers={G.numPlayers}
-          lead={G.lead}
-          centerX={playCenterX}
-          centerY={playCenterY}
-          scale={scaleFactor}
-          year={G.year}
-          trump={G.trump}
-          phase={phase}
-          isMyTurn={isMyTurn}
-          currentPlayerName={G.players[ctx.currentPlayer]?.name}
-          showInfo={!sidebarsVisible}
-          players={G.players}
-          currentPlayer={parseInt(ctx.currentPlayer, 10)}
-          brigadeLeader={G.players.findIndex(p => p.brigadeLeader)}
-          displayMode={
-            phase === 'assignment' ? 'jobs' :
-            phase === 'swap' ? 'plot' :
-            !sidebarsVisible && activePanel === 'jobs' ? 'jobs' :
-            !sidebarsVisible && activePanel === 'gulag' ? 'gulag' :
-            !sidebarsVisible && activePanel === 'plot' ? 'plot' :
-            'game'
-          }
-          workHours={G.workHours}
-          claimedJobs={G.claimedJobs}
-          jobBuckets={G.jobBuckets}
-          revealedJobs={G.revealedJobs}
-          exiled={G.exiled}
-          playerPlot={G.players[currentPlayer]?.plot}
-        />
-
-        {/* Right Sidebar with game info and gulag */}
-        <RightSidebar
-          year={G.year}
-          trump={G.trump}
-          phase={phase}
-          currentPlayer={ctx.currentPlayer}
-          players={G.players}
-          isMyTurn={isMyTurn}
-          exiled={G.exiled}
-        />
-      </svg>
-
-      {/* Mobile navigation bar - vertical on left side */}
-      {!sidebarsVisible && (
-        <div className="mobile-nav-bar">
+      {/* Navigation bar - vertical on left side */}
+      <div className="mobile-nav-bar">
           <button
             className={`nav-btn ${activePanel === 'options' ? 'active' : ''}`}
             onClick={() => togglePanel('options')}
@@ -268,107 +283,194 @@ export function Board({ G, ctx, moves, playerID }) {
             <span className="nav-icon">🌱</span>
             <span className="nav-label" title="Plot">Подвал</span>
           </button>
+      </div>
+
+      {/* Panel content - only shows for options panel */}
+      {activePanel === 'options' && (
+        <div className="mobile-panel-content">
+          <div className="options-panel">
+            <h3 title="Menu">Меню</h3>
+            <div className="menu-options">
+              <div className="rules-section">
+                <h4>Kolkhoz Rules</h4>
+                <div className="rules-text">
+                  <h5>Objective</h5>
+                  <p>Complete collective farm jobs while protecting your private plot. Lowest score wins!</p>
+
+                  <h5>Gameplay</h5>
+                  <p>• Play cards to tricks - must follow lead suit if able</p>
+                  <p>• Trick winner assigns cards to matching job suits</p>
+                  <p>• Jobs need 40 work hours to complete</p>
+
+                  <h5>Trump Face Cards</h5>
+                  <p>• <strong>Jack (Пьяница)</strong>: Worth 0 hours, gets exiled instead of your cards</p>
+                  <p>• <strong>Queen (Доносчик)</strong>: All players become vulnerable</p>
+                  <p>• <strong>King (Чиновник)</strong>: Exiles two cards instead of one</p>
+                </div>
+              </div>
+              <button className="menu-btn-action" onClick={() => window.location.reload()}>
+                🔄 New Game
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Mobile panel content - only shows for options panel (jobs/gulag now in SVG) */}
-      {!sidebarsVisible && activePanel === 'options' && (
-        <div className="mobile-panel-content">
-          {/* Options/Menu Panel */}
-          {activePanel === 'options' && (
-            <div className="options-panel">
-              <h3 title="Menu">Меню</h3>
-              <div className="menu-options">
-                <div className="rules-section">
-                  <h4>Kolkhoz Rules</h4>
-                  <div className="rules-text">
-                    <h5>Objective</h5>
-                    <p>Complete collective farm jobs while protecting your private plot. Lowest score wins!</p>
+      {/* Main content area */}
+      <div className="game-content">
+        {/* Trump selection UI */}
+        {phase === 'planning' && !G.trump && (
+          <div className="trump-selection">
+            <h3 title="Select Trump Suit">Выберите главную задачу</h3>
+            <div className="suit-buttons">
+              {SUITS.map((suit) => {
+                const suitNames = {
+                  Hearts: { ru: 'Пшеница', en: 'Hearts (Wheat)' },
+                  Diamonds: { ru: 'Свёкла', en: 'Diamonds (Beets)' },
+                  Clubs: { ru: 'Картофель', en: 'Clubs (Potatoes)' },
+                  Spades: { ru: 'Подсолнечник', en: 'Spades (Sunflowers)' },
+                };
+                return (
+                  <button
+                    key={suit}
+                    onClick={() => handleSetTrump(suit)}
+                    className={`suit-btn ${suit.toLowerCase()}`}
+                    title={suitNames[suit].en}
+                  >
+                    {getSuitSymbol(suit)} {suitNames[suit].ru}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
-                    <h5>Gameplay</h5>
-                    <p>• Play cards to tricks - must follow lead suit if able</p>
-                    <p>• Trick winner assigns cards to matching job suits</p>
-                    <p>• Jobs need 40 work hours to complete</p>
+        {/* SVG container - scales to fill available space */}
+        <div className="svg-container">
+          <svg ref={svgRef} viewBox="0 0 1920 1080" className="board-svg">
+            {/* Trick Area (center) - includes bot player areas and info */}
+            <TrickArea
+              trick={phase === 'assignment' ? G.lastTrick : G.currentTrick}
+              numPlayers={G.numPlayers}
+              lead={G.lead}
+              centerX={playCenterX}
+              centerY={playCenterY}
+              scale={scaleFactor}
+              year={G.year}
+              trump={G.trump}
+              phase={phase}
+              isMyTurn={isMyTurn}
+              currentPlayerName={G.players[ctx.currentPlayer]?.name}
+              showInfo={true}
+              players={G.players}
+              currentPlayer={parseInt(ctx.currentPlayer, 10)}
+              brigadeLeader={G.players.findIndex(p => p.brigadeLeader)}
+              displayMode={
+                phase === 'assignment' ? 'jobs' :
+                phase === 'swap' ? 'plot' :
+                activePanel === 'jobs' ? 'jobs' :
+                activePanel === 'gulag' ? 'gulag' :
+                activePanel === 'plot' ? 'plot' :
+                'game'
+              }
+              workHours={G.workHours}
+              claimedJobs={G.claimedJobs}
+              jobBuckets={G.jobBuckets}
+              revealedJobs={G.revealedJobs}
+              exiled={G.exiled}
+              playerPlot={G.players[currentPlayer]?.plot}
+            />
+          </svg>
 
-                    <h5>Trump Face Cards</h5>
-                    <p>• <strong>Jack (Пьяница)</strong>: Worth 0 hours, gets exiled instead of your cards</p>
-                    <p>• <strong>Queen (Доносчик)</strong>: All players become vulnerable</p>
-                    <p>• <strong>King (Чиновник)</strong>: Exiles two cards instead of one</p>
-                  </div>
-                </div>
-                <button className="menu-btn-action" onClick={() => window.location.reload()}>
-                  🔄 New Game
-                </button>
-              </div>
+          {/* Assignment phase UI - Drag and Drop */}
+          {phase === 'assignment' && G.lastWinner === currentPlayer && (
+            <AssignmentDragDrop
+              lastTrick={G.lastTrick}
+              pendingAssignments={G.pendingAssignments}
+              onAssign={handleAssign}
+              onSubmit={handleSubmitAssignments}
+              svgRef={svgRef}
+              centerY={playCenterY}
+              scale={scaleFactor}
+            />
+          )}
+
+          {/* Swap phase UI - Drag and Drop */}
+          {phase === 'swap' && !G.swapConfirmed?.[currentPlayer] && !swapConfirmedLocally && (
+            <SwapDragDrop
+              hand={G.players[currentPlayer]?.hand || []}
+              plot={G.players[currentPlayer]?.plot}
+              onSwap={(plotIdx, handIdx, plotType) => moves.swapCard(plotIdx, handIdx, plotType)}
+              onConfirm={handleConfirmSwap}
+              svgRef={svgRef}
+              centerY={playCenterY}
+              scale={scaleFactor}
+              year={G.year}
+            />
+          )}
+
+          {/* Waiting for others during swap */}
+          {phase === 'swap' && (G.swapConfirmed?.[currentPlayer] || swapConfirmedLocally) && (
+            <div className="swap-ui">
+              <h3>Waiting for other players...</h3>
             </div>
           )}
 
-        </div>
-      )}
+          {/* Player's plot - desktop only */}
+          <div className="player-plot">
+            <h4 title="Your Plot (Cellar)">Подвал</h4>
+            <div className="plot-cards">
+              {G.players[currentPlayer]?.plot.revealed.map((card, idx) => (
+                <CardSVG key={`r-${idx}`} card={card} width={60} />
+              ))}
+              {G.players[currentPlayer]?.plot.hidden.map((card, idx) => (
+                <div
+                  key={`h-${idx}`}
+                  className={`hidden-plot-card ${revealedHiddenCard === idx ? 'revealed' : ''}`}
+                  title="Tap to reveal"
+                  onClick={() => setRevealedHiddenCard(revealedHiddenCard === idx ? null : idx)}
+                >
+                  <CardSVG card={card} width={60} faceDown className="card-back" />
+                  <CardSVG card={card} width={60} className="card-front" />
+                </div>
+              ))}
+            </div>
+          </div>
 
-      {/* Player's hand (HTML for interactivity) */}
-      <Hand
-        cards={G.players[currentPlayer]?.hand || []}
-        onPlayCard={handlePlayCard}
-        canPlay={phase === 'trick' && isMyTurn}
-        leadSuit={G.currentTrick[0]?.[1]?.suit}
-        trump={G.trump}
-        validIndices={getValidIndices(G, currentPlayer, phase)}
-        className={phase === 'assignment' ? 'shifted' : ''}
-      />
-
-      {/* Assignment phase UI - Drag and Drop */}
-      {phase === 'assignment' && G.lastWinner === currentPlayer && (
-        <AssignmentDragDrop
-          lastTrick={G.lastTrick}
-          pendingAssignments={G.pendingAssignments}
-          onAssign={handleAssign}
-          onSubmit={handleSubmitAssignments}
-          svgRef={svgRef}
-          centerY={playCenterY}
-          scale={scaleFactor}
-        />
-      )}
-
-      {/* Swap phase UI - Drag and Drop */}
-      {phase === 'swap' && !G.swapConfirmed?.[currentPlayer] && !swapConfirmedLocally && (
-        <SwapDragDrop
-          hand={G.players[currentPlayer]?.hand || []}
-          plot={G.players[currentPlayer]?.plot}
-          onSwap={(plotIdx, handIdx, plotType) => moves.swapCard(plotIdx, handIdx, plotType)}
-          onConfirm={handleConfirmSwap}
-          svgRef={svgRef}
-          centerY={playCenterY}
-          scale={scaleFactor}
-          year={G.year}
-        />
-      )}
-
-      {/* Waiting for others during swap */}
-      {phase === 'swap' && (G.swapConfirmed?.[currentPlayer] || swapConfirmedLocally) && (
-        <div className="swap-ui">
-          <h3>Waiting for other players...</h3>
-        </div>
-      )}
-
-      {/* Player's plot */}
-      <div className="player-plot">
-        <h4 title="Your Plot (Cellar)">Подвал</h4>
-        <div className="plot-cards">
-          {G.players[currentPlayer]?.plot.revealed.map((card, idx) => (
-            <CardSVG key={`r-${idx}`} card={card} width={60} />
-          ))}
-          {G.players[currentPlayer]?.plot.hidden.map((card, idx) => (
+          {/* AI Assignment Flying Cards Animation */}
+          {flyingCards.map((fc) => (
             <div
-              key={`h-${idx}`}
-              className={`hidden-plot-card ${revealedHiddenCard === idx ? 'revealed' : ''}`}
-              title="Tap to reveal"
-              onClick={() => setRevealedHiddenCard(revealedHiddenCard === idx ? null : idx)}
+              key={fc.id}
+              className="ai-flying-card"
+              style={{
+                '--from-x': `${fc.fromX}px`,
+                '--from-y': `${fc.fromY}px`,
+                '--to-x': `${fc.toX}px`,
+                '--to-y': `${fc.toY}px`,
+                '--delay': `${fc.delay}ms`,
+              }}
             >
-              <CardSVG card={card} width={60} faceDown className="card-back" />
-              <CardSVG card={card} width={60} className="card-front" />
+              <img
+                src={getCardImagePath(fc.card)}
+                alt={`${fc.card.value} of ${fc.card.suit}`}
+                width={80}
+                height={112}
+              />
             </div>
           ))}
+        </div>
+
+        {/* Hand area - fixed height at bottom */}
+        <div className="hand-area">
+          <Hand
+            cards={G.players[currentPlayer]?.hand || []}
+            onPlayCard={handlePlayCard}
+            canPlay={phase === 'trick' && isMyTurn}
+            leadSuit={G.currentTrick[0]?.[1]?.suit}
+            trump={G.trump}
+            validIndices={getValidIndices(G, currentPlayer, phase)}
+            className={phase === 'assignment' ? 'shifted' : ''}
+          />
         </div>
       </div>
     </div>
