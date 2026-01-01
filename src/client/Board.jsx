@@ -115,7 +115,7 @@ export function Board({ G, ctx, moves, playerID }) {
 
   const isOverDropZone = (x, y) => {
     // Find player 0's card slot (the rightmost one)
-    const slot = document.querySelector('.card-slot.right');
+    const slot = document.querySelector('.player-column.right .card-slot');
     if (!slot) return false;
     const rect = slot.getBoundingClientRect();
     return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
@@ -400,7 +400,7 @@ export function Board({ G, ctx, moves, playerID }) {
             style={{
               position: 'fixed',
               ...(() => {
-                const slot = document.querySelector('.card-slot.right');
+                const slot = document.querySelector('.player-column.right .card-slot');
                 if (!slot) return { display: 'none' };
                 const rect = slot.getBoundingClientRect();
                 return {
@@ -447,7 +447,7 @@ function FlyingCard({ card, playerIdx, targetSuit, onComplete }) {
     const slotOrder = [3, 0, 1, 2];
     const slotClass = slotClasses[slotOrder[playerIdx]];
 
-    const sourceSlot = document.querySelector(`.card-slot.${slotClass}`);
+    const sourceSlot = document.querySelector(`.player-column.${slotClass} .card-slot`);
     const targetJob = document.querySelector(`.job-indicator .suit-symbol.${targetSuit.toLowerCase()}`);
 
     if (!sourceSlot || !targetJob || !cardRef.current) return;
@@ -489,10 +489,10 @@ function AIPlayCard({ card, playerIdx, onComplete }) {
     const slotOrder = [3, 0, 1, 2];
     const slotClass = slotClasses[slotOrder[playerIdx]];
 
-    // Source: player's panel (hand area)
-    const playerPanel = document.querySelector(`.player-panel:nth-child(${slotOrder[playerIdx] + 1})`);
+    // Source: player's panel (hand area) - find via column's slot class
+    const playerPanel = document.querySelector(`.player-column.${slotClass} .player-panel`);
     // Target: the card slot
-    const targetSlot = document.querySelector(`.card-slot.${slotClass}`);
+    const targetSlot = document.querySelector(`.player-column.${slotClass} .card-slot`);
 
     if (!playerPanel || !targetSlot || !cardRef.current) {
       // If elements not found, complete immediately
@@ -516,7 +516,7 @@ function AIPlayCard({ card, playerIdx, onComplete }) {
         opacity: 1,
         transform: 'translate(-50%, -50%) scale(1)'
       }
-    ], { duration: 300, fill: 'forwards' });
+    ], { duration: 500, fill: 'forwards' });
 
     animation.onfinish = onComplete;
   }, [playerIdx, onComplete]);

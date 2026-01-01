@@ -121,22 +121,33 @@
   display: flex;
   flex-direction: column;
   flex: 1;
-  min-height: 0; /* Required for nested flex percentage heights */
+  min-height: 0;        /* Critical for nested flex */
+  min-width: 0;         /* Critical for nested flex */
+  overflow: hidden;     /* Clip any overflow */
   position: relative;
   padding: clamp(0.25rem, 0.5vh, 0.5rem);
 }
 
-/* Player Panels - 4 slots (3 AI + 1 spacer) to align with card slots */
-.player-panels {
+/* Four-Column Layout */
+.player-columns {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: clamp(0.2rem, 0.4vh, 0.4rem) 2%;
-  gap: 1%;
+  justify-content: space-evenly;
+  align-items: stretch;
+  flex: 1;
+  gap: clamp(0.5rem, 2vw, 2rem);
+  padding: 0.5rem clamp(0.5rem, 3vw, 2rem);
+  min-height: 0;
+  overflow: hidden;
 }
 
-.player-panel.spacer {
-  visibility: hidden;
+.player-column {
+  flex: 1 1 0;          /* Equal distribution */
+  min-width: 0;         /* Allow shrinking */
+  max-width: clamp(160px, 20vw, 280px);  /* Responsive max */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .player-panel {
@@ -148,8 +159,18 @@
   background: rgba(20, 20, 20, 0.9);
   border: 1px solid #444;
   border-radius: 6px;
-  flex: 1;
-  max-width: 22%;
+  width: 100%;
+  min-height: clamp(36px, 5vw, 56px);  /* Consistent height across all panels */
+  flex-shrink: 0;       /* Don't shrink panel */
+}
+
+.player-panel.human {
+  background: rgba(212, 168, 87, 0.15);
+  border-color: #d4a857;
+}
+
+.player-panel.human .player-name {
+  color: #d4a857;
 }
 
 .player-panel.active {
@@ -221,22 +242,13 @@
   margin-left: 0.25em;
 }
 
-/* Card Slots - fills remaining space after player panels */
-.card-slots {
-  flex: 1;
-  min-height: 0; /* Required for nested flex percentage heights */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0 2% 10px 2%; /* Bottom padding to stay above inner red border */
-  gap: 3%;
-}
-
+/* Card Slots */
 .card-slot {
-  /* Constrained size with aspect ratio */
+  width: 100%;
+  flex: 1;
+  min-height: 0;        /* Allow shrinking */
+  max-height: calc(100% - 3rem);  /* Leave room for panel */
   aspect-ratio: 5/7;
-  max-width: clamp(80px, 15vw, 140px);
-  max-height: clamp(112px, 21vw, 196px);
   border: 2px dashed rgba(255, 255, 255, 0.15);
   border-radius: 8px;
   display: flex;
@@ -245,12 +257,6 @@
   position: relative;
   transition: all 0.2s ease;
 }
-
-/* Order slots visually: left, center-left, center-right, right */
-.card-slot.left { order: 1; }
-.card-slot.center-left { order: 2; }
-.card-slot.center-right { order: 3; }
-.card-slot.right { order: 4; }
 
 .card-slot.current-turn {
   border-color: #c41e3a;

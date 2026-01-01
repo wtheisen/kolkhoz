@@ -102,69 +102,55 @@ export function TrickAreaHTML({
       {/* Main Content Area */}
       <div className="play-area">
         {displayMode === 'game' && (
-          <>
-            {/* Player info panels row - 4 slots to match card slots */}
-            <div className="player-panels">
-              {[1, 2, 3, 0].map((playerIdx) => {
-                // Player 0 is human - render empty spacer
-                if (playerIdx === 0) {
-                  return <div key={playerIdx} className="player-panel spacer" />;
-                }
+          <div className="player-columns">
+            {[1, 2, 3, 0].map((playerIdx) => {
+              const player = players?.[playerIdx];
+              const handSize = player?.hand?.length || 0;
+              const revealedCards = player?.plot?.revealed || [];
+              const hiddenCount = player?.plot?.hidden?.length || 0;
+              const visibleScore = revealedCards.reduce((sum, c) => sum + c.value, 0) + hiddenCount;
+              const isActive = currentPlayer === playerIdx;
+              const isLeader = brigadeLeader === playerIdx;
+              const card = getCardForPlayer(playerIdx);
+              const hasPlayed = hasPlayerPlayed(playerIdx);
+              const isCurrentTurn = currentPlayer === playerIdx && !hasPlayed;
+              const isHumanTurn = isMyTurn && playerIdx === 0 && !hasPlayed;
 
-                const player = players?.[playerIdx];
-                const handSize = player?.hand?.length || 0;
-                const revealedCards = player?.plot?.revealed || [];
-                const hiddenCount = player?.plot?.hidden?.length || 0;
-                const visibleScore = revealedCards.reduce((sum, c) => sum + c.value, 0) + hiddenCount;
-                const isActive = currentPlayer === playerIdx;
-                const isLeader = brigadeLeader === playerIdx;
-
-                return (
-                  <div
-                    key={playerIdx}
-                    className={`player-panel ${isActive ? 'active' : ''}`}
-                  >
-                    <img
-                      src={PORTRAITS[(playerIdx - 1) % PORTRAITS.length]}
-                      alt={player?.name}
-                      className="portrait"
-                    />
+              return (
+                <div key={playerIdx} className={`player-column ${getSlotClass(playerIdx)}`}>
+                  <div className={`player-panel ${isActive ? 'active' : ''} ${playerIdx === 0 ? 'human' : ''}`}>
+                    {playerIdx !== 0 && (
+                      <img
+                        src={PORTRAITS[(playerIdx - 1) % PORTRAITS.length]}
+                        alt={player?.name}
+                        className="portrait"
+                      />
+                    )}
                     <div className="player-info">
                       <span className="player-name">
-                        {player?.name || `Player ${playerIdx}`}
+                        {playerIdx === 0 ? 'Вы' : (player?.name || `Player ${playerIdx}`)}
                         {isLeader && <span className="leader-star">★</span>}
                       </span>
                       <span className="player-score">
-                        {visibleScore > 0 ? `${visibleScore} pts` : `${handSize} cards`}
+                        {visibleScore > 0 ? `${visibleScore} pts` : (playerIdx === 0 ? '' : `${handSize} cards`)}
                       </span>
                     </div>
-                    <div className="player-hand-cards">
-                      {Array.from({ length: Math.min(4, handSize) }).map((_, idx) => (
-                        <img
-                          key={idx}
-                          src="assets/cards/back.svg"
-                          alt="card"
-                          className="mini-card"
-                        />
-                      ))}
-                      {handSize > 4 && <span className="extra-cards">+{handSize - 4}</span>}
-                    </div>
+                    {playerIdx !== 0 && (
+                      <div className="player-hand-cards">
+                        {Array.from({ length: Math.min(4, handSize) }).map((_, idx) => (
+                          <img
+                            key={idx}
+                            src="assets/cards/back.svg"
+                            alt="card"
+                            className="mini-card"
+                          />
+                        ))}
+                        {handSize > 4 && <span className="extra-cards">+{handSize - 4}</span>}
+                      </div>
+                    )}
                   </div>
-                );
-              })}
-            </div>
 
-            {/* Card slots row */}
-            <div className="card-slots">
-              {[0, 1, 2, 3].map((playerIdx) => {
-                const card = getCardForPlayer(playerIdx);
-                const hasPlayed = hasPlayerPlayed(playerIdx);
-                const isCurrentTurn = currentPlayer === playerIdx && !hasPlayed;
-                const isHumanTurn = isMyTurn && playerIdx === 0 && !hasPlayed;
-
-                return (
                   <div
-                    key={playerIdx}
                     className={`card-slot ${getSlotClass(playerIdx)} ${isCurrentTurn ? 'current-turn' : ''} ${isHumanTurn ? 'human-turn' : ''}`}
                     data-player={playerIdx}
                   >
@@ -183,10 +169,10 @@ export function TrickAreaHTML({
                       </div>
                     )}
                   </div>
-                );
-              })}
-            </div>
-          </>
+                </div>
+              );
+            })}
+          </div>
         )}
 
         {displayMode === 'jobs' && (
