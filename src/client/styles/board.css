@@ -304,13 +304,56 @@ html, body {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: 7vw;
+  gap: clamp(1rem, 3vw, 2rem);
   padding: 0 clamp(16px, 3vw, 40px);
   padding-left: calc(100px + clamp(16px, 3vw, 40px)); /* Account for nav bar */
   background: transparent;
   z-index: 50;
   overflow: visible;
   transform: translateY(50%);
+}
+
+/* Plot cards section */
+.player-hand-area .plot-cards-section {
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(8px, 1vw, 16px);
+}
+
+.player-hand-area .plot-card {
+  position: relative;
+}
+
+.player-hand-area .plot-card img {
+  width: var(--card-width, clamp(50px, 10vw, 120px));
+  border-radius: 6px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  opacity: 0.85;
+}
+
+.player-hand-area .plot-card.revealed img {
+  border: 2px solid #4CAF50;
+}
+
+.player-hand-area .plot-card.hidden img {
+  border: 2px solid #c41e3a;
+}
+
+/* Divider between plot and hand */
+.player-hand-area .hand-divider {
+  width: 2px;
+  height: calc(var(--card-width, clamp(50px, 10vw, 120px)) * 1.2);
+  background: linear-gradient(to bottom, transparent, #d4a857, #d4a857, transparent);
+  margin: 0 clamp(0.5rem, 1vw, 1rem);
+  align-self: center;
+  transform: translateY(-25%);
+}
+
+/* Hand cards section */
+.player-hand-area .hand-cards-section {
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(8px, 1vw, 16px);
 }
 
 .player-hand-area .hand-card {

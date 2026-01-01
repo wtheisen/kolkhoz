@@ -357,28 +357,58 @@ export function Board({ G, ctx, moves, playerID }) {
           />
         )}
 
-        {/* Player's hand */}
+        {/* Player's hand with plot cards */}
         <div className="player-hand-area">
-          {G.players[currentPlayer]?.hand.map((card, idx) => {
-            const isValid = getValidIndices(G, currentPlayer, phase)?.includes(idx);
-            const canPlay = phase === 'trick' && isMyTurn;
-            const isDragging = dragState?.index === idx;
-
-            return (
-              <div
-                key={`${card.suit}-${card.value}`}
-                className={`hand-card ${canPlay && isValid ? 'playable' : ''} ${canPlay && !isValid ? 'invalid' : ''} ${isDragging ? 'dragging' : ''}`}
-                onMouseDown={(e) => handleDragStart(idx, card, e)}
-                onTouchStart={(e) => handleDragStart(idx, card, e)}
-              >
-                <img
-                  src={getCardImagePath(card)}
-                  alt={`${card.value} of ${card.suit}`}
-                  draggable={false}
-                />
+          {/* Plot cards on the left */}
+          {(G.players[currentPlayer]?.plot?.revealed?.length > 0 || G.players[currentPlayer]?.plot?.hidden?.length > 0) && (
+            <>
+              <div className="plot-cards-section">
+                {G.players[currentPlayer]?.plot?.revealed?.map((card, idx) => (
+                  <div key={`revealed-${card.suit}-${card.value}`} className="plot-card revealed">
+                    <img
+                      src={getCardImagePath(card)}
+                      alt={`${card.value} of ${card.suit}`}
+                      draggable={false}
+                    />
+                  </div>
+                ))}
+                {G.players[currentPlayer]?.plot?.hidden?.map((card, idx) => (
+                  <div key={`hidden-${card.suit}-${card.value}`} className="plot-card hidden">
+                    <img
+                      src={getCardImagePath(card)}
+                      alt={`${card.value} of ${card.suit}`}
+                      draggable={false}
+                    />
+                  </div>
+                ))}
               </div>
-            );
-          })}
+              <div className="hand-divider" />
+            </>
+          )}
+
+          {/* Hand cards */}
+          <div className="hand-cards-section">
+            {G.players[currentPlayer]?.hand.map((card, idx) => {
+              const isValid = getValidIndices(G, currentPlayer, phase)?.includes(idx);
+              const canPlay = phase === 'trick' && isMyTurn;
+              const isDragging = dragState?.index === idx;
+
+              return (
+                <div
+                  key={`${card.suit}-${card.value}`}
+                  className={`hand-card ${canPlay && isValid ? 'playable' : ''} ${canPlay && !isValid ? 'invalid' : ''} ${isDragging ? 'dragging' : ''}`}
+                  onMouseDown={(e) => handleDragStart(idx, card, e)}
+                  onTouchStart={(e) => handleDragStart(idx, card, e)}
+                >
+                  <img
+                    src={getCardImagePath(card)}
+                    alt={`${card.value} of ${card.suit}`}
+                    draggable={false}
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Drag ghost card */}
