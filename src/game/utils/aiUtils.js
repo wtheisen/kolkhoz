@@ -246,6 +246,118 @@ function evaluateWinDesirability(G, playerIdx) {
 }
 
 /**
+ * Score a potential swap decision
+ * Higher = more beneficial swap
+ * Returns negative if swap is bad, 0 if neutral, positive if good
+ */
+export function scoreSwap(G, playerIdx, handCardIndex, plotCardIndex, plotType) {
+  const player = G.players[playerIdx];
+  const handCard = player.hand[handCardIndex];
+  const plotArray = plotType === 'revealed' ? player.plot.revealed : player.plot.hidden;
+  const plotCard = plotArray[plotCardIndex];
+
+  if (!handCard || !plotCard) return -100;
+
+  let score = 0;
+
+  // Basic value comparison: high value cards are better in hand for tricks
+  const handValue = handCard.value;
+  const plotValue = plotCard.value;
+
+  // We want HIGH cards in hand (for winning tricks) and LOW cards in plot (less penalty if requisitioned)
+  const valueDiff = plotValue - handValue;
+  score += valueDiff * 2; // Getting a higher card in hand is good
+
+  // Consider job completion status - if job is complete, that suit is safe in plot
+  const handSuitComplete = G.claimedJobs?.includes(handCard.suit);
+  const plotSuitComplete = G.claimedJobs?.includes(plotCard.suit);
+
+  // Safe to move cards of completed suits to plot
+  if (handSuitComplete && !plotSuitComplete) {
+    score += 10; // Hand card is safe to put in plot
+  }
+  if (plotSuitComplete && !handSuitComplete) {
+    score -= 10; // Plot card's suit is already safe, don't bring it to hand
+  }
+
+  // Consider current work hours - suits close to completion are "safer"
+  const handSuitHours = G.workHours[handCard.suit] || 0;
+  const plotSuitHours = G.workHours[plotCard.suit] || 0;
+
+  // Cards of suits with high hours (close to completion) are safer in plot
+  if (handSuitHours >= 30) score += 5;
+  if (plotSuitHours >= 30) score -= 5;
+
+  // Trump cards are valuable in hand - don't swap them to plot
+  if (handCard.suit === G.trump) {
+    score -= 15; // Penalty for putting trump in plot
+  }
+  if (plotCard.suit === G.trump) {
+    score += 15; // Bonus for getting trump in hand
+  }
+
+  // High cards (J, Q, K) are more valuable in hand for winning tricks
+  if (handCard.value >= 11) score -= 8;
+  if (plotCard.value >= 11) score += 8;
+
+  // Revealed cards are more "known" - AI might prefer swapping hidden
+  if (plotType === 'hidden') {
+    score += 2; // Slight preference for swapping hidden cards
+  }
+
+  return score;
+}
+
+/**
+ * Get best swap moves for AI player
+ * Returns array of swapCard moves sorted by score, plus confirmSwap when done
+ */
+export function getAISwapMoves(G, playerIdx) {
+  const player = G.players[playerIdx];
+  const moves = [];
+
+  // Evaluate all possible swaps
+  const allSwaps = [];
+
+  for (let handIdx = 0; handIdx < player.hand.length; handIdx++) {
+    // Check hidden plot cards
+    for (let plotIdx = 0; plotIdx < player.plot.hidden.length; plotIdx++) {
+      const score = scoreSwap(G, playerIdx, handIdx, plotIdx, 'hidden');
+      if (score > 5) { // Only consider swaps with meaningful benefit
+        allSwaps.push({ handIdx, plotIdx, plotType: 'hidden', score });
+      }
+    }
+    // Check revealed plot cards
+    for (let plotIdx = 0; plotIdx < player.plot.revealed.length; plotIdx++) {
+      const score = scoreSwap(G, playerIdx, handIdx, plotIdx, 'revealed');
+      if (score > 5) { // Only consider swaps with meaningful benefit
+        allSwaps.push({ handIdx, plotIdx, plotType: 'revealed', score });
+      }
+    }
+  }
+
+  // Sort by score (best first)
+  allSwaps.sort((a, b) => b.score - a.score);
+
+  // AI makes at most 1-2 swaps per turn (to keep it reasonable)
+  const maxSwaps = Math.min(2, allSwaps.length);
+
+  for (let i = 0; i < maxSwaps; i++) {
+    const swap = allSwaps[i];
+    moves.push({
+      move: 'swapCard',
+      args: [swap.plotIdx, swap.handIdx, swap.plotType],
+      score: swap.score
+    });
+  }
+
+  // Always end with confirmSwap to finish the turn
+  moves.push({ move: 'confirmSwap', args: [], score: 0 });
+
+  return moves;
+}
+
+/**
  * Score trump suit selection
  * Higher = better trump choice
  */
@@ -421,8 +533,9 @@ export function getPrioritizedMoves(G, ctx, playerIdx) {
       moves.push({ move: 'submitAssignments', args: [], score: 100 });
     }
   } else if (ctx.phase === 'swap') {
-    // AI players are auto-confirmed in swap phase onBegin, so no moves needed
-    // Don't enumerate confirmSwap - it causes "player not active" errors
+    // AI makes swap decisions during their turn
+    const swapMoves = getAISwapMoves(G, playerIdx);
+    moves.push(...swapMoves);
   }
 
   // Sort by score (highest first)

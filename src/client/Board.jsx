@@ -6,6 +6,7 @@ export function Board({ G, ctx, moves, playerID }) {
   const currentPlayer = parseInt(playerID, 10);
   const isMyTurn = ctx.currentPlayer === playerID;
   const phase = ctx.phase;
+  const currentSwapPlayer = phase === 'swap' ? parseInt(ctx.currentPlayer, 10) : null;
 
   // Mobile panel toggle
   const [activePanel, setActivePanel] = useState(null);
@@ -23,8 +24,9 @@ export function Board({ G, ctx, moves, playerID }) {
 
   // Swap drag state (for swap phase)
   const [swapDragState, setSwapDragState] = useState(null);
-  const plotCardRefs = useRef({});
+  const plotCardRefs = useRef({});  // For plot cards in hand area (non-swap phases)
   const handCardRefs = useRef({});
+  const plotDropRefs = useRef({});  // For plot cards in panel (swap phase drop targets)
 
   // Assignment drag state (for assignment phase)
   const [assignDragState, setAssignDragState] = useState(null);
@@ -193,7 +195,20 @@ export function Board({ G, ctx, moves, playerID }) {
 
   // Swap drag handlers
   const findSwapDropTarget = (x, y, sourceType) => {
-    // Check plot cards
+    // Check plot cards in panel (plotDropRefs - used during swap phase)
+    for (const [key, ref] of Object.entries(plotDropRefs.current)) {
+      if (!ref) continue;
+      const rect = ref.getBoundingClientRect();
+      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+        const [type, indexStr] = key.split('-');
+        const index = parseInt(indexStr, 10);
+        // Only valid if dragging from hand
+        if (sourceType === 'hand') {
+          return { type: `plot-${type}`, index };
+        }
+      }
+    }
+    // Check plot cards in hand area (plotCardRefs - fallback for non-panel mode)
     for (const [key, ref] of Object.entries(plotCardRefs.current)) {
       if (!ref) continue;
       const rect = ref.getBoundingClientRect();
@@ -514,6 +529,13 @@ export function Board({ G, ctx, moves, playerID }) {
           onAssignDragStart={handleAssignDragStart}
           jobDropRefs={jobDropRefs}
           onSubmitAssignments={handleSubmitAssignments}
+          // Swap phase props
+          swapDragState={swapDragState}
+          onSwapDragStart={handleSwapDragStart}
+          plotDropRefs={plotDropRefs}
+          swapConfirmed={G.swapConfirmed || {}}
+          currentSwapPlayer={phase === 'swap' ? parseInt(ctx.currentPlayer, 10) : null}
+          lastSwap={G.lastSwap}
         />
 
         {/* Flying Card Animation */}
@@ -543,9 +565,9 @@ export function Board({ G, ctx, moves, playerID }) {
         )}
 
         {/* Player's hand with plot cards */}
-        <div className={`player-hand-area ${phase === 'assignment' ? 'assignment-mode' : ''}`}>
-          {/* ZONE 1: Plot cards */}
-          {(G.players[currentPlayer]?.plot?.revealed?.length > 0 || G.players[currentPlayer]?.plot?.hidden?.length > 0) && (
+        <div className={`player-hand-area ${phase === 'assignment' ? 'assignment-mode' : ''} ${phase === 'swap' ? 'swap-mode' : ''}`}>
+          {/* ZONE 1: Plot cards (hidden during swap phase - shown in panel instead) */}
+          {phase !== 'swap' && (G.players[currentPlayer]?.plot?.revealed?.length > 0 || G.players[currentPlayer]?.plot?.hidden?.length > 0) && (
             <div className="plot-cards-section">
               {G.players[currentPlayer]?.plot?.revealed?.map((card, idx) => {
                 const isSwapDragging = swapDragState?.sourceType === 'plot-revealed' && swapDragState?.sourceIndex === idx;
@@ -596,14 +618,8 @@ export function Board({ G, ctx, moves, playerID }) {
             </div>
           )}
 
-          {/* Swap controls OR divider between plot and hand */}
-          {phase === 'swap' && !G.swapConfirmed?.[currentPlayer] && !swapConfirmedLocally ? (
-            <div className="swap-controls">
-              <button className="swap-confirm-btn" onClick={handleConfirmSwap}>
-                Confirm
-              </button>
-            </div>
-          ) : (G.players[currentPlayer]?.plot?.revealed?.length > 0 || G.players[currentPlayer]?.plot?.hidden?.length > 0) && (
+          {/* Divider between plot and hand (non-swap phases) */}
+          {phase !== 'swap' && (G.players[currentPlayer]?.plot?.revealed?.length > 0 || G.players[currentPlayer]?.plot?.hidden?.length > 0) && (
             <div className="hand-divider" />
           )}
 
@@ -690,6 +706,13 @@ export function Board({ G, ctx, moves, playerID }) {
               </>
             );
           })()}
+
+          {/* Swap phase: confirm button to the right of hand */}
+          {phase === 'swap' && currentSwapPlayer === 0 && !G.swapConfirmed?.[currentPlayer] && !swapConfirmedLocally && (
+            <button className="confirm-swap-btn" onClick={handleConfirmSwap}>
+              Confirm
+            </button>
+          )}
         </div>
 
         {/* Drag ghost card */}

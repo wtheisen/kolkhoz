@@ -574,6 +574,38 @@ html, body {
   box-shadow: 0 0 15px rgba(196, 30, 58, 0.4);
 }
 
+/* Swap confirm button in hand area - right side like assignment */
+.player-hand-area .confirm-swap-btn {
+  padding: clamp(1rem, 2vh, 1.6rem) clamp(2rem, 5vw, 3rem);
+  background: linear-gradient(135deg, #8b0000 0%, #c41e3a 50%, #8b0000 100%);
+  color: #e8dcc4;
+  border: 3px solid #d4a857;
+  border-radius: 8px;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(1.2rem, 2.5vw, 1.8rem);
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: confirm-appear 0.3s ease-out;
+  /* Right-justify the button */
+  margin-left: auto;
+  margin-right: clamp(16px, 3vw, 32px);
+  /* Keep button in visible area above the 50% fold */
+  margin-bottom: auto;
+  flex-shrink: 0;
+}
+
+.player-hand-area .confirm-swap-btn:hover {
+  background: linear-gradient(135deg, #6b0000 0%, #a01830 50%, #6b0000 100%);
+  box-shadow: 0 0 20px rgba(196, 30, 58, 0.5), 0 0 30px rgba(212, 168, 87, 0.2);
+  transform: scale(1.05);
+}
+
 .swap-waiting {
   display: flex;
   align-items: center;
@@ -588,7 +620,83 @@ html, body {
   animation: pulse 1.5s ease-in-out infinite;
 }
 
-/* Swap drag states for cards */
+/* ============================================
+   SWAP MODE - Hand Area Styling
+   Hand cards as drag sources during swap phase
+   ============================================ */
+
+/* Swap mode container - subtle background indicator */
+.player-hand-area.swap-mode {
+  background: linear-gradient(
+    to top,
+    rgba(212, 168, 87, 0.08) 0%,
+    transparent 60%
+  );
+}
+
+/* Hand cards in swap mode - show they're draggable */
+.player-hand-area.swap-mode .hand-card.swappable {
+  cursor: grab;
+  position: relative;
+}
+
+.player-hand-area.swap-mode .hand-card.swappable::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 8px;
+  border: 2px solid var(--gold);
+  opacity: 0.6;
+  pointer-events: none;
+  animation: swap-ready-pulse 2s ease-in-out infinite;
+}
+
+.player-hand-area.swap-mode .hand-card.swappable:hover {
+  transform: translateY(-18px) scale(1.1);
+  z-index: 100;
+}
+
+.player-hand-area.swap-mode .hand-card.swappable:hover::before {
+  opacity: 1;
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 20px rgba(212, 168, 87, 0.5);
+  animation: none;
+}
+
+.player-hand-area.swap-mode .hand-card.swappable:hover img {
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(212, 168, 87, 0.3);
+}
+
+.player-hand-area.swap-mode .hand-card.swappable:active {
+  cursor: grabbing;
+}
+
+/* Card being dragged */
+.player-hand-area.swap-mode .hand-card.swap-dragging {
+  opacity: 0.3;
+  transform: scale(0.9);
+  cursor: grabbing;
+}
+
+.player-hand-area.swap-mode .hand-card.swap-dragging::before {
+  display: none;
+}
+
+/* Subtle glow animation for swap-ready cards */
+@keyframes swap-ready-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(212, 168, 87, 0.2);
+    border-color: var(--gold);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(212, 168, 87, 0.4);
+    border-color: var(--gold-bright);
+  }
+}
+
+/* Legacy swap states (for plot cards in hand area - non-swap phases) */
 .plot-card.swappable,
 .hand-card.swappable {
   cursor: grab;

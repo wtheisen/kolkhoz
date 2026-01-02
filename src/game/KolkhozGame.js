@@ -205,15 +205,27 @@ function swapCard({ G, playerID }, plotCardIndex, handCardIndex, plotType = 'hid
   const temp = plotArray[plotCardIndex];
   plotArray[plotCardIndex] = player.hand[handCardIndex];
   player.hand[handCardIndex] = temp;
+
+  // Track the swap for UI animation (especially for bot swaps)
+  G.lastSwap = {
+    playerIdx,
+    plotType,
+    plotCardIndex,
+    // Store the card that went INTO the plot (for visual feedback)
+    newPlotCard: { ...plotArray[plotCardIndex] },
+    timestamp: Date.now(),
+  };
 }
 
 // Move: Confirm swap is complete
-function confirmSwap({ G, playerID }) {
+function confirmSwap({ G, playerID, events }) {
   const playerIdx = parseInt(playerID, 10);
   if (!G.swapConfirmed) {
     G.swapConfirmed = {};
   }
   G.swapConfirmed[playerIdx] = true;
+  // End this player's turn, moving to next player
+  events.endTurn();
 }
 
 // Move: Apply a single AI assignment (called by React after animation)
@@ -464,21 +476,21 @@ export const KolkhozGame = {
       moves: { swapCard, confirmSwap },
       turn: {
         order: {
-          first: () => 0, // Human player always acts in swap phase
-          next: () => undefined, // No turn rotation - human stays active
+          first: () => 0, // Human player goes first
+          next: ({ ctx }) => {
+            // Rotate through all players: 0 → 1 → 2 → 3 → end
+            const nextPlayer = parseInt(ctx.currentPlayer, 10) + 1;
+            return nextPlayer >= ctx.numPlayers ? undefined : nextPlayer;
+          },
         },
       },
-      onBegin: ({ G, ctx }) => {
+      onBegin: ({ G }) => {
         console.log('[swap onBegin] year:', G.year, 'hands:', G.players.map(p => p.hand.length), 'plots:', G.players.map(p => p.plot.hidden.length));
-        // Reset swap confirmation tracking
+        // Reset swap confirmation tracking - each player confirms on their turn
         G.swapConfirmed = {};
-        // Auto-confirm for AI players (1, 2, 3) - only human player 0 needs to manually confirm
-        for (let i = 1; i < ctx.numPlayers; i++) {
-          G.swapConfirmed[i] = true;
-        }
       },
       endIf: ({ G, ctx }) => {
-        // End when all players have confirmed (AI auto-confirmed, human must click)
+        // End when all players have confirmed their swaps
         if (!G.swapConfirmed) return false;
         for (let i = 0; i < ctx.numPlayers; i++) {
           if (!G.swapConfirmed[i]) return false;

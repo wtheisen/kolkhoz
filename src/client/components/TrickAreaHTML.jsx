@@ -39,7 +39,35 @@ export function TrickAreaHTML({
   onAssignDragStart,
   jobDropRefs = { current: {} },
   onSubmitAssignments,
+  // Swap phase props
+  swapDragState,
+  onSwapDragStart,
+  plotDropRefs = { current: {} },
+  swapConfirmed = {},
+  currentSwapPlayer = null,
+  lastSwap = null,
 }) {
+  // Track animated swap for bot visual feedback
+  const [animatedSwap, setAnimatedSwap] = useState(null);
+  const lastSwapTimestamp = useRef(null);
+
+  // Detect bot swaps and trigger animation
+  useEffect(() => {
+    if (lastSwap && lastSwap.playerIdx !== 0 && lastSwap.timestamp !== lastSwapTimestamp.current) {
+      lastSwapTimestamp.current = lastSwap.timestamp;
+      setAnimatedSwap({
+        playerIdx: lastSwap.playerIdx,
+        plotType: lastSwap.plotType,
+        plotCardIndex: lastSwap.plotCardIndex,
+        key: lastSwap.timestamp,
+      });
+      // Clear animation after it completes
+      const timer = setTimeout(() => {
+        setAnimatedSwap(null);
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [lastSwap]);
   // Track point popups per suit
   const [pointPopups, setPointPopups] = useState({});
   const prevAssignments = useRef({});
@@ -157,6 +185,14 @@ export function TrickAreaHTML({
               </div>
             );
           })}
+        </div>
+
+        <div className="info-score">
+          <span className="label">Подвал:</span>
+          <span className="value">
+            {((playerPlot?.revealed || []).reduce((sum, c) => sum + c.value, 0) +
+              (playerPlot?.hidden || []).reduce((sum, c) => sum + c.value, 0))}
+          </span>
         </div>
       </div>
 
@@ -378,89 +414,322 @@ export function TrickAreaHTML({
 
         {displayMode === 'gulag' && (
           <div className="gulag-view">
-            <h2 className="view-title">Север</h2>
-            {[1, 2, 3, 4, 5].map((yr) => {
-              const yearCards = exiled?.[yr] || [];
-              const isCurrent = yr === year;
+            <div className="gulag-header">
+              <h2 className="view-title">Север</h2>
+            </div>
+            <div className="gulag-columns">
+              {[1, 2, 3, 4, 5].map((yr) => {
+                const yearCards = exiled?.[yr] || [];
+                const isCurrent = yr === year;
 
-              const parseCardKey = (cardKey) => {
-                const [suit, value] = cardKey.split('-');
-                return { suit, value: parseInt(value, 10) };
-              };
+                const parseCardKey = (cardKey) => {
+                  const [suit, value] = cardKey.split('-');
+                  return { suit, value: parseInt(value, 10) };
+                };
 
-              return (
-                <div key={yr} className={`year-row ${isCurrent ? 'current' : ''}`}>
-                  <div className="year-info">
-                    <span className="year-number">{yr}</span>
-                    {yearCards.length > 0 && <span className="card-count">{yearCards.length}</span>}
+                return (
+                  <div key={yr} className={`gulag-column ${isCurrent ? 'current' : ''}`}>
+                    <div className="column-header">
+                      <span className="year-number">Год {yr}</span>
+                      {yearCards.length > 0 && <span className="card-count">{yearCards.length}</span>}
+                    </div>
+                    <div className="column-cards">
+                      {yearCards.map((cardKey, idx) => {
+                        const card = parseCardKey(cardKey);
+                        return (
+                          <img
+                            key={idx}
+                            src={getCardImagePath(card)}
+                            alt={`${card.value} of ${card.suit}`}
+                            className="exiled-card"
+                          />
+                        );
+                      })}
+                      {yearCards.length === 0 && (
+                        <div className="empty-column">—</div>
+                      )}
+                    </div>
                   </div>
-                  <div className="year-cards">
-                    {yearCards.slice(0, 12).map((cardKey, idx) => {
-                      const card = parseCardKey(cardKey);
-                      return (
-                        <img
-                          key={idx}
-                          src={getCardImagePath(card)}
-                          alt={`${card.value} of ${card.suit}`}
-                          className="exiled-card"
-                        />
-                      );
-                    })}
-                    {yearCards.length > 12 && <span className="more-cards">+{yearCards.length - 12}</span>}
-                    {yearCards.length === 0 && <div className="empty-year" />}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
 
-        {displayMode === 'plot' && (
-          <div className="plot-view">
-            <h2 className="view-title">Подвал</h2>
-            <div className="plot-row revealed">
-              <div className="row-label">
-                <span className="title">Награды</span>
-                <span className="subtitle">(Revealed)</span>
+        {/* Swap View - Multi-player layout during swap phase */}
+        {displayMode === 'plot' && phase === 'swap' && (
+          <div className="swap-view multiplayer">
+            {/* Header with current player's turn */}
+            <div className="swap-header">
+              <h2 className="view-title">Обмен карт</h2>
+              <span className="turn-indicator">
+                {currentSwapPlayer === 0 ? 'Ваш ход' : `${players?.[currentSwapPlayer]?.name || `Игрок ${currentSwapPlayer}`}`}
+              </span>
+            </div>
+
+            {/* Top row: Bot sections */}
+            <div className="swap-bots-row">
+              {[1, 2, 3].map((botIdx) => {
+                const bot = players?.[botIdx];
+                const isActive = currentSwapPlayer === botIdx;
+                const isConfirmed = swapConfirmed[botIdx];
+                const revealedCards = bot?.plot?.revealed || [];
+                const hiddenCount = bot?.plot?.hidden?.length || 0;
+                const handSize = bot?.hand?.length || 0;
+
+                return (
+                  <div
+                    key={botIdx}
+                    className={`swap-bot-section ${isActive ? 'active' : ''} ${isConfirmed ? 'confirmed' : ''}`}
+                  >
+                    <div className="swap-bot-header">
+                      <img
+                        src={PORTRAITS[(botIdx - 1) % PORTRAITS.length]}
+                        alt={bot?.name}
+                        className="swap-bot-portrait"
+                      />
+                      <span className="swap-bot-name">
+                        {bot?.name || `Игрок ${botIdx}`}
+                        {isConfirmed && <span className="confirmed-check">✓</span>}
+                      </span>
+                      <div className="swap-bot-hand">
+                        {Array.from({ length: handSize }).map((_, idx) => (
+                          <img
+                            key={idx}
+                            src="assets/cards/back.svg"
+                            alt="card"
+                            className="swap-hand-card"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="swap-bot-cards">
+                      {/* Revealed cards (face up) */}
+                      {revealedCards.map((card, idx) => {
+                        const isSwapping = animatedSwap &&
+                          animatedSwap.playerIdx === botIdx &&
+                          animatedSwap.plotType === 'revealed' &&
+                          animatedSwap.plotCardIndex === idx;
+                        return (
+                          <img
+                            key={`revealed-${idx}-${isSwapping ? animatedSwap.key : ''}`}
+                            src={getCardImagePath(card)}
+                            alt={`${card.value} of ${card.suit}`}
+                            className={`swap-mini-card revealed ${isSwapping ? 'bot-swapped' : ''}`}
+                          />
+                        );
+                      })}
+                      {/* Hidden cards (backs) */}
+                      {Array.from({ length: hiddenCount }).map((_, idx) => {
+                        const isSwapping = animatedSwap &&
+                          animatedSwap.playerIdx === botIdx &&
+                          animatedSwap.plotType === 'hidden' &&
+                          animatedSwap.plotCardIndex === idx;
+                        return (
+                          <img
+                            key={`hidden-${idx}-${isSwapping ? animatedSwap.key : ''}`}
+                            src="assets/cards/back.svg"
+                            alt="hidden"
+                            className={`swap-mini-card back ${isSwapping ? 'bot-swapped' : ''}`}
+                          />
+                        );
+                      })}
+                      {revealedCards.length === 0 && hiddenCount === 0 && (
+                        <span className="no-cards">—</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Bottom: Player's plot in two side-by-side boxes */}
+            <div className={`swap-player-section ${currentSwapPlayer !== 0 ? 'disabled' : ''}`}>
+              {/* Hidden cards box */}
+              <div className="swap-player-box hidden">
+                <div className="box-header">
+                  <span className="box-title">Скрытые</span>
+                  <span className="box-count">{playerPlot?.hidden?.length || 0}</span>
+                </div>
+                <div className="swap-cards">
+                  {(playerPlot?.hidden || []).map((card, idx) => {
+                    const isDropTarget = currentSwapPlayer === 0 && swapDragState?.sourceType === 'hand';
+                    const isDropHover = swapDragState?.dropTarget?.type === 'plot-hidden' &&
+                                       swapDragState?.dropTarget?.index === idx;
+                    const isDragging = swapDragState?.sourceType === 'plot-hidden' &&
+                                      swapDragState?.index === idx;
+
+                    return (
+                      <div
+                        key={`hidden-${idx}`}
+                        ref={(el) => { plotDropRefs.current[`hidden-${idx}`] = el; }}
+                        className={`swap-card-slot ${isDropTarget ? 'drop-target' : ''} ${isDropHover ? 'drop-hover' : ''} ${isDragging ? 'dragging' : ''} ${currentSwapPlayer !== 0 ? 'disabled' : ''}`}
+                        onMouseDown={(e) => currentSwapPlayer === 0 && onSwapDragStart?.('plot-hidden', idx, card, e)}
+                        onTouchStart={(e) => currentSwapPlayer === 0 && onSwapDragStart?.('plot-hidden', idx, card, e)}
+                      >
+                        <img
+                          src={getCardImagePath(card)}
+                          alt={`${card.value} of ${card.suit}`}
+                          draggable={false}
+                        />
+                      </div>
+                    );
+                  })}
+                  {(!playerPlot?.hidden || playerPlot.hidden.length === 0) && (
+                    <div className="empty-slot">—</div>
+                  )}
+                </div>
               </div>
-              <div className="plot-cards">
-                {(playerPlot?.revealed || []).map((card, idx) => (
-                  <img
-                    key={idx}
-                    src={getCardImagePath(card)}
-                    alt={`${card.value} of ${card.suit}`}
-                    className="plot-card"
-                  />
-                ))}
-                {(!playerPlot?.revealed || playerPlot.revealed.length === 0) && (
-                  <div className="empty-plot" />
-                )}
+
+              {/* Revealed cards box */}
+              <div className="swap-player-box revealed">
+                <div className="box-header">
+                  <span className="box-title">Награды</span>
+                  <span className="box-count">{playerPlot?.revealed?.length || 0}</span>
+                </div>
+                <div className="swap-cards">
+                  {(playerPlot?.revealed || []).map((card, idx) => {
+                    const isDropTarget = currentSwapPlayer === 0 && swapDragState?.sourceType === 'hand';
+                    const isDropHover = swapDragState?.dropTarget?.type === 'plot-revealed' &&
+                                       swapDragState?.dropTarget?.index === idx;
+                    const isDragging = swapDragState?.sourceType === 'plot-revealed' &&
+                                      swapDragState?.index === idx;
+
+                    return (
+                      <div
+                        key={`revealed-${idx}`}
+                        ref={(el) => { plotDropRefs.current[`revealed-${idx}`] = el; }}
+                        className={`swap-card-slot ${isDropTarget ? 'drop-target' : ''} ${isDropHover ? 'drop-hover' : ''} ${isDragging ? 'dragging' : ''} ${currentSwapPlayer !== 0 ? 'disabled' : ''}`}
+                        onMouseDown={(e) => currentSwapPlayer === 0 && onSwapDragStart?.('plot-revealed', idx, card, e)}
+                        onTouchStart={(e) => currentSwapPlayer === 0 && onSwapDragStart?.('plot-revealed', idx, card, e)}
+                      >
+                        <img
+                          src={getCardImagePath(card)}
+                          alt={`${card.value} of ${card.suit}`}
+                          draggable={false}
+                        />
+                      </div>
+                    );
+                  })}
+                  {(!playerPlot?.revealed || playerPlot.revealed.length === 0) && (
+                    <div className="empty-slot">—</div>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="plot-row hidden">
-              <div className="row-label">
-                <span className="title">Скрытые</span>
-                <span className="subtitle">(Hidden)</span>
+
+            {/* Player status bar */}
+            {swapConfirmed[0] && (
+              <div className="swap-status-bar">
+                <span className="confirmed-badge">Подтверждено ✓</span>
               </div>
-              <div className="plot-cards">
-                {(playerPlot?.hidden || []).map((card, idx) => (
-                  <img
-                    key={idx}
-                    src={getCardImagePath(card)}
-                    alt={`${card.value} of ${card.suit}`}
-                    className="plot-card"
-                  />
-                ))}
-                {(!playerPlot?.hidden || playerPlot.hidden.length === 0) && (
-                  <div className="empty-plot" />
-                )}
-              </div>
+            )}
+          </div>
+        )}
+
+        {/* Plot View - Read-only view when not in swap phase (same layout as swap view) */}
+        {displayMode === 'plot' && phase !== 'swap' && (
+          <div className="swap-view multiplayer readonly">
+            {/* Header */}
+            <div className="swap-header">
+              <h2 className="view-title">Подвал</h2>
             </div>
-            <div className="plot-total">
-              Total: {
-                ((playerPlot?.revealed || []).reduce((sum, c) => sum + c.value, 0) +
-                 (playerPlot?.hidden || []).reduce((sum, c) => sum + c.value, 0))
-              } points
+
+            {/* Top row: Bot sections */}
+            <div className="swap-bots-row">
+              {[1, 2, 3].map((botIdx) => {
+                const bot = players?.[botIdx];
+                const revealedCards = bot?.plot?.revealed || [];
+                const hiddenCount = bot?.plot?.hidden?.length || 0;
+
+                return (
+                  <div
+                    key={botIdx}
+                    className="swap-bot-section"
+                  >
+                    <div className="swap-bot-header">
+                      <img
+                        src={PORTRAITS[(botIdx - 1) % PORTRAITS.length]}
+                        alt={bot?.name}
+                        className="swap-bot-portrait"
+                      />
+                      <span className="swap-bot-name">
+                        {bot?.name || `Игрок ${botIdx}`}
+                      </span>
+                    </div>
+                    <div className="swap-bot-cards">
+                      {/* Revealed cards (face up) */}
+                      {revealedCards.map((card, idx) => (
+                        <img
+                          key={`revealed-${idx}`}
+                          src={getCardImagePath(card)}
+                          alt={`${card.value} of ${card.suit}`}
+                          className="swap-mini-card revealed"
+                        />
+                      ))}
+                      {/* Hidden cards (backs) */}
+                      {Array.from({ length: hiddenCount }).map((_, idx) => (
+                        <img
+                          key={`hidden-${idx}`}
+                          src="assets/cards/back.svg"
+                          alt="hidden"
+                          className="swap-mini-card back"
+                        />
+                      ))}
+                      {revealedCards.length === 0 && hiddenCount === 0 && (
+                        <span className="no-cards">—</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Bottom: Player's plot in two side-by-side boxes (read-only) */}
+            <div className="swap-player-section">
+              {/* Hidden cards box */}
+              <div className="swap-player-box hidden">
+                <div className="box-header">
+                  <span className="box-title">Скрытые</span>
+                  <span className="box-count">{playerPlot?.hidden?.length || 0}</span>
+                </div>
+                <div className="swap-cards">
+                  {(playerPlot?.hidden || []).map((card, idx) => (
+                    <div key={`hidden-${idx}`} className="swap-card-slot readonly">
+                      <img
+                        src={getCardImagePath(card)}
+                        alt={`${card.value} of ${card.suit}`}
+                        draggable={false}
+                      />
+                    </div>
+                  ))}
+                  {(!playerPlot?.hidden || playerPlot.hidden.length === 0) && (
+                    <div className="empty-slot">—</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Revealed cards box */}
+              <div className="swap-player-box revealed">
+                <div className="box-header">
+                  <span className="box-title">Награды</span>
+                  <span className="box-count">{playerPlot?.revealed?.length || 0}</span>
+                </div>
+                <div className="swap-cards">
+                  {(playerPlot?.revealed || []).map((card, idx) => (
+                    <div key={`revealed-${idx}`} className="swap-card-slot readonly">
+                      <img
+                        src={getCardImagePath(card)}
+                        alt={`${card.value} of ${card.suit}`}
+                        draggable={false}
+                      />
+                    </div>
+                  ))}
+                  {(!playerPlot?.revealed || playerPlot.revealed.length === 0) && (
+                    <div className="empty-slot">—</div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}
