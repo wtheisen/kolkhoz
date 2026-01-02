@@ -1766,51 +1766,137 @@
   50% { opacity: 0.6; }
 }
 
+/* Requisition job indicator */
+.requisition-job-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.8rem;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 20px;
+  border: 2px solid;
+  animation: job-indicator-appear 0.3s ease-out;
+}
+
+.requisition-job-indicator.header {
+  border-color: var(--gold);
+  animation: job-indicator-appear 0.3s ease-out, job-pulse 1s ease-in-out infinite;
+}
+
+.requisition-job-indicator.revealing {
+  border-color: var(--gold);
+  background: rgba(212, 168, 87, 0.2);
+}
+
+.requisition-job-indicator.exiling {
+  border-color: var(--soviet-red);
+  background: rgba(196, 30, 58, 0.2);
+  animation: exile-indicator-pulse 0.6s ease-in-out infinite;
+}
+
+.requisition-job-indicator .suit-symbol {
+  font-size: 1.5rem;
+}
+
+.requisition-job-indicator .job-status {
+  font-family: 'Oswald', sans-serif;
+  font-size: 1rem;
+  color: var(--cream);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+@keyframes job-indicator-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes job-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes exile-indicator-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(196, 30, 58, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(196, 30, 58, 0.8);
+  }
+}
+
+/* Dimmed cards during requisition */
+.swap-mini-card.dimmed,
+.swap-card-slot.dimmed {
+  opacity: 0.3;
+  filter: saturate(0.3) brightness(0.6);
+  transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
 /* Newly revealed card animation */
 .swap-mini-card.newly-revealed,
 .swap-card-slot.newly-revealed {
-  animation: card-reveal 0.8s ease-out;
+  animation: card-reveal 0.6s ease-out forwards;
+  z-index: 10;
+}
+
+.swap-mini-card.newly-revealed {
+  box-shadow: 0 0 20px rgba(212, 168, 87, 0.9);
 }
 
 .swap-card-slot.newly-revealed img {
-  box-shadow: 0 0 15px rgba(212, 168, 87, 0.8);
+  box-shadow: 0 0 20px rgba(212, 168, 87, 0.9);
 }
 
 @keyframes card-reveal {
   0% {
-    transform: scale(0.8) rotateY(180deg);
+    transform: scale(0.6) rotateY(180deg);
     opacity: 0;
+    filter: brightness(2);
   }
-  50% {
-    transform: scale(1.1) rotateY(90deg);
-    opacity: 0.8;
+  40% {
+    transform: scale(1.15) rotateY(90deg);
+    opacity: 1;
+    filter: brightness(1.3);
   }
   100% {
     transform: scale(1) rotateY(0deg);
     opacity: 1;
+    filter: brightness(1);
   }
 }
 
 /* Card being exiled - pulsing red glow */
 .swap-mini-card.exiling,
 .swap-card-slot.exiling {
-  animation: exile-pulse 0.8s ease-in-out infinite;
+  animation: exile-pulse 0.5s ease-in-out infinite;
+  z-index: 20;
+}
+
+.swap-mini-card.exiling {
+  box-shadow: 0 0 25px rgba(196, 30, 58, 1);
 }
 
 .swap-card-slot.exiling img {
-  box-shadow: 0 0 20px rgba(196, 30, 58, 0.8);
+  box-shadow: 0 0 25px rgba(196, 30, 58, 1);
 }
 
 @keyframes exile-pulse {
   0%, 100% {
     transform: scale(1);
     filter: brightness(1);
-    box-shadow: 0 0 10px rgba(196, 30, 58, 0.6);
+    box-shadow: 0 0 15px rgba(196, 30, 58, 0.8);
   }
   50% {
-    transform: scale(1.05);
-    filter: brightness(1.1);
-    box-shadow: 0 0 20px rgba(196, 30, 58, 1);
+    transform: scale(1.1);
+    filter: brightness(1.2);
+    box-shadow: 0 0 30px rgba(196, 30, 58, 1);
   }
 }
 

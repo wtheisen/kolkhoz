@@ -44,7 +44,10 @@ export function Board({ G, ctx, moves, playerID }) {
 
   // Requisition animation state
   const [requisitionStage, setRequisitionStage] = useState('idle');
-  // 'idle' | 'revealing' | 'exiling' | 'waiting'
+  // 'idle' | 'processing' | 'waiting'
+  const [currentJobIndex, setCurrentJobIndex] = useState(0);
+  const [currentJobStage, setCurrentJobStage] = useState('header');
+  // 'header' | 'revealing' | 'exiling'
   const [flyingExileCards, setFlyingExileCards] = useState([]);
 
   // Detect when AI plays a card and trigger animation
@@ -78,40 +81,85 @@ export function Board({ G, ctx, moves, playerID }) {
     }
   }, [G.year]);
 
-  // Requisition animation sequence
+  // Requisition animation sequence - process job by job
   useEffect(() => {
     if (phase !== 'requisition' || !G.requisitionData) {
       setRequisitionStage('idle');
+      setCurrentJobIndex(0);
+      setCurrentJobStage('header');
       setFlyingExileCards([]);
       return;
     }
 
-    // Start with reveal stage
-    setRequisitionStage('revealing');
+    const failedJobs = G.requisitionData.failedJobs || [];
 
-    // After reveal animation completes, start exile animation
-    const exileTimeout = setTimeout(() => {
-      setRequisitionStage('exiling');
-      // Set up flying cards with staggered timing
-      if (G.requisitionData.exiledCards && G.requisitionData.exiledCards.length > 0) {
-        setFlyingExileCards(G.requisitionData.exiledCards.map((ec, idx) => ({
-          ...ec,
-          id: `${ec.card.suit}-${ec.card.value}-${idx}`,
-          delay: idx * 200,  // Stagger by 200ms
-        })));
-      }
-    }, 1500);  // 1.5s for reveal animation
-
-    // After exile animation, show continue button
-    const waitTimeout = setTimeout(() => {
+    // If no failed jobs, go straight to waiting
+    if (failedJobs.length === 0) {
       setRequisitionStage('waiting');
-    }, 1500 + (G.requisitionData.exiledCards?.length || 0) * 200 + 800);  // reveal + stagger + fly time
+      return;
+    }
+
+    // Start processing
+    setRequisitionStage('processing');
+    setCurrentJobIndex(0);
+    setCurrentJobStage('header');
+  }, [phase, G.requisitionData]);
+
+  // Job-by-job animation state machine
+  useEffect(() => {
+    if (requisitionStage !== 'processing' || !G.requisitionData) return;
+
+    const failedJobs = G.requisitionData.failedJobs || [];
+    if (currentJobIndex >= failedJobs.length) {
+      // All jobs processed, show continue button
+      setRequisitionStage('waiting');
+      return;
+    }
+
+    const currentSuit = failedJobs[currentJobIndex];
+    let timeout;
+
+    if (currentJobStage === 'header') {
+      // Show header for 800ms, then move to revealing
+      timeout = setTimeout(() => {
+        setCurrentJobStage('revealing');
+      }, 800);
+    } else if (currentJobStage === 'revealing') {
+      // Show revealed cards for 1200ms, then move to exiling
+      timeout = setTimeout(() => {
+        setCurrentJobStage('exiling');
+        // Set up flying cards for this suit
+        const suitExiledCards = (G.requisitionData.exiledCards || [])
+          .filter(ec => ec.card.suit === currentSuit)
+          .map((ec, idx) => ({
+            ...ec,
+            id: `${ec.card.suit}-${ec.card.value}-${currentJobIndex}-${idx}`,
+            delay: idx * 300,  // Stagger by 300ms
+          }));
+        setFlyingExileCards(suitExiledCards);
+      }, 1200);
+    } else if (currentJobStage === 'exiling') {
+      // Wait for exile animations to complete, then next job
+      const suitExiledCount = (G.requisitionData.exiledCards || [])
+        .filter(ec => ec.card.suit === currentSuit).length;
+      const exileTime = suitExiledCount > 0 ? suitExiledCount * 300 + 800 : 500;
+
+      timeout = setTimeout(() => {
+        setFlyingExileCards([]);
+        setCurrentJobIndex(prev => prev + 1);
+        setCurrentJobStage('header');
+      }, exileTime);
+    }
 
     return () => {
-      clearTimeout(exileTimeout);
-      clearTimeout(waitTimeout);
+      if (timeout) clearTimeout(timeout);
     };
-  }, [phase, G.requisitionData]);
+  }, [requisitionStage, currentJobIndex, currentJobStage, G.requisitionData]);
+
+  // Get current requisition suit for highlighting
+  const currentRequisitionSuit = requisitionStage === 'processing' && G.requisitionData?.failedJobs
+    ? G.requisitionData.failedJobs[currentJobIndex]
+    : null;
 
   // AI Assignment Animation - compute flying card data
   const pending = G.pendingAIAssignments;
@@ -502,6 +550,7 @@ export function Board({ G, ctx, moves, playerID }) {
           className={`nav-btn ${displayMode === 'gulag' ? 'active' : ''}`}
           onClick={() => togglePanel('gulag')}
           title={t(translations, language, 'theNorth')}
+          data-nav="gulag"
         >
           <span className="nav-icon">❄</span>
           <span className="nav-label">{t(translations, language, 'theNorth')}</span>
@@ -593,6 +642,8 @@ export function Board({ G, ctx, moves, playerID }) {
           // Requisition phase props
           requisitionData={G.requisitionData}
           requisitionStage={requisitionStage}
+          currentRequisitionSuit={currentRequisitionSuit}
+          currentJobStage={currentJobStage}
           // Language
           language={language}
         />
@@ -624,7 +675,7 @@ export function Board({ G, ctx, moves, playerID }) {
         )}
 
         {/* Requisition Flying Exile Cards */}
-        {requisitionStage === 'exiling' && flyingExileCards.map((ec) => (
+        {currentJobStage === 'exiling' && flyingExileCards.map((ec) => (
           <FlyingExileCard
             key={ec.id}
             card={ec.card}
@@ -1081,7 +1132,7 @@ function FlyingExileCard({ card, playerIdx, delay, onComplete }) {
       }
 
       // Target: gulag nav button
-      const gulagButton = document.querySelector('.nav-btn[title*="North"]');
+      const gulagButton = document.querySelector('.nav-btn[data-nav="gulag"]');
 
       if (!sourceCard || !gulagButton || !cardRef.current) {
         onComplete();

@@ -50,6 +50,8 @@ export function TrickAreaHTML({
   // Requisition phase props
   requisitionData = null,
   requisitionStage = 'idle',
+  currentRequisitionSuit = null,
+  currentJobStage = 'header',
   // Language
   language = 'ru',
 }) {
@@ -661,9 +663,21 @@ export function TrickAreaHTML({
               <h2 className="view-title">
                 {phase === 'requisition' ? t(translations, language, 'requisition') : t(translations, language, 'plot')}
               </h2>
-              {phase === 'requisition' && requisitionData?.failedJobs?.length > 0 && (
-                <span className="requisition-status">
-                  {t(translations, language, 'failed')} {requisitionData.failedJobs.map(suit => SUIT_SYMBOLS[suit] || suit).join(' ')}
+              {phase === 'requisition' && currentRequisitionSuit && (
+                <div className={`requisition-job-indicator ${currentJobStage}`}>
+                  <span className={`suit-symbol ${currentRequisitionSuit.toLowerCase()}`}>
+                    {SUIT_SYMBOLS[currentRequisitionSuit]}
+                  </span>
+                  <span className="job-status">
+                    {currentJobStage === 'header' && t(translations, language, 'failed')}
+                    {currentJobStage === 'revealing' && (language === 'en' ? 'Revealing...' : 'Раскрытие...')}
+                    {currentJobStage === 'exiling' && (language === 'en' ? 'Exiling...' : 'Отправка...')}
+                  </span>
+                </div>
+              )}
+              {phase === 'requisition' && !currentRequisitionSuit && requisitionData?.failedJobs?.length === 0 && (
+                <span className="requisition-status success">
+                  {t(translations, language, 'allJobsComplete')}
                 </span>
               )}
             </div>
@@ -694,29 +708,44 @@ export function TrickAreaHTML({
                     <div className="swap-bot-cards">
                       {/* Revealed cards (face up) */}
                       {revealedCards.map((card, idx) => {
+                        const isCurrentSuit = card.suit === currentRequisitionSuit;
                         const isNewlyRevealed = phase === 'requisition' &&
+                          isCurrentSuit &&
+                          (currentJobStage === 'revealing' || currentJobStage === 'exiling') &&
                           requisitionData?.revealedCards?.some(rc =>
                             rc.playerIdx === botIdx &&
                             rc.card.suit === card.suit &&
                             rc.card.value === card.value
                           );
-                        const isExiling = phase === 'requisition' &&
-                          requisitionStage === 'exiling' &&
-                          requisitionData?.exiledCards?.some(ec =>
-                            ec.playerIdx === botIdx &&
-                            ec.card.suit === card.suit &&
-                            ec.card.value === card.value
-                          );
+                        const isDimmed = phase === 'requisition' &&
+                          currentRequisitionSuit &&
+                          !isCurrentSuit;
                         return (
                           <img
                             key={`revealed-${idx}`}
                             src={getCardImagePath(card)}
                             alt={`${card.value} of ${card.suit}`}
-                            className={`swap-mini-card revealed ${isNewlyRevealed ? 'newly-revealed' : ''} ${isExiling ? 'exiling' : ''}`}
+                            className={`swap-mini-card revealed ${isNewlyRevealed ? 'newly-revealed' : ''} ${isDimmed ? 'dimmed' : ''}`}
                             data-card={`${card.suit}-${card.value}`}
+                            data-player={botIdx}
                           />
                         );
                       })}
+                      {/* Ghost cards for exiling animation - cards already removed from state */}
+                      {phase === 'requisition' && currentJobStage === 'exiling' &&
+                        (requisitionData?.exiledCards || [])
+                          .filter(ec => ec.playerIdx === botIdx && ec.card.suit === currentRequisitionSuit)
+                          .map((ec, idx) => (
+                            <img
+                              key={`exiling-ghost-${idx}`}
+                              src={getCardImagePath(ec.card)}
+                              alt={`${ec.card.value} of ${ec.card.suit}`}
+                              className="swap-mini-card revealed exiling"
+                              data-card={`${ec.card.suit}-${ec.card.value}`}
+                              data-player={botIdx}
+                            />
+                          ))
+                      }
                       {/* Hidden cards (backs) */}
                       {Array.from({ length: hiddenCount }).map((_, idx) => (
                         <img
@@ -771,24 +800,24 @@ export function TrickAreaHTML({
                 </div>
                 <div className="swap-cards">
                   {(playerPlot?.revealed || []).map((card, idx) => {
+                    const isCurrentSuit = card.suit === currentRequisitionSuit;
                     const isNewlyRevealed = phase === 'requisition' &&
+                      isCurrentSuit &&
+                      (currentJobStage === 'revealing' || currentJobStage === 'exiling') &&
                       requisitionData?.revealedCards?.some(rc =>
                         rc.playerIdx === 0 &&
                         rc.card.suit === card.suit &&
                         rc.card.value === card.value
                       );
-                    const isExiling = phase === 'requisition' &&
-                      requisitionStage === 'exiling' &&
-                      requisitionData?.exiledCards?.some(ec =>
-                        ec.playerIdx === 0 &&
-                        ec.card.suit === card.suit &&
-                        ec.card.value === card.value
-                      );
+                    const isDimmed = phase === 'requisition' &&
+                      currentRequisitionSuit &&
+                      !isCurrentSuit;
                     return (
                       <div
                         key={`revealed-${idx}`}
-                        className={`swap-card-slot readonly ${isNewlyRevealed ? 'newly-revealed' : ''} ${isExiling ? 'exiling' : ''}`}
+                        className={`swap-card-slot readonly ${isNewlyRevealed ? 'newly-revealed' : ''} ${isDimmed ? 'dimmed' : ''}`}
                         data-card={`${card.suit}-${card.value}`}
+                        data-player="0"
                       >
                         <img
                           src={getCardImagePath(card)}
@@ -798,6 +827,25 @@ export function TrickAreaHTML({
                       </div>
                     );
                   })}
+                  {/* Ghost cards for exiling animation - cards already removed from state */}
+                  {phase === 'requisition' && currentJobStage === 'exiling' &&
+                    (requisitionData?.exiledCards || [])
+                      .filter(ec => ec.playerIdx === 0 && ec.card.suit === currentRequisitionSuit)
+                      .map((ec, idx) => (
+                        <div
+                          key={`exiling-ghost-${idx}`}
+                          className="swap-card-slot readonly exiling"
+                          data-card={`${ec.card.suit}-${ec.card.value}`}
+                          data-player="0"
+                        >
+                          <img
+                            src={getCardImagePath(ec.card)}
+                            alt={`${ec.card.value} of ${ec.card.suit}`}
+                            draggable={false}
+                          />
+                        </div>
+                      ))
+                  }
                   {(!playerPlot?.revealed || playerPlot.revealed.length === 0) && (
                     <div className="empty-slot">—</div>
                   )}
