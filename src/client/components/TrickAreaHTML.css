@@ -31,113 +31,308 @@
   pointer-events: none;
 }
 
-/* Info Bar */
+/* ============================================
+   INFO BAR - Soviet Command Center Panel
+   Industrial control panel aesthetic with
+   status lamps, gauges, and stamped metal
+   ============================================ */
+
 .info-bar {
   display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  margin: 8px 10px 0 10px;
+  background:
+    linear-gradient(180deg,
+      rgba(45, 42, 38, 1) 0%,
+      rgba(35, 32, 28, 1) 40%,
+      rgba(28, 25, 22, 1) 100%);
+  border: 2px solid #1a1816;
+  border-radius: 4px;
+  position: relative;
+  /* Stamped metal edge effect */
+  box-shadow:
+    inset 0 1px 0 rgba(80, 75, 68, 0.6),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 2px 6px rgba(0, 0, 0, 0.5);
+  /* Subtle noise texture overlay */
+  overflow: hidden;
+}
+
+/* Metal grain texture */
+.info-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 1px,
+      rgba(60, 55, 48, 0.08) 1px,
+      rgba(60, 55, 48, 0.08) 2px
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Rivet decoration (top corners) */
+.info-bar::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 6px;
+  width: 4px;
+  height: 4px;
+  background: radial-gradient(circle at 30% 30%, #555, #222);
+  border-radius: 50%;
+  box-shadow:
+    calc(100% - 12px + 100vw - 100vw) 0 0 0 #333,
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+
+/* Panel section base styles */
+.info-bar > div {
+  position: relative;
+  z-index: 1;
+  display: flex;
   align-items: center;
-  gap: clamp(0.8rem, 2.5vw, 2rem);
-  padding: 2px clamp(1rem, 2vw, 2rem);
-  margin: 4px 8px 0 8px;
-  background: rgba(0, 0, 0, 0.3);
-  border-bottom: 1px solid #333;
+  padding: clamp(6px, 1vh, 10px) clamp(8px, 1.5vw, 14px);
+  border-right: 1px solid rgba(0, 0, 0, 0.5);
+  box-shadow: 1px 0 0 rgba(60, 55, 48, 0.3);
 }
 
+.info-bar > div:last-child {
+  border-right: none;
+  box-shadow: none;
+}
+
+/* ===========================================
+   INFO BAR TYPOGRAPHY - Unified Scale
+   Labels: 0.7rem | Values/Symbols: 1.1rem
+   =========================================== */
+
+/* Labels - stencil style */
 .info-bar .label {
-  color: #888;
   font-family: 'Oswald', sans-serif;
-  font-size: clamp(0.95rem, 2vw, 1.45rem);
-  margin-right: 0.2em;
+  font-size: clamp(0.65rem, 1.2vw, 0.75rem);
+  color: #6a6560;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-right: 0.4em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
 }
 
+/* Values - illuminated display style */
 .info-bar .value {
-  color: #d4a857;
   font-family: 'Oswald', sans-serif;
-  font-size: clamp(1.1rem, 2.4vw, 1.6rem);
+  font-size: clamp(1rem, 1.8vw, 1.15rem);
+  color: #d4a857;
+  text-shadow: 0 0 8px rgba(212, 168, 87, 0.5);
+  letter-spacing: 0.02em;
 }
 
+/* Famine indicator - warning lamp */
 .info-bar .famine {
-  color: #c41e3a;
-  font-family: 'Russo One', 'Oswald', sans-serif;
-  font-size: clamp(0.95rem, 2vw, 1.45rem);
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(0.65rem, 1.2vw, 0.75rem);
+  color: #ff4444;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  background: rgba(255, 0, 0, 0.15);
+  border: 1px solid rgba(255, 0, 0, 0.4);
+  border-radius: 2px;
+  text-shadow: 0 0 8px rgba(255, 0, 0, 0.7);
+  animation: famine-blink 1.5s ease-in-out infinite;
 }
 
+@keyframes famine-blink {
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(255, 0, 0, 0.4); }
+  50% { opacity: 0.7; box-shadow: 0 0 15px rgba(255, 0, 0, 0.6); }
+}
+
+/* Suit symbols - consistent size */
 .suit-symbol {
-  font-size: clamp(1.3rem, 2.6vw, 1.75rem);
+  font-size: clamp(1.05rem, 1.8vw, 1.2rem);
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .suit-symbol.hearts,
 .suit-symbol.diamonds {
-  color: #c41e3a;
+  color: #e63946;
+  text-shadow:
+    0 0 5px rgba(230, 57, 70, 0.4),
+    0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .suit-symbol.clubs,
 .suit-symbol.spades {
   color: #e8dcc4;
+  text-shadow:
+    0 0 4px rgba(232, 220, 196, 0.25),
+    0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
-.info-year,
-.info-trump,
+/* Year counter */
+.info-year {
+  gap: 0.3em;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.3) 0%, transparent 50%, rgba(0, 0, 0, 0.2) 100%);
+}
+
+.info-year .value {
+  background: #0a0908;
+  padding: 2px 6px;
+  border-radius: 2px;
+  border: 1px solid #333;
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.8),
+    0 1px 0 rgba(80, 75, 68, 0.3);
+}
+
+/* Trump indicator - status lamp */
+.info-trump {
+  gap: 0.3em;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.2) 0%, transparent 100%);
+}
+
+.info-trump .suit-symbol {
+  padding: 3px 6px;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0.7) 100%);
+  border-radius: 3px;
+  border: 1px solid #444;
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.5),
+    0 0 8px currentColor;
+  animation: lamp-glow 3s ease-in-out infinite;
+}
+
+@keyframes lamp-glow {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.12); }
+}
+
+/* Lead indicator */
 .info-lead {
-  display: flex;
-  align-items: center;
+  gap: 0.3em;
+  padding-left: clamp(6px, 1vw, 10px) !important;
+  padding-right: clamp(6px, 1vw, 10px) !important;
 }
 
+/* Jobs panel - gauge cluster */
 .info-jobs {
   display: flex;
   justify-content: center;
-  gap: clamp(0.5rem, 1.5vw, 1.5rem);
+  gap: clamp(4px, 0.8vw, 8px);
   flex: 1;
+  padding: clamp(4px, 0.6vh, 6px) clamp(6px, 1vw, 10px) !important;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.25) 0%, transparent 40%, rgba(0, 0, 0, 0.15) 100%);
 }
 
+/* Individual job gauge */
 .job-indicator {
   display: flex;
   align-items: center;
-  gap: 0.2em;
-  opacity: 0.6;
-  padding: 0 0.25em;
+  gap: 0.25em;
+  padding: clamp(3px, 0.5vh, 5px) clamp(5px, 0.8vw, 8px);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #2a2826;
   border-radius: 3px;
-  border: 2px solid transparent;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
+  /* Inset panel effect */
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.6),
+    0 1px 0 rgba(80, 75, 68, 0.2);
 }
 
-/* Golden border when suit is in current trick */
+/* Gauge "glass" cover effect */
+.job-indicator::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 100%);
+  border-radius: 2px 2px 0 0;
+  pointer-events: none;
+}
+
+/* Highlighted job - lit up gauge */
 .job-indicator.highlighted {
-  opacity: 1;
+  background: rgba(212, 168, 87, 0.2);
   border-color: #d4a857;
-  background: rgba(212, 168, 87, 0.15);
-  box-shadow: 0 0 8px rgba(212, 168, 87, 0.4);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.4),
+    0 0 10px rgba(212, 168, 87, 0.4),
+    0 1px 0 rgba(212, 168, 87, 0.3);
+  transform: translateY(-1px);
 }
 
+.job-indicator.highlighted .suit-symbol {
+  animation: gauge-pulse 1s ease-in-out infinite;
+}
+
+@keyframes gauge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+/* Claimed job - success lamp */
 .job-indicator.claimed {
+  background: rgba(76, 175, 80, 0.2);
   border-color: #4CAF50;
-  background: rgba(76, 175, 80, 0.15);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.4),
+    0 0 8px rgba(76, 175, 80, 0.3),
+    0 1px 0 rgba(76, 175, 80, 0.2);
+}
+
+.job-indicator.claimed .suit-symbol {
+  filter: brightness(0.7) grayscale(0.3);
 }
 
 .job-indicator.claimed .progress {
-  color: #4CAF50;
+  color: #5cb85c;
+  text-shadow: 0 0 5px rgba(92, 184, 92, 0.5);
 }
 
+/* Suit symbol in gauge - matches global size */
 .job-indicator .suit-symbol {
-  font-size: clamp(1.1rem, 2vw, 1.45rem);
-  line-height: 1;
+  font-size: clamp(0.95rem, 1.6vw, 1.1rem);
 }
 
+/* Progress readout */
 .job-indicator .progress {
   font-family: 'Oswald', sans-serif;
-  font-size: clamp(0.8rem, 1.4vw, 1.05rem);
-  color: #888;
+  font-size: clamp(0.7rem, 1.2vw, 0.8rem);
+  color: #8a8580;
+  letter-spacing: 0.02em;
   line-height: 1;
 }
 
+/* Score display - warning meter */
 .info-score {
   display: flex;
   align-items: center;
   gap: 0.3em;
-  padding: 0 0.4em;
-  background: rgba(196, 30, 58, 0.15);
-  border: 1px solid rgba(196, 30, 58, 0.4);
-  border-radius: 3px;
+  padding: clamp(5px, 0.8vh, 8px) clamp(8px, 1.2vw, 12px) !important;
+  background:
+    linear-gradient(180deg,
+      rgba(139, 0, 0, 0.3) 0%,
+      rgba(80, 0, 0, 0.2) 50%,
+      rgba(139, 0, 0, 0.25) 100%);
+  border-left: 2px solid #8b0000 !important;
+  box-shadow:
+    inset 2px 0 8px rgba(139, 0, 0, 0.3),
+    -1px 0 0 rgba(139, 0, 0, 0.5);
   flex-shrink: 0;
 }
 
@@ -146,10 +341,12 @@
 }
 
 .info-score .value {
-  font-family: 'Russo One', 'Oswald', sans-serif;
-  font-size: clamp(1.1rem, 2.2vw, 1.5rem);
-  color: #c41e3a;
-  text-shadow: 0 0 8px rgba(196, 30, 58, 0.4);
+  color: #ff5555;
+  text-shadow:
+    0 0 10px rgba(255, 85, 85, 0.6),
+    0 0 3px rgba(255, 85, 85, 0.3);
+  min-width: 1.2em;
+  text-align: center;
 }
 
 /* Play Area - fills available space in trick area */
@@ -1268,9 +1465,10 @@
 .swap-cards {
   display: flex;
   flex-wrap: wrap;
-  gap: clamp(0.5rem, 1vw, 0.8rem);
-  flex: 1;
+  justify-content: flex-start;
+  align-items: flex-start;
   align-content: flex-start;
+  gap: clamp(0.5rem, 1vw, 0.8rem);
   overflow-y: auto;
   padding: clamp(0.2rem, 0.4vh, 0.3rem);
   position: relative;
@@ -1326,7 +1524,7 @@
 
 /* Drop target state - waiting for a card */
 .swap-card-slot.drop-target {
-  animation: swap-slot-pulse 1.2s ease-in-out infinite;
+  animation: swap-slot-pulse 1.5s ease-in-out infinite;
 }
 
 .swap-card-slot.drop-target::after {
@@ -2023,9 +2221,11 @@
 .swap-player-box .swap-cards {
   display: flex;
   flex-wrap: wrap;
-  gap: clamp(0.4rem, 0.8vw, 0.6rem);
-  flex: 1;
+  justify-content: flex-start;
+  align-items: flex-start;
   align-content: flex-start;
+  gap: clamp(0.4rem, 0.8vw, 0.6rem);
+  min-height: clamp(70px, 12vh, 100px);
   overflow-y: auto;
   padding: clamp(0.2rem, 0.4vh, 0.3rem);
   position: relative;

@@ -92,11 +92,13 @@ export function TrickAreaHTML({
         const cardEntry = lastTrick.find(([, card]) => `${card.suit}-${card.value}` === cardKey);
         if (cardEntry) {
           const cardValue = cardEntry[1].value;
+          const popupKey = Date.now();
           // Show popup for this suit
-          setPointPopups(p => ({ ...p, [targetSuit]: { value: cardValue, type: 'add', key: Date.now() } }));
-          // Clear popup after animation
+          setPointPopups(p => ({ ...p, [targetSuit]: { value: cardValue, type: 'add', key: popupKey } }));
+          // Clear popup after animation (only if key still matches)
           setTimeout(() => {
             setPointPopups(p => {
+              if (p[targetSuit]?.key !== popupKey) return p;  // Different popup, don't remove
               const copy = { ...p };
               delete copy[targetSuit];
               return copy;
@@ -114,11 +116,13 @@ export function TrickAreaHTML({
         const cardEntry = lastTrick.find(([, card]) => `${card.suit}-${card.value}` === cardKey);
         if (cardEntry) {
           const cardValue = cardEntry[1].value;
+          const popupKey = Date.now();
           // Show negative popup for the old suit
-          setPointPopups(p => ({ ...p, [oldSuit]: { value: cardValue, type: 'remove', key: Date.now() } }));
-          // Clear popup after animation
+          setPointPopups(p => ({ ...p, [oldSuit]: { value: cardValue, type: 'remove', key: popupKey } }));
+          // Clear popup after animation (only if key still matches)
           setTimeout(() => {
             setPointPopups(p => {
+              if (p[oldSuit]?.key !== popupKey) return p;  // Different popup, don't remove
               const copy = { ...p };
               delete copy[oldSuit];
               return copy;

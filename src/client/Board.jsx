@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { TrickAreaHTML } from './components/TrickAreaHTML.jsx';
 import { getCardImagePath } from '../game/Card.js';
 import { translations, t } from './translations.js';
@@ -38,8 +38,9 @@ export function Board({ G, ctx, moves, playerID }) {
   const assignCardRefs = useRef({});
   const jobDropRefs = useRef({});
 
-  // AI card play animation state
-  const [aiPlayingCard, setAiPlayingCard] = useState(null);
+  // AI card play animation state - queue-based to handle multiple AIs playing in sequence
+  const [aiCardQueue, setAiCardQueue] = useState([]);  // Cards waiting to animate
+  const [currentAiAnimation, setCurrentAiAnimation] = useState(null);  // Currently animating card
   const prevTrickLengthRef = useRef(0);
 
   // Requisition animation state
@@ -51,27 +52,47 @@ export function Board({ G, ctx, moves, playerID }) {
   const [flyingExileCards, setFlyingExileCards] = useState([]);
 
   // Detect when AI plays a card and trigger animation
-  useEffect(() => {
-    if (phase !== 'trick') {
-      prevTrickLengthRef.current = 0;
-      return;
-    }
-
+  // Using useLayoutEffect to set state before paint, preventing flash of card in slot
+  useLayoutEffect(() => {
     const currentLength = G.currentTrick.length;
     const prevLength = prevTrickLengthRef.current;
 
-    // A new card was added
+    // Process new cards FIRST, before checking phase
+    // This ensures we catch cards played as the trick ends
     if (currentLength > prevLength && currentLength > 0) {
       const [playerIdx, card] = G.currentTrick[currentLength - 1];
 
       // Only animate for AI players (not player 0)
       if (playerIdx !== 0) {
-        setAiPlayingCard({ playerIdx, card, key: `${card.suit}-${card.value}` });
+        const newCard = { playerIdx, card, key: `${card.suit}-${card.value}` };
+
+        // If no animation is running, start immediately (before paint!)
+        // Otherwise add to queue
+        if (currentAiAnimation === null) {
+          setCurrentAiAnimation(newCard);
+        } else {
+          setAiCardQueue(prev => [...prev, newCard]);
+        }
       }
     }
 
+    // Only reset when a NEW trick starts (length goes to 0), not when phase changes
+    // This lets animations complete even after trick ends
+    if (currentLength === 0 && prevLength > 0) {
+      setAiCardQueue([]);
+      setCurrentAiAnimation(null);
+    }
+
     prevTrickLengthRef.current = currentLength;
-  }, [G.currentTrick, phase]);
+  }, [G.currentTrick, currentAiAnimation]);  // Include currentAiAnimation to check if slot is free
+
+  // Process queue: start next animation when current one finishes
+  useEffect(() => {
+    if (currentAiAnimation === null && aiCardQueue.length > 0) {
+      setCurrentAiAnimation(aiCardQueue[0]);
+      setAiCardQueue(prev => prev.slice(1));
+    }
+  }, [currentAiAnimation, aiCardQueue]);
 
   // Reset local swap confirmation when year changes
   useEffect(() => {
@@ -199,10 +220,16 @@ export function Board({ G, ctx, moves, playerID }) {
       return pendingKeys.has(cardKey);
     });
   } else {
-    // Filter out the card currently being animated
-    trickToShow = aiPlayingCard
+    // Filter out cards that are animating or queued to animate
+    const animatingKeys = new Set();
+    if (currentAiAnimation) {
+      animatingKeys.add(currentAiAnimation.key);
+    }
+    aiCardQueue.forEach(c => animatingKeys.add(c.key));
+
+    trickToShow = animatingKeys.size > 0
       ? G.currentTrick.filter(([, card]) =>
-          `${card.suit}-${card.value}` !== aiPlayingCard.key
+          !animatingKeys.has(`${card.suit}-${card.value}`)
         )
       : G.currentTrick;
   }
@@ -664,13 +691,13 @@ export function Board({ G, ctx, moves, playerID }) {
           />
         )}
 
-        {/* AI Card Play Animation */}
-        {aiPlayingCard && (
+        {/* AI Card Play Animation - processes queue one at a time */}
+        {currentAiAnimation && (
           <AIPlayCard
-            key={aiPlayingCard.key}
-            card={aiPlayingCard.card}
-            playerIdx={aiPlayingCard.playerIdx}
-            onComplete={() => setAiPlayingCard(null)}
+            key={currentAiAnimation.key}
+            card={currentAiAnimation.card}
+            playerIdx={currentAiAnimation.playerIdx}
+            onComplete={() => setCurrentAiAnimation(null)}
           />
         )}
 
@@ -811,8 +838,8 @@ export function Board({ G, ctx, moves, playerID }) {
             })}
           </div>
 
-          {/* Assignment phase: trick cards to the right of hand */}
-          {phase === 'assignment' && G.lastTrick?.length > 0 && (() => {
+          {/* Assignment phase: trick cards to the right of hand (only for the player doing the assignment) */}
+          {phase === 'assignment' && G.lastWinner === currentPlayer && G.lastTrick?.length > 0 && (() => {
             const allAssigned = G.lastTrick.every(([, card]) => {
               const cardKey = `${card.suit}-${card.value}`;
               return G.pendingAssignments?.[cardKey];
@@ -971,7 +998,13 @@ export function Board({ G, ctx, moves, playerID }) {
 function FlyingCard({ card, playerIdx, targetSuit, cardValue, onComplete }) {
   const cardRef = useRef(null);
   const animationRef = useRef(null);
+  const onCompleteRef = useRef(onComplete);
   const [showValue, setShowValue] = useState(false);
+
+  // Keep the ref updated with the latest callback
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   useEffect(() => {
     const slotClasses = ['left', 'center-left', 'center-right', 'right'];
@@ -982,7 +1015,7 @@ function FlyingCard({ card, playerIdx, targetSuit, cardValue, onComplete }) {
     const targetJob = document.querySelector(`.job-indicator .suit-symbol.${targetSuit.toLowerCase()}`);
 
     if (!sourceSlot || !targetJob || !cardRef.current) {
-      onComplete();
+      onCompleteRef.current();
       return;
     }
 
@@ -1019,7 +1052,7 @@ function FlyingCard({ card, playerIdx, targetSuit, cardValue, onComplete }) {
     // Delay completion to let the +X number persist
     let completionTimeout;
     animation.onfinish = () => {
-      completionTimeout = setTimeout(onComplete, 800);
+      completionTimeout = setTimeout(() => onCompleteRef.current(), 800);
     };
 
     // Cleanup function
@@ -1030,7 +1063,7 @@ function FlyingCard({ card, playerIdx, targetSuit, cardValue, onComplete }) {
         animationRef.current.cancel();
       }
     };
-  }, [playerIdx, targetSuit, onComplete]);
+  }, [playerIdx, targetSuit]);  // onComplete removed from deps - using ref instead
 
   return (
     <div ref={cardRef} className="flying-card-html">
@@ -1044,62 +1077,75 @@ function FlyingCard({ card, playerIdx, targetSuit, cardValue, onComplete }) {
 function AIPlayCard({ card, playerIdx, onComplete }) {
   const cardRef = useRef(null);
   const animationRef = useRef(null);
+  const onCompleteRef = useRef(onComplete);
+  const timeoutRef = useRef(null);
+
+  // Keep the ref updated with the latest callback
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   useEffect(() => {
-    const slotClasses = ['left', 'center-left', 'center-right', 'right'];
-    const slotOrder = [3, 0, 1, 2];
-    const slotClass = slotClasses[slotOrder[playerIdx]];
+    // Small delay to ensure layout is completely stable after any prior state changes
+    timeoutRef.current = setTimeout(() => {
+      const slotClasses = ['left', 'center-left', 'center-right', 'right'];
+      const slotOrder = [3, 0, 1, 2];
+      const slotClass = slotClasses[slotOrder[playerIdx]];
 
-    // Source: the mini card in the player's hand display
-    const miniCard = document.querySelector(`.player-column.${slotClass} .player-panel .mini-card`);
-    const playerPanel = document.querySelector(`.player-column.${slotClass} .player-panel`);
-    // Target: the card slot
-    const targetSlot = document.querySelector(`.player-column.${slotClass} .card-slot`);
+      // Source: the mini card in the player's hand display
+      const miniCard = document.querySelector(`.player-column.${slotClass} .player-panel .mini-card`);
+      const playerPanel = document.querySelector(`.player-column.${slotClass} .player-panel`);
+      // Target: the card slot
+      const targetSlot = document.querySelector(`.player-column.${slotClass} .card-slot`);
 
-    if (!playerPanel || !targetSlot || !cardRef.current) {
-      // If elements not found, complete immediately
-      onComplete();
-      return;
-    }
-
-    const sourceRect = miniCard ? miniCard.getBoundingClientRect() : playerPanel.getBoundingClientRect();
-    const targetRect = targetSlot.getBoundingClientRect();
-
-    // Calculate scales based on source (mini card) and target (card slot) sizes
-    const cardRect = cardRef.current.getBoundingClientRect();
-    const startScale = (miniCard ? sourceRect.width : sourceRect.width * 0.3) / cardRect.width;
-    const targetScale = targetRect.width / cardRect.width;
-
-    // Set initial position immediately to prevent jump
-    cardRef.current.style.left = `${sourceRect.left + sourceRect.width / 2}px`;
-    cardRef.current.style.top = `${sourceRect.top + sourceRect.height / 2}px`;
-    cardRef.current.style.transform = `translate(-50%, -50%) scale(${startScale})`;
-
-    const animation = cardRef.current.animate([
-      {
-        left: `${sourceRect.left + sourceRect.width / 2}px`,
-        top: `${sourceRect.top + sourceRect.height / 2}px`,
-        transform: `translate(-50%, -50%) scale(${startScale})`,
-        opacity: 1
-      },
-      {
-        left: `${targetRect.left + targetRect.width / 2}px`,
-        top: `${targetRect.top + targetRect.height / 2}px`,
-        transform: `translate(-50%, -50%) scale(${targetScale})`,
-        opacity: 1
+      if (!playerPanel || !targetSlot || !cardRef.current) {
+        // If elements not found, complete immediately
+        onCompleteRef.current();
+        return;
       }
-    ], { duration: 800, fill: 'forwards', easing: 'ease-out' });
 
-    animationRef.current = animation;
-    animation.onfinish = onComplete;
+      const sourceRect = miniCard ? miniCard.getBoundingClientRect() : playerPanel.getBoundingClientRect();
+      const targetRect = targetSlot.getBoundingClientRect();
+
+      // Calculate scales based on source (mini card) and target (card slot) sizes
+      const cardRect = cardRef.current.getBoundingClientRect();
+      const startScale = (miniCard ? sourceRect.width : sourceRect.width * 0.3) / cardRect.width;
+      const targetScale = targetRect.width / cardRect.width;
+
+      // Set initial position immediately to prevent jump
+      cardRef.current.style.left = `${sourceRect.left + sourceRect.width / 2}px`;
+      cardRef.current.style.top = `${sourceRect.top + sourceRect.height / 2}px`;
+      cardRef.current.style.transform = `translate(-50%, -50%) scale(${startScale})`;
+
+      const animation = cardRef.current.animate([
+        {
+          left: `${sourceRect.left + sourceRect.width / 2}px`,
+          top: `${sourceRect.top + sourceRect.height / 2}px`,
+          transform: `translate(-50%, -50%) scale(${startScale})`,
+          opacity: 1
+        },
+        {
+          left: `${targetRect.left + targetRect.width / 2}px`,
+          top: `${targetRect.top + targetRect.height / 2}px`,
+          transform: `translate(-50%, -50%) scale(${targetScale})`,
+          opacity: 1
+        }
+      ], { duration: 800, fill: 'forwards', easing: 'ease-out' });
+
+      animationRef.current = animation;
+      animation.onfinish = () => onCompleteRef.current();
+    }, 50);  // 50ms delay ensures layout is stable
 
     // Cleanup function
     return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
       if (animationRef.current) {
         animationRef.current.cancel();
       }
     };
-  }, [playerIdx, onComplete]);
+  }, [playerIdx, card.suit, card.value]);  // Include card to re-run if same player plays different card
 
   return (
     <div ref={cardRef} className="ai-play-card">
@@ -1112,6 +1158,12 @@ function AIPlayCard({ card, playerIdx, onComplete }) {
 function FlyingExileCard({ card, playerIdx, delay, onComplete }) {
   const cardRef = useRef(null);
   const animationRef = useRef(null);
+  const onCompleteRef = useRef(onComplete);
+
+  // Keep the ref updated with the latest callback
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   useEffect(() => {
     // Delay start based on stagger
@@ -1135,7 +1187,7 @@ function FlyingExileCard({ card, playerIdx, delay, onComplete }) {
       const gulagButton = document.querySelector('.nav-btn[data-nav="gulag"]');
 
       if (!sourceCard || !gulagButton || !cardRef.current) {
-        onComplete();
+        onCompleteRef.current();
         return;
       }
 
@@ -1168,7 +1220,7 @@ function FlyingExileCard({ card, playerIdx, delay, onComplete }) {
       ], { duration: 800, fill: 'forwards', easing: 'ease-in' });
 
       animationRef.current = animation;
-      animation.onfinish = onComplete;
+      animation.onfinish = () => onCompleteRef.current();
     }, delay);
 
     return () => {
@@ -1177,7 +1229,7 @@ function FlyingExileCard({ card, playerIdx, delay, onComplete }) {
         animationRef.current.cancel();
       }
     };
-  }, [card, playerIdx, delay, onComplete]);
+  }, [card, playerIdx, delay]);  // onComplete removed from deps - using ref instead
 
   return (
     <div ref={cardRef} className="flying-exile-card">

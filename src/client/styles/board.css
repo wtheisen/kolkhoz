@@ -313,11 +313,11 @@ html, body {
   transform: translateY(50%);
 }
 
-/* Plot cards section - use position offsets for overlap (doesn't affect box model) */
+/* Plot cards section - overlap using margin (affects box model for proper centering) */
 .player-hand-area .plot-cards-section {
   display: flex;
   align-items: flex-end;
-  /* No gap - overlap handled by left offset */
+  /* No gap - overlap handled by negative margin */
 }
 
 .player-hand-area .plot-card {
@@ -326,9 +326,13 @@ html, body {
   cursor: pointer;
   transition: transform 0.2s ease, z-index 0.2s;
   transform-origin: bottom center;
-  /* Overlap calculated from --index (0-based), set via inline style */
-  left: calc(var(--index, 0) * var(--card-width, clamp(50px, 10vw, 120px)) * -0.7);
+  /* Overlap using margin - affects layout so centering works correctly */
+  margin-left: calc(var(--card-width, clamp(50px, 10vw, 120px)) * -0.7);
   z-index: calc(var(--index, 0) + 1);
+}
+
+.player-hand-area .plot-card:first-child {
+  margin-left: 0;
 }
 
 .player-hand-area .plot-card:hover {
@@ -659,7 +663,7 @@ html, body {
   border: 2px solid var(--gold);
   opacity: 0.6;
   pointer-events: none;
-  animation: swap-ready-pulse 2s ease-in-out infinite;
+  animation: swap-ready-pulse 1.5s ease-in-out infinite;
 }
 
 .player-hand-area.swap-mode .hand-card.swappable:hover {
