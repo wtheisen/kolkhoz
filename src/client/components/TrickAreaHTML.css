@@ -547,3 +547,384 @@
   color: #e8dcc4;
   margin-top: 0.3em;
 }
+
+/* ============================================
+   ASSIGNMENT VIEW - Soviet Propaganda Style
+   Horizontal Job Rows Layout
+   ============================================ */
+
+.assignment-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  /* Aged paper texture effect */
+  background:
+    linear-gradient(135deg, rgba(139, 0, 0, 0.04) 0%, transparent 50%),
+    linear-gradient(225deg, rgba(212, 168, 87, 0.03) 0%, transparent 50%);
+}
+
+/* 4-column row container */
+.assignment-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(0.4rem, 1vw, 0.8rem);
+  flex: 1;
+  min-height: 0;
+  padding: clamp(0.4rem, 0.8vh, 0.6rem) clamp(0.5rem, 1vw, 1rem) clamp(0.8rem, 1.5vh, 1.2rem);
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+/* Individual job column */
+.assign-job-tile {
+  display: flex;
+  flex-direction: column;
+  padding: clamp(0.4rem, 0.8vh, 0.6rem) clamp(0.3rem, 0.6vw, 0.5rem);
+  background: rgba(20, 20, 20, 0.8);
+  border: 2px solid #d4a857;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.assign-job-tile.trump {
+  background: rgba(212, 168, 87, 0.1);
+  border-color: #d4a857;
+  box-shadow: inset 0 0 30px rgba(212, 168, 87, 0.1), 0 0 15px rgba(212, 168, 87, 0.2);
+}
+
+.assign-job-tile.claimed {
+  opacity: 0.4;
+  border-color: #4CAF50;
+}
+
+.assign-job-tile.invalid-target {
+  opacity: 0.5;
+  border-color: #8b0000;
+  background: rgba(139, 0, 0, 0.1);
+}
+
+.assign-job-tile.valid-target {
+  border-color: #d4a857;
+  border-style: dashed;
+}
+
+.assign-job-tile.drop-target {
+  border-color: #d4a857;
+  box-shadow: 0 0 20px rgba(212, 168, 87, 0.4);
+  animation: tile-pulse 1s ease-in-out infinite;
+}
+
+@keyframes tile-pulse {
+  0%, 100% { box-shadow: 0 0 15px rgba(212, 168, 87, 0.3); }
+  50% { box-shadow: 0 0 25px rgba(212, 168, 87, 0.5); }
+}
+
+.assign-job-tile.drop-hover {
+  border-color: #4CAF50;
+  border-style: solid;
+  background: rgba(76, 175, 80, 0.15);
+  box-shadow: 0 0 25px rgba(76, 175, 80, 0.4);
+  animation: none;
+}
+
+/* Header row: left (icon + progress + number) and right (reward) */
+.tile-header-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  padding-bottom: clamp(0.25rem, 0.5vh, 0.4rem);
+  margin-bottom: clamp(0.25rem, 0.5vh, 0.4rem);
+  border-bottom: 1px solid #444;
+}
+
+.tile-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.tile-header-top {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.tile-header-top .suit-symbol {
+  font-size: clamp(1.4rem, 2.5vw, 1.8rem);
+  flex-shrink: 0;
+}
+
+.tile-header-top .trump-badge {
+  color: #ffd700;
+  font-size: clamp(0.9rem, 1.5vw, 1.1rem);
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+  flex-shrink: 0;
+}
+
+.tile-header-top .progress-track {
+  flex: 1;
+  height: clamp(6px, 1vh, 8px);
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.tile-header-top .progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #8b6914, #d4a857);
+  transition: width 0.3s ease;
+}
+
+.tile-header-left .progress-text-wrapper {
+  position: relative;
+}
+
+.tile-header-left .progress-text {
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(0.8rem, 1.4vw, 1rem);
+  color: #d4a857;
+}
+
+.tile-header-left .point-popup {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  margin-left: 0.5rem;
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(1.1rem, 2vw, 1.4rem);
+  font-weight: bold;
+  color: #d4a857;
+  text-shadow: 0 0 8px rgba(212, 168, 87, 0.6);
+  white-space: nowrap;
+  animation: point-popup-float 1.2s ease-out forwards;
+  pointer-events: none;
+}
+
+.tile-header-left .point-popup.remove {
+  color: #c41e3a;
+  text-shadow: 0 0 8px rgba(196, 30, 58, 0.6);
+}
+
+.tile-header-right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.tile-header-right .tile-reward {
+  flex-shrink: 0;
+}
+
+.tile-header-right .reward-card {
+  height: clamp(56px, 10vh, 80px);
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.tile-header-right .reward-card.dimmed {
+  opacity: 0.4;
+}
+
+.tile-header-right .reward-card.claimed {
+  opacity: 1;
+  border: 2px solid #4CAF50;
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.4);
+}
+
+@keyframes point-popup-float {
+  0% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+}
+
+/* Vertical card stack */
+.tile-card-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-height: 0;
+  padding: 0.2rem 0;
+  overflow: hidden;
+}
+
+.tile-card-stack .drop-hint {
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(0.5rem, 0.85vw, 0.65rem);
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-top: auto;
+}
+
+.tile-card-stack .drop-unavailable {
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(0.6rem, 1vw, 0.8rem);
+  color: #444;
+  margin: auto;
+}
+
+/* Stacked cards - overlap vertically */
+.tile-card-stack .stacked-card {
+  height: clamp(96px, 17vh, 132px);
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+}
+
+.tile-card-stack .stacked-card:not(:first-child) {
+  margin-top: clamp(-77px, -13.5vh, -105px);
+}
+
+/* Bucket cards */
+.tile-card-stack .stacked-card.bucket {
+  /* Full opacity, same as assigned */
+}
+
+/* Assigned cards - draggable, highlighted */
+.tile-card-stack .assigned-card-wrapper {
+  cursor: grab;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.tile-card-stack .assigned-card-wrapper:not(:first-child) {
+  margin-top: clamp(-77px, -13.5vh, -105px);
+}
+
+.tile-card-stack .assigned-card-wrapper:active {
+  cursor: grabbing;
+}
+
+.tile-card-stack .assigned-card-wrapper:hover {
+  transform: scale(1.05) translateY(-2px);
+  z-index: 10;
+}
+
+.tile-card-stack .assigned-card-wrapper.dragging {
+  opacity: 0.3;
+  transform: scale(0.9);
+}
+
+.tile-card-stack .stacked-card.assigned {
+  border: 2px solid #d4a857;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* Bottom controls: trick cards + confirm */
+.assignment-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.75rem, 2vw, 1.5rem);
+  padding: clamp(0.35rem, 0.8vh, 0.5rem);
+  background: rgba(0, 0, 0, 0.5);
+  border-top: 2px solid #c41e3a;
+  flex-shrink: 0;
+}
+
+/* Trick cards to assign */
+.trick-cards-to-assign {
+  display: flex;
+  gap: clamp(0.4rem, 1vw, 0.75rem);
+  align-items: center;
+}
+
+.assign-card {
+  position: relative;
+  cursor: grab;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.assign-card:active {
+  cursor: grabbing;
+}
+
+.assign-card img {
+  height: clamp(45px, 8vh, 70px);
+  border-radius: 4px;
+  border: 2px solid rgba(212, 168, 87, 0.3);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+  transition: all 0.15s ease;
+}
+
+.assign-card:hover:not(.dragging) {
+  transform: translateY(-4px) rotate(-2deg);
+}
+
+.assign-card:hover:not(.dragging) img {
+  border-color: #d4a857;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.6), 0 0 15px rgba(212, 168, 87, 0.3);
+}
+
+.assign-card.dragging {
+  opacity: 0.3;
+  transform: scale(0.9);
+}
+
+.assign-card.assigned img {
+  border-color: #4CAF50;
+}
+
+/* Badge showing where card is assigned */
+.assigned-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: clamp(18px, 3vw, 24px);
+  height: clamp(18px, 3vw, 24px);
+  background: #0a0a0a;
+  border: 2px solid #d4a857;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(10px, 1.5vw, 14px);
+  transform: rotate(-10deg);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.assigned-badge.hearts,
+.assigned-badge.diamonds {
+  color: #c41e3a;
+}
+
+.assigned-badge.clubs,
+.assigned-badge.spades {
+  color: #e8dcc4;
+}
+
+/* Confirm button - Soviet stamp style */
+.confirm-assignments-btn {
+  padding: clamp(0.35rem, 0.8vh, 0.5rem) clamp(0.8rem, 2vw, 1.2rem);
+  background: linear-gradient(135deg, #8b0000 0%, #c41e3a 50%, #8b0000 100%);
+  color: #e8dcc4;
+  border: 2px solid #d4a857;
+  border-radius: 3px;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(0.65rem, 1.3vw, 0.9rem);
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+}
+
+.confirm-assignments-btn:hover {
+  background: linear-gradient(135deg, #6b0000 0%, #a01830 50%, #6b0000 100%);
+  box-shadow: 0 0 20px rgba(196, 30, 58, 0.5), 0 0 30px rgba(212, 168, 87, 0.2);
+  transform: scale(1.05);
+}

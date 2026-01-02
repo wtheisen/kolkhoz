@@ -21,6 +21,16 @@ export function Board({ G, ctx, moves, playerID }) {
   // Drag state for playing cards
   const [dragState, setDragState] = useState(null);
 
+  // Swap drag state (for swap phase)
+  const [swapDragState, setSwapDragState] = useState(null);
+  const plotCardRefs = useRef({});
+  const handCardRefs = useRef({});
+
+  // Assignment drag state (for assignment phase)
+  const [assignDragState, setAssignDragState] = useState(null);
+  const assignCardRefs = useRef({});
+  const jobDropRefs = useRef({});
+
   // AI card play animation state
   const [aiPlayingCard, setAiPlayingCard] = useState(null);
   const prevTrickLengthRef = useRef(0);
@@ -181,6 +191,175 @@ export function Board({ G, ctx, moves, playerID }) {
     };
   }, [dragState]);
 
+  // Swap drag handlers
+  const findSwapDropTarget = (x, y, sourceType) => {
+    // Check plot cards
+    for (const [key, ref] of Object.entries(plotCardRefs.current)) {
+      if (!ref) continue;
+      const rect = ref.getBoundingClientRect();
+      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+        const [type, indexStr] = key.split('-');
+        const index = parseInt(indexStr, 10);
+        // Only valid if dragging from hand
+        if (sourceType === 'hand') {
+          return { type: `plot-${type}`, index };
+        }
+      }
+    }
+    // Check hand cards
+    for (const [key, ref] of Object.entries(handCardRefs.current)) {
+      if (!ref) continue;
+      const rect = ref.getBoundingClientRect();
+      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+        const index = parseInt(key, 10);
+        // Only valid if dragging from plot
+        if (sourceType.startsWith('plot-')) {
+          return { type: 'hand', index };
+        }
+      }
+    }
+    return null;
+  };
+
+  const handleSwapDragStart = (sourceType, index, card, e) => {
+    if (phase !== 'swap') return;
+    e.preventDefault();
+    const pos = getEventPosition(e);
+    const cardEl = e.currentTarget;
+    const rect = cardEl.getBoundingClientRect();
+
+    setSwapDragState({
+      sourceType,
+      sourceIndex: index,
+      card,
+      position: pos,
+      offset: {
+        x: pos.x - (rect.left + rect.width / 2),
+        y: pos.y - (rect.top + rect.height / 2),
+      },
+      dropTarget: null,
+    });
+  };
+
+  // Handle swap drag movement and drop
+  useEffect(() => {
+    if (!swapDragState) return;
+
+    const handleMove = (e) => {
+      e.preventDefault();
+      const pos = getEventPosition(e);
+      const dropTarget = findSwapDropTarget(pos.x, pos.y, swapDragState.sourceType);
+      setSwapDragState((prev) => ({ ...prev, position: pos, dropTarget }));
+    };
+
+    const handleEnd = (e) => {
+      const pos = e.changedTouches
+        ? { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY }
+        : { x: e.clientX, y: e.clientY };
+
+      const dropTarget = findSwapDropTarget(pos.x, pos.y, swapDragState.sourceType);
+
+      if (dropTarget) {
+        let plotIndex, handIndex, plotType;
+
+        if (swapDragState.sourceType === 'hand') {
+          handIndex = swapDragState.sourceIndex;
+          plotIndex = dropTarget.index;
+          plotType = dropTarget.type === 'plot-revealed' ? 'revealed' : 'hidden';
+        } else {
+          plotIndex = swapDragState.sourceIndex;
+          handIndex = dropTarget.index;
+          plotType = swapDragState.sourceType === 'plot-revealed' ? 'revealed' : 'hidden';
+        }
+
+        moves.swapCard(plotIndex, handIndex, plotType);
+      }
+
+      setSwapDragState(null);
+    };
+
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleMove, { passive: false });
+    document.addEventListener('touchend', handleEnd);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleMove);
+      document.removeEventListener('touchend', handleEnd);
+    };
+  }, [swapDragState, moves]);
+
+  // Assignment drag handlers
+  const findAssignDropTarget = (x, y) => {
+    for (const [suit, ref] of Object.entries(jobDropRefs.current)) {
+      if (!ref) continue;
+      const rect = ref.getBoundingClientRect();
+      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+        return suit;
+      }
+    }
+    return null;
+  };
+
+  const handleAssignDragStart = (cardKey, card, e) => {
+    if (phase !== 'assignment') return;
+    e.preventDefault();
+    const pos = getEventPosition(e);
+    const cardEl = e.currentTarget;
+    const rect = cardEl.getBoundingClientRect();
+
+    setAssignDragState({
+      cardKey,
+      card,
+      position: pos,
+      offset: {
+        x: pos.x - (rect.left + rect.width / 2),
+        y: pos.y - (rect.top + rect.height / 2),
+      },
+      dropTarget: null,
+    });
+  };
+
+  // Handle assignment drag movement and drop
+  useEffect(() => {
+    if (!assignDragState) return;
+
+    const handleMove = (e) => {
+      e.preventDefault();
+      const pos = getEventPosition(e);
+      const dropTarget = findAssignDropTarget(pos.x, pos.y);
+      setAssignDragState((prev) => ({ ...prev, position: pos, dropTarget }));
+    };
+
+    const handleEnd = (e) => {
+      const pos = e.changedTouches
+        ? { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY }
+        : { x: e.clientX, y: e.clientY };
+
+      const dropTarget = findAssignDropTarget(pos.x, pos.y);
+
+      if (dropTarget) {
+        moves.assignCard(assignDragState.cardKey, dropTarget);
+      }
+
+      setAssignDragState(null);
+    };
+
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleMove, { passive: false });
+    document.addEventListener('touchend', handleEnd);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleMove);
+      document.removeEventListener('touchend', handleEnd);
+    };
+  }, [assignDragState, moves]);
+
   // Handle trump selection
   const handleSetTrump = (suit) => {
     if (phase === 'planning') {
@@ -251,7 +430,7 @@ export function Board({ G, ctx, moves, playerID }) {
           <span className="nav-label" title="Brigade">Бригада</span>
         </button>
         <button
-          className={`nav-btn ${activePanel === 'jobs' ? 'active' : ''}`}
+          className={`nav-btn ${activePanel === 'jobs' || displayMode === 'jobs' ? 'active' : ''}`}
           onClick={() => togglePanel('jobs')}
           title="Jobs"
         >
@@ -329,6 +508,12 @@ export function Board({ G, ctx, moves, playerID }) {
           playerPlot={G.players[currentPlayer]?.plot}
           onSetTrump={handleSetTrump}
           highlightedSuits={highlightedSuits}
+          lastTrick={G.lastTrick}
+          pendingAssignments={G.pendingAssignments}
+          assignDragState={assignDragState}
+          onAssignDragStart={handleAssignDragStart}
+          jobDropRefs={jobDropRefs}
+          onSubmitAssignments={handleSubmitAssignments}
         />
 
         {/* Flying Card Animation */}
@@ -358,32 +543,68 @@ export function Board({ G, ctx, moves, playerID }) {
         )}
 
         {/* Player's hand with plot cards */}
-        <div className="player-hand-area">
-          {/* Plot cards on the left */}
+        <div className={`player-hand-area ${phase === 'assignment' ? 'assignment-mode' : ''}`}>
+          {/* ZONE 1: Plot cards */}
           {(G.players[currentPlayer]?.plot?.revealed?.length > 0 || G.players[currentPlayer]?.plot?.hidden?.length > 0) && (
-            <>
-              <div className="plot-cards-section">
-                {G.players[currentPlayer]?.plot?.revealed?.map((card, idx) => (
-                  <div key={`revealed-${card.suit}-${card.value}`} className="plot-card revealed">
+            <div className="plot-cards-section">
+              {G.players[currentPlayer]?.plot?.revealed?.map((card, idx) => {
+                const isSwapDragging = swapDragState?.sourceType === 'plot-revealed' && swapDragState?.sourceIndex === idx;
+                const isSwapTarget = phase === 'swap' && swapDragState?.sourceType === 'hand';
+                const isSwapHover = swapDragState?.dropTarget?.type === 'plot-revealed' && swapDragState?.dropTarget?.index === idx;
+
+                return (
+                  <div
+                    key={`revealed-${card.suit}-${card.value}`}
+                    ref={(el) => { plotCardRefs.current[`revealed-${idx}`] = el; }}
+                    className={`plot-card revealed ${phase === 'swap' ? 'swappable' : ''} ${isSwapDragging ? 'swap-dragging' : ''} ${isSwapTarget ? 'swap-target' : ''} ${isSwapHover ? 'swap-hover' : ''}`}
+                    style={{ '--index': idx }}
+                    onMouseDown={(e) => handleSwapDragStart('plot-revealed', idx, card, e)}
+                    onTouchStart={(e) => handleSwapDragStart('plot-revealed', idx, card, e)}
+                  >
                     <img
                       src={getCardImagePath(card)}
                       alt={`${card.value} of ${card.suit}`}
                       draggable={false}
                     />
                   </div>
-                ))}
-                {G.players[currentPlayer]?.plot?.hidden?.map((card, idx) => (
-                  <div key={`hidden-${card.suit}-${card.value}`} className="plot-card hidden">
+                );
+              })}
+              {G.players[currentPlayer]?.plot?.hidden?.map((card, idx) => {
+                const isSwapDragging = swapDragState?.sourceType === 'plot-hidden' && swapDragState?.sourceIndex === idx;
+                const isSwapTarget = phase === 'swap' && swapDragState?.sourceType === 'hand';
+                const isSwapHover = swapDragState?.dropTarget?.type === 'plot-hidden' && swapDragState?.dropTarget?.index === idx;
+                // Total index accounts for revealed cards before hidden
+                const totalIdx = (G.players[currentPlayer]?.plot?.revealed?.length || 0) + idx;
+
+                return (
+                  <div
+                    key={`hidden-${card.suit}-${card.value}`}
+                    ref={(el) => { plotCardRefs.current[`hidden-${idx}`] = el; }}
+                    className={`plot-card hidden ${phase === 'swap' ? 'swappable' : ''} ${isSwapDragging ? 'swap-dragging' : ''} ${isSwapTarget ? 'swap-target' : ''} ${isSwapHover ? 'swap-hover' : ''}`}
+                    style={{ '--index': totalIdx }}
+                    onMouseDown={(e) => handleSwapDragStart('plot-hidden', idx, card, e)}
+                    onTouchStart={(e) => handleSwapDragStart('plot-hidden', idx, card, e)}
+                  >
                     <img
                       src={getCardImagePath(card)}
                       alt={`${card.value} of ${card.suit}`}
                       draggable={false}
                     />
                   </div>
-                ))}
-              </div>
-              <div className="hand-divider" />
-            </>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Swap controls OR divider between plot and hand */}
+          {phase === 'swap' && !G.swapConfirmed?.[currentPlayer] && !swapConfirmedLocally ? (
+            <div className="swap-controls">
+              <button className="swap-confirm-btn" onClick={handleConfirmSwap}>
+                Confirm
+              </button>
+            </div>
+          ) : (G.players[currentPlayer]?.plot?.revealed?.length > 0 || G.players[currentPlayer]?.plot?.hidden?.length > 0) && (
+            <div className="hand-divider" />
           )}
 
           {/* Hand cards */}
@@ -392,13 +613,25 @@ export function Board({ G, ctx, moves, playerID }) {
               const isValid = getValidIndices(G, currentPlayer, phase)?.includes(idx);
               const canPlay = phase === 'trick' && isMyTurn;
               const isDragging = dragState?.index === idx;
+              const isSwapDragging = swapDragState?.sourceType === 'hand' && swapDragState?.sourceIndex === idx;
+              const isSwapTarget = phase === 'swap' && swapDragState?.sourceType?.startsWith('plot-');
+              const isSwapHover = swapDragState?.dropTarget?.type === 'hand' && swapDragState?.dropTarget?.index === idx;
+
+              const handleCardDrag = (e) => {
+                if (phase === 'swap') {
+                  handleSwapDragStart('hand', idx, card, e);
+                } else {
+                  handleDragStart(idx, card, e);
+                }
+              };
 
               return (
                 <div
                   key={`${card.suit}-${card.value}`}
-                  className={`hand-card ${canPlay && isValid ? 'playable' : ''} ${canPlay && !isValid ? 'invalid' : ''} ${isDragging ? 'dragging' : ''}`}
-                  onMouseDown={(e) => handleDragStart(idx, card, e)}
-                  onTouchStart={(e) => handleDragStart(idx, card, e)}
+                  ref={(el) => { handCardRefs.current[idx] = el; }}
+                  className={`hand-card ${canPlay && isValid ? 'playable' : ''} ${canPlay && !isValid ? 'invalid' : ''} ${isDragging ? 'dragging' : ''} ${phase === 'swap' ? 'swappable' : ''} ${isSwapDragging ? 'swap-dragging' : ''} ${isSwapTarget ? 'swap-target' : ''} ${isSwapHover ? 'swap-hover' : ''}`}
+                  onMouseDown={handleCardDrag}
+                  onTouchStart={handleCardDrag}
                 >
                   <img
                     src={getCardImagePath(card)}
@@ -409,6 +642,54 @@ export function Board({ G, ctx, moves, playerID }) {
               );
             })}
           </div>
+
+          {/* Assignment phase: trick cards to the right of hand */}
+          {phase === 'assignment' && G.lastTrick?.length > 0 && (() => {
+            const allAssigned = G.lastTrick.every(([, card]) => {
+              const cardKey = `${card.suit}-${card.value}`;
+              return G.pendingAssignments?.[cardKey];
+            });
+
+            // Only show unassigned cards in hand area
+            const unassignedCards = G.lastTrick.filter(([, card]) => {
+              const cardKey = `${card.suit}-${card.value}`;
+              return !G.pendingAssignments?.[cardKey];
+            });
+
+            return (
+              <>
+                <div className="hand-divider" />
+                {unassignedCards.length > 0 && (
+                  <div className="assign-cards-section">
+                    {unassignedCards.map(([, card]) => {
+                      const cardKey = `${card.suit}-${card.value}`;
+                      const isDragging = assignDragState?.cardKey === cardKey;
+
+                      return (
+                        <div
+                          key={cardKey}
+                          className={`hand-card assign-draggable ${isDragging ? 'dragging' : ''}`}
+                          onMouseDown={(e) => handleAssignDragStart(cardKey, card, e)}
+                          onTouchStart={(e) => handleAssignDragStart(cardKey, card, e)}
+                        >
+                          <img
+                            src={getCardImagePath(card)}
+                            alt={`${card.value} of ${card.suit}`}
+                            draggable={false}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {allAssigned && (
+                  <button className="confirm-assign-btn" onClick={handleSubmitAssignments}>
+                    Confirm
+                  </button>
+                )}
+              </>
+            );
+          })()}
         </div>
 
         {/* Drag ghost card */}
@@ -458,18 +739,52 @@ export function Board({ G, ctx, moves, playerID }) {
           />
         )}
 
-        {/* Swap phase UI */}
-        {phase === 'swap' && !G.swapConfirmed?.[currentPlayer] && !swapConfirmedLocally && (
-          <div className="swap-overlay">
-            <button className="swap-confirm-btn" onClick={handleConfirmSwap}>
-              Confirm (No Swap)
-            </button>
+        {/* Swap drag ghost */}
+        {swapDragState && (
+          <div
+            className="swap-drag-ghost"
+            style={{
+              position: 'fixed',
+              left: swapDragState.position.x - swapDragState.offset.x,
+              top: swapDragState.position.y - swapDragState.offset.y,
+              transform: 'translate(-50%, -50%) rotate(3deg)',
+              pointerEvents: 'none',
+              zIndex: 1000,
+            }}
+          >
+            <img
+              src={getCardImagePath(swapDragState.card)}
+              alt="swapping"
+              style={{ width: '90px', height: 'auto', filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.5))' }}
+            />
           </div>
         )}
 
+        {/* Assignment drag ghost */}
+        {assignDragState && (
+          <div
+            className="assign-drag-ghost"
+            style={{
+              position: 'fixed',
+              left: assignDragState.position.x - assignDragState.offset.x,
+              top: assignDragState.position.y - assignDragState.offset.y,
+              transform: 'translate(-50%, -50%) rotate(3deg)',
+              pointerEvents: 'none',
+              zIndex: 1000,
+            }}
+          >
+            <img
+              src={getCardImagePath(assignDragState.card)}
+              alt="assigning"
+              style={{ width: '90px', height: 'auto', filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.5))' }}
+            />
+          </div>
+        )}
+
+        {/* Swap waiting indicator */}
         {phase === 'swap' && (G.swapConfirmed?.[currentPlayer] || swapConfirmedLocally) && (
           <div className="swap-waiting">
-            <h3>Waiting for other players...</h3>
+            <span>Waiting for others...</span>
           </div>
         )}
       </div>
@@ -519,11 +834,11 @@ function FlyingCard({ card, playerIdx, targetSuit, cardValue, onComplete }) {
         top: `${targetRect.top + targetRect.height / 2}px`,
         transform: `translate(-50%, -50%) scale(${endScale})`
       }
-    ], { duration: 950, fill: 'forwards', easing: 'ease-in-out' });
+    ], { duration: 650, fill: 'forwards', easing: 'ease-in-out' });
 
     animationRef.current = animation;
 
-    // Show +X value at 60% through
+    // Show +X value as card lands
     const valueTimeout = setTimeout(() => setShowValue(true), 570);
 
     // Delay completion to let the +X number persist

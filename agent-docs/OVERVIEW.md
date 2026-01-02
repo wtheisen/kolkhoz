@@ -33,8 +33,12 @@ src/
       KolkhozGame.test.js  # Game logic tests
   client/
     App.jsx                # Lobby with variant selection
-    Board.jsx              # Main game board
-    components/            # UI components (Hand, TrickArea, etc.)
+    Board.jsx              # Main game board + flying card animation
+    components/
+      TrickAreaHTML.jsx    # Main play area (HTML/CSS flexbox layout)
+      TrickAreaHTML.css    # Responsive layout styles
+    styles/
+      board.css            # Global styles, fixed player hand
 ```
 
 ## Game Flow

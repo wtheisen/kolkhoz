@@ -81,6 +81,8 @@ function setup({ ctx, random }, setupData) {
     // For assignment phase
     pendingAssignments: {},
     needsManualAssignment: false,
+    // For AI assignment animation - pending assignments to be animated then applied
+    pendingAIAssignments: null,
     // Trump selector rotates each year
     trumpSelector: Math.floor(random.Number() * numPlayers),
   };
@@ -135,7 +137,7 @@ function assignCard({ G }, cardKey, targetSuit) {
 }
 
 // Move: Submit all assignments
-function submitAssignments({ G, events, random }) {
+function submitAssignments({ G, events }) {
   // Validate all cards are assigned
   if (Object.keys(G.pendingAssignments).length !== G.lastTrick.length) {
     return INVALID_MOVE;
@@ -151,32 +153,29 @@ function submitAssignments({ G, events, random }) {
     }
   }
 
+  // For AI players, defer assignment for animation
+  // Player 0 is human, others are AI
+  if (G.lastWinner !== 0) {
+    G.pendingAIAssignments = {
+      trick: JSON.parse(JSON.stringify(G.lastTrick)),
+      assignments: { ...G.pendingAssignments },
+      winner: G.lastWinner,
+      trump: G.trump,
+    };
+    G.pendingAssignments = {};
+    // Don't apply yet - React will animate then call applySingleAssignment for each
+    // Go to aiAssignment phase where FlyingCard animation will call applySingleAssignment
+    events.setPhase('aiAssignment');
+    return;
+  }
+
+  // Human player - apply immediately
   applyAssignments(G, G.pendingAssignments, G.variants);
   G.pendingAssignments = {};
 
-  // Check if all tricks are done (all players have 1 card left)
+  // Check if year is complete and route to appropriate phase
   if (isYearComplete(G)) {
-    console.log('[submitAssignments] Last trick - processing year end');
-
-    // Move remaining hand cards to plot
-    for (const player of G.players) {
-      while (player.hand.length > 0) {
-        const card = player.hand.pop();
-        player.plot.hidden.push(card);
-      }
-    }
-    console.log('[submitAssignments] Cards moved to plots:', G.players.map(p => p.plot.hidden.length));
-
-    // Perform requisition
-    performRequisition(G, G.variants);
-
-    // Transition to next year (deals new hands)
-    transitionToNextYear(G, G.variants, random);
-    console.log('[submitAssignments] After transition - year:', G.year, 'hands:', G.players.map(p => p.hand.length));
-
-    // Mark that year-end processing is complete and go to planning
-    G.yearEndProcessed = true;
-    events.setPhase('planning');
+    events.setPhase('plotSelection');
   } else {
     events.setPhase('trick');
   }
@@ -217,6 +216,68 @@ function confirmSwap({ G, playerID }) {
   G.swapConfirmed[playerIdx] = true;
 }
 
+// Move: Apply a single AI assignment (called by React after animation)
+function applySingleAssignment({ G }, cardKey, targetSuit) {
+  if (!G.pendingAIAssignments) return;
+
+  // Apply this single card to the job bucket
+  const [suit, valueStr] = cardKey.split('-');
+  const value = parseInt(valueStr, 10);
+  const card = { suit, value };
+
+  G.jobBuckets[targetSuit].push(card);
+
+  // Calculate work value (handling nomenclature variant)
+  let workValue = value;
+  if (G.variants.nomenclature && suit === G.trump && value === 11) {
+    workValue = 0;
+  }
+  G.workHours[targetSuit] += workValue;
+
+  // Check for completed job
+  const THRESHOLD = 40;
+  if (G.workHours[targetSuit] >= THRESHOLD && !G.claimedJobs.includes(targetSuit)) {
+    // Handle completed job inline (simplified from handleCompletedJob)
+    G.claimedJobs.push(targetSuit);
+
+    if (G.variants.deckType === 36 && G.variants.ordenNachalniku) {
+      const bucket = [...G.jobBuckets[targetSuit]];
+      if (bucket.length > 0) {
+        const lowestCard = bucket.reduce((lowest, c) =>
+          c.value < lowest.value ? c : lowest
+        );
+        const otherCards = bucket
+          .filter((c) => !(c.suit === lowestCard.suit && c.value === lowestCard.value))
+          .sort((a, b) => a.value - b.value);
+        const winner = G.players[G.pendingAIAssignments.winner];
+        if (!winner.plot.stacks) winner.plot.stacks = [];
+        winner.plot.stacks.push({ revealed: [lowestCard], hidden: otherCards });
+        G.jobBuckets[targetSuit] = [];
+      }
+    } else if (G.variants.deckType !== 36) {
+      const winner = G.players[G.pendingAIAssignments.winner];
+      const rewards = Array.isArray(G.revealedJobs[targetSuit])
+        ? G.revealedJobs[targetSuit]
+        : [G.revealedJobs[targetSuit]];
+      for (const c of rewards) {
+        if (c) winner.plot.revealed.push(c);
+      }
+      G.revealedJobs[targetSuit] = null;
+      if (G.variants.accumulateJobs) {
+        G.accumulatedJobCards[targetSuit] = [];
+      }
+    }
+  }
+
+  // Remove this card from pending assignments
+  delete G.pendingAIAssignments.assignments[cardKey];
+
+  // Check if all assignments are done - phase endIf will trigger transition
+  if (Object.keys(G.pendingAIAssignments.assignments).length === 0) {
+    G.pendingAIAssignments = null;
+  }
+}
+
 // Export the game definition
 export const KolkhozGame = {
   name: 'kolkhoz',
@@ -238,8 +299,6 @@ export const KolkhozGame = {
       },
       onBegin: ({ G }) => {
         console.log('[planning onBegin] year:', G.year, 'trumpSelector:', G.trumpSelector, 'isFamine:', G.isFamine, 'hands:', G.players.map(p => p.hand.length));
-        // Reset year-end flag
-        G.yearEndProcessed = false;
         // Famine year (Ace of Clubs revealed): no trump
         if (G.isFamine) {
           G.trump = null;
@@ -275,7 +334,7 @@ export const KolkhozGame = {
         maxMoves: 1,
       },
       endIf: ({ G, ctx }) => G.currentTrick.length === ctx.numPlayers,
-      onEnd: ({ G, random }) => {
+      onEnd: ({ G }) => {
         // Resolve the trick
         const winner = resolveTrick(G);
         if (winner !== null) {
@@ -283,59 +342,36 @@ export const KolkhozGame = {
 
           // Check for auto-assignment
           const autoAssign = generateAutoAssignment(G.lastTrick);
-          if (autoAssign) {
-            applyAssignments(G, autoAssign, G.variants);
+          if (autoAssign && winner !== 0) {
+            // AI won with same-suit trick - defer assignments for animation
+            G.pendingAIAssignments = {
+              trick: JSON.parse(JSON.stringify(G.lastTrick)),
+              assignments: { ...autoAssign },
+              winner: winner,
+              trump: G.trump,
+            };
+            // Don't apply yet - go to aiAssignment phase, React will animate
             G.needsManualAssignment = false;
           } else {
+            // Human won - always show assignment screen, let player assign manually
             G.needsManualAssignment = true;
           }
-
-          // If this was the last trick of the year and no manual assignment needed,
-          // do the year-end processing right here
-          if (!G.needsManualAssignment && isYearComplete(G)) {
-            console.log('[trick onEnd] Last trick - processing year end');
-
-            // Move remaining hand cards to plot (what plotSelection.onBegin did)
-            for (const player of G.players) {
-              while (player.hand.length > 0) {
-                const card = player.hand.pop();
-                player.plot.hidden.push(card);
-              }
-            }
-            console.log('[trick onEnd] Cards moved to plots:', G.players.map(p => p.plot.hidden.length));
-
-            // Perform requisition
-            performRequisition(G, G.variants);
-
-            // Transition to next year (deals new hands)
-            transitionToNextYear(G, G.variants, random);
-            console.log('[trick onEnd] After transition - year:', G.year, 'hands:', G.players.map(p => p.hand.length));
-
-            // Mark that year-end processing is complete
-            G.yearEndProcessed = true;
-          }
+          // Year-end processing now handled by plotSelection → requisition flow
         }
       },
       next: ({ G }) => {
-        // IMPORTANT: Check yearEndProcessed FIRST because transitionToNextYear
-        // resets trickCount to 0, so the trickCount check would fail
-        if (G.yearEndProcessed) {
-          // Note: yearEndProcessed is reset in planning.onBegin
-          console.log('[trick next] Year end processed, going to planning');
-          return 'planning';
-        }
-
         if (G.needsManualAssignment) {
           return 'assignment';
         }
 
-        const yearComplete = isYearComplete(G);
-        console.log('[trick next] trickCount:', G.trickCount, 'yearComplete:', yearComplete, 'handSize:', G.players[0]?.hand.length);
+        if (G.pendingAIAssignments) {
+          return 'aiAssignment';
+        }
 
-        if (yearComplete) {
-          // Should not reach here with new logic, but keep as fallback
+        if (isYearComplete(G)) {
           return 'plotSelection';
         }
+
         return 'trick';
       },
     },
@@ -349,15 +385,32 @@ export const KolkhozGame = {
         },
       },
       onBegin: ({ G }) => {
-        // Pre-populate with default assignments (each card to its own suit)
+        // Clear any existing assignments - player must assign manually
         G.pendingAssignments = {};
-        for (const [, card] of G.lastTrick) {
-          const cardKey = `${card.suit}-${card.value}`;
-          G.pendingAssignments[cardKey] = card.suit;
-        }
       },
       // next is handled by submitAssignments using events.setPhase()
       next: 'trick',
+    },
+
+    // Phase for animating AI assignments - blocks until all cards are assigned
+    aiAssignment: {
+      moves: { applySingleAssignment },
+      turn: {
+        order: {
+          // Human player controls the animation calls
+          first: () => 0,
+          next: () => undefined,
+        },
+      },
+      // Phase ends when all assignments are applied (pendingAIAssignments cleared)
+      endIf: ({ G }) => !G.pendingAIAssignments,
+      next: ({ G }) => {
+        // After AI assignments complete, check if year is done
+        if (isYearComplete(G)) {
+          return 'plotSelection';
+        }
+        return 'trick';
+      },
     },
 
     plotSelection: {

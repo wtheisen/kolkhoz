@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getCardImagePath } from '../../game/Card.js';
 import './TrickAreaHTML.css';
 
@@ -33,7 +33,68 @@ export function TrickAreaHTML({
   playerPlot,
   onSetTrump,
   highlightedSuits = [],
+  lastTrick = [],
+  pendingAssignments = {},
+  assignDragState,
+  onAssignDragStart,
+  jobDropRefs = { current: {} },
+  onSubmitAssignments,
 }) {
+  // Track point popups per suit
+  const [pointPopups, setPointPopups] = useState({});
+  const prevAssignments = useRef({});
+
+  // Detect when cards are assigned/unassigned and show popup
+  useEffect(() => {
+    const prev = prevAssignments.current;
+    const current = pendingAssignments || {};
+
+    // Find newly assigned cards (show +X)
+    Object.entries(current).forEach(([cardKey, targetSuit]) => {
+      if (prev[cardKey] !== targetSuit && targetSuit) {
+        // Card was just assigned to this suit - find its value
+        const cardEntry = lastTrick.find(([, card]) => `${card.suit}-${card.value}` === cardKey);
+        if (cardEntry) {
+          const cardValue = cardEntry[1].value;
+          // Show popup for this suit
+          setPointPopups(p => ({ ...p, [targetSuit]: { value: cardValue, type: 'add', key: Date.now() } }));
+          // Clear popup after animation
+          setTimeout(() => {
+            setPointPopups(p => {
+              const copy = { ...p };
+              delete copy[targetSuit];
+              return copy;
+            });
+          }, 1200);
+        }
+      }
+    });
+
+    // Find cards that were removed from a suit (show -X)
+    Object.entries(prev).forEach(([cardKey, oldSuit]) => {
+      const newSuit = current[cardKey];
+      if (oldSuit && oldSuit !== newSuit) {
+        // Card was removed from oldSuit - find its value
+        const cardEntry = lastTrick.find(([, card]) => `${card.suit}-${card.value}` === cardKey);
+        if (cardEntry) {
+          const cardValue = cardEntry[1].value;
+          // Show negative popup for the old suit
+          setPointPopups(p => ({ ...p, [oldSuit]: { value: cardValue, type: 'remove', key: Date.now() } }));
+          // Clear popup after animation
+          setTimeout(() => {
+            setPointPopups(p => {
+              const copy = { ...p };
+              delete copy[oldSuit];
+              return copy;
+            });
+          }, 1200);
+        }
+      }
+    });
+
+    prevAssignments.current = { ...current };
+  }, [pendingAssignments, lastTrick]);
+
   // Map player index to slot position
   const slotOrder = [3, 0, 1, 2]; // player 0 -> slot 3 (right), player 1 -> slot 0 (left), etc.
   const slotClasses = ['left', 'center-left', 'center-right', 'right'];
@@ -175,45 +236,143 @@ export function TrickAreaHTML({
           </div>
         )}
 
+        {/* Jobs View - 4-column tile layout (shared between view and assignment modes) */}
         {displayMode === 'jobs' && (
-          <div className="jobs-view">
-            <h2 className="view-title">Работы</h2>
-            {SUITS.map((suit) => {
-              const hours = workHours?.[suit] || 0;
-              const isClaimed = claimedJobs?.includes(suit);
-              const isTrump = suit === trump;
-              const bucket = jobBuckets?.[suit] || [];
-              const jobCard = revealedJobs?.[suit];
-              const jobCards = Array.isArray(jobCard) ? jobCard : jobCard ? [jobCard] : [];
+          <div className="assignment-view">
+            <div className="assignment-grid">
+              {(() => {
+                const suitsInTrick = new Set(lastTrick.map(([, card]) => card.suit));
+                const JOB_NAMES = {
+                  Hearts: 'Пшеница',
+                  Diamonds: 'Свёкла',
+                  Clubs: 'Картофель',
+                  Spades: 'Подсолнух',
+                };
 
-              return (
-                <div key={suit} className={`job-row ${isTrump ? 'trump' : ''} ${isClaimed ? 'claimed' : ''}`}>
-                  <div className="job-info">
-                    <span className={`suit-symbol ${suit.toLowerCase()}`}>{SUIT_SYMBOLS[suit]}</span>
-                    <span className="progress">{isClaimed ? '✓' : `${hours}/40`}</span>
-                  </div>
-                  <div className="job-reward">
-                    {jobCards.length > 0 && !isClaimed ? (
-                      <img src={getCardImagePath(jobCards[0])} alt="reward" className="reward-card" />
-                    ) : (
-                      <img src="assets/cards/back.svg" alt="reward" className="reward-card dimmed" />
-                    )}
-                  </div>
-                  <div className="job-cards">
-                    {bucket.slice(0, 12).map((card, idx) => (
-                      <img
-                        key={idx}
-                        src={getCardImagePath(card)}
-                        alt={`${card.value} of ${card.suit}`}
-                        className="bucket-card"
-                      />
-                    ))}
-                    {bucket.length > 12 && <span className="more-cards">+{bucket.length - 12}</span>}
-                    {bucket.length === 0 && <div className="empty-bucket" />}
-                  </div>
-                </div>
-              );
-            })}
+                return SUITS.map((suit) => {
+                  const hours = workHours?.[suit] || 0;
+                  const isClaimed = claimedJobs?.includes(suit);
+                  const isTrump = suit === trump;
+                  const bucket = jobBuckets?.[suit] || [];
+
+                  // Is this suit a valid drop target? (only relevant in assignment phase)
+                  const isAssignmentPhase = phase === 'assignment';
+                  const isValidTarget = isAssignmentPhase && suitsInTrick.has(suit) && !isClaimed;
+                  const isDropTarget = assignDragState && isValidTarget;
+                  const isDropHover = assignDragState?.dropTarget === suit;
+
+                  // Cards assigned to this job (only in assignment phase)
+                  const assignedCards = isAssignmentPhase ? lastTrick.filter(([, card]) => {
+                    const cardKey = `${card.suit}-${card.value}`;
+                    return pendingAssignments[cardKey] === suit;
+                  }) : [];
+
+                  // Calculate pending hours from assigned cards
+                  const pendingHours = assignedCards.reduce((sum, [, card]) => sum + card.value, 0);
+                  const totalHours = hours + pendingHours;
+                  const popup = pointPopups[suit];
+
+                  // Get reward card for this job
+                  const jobCard = revealedJobs?.[suit];
+                  const rewardCards = Array.isArray(jobCard) ? jobCard : jobCard ? [jobCard] : [];
+
+                  // Build class list - only add assignment classes when in assignment phase
+                  const tileClasses = [
+                    'assign-job-tile',
+                    isTrump ? 'trump' : '',
+                    isClaimed ? 'claimed' : '',
+                    isAssignmentPhase && isValidTarget ? 'valid-target' : '',
+                    isAssignmentPhase && !isValidTarget && suitsInTrick.size > 0 ? 'invalid-target' : '',
+                    isDropTarget ? 'drop-target' : '',
+                    isDropHover ? 'drop-hover' : '',
+                  ].filter(Boolean).join(' ');
+
+                  return (
+                    <div
+                      key={suit}
+                      ref={(el) => { if (isValidTarget) jobDropRefs.current[suit] = el; }}
+                      className={tileClasses}
+                    >
+                      {/* Header: left side (icon + progress + number) and right side (reward) */}
+                      <div className="tile-header-row">
+                        <div className="tile-header-left">
+                          <div className="tile-header-top">
+                            <span className={`suit-symbol ${suit.toLowerCase()}`}>{SUIT_SYMBOLS[suit]}</span>
+                            {isTrump && <span className="trump-badge">★</span>}
+                            <div className="progress-track">
+                              <div className="progress-fill" style={{ width: `${Math.min(100, (totalHours/40)*100)}%` }} />
+                            </div>
+                          </div>
+                          <div className="progress-text-wrapper">
+                            <span className="progress-text">{isClaimed ? '✓' : `${totalHours}/40`}</span>
+                            {popup && (
+                              <span key={popup.key} className={`point-popup ${popup.type}`}>
+                                {popup.type === 'add' ? '+' : '-'}{popup.value}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="tile-header-right">
+                          {/* Reward card - show back if claimed or will be claimed (40+ hours) */}
+                          <div className="tile-reward">
+                            {rewardCards.length > 0 && !isClaimed && totalHours < 40 ? (
+                              <img
+                                src={getCardImagePath(rewardCards[0])}
+                                alt="reward"
+                                className="reward-card"
+                              />
+                            ) : (
+                              <img
+                                src="assets/cards/back.svg"
+                                alt="reward"
+                                className={`reward-card ${isClaimed || totalHours >= 40 ? 'claimed' : 'dimmed'}`}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card stack - bucket cards + assigned cards */}
+                      <div className={`tile-card-stack ${(bucket.length > 0 || assignedCards.length > 0) ? 'has-cards' : ''}`}>
+                        {/* Bucket cards from previous tricks */}
+                        {bucket.map((card, idx) => (
+                          <img
+                            key={`bucket-${idx}`}
+                            src={getCardImagePath(card)}
+                            alt={`${card.value} of ${card.suit}`}
+                            className="stacked-card bucket"
+                          />
+                        ))}
+                        {/* Assigned cards from current trick */}
+                        {assignedCards.map(([, card]) => {
+                          const cardKey = `${card.suit}-${card.value}`;
+                          const isDragging = assignDragState?.cardKey === cardKey;
+                          return (
+                            <div
+                              key={cardKey}
+                              className={`assigned-card-wrapper ${isDragging ? 'dragging' : ''}`}
+                              onMouseDown={(e) => onAssignDragStart(cardKey, card, e)}
+                              onTouchStart={(e) => onAssignDragStart(cardKey, card, e)}
+                            >
+                              <img
+                                src={getCardImagePath(card)}
+                                alt={`${card.value} of ${card.suit}`}
+                                className="stacked-card assigned"
+                                draggable={false}
+                              />
+                            </div>
+                          );
+                        })}
+                        {/* Drop hint - only show during assignment phase */}
+                        {isAssignmentPhase && isValidTarget && (
+                          <span className="drop-hint">Drop here</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
           </div>
         )}
 

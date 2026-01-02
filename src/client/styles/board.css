@@ -304,7 +304,7 @@ html, body {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: clamp(1rem, 3vw, 2rem);
+  gap: clamp(8px, 1vw, 16px); /* Uniform spacing between zones */
   padding: 0 clamp(16px, 3vw, 40px);
   padding-left: calc(100px + clamp(16px, 3vw, 40px)); /* Account for nav bar */
   background: transparent;
@@ -313,47 +313,187 @@ html, body {
   transform: translateY(50%);
 }
 
-/* Plot cards section */
+/* Plot cards section - use position offsets for overlap (doesn't affect box model) */
 .player-hand-area .plot-cards-section {
   display: flex;
   align-items: flex-end;
-  gap: clamp(8px, 1vw, 16px);
+  /* No gap - overlap handled by left offset */
 }
 
 .player-hand-area .plot-card {
   position: relative;
+  width: var(--card-width, clamp(50px, 10vw, 120px));
+  cursor: pointer;
+  transition: transform 0.2s ease, z-index 0.2s;
+  transform-origin: bottom center;
+  /* Overlap calculated from --index (0-based), set via inline style */
+  left: calc(var(--index, 0) * var(--card-width, clamp(50px, 10vw, 120px)) * -0.7);
+  z-index: calc(var(--index, 0) + 1);
+}
+
+.player-hand-area .plot-card:hover {
+  transform: translateY(-15px) scale(1.08);
+  z-index: 100;
 }
 
 .player-hand-area .plot-card img {
-  width: var(--card-width, clamp(50px, 10vw, 120px));
+  width: 100%;
   border-radius: 6px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  opacity: 0.85;
 }
 
-.player-hand-area .plot-card.revealed img {
-  border: 2px solid #4CAF50;
-}
 
-.player-hand-area .plot-card.hidden img {
-  border: 2px solid #c41e3a;
-}
-
-/* Divider between plot and hand */
+/* Divider between zones - visible gold line */
 .player-hand-area .hand-divider {
-  width: 2px;
-  height: calc(var(--card-width, clamp(50px, 10vw, 120px)) * 1.2);
-  background: linear-gradient(to bottom, transparent, #d4a857, #d4a857, transparent);
-  margin: 0 clamp(0.5rem, 1vw, 1rem);
-  align-self: center;
-  transform: translateY(-25%);
+  width: 3px;
+  height: calc(var(--card-width, clamp(50px, 10vw, 120px)) * 0.7);
+  background: linear-gradient(to bottom, transparent, #d4a857 20%, #d4a857 80%, transparent);
+  flex-shrink: 0;
+  align-self: flex-end;
+  /* Position higher in visible area (above the 50% translateY fold) */
+  margin-bottom: calc(var(--card-width, clamp(50px, 10vw, 120px)) * 0.75);
+  box-shadow: 0 0 8px rgba(212, 168, 87, 0.5);
 }
 
-/* Hand cards section */
-.player-hand-area .hand-cards-section {
+/* Assignment cards section in hand area - to the right of hand cards */
+.player-hand-area .assign-cards-section {
   display: flex;
   align-items: flex-end;
   gap: clamp(8px, 1vw, 16px);
+}
+
+/* Assignment cards use hand-card styling but with grab cursor */
+.player-hand-area .hand-card.assign-draggable {
+  cursor: grab;
+}
+
+.player-hand-area .hand-card.assign-draggable:active {
+  cursor: grabbing;
+}
+
+.player-hand-area .hand-card.assign-draggable:hover {
+  transform: translateY(-15px) scale(1.08);
+  z-index: 100;
+}
+
+.player-hand-area .hand-card.assign-draggable::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 8px;
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 10px rgba(212, 168, 87, 0.5);
+  pointer-events: none;
+  animation: pulse-gold 1.5s ease-in-out infinite;
+}
+
+/* Assigned cards get a dimmed look */
+.player-hand-area .hand-card.assign-draggable.assigned {
+  opacity: 0.7;
+}
+
+.player-hand-area .hand-card.assign-draggable.assigned::before {
+  border-color: #4CAF50;
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+  animation: none;
+}
+
+/* Assigned badge on cards */
+.player-hand-area .hand-card .assigned-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: clamp(20px, 3vw, 28px);
+  height: clamp(20px, 3vw, 28px);
+  background: #0a0a0a;
+  border: 2px solid #d4a857;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(12px, 1.8vw, 16px);
+  font-weight: bold;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  z-index: 10;
+}
+
+.player-hand-area .hand-card .assigned-badge.hearts,
+.player-hand-area .hand-card .assigned-badge.diamonds {
+  color: #c41e3a;
+}
+
+.player-hand-area .hand-card .assigned-badge.clubs,
+.player-hand-area .hand-card .assigned-badge.spades {
+  color: #e8dcc4;
+}
+
+/* Confirm assignment button - next to assign cards */
+.player-hand-area .confirm-assign-btn {
+  padding: clamp(1rem, 2vh, 1.6rem) clamp(2rem, 5vw, 3rem);
+  background: linear-gradient(135deg, #8b0000 0%, #c41e3a 50%, #8b0000 100%);
+  color: #e8dcc4;
+  border: 3px solid #d4a857;
+  border-radius: 8px;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(1.2rem, 2.5vw, 1.8rem);
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: confirm-appear 0.3s ease-out;
+  /* Right-justify the button */
+  margin-left: auto;
+  margin-right: clamp(16px, 3vw, 32px);
+  /* Keep button in visible area above the 50% fold */
+  align-self: flex-start;
+  margin-bottom: calc(var(--card-width, clamp(50px, 10vw, 120px)) * 0.5);
+}
+
+@keyframes confirm-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.player-hand-area .confirm-assign-btn:hover {
+  background: linear-gradient(135deg, #6b0000 0%, #a01830 50%, #6b0000 100%);
+  box-shadow: 0 0 20px rgba(196, 30, 58, 0.5), 0 0 30px rgba(212, 168, 87, 0.2);
+  transform: scale(1.05);
+}
+
+/* Hand cards section - centered */
+.player-hand-area .hand-cards-section {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: clamp(8px, 1vw, 16px);
+  padding-left: 6px; /* Account for ::before glow extending -3px beyond cards */
+}
+
+/* In assignment mode, overlap hand cards to save space */
+.player-hand-area.assignment-mode .hand-cards-section {
+  gap: 0;
+}
+
+.player-hand-area.assignment-mode .hand-cards-section .hand-card {
+  margin-left: calc(var(--card-width, clamp(50px, 10vw, 120px)) * -0.6);
+}
+
+.player-hand-area.assignment-mode .hand-cards-section .hand-card:first-child {
+  margin-left: 0;
+}
+
+.player-hand-area.assignment-mode .hand-cards-section .hand-card:hover {
+  z-index: 50;
 }
 
 .player-hand-area .hand-card {
@@ -404,58 +544,109 @@ html, body {
   pointer-events: none;
 }
 
-/* Swap overlay and waiting states */
-.swap-overlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+/* Swap controls - inline with hand area */
+.swap-controls {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  padding: 1rem;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 60;
+  padding: 0 clamp(8px, 1vw, 16px);
 }
 
 .swap-confirm-btn {
-  padding: 0.75rem 2rem;
+  padding: 0.5rem 1rem;
   background: var(--red);
   color: var(--cream);
   border: 2px solid var(--gold-dark);
   border-radius: 4px;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.8rem;
   font-family: 'Russo One', 'Oswald', sans-serif;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .swap-confirm-btn:hover {
   background: var(--red-dark);
   border-color: var(--gold);
-  box-shadow: 0 0 20px rgba(196, 30, 58, 0.3);
+  box-shadow: 0 0 15px rgba(196, 30, 58, 0.4);
 }
 
 .swap-waiting {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
   display: flex;
-  justify-content: center;
   align-items: center;
-  padding: 1rem;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 60;
+  padding: 0 clamp(8px, 1vw, 16px);
 }
 
-.swap-waiting h3 {
+.swap-waiting span {
   font-family: 'Russo One', 'Oswald', sans-serif;
   color: var(--gold);
-  font-size: 1rem;
-  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
   animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Swap drag states for cards */
+.plot-card.swappable,
+.hand-card.swappable {
+  cursor: grab;
+}
+
+.plot-card.swappable:hover,
+.hand-card.swappable:hover {
+  transform: translateY(-4px) scale(1.02);
+  z-index: 10;
+}
+
+.plot-card.swap-dragging,
+.hand-card.swap-dragging {
+  opacity: 0.4;
+  transform: scale(0.95);
+  cursor: grabbing;
+}
+
+.plot-card.swap-target,
+.hand-card.swap-target {
+  animation: swap-target-pulse 1s ease-in-out infinite;
+}
+
+.plot-card.swap-target::after,
+.hand-card.swap-target::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border: 2px dashed var(--gold);
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+.plot-card.swap-hover,
+.hand-card.swap-hover {
+  transform: scale(1.08);
+  z-index: 20;
+}
+
+.plot-card.swap-hover::after,
+.hand-card.swap-hover::after {
+  border: 3px solid var(--gold-bright);
+  background: rgba(76, 175, 80, 0.25);
+  animation: none;
+}
+
+.plot-card.swap-hover img,
+.hand-card.swap-hover img {
+  box-shadow: 0 0 25px rgba(76, 175, 80, 0.5), 0 0 50px rgba(212, 168, 87, 0.3);
+}
+
+@keyframes swap-target-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(212, 168, 87, 0);
+  }
+  50% {
+    box-shadow: 0 0 15px 3px rgba(212, 168, 87, 0.4);
+  }
 }
 
 /* Card Styles */
@@ -529,7 +720,7 @@ html, body {
 .flying-card-html img {
   width: 100%;
   border-radius: 6px;
-  animation: card-fade 0.95s ease-in-out forwards;
+  animation: card-fade 0.65s ease-in-out forwards;
 }
 
 @keyframes card-fade {

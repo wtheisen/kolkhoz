@@ -29,6 +29,10 @@ npm run test:run
 npm run build
 ```
 
+## Frontend Work
+
+**Always use the frontend-design skill** when working on UI/CSS. It helps think through layout problems properly instead of trial-and-error with CSS values.
+
 ## Common Patterns
 
 **Game logic** goes in `src/game/` - pure functions that mutate G.

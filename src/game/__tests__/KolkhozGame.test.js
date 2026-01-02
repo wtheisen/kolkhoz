@@ -660,13 +660,25 @@ describe('KolkhozGame', () => {
         }
       };
 
-      // Helper to handle assignment phase if needed
+      // Helper to handle assignment phase or aiAssignment phase
       const handleAssignmentIfNeeded = () => {
         let { G: currentG, ctx: currentCtx } = client.getState();
         if (currentCtx.phase === 'assignment') {
           // The winner makes the assignment
           client.updatePlayerID(String(currentG.lastWinner));
           client.moves.submitAssignments();
+        }
+        // Handle aiAssignment phase (when AI wins and animation would normally play)
+        ({ G: currentG, ctx: currentCtx } = client.getState());
+        while (currentCtx.phase === 'aiAssignment' && currentG.pendingAIAssignments) {
+          client.updatePlayerID('0'); // Human controls this phase
+          const pending = currentG.pendingAIAssignments;
+          for (const [cardKey, targetSuit] of Object.entries(pending.assignments)) {
+            client.moves.applySingleAssignment(cardKey, targetSuit);
+            ({ G: currentG, ctx: currentCtx } = client.getState());
+            if (!currentG.pendingAIAssignments) break;
+          }
+          ({ G: currentG, ctx: currentCtx } = client.getState());
         }
       };
 
@@ -741,12 +753,24 @@ describe('KolkhozGame', () => {
         }
       };
 
-      // Helper to handle assignment phase if needed
+      // Helper to handle assignment phase or aiAssignment phase
       const handleAssignmentIfNeeded = () => {
         let { G: currentG, ctx: currentCtx } = client.getState();
         if (currentCtx.phase === 'assignment') {
           client.updatePlayerID(String(currentG.lastWinner));
           client.moves.submitAssignments();
+        }
+        // Handle aiAssignment phase (when AI wins and animation would normally play)
+        ({ G: currentG, ctx: currentCtx } = client.getState());
+        while (currentCtx.phase === 'aiAssignment' && currentG.pendingAIAssignments) {
+          client.updatePlayerID('0'); // Human controls this phase
+          const pending = currentG.pendingAIAssignments;
+          for (const [cardKey, targetSuit] of Object.entries(pending.assignments)) {
+            client.moves.applySingleAssignment(cardKey, targetSuit);
+            ({ G: currentG, ctx: currentCtx } = client.getState());
+            if (!currentG.pendingAIAssignments) break;
+          }
+          ({ G: currentG, ctx: currentCtx } = client.getState());
         }
       };
 

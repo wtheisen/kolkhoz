@@ -19,19 +19,16 @@ kolkhoz/
 │   │       └── KolkhozGame.test.js
 │   ├── client/
 │   │   ├── App.jsx                # Lobby screen
-│   │   ├── Board.jsx              # Main game board
+│   │   ├── Board.jsx              # Main game board + flying card animation
 │   │   ├── index.jsx              # React entry
 │   │   ├── components/
-│   │   │   ├── Hand.jsx           # Player hand (fan layout)
-│   │   │   ├── TrickArea.jsx      # Central trick display
-│   │   │   ├── JobPilesArea.jsx   # Jobs with progress bars
-│   │   │   ├── PlayerArea.jsx     # Player status/medals
-│   │   │   ├── RightSidebar.jsx   # Game state info
-│   │   │   ├── GameHUD.jsx        # Turn indicator
-│   │   │   ├── GulagArea.jsx      # Exiled cards
-│   │   │   └── CardSVG.jsx        # SVG card rendering
+│   │   │   ├── TrickAreaHTML.jsx  # Main play area (HTML/CSS layout)
+│   │   │   ├── TrickAreaHTML.css  # Responsive flexbox styles
+│   │   │   ├── AssignmentDragDrop.jsx  # Card assignment UI
+│   │   │   ├── SwapDragDrop.jsx   # Swap phase UI
+│   │   │   └── PlayCardDragDrop.jsx    # Card play UI
 │   │   └── styles/
-│   │       └── board.css
+│   │       └── board.css          # Global styles, fixed player hand
 │   └── ai/                        # (empty - AI uses boardgame.io MCTSBot)
 ├── public/                        # Static assets (card images)
 ├── docs/                          # BUILD OUTPUT (GitHub Pages)
@@ -64,8 +61,33 @@ kolkhoz/
 | File | Purpose |
 |------|---------|
 | `App.jsx` | Lobby UI, variant selection, starts game with boardgame.io Client |
-| `Board.jsx` | Main board, routes to phase-specific UIs, handles moves |
-| `components/*` | Reusable UI components |
+| `Board.jsx` | Main board, routes to phase-specific UIs, handles moves, flying card animation |
+| `components/TrickAreaHTML.jsx` | Main play area - info bar, player panels, card slots (HTML/CSS layout) |
+| `components/TrickAreaHTML.css` | Responsive flexbox layout with CSS variables |
+| `styles/board.css` | Global styles, player hand (fixed position at viewport bottom) |
+
+### Frontend Layout Architecture
+
+The game uses a **pure HTML/CSS flexbox layout** (not SVG):
+
+```
+.game-board (flex row)
+├── .mobile-nav-bar (left sidebar - fixed width)
+└── .game-content (flex column, fills remaining width)
+    └── .trick-area-html (flex: 1, gold border)
+        ├── .info-bar (year, trump, lead suit, job progress)
+        ├── .play-area (flex: 1, min-height: 0)
+        │   ├── .player-panels (3 bot panels + 1 spacer, space-between)
+        │   └── .card-slots (flex: 1, align-items: stretch)
+        │       └── .card-slot (aspect-ratio: 5/7, fills height)
+        └── .player-hand-area (position: fixed, bottom: 0, translateY: 50%)
+```
+
+**Key CSS patterns:**
+- **Card slots fill available space**: Uses `flex: 1` + `min-height: 0` chain to allow percentage heights
+- **Player hand fixed at bottom**: `position: fixed` with `translateY(50%)` shows top 50% of cards
+- **Trick area margin**: `margin-bottom: var(--visible-hand-height)` stops border above hand
+- **Responsive sizing**: CSS custom properties (`--card-width`, `--visible-hand-height`) keep values in sync
 
 ## boardgame.io Integration
 
