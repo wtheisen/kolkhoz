@@ -5,6 +5,13 @@ import { THRESHOLD } from '../constants.js';
 
 // Perform requisition for all failed jobs
 export function performRequisition(G, variants) {
+  // Initialize animation tracking data
+  G.requisitionData = {
+    revealedCards: [],  // {playerIdx, card, fromHidden}
+    exiledCards: [],    // {playerIdx, card}
+    failedJobs: [],     // suit names that failed
+  };
+
   // Log work hours
   if (!G.trickHistory) G.trickHistory = [];
   G.trickHistory.push({
@@ -24,6 +31,9 @@ export function performRequisition(G, variants) {
     if (G.workHours[suit] >= THRESHOLD) {
       continue;
     }
+
+    // Track failed job for animation
+    G.requisitionData.failedJobs.push(suit);
 
     if (variants.miceVariant) {
       performMiceVariant(G, suit, bucket, variants);
@@ -163,7 +173,8 @@ function performStandard(G, suit, bucket, variants) {
   const informant = hasInformant(bucket, G.trump, variants);
   const partyOfficial = hasPartyOfficial(bucket, G.trump, variants);
 
-  for (const p of G.players) {
+  for (let i = 0; i < G.players.length; i++) {
+    const p = G.players[i];
     const isVulnerable =
       variants.northernStyle || p.hasWonTrickThisYear || informant;
 
@@ -171,6 +182,16 @@ function performStandard(G, suit, bucket, variants) {
 
     // Reveal matching cards from hidden plot
     const toReveal = (p.plot.hidden || []).filter((c) => c.suit === suit);
+
+    // Track revealed cards for animation
+    for (const card of toReveal) {
+      G.requisitionData.revealedCards.push({
+        playerIdx: i,
+        card: { ...card },
+        fromHidden: true,
+      });
+    }
+
     p.plot.revealed.push(...toReveal);
     p.plot.hidden = (p.plot.hidden || []).filter((c) => c.suit !== suit);
 
@@ -192,6 +213,12 @@ function performStandard(G, suit, bucket, variants) {
       `${p.name} отправить на Север ${cardToString(card)}`
     );
 
+    // Track exiled card for animation
+    G.requisitionData.exiledCards.push({
+      playerIdx: i,
+      card: { ...card },
+    });
+
     // Party official exiles second card
     if (partyOfficial && suitCards.length > 1) {
       const card2 = suitCards[1];
@@ -203,6 +230,12 @@ function performStandard(G, suit, bucket, variants) {
       G.trickHistory[G.trickHistory.length - 1].requisitions.push(
         `Партийный чиновник: ${p.name} отправить на Север ${cardToString(card2)}`
       );
+
+      // Track second exiled card for animation
+      G.requisitionData.exiledCards.push({
+        playerIdx: i,
+        card: { ...card2 },
+      });
     }
   }
 }
@@ -211,7 +244,8 @@ function performStandard(G, suit, bucket, variants) {
 function revealMatchingCards(G, suit, informant, vulnerabilityFilter, variants) {
   const allRevealedCards = [];
 
-  for (const p of G.players) {
+  for (let i = 0; i < G.players.length; i++) {
+    const p = G.players[i];
     if (vulnerabilityFilter && !vulnerabilityFilter(p)) continue;
 
     const matchingHidden = (p.plot.hidden || []).filter((c) => c.suit === suit);
@@ -245,6 +279,12 @@ function revealMatchingCards(G, suit, informant, vulnerabilityFilter, variants) 
         p.plot.hidden.splice(cardIndex, 1);
         p.plot.revealed.push(card);
         allRevealedCards.push([p, card]);
+        // Track for animation
+        G.requisitionData.revealedCards.push({
+          playerIdx: i,
+          card: { ...card },
+          fromHidden: true,
+        });
       }
       for (const { card, stack, location } of matchingFromStacks) {
         const arr = location === 'hidden' ? stack.hidden : stack.revealed;
@@ -255,6 +295,12 @@ function revealMatchingCards(G, suit, informant, vulnerabilityFilter, variants) 
           arr.splice(cardIndex, 1);
           p.plot.revealed.push(card);
           allRevealedCards.push([p, card]);
+          // Track for animation
+          G.requisitionData.revealedCards.push({
+            playerIdx: i,
+            card: { ...card },
+            fromHidden: location === 'hidden',
+          });
         }
       }
     } else {
@@ -274,6 +320,12 @@ function revealMatchingCards(G, suit, informant, vulnerabilityFilter, variants) 
         p.plot.hidden.splice(cardIndex, 1);
         p.plot.revealed.push(highestCard);
         allRevealedCards.push([p, highestCard]);
+        // Track for animation
+        G.requisitionData.revealedCards.push({
+          playerIdx: i,
+          card: { ...highestCard },
+          fromHidden: true,
+        });
       } else {
         const stackEntry = matchingFromStacks.find(
           (m) => m.card.suit === highestCard.suit && m.card.value === highestCard.value
@@ -288,6 +340,12 @@ function revealMatchingCards(G, suit, informant, vulnerabilityFilter, variants) 
             arr.splice(cardIndex, 1);
             p.plot.revealed.push(highestCard);
             allRevealedCards.push([p, highestCard]);
+            // Track for animation
+            G.requisitionData.revealedCards.push({
+              playerIdx: i,
+              card: { ...highestCard },
+              fromHidden: location === 'hidden',
+            });
           }
         }
       }
@@ -345,4 +403,13 @@ function exileCard(G, [player, card]) {
   G.trickHistory[G.trickHistory.length - 1].requisitions.push(
     `${player.name} отправить на Север ${cardToString(card)}`
   );
+
+  // Track exiled card for animation
+  const playerIdx = G.players.indexOf(player);
+  if (playerIdx !== -1) {
+    G.requisitionData.exiledCards.push({
+      playerIdx,
+      card: { ...card },
+    });
+  }
 }

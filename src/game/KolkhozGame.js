@@ -445,24 +445,37 @@ export const KolkhozGame = {
     },
 
     requisition: {
-      onBegin: ({ G, random, events }) => {
+      onBegin: ({ G }) => {
         console.log('[requisition onBegin] START - year:', G.year);
-        console.log('[requisition onBegin] hands before transition:', G.players.map(p => p.hand.length));
+        console.log('[requisition onBegin] hands before requisition:', G.players.map(p => p.hand.length));
+        // Perform requisition and store animation data in G.requisitionData
         performRequisition(G, G.variants);
+        console.log('[requisition onBegin] requisitionData:', G.requisitionData);
+        // DON'T transition here - wait for user to click continue
+      },
+      moves: {
+        continueToNextYear: ({ G, random, events }) => {
+          console.log('[continueToNextYear] transitioning from year:', G.year);
+          // Clear animation data
+          G.requisitionData = null;
+          // Transition to next year
+          transitionToNextYear(G, G.variants, random);
+          console.log('[continueToNextYear] after transition - year:', G.year);
+          console.log('[continueToNextYear] hands after transition:', G.players.map(p => p.hand.length));
+          console.log('[continueToNextYear] isFamine:', G.isFamine);
 
-        // Transition to next year
-        transitionToNextYear(G, G.variants, random);
-        console.log('[requisition onBegin] after transition - year:', G.year);
-        console.log('[requisition onBegin] hands after transition:', G.players.map(p => p.hand.length));
-        console.log('[requisition onBegin] isFamine:', G.isFamine);
-
-        // Transition to next phase based on game state
-        if (G.year > 5) {
-          // Game over - don't transition
-          return;
-        }
-        console.log('[requisition onBegin] calling setPhase(planning)');
-        events.setPhase('planning');
+          // Transition to next phase based on game state
+          if (G.year > 5) {
+            // Game over - don't transition
+            return;
+          }
+          console.log('[continueToNextYear] calling setPhase(planning)');
+          events.setPhase('planning');
+        },
+      },
+      turn: {
+        // Any player can click continue (human player controls)
+        activePlayers: { all: 'requisitionWait' },
       },
       next: ({ G }) => {
         if (G.year > 5) {

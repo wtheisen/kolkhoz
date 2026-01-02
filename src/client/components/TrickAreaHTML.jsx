@@ -414,6 +414,40 @@ export function TrickAreaHTML({
 
         {displayMode === 'gulag' && (
           <div className="gulag-view">
+            {/* Snow effect */}
+            {(() => {
+              const hasWind = Math.random() > 0.4; // 60% chance of wind for all flakes
+              const windDirection = Math.random() > 0.5 ? 1 : -1;
+              // More flakes when windy (60-80), fewer when calm (40-55)
+              const snowflakeCount = hasWind
+                ? 60 + Math.floor(Math.random() * 21)
+                : 40 + Math.floor(Math.random() * 16);
+
+              return (
+                <div className="snow-container">
+                  {Array.from({ length: snowflakeCount }).map((_, i) => {
+                    const windStrength = hasWind ? 50 + Math.random() * 100 : 0;
+                    return (
+                      <div
+                        key={i}
+                        className={`snowflake ${hasWind ? 'windy' : ''}`}
+                        style={{
+                          '--delay': `${Math.random() * 10}s`,
+                          '--duration': `${5 + Math.random() * 10}s`,
+                          '--x-start': `${Math.random() * 100}%`,
+                          '--x-drift': `${-20 + Math.random() * 40}px`,
+                          '--size': `${2 + Math.random() * 4}px`,
+                          '--opacity': `${0.3 + Math.random() * 0.7}`,
+                          '--wind-strength': `${windStrength * windDirection}px`,
+                          '--wind-mid': `${(windStrength * 0.5 + Math.random() * 30) * windDirection}px`,
+                          '--wiggle': `${2 + Math.random() * 4}px`,
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              );
+            })()}
             <div className="gulag-header">
               <h2 className="view-title">{t(translations, language, 'theNorth')}</h2>
             </div>

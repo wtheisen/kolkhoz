@@ -688,6 +688,13 @@ describe('KolkhozGame', () => {
         handleAssignmentIfNeeded();
       }
 
+      // Handle requisition phase - now requires continueToNextYear move
+      ({ G, ctx } = client.getState());
+      if (ctx.phase === 'requisition') {
+        client.moves.continueToNextYear();
+        ({ G, ctx } = client.getState());
+      }
+
       // After 3 tricks in famine year, game should have transitioned to year 2
       // (plotSelection and requisition phases run and transition immediately)
       ({ G, ctx } = client.getState());
@@ -778,6 +785,13 @@ describe('KolkhozGame', () => {
       for (let trick = 0; trick < 4; trick++) {
         playOneTrick();
         handleAssignmentIfNeeded();
+      }
+
+      // Handle requisition phase - now requires continueToNextYear move
+      ({ G, ctx } = client.getState());
+      if (ctx.phase === 'requisition') {
+        client.moves.continueToNextYear();
+        ({ G, ctx } = client.getState());
       }
 
       // After 4 tricks in normal year, game should have transitioned to year 2
