@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getCardImagePath } from '../../game/Card.js';
+import { translations, t, getJobName } from '../translations.js';
 import './TrickAreaHTML.css';
 
 const SUITS = ['Hearts', 'Diamonds', 'Clubs', 'Spades'];
@@ -46,6 +47,11 @@ export function TrickAreaHTML({
   swapConfirmed = {},
   currentSwapPlayer = null,
   lastSwap = null,
+  // Requisition phase props
+  requisitionData = null,
+  requisitionStage = 'idle',
+  // Language
+  language = 'ru',
 }) {
   // Track animated swap for bot visual feedback
   const [animatedSwap, setAnimatedSwap] = useState(null);
@@ -141,24 +147,24 @@ export function TrickAreaHTML({
       {/* Info Bar */}
       <div className="info-bar">
         <div className="info-year">
-          <span className="label">Год</span>
+          <span className="label">{t(translations, language, 'year')}</span>
           <span className="value">{year}/5</span>
         </div>
 
         <div className="info-trump">
-          <span className="label">Задача:</span>
+          <span className="label">{t(translations, language, 'task')}</span>
           {trump ? (
             <span className={`suit-symbol ${trump.toLowerCase()}`}>
               {SUIT_SYMBOLS[trump]}
             </span>
           ) : (
-            <span className="famine">Год неурожая</span>
+            <span className="famine">{t(translations, language, 'famineYear')}</span>
           )}
         </div>
 
         {trick.length > 0 && (
           <div className="info-lead">
-            <span className="label">Ведёт:</span>
+            <span className="label">{t(translations, language, 'lead')}</span>
             <span className={`suit-symbol ${trick[0][1].suit.toLowerCase()}`}>
               {SUIT_SYMBOLS[trick[0][1].suit]}
             </span>
@@ -188,7 +194,7 @@ export function TrickAreaHTML({
         </div>
 
         <div className="info-score">
-          <span className="label">Подвал:</span>
+          <span className="label">{t(translations, language, 'cellar')}</span>
           <span className="value">
             {((playerPlot?.revealed || []).reduce((sum, c) => sum + c.value, 0) +
               (playerPlot?.hidden || []).reduce((sum, c) => sum + c.value, 0))}
@@ -225,11 +231,11 @@ export function TrickAreaHTML({
                     )}
                     <div className="player-info">
                       <span className="player-name">
-                        {playerIdx === 0 ? 'Вы' : (player?.name || `Player ${playerIdx}`)}
+                        {playerIdx === 0 ? t(translations, language, 'you') : (player?.name || `${t(translations, language, 'player')} ${playerIdx}`)}
                         {isLeader && <span className="leader-star">★</span>}
                       </span>
                       <span className="player-score">
-                        {visibleScore > 0 ? `${visibleScore} pts` : (playerIdx === 0 ? '' : `${handSize} cards`)}
+                        {visibleScore > 0 ? `${visibleScore} ${t(translations, language, 'pts')}` : (playerIdx === 0 ? '' : `${handSize} ${t(translations, language, 'cards')}`)}
                       </span>
                     </div>
                     {playerIdx !== 0 && (
@@ -259,7 +265,7 @@ export function TrickAreaHTML({
                       />
                     ) : (
                       <div className="empty-slot">
-                        {isHumanTurn && <span className="turn-text">Ваш ход</span>}
+                        {isHumanTurn && <span className="turn-text">{t(translations, language, 'yourTurn')}</span>}
                         {isCurrentTurn && playerIdx !== 0 && (
                           <span className="turn-text bot">{currentPlayerName}</span>
                         )}
@@ -278,12 +284,6 @@ export function TrickAreaHTML({
             <div className="assignment-grid">
               {(() => {
                 const suitsInTrick = new Set(lastTrick.map(([, card]) => card.suit));
-                const JOB_NAMES = {
-                  Hearts: 'Пшеница',
-                  Diamonds: 'Свёкла',
-                  Clubs: 'Картофель',
-                  Spades: 'Подсолнух',
-                };
 
                 return SUITS.map((suit) => {
                   const hours = workHours?.[suit] || 0;
@@ -401,7 +401,7 @@ export function TrickAreaHTML({
                         })}
                         {/* Drop hint - only show during assignment phase */}
                         {isAssignmentPhase && isValidTarget && (
-                          <span className="drop-hint">Drop here</span>
+                          <span className="drop-hint">{t(translations, language, 'dropHere')}</span>
                         )}
                       </div>
                     </div>
@@ -415,7 +415,7 @@ export function TrickAreaHTML({
         {displayMode === 'gulag' && (
           <div className="gulag-view">
             <div className="gulag-header">
-              <h2 className="view-title">Север</h2>
+              <h2 className="view-title">{t(translations, language, 'theNorth')}</h2>
             </div>
             <div className="gulag-columns">
               {[1, 2, 3, 4, 5].map((yr) => {
@@ -430,7 +430,7 @@ export function TrickAreaHTML({
                 return (
                   <div key={yr} className={`gulag-column ${isCurrent ? 'current' : ''}`}>
                     <div className="column-header">
-                      <span className="year-number">Год {yr}</span>
+                      <span className="year-number">{t(translations, language, 'year')} {yr}</span>
                       {yearCards.length > 0 && <span className="card-count">{yearCards.length}</span>}
                     </div>
                     <div className="column-cards">
@@ -459,14 +459,6 @@ export function TrickAreaHTML({
         {/* Swap View - Multi-player layout during swap phase */}
         {displayMode === 'plot' && phase === 'swap' && (
           <div className="swap-view multiplayer">
-            {/* Header with current player's turn */}
-            <div className="swap-header">
-              <h2 className="view-title">Обмен карт</h2>
-              <span className="turn-indicator">
-                {currentSwapPlayer === 0 ? 'Ваш ход' : `${players?.[currentSwapPlayer]?.name || `Игрок ${currentSwapPlayer}`}`}
-              </span>
-            </div>
-
             {/* Top row: Bot sections */}
             <div className="swap-bots-row">
               {[1, 2, 3].map((botIdx) => {
@@ -489,7 +481,7 @@ export function TrickAreaHTML({
                         className="swap-bot-portrait"
                       />
                       <span className="swap-bot-name">
-                        {bot?.name || `Игрок ${botIdx}`}
+                        {bot?.name || `${t(translations, language, 'player')} ${botIdx}`}
                         {isConfirmed && <span className="confirmed-check">✓</span>}
                       </span>
                       <div className="swap-bot-hand">
@@ -548,7 +540,7 @@ export function TrickAreaHTML({
               {/* Hidden cards box */}
               <div className="swap-player-box hidden">
                 <div className="box-header">
-                  <span className="box-title">Скрытые</span>
+                  <span className="box-title">{t(translations, language, 'hidden')}</span>
                   <span className="box-count">{playerPlot?.hidden?.length || 0}</span>
                 </div>
                 <div className="swap-cards">
@@ -584,7 +576,7 @@ export function TrickAreaHTML({
               {/* Revealed cards box */}
               <div className="swap-player-box revealed">
                 <div className="box-header">
-                  <span className="box-title">Награды</span>
+                  <span className="box-title">{t(translations, language, 'rewards')}</span>
                   <span className="box-count">{playerPlot?.revealed?.length || 0}</span>
                 </div>
                 <div className="swap-cards">
@@ -621,7 +613,7 @@ export function TrickAreaHTML({
             {/* Player status bar */}
             {swapConfirmed[0] && (
               <div className="swap-status-bar">
-                <span className="confirmed-badge">Подтверждено ✓</span>
+                <span className="confirmed-badge">{t(translations, language, 'confirmed')} ✓</span>
               </div>
             )}
           </div>
@@ -629,10 +621,17 @@ export function TrickAreaHTML({
 
         {/* Plot View - Read-only view when not in swap phase (same layout as swap view) */}
         {displayMode === 'plot' && phase !== 'swap' && (
-          <div className="swap-view multiplayer readonly">
+          <div className={`swap-view multiplayer readonly ${phase === 'requisition' ? 'requisition-mode' : ''}`}>
             {/* Header */}
             <div className="swap-header">
-              <h2 className="view-title">Подвал</h2>
+              <h2 className="view-title">
+                {phase === 'requisition' ? t(translations, language, 'requisition') : t(translations, language, 'plot')}
+              </h2>
+              {phase === 'requisition' && requisitionData?.failedJobs?.length > 0 && (
+                <span className="requisition-status">
+                  {t(translations, language, 'failed')} {requisitionData.failedJobs.map(suit => SUIT_SYMBOLS[suit] || suit).join(' ')}
+                </span>
+              )}
             </div>
 
             {/* Top row: Bot sections */}
@@ -646,6 +645,7 @@ export function TrickAreaHTML({
                   <div
                     key={botIdx}
                     className="swap-bot-section"
+                    data-player={botIdx}
                   >
                     <div className="swap-bot-header">
                       <img
@@ -654,19 +654,35 @@ export function TrickAreaHTML({
                         className="swap-bot-portrait"
                       />
                       <span className="swap-bot-name">
-                        {bot?.name || `Игрок ${botIdx}`}
+                        {bot?.name || `${t(translations, language, 'player')} ${botIdx}`}
                       </span>
                     </div>
                     <div className="swap-bot-cards">
                       {/* Revealed cards (face up) */}
-                      {revealedCards.map((card, idx) => (
-                        <img
-                          key={`revealed-${idx}`}
-                          src={getCardImagePath(card)}
-                          alt={`${card.value} of ${card.suit}`}
-                          className="swap-mini-card revealed"
-                        />
-                      ))}
+                      {revealedCards.map((card, idx) => {
+                        const isNewlyRevealed = phase === 'requisition' &&
+                          requisitionData?.revealedCards?.some(rc =>
+                            rc.playerIdx === botIdx &&
+                            rc.card.suit === card.suit &&
+                            rc.card.value === card.value
+                          );
+                        const isExiling = phase === 'requisition' &&
+                          requisitionStage === 'exiling' &&
+                          requisitionData?.exiledCards?.some(ec =>
+                            ec.playerIdx === botIdx &&
+                            ec.card.suit === card.suit &&
+                            ec.card.value === card.value
+                          );
+                        return (
+                          <img
+                            key={`revealed-${idx}`}
+                            src={getCardImagePath(card)}
+                            alt={`${card.value} of ${card.suit}`}
+                            className={`swap-mini-card revealed ${isNewlyRevealed ? 'newly-revealed' : ''} ${isExiling ? 'exiling' : ''}`}
+                            data-card={`${card.suit}-${card.value}`}
+                          />
+                        );
+                      })}
                       {/* Hidden cards (backs) */}
                       {Array.from({ length: hiddenCount }).map((_, idx) => (
                         <img
@@ -690,12 +706,16 @@ export function TrickAreaHTML({
               {/* Hidden cards box */}
               <div className="swap-player-box hidden">
                 <div className="box-header">
-                  <span className="box-title">Скрытые</span>
+                  <span className="box-title">{t(translations, language, 'hidden')}</span>
                   <span className="box-count">{playerPlot?.hidden?.length || 0}</span>
                 </div>
                 <div className="swap-cards">
                   {(playerPlot?.hidden || []).map((card, idx) => (
-                    <div key={`hidden-${idx}`} className="swap-card-slot readonly">
+                    <div
+                      key={`hidden-${idx}`}
+                      className="swap-card-slot readonly"
+                      data-card={`${card.suit}-${card.value}`}
+                    >
                       <img
                         src={getCardImagePath(card)}
                         alt={`${card.value} of ${card.suit}`}
@@ -712,19 +732,38 @@ export function TrickAreaHTML({
               {/* Revealed cards box */}
               <div className="swap-player-box revealed">
                 <div className="box-header">
-                  <span className="box-title">Награды</span>
+                  <span className="box-title">{t(translations, language, 'rewards')}</span>
                   <span className="box-count">{playerPlot?.revealed?.length || 0}</span>
                 </div>
                 <div className="swap-cards">
-                  {(playerPlot?.revealed || []).map((card, idx) => (
-                    <div key={`revealed-${idx}`} className="swap-card-slot readonly">
-                      <img
-                        src={getCardImagePath(card)}
-                        alt={`${card.value} of ${card.suit}`}
-                        draggable={false}
-                      />
-                    </div>
-                  ))}
+                  {(playerPlot?.revealed || []).map((card, idx) => {
+                    const isNewlyRevealed = phase === 'requisition' &&
+                      requisitionData?.revealedCards?.some(rc =>
+                        rc.playerIdx === 0 &&
+                        rc.card.suit === card.suit &&
+                        rc.card.value === card.value
+                      );
+                    const isExiling = phase === 'requisition' &&
+                      requisitionStage === 'exiling' &&
+                      requisitionData?.exiledCards?.some(ec =>
+                        ec.playerIdx === 0 &&
+                        ec.card.suit === card.suit &&
+                        ec.card.value === card.value
+                      );
+                    return (
+                      <div
+                        key={`revealed-${idx}`}
+                        className={`swap-card-slot readonly ${isNewlyRevealed ? 'newly-revealed' : ''} ${isExiling ? 'exiling' : ''}`}
+                        data-card={`${card.suit}-${card.value}`}
+                      >
+                        <img
+                          src={getCardImagePath(card)}
+                          alt={`${card.value} of ${card.suit}`}
+                          draggable={false}
+                        />
+                      </div>
+                    );
+                  })}
                   {(!playerPlot?.revealed || playerPlot.revealed.length === 0) && (
                     <div className="empty-slot">—</div>
                   )}
@@ -737,7 +776,7 @@ export function TrickAreaHTML({
         {/* Trump Selection */}
         {phase === 'planning' && !trump && onSetTrump && (
           <div className="trump-selection">
-            <h2 className="selection-title">Выберите главную задачу</h2>
+            <h2 className="selection-title">{t(translations, language, 'chooseMainTask')}</h2>
             <div className="trump-buttons">
               {SUITS.map((suit) => (
                 <button
@@ -746,14 +785,7 @@ export function TrickAreaHTML({
                   onClick={() => onSetTrump(suit)}
                 >
                   <span className="suit-symbol">{SUIT_SYMBOLS[suit]}</span>
-                  <span className="suit-name">
-                    {{
-                      Hearts: 'Пшеница',
-                      Diamonds: 'Свёкла',
-                      Clubs: 'Картофель',
-                      Spades: 'Подсолнечник',
-                    }[suit]}
-                  </span>
+                  <span className="suit-name">{getJobName(language, suit)}</span>
                 </button>
               ))}
             </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TrickAreaHTML } from './components/TrickAreaHTML.jsx';
 import { getCardImagePath } from '../game/Card.js';
+import { translations, t } from './translations.js';
 
 export function Board({ G, ctx, moves, playerID }) {
   const currentPlayer = parseInt(playerID, 10);
@@ -11,6 +12,10 @@ export function Board({ G, ctx, moves, playerID }) {
   // Mobile panel toggle
   const [activePanel, setActivePanel] = useState(null);
   const togglePanel = (panel) => setActivePanel(activePanel === panel ? null : panel);
+
+  // Language toggle
+  const [language, setLanguage] = useState('ru');
+  const toggleLanguage = () => setLanguage(lang => lang === 'en' ? 'ru' : 'en');
 
   // Track if user has confirmed swap locally
   const [swapConfirmedLocally, setSwapConfirmedLocally] = useState(false);
@@ -36,6 +41,11 @@ export function Board({ G, ctx, moves, playerID }) {
   // AI card play animation state
   const [aiPlayingCard, setAiPlayingCard] = useState(null);
   const prevTrickLengthRef = useRef(0);
+
+  // Requisition animation state
+  const [requisitionStage, setRequisitionStage] = useState('idle');
+  // 'idle' | 'revealing' | 'exiling' | 'waiting'
+  const [flyingExileCards, setFlyingExileCards] = useState([]);
 
   // Detect when AI plays a card and trigger animation
   useEffect(() => {
@@ -67,6 +77,41 @@ export function Board({ G, ctx, moves, playerID }) {
       lastYearRef.current = G.year;
     }
   }, [G.year]);
+
+  // Requisition animation sequence
+  useEffect(() => {
+    if (phase !== 'requisition' || !G.requisitionData) {
+      setRequisitionStage('idle');
+      setFlyingExileCards([]);
+      return;
+    }
+
+    // Start with reveal stage
+    setRequisitionStage('revealing');
+
+    // After reveal animation completes, start exile animation
+    const exileTimeout = setTimeout(() => {
+      setRequisitionStage('exiling');
+      // Set up flying cards with staggered timing
+      if (G.requisitionData.exiledCards && G.requisitionData.exiledCards.length > 0) {
+        setFlyingExileCards(G.requisitionData.exiledCards.map((ec, idx) => ({
+          ...ec,
+          id: `${ec.card.suit}-${ec.card.value}-${idx}`,
+          delay: idx * 200,  // Stagger by 200ms
+        })));
+      }
+    }, 1500);  // 1.5s for reveal animation
+
+    // After exile animation, show continue button
+    const waitTimeout = setTimeout(() => {
+      setRequisitionStage('waiting');
+    }, 1500 + (G.requisitionData.exiledCards?.length || 0) * 200 + 800);  // reveal + stagger + fly time
+
+    return () => {
+      clearTimeout(exileTimeout);
+      clearTimeout(waitTimeout);
+    };
+  }, [phase, G.requisitionData]);
 
   // AI Assignment Animation - compute flying card data
   const pending = G.pendingAIAssignments;
@@ -401,22 +446,23 @@ export function Board({ G, ctx, moves, playerID }) {
     const { winner, scores } = ctx.gameover;
     return (
       <div className="game-over">
-        <h1>Game Over!</h1>
-        <h2>Winner: {G.players[winner].name}</h2>
+        <h1>{t(translations, language, 'gameOver')}</h1>
+        <h2>{t(translations, language, 'winner')} {G.players[winner].name}</h2>
         <div className="final-scores">
           {G.players.map((p, idx) => (
             <div key={idx} className={idx === winner ? 'winner' : ''}>
-              {p.name}: {scores[idx]} points
+              {p.name}: {scores[idx]} {t(translations, language, 'pts')}
             </div>
           ))}
         </div>
-        <p>(Lowest score wins)</p>
+        <p>{t(translations, language, 'lowestScoreWins')}</p>
       </div>
     );
   }
 
   // Calculate display mode
   const displayMode =
+    phase === 'requisition' ? 'plot' :  // Force plot view during requisition
     phase === 'assignment' && G.lastWinner === currentPlayer ? 'jobs' :
     phase === 'swap' ? 'plot' :
     activePanel === 'jobs' ? 'jobs' :
@@ -431,42 +477,50 @@ export function Board({ G, ctx, moves, playerID }) {
         <button
           className={`nav-btn ${activePanel === 'options' ? 'active' : ''}`}
           onClick={() => togglePanel('options')}
-          title="Menu"
+          title={t(translations, language, 'menu')}
         >
           <span className="nav-icon">☰</span>
-          <span className="nav-label">Menu</span>
+          <span className="nav-label">{t(translations, language, 'menu')}</span>
         </button>
         <button
-          className={`nav-btn ${activePanel === null ? 'active' : ''}`}
+          className={`nav-btn ${displayMode === 'game' && activePanel !== 'options' ? 'active' : ''}`}
           onClick={() => setActivePanel(null)}
-          title="Brigade (Playing Area)"
+          title={t(translations, language, 'brigade')}
         >
           <span className="nav-icon">👥</span>
-          <span className="nav-label" title="Brigade">Бригада</span>
+          <span className="nav-label">{t(translations, language, 'brigade')}</span>
         </button>
         <button
-          className={`nav-btn ${activePanel === 'jobs' || displayMode === 'jobs' ? 'active' : ''}`}
+          className={`nav-btn ${displayMode === 'jobs' ? 'active' : ''}`}
           onClick={() => togglePanel('jobs')}
-          title="Jobs"
+          title={t(translations, language, 'jobs')}
         >
           <span className="nav-icon">⚒</span>
-          <span className="nav-label" title="Jobs">Работы</span>
+          <span className="nav-label">{t(translations, language, 'jobs')}</span>
         </button>
         <button
-          className={`nav-btn ${activePanel === 'gulag' ? 'active' : ''}`}
+          className={`nav-btn ${displayMode === 'gulag' ? 'active' : ''}`}
           onClick={() => togglePanel('gulag')}
-          title="The North (Gulag)"
+          title={t(translations, language, 'theNorth')}
         >
           <span className="nav-icon">❄</span>
-          <span className="nav-label" title="The North">Север</span>
+          <span className="nav-label">{t(translations, language, 'theNorth')}</span>
         </button>
         <button
-          className={`nav-btn ${activePanel === 'plot' ? 'active' : ''}`}
+          className={`nav-btn ${displayMode === 'plot' ? 'active' : ''}`}
           onClick={() => togglePanel('plot')}
-          title="Your Plot (Cellar)"
+          title={t(translations, language, 'plot')}
         >
           <span className="nav-icon">🌱</span>
-          <span className="nav-label" title="Plot">Подвал</span>
+          <span className="nav-label">{t(translations, language, 'plot')}</span>
+        </button>
+        <button
+          className="nav-btn lang-toggle"
+          onClick={toggleLanguage}
+          title={t(translations, language, 'toggleLanguage')}
+        >
+          <span className="nav-icon">{language === 'en' ? '🇷🇺' : '🇬🇧'}</span>
+          <span className="nav-label">{language === 'en' ? 'Русский' : 'English'}</span>
         </button>
       </div>
 
@@ -474,25 +528,25 @@ export function Board({ G, ctx, moves, playerID }) {
       {activePanel === 'options' && (
         <div className="mobile-panel-content">
           <div className="options-panel">
-            <h3 title="Menu">Меню</h3>
+            <h3>{t(translations, language, 'menu')}</h3>
             <div className="menu-options">
               <div className="rules-section">
-                <h4>Kolkhoz Rules</h4>
+                <h4>{t(translations, language, 'rules')}</h4>
                 <div className="rules-text">
-                  <h5>Objective</h5>
-                  <p>Complete collective farm jobs while protecting your private plot. Lowest score wins!</p>
-                  <h5>Gameplay</h5>
-                  <p>• Play cards to tricks - must follow lead suit if able</p>
-                  <p>• Trick winner assigns cards to matching job suits</p>
-                  <p>• Jobs need 40 work hours to complete</p>
-                  <h5>Trump Face Cards</h5>
-                  <p>• <strong>Jack (Пьяница)</strong>: Worth 0 hours, gets exiled instead of your cards</p>
-                  <p>• <strong>Queen (Доносчик)</strong>: All players become vulnerable</p>
-                  <p>• <strong>King (Чиновник)</strong>: Exiles two cards instead of one</p>
+                  <h5>{t(translations, language, 'objective')}</h5>
+                  <p>{t(translations, language, 'objectiveText')}</p>
+                  <h5>{t(translations, language, 'gameplay')}</h5>
+                  <p>• {t(translations, language, 'gameplayRule1')}</p>
+                  <p>• {t(translations, language, 'gameplayRule2')}</p>
+                  <p>• {t(translations, language, 'gameplayRule3')}</p>
+                  <h5>{t(translations, language, 'trumpFaceCards')}</h5>
+                  <p>• <strong>Jack ({t(translations, language, 'jackName')})</strong>: {t(translations, language, 'jackDesc')}</p>
+                  <p>• <strong>Queen ({t(translations, language, 'queenName')})</strong>: {t(translations, language, 'queenDesc')}</p>
+                  <p>• <strong>King ({t(translations, language, 'kingName')})</strong>: {t(translations, language, 'kingDesc')}</p>
                 </div>
               </div>
               <button className="menu-btn-action" onClick={() => window.location.reload()}>
-                🔄 New Game
+                🔄 {t(translations, language, 'newGame')}
               </button>
             </div>
           </div>
@@ -536,6 +590,11 @@ export function Board({ G, ctx, moves, playerID }) {
           swapConfirmed={G.swapConfirmed || {}}
           currentSwapPlayer={phase === 'swap' ? parseInt(ctx.currentPlayer, 10) : null}
           lastSwap={G.lastSwap}
+          // Requisition phase props
+          requisitionData={G.requisitionData}
+          requisitionStage={requisitionStage}
+          // Language
+          language={language}
         />
 
         {/* Flying Card Animation */}
@@ -564,6 +623,48 @@ export function Board({ G, ctx, moves, playerID }) {
           />
         )}
 
+        {/* Requisition Flying Exile Cards */}
+        {requisitionStage === 'exiling' && flyingExileCards.map((ec) => (
+          <FlyingExileCard
+            key={ec.id}
+            card={ec.card}
+            playerIdx={ec.playerIdx}
+            delay={ec.delay}
+            onComplete={() => {
+              setFlyingExileCards(prev => prev.filter(c => c.id !== ec.id));
+            }}
+          />
+        ))}
+
+        {/* Requisition Continue Overlay */}
+        {phase === 'requisition' && requisitionStage === 'waiting' && (
+          <div className="requisition-continue-overlay">
+            <div className="requisition-summary">
+              <h3>{t(translations, language, 'yearComplete', { year: G.year })}</h3>
+              {G.requisitionData?.failedJobs?.length > 0 && (
+                <p className="failed-jobs">
+                  {t(translations, language, 'failed')} {G.requisitionData.failedJobs.map(suit => {
+                    const suitSymbols = { Hearts: '♥', Diamonds: '♦', Clubs: '♣', Spades: '♠' };
+                    return suitSymbols[suit] || suit;
+                  }).join(' ')}
+                </p>
+              )}
+              {G.requisitionData?.exiledCards?.length > 0 && (
+                <p className="exiled-count">{t(translations, language, 'cardsToNorth')} {G.requisitionData.exiledCards.length}</p>
+              )}
+              {(!G.requisitionData?.failedJobs?.length && !G.requisitionData?.exiledCards?.length) && (
+                <p className="no-exile">{t(translations, language, 'allJobsComplete')}</p>
+              )}
+            </div>
+            <button
+              className="continue-btn"
+              onClick={() => moves.continueToNextYear()}
+            >
+              {t(translations, language, 'continueToYear', { year: G.year + 1 })}
+            </button>
+          </div>
+        )}
+
         {/* Player's hand with plot cards */}
         <div className={`player-hand-area ${phase === 'assignment' ? 'assignment-mode' : ''} ${phase === 'swap' ? 'swap-mode' : ''}`}>
           {/* ZONE 1: Plot cards (hidden during swap phase - shown in panel instead) */}
@@ -578,7 +679,7 @@ export function Board({ G, ctx, moves, playerID }) {
                   <div
                     key={`revealed-${card.suit}-${card.value}`}
                     ref={(el) => { plotCardRefs.current[`revealed-${idx}`] = el; }}
-                    className={`plot-card revealed ${phase === 'swap' ? 'swappable' : ''} ${isSwapDragging ? 'swap-dragging' : ''} ${isSwapTarget ? 'swap-target' : ''} ${isSwapHover ? 'swap-hover' : ''}`}
+                    className={`plot-card revealed ${phase === 'trick' ? 'dimmed' : ''} ${phase === 'swap' ? 'swappable' : ''} ${isSwapDragging ? 'swap-dragging' : ''} ${isSwapTarget ? 'swap-target' : ''} ${isSwapHover ? 'swap-hover' : ''}`}
                     style={{ '--index': idx }}
                     onMouseDown={(e) => handleSwapDragStart('plot-revealed', idx, card, e)}
                     onTouchStart={(e) => handleSwapDragStart('plot-revealed', idx, card, e)}
@@ -602,7 +703,7 @@ export function Board({ G, ctx, moves, playerID }) {
                   <div
                     key={`hidden-${card.suit}-${card.value}`}
                     ref={(el) => { plotCardRefs.current[`hidden-${idx}`] = el; }}
-                    className={`plot-card hidden ${phase === 'swap' ? 'swappable' : ''} ${isSwapDragging ? 'swap-dragging' : ''} ${isSwapTarget ? 'swap-target' : ''} ${isSwapHover ? 'swap-hover' : ''}`}
+                    className={`plot-card hidden ${phase === 'trick' ? 'dimmed' : ''} ${phase === 'swap' ? 'swappable' : ''} ${isSwapDragging ? 'swap-dragging' : ''} ${isSwapTarget ? 'swap-target' : ''} ${isSwapHover ? 'swap-hover' : ''}`}
                     style={{ '--index': totalIdx }}
                     onMouseDown={(e) => handleSwapDragStart('plot-hidden', idx, card, e)}
                     onTouchStart={(e) => handleSwapDragStart('plot-hidden', idx, card, e)}
@@ -700,7 +801,7 @@ export function Board({ G, ctx, moves, playerID }) {
                 )}
                 {allAssigned && (
                   <button className="confirm-assign-btn" onClick={handleSubmitAssignments}>
-                    Confirm
+                    {t(translations, language, 'confirm')}
                   </button>
                 )}
               </>
@@ -710,7 +811,7 @@ export function Board({ G, ctx, moves, playerID }) {
           {/* Swap phase: confirm button to the right of hand */}
           {phase === 'swap' && currentSwapPlayer === 0 && !G.swapConfirmed?.[currentPlayer] && !swapConfirmedLocally && (
             <button className="confirm-swap-btn" onClick={handleConfirmSwap}>
-              Confirm
+              {t(translations, language, 'confirm')}
             </button>
           )}
         </div>
@@ -807,7 +908,7 @@ export function Board({ G, ctx, moves, playerID }) {
         {/* Swap waiting indicator */}
         {phase === 'swap' && (G.swapConfirmed?.[currentPlayer] || swapConfirmedLocally) && (
           <div className="swap-waiting">
-            <span>Waiting for others...</span>
+            <span>{t(translations, language, 'waitingForOthers')}</span>
           </div>
         )}
       </div>
@@ -951,6 +1052,84 @@ function AIPlayCard({ card, playerIdx, onComplete }) {
 
   return (
     <div ref={cardRef} className="ai-play-card">
+      <img src={getCardImagePath(card)} alt={`${card.value} of ${card.suit}`} />
+    </div>
+  );
+}
+
+// Flying Exile Card Component - animates cards flying to gulag during requisition
+function FlyingExileCard({ card, playerIdx, delay, onComplete }) {
+  const cardRef = useRef(null);
+  const animationRef = useRef(null);
+
+  useEffect(() => {
+    // Delay start based on stagger
+    const delayTimeout = setTimeout(() => {
+      // Source: find the card in the plot view by data attribute
+      // For player 0, look in the player's plot section
+      // For bots, look in the swap-bot-section
+      let sourceCard;
+      if (playerIdx === 0) {
+        sourceCard = document.querySelector(
+          `.swap-player-box .swap-card-slot[data-card="${card.suit}-${card.value}"], ` +
+          `.swap-player-box .swap-mini-card[data-card="${card.suit}-${card.value}"]`
+        );
+      } else {
+        sourceCard = document.querySelector(
+          `.swap-bot-section[data-player="${playerIdx}"] .swap-mini-card[data-card="${card.suit}-${card.value}"]`
+        );
+      }
+
+      // Target: gulag nav button
+      const gulagButton = document.querySelector('.nav-btn[title*="North"]');
+
+      if (!sourceCard || !gulagButton || !cardRef.current) {
+        onComplete();
+        return;
+      }
+
+      const sourceRect = sourceCard.getBoundingClientRect();
+      const targetRect = gulagButton.getBoundingClientRect();
+
+      const cardRect = cardRef.current.getBoundingClientRect();
+      const startScale = sourceRect.width / cardRect.width;
+      const endScale = Math.min(targetRect.width, targetRect.height) / cardRect.width * 0.6;
+
+      // Set initial position
+      cardRef.current.style.left = `${sourceRect.left + sourceRect.width / 2}px`;
+      cardRef.current.style.top = `${sourceRect.top + sourceRect.height / 2}px`;
+      cardRef.current.style.transform = `translate(-50%, -50%) scale(${startScale})`;
+      cardRef.current.style.opacity = '1';
+
+      const animation = cardRef.current.animate([
+        {
+          left: `${sourceRect.left + sourceRect.width / 2}px`,
+          top: `${sourceRect.top + sourceRect.height / 2}px`,
+          transform: `translate(-50%, -50%) scale(${startScale})`,
+          opacity: 1
+        },
+        {
+          left: `${targetRect.left + targetRect.width / 2}px`,
+          top: `${targetRect.top + targetRect.height / 2}px`,
+          transform: `translate(-50%, -50%) scale(${endScale})`,
+          opacity: 0.3
+        }
+      ], { duration: 800, fill: 'forwards', easing: 'ease-in' });
+
+      animationRef.current = animation;
+      animation.onfinish = onComplete;
+    }, delay);
+
+    return () => {
+      clearTimeout(delayTimeout);
+      if (animationRef.current) {
+        animationRef.current.cancel();
+      }
+    };
+  }, [card, playerIdx, delay, onComplete]);
+
+  return (
+    <div ref={cardRef} className="flying-exile-card">
       <img src={getCardImagePath(card)} alt={`${card.value} of ${card.suit}`} />
     </div>
   );
