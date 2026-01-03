@@ -183,8 +183,10 @@ export function TrickAreaHTML({
             <span className={`suit-symbol ${trump.toLowerCase()}`}>
               {SUIT_SYMBOLS[trump]}
             </span>
-          ) : (
+          ) : isFamine ? (
             <span className="famine">{t(translations, language, 'famineYear')}</span>
+          ) : (
+            <span className="no-trump">—</span>
           )}
         </div>
 

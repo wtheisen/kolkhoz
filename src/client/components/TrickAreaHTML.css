@@ -217,6 +217,13 @@
   50% { filter: brightness(1.12); }
 }
 
+/* No trump selected yet - planning phase */
+.info-trump .no-trump {
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(0.9rem, 1.6vw, 1.1rem);
+  color: #666;
+}
+
 /* Lead indicator */
 .info-lead {
   gap: 0.3em;
