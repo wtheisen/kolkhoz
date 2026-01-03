@@ -2,6 +2,7 @@
 // A Soviet-themed trick-taking card game
 
 import { INVALID_MOVE } from 'boardgame.io/core';
+import { EffectsPlugin } from 'bgio-effects/plugin';
 import { SUITS, PLAYER_NAMES, DEFAULT_VARIANTS, MAX_YEARS } from './constants.js';
 import { prepareJobPiles, revealJobs, prepareWorkersDeck, dealHands } from './utils/deckUtils.js';
 import {
@@ -120,7 +121,7 @@ function setTrump({ G, random }, suit) {
 }
 
 // Move: Play a card (trick phase)
-function playCard({ G, ctx, playerID }, cardIndex) {
+function playCard({ G, ctx, playerID, effects }, cardIndex) {
   const playerIdx = parseInt(playerID, 10);
 
   if (!isValidPlay(G, playerIdx, cardIndex)) {
@@ -130,6 +131,15 @@ function playCard({ G, ctx, playerID }, cardIndex) {
   const player = G.players[playerIdx];
   const card = player.hand.splice(cardIndex, 1)[0];
   G.currentTrick.push([playerIdx, card]);
+
+  // Emit effect for AI players to trigger animation with delay
+  // Clone the card data to avoid Immer proxy revocation issues
+  if (playerIdx !== 0) {
+    effects.cardPlayed({
+      playerIdx,
+      card: { suit: card.suit, value: card.value }
+    });
+  }
 }
 
 // Move: Assign a card to a job (assignment phase)
@@ -327,11 +337,34 @@ function applySingleAssignment({ G }, cardKey, targetSuit) {
   }
 }
 
+// Configure effects plugin for card animations
+const effectsConfig = {
+  effects: {
+    // AI plays a card during trick phase
+    cardPlayed: {
+      create: (data) => data,
+      duration: 0.7, // 700ms to account for 600ms animation + buffer
+    },
+    // AI assigns a card to a job
+    cardAssigned: {
+      create: (data) => data,
+      duration: 0.6, // 600ms animation duration
+    },
+    // Cards exiled during requisition
+    cardExiled: {
+      create: (data) => data,
+      duration: 0.5, // 500ms per card
+    },
+  },
+};
+
 // Export the game definition
 export const KolkhozGame = {
   name: 'kolkhoz',
 
   setup,
+
+  plugins: [EffectsPlugin(effectsConfig)],
 
   minPlayers: 2,
   maxPlayers: 4,

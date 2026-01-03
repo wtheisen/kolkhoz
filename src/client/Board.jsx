@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { useEffectListener } from 'bgio-effects/react';
 import { TrickAreaHTML } from './components/TrickAreaHTML.jsx';
 import { getCardImagePath } from '../game/Card.js';
 import { translations, t } from './translations.js';
@@ -42,10 +43,24 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
   const assignCardRefs = useRef({});
   const jobDropRefs = useRef({});
 
-  // AI card play animation state - queue-based to handle multiple AIs playing in sequence
-  const [aiCardQueue, setAiCardQueue] = useState([]);  // Cards waiting to animate
-  const [currentAiAnimation, setCurrentAiAnimation] = useState(null);  // Currently animating card
-  const prevTrickLengthRef = useRef(0);
+  // AI card play animation state - triggered by bgio-effects
+  const [currentAiAnimation, setCurrentAiAnimation] = useState(null);
+
+  // Listen for cardPlayed effects from bgio-effects
+  // bgio-effects queues effects and fires callbacks sequentially with their durations
+  // The onEndCallback clears the animation when the effect duration expires
+  useEffectListener(
+    'cardPlayed',
+    useCallback(({ playerIdx, card }) => {
+      const key = `${card.suit}-${card.value}`;
+      setCurrentAiAnimation({ playerIdx, card, key });
+    }, []),
+    [],
+    useCallback(() => {
+      setCurrentAiAnimation(null);
+    }, []),
+    []
+  );
 
   // Requisition animation state
   const [requisitionStage, setRequisitionStage] = useState('idle');
@@ -54,62 +69,6 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
   const [currentJobStage, setCurrentJobStage] = useState('header');
   // 'header' | 'revealing' | 'exiling'
   const [flyingExileCards, setFlyingExileCards] = useState([]);
-
-  // Track currentAiAnimation in a ref to avoid re-triggering useLayoutEffect
-  const currentAiAnimationRef = useRef(null);
-  useEffect(() => {
-    currentAiAnimationRef.current = currentAiAnimation;
-  }, [currentAiAnimation]);
-
-  // Detect when AI plays a card and trigger animation
-  // Using useLayoutEffect to set state before paint, preventing flash of card in slot
-  useLayoutEffect(() => {
-    const currentLength = G.currentTrick.length;
-    const prevLength = prevTrickLengthRef.current;
-
-    // Find ALL new cards added since last render (bots may play multiple cards rapidly)
-    if (currentLength > prevLength) {
-      const newCards = [];
-      for (let i = prevLength; i < currentLength; i++) {
-        const [playerIdx, card] = G.currentTrick[i];
-        // Only animate for AI players (not player 0)
-        if (playerIdx !== 0) {
-          newCards.push({ playerIdx, card, key: `${card.suit}-${card.value}` });
-        }
-      }
-
-      if (newCards.length > 0) {
-        // Use ref to check if animation is running (avoids dependency on state)
-        if (currentAiAnimationRef.current === null) {
-          // Start first animation immediately, queue the rest
-          setCurrentAiAnimation(newCards[0]);
-          if (newCards.length > 1) {
-            setAiCardQueue(prev => [...prev, ...newCards.slice(1)]);
-          }
-        } else {
-          // Animation already running, queue all new cards
-          setAiCardQueue(prev => [...prev, ...newCards]);
-        }
-      }
-    }
-
-    // Only reset when a NEW trick starts (length goes to 0), not when phase changes
-    // This lets animations complete even after trick ends
-    if (currentLength === 0 && prevLength > 0) {
-      setAiCardQueue([]);
-      setCurrentAiAnimation(null);
-    }
-
-    prevTrickLengthRef.current = currentLength;
-  }, [G.currentTrick]);  // Removed currentAiAnimation - use ref instead to avoid re-triggering
-
-  // Process queue: start next animation when current one finishes
-  useEffect(() => {
-    if (currentAiAnimation === null && aiCardQueue.length > 0) {
-      setCurrentAiAnimation(aiCardQueue[0]);
-      setAiCardQueue(prev => prev.slice(1));
-    }
-  }, [currentAiAnimation, aiCardQueue]);
 
   // Reset local swap confirmation when year changes
   useEffect(() => {
@@ -237,18 +196,14 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
       return pendingKeys.has(cardKey);
     });
   } else {
-    // Filter out cards that are animating or queued to animate
-    const animatingKeys = new Set();
+    // Filter out the card that is currently animating
     if (currentAiAnimation) {
-      animatingKeys.add(currentAiAnimation.key);
+      trickToShow = G.currentTrick.filter(([, card]) =>
+        `${card.suit}-${card.value}` !== currentAiAnimation.key
+      );
+    } else {
+      trickToShow = G.currentTrick;
     }
-    aiCardQueue.forEach(c => animatingKeys.add(c.key));
-
-    trickToShow = animatingKeys.size > 0
-      ? G.currentTrick.filter(([, card]) =>
-          !animatingKeys.has(`${card.suit}-${card.value}`)
-        )
-      : G.currentTrick;
   }
 
   // Handle card play
@@ -535,14 +490,33 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
 
   // Render game over screen
   if (ctx.gameover) {
-    const { winner, scores } = ctx.gameover;
+    const { winner, scores, medals } = ctx.gameover;
+    // Sort players by score descending for standings display
+    const rankedPlayers = G.players
+      .map((p, idx) => ({ ...p, idx, score: scores[idx], medals: medals?.[idx] || 0 }))
+      .sort((a, b) => b.score - a.score);
+
     return (
       <div className="game-over">
+        {/* Decorative background burst */}
+        <div className="victory-burst" />
+
         {/* Left column: Title + Winner + Button */}
         <div className="game-over-left">
           <div className="game-over-title">
+            <div className="victory-star">★</div>
             <h1>{t(translations, language, 'gameOver')}</h1>
-            <h2>{t(translations, language, 'winner')} {G.players[winner].name}</h2>
+            <h2>{t(translations, language, 'winner')}</h2>
+          </div>
+          <div className="winner-spotlight">
+            <div className="winner-medal">
+              <span className="medal-star">★</span>
+              <span className="medal-rank">1</span>
+            </div>
+            <div className="winner-info">
+              <span className="winner-name">{G.players[winner].name}</span>
+              <span className="winner-score">{scores[winner]} {t(translations, language, 'pts')}</span>
+            </div>
           </div>
           <div className="game-over-buttons">
             <button className="new-game-btn" onClick={onNewGame}>
@@ -551,17 +525,27 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
           </div>
         </div>
 
-        {/* Right column: Scores */}
+        {/* Right column: Final standings */}
         <div className="game-over-right">
-          <div className="final-scores">
-            <h3>{t(translations, language, 'pts')}</h3>
-            {G.players.map((p, idx) => (
-              <div key={idx} className={idx === winner ? 'winner' : ''}>
-                <span className="player-name">{p.name}</span>
-                <span className="player-score">{scores[idx]}</span>
+          <div className="final-standings">
+            <div className="standings-header">
+              <span className="header-rank">#</span>
+              <span className="header-name">{t(translations, language, 'brigade')}</span>
+              <span className="header-medals">🏅</span>
+              <span className="header-score">{t(translations, language, 'pts')}</span>
+            </div>
+            {rankedPlayers.map((p, idx) => (
+              <div
+                key={p.idx}
+                className={`standing-row ${p.idx === winner ? 'winner' : ''}`}
+                style={{ '--delay': `${idx * 0.1}s` }}
+              >
+                <span className="standing-rank">{idx + 1}</span>
+                <span className="standing-name">{p.name}</span>
+                <span className="standing-medals">{p.medals}</span>
+                <span className="standing-score">{p.score}</span>
               </div>
             ))}
-            <p className="score-hint">{t(translations, language, 'highestScoreWins')}</p>
           </div>
         </div>
       </div>
@@ -726,13 +710,12 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
           />
         )}
 
-        {/* AI Card Play Animation - processes queue one at a time */}
+        {/* AI Card Play Animation - bgio-effects handles timing */}
         {currentAiAnimation && (
           <AIPlayCard
             key={currentAiAnimation.key}
             card={currentAiAnimation.card}
             playerIdx={currentAiAnimation.playerIdx}
-            onComplete={() => setCurrentAiAnimation(null)}
           />
         )}
 
@@ -1116,78 +1099,42 @@ function FlyingCard({ card, playerIdx, targetSuit, cardValue, onComplete }) {
 }
 
 // AI Play Card Component - animates AI card from hand area to slot
-function AIPlayCard({ card, playerIdx, onComplete }) {
+// Uses CSS transitions with transform-only for GPU acceleration
+function AIPlayCard({ card, playerIdx }) {
   const cardRef = useRef(null);
-  const animationRef = useRef(null);
-  const onCompleteRef = useRef(onComplete);
-  const timeoutRef = useRef(null);
 
-  // Keep the ref updated with the latest callback
-  useEffect(() => {
-    onCompleteRef.current = onComplete;
-  }, [onComplete]);
+  useLayoutEffect(() => {
+    const slotClasses = ['left', 'center-left', 'center-right', 'right'];
+    const slotOrder = [3, 0, 1, 2];
+    const slotClass = slotClasses[slotOrder[playerIdx]];
 
-  useEffect(() => {
-    // Small delay to ensure layout is completely stable after any prior state changes
-    timeoutRef.current = setTimeout(() => {
-      const slotClasses = ['left', 'center-left', 'center-right', 'right'];
-      const slotOrder = [3, 0, 1, 2];
-      const slotClass = slotClasses[slotOrder[playerIdx]];
+    const playerPanel = document.querySelector(`.player-column.${slotClass} .player-panel`);
+    const targetSlot = document.querySelector(`.player-column.${slotClass} .card-slot`);
 
-      // Source: the mini card in the player's hand display
-      const miniCard = document.querySelector(`.player-column.${slotClass} .player-panel .mini-card`);
-      const playerPanel = document.querySelector(`.player-column.${slotClass} .player-panel`);
-      // Target: the card slot
-      const targetSlot = document.querySelector(`.player-column.${slotClass} .card-slot`);
+    if (!playerPanel || !targetSlot || !cardRef.current) return;
 
-      if (!playerPanel || !targetSlot || !cardRef.current) {
-        // If elements not found, complete immediately
-        onCompleteRef.current();
-        return;
-      }
+    const sourceRect = playerPanel.getBoundingClientRect();
+    const targetRect = targetSlot.getBoundingClientRect();
+    const cardRect = cardRef.current.getBoundingClientRect();
 
-      const sourceRect = miniCard ? miniCard.getBoundingClientRect() : playerPanel.getBoundingClientRect();
-      const targetRect = targetSlot.getBoundingClientRect();
+    const startScale = (sourceRect.width * 0.3) / cardRect.width;
+    const targetScale = targetRect.width / cardRect.width;
 
-      // Calculate scales based on source (mini card) and target (card slot) sizes
-      const cardRect = cardRef.current.getBoundingClientRect();
-      const startScale = (miniCard ? sourceRect.width : sourceRect.width * 0.3) / cardRect.width;
-      const targetScale = targetRect.width / cardRect.width;
+    // Calculate positions - target top-left of the slot
+    const startX = sourceRect.left + sourceRect.width / 2;
+    const startY = sourceRect.top + sourceRect.height / 2;
+    const endX = targetRect.left;
+    const endY = targetRect.top;
 
-      // Set initial position immediately to prevent jump
-      cardRef.current.style.left = `${sourceRect.left + sourceRect.width / 2}px`;
-      cardRef.current.style.top = `${sourceRect.top + sourceRect.height / 2}px`;
-      cardRef.current.style.transform = `translate(-50%, -50%) scale(${startScale})`;
+    // Disable transition, set start position
+    cardRef.current.style.transition = 'none';
+    cardRef.current.style.transform = `translate(${startX}px, ${startY}px) scale(${startScale})`;
 
-      const animation = cardRef.current.animate([
-        {
-          left: `${sourceRect.left + sourceRect.width / 2}px`,
-          top: `${sourceRect.top + sourceRect.height / 2}px`,
-          transform: `translate(-50%, -50%) scale(${startScale})`,
-          opacity: 1
-        },
-        {
-          left: `${targetRect.left + targetRect.width / 2}px`,
-          top: `${targetRect.top + targetRect.height / 2}px`,
-          transform: `translate(-50%, -50%) scale(${targetScale})`,
-          opacity: 1
-        }
-      ], { duration: 800, fill: 'forwards', easing: 'ease-out' });
-
-      animationRef.current = animation;
-      animation.onfinish = () => onCompleteRef.current();
-    }, 50);  // 50ms delay ensures layout is stable
-
-    // Cleanup function
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      if (animationRef.current) {
-        animationRef.current.cancel();
-      }
-    };
-  }, [playerIdx, card.suit, card.value]);  // Include card to re-run if same player plays different card
+    // Force reflow, then enable transition and animate to target
+    cardRef.current.offsetHeight;
+    cardRef.current.style.transition = '';
+    cardRef.current.style.transform = `translate(${endX}px, ${endY}px) scale(${targetScale})`;
+  }, [playerIdx, card.suit, card.value]);
 
   return (
     <div ref={cardRef} className="ai-play-card">

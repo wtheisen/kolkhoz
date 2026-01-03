@@ -2,13 +2,22 @@ import React, { useState, useMemo } from 'react';
 import { Client } from 'boardgame.io/react';
 import { Local } from 'boardgame.io/multiplayer';
 import { MCTSBot } from 'boardgame.io/ai';
+import { EffectsBoardWrapper } from 'bgio-effects/react';
 import { KolkhozGame } from '../game/index.js';
 import { Board } from './Board.jsx';
 import { DEFAULT_VARIANTS } from '../game/constants.js';
 
+// Wrap Board with effects - delays state updates until animations complete
+const BoardWithEffects = EffectsBoardWrapper(Board, {
+  updateStateAfterEffects: true,
+});
+
 export function App() {
   const [gameStarted, setGameStarted] = useState(false);
   const [variants, setVariants] = useState({ ...DEFAULT_VARIANTS });
+
+  // Callback to return to lobby for a new game
+  const handleNewGame = () => setGameStarted(false);
 
   // Create client dynamically with selected variants
   // setupData must be passed in Client config, not as component prop
@@ -16,7 +25,7 @@ export function App() {
     if (!gameStarted) return null;
     return Client({
       game: KolkhozGame,
-      board: Board,
+      board: (props) => <BoardWithEffects {...props} onNewGame={handleNewGame} />,
       numPlayers: 4,
       multiplayer: Local({
         bots: {

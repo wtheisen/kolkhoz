@@ -11,6 +11,7 @@
     "play": "npx esbuild scripts/play.js --bundle --platform=node --format=esm --outfile=scripts/play.bundle.js && node scripts/play.bundle.js"
   },
   "dependencies": {
+    "bgio-effects": "^0.7.1",
     "boardgame.io": "^0.50.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

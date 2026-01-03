@@ -835,9 +835,14 @@ html, body {
 /* AI Card Play Animation - animation handled by Web Animations API in JS */
 .ai-play-card {
   position: fixed;
+  left: 0;
+  top: 0;
   pointer-events: none;
   z-index: 999;
   width: clamp(50px, 8vw, 100px);
+  will-change: transform;
+  transform-origin: top left;
+  transition: transform 0.6s ease-out;
 }
 
 .ai-play-card img {
@@ -1005,58 +1010,402 @@ html, body {
   transform: translateY(0);
 }
 
-/* Game Over */
+/* ============================================
+   GAME OVER - Soviet Victory Screen (Two-Column)
+   ============================================ */
 .game-over {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: center;
+  gap: clamp(2rem, 4vw, 4rem);
+  min-height: 100vh;
+  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
+  padding: clamp(1rem, 3vw, 3rem);
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+/* Radial burst background */
+.victory-burst {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-conic-gradient(
+      from 0deg at 50% 50%,
+      rgba(196, 30, 58, 0.06) 0deg 10deg,
+      transparent 10deg 20deg
+    );
+  animation: burst-rotate 120s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes burst-rotate {
+  to { transform: rotate(360deg); }
+}
+
+/* Left column: Title + Winner + Button */
+.game-over-left {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  background: var(--bg-primary);
-  background-image:
-    radial-gradient(ellipse at top, rgba(212, 168, 87, 0.05) 0%, transparent 50%),
-    radial-gradient(ellipse at bottom, rgba(196, 30, 58, 0.05) 0%, transparent 50%);
+  flex: 1;
+  max-width: 350px;
+  gap: 1.5rem;
+  animation: left-slide 0.6s ease-out;
+}
+
+@keyframes left-slide {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.game-over-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
+}
+
+.victory-star {
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  color: var(--gold);
+  text-shadow:
+    0 0 30px rgba(255, 215, 0, 0.6),
+    0 0 60px rgba(255, 215, 0, 0.3);
+  animation: star-pulse 2s ease-in-out infinite;
+  line-height: 1;
+}
+
+@keyframes star-pulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.1);
+    filter: brightness(1.2);
+  }
 }
 
 .game-over h1 {
   font-family: 'Russo One', 'Oswald', sans-serif;
-  font-size: 3.5rem;
+  font-size: clamp(2rem, 5vw, 3.5rem);
   color: var(--gold);
-  margin-bottom: 1rem;
-  text-shadow: 2px 2px 0 var(--gold-dark);
+  margin: 0.25rem 0;
+  text-shadow: 3px 3px 0 var(--gold-dark), 0 0 30px rgba(212, 168, 87, 0.3);
   letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1;
 }
 
 .game-over h2 {
   font-family: 'Russo One', 'Oswald', sans-serif;
-  font-size: 2rem;
-  color: var(--red);
-  margin-bottom: 2rem;
-  letter-spacing: 0.1em;
+  font-size: clamp(0.8rem, 2vw, 1.2rem);
+  color: var(--cream-dark);
+  margin: 0;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
 }
 
-.final-scores {
+/* Winner spotlight */
+.winner-spotlight {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.75rem, 2vw, 1.25rem);
+  padding: clamp(0.75rem, 1.5vh, 1.25rem) clamp(1rem, 2.5vw, 2rem);
+  background: linear-gradient(
+    135deg,
+    rgba(196, 30, 58, 0.25) 0%,
+    rgba(139, 0, 0, 0.35) 100%
+  );
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  box-shadow:
+    0 0 30px rgba(196, 30, 58, 0.25),
+    inset 0 0 20px rgba(212, 168, 87, 0.08);
+  animation: winner-glow 3s ease-in-out infinite;
+}
+
+@keyframes winner-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 30px rgba(196, 30, 58, 0.25),
+      inset 0 0 20px rgba(212, 168, 87, 0.08);
+  }
+  50% {
+    box-shadow:
+      0 0 50px rgba(196, 30, 58, 0.4),
+      0 0 70px rgba(212, 168, 87, 0.15),
+      inset 0 0 20px rgba(212, 168, 87, 0.12);
+  }
+}
+
+/* Medal badge */
+.winner-medal {
+  position: relative;
+  width: clamp(50px, 10vw, 75px);
+  height: clamp(50px, 10vw, 75px);
+  background: linear-gradient(
+    145deg,
+    var(--gold-bright) 0%,
+    var(--gold) 30%,
+    var(--gold-dark) 100%
+  );
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 4px 15px rgba(0, 0, 0, 0.5),
+    inset 0 2px 8px rgba(255, 255, 255, 0.3),
+    inset 0 -2px 8px rgba(0, 0, 0, 0.3);
+  flex-shrink: 0;
+}
+
+.winner-medal::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 2px solid rgba(139, 69, 19, 0.4);
+  border-radius: 50%;
+}
+
+.medal-star {
+  position: absolute;
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  color: var(--red);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.medal-rank {
+  position: absolute;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(1rem, 2.5vw, 1.5rem);
+  color: var(--gold-bright);
+  text-shadow:
+    0 0 10px rgba(255, 215, 0, 0.8),
+    1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Winner info */
+.winner-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.winner-name {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(1.2rem, 3vw, 2rem);
+  color: var(--cream);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+}
+
+.winner-score {
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(1rem, 2.5vw, 1.5rem);
+  color: var(--gold-bright);
+  font-weight: bold;
+}
+
+/* Game over buttons */
+.game-over-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.game-over .new-game-btn {
+  padding: clamp(0.75rem, 1.5vh, 1rem) clamp(2rem, 4vw, 3rem);
+  font-size: clamp(1rem, 1.8vw, 1.2rem);
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  background: var(--red);
+  color: var(--cream);
+  border: 2px solid var(--gold-dark);
+  border-radius: 4px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  box-shadow: 0 4px 15px rgba(196, 30, 58, 0.3);
+  transition: all 0.2s ease;
+}
+
+.game-over .new-game-btn:hover {
+  background: var(--red-dark);
+  border-color: var(--gold);
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(196, 30, 58, 0.5);
+}
+
+.game-over .new-game-btn:active {
+  transform: scale(0.98);
+}
+
+/* Right column: Final standings */
+.game-over-right {
+  position: relative;
+  z-index: 1;
+  flex: 2;
+  max-width: 500px;
+  display: flex;
+  align-items: center;
+  animation: right-slide 0.6s ease-out;
+}
+
+@keyframes right-slide {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.final-standings {
   background: var(--bg-secondary);
-  padding: 1.5rem;
+  padding: clamp(1rem, 2vh, 2rem);
   border-radius: 4px;
   border: 1px solid var(--border-gold);
-  margin-bottom: 1rem;
+  box-shadow: 0 0 20px rgba(212, 168, 87, 0.1);
+  width: 100%;
 }
 
-.final-scores div {
-  padding: 0.5rem 1rem;
-  font-size: 1.2rem;
-  color: var(--cream-dark);
-  font-family: 'Oswald', sans-serif;
+/* Standings header row */
+.standings-header {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.5rem, 1.5vw, 1rem);
+  padding: clamp(0.4rem, 0.8vh, 0.6rem) clamp(0.75rem, 1.5vw, 1rem);
+  margin-bottom: clamp(0.5rem, 1vh, 0.75rem);
+  border-bottom: 1px solid var(--border-dark);
 }
 
-.final-scores .winner {
-  color: var(--gold);
-  font-weight: bold;
-  background: rgba(212, 168, 87, 0.1);
+.standings-header span {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(0.7rem, 1.2vw, 0.85rem);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.header-rank {
+  width: 1.75rem;
+  text-align: center;
+}
+
+.header-name {
+  flex: 1;
+}
+
+.header-medals {
+  width: clamp(2rem, 4vw, 3rem);
+  text-align: center;
+}
+
+.header-score {
+  width: clamp(2.5rem, 5vw, 4rem);
+  text-align: right;
+}
+
+.standing-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.5rem, 1.5vw, 1rem);
+  padding: clamp(0.5rem, 1vh, 0.75rem) clamp(0.75rem, 1.5vw, 1rem);
+  background: rgba(20, 20, 20, 0.6);
+  border: 1px solid var(--border-dark);
   border-radius: 4px;
-  border: 1px solid var(--gold-dark);
+  margin-bottom: clamp(0.3rem, 0.6vh, 0.5rem);
+  animation: row-slide 0.4s ease-out backwards;
+  animation-delay: var(--delay, 0s);
+}
+
+.standing-row:last-child {
+  margin-bottom: 0;
+}
+
+.standing-row.winner {
+  background: rgba(212, 168, 87, 0.12);
+  border-color: var(--gold-dark);
+}
+
+@keyframes row-slide {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.standing-rank {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(0.9rem, 1.5vw, 1.1rem);
+  color: var(--text-secondary);
+  width: 1.75rem;
+  text-align: center;
+}
+
+.standing-row.winner .standing-rank {
+  color: var(--gold);
+}
+
+.standing-name {
+  flex: 1;
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(0.9rem, 1.5vw, 1.1rem);
+  color: var(--cream-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.standing-row.winner .standing-name {
+  color: var(--cream);
+}
+
+.standing-medals {
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(0.9rem, 1.5vw, 1.1rem);
+  color: var(--text-secondary);
+  width: clamp(2rem, 4vw, 3rem);
+  text-align: center;
+}
+
+.standing-row.winner .standing-medals {
+  color: var(--cream);
+}
+
+.standing-score {
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(0.9rem, 1.5vw, 1.1rem);
+  color: var(--cream-dark);
+  font-weight: bold;
+  width: clamp(2.5rem, 5vw, 4rem);
+  text-align: right;
+}
+
+.standing-row.winner .standing-score {
+  color: var(--gold-bright);
 }
 
 /* Tooltips */
