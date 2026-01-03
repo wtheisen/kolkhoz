@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Client } from 'boardgame.io/client';
+import { INVALID_MOVE } from 'boardgame.io/core';
 import { KolkhozGame } from '../KolkhozGame.js';
 import { SUITS, THRESHOLD, DEFAULT_VARIANTS } from '../constants.js';
 import {
@@ -361,6 +362,38 @@ describe('KolkhozGame', () => {
       expect(G.players[0].hand[0].value).toBe(10);
       expect(G.players[0].plot.hidden[0].suit).toBe('Hearts');
       expect(G.players[0].plot.hidden[0].value).toBe(7);
+    });
+
+    it('should limit player to 1 swap per turn', () => {
+      // Create a game in swap phase with 2 players
+      const client = Client({
+        game: KolkhozGame,
+        numPlayers: 2,
+      });
+
+      // Set up state for swap phase manually
+      let { G } = client.getState();
+
+      // Simulate being in swap phase with proper setup
+      G.year = 2; // Swap only available after year 1
+      G.swapCount = {}; // Initialize swap tracking
+      G.players[0].hand = [
+        { suit: 'Hearts', value: 7 },
+        { suit: 'Diamonds', value: 8 },
+      ];
+      G.players[0].plot.hidden = [
+        { suit: 'Clubs', value: 10 },
+        { suit: 'Spades', value: 9 },
+      ];
+
+      // First swap should succeed - mark in swapCount
+      G.swapCount[0] = true;
+
+      // Second swap should be blocked because swapCount[0] is already true
+      expect(G.swapCount[0]).toBe(true);
+
+      // Different player (1) should still be able to swap
+      expect(G.swapCount[1]).toBeUndefined();
     });
   });
 

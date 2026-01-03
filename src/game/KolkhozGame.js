@@ -188,6 +188,11 @@ function swapCard({ G, playerID }, plotCardIndex, handCardIndex, plotType = 'hid
   const playerIdx = parseInt(playerID, 10);
   const player = G.players[playerIdx];
 
+  // Check if player already swapped this turn (limit: 1 swap per player)
+  if (G.swapCount && G.swapCount[playerIdx]) {
+    return INVALID_MOVE;
+  }
+
   if (plotCardIndex < 0 || handCardIndex < 0) {
     return;
   }
@@ -216,6 +221,10 @@ function swapCard({ G, playerID }, plotCardIndex, handCardIndex, plotType = 'hid
     newPlotCard: { ...plotArray[plotCardIndex] },
     timestamp: Date.now(),
   };
+
+  // Track that this player has swapped (limit: 1 swap per player)
+  if (!G.swapCount) G.swapCount = {};
+  G.swapCount[playerIdx] = true;
 }
 
 // Move: Confirm swap is complete
@@ -502,6 +511,8 @@ export const KolkhozGame = {
         console.log('[swap onBegin] year:', G.year, 'hands:', G.players.map(p => p.hand.length), 'plots:', G.players.map(p => p.plot.hidden.length));
         // Reset swap confirmation tracking - each player confirms on their turn
         G.swapConfirmed = {};
+        // Reset swap count - each player can swap at most 1 card
+        G.swapCount = {};
       },
       endIf: ({ G, ctx }) => {
         // End when all players have confirmed their swaps
@@ -513,6 +524,7 @@ export const KolkhozGame = {
       },
       onEnd: ({ G }) => {
         delete G.swapConfirmed;
+        delete G.swapCount;
       },
       next: 'trick',
     },
