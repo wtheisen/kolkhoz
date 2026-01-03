@@ -21,5 +21,10 @@
     "esbuild": "^0.27.2",
     "vite": "^5.0.12",
     "vitest": "^3.2.4"
+  },
+  "overrides": {
+    "bgio-effects": {
+      "react": "$react"
+    }
   }
 }

@@ -65,7 +65,14 @@ export function getWinner(G, variants) {
     }
   }
 
-  return { winner, scores };
+  // Calculate total medals for each player (accumulated + current year)
+  const medals = {};
+  for (let idx = 0; idx < G.players.length; idx++) {
+    const p = G.players[idx];
+    medals[idx] = (p.plot.medals || 0) + (p.medals || 0);
+  }
+
+  return { winner, scores, medals };
 }
 
 // Transition to next year
@@ -150,7 +157,9 @@ export function transitionToNextYear(G, variants, random) {
   // Reset player flags
   for (const p of G.players) {
     p.hand = [];
-    if (variants.medalsCount && p.medals > 0) {
+    // Always accumulate medals for end-game display
+    // (medalsCount variant controls whether they add to score, not whether they're tracked)
+    if (p.medals > 0) {
       p.plot.medals = (p.plot.medals || 0) + p.medals;
     }
     p.medals = 0;
