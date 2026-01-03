@@ -59,7 +59,7 @@ export function App() {
               <h3>Kolkhoz Rules</h3>
               <div className="rules-text">
                 <h4>Objective</h4>
-                <p>Complete collective farm jobs while protecting your private plot. Lowest score wins!</p>
+                <p>Complete collective farm jobs while protecting your private plot. Highest score wins!</p>
                 <h4>Gameplay</h4>
                 <p>• Play cards to tricks - must follow lead suit if able</p>
                 <p>• Trick winner assigns cards to matching job suits</p>
@@ -69,7 +69,7 @@ export function App() {
                 <p>• <strong>Queen (Доносчик)</strong>: All players become vulnerable</p>
                 <p>• <strong>King (Чиновник)</strong>: Exiles two cards instead of one</p>
                 <h4>Scoring</h4>
-                <p>Cards in your plot = penalty points. Lowest score wins!</p>
+                <p>Cards in your plot = your score. Highest score wins!</p>
               </div>
             </div>
           ) : (

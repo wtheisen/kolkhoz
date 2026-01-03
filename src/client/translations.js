@@ -53,14 +53,14 @@ export const translations = {
     // Game over
     gameOver: 'Game Over!',
     winner: 'Winner:',
-    lowestScoreWins: '(Lowest score wins)',
+    highestScoreWins: '(Highest score wins)',
 
     // Rules
     rules: 'Rules',
     objective: 'Objective',
     gameplay: 'Gameplay',
     trumpFaceCards: 'Trump Face Cards',
-    objectiveText: 'Complete collective farm jobs while protecting your private plot. Lowest score wins!',
+    objectiveText: 'Complete collective farm jobs while protecting your private plot. Highest score wins!',
     gameplayRule1: 'Play cards to tricks - must follow lead suit if able',
     gameplayRule2: 'Trick winner assigns cards to matching job suits',
     gameplayRule3: 'Jobs need 40 work hours to complete',
@@ -125,14 +125,14 @@ export const translations = {
     // Game over
     gameOver: 'Игра окончена!',
     winner: 'Победитель:',
-    lowestScoreWins: '(Побеждает наименьший счёт)',
+    highestScoreWins: '(Побеждает наибольший счёт)',
 
     // Rules
     rules: 'Правила',
     objective: 'Цель',
     gameplay: 'Игра',
     trumpFaceCards: 'Козырные карты',
-    objectiveText: 'Выполняйте работы колхоза, защищая свой участок. Побеждает наименьший счёт!',
+    objectiveText: 'Выполняйте работы колхоза, защищая свой участок. Побеждает наибольший счёт!',
     gameplayRule1: 'Играйте карты в трюки - следуйте масти если возможно',
     gameplayRule2: 'Победитель трюка назначает карты на работы',
     gameplayRule3: 'Работы требуют 40 часов для завершения',

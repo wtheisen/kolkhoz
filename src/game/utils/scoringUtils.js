@@ -52,15 +52,15 @@ export function calculateFinalScores(G, variants) {
   return scores;
 }
 
-// Get winner (lowest score wins)
+// Get winner (highest score wins)
 export function getWinner(G, variants) {
   const scores = calculateFinalScores(G, variants);
-  let minScore = Infinity;
+  let maxScore = -Infinity;
   let winner = 0;
 
   for (const [idx, score] of Object.entries(scores)) {
-    if (score < minScore) {
-      minScore = score;
+    if (score > maxScore) {
+      maxScore = score;
       winner = parseInt(idx, 10);
     }
   }

@@ -534,7 +534,7 @@ export function Board({ G, ctx, moves, playerID }) {
             </div>
           ))}
         </div>
-        <p>{t(translations, language, 'lowestScoreWins')}</p>
+        <p>{t(translations, language, 'highestScoreWins')}</p>
       </div>
     );
   }
