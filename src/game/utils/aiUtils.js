@@ -457,17 +457,31 @@ export function getPrioritizedMoves(G, ctx, playerIdx) {
       }
     }
 
-    // STRATEGY B: Split cards to their matching suits (or best individual assignments)
+    // STRATEGY B: Smart split - try to complete multiple jobs
+    // Track accumulated hours as we assign cards
+    const splitHoursAdded = {}; // Track hours we're adding to each suit
+    for (const suit of suitsInTrick) {
+      splitHoursAdded[suit] = 0;
+    }
+
     let splitScore = 0;
     const splitAssignments = {};
 
-    for (const [, card] of G.lastTrick) {
+    // Sort cards by value (highest first) to prioritize completing jobs with bigger cards
+    const sortedTrickCards = [...G.lastTrick].sort((a, b) => {
+      const hoursA = getCardWorkHours(a[1], G.trump, G.variants?.nomenclature);
+      const hoursB = getCardWorkHours(b[1], G.trump, G.variants?.nomenclature);
+      return hoursB - hoursA;
+    });
+
+    for (const [, card] of sortedTrickCards) {
       const cardHours = getCardWorkHours(card, G.trump, G.variants?.nomenclature);
       let bestSuitForCard = card.suit;
       let bestCardScore = -Infinity;
 
       for (const targetSuit of suitsInTrick) {
-        const currentHours = G.workHours[targetSuit] || 0;
+        // Account for hours already assigned from this trick
+        const currentHours = (G.workHours[targetSuit] || 0) + splitHoursAdded[targetSuit];
         const isCompleted = G.claimedJobs?.includes(targetSuit);
         let cardScore = 0;
 
@@ -476,7 +490,15 @@ export function getPrioritizedMoves(G, ctx, playerIdx) {
         } else {
           const newHours = currentHours + cardHours;
           if (newHours >= 40) {
-            cardScore += 150; // Good but not as good as concentrate
+            // Check if this card is needed to complete, or if it's overkill
+            if (currentHours < 40) {
+              // This card helps complete the job!
+              cardScore += 200;
+              cardScore -= (newHours - 40) * 2; // Penalize waste
+            } else {
+              // Job would already be complete from other cards, this is waste
+              cardScore = -15;
+            }
           } else {
             cardScore += newHours * 0.5;
             if (newHours >= 30) cardScore += 15;
@@ -493,6 +515,7 @@ export function getPrioritizedMoves(G, ctx, playerIdx) {
       }
 
       splitAssignments[`${card.suit}-${card.value}`] = bestSuitForCard;
+      splitHoursAdded[bestSuitForCard] += cardHours;
       splitScore += bestCardScore;
     }
 
