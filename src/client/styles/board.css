@@ -40,7 +40,9 @@ html, body {
   justify-content: center;
   gap: clamp(2rem, 4vw, 4rem);
   min-height: 100vh;
+  min-height: 100dvh;
   height: 100vh;
+  height: 100dvh;
   padding: clamp(1rem, 3vw, 3rem);
   background: var(--bg-primary);
   background-image:
@@ -274,6 +276,7 @@ html, body {
   flex-direction: row;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   background: var(--bg-primary);
   background-image:
     radial-gradient(ellipse at center, rgba(212, 168, 87, 0.02) 0%, transparent 70%);
@@ -287,6 +290,7 @@ html, body {
   flex: 1;
   min-width: 0;
   height: 100vh;
+  height: 100dvh;
 }
 
 /* Pulse animation for turn indicator */
