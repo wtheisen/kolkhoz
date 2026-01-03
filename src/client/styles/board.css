@@ -625,10 +625,11 @@ html, body {
   gap: 0.5rem;
   align-items: center;
   flex-shrink: 0;
-  /* Position the button group (moved from confirm-swap-btn) */
+  /* Position the button group above the 50% translateY fold */
   margin-left: auto;
   margin-right: clamp(8px, 1.5vw, 16px);
-  margin-bottom: auto;
+  align-self: flex-start;
+  margin-bottom: calc(var(--card-width, clamp(50px, 10vw, 120px)) * 0.5);
 }
 
 .player-hand-area .undo-swap-btn {
