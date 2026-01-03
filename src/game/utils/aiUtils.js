@@ -53,9 +53,9 @@ export function scoreAssignment(G, card, targetSuit, playerIdx) {
   const newHours = hours + cardHours;
   const isCompleted = G.claimedJobs?.includes(targetSuit);
 
-  // If job already completed, this is a safe dump (neutral)
+  // If job already completed, avoid wasting cards here
   if (isCompleted) {
-    return 0;
+    return -20;
   }
 
   const player = G.players[playerIdx];
@@ -221,6 +221,16 @@ function estimateWinProbability(G, card, trickCards) {
  */
 function evaluateWinDesirability(G, playerIdx) {
   let desire = 0;
+  const player = G.players[playerIdx];
+
+  // If we haven't won a trick yet, we're safe from requisition
+  // Penalize winning unless it's very valuable
+  if (!player.hasWonTrickThisYear) {
+    const plotCards = [...(player.plot?.revealed || []), ...(player.plot?.hidden || [])];
+    if (plotCards.length > 0) {
+      desire -= 30; // Strong penalty - stay safe from requisition!
+    }
+  }
 
   // Check what suits are in the trick
   const trickSuits = [...new Set(G.currentTrick.map(([, c]) => c.suit))];
@@ -232,7 +242,6 @@ function evaluateWinDesirability(G, playerIdx) {
   }
 
   // If we're brigade leader, might want to keep control
-  const player = G.players[playerIdx];
   if (player.brigadeLeader) {
     desire += 5;
   }
@@ -438,8 +447,8 @@ export function getPrioritizedMoves(G, ctx, playerIdx) {
       const isCompleted = G.claimedJobs?.includes(targetSuit);
 
       if (isCompleted) {
-        if (bestConcentrateScore < 0) {
-          bestConcentrateScore = 0;
+        if (bestConcentrateScore < -20) {
+          bestConcentrateScore = -20;
           bestConcentrateSuit = targetSuit;
         }
         continue;
@@ -481,7 +490,7 @@ export function getPrioritizedMoves(G, ctx, playerIdx) {
         let cardScore = 0;
 
         if (isCompleted) {
-          cardScore = 0; // Neutral
+          cardScore = -20; // Avoid wasting cards on already-completed jobs
         } else {
           const newHours = currentHours + cardHours;
           if (newHours >= 40) {

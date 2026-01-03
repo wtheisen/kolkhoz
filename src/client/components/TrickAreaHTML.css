@@ -1876,12 +1876,12 @@
 .swap-bot-cards {
   display: flex;
   flex-wrap: wrap;
-  gap: clamp(2px, 0.4vw, 4px);
   flex: 1;
   align-content: flex-start;
   min-height: clamp(44px, 8vh, 60px);
   position: relative;
   z-index: 1;
+  padding-left: 10px; /* Compensate for first card not having negative margin */
 }
 
 .swap-bot-cards .no-cards {
@@ -1899,6 +1899,11 @@
   border-radius: 3px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
   transition: transform 0.2s ease;
+  margin-left: -10px; /* Overlap cards horizontally */
+}
+
+.swap-mini-card:first-child {
+  margin-left: 0;
 }
 
 .swap-mini-card.revealed {

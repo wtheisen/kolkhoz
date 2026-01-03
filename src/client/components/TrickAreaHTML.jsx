@@ -54,7 +54,16 @@ export function TrickAreaHTML({
   currentJobStage = 'header',
   // Language
   language = 'ru',
+  // Variants
+  variants = {},
 }) {
+  // Calculate work value for a card (Jack of trump = 0 with nomenclature)
+  const getWorkValue = (card) => {
+    if (variants.nomenclature && card.suit === trump && card.value === 11) {
+      return 0;
+    }
+    return card.value;
+  };
   // Track animated swap for bot visual feedback
   const [animatedSwap, setAnimatedSwap] = useState(null);
   const lastSwapTimestamp = useRef(null);
@@ -91,7 +100,7 @@ export function TrickAreaHTML({
         // Card was just assigned to this suit - find its value
         const cardEntry = lastTrick.find(([, card]) => `${card.suit}-${card.value}` === cardKey);
         if (cardEntry) {
-          const cardValue = cardEntry[1].value;
+          const cardValue = getWorkValue(cardEntry[1]);
           const popupKey = Date.now();
           // Show popup for this suit
           setPointPopups(p => ({ ...p, [targetSuit]: { value: cardValue, type: 'add', key: popupKey } }));
@@ -115,7 +124,7 @@ export function TrickAreaHTML({
         // Card was removed from oldSuit - find its value
         const cardEntry = lastTrick.find(([, card]) => `${card.suit}-${card.value}` === cardKey);
         if (cardEntry) {
-          const cardValue = cardEntry[1].value;
+          const cardValue = getWorkValue(cardEntry[1]);
           const popupKey = Date.now();
           // Show negative popup for the old suit
           setPointPopups(p => ({ ...p, [oldSuit]: { value: cardValue, type: 'remove', key: popupKey } }));
@@ -310,7 +319,7 @@ export function TrickAreaHTML({
                   }) : [];
 
                   // Calculate pending hours from assigned cards
-                  const pendingHours = assignedCards.reduce((sum, [, card]) => sum + card.value, 0);
+                  const pendingHours = assignedCards.reduce((sum, [, card]) => sum + getWorkValue(card), 0);
                   const totalHours = hours + pendingHours;
                   const popup = pointPopups[suit];
 

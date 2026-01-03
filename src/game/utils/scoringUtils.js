@@ -73,27 +73,34 @@ export function transitionToNextYear(G, variants, random) {
   // Handle unclaimed job rewards (52-card deck only)
   if (variants?.deckType !== 36 && !variants?.northernStyle && G.revealedJobs) {
     for (const suit of SUITS) {
-      if (!G.claimedJobs?.includes(suit)) {
-        const revealed = G.revealedJobs[suit];
-        if (!revealed) continue;
+      const revealed = G.revealedJobs[suit];
+      const isClaimed = G.claimedJobs?.includes(suit);
 
-        const jobRewards = Array.isArray(revealed) ? revealed : [revealed];
+      // Debug: Log if we have a revealed job that should have been claimed
+      if (revealed && isClaimed) {
+        console.warn(`[BUG] Job ${suit} is claimed but revealedJobs still has value:`, revealed);
+        // Don't send to gulag - job was claimed, this is a bug we're catching
+        continue;
+      }
 
-        if (variants.accumulateJobs) {
-          // Accumulate for next year
-          if (!G.accumulatedJobCards[suit]) {
-            G.accumulatedJobCards[suit] = [];
-          }
-          G.accumulatedJobCards[suit].push(...jobRewards.filter(Boolean));
-        } else {
-          // Send unclaimed rewards to gulag
-          if (!G.exiled[G.year]) {
-            G.exiled[G.year] = [];
-          }
-          for (const card of jobRewards) {
-            if (card) {
-              G.exiled[G.year].push(`${card.suit}-${card.value}`);
-            }
+      if (isClaimed || !revealed) continue;
+
+      const jobRewards = Array.isArray(revealed) ? revealed : [revealed];
+
+      if (variants.accumulateJobs) {
+        // Accumulate for next year
+        if (!G.accumulatedJobCards[suit]) {
+          G.accumulatedJobCards[suit] = [];
+        }
+        G.accumulatedJobCards[suit].push(...jobRewards.filter(Boolean));
+      } else {
+        // Send unclaimed rewards to gulag
+        if (!G.exiled[G.year]) {
+          G.exiled[G.year] = [];
+        }
+        for (const card of jobRewards) {
+          if (card) {
+            G.exiled[G.year].push(`${card.suit}-${card.value}`);
           }
         }
       }
