@@ -76,10 +76,8 @@ export function transitionToNextYear(G, variants, random) {
       const revealed = G.revealedJobs[suit];
       const isClaimed = G.claimedJobs?.includes(suit);
 
-      // Debug: Log if we have a revealed job that should have been claimed
+      // Skip if job was claimed (revealedJobs not cleared is a known edge case)
       if (revealed && isClaimed) {
-        console.warn(`[BUG] Job ${suit} is claimed but revealedJobs still has value:`, revealed);
-        // Don't send to gulag - job was claimed, this is a bug we're catching
         continue;
       }
 
@@ -107,9 +105,7 @@ export function transitionToNextYear(G, variants, random) {
     }
   }
 
-  console.log(`[transitionToNextYear] BEFORE: year=${G.year}, isFamine=${G.isFamine}, MAX_YEARS=${MAX_YEARS}`);
   G.year++;
-  console.log(`[transitionToNextYear] AFTER INCREMENT: year=${G.year}`);
 
   // Check if game is over
   if (G.year > MAX_YEARS) {
@@ -130,7 +126,6 @@ export function transitionToNextYear(G, variants, random) {
   G.revealedJobs = jobs;
   // Famine year is ALWAYS the last year (Year 5)
   G.isFamine = (G.year === MAX_YEARS);
-  console.log(`[transitionToNextYear] SET isFamine: year=${G.year} === ${MAX_YEARS} => isFamine=${G.isFamine}`);
 
   // Handle ordenNachalniku variant: move revealed cards from stacks to plot
   if (variants.ordenNachalniku && variants.deckType === 36) {
@@ -172,7 +167,8 @@ export function transitionToNextYear(G, variants, random) {
     G.jobBuckets,
     G.exiled,
     variants,
-    random
+    random,
+    G.drunkardReplacements
   );
   dealHands(G.players, G.workersDeck, G.isFamine);
 

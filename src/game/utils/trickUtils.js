@@ -103,9 +103,25 @@ export function getTricksPerYear(isFamine) {
   return isFamine ? 3 : 4;
 }
 
-// Check if year is complete (all players have exactly 1 card left)
-// This is cleaner than counting tricks - works regardless of famine
+// Check if year is complete
+// Year ends when:
+// 1. All players have exactly 1 card left (normal end), OR
+// 2. Expected number of tricks have been played (4 normal, 3 famine), OR
+// 3. Any player has 0 cards (shouldn't happen, but prevents stuck games)
 export function isYearComplete(G) {
+  const expectedTricks = G.isFamine ? 3 : 4;
+
+  // If we've played all expected tricks, year is complete
+  if (G.trickCount >= expectedTricks) {
+    return true;
+  }
+
+  // If any player has 0 cards, we need to stop (error state but prevents infinite loop)
+  if (G.players.some(p => p.hand.length === 0)) {
+    return true;
+  }
+
+  // Normal check: all players have exactly 1 card left
   return G.players.every(p => p.hand.length === 1);
 }
 

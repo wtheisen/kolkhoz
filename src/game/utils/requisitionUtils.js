@@ -46,7 +46,8 @@ export function performRequisition(G, variants) {
 }
 
 // Check for drunkard (Jack of trump) - gets exiled instead of player cards
-function handleDrunkard(G, bucket, variants) {
+// When drunkard is exiled, add the failed job's reward to the worker deck as compensation
+function handleDrunkard(G, bucket, variants, suit) {
   if (!variants.nomenclature) return false;
 
   for (const c of bucket) {
@@ -55,6 +56,20 @@ function handleDrunkard(G, bucket, variants) {
         'Пьяница отправить на Север'
       );
       addToExiled(G, `${c.suit}-${c.value}`);
+
+      // Add the failed job's reward to drunkard replacements
+      // This compensates for the exiled Jack, maintaining deck balance
+      const jobReward = G.revealedJobs[suit];
+      if (jobReward) {
+        if (!G.drunkardReplacements) {
+          G.drunkardReplacements = [];
+        }
+        const reward = Array.isArray(jobReward) ? jobReward[0] : jobReward;
+        if (reward) {
+          G.drunkardReplacements.push({ ...reward });
+        }
+      }
+
       return true;
     }
   }
@@ -89,7 +104,7 @@ function cardToString(card) {
 
 // Mice variant requisition
 function performMiceVariant(G, suit, bucket, variants) {
-  if (handleDrunkard(G, bucket, variants)) return;
+  if (handleDrunkard(G, bucket, variants, suit)) return;
 
   const informant = hasInformant(bucket, G.trump, variants);
   const partyOfficial = hasPartyOfficial(bucket, G.trump, variants);
@@ -113,7 +128,7 @@ function performMiceVariant(G, suit, bucket, variants) {
 
 // 36-card deck requisition
 function perform36Card(G, suit, bucket, variants) {
-  if (handleDrunkard(G, bucket, variants)) return;
+  if (handleDrunkard(G, bucket, variants, suit)) return;
 
   const informant = hasInformant(bucket, G.trump, variants);
   const partyOfficial = hasPartyOfficial(bucket, G.trump, variants);
@@ -168,7 +183,7 @@ function perform36Card(G, suit, bucket, variants) {
 
 // Standard 52-card requisition
 function performStandard(G, suit, bucket, variants) {
-  if (handleDrunkard(G, bucket, variants)) return;
+  if (handleDrunkard(G, bucket, variants, suit)) return;
 
   const informant = hasInformant(bucket, G.trump, variants);
   const partyOfficial = hasPartyOfficial(bucket, G.trump, variants);

@@ -2,9 +2,6 @@
 
 export const SUITS = ['Hearts', 'Diamonds', 'Clubs', 'Spades'];
 
-// Card values: 6-10 are number cards, 11=Jack, 12=Queen, 13=King
-export const VALUES = [6, 7, 8, 9, 10, 11, 12, 13];
-
 // Work hours threshold to complete a job
 export const THRESHOLD = 40;
 
@@ -20,22 +17,6 @@ export const PLAYER_NAMES = [
   'Грушенька',
   'Катерина'
 ];
-
-// Job names (Russian) mapped to suits - crop fields
-export const JOB_NAMES = {
-  Hearts: 'Пшеница',        // Wheat
-  Diamonds: 'Свёкла',       // Beets
-  Clubs: 'Картофель',       // Potatoes
-  Spades: 'Подсолнечник'    // Sunflowers
-};
-
-// English translations for job names
-export const JOB_TRANSLATIONS = {
-  Hearts: 'Wheat',
-  Diamonds: 'Beets',
-  Clubs: 'Potatoes',
-  Spades: 'Sunflowers'
-};
 
 // Default game variants
 export const DEFAULT_VARIANTS = {

@@ -9,7 +9,7 @@ import { SUITS } from '../constants.js';
 /**
  * Calculate card work hours (value for job progress)
  */
-export function getCardWorkHours(card, trump, nomenclature = true) {
+function getCardWorkHours(card, trump, nomenclature = true) {
   // Jack of trump = 0 hours in nomenclature variant
   if (nomenclature && card.value === 11 && card.suit === trump) {
     return 0;
@@ -21,7 +21,7 @@ export function getCardWorkHours(card, trump, nomenclature = true) {
  * Evaluate how valuable completing a job is
  * Higher = more valuable to complete
  */
-export function evaluateJobCompletion(G, suit, playerIdx) {
+function evaluateJobCompletion(G, suit, playerIdx) {
   const hours = G.workHours[suit] || 0;
   const isCompleted = G.claimedJobs?.includes(suit);
 
@@ -46,7 +46,7 @@ export function evaluateJobCompletion(G, suit, playerIdx) {
  * Score a potential assignment decision
  * Higher = better assignment
  */
-export function scoreAssignment(G, card, targetSuit, playerIdx) {
+function scoreAssignment(G, card, targetSuit, playerIdx) {
   let score = 0;
   const hours = G.workHours[targetSuit] || 0;
   const cardHours = getCardWorkHours(card, G.trump, G.variants?.nomenclature);
@@ -105,28 +105,10 @@ export function scoreAssignment(G, card, targetSuit, playerIdx) {
 }
 
 /**
- * Get the best assignment for a card given current game state
- */
-export function getBestAssignment(G, card, suitsInTrick, playerIdx) {
-  let bestSuit = card.suit; // Default to matching
-  let bestScore = -Infinity;
-
-  for (const suit of suitsInTrick) {
-    const score = scoreAssignment(G, card, suit, playerIdx);
-    if (score > bestScore) {
-      bestScore = score;
-      bestSuit = suit;
-    }
-  }
-
-  return { suit: bestSuit, score: bestScore };
-}
-
-/**
  * Score playing a specific card in the current trick context
  * Higher = better play
  */
-export function scoreCardPlay(G, playerIdx, cardIndex) {
+function scoreCardPlay(G, playerIdx, cardIndex) {
   const player = G.players[playerIdx];
   const card = player.hand[cardIndex];
   let score = 0;
@@ -259,7 +241,7 @@ function evaluateWinDesirability(G, playerIdx) {
  * Higher = more beneficial swap
  * Returns negative if swap is bad, 0 if neutral, positive if good
  */
-export function scoreSwap(G, playerIdx, handCardIndex, plotCardIndex, plotType) {
+function scoreSwap(G, playerIdx, handCardIndex, plotCardIndex, plotType) {
   const player = G.players[playerIdx];
   const handCard = player.hand[handCardIndex];
   const plotArray = plotType === 'revealed' ? player.plot.revealed : player.plot.hidden;
@@ -321,7 +303,7 @@ export function scoreSwap(G, playerIdx, handCardIndex, plotCardIndex, plotType) 
  * Get best swap moves for AI player
  * Returns array of swapCard moves sorted by score, plus confirmSwap when done
  */
-export function getAISwapMoves(G, playerIdx) {
+function getAISwapMoves(G, playerIdx) {
   const player = G.players[playerIdx];
   const moves = [];
 
@@ -370,7 +352,7 @@ export function getAISwapMoves(G, playerIdx) {
  * Score trump suit selection
  * Higher = better trump choice
  */
-export function scoreTrumpSelection(G, suit, playerIdx) {
+function scoreTrumpSelection(G, suit, playerIdx) {
   let score = 0;
   const player = G.players[playerIdx];
   const hand = player.hand || [];

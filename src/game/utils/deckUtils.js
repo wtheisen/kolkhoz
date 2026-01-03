@@ -1,7 +1,7 @@
 // Deck utility functions for boardgame.io
 // Adapted from DeckManager.js - uses ctx.random for deterministic shuffling
 
-import { SUITS, VALUES, MAX_YEARS } from '../constants.js';
+import { SUITS, MAX_YEARS } from '../constants.js';
 
 // Prepare job piles at game start
 export function prepareJobPiles(variants, random) {
@@ -33,7 +33,6 @@ export function revealJobs(jobPiles, accumulatedJobCards, variants) {
 
   // Safety check
   if (!jobPiles) {
-    console.error('revealJobs called with undefined jobPiles');
     return { jobs: revealedJobs };
   }
 
@@ -68,7 +67,7 @@ function isValidCard(value, variants) {
 }
 
 // Prepare workers deck for dealing
-export function prepareWorkersDeck(players, jobBuckets, exiled, variants, random) {
+export function prepareWorkersDeck(players, jobBuckets, exiled, variants, random, drunkardReplacements) {
   // Generate all worker cards (6-13 for each suit = 32 cards)
   const allCards = [];
   for (const suit of SUITS) {
@@ -108,9 +107,18 @@ export function prepareWorkersDeck(players, jobBuckets, exiled, variants, random
     }
   }
 
-  // Filter and shuffle
+  // Add drunkard replacement cards (job rewards that compensate for exiled Jacks)
+  // Also remove from used set in case they were exiled in transitionToNextYear
+  if (drunkardReplacements) {
+    for (const card of drunkardReplacements) {
+      allCards.push({ ...card });
+      used.delete(`${card.suit}-${card.value}`);
+    }
+  }
+
+  // Filter out used cards and shuffle
   const workersDeck = allCards.filter(
-    (c) => isValidCard(c.value, variants) && !used.has(`${c.suit}-${c.value}`)
+    (c) => !used.has(`${c.suit}-${c.value}`)
   );
 
   return random.Shuffle(workersDeck);
@@ -119,9 +127,7 @@ export function prepareWorkersDeck(players, jobBuckets, exiled, variants, random
 // Deal hands to players
 // During famine (Ace of Clubs revealed), deal 4 cards instead of 5
 export function dealHands(players, workersDeck, isFamine = false) {
-  const numPlayers = players.length;
   const cardsPerPlayer = isFamine ? 4 : 5;
-  console.log(`[dealHands] isFamine=${isFamine}, cardsPerPlayer=${cardsPerPlayer}, deckSize=${workersDeck.length}`);
 
   // Clear existing hands
   for (const p of players) {
