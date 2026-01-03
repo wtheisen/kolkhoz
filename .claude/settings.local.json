@@ -24,7 +24,20 @@
       "Bash(lsof:*)",
       "Skill(frontend-design)",
       "Bash(git rm:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(timeout 5 npm run play)",
+      "Bash(npm run play:*)",
+      "Bash(npx esbuild:*)",
+      "Bash(node scripts/play.bundle.js:*)",
+      "Bash(timeout 120s node:*)",
+      "Bash(for i in 1 2 3)",
+      "Bash(do)",
+      "Bash(timeout 60s node:*)",
+      "Bash(done)",
+      "Bash(timeout 30s node:*)",
+      "Bash(node scripts/debug.bundle.js:*)",
+      "Bash(do echo \"=== Game $i ===\")",
+      "Bash(for i in 1 2 3 4 5)"
     ],
     "deny": [],
     "ask": []

@@ -11,6 +11,7 @@ export function App() {
   const [variants, setVariants] = useState({ ...DEFAULT_VARIANTS });
 
   // Create client dynamically with selected variants
+  // Include variants in deps so Client recreates if variants change before start
   const KolkhozClient = useMemo(() => {
     if (!gameStarted) return null;
     return Client({
@@ -26,7 +27,7 @@ export function App() {
       }),
       debug: false,
     });
-  }, [gameStarted]);
+  }, [gameStarted, variants]);
 
   const [showRules, setShowRules] = useState(false);
 

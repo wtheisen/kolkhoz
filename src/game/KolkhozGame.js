@@ -38,6 +38,8 @@ function createPlayer(idx, isHuman, name) {
 // Game setup function
 function setup({ ctx, random }, setupData) {
   const variants = { ...DEFAULT_VARIANTS, ...(setupData?.variants || {}) };
+  console.log('Game setup - setupData:', setupData);
+  console.log('Game setup - variants.allowSwap:', variants.allowSwap);
   const numPlayers = ctx.numPlayers;
 
   // Create players
@@ -359,7 +361,11 @@ export const KolkhozGame = {
           setRandomTrump(G, random);
         }
       },
-      next: ({ G }) => (G.variants.allowSwap && G.year > 1) ? 'swap' : 'trick',
+      next: ({ G }) => {
+        const goToSwap = G.variants.allowSwap && G.year > 1;
+        console.log('Planning next - allowSwap:', G.variants.allowSwap, 'year:', G.year, 'goToSwap:', goToSwap);
+        return goToSwap ? 'swap' : 'trick';
+      },
     },
 
     trick: {
