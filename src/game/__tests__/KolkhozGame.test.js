@@ -592,6 +592,64 @@ describe('KolkhozGame', () => {
       expect(G.trickCount >= tricksPerYear).toBe(false);
       // This means next() should return 'trick'
     });
+
+    it('should have correct isFamine through all year transitions', () => {
+      // Start with Year 1 state
+      const G = {
+        year: 1,
+        isFamine: false, // Year 1 is not famine
+        players: [
+          { hand: [], plot: { revealed: [], hidden: [] }, medals: 0, hasWonTrickThisYear: false, brigadeLeader: false },
+        ],
+        claimedJobs: [],
+        revealedJobs: { Hearts: null, Diamonds: null, Clubs: null, Spades: null },
+        accumulatedJobCards: { Hearts: [], Diamonds: [], Clubs: [], Spades: [] },
+        workHours: { Hearts: 0, Diamonds: 0, Clubs: 0, Spades: 0 },
+        jobBuckets: { Hearts: [], Diamonds: [], Clubs: [], Spades: [] },
+        jobPiles: {
+          Hearts: [{ suit: 'Hearts', value: 2 }, { suit: 'Hearts', value: 3 }, { suit: 'Hearts', value: 4 }, { suit: 'Hearts', value: 5 }],
+          Diamonds: [{ suit: 'Diamonds', value: 2 }, { suit: 'Diamonds', value: 3 }, { suit: 'Diamonds', value: 4 }, { suit: 'Diamonds', value: 5 }],
+          Clubs: [{ suit: 'Clubs', value: 2 }, { suit: 'Clubs', value: 3 }, { suit: 'Clubs', value: 4 }, { suit: 'Clubs', value: 5 }],
+          Spades: [{ suit: 'Spades', value: 2 }, { suit: 'Spades', value: 3 }, { suit: 'Spades', value: 4 }, { suit: 'Spades', value: 5 }],
+        },
+        exiled: {},
+        trickCount: 0,
+        currentTrick: [],
+        trump: null,
+        trumpSelector: 0,
+        numPlayers: 1,
+      };
+      const variants = { ...DEFAULT_VARIANTS, deckType: 52 };
+
+      // Verify Year 1 is NOT famine
+      console.log(`Year ${G.year}: isFamine=${G.isFamine}`);
+      expect(G.year).toBe(1);
+      expect(G.isFamine).toBe(false);
+
+      // Transition to Year 2
+      transitionToNextYear(G, variants, mockRandom);
+      console.log(`Year ${G.year}: isFamine=${G.isFamine}`);
+      expect(G.year).toBe(2);
+      expect(G.isFamine).toBe(false);
+
+      // Transition to Year 3
+      transitionToNextYear(G, variants, mockRandom);
+      console.log(`Year ${G.year}: isFamine=${G.isFamine}`);
+      expect(G.year).toBe(3);
+      expect(G.isFamine).toBe(false);
+
+      // Transition to Year 4 - SHOULD NOT BE FAMINE
+      transitionToNextYear(G, variants, mockRandom);
+      console.log(`Year ${G.year}: isFamine=${G.isFamine}`);
+      expect(G.year).toBe(4);
+      expect(G.isFamine).toBe(false); // This is the bug - Year 4 should NOT be famine
+
+      // Transition to Year 5 - SHOULD BE FAMINE
+      transitionToNextYear(G, variants, mockRandom);
+      console.log(`Year ${G.year}: isFamine=${G.isFamine}`);
+      expect(G.year).toBe(5);
+      expect(G.isFamine).toBe(true);
+    });
   });
 
   describe('Full Game Flow', () => {

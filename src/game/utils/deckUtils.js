@@ -121,6 +121,7 @@ export function prepareWorkersDeck(players, jobBuckets, exiled, variants, random
 export function dealHands(players, workersDeck, isFamine = false) {
   const numPlayers = players.length;
   const cardsPerPlayer = isFamine ? 4 : 5;
+  console.log(`[dealHands] isFamine=${isFamine}, cardsPerPlayer=${cardsPerPlayer}, deckSize=${workersDeck.length}`);
 
   // Clear existing hands
   for (const p of players) {

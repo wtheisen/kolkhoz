@@ -107,7 +107,9 @@ export function transitionToNextYear(G, variants, random) {
     }
   }
 
+  console.log(`[transitionToNextYear] BEFORE: year=${G.year}, isFamine=${G.isFamine}, MAX_YEARS=${MAX_YEARS}`);
   G.year++;
+  console.log(`[transitionToNextYear] AFTER INCREMENT: year=${G.year}`);
 
   // Check if game is over
   if (G.year > MAX_YEARS) {
@@ -128,6 +130,7 @@ export function transitionToNextYear(G, variants, random) {
   G.revealedJobs = jobs;
   // Famine year is ALWAYS the last year (Year 5)
   G.isFamine = (G.year === MAX_YEARS);
+  console.log(`[transitionToNextYear] SET isFamine: year=${G.year} === ${MAX_YEARS} => isFamine=${G.isFamine}`);
 
   // Handle ordenNachalniku variant: move revealed cards from stacks to plot
   if (variants.ordenNachalniku && variants.deckType === 36) {

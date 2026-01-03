@@ -655,6 +655,7 @@ export function Board({ G, ctx, moves, playerID }) {
           revealedJobs={G.revealedJobs}
           exiled={G.exiled}
           variants={G.variants}
+          isFamine={G.isFamine}
           playerPlot={G.players[currentPlayer]?.plot}
           onSetTrump={handleSetTrump}
           highlightedSuits={highlightedSuits}

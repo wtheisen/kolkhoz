@@ -56,6 +56,8 @@ export function TrickAreaHTML({
   language = 'ru',
   // Variants
   variants = {},
+  // Famine state
+  isFamine = false,
 }) {
   // Calculate work value for a card (Jack of trump = 0 with nomenclature)
   const getWorkValue = (card) => {
@@ -164,6 +166,10 @@ export function TrickAreaHTML({
         <div className="info-year">
           <span className="label">{t(translations, language, 'year')}</span>
           <span className="value">{year}/5</span>
+          {/* Debug: show isFamine state */}
+          <span className="debug-famine" style={{ fontSize: '10px', color: isFamine ? 'red' : 'gray', marginLeft: '4px' }}>
+            [{isFamine ? 'F' : '-'}]
+          </span>
         </div>
 
         <div className="info-trump">
