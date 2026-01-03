@@ -611,11 +611,6 @@ html, body {
   align-items: center;
   justify-content: center;
   animation: confirm-appear 0.3s ease-out;
-  /* Right-justify the button */
-  margin-left: auto;
-  margin-right: clamp(8px, 1.5vw, 16px);
-  /* Keep button in visible area above the 50% fold */
-  margin-bottom: auto;
   flex-shrink: 0;
 }
 
@@ -630,6 +625,10 @@ html, body {
   gap: 0.5rem;
   align-items: center;
   flex-shrink: 0;
+  /* Position the button group (moved from confirm-swap-btn) */
+  margin-left: auto;
+  margin-right: clamp(8px, 1.5vw, 16px);
+  margin-bottom: auto;
 }
 
 .player-hand-area .undo-swap-btn {
