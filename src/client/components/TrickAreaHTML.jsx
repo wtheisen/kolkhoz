@@ -5,6 +5,15 @@ import './TrickAreaHTML.css';
 
 const SUITS = ['Hearts', 'Diamonds', 'Clubs', 'Spades'];
 const SUIT_SYMBOLS = { Hearts: '♥', Diamonds: '♦', Clubs: '♣', Spades: '♠' };
+const FACE_CARD_SYMBOLS = { 11: 'J', 12: 'Q', 13: 'K' };
+
+// Find trump face cards (J, Q, K) in a job bucket
+function getTrumpFaceCardsInBucket(bucket, trump) {
+  if (!trump || !bucket) return [];
+  return bucket
+    .filter(card => card.suit === trump && card.value >= 11 && card.value <= 13)
+    .map(card => FACE_CARD_SYMBOLS[card.value]);
+}
 
 // Portrait paths for AI players
 const PORTRAITS = [
@@ -193,6 +202,7 @@ export function TrickAreaHTML({
             const hours = workHours?.[suit] || 0;
             const isClaimed = claimedJobs?.includes(suit);
             const isHighlighted = highlightedSuits.includes(suit);
+            const trumpFaceCards = getTrumpFaceCardsInBucket(jobBuckets?.[suit], trump);
 
             return (
               <div
@@ -205,6 +215,13 @@ export function TrickAreaHTML({
                 <span className="progress">
                   {isClaimed ? '✓' : `${hours}/40`}
                 </span>
+                {trumpFaceCards.length > 0 && (
+                  <span className="trump-face-badges">
+                    {trumpFaceCards.map(symbol => (
+                      <span key={symbol} className="trump-face-badge">{symbol}</span>
+                    ))}
+                  </span>
+                )}
               </div>
             );
           })}
@@ -329,6 +346,9 @@ export function TrickAreaHTML({
                   const jobCard = revealedJobs?.[suit];
                   const rewardCards = Array.isArray(jobCard) ? jobCard : jobCard ? [jobCard] : [];
 
+                  // Find trump face cards in this bucket
+                  const trumpFaceCards = getTrumpFaceCardsInBucket(bucket, trump);
+
                   // Build class list - only add assignment classes when in assignment phase
                   const tileClasses = [
                     'assign-job-tile',
@@ -352,6 +372,13 @@ export function TrickAreaHTML({
                           <div className="tile-header-top">
                             <span className={`suit-symbol ${suit.toLowerCase()}`}>{SUIT_SYMBOLS[suit]}</span>
                             {isTrump && <span className="trump-badge">★</span>}
+                            {trumpFaceCards.length > 0 && (
+                              <span className="trump-face-badges">
+                                {trumpFaceCards.map(symbol => (
+                                  <span key={symbol} className="trump-face-badge">{symbol}</span>
+                                ))}
+                              </span>
+                            )}
                             <div className="progress-track">
                               <div className="progress-fill" style={{ width: `${Math.min(100, (totalHours/40)*100)}%` }} />
                             </div>
