@@ -13,9 +13,13 @@ export function Board({ G, ctx, moves, playerID }) {
   const [activePanel, setActivePanel] = useState(null);
   const togglePanel = (panel) => setActivePanel(activePanel === panel ? null : panel);
 
-  // Language toggle
-  const [language, setLanguage] = useState('ru');
-  const toggleLanguage = () => setLanguage(lang => lang === 'en' ? 'ru' : 'en');
+  // Language toggle (persisted to localStorage)
+  const [language, setLanguage] = useState(() => localStorage.getItem('kolkhoz-lang') || 'ru');
+  const toggleLanguage = () => setLanguage(lang => {
+    const newLang = lang === 'en' ? 'ru' : 'en';
+    localStorage.setItem('kolkhoz-lang', newLang);
+    return newLang;
+  });
 
   // Track if user has confirmed swap locally
   const [swapConfirmedLocally, setSwapConfirmedLocally] = useState(false);
