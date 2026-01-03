@@ -2,7 +2,7 @@
 // A Soviet-themed trick-taking card game
 
 import { INVALID_MOVE } from 'boardgame.io/core';
-import { SUITS, PLAYER_NAMES, DEFAULT_VARIANTS } from './constants.js';
+import { SUITS, PLAYER_NAMES, DEFAULT_VARIANTS, MAX_YEARS } from './constants.js';
 import { prepareJobPiles, revealJobs, prepareWorkersDeck, dealHands } from './utils/deckUtils.js';
 import {
   isValidPlay,
@@ -94,10 +94,11 @@ function setup({ ctx, random }, setupData) {
     G.jobBuckets[suit] = [];
   }
 
-  // Reveal jobs for year 1 and check for famine (Ace of Clubs)
-  const { jobs, isFamine } = revealJobs(G.jobPiles, G.accumulatedJobCards, variants);
+  // Reveal jobs for year 1
+  const { jobs } = revealJobs(G.jobPiles, G.accumulatedJobCards, variants);
   G.revealedJobs = jobs;
-  G.isFamine = isFamine;
+  // Famine year is ALWAYS the last year (Year 5)
+  G.isFamine = (G.year === MAX_YEARS);
 
   // Prepare deck and deal hands (4 cards during famine, 5 otherwise)
   G.workersDeck = prepareWorkersDeck(G.players, G.jobBuckets, G.exiled, variants, random);

@@ -27,15 +27,14 @@ export function prepareJobPiles(variants, random) {
 }
 
 // Reveal jobs for the current year
-// Returns { jobs, isFamine } where isFamine is true if Ace of Clubs is revealed
+// Returns { jobs } - famine is now determined by year (always Year 5)
 export function revealJobs(jobPiles, accumulatedJobCards, variants) {
   const revealedJobs = {};
-  let isFamine = false;
 
   // Safety check
   if (!jobPiles) {
     console.error('revealJobs called with undefined jobPiles');
-    return { jobs: revealedJobs, isFamine };
+    return { jobs: revealedJobs };
   }
 
   for (const suit of SUITS) {
@@ -58,18 +57,9 @@ export function revealJobs(jobPiles, accumulatedJobCards, variants) {
       // Standard: just reveal next card
       revealedJobs[suit] = pile.pop();
     }
-
-    // Check for famine: Ace of Clubs revealed
-    const revealed = revealedJobs[suit];
-    const cards = Array.isArray(revealed) ? revealed : [revealed];
-    for (const card of cards) {
-      if (card && card.suit === 'Clubs' && card.value === 1) {
-        isFamine = true;
-      }
-    }
   }
 
-  return { jobs: revealedJobs, isFamine };
+  return { jobs: revealedJobs };
 }
 
 // Check if a card value is valid for the deck type

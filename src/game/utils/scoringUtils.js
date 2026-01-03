@@ -116,10 +116,11 @@ export function transitionToNextYear(G, variants, random) {
     G.workHours[suit] = 0;
   }
 
-  // Reveal new jobs and check for famine (Ace of Clubs)
-  const { jobs, isFamine } = revealJobs(G.jobPiles, G.accumulatedJobCards, variants);
+  // Reveal new jobs
+  const { jobs } = revealJobs(G.jobPiles, G.accumulatedJobCards, variants);
   G.revealedJobs = jobs;
-  G.isFamine = isFamine;
+  // Famine year is ALWAYS the last year (Year 5)
+  G.isFamine = (G.year === MAX_YEARS);
 
   // Handle ordenNachalniku variant: move revealed cards from stacks to plot
   if (variants.ordenNachalniku && variants.deckType === 36) {

@@ -116,36 +116,21 @@ describe('KolkhozGame', () => {
       }
     });
 
-    it('revealJobs should detect famine when Ace of Clubs is revealed', () => {
+    it('revealJobs should reveal jobs without detecting famine (famine is year-based)', () => {
       const variants = { ...DEFAULT_VARIANTS, deckType: 52 };
       // Create piles where Clubs has Ace on top
       const jobPiles = {
         Hearts: [{ suit: 'Hearts', value: 2 }],
         Diamonds: [{ suit: 'Diamonds', value: 3 }],
-        Clubs: [{ suit: 'Clubs', value: 1 }], // Ace of Clubs
+        Clubs: [{ suit: 'Clubs', value: 1 }], // Ace of Clubs - no longer triggers famine
         Spades: [{ suit: 'Spades', value: 4 }],
       };
       const accumulatedJobCards = { Hearts: [], Diamonds: [], Clubs: [], Spades: [] };
 
-      const { jobs, isFamine } = revealJobs(jobPiles, accumulatedJobCards, variants);
+      const { jobs } = revealJobs(jobPiles, accumulatedJobCards, variants);
 
-      expect(isFamine).toBe(true);
+      // revealJobs no longer returns isFamine - famine is determined by year (Year 5)
       expect(jobs.Clubs.value).toBe(1);
-    });
-
-    it('revealJobs should not detect famine for other Aces', () => {
-      const variants = { ...DEFAULT_VARIANTS, deckType: 52 };
-      const jobPiles = {
-        Hearts: [{ suit: 'Hearts', value: 1 }], // Ace of Hearts - not famine
-        Diamonds: [{ suit: 'Diamonds', value: 3 }],
-        Clubs: [{ suit: 'Clubs', value: 2 }],
-        Spades: [{ suit: 'Spades', value: 4 }],
-      };
-      const accumulatedJobCards = { Hearts: [], Diamonds: [], Clubs: [], Spades: [] };
-
-      const { isFamine } = revealJobs(jobPiles, accumulatedJobCards, variants);
-
-      expect(isFamine).toBe(false);
     });
 
     it('getTricksPerYear should return 3 during famine, 4 otherwise', () => {
@@ -527,10 +512,12 @@ describe('KolkhozGame', () => {
       expect(cardsLeft).toBe(1);
     });
 
-    it('should detect famine when Ace of Clubs is in 52-card job pile', () => {
+    it('famine should be determined by year (Year 5), not Ace of Clubs', () => {
+      // Famine is now always Year 5, regardless of what cards are revealed
+      // This test verifies that revealJobs correctly reveals the Ace of Clubs
+      // without triggering famine detection
       const variants = { ...DEFAULT_VARIANTS, deckType: 52 };
 
-      // Create job piles where Clubs pile has Ace on top (will be popped)
       const jobPiles = {
         Hearts: [{ suit: 'Hearts', value: 5 }, { suit: 'Hearts', value: 2 }],
         Diamonds: [{ suit: 'Diamonds', value: 5 }, { suit: 'Diamonds', value: 3 }],
@@ -539,9 +526,9 @@ describe('KolkhozGame', () => {
       };
       const accumulatedJobCards = { Hearts: [], Diamonds: [], Clubs: [], Spades: [] };
 
-      const { jobs, isFamine } = revealJobs(jobPiles, accumulatedJobCards, variants);
+      const { jobs } = revealJobs(jobPiles, accumulatedJobCards, variants);
 
-      expect(isFamine).toBe(true);
+      // revealJobs no longer returns isFamine
       expect(jobs.Clubs.suit).toBe('Clubs');
       expect(jobs.Clubs.value).toBe(1);
     });
