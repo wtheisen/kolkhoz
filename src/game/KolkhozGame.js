@@ -215,11 +215,12 @@ function swapCard({ G, playerID }, plotCardIndex, handCardIndex, plotType = 'hid
   plotArray[plotCardIndex] = player.hand[handCardIndex];
   player.hand[handCardIndex] = temp;
 
-  // Track the swap for UI animation (especially for bot swaps)
+  // Track the swap for UI animation and undo functionality
   G.lastSwap = {
     playerIdx,
     plotType,
     plotCardIndex,
+    handCardIndex,
     // Store the card that went INTO the plot (for visual feedback)
     newPlotCard: { ...plotArray[plotCardIndex] },
     timestamp: Date.now(),
@@ -239,6 +240,29 @@ function confirmSwap({ G, playerID, events }) {
   G.swapConfirmed[playerIdx] = true;
   // End this player's turn, moving to next player
   events.endTurn();
+}
+
+// Move: Undo the last swap (allows player to change their mind)
+function undoSwap({ G, playerID }) {
+  const playerIdx = parseInt(playerID, 10);
+  const player = G.players[playerIdx];
+
+  // Can only undo if player has swapped and we have the swap info
+  if (!G.swapCount?.[playerIdx] || !G.lastSwap || G.lastSwap.playerIdx !== playerIdx) {
+    return INVALID_MOVE;
+  }
+
+  const { plotType, plotCardIndex, handCardIndex } = G.lastSwap;
+  const plotArray = plotType === 'revealed' ? player.plot.revealed : player.plot.hidden;
+
+  // Swap the cards back
+  const temp = plotArray[plotCardIndex];
+  plotArray[plotCardIndex] = player.hand[handCardIndex];
+  player.hand[handCardIndex] = temp;
+
+  // Clear the swap tracking
+  delete G.swapCount[playerIdx];
+  delete G.lastSwap;
 }
 
 // Move: Apply a single AI assignment (called by React after animation)
@@ -477,7 +501,7 @@ export const KolkhozGame = {
     },
 
     swap: {
-      moves: { swapCard, confirmSwap },
+      moves: { swapCard, confirmSwap, undoSwap },
       turn: {
         order: {
           first: () => 0, // Human player goes first

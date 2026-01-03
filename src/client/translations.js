@@ -37,6 +37,7 @@ export const translations = {
     rewards: 'Rewards',
     confirmed: 'Confirmed',
     confirm: 'Confirm',
+    undo: 'Undo',
     waitingForOthers: 'Waiting for others...',
 
     // Requisition
@@ -109,6 +110,7 @@ export const translations = {
     rewards: 'Награды',
     confirmed: 'Подтверждено',
     confirm: 'Подтвердить',
+    undo: 'Отменить',
     waitingForOthers: 'Ожидание...',
 
     // Requisition

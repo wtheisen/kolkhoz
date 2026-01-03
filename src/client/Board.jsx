@@ -892,11 +892,18 @@ export function Board({ G, ctx, moves, playerID }) {
             );
           })()}
 
-          {/* Swap phase: confirm button to the right of hand */}
+          {/* Swap phase: undo and confirm buttons to the right of hand */}
           {phase === 'swap' && currentSwapPlayer === 0 && !G.swapConfirmed?.[currentPlayer] && !swapConfirmedLocally && (
-            <button className="confirm-swap-btn" onClick={handleConfirmSwap}>
-              {t(translations, language, 'confirm')}
-            </button>
+            <div className="swap-buttons">
+              {G.swapCount?.[currentPlayer] && (
+                <button className="undo-swap-btn" onClick={() => moves.undoSwap()}>
+                  {t(translations, language, 'undo')}
+                </button>
+              )}
+              <button className="confirm-swap-btn" onClick={handleConfirmSwap}>
+                {t(translations, language, 'confirm')}
+              </button>
+            </div>
           )}
         </div>
 

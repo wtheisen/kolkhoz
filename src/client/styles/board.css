@@ -625,6 +625,34 @@ html, body {
   transform: scale(1.05);
 }
 
+.swap-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.player-hand-area .undo-swap-btn {
+  padding: clamp(0.4rem, 0.8vh, 0.6rem) clamp(0.8rem, 1.5vw, 1.2rem);
+  background: linear-gradient(135deg, #333 0%, #555 50%, #333 100%);
+  color: #e8dcc4;
+  border: 2px solid #888;
+  border-radius: 6px;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(0.75rem, 1.4vw, 1rem);
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.player-hand-area .undo-swap-btn:hover {
+  background: linear-gradient(135deg, #444 0%, #666 50%, #444 100%);
+  box-shadow: 0 0 15px rgba(136, 136, 136, 0.4);
+  transform: scale(1.05);
+}
+
 .swap-waiting {
   display: flex;
   align-items: center;
