@@ -11,7 +11,7 @@ export function App() {
   const [variants, setVariants] = useState({ ...DEFAULT_VARIANTS });
 
   // Create client dynamically with selected variants
-  // Include variants in deps so Client recreates if variants change before start
+  // setupData must be passed in Client config, not as component prop
   const KolkhozClient = useMemo(() => {
     if (!gameStarted) return null;
     return Client({
@@ -26,6 +26,7 @@ export function App() {
         },
       }),
       debug: false,
+      setupData: { variants },
     });
   }, [gameStarted, variants]);
 
@@ -170,5 +171,5 @@ export function App() {
     );
   }
 
-  return <KolkhozClient playerID="0" setupData={{ variants }} />;
+  return <KolkhozClient playerID="0" />;
 }
