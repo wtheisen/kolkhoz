@@ -3,7 +3,7 @@ import { TrickAreaHTML } from './components/TrickAreaHTML.jsx';
 import { getCardImagePath } from '../game/Card.js';
 import { translations, t } from './translations.js';
 
-export function Board({ G, ctx, moves, playerID }) {
+export function Board({ G, ctx, moves, playerID, onNewGame }) {
   const currentPlayer = parseInt(playerID, 10);
   const isMyTurn = ctx.currentPlayer === playerID;
   const phase = ctx.phase;
@@ -55,27 +55,40 @@ export function Board({ G, ctx, moves, playerID }) {
   // 'header' | 'revealing' | 'exiling'
   const [flyingExileCards, setFlyingExileCards] = useState([]);
 
+  // Track currentAiAnimation in a ref to avoid re-triggering useLayoutEffect
+  const currentAiAnimationRef = useRef(null);
+  useEffect(() => {
+    currentAiAnimationRef.current = currentAiAnimation;
+  }, [currentAiAnimation]);
+
   // Detect when AI plays a card and trigger animation
   // Using useLayoutEffect to set state before paint, preventing flash of card in slot
   useLayoutEffect(() => {
     const currentLength = G.currentTrick.length;
     const prevLength = prevTrickLengthRef.current;
 
-    // Process new cards FIRST, before checking phase
-    // This ensures we catch cards played as the trick ends
-    if (currentLength > prevLength && currentLength > 0) {
-      const [playerIdx, card] = G.currentTrick[currentLength - 1];
+    // Find ALL new cards added since last render (bots may play multiple cards rapidly)
+    if (currentLength > prevLength) {
+      const newCards = [];
+      for (let i = prevLength; i < currentLength; i++) {
+        const [playerIdx, card] = G.currentTrick[i];
+        // Only animate for AI players (not player 0)
+        if (playerIdx !== 0) {
+          newCards.push({ playerIdx, card, key: `${card.suit}-${card.value}` });
+        }
+      }
 
-      // Only animate for AI players (not player 0)
-      if (playerIdx !== 0) {
-        const newCard = { playerIdx, card, key: `${card.suit}-${card.value}` };
-
-        // If no animation is running, start immediately (before paint!)
-        // Otherwise add to queue
-        if (currentAiAnimation === null) {
-          setCurrentAiAnimation(newCard);
+      if (newCards.length > 0) {
+        // Use ref to check if animation is running (avoids dependency on state)
+        if (currentAiAnimationRef.current === null) {
+          // Start first animation immediately, queue the rest
+          setCurrentAiAnimation(newCards[0]);
+          if (newCards.length > 1) {
+            setAiCardQueue(prev => [...prev, ...newCards.slice(1)]);
+          }
         } else {
-          setAiCardQueue(prev => [...prev, newCard]);
+          // Animation already running, queue all new cards
+          setAiCardQueue(prev => [...prev, ...newCards]);
         }
       }
     }
@@ -88,7 +101,7 @@ export function Board({ G, ctx, moves, playerID }) {
     }
 
     prevTrickLengthRef.current = currentLength;
-  }, [G.currentTrick, currentAiAnimation]);  // Include currentAiAnimation to check if slot is free
+  }, [G.currentTrick]);  // Removed currentAiAnimation - use ref instead to avoid re-triggering
 
   // Process queue: start next animation when current one finishes
   useEffect(() => {
@@ -525,16 +538,32 @@ export function Board({ G, ctx, moves, playerID }) {
     const { winner, scores } = ctx.gameover;
     return (
       <div className="game-over">
-        <h1>{t(translations, language, 'gameOver')}</h1>
-        <h2>{t(translations, language, 'winner')} {G.players[winner].name}</h2>
-        <div className="final-scores">
-          {G.players.map((p, idx) => (
-            <div key={idx} className={idx === winner ? 'winner' : ''}>
-              {p.name}: {scores[idx]} {t(translations, language, 'pts')}
-            </div>
-          ))}
+        {/* Left column: Title + Winner + Button */}
+        <div className="game-over-left">
+          <div className="game-over-title">
+            <h1>{t(translations, language, 'gameOver')}</h1>
+            <h2>{t(translations, language, 'winner')} {G.players[winner].name}</h2>
+          </div>
+          <div className="game-over-buttons">
+            <button className="new-game-btn" onClick={onNewGame}>
+              {t(translations, language, 'newGame')}
+            </button>
+          </div>
         </div>
-        <p>{t(translations, language, 'highestScoreWins')}</p>
+
+        {/* Right column: Scores */}
+        <div className="game-over-right">
+          <div className="final-scores">
+            <h3>{t(translations, language, 'pts')}</h3>
+            {G.players.map((p, idx) => (
+              <div key={idx} className={idx === winner ? 'winner' : ''}>
+                <span className="player-name">{p.name}</span>
+                <span className="player-score">{scores[idx]}</span>
+              </div>
+            ))}
+            <p className="score-hint">{t(translations, language, 'highestScoreWins')}</p>
+          </div>
+        </div>
       </div>
     );
   }
