@@ -997,6 +997,30 @@
   margin-top: 0.3em;
 }
 
+/* Waiting for AI to pick trump */
+.trump-waiting {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 10;
+}
+
+.trump-waiting .waiting-text {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(1rem, 2vw, 1.4rem);
+  color: #d4a857;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  animation: waiting-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes waiting-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
 /* ============================================
    ASSIGNMENT VIEW - Soviet Propaganda Style
    Horizontal Job Rows Layout
@@ -1543,7 +1567,7 @@
 }
 
 .swap-card-slot img {
-  height: clamp(90px, 16vh, 130px);
+  height: clamp(70px, 14vh, 120px);
   border-radius: 5px;
   box-shadow:
     0 3px 8px rgba(0, 0, 0, 0.5),
@@ -1704,8 +1728,8 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  padding: clamp(0.4rem, 0.8vh, 0.6rem) clamp(0.5rem, 1vw, 0.8rem);
-  gap: clamp(0.4rem, 0.8vh, 0.6rem);
+  padding: clamp(0.3rem, 0.6vh, 0.5rem) clamp(0.4rem, 0.8vw, 0.6rem);
+  gap: clamp(0.3rem, 0.6vh, 0.5rem);
   /* Deep cellar atmosphere */
   background:
     radial-gradient(ellipse at 30% 20%, rgba(139, 69, 19, 0.08) 0%, transparent 50%),
@@ -1778,7 +1802,7 @@
 
 .swap-bots-row {
   display: flex;
-  gap: clamp(0.4rem, 0.8vw, 0.6rem);
+  gap: clamp(0.3rem, 0.6vw, 0.5rem);
   flex-shrink: 0;
 }
 
@@ -1786,7 +1810,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: clamp(0.35rem, 0.7vh, 0.5rem);
+  padding: clamp(0.25rem, 0.5vh, 0.4rem);
   background: rgba(20, 18, 15, 0.9);
   border: 2px solid #3a3025;
   border-radius: 5px;
@@ -1848,10 +1872,10 @@
 .swap-bot-header {
   display: flex;
   align-items: center;
-  gap: clamp(0.3rem, 0.6vw, 0.5rem);
-  padding-bottom: clamp(0.25rem, 0.5vh, 0.4rem);
+  gap: clamp(0.2rem, 0.4vw, 0.35rem);
+  padding-bottom: clamp(0.15rem, 0.3vh, 0.25rem);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  margin-bottom: clamp(0.25rem, 0.5vh, 0.4rem);
+  margin-bottom: clamp(0.15rem, 0.3vh, 0.25rem);
   position: relative;
   z-index: 1;
 }
@@ -1933,10 +1957,10 @@
   flex-wrap: wrap;
   flex: 1;
   align-content: flex-start;
-  min-height: clamp(44px, 8vh, 60px);
+  min-height: clamp(36px, 6vh, 50px);
   position: relative;
   z-index: 1;
-  padding-left: 10px; /* Compensate for first card not having negative margin */
+  padding-left: 8px; /* Compensate for first card not having negative margin */
 }
 
 .swap-bot-cards .no-cards {
@@ -1950,11 +1974,11 @@
 
 /* Mini cards for bots */
 .swap-mini-card {
-  height: clamp(36px, 7vh, 48px);
+  height: clamp(32px, 6vh, 44px);
   border-radius: 3px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
   transition: transform 0.2s ease;
-  margin-left: -10px; /* Overlap cards horizontally */
+  margin-left: -8px; /* Overlap cards horizontally */
 }
 
 .swap-mini-card:first-child {
@@ -2164,7 +2188,7 @@
 
 .swap-player-section {
   display: flex;
-  gap: clamp(0.4rem, 0.8vw, 0.6rem);
+  gap: clamp(0.3rem, 0.6vw, 0.5rem);
   flex: 1;
   min-height: 0;
   transition: opacity 0.3s ease, filter 0.3s ease;
@@ -2201,7 +2225,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: clamp(0.4rem, 0.8vh, 0.6rem);
+  padding: clamp(0.25rem, 0.5vh, 0.4rem);
   background: rgba(15, 12, 10, 0.9);
   border: 2px solid #3a3025;
   border-radius: 5px;
@@ -2244,9 +2268,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: clamp(0.25rem, 0.5vh, 0.4rem);
+  padding-bottom: clamp(0.15rem, 0.3vh, 0.25rem);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  margin-bottom: clamp(0.3rem, 0.6vh, 0.5rem);
+  margin-bottom: clamp(0.2rem, 0.4vh, 0.35rem);
   position: relative;
   z-index: 1;
 }
@@ -2284,10 +2308,11 @@
   justify-content: flex-start;
   align-items: flex-start;
   align-content: flex-start;
-  gap: clamp(0.4rem, 0.8vw, 0.6rem);
-  min-height: clamp(70px, 12vh, 100px);
+  gap: clamp(0.25rem, 0.5vw, 0.4rem);
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: clamp(0.2rem, 0.4vh, 0.3rem);
+  padding: clamp(0.1rem, 0.2vh, 0.2rem);
   position: relative;
   z-index: 1;
 }
@@ -2312,11 +2337,12 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: clamp(70px, 13vh, 100px);
+  flex: 1;
+  min-height: clamp(50px, 10vh, 80px);
   border: 2px dashed rgba(255, 255, 255, 0.08);
   border-radius: 5px;
   font-family: 'Oswald', sans-serif;
-  font-size: clamp(1rem, 2vw, 1.4rem);
+  font-size: clamp(0.9rem, 1.8vw, 1.2rem);
   color: #333;
   background: rgba(0, 0, 0, 0.15);
 }

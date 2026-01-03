@@ -702,30 +702,6 @@ export function TrickAreaHTML({
         {/* Plot View - Read-only view when not in swap phase (same layout as swap view) */}
         {displayMode === 'plot' && phase !== 'swap' && (
           <div className={`swap-view multiplayer readonly ${phase === 'requisition' ? 'requisition-mode' : ''}`}>
-            {/* Header */}
-            <div className="swap-header">
-              <h2 className="view-title">
-                {phase === 'requisition' ? t(translations, language, 'requisition') : t(translations, language, 'plot')}
-              </h2>
-              {phase === 'requisition' && currentRequisitionSuit && (
-                <div className={`requisition-job-indicator ${currentJobStage}`}>
-                  <span className={`suit-symbol ${currentRequisitionSuit.toLowerCase()}`}>
-                    {SUIT_SYMBOLS[currentRequisitionSuit]}
-                  </span>
-                  <span className="job-status">
-                    {currentJobStage === 'header' && t(translations, language, 'failed')}
-                    {currentJobStage === 'revealing' && (language === 'en' ? 'Revealing...' : 'Раскрытие...')}
-                    {currentJobStage === 'exiling' && (language === 'en' ? 'Exiling...' : 'Отправка...')}
-                  </span>
-                </div>
-              )}
-              {phase === 'requisition' && !currentRequisitionSuit && requisitionData?.failedJobs?.length === 0 && (
-                <span className="requisition-status success">
-                  {t(translations, language, 'allJobsComplete')}
-                </span>
-              )}
-            </div>
-
             {/* Top row: Bot sections */}
             <div className="swap-bots-row">
               {[1, 2, 3].map((botIdx) => {
@@ -899,8 +875,8 @@ export function TrickAreaHTML({
           </div>
         )}
 
-        {/* Trump Selection */}
-        {phase === 'planning' && !trump && onSetTrump && (
+        {/* Trump Selection - only show when it's the player's turn */}
+        {phase === 'planning' && !trump && onSetTrump && isMyTurn && (
           <div className="trump-selection">
             <h2 className="selection-title">{t(translations, language, 'chooseMainTask')}</h2>
             <div className="trump-buttons">
@@ -915,6 +891,15 @@ export function TrickAreaHTML({
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Waiting for AI to pick trump */}
+        {phase === 'planning' && !trump && !isMyTurn && (
+          <div className="trump-waiting">
+            <span className="waiting-text">
+              {currentPlayerName} {language === 'en' ? 'is choosing the main task...' : 'выбирает задание...'}
+            </span>
           </div>
         )}
       </div>

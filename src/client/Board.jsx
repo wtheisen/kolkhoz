@@ -1146,6 +1146,7 @@ function AIPlayCard({ card, playerIdx }) {
 // Flying Exile Card Component - animates cards flying to gulag during requisition
 function FlyingExileCard({ card, playerIdx, delay, onComplete }) {
   const cardRef = useRef(null);
+  const pointLossRef = useRef(null);
   const animationRef = useRef(null);
   const onCompleteRef = useRef(onComplete);
 
@@ -1193,6 +1194,35 @@ function FlyingExileCard({ card, playerIdx, delay, onComplete }) {
       cardRef.current.style.transform = `translate(-50%, -50%) scale(${startScale})`;
       cardRef.current.style.opacity = '1';
 
+      // Position and animate point loss indicator
+      if (pointLossRef.current) {
+        const pointEl = pointLossRef.current;
+        pointEl.style.left = `${sourceRect.left + sourceRect.width / 2}px`;
+        pointEl.style.top = `${sourceRect.top}px`;
+
+        // Animate point loss floating up and fading
+        pointEl.animate([
+          {
+            transform: 'translate(-50%, 0) scale(0.5)',
+            opacity: 0
+          },
+          {
+            transform: 'translate(-50%, -20px) scale(1.3)',
+            opacity: 1,
+            offset: 0.15
+          },
+          {
+            transform: 'translate(-50%, -60px) scale(1)',
+            opacity: 1,
+            offset: 0.5
+          },
+          {
+            transform: 'translate(-50%, -100px) scale(0.9)',
+            opacity: 0
+          }
+        ], { duration: 1200, fill: 'forwards', easing: 'ease-out' });
+      }
+
       const animation = cardRef.current.animate([
         {
           left: `${sourceRect.left + sourceRect.width / 2}px`,
@@ -1221,9 +1251,14 @@ function FlyingExileCard({ card, playerIdx, delay, onComplete }) {
   }, [card, playerIdx, delay]);  // onComplete removed from deps - using ref instead
 
   return (
-    <div ref={cardRef} className="flying-exile-card">
-      <img src={getCardImagePath(card)} alt={`${card.value} of ${card.suit}`} />
-    </div>
+    <>
+      <div ref={cardRef} className="flying-exile-card">
+        <img src={getCardImagePath(card)} alt={`${card.value} of ${card.suit}`} />
+      </div>
+      <div ref={pointLossRef} className="exile-point-loss">
+        -{card.value}
+      </div>
+    </>
   );
 }
 

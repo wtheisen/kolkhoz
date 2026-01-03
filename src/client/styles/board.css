@@ -938,6 +938,23 @@ html, body {
   border-radius: 6px;
 }
 
+/* Point loss indicator - floats up when card is exiled */
+.exile-point-loss {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1001;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: bold;
+  color: #ff3333;
+  text-shadow:
+    0 0 15px rgba(255, 50, 50, 1),
+    0 0 30px rgba(255, 50, 50, 0.8),
+    0 0 45px rgba(255, 50, 50, 0.5),
+    3px 3px 6px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+}
+
 /* Requisition continue overlay */
 .requisition-continue-overlay {
   position: absolute;
