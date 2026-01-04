@@ -16,11 +16,16 @@ function findHero(G, variants) {
 
 // Perform requisition for all failed jobs
 export function performRequisition(G, variants) {
+  // Check for Hero of the Soviet Union first
+  const heroIdx = findHero(G, variants);
+
   // Initialize animation tracking data
   G.requisitionData = {
     revealedCards: [],  // {playerIdx, card, fromHidden}
     exiledCards: [],    // {playerIdx, card}
     failedJobs: [],     // suit names that failed
+    heroIdx: heroIdx,   // player index of hero (-1 if none)
+    heroName: heroIdx !== -1 ? G.players[heroIdx].name : null,
   };
 
   // Log work hours
@@ -38,8 +43,7 @@ export function performRequisition(G, variants) {
     requisitions: [],
   });
 
-  // Check for Hero of the Soviet Union
-  const heroIdx = findHero(G, variants);
+  // Log Hero of the Soviet Union if present
   if (heroIdx !== -1) {
     G.trickHistory[G.trickHistory.length - 1].requisitions.push(
       `${G.players[heroIdx].name} - Герой Советского Союза!`

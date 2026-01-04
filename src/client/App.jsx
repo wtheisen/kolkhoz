@@ -185,8 +185,18 @@ export function App() {
               {showRules ? t('Настройки', 'Options') : t('Правила', 'Rules')}
             </button>
           </div>
-          <div className="lobby-author">
-            {t('Автор игры: Уильям Тайсон', 'Game by: William Theisen')}
+          <div className="lobby-author-row">
+            <button
+              className="lang-toggle-inline"
+              onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')}
+              title={t('Switch to English', 'Переключить на русский')}
+            >
+              {lang === 'ru' ? '🇬🇧' : '🇷🇺'}
+            </button>
+            <div className="lobby-author">
+              <span>{t('Автор игры:', 'Game by:')}</span>
+              <span>{t('Уильям Тайсон', 'William Theisen')}</span>
+            </div>
           </div>
         </div>
 
@@ -302,15 +312,6 @@ export function App() {
             </div>
           )}
         </div>
-
-        {/* Language toggle */}
-        <button
-          className="lang-toggle"
-          onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')}
-          title={t('Switch to English', 'Переключить на русский')}
-        >
-          {lang === 'ru' ? '🇬🇧' : '🇷🇺'}
-        </button>
       </div>
     );
   }

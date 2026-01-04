@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useEffectListener } from 'bgio-effects/react';
 import { TrickAreaHTML } from './components/TrickAreaHTML.jsx';
+import { NavIcon } from './components/SuitIcon.jsx';
 import { getCardImagePath } from '../game/Card.js';
 import { translations, t } from './translations.js';
 
@@ -572,15 +573,22 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
     );
   }
 
-  // Calculate display mode
-  const displayMode =
-    phase === 'requisition' ? 'plot' :  // Force plot view during requisition
+  // Calculate which view has the current action (for indicator)
+  const actionView =
+    phase === 'requisition' ? 'plot' :
     phase === 'assignment' && G.lastWinner === currentPlayer ? 'jobs' :
     phase === 'swap' ? 'plot' :
+    (phase === 'planning' || phase === 'trick') ? 'game' :
+    null;
+
+  // Calculate display mode - respect user's panel choice, default to action view
+  // When no panel is selected (null), use actionView if there's an action, otherwise 'game'
+  const displayMode =
     activePanel === 'jobs' ? 'jobs' :
     activePanel === 'gulag' ? 'gulag' :
     activePanel === 'plot' ? 'plot' :
-    'game';
+    activePanel === null ? (actionView || 'game') :
+    actionView || 'game';
 
   return (
     <div className="game-board">
@@ -591,23 +599,23 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
           onClick={() => togglePanel('options')}
           title={t(translations, language, 'menu')}
         >
-          <span className="nav-icon">☰</span>
+          <NavIcon type="menu" />
           <span className="nav-label">{t(translations, language, 'menu')}</span>
         </button>
         <button
-          className={`nav-btn ${displayMode === 'game' && activePanel !== 'options' ? 'active' : ''}`}
+          className={`nav-btn ${displayMode === 'game' && activePanel !== 'options' ? 'active' : ''} ${actionView === 'game' ? 'has-action' : ''}`}
           onClick={() => setActivePanel(null)}
           title={t(translations, language, 'brigade')}
         >
-          <span className="nav-icon">👥</span>
+          <NavIcon type="brigade" />
           <span className="nav-label">{t(translations, language, 'brigade')}</span>
         </button>
         <button
-          className={`nav-btn ${displayMode === 'jobs' ? 'active' : ''}`}
+          className={`nav-btn ${displayMode === 'jobs' ? 'active' : ''} ${actionView === 'jobs' ? 'has-action' : ''}`}
           onClick={() => togglePanel('jobs')}
           title={t(translations, language, 'jobs')}
         >
-          <span className="nav-icon">⚒</span>
+          <NavIcon type="fields" />
           <span className="nav-label">{t(translations, language, 'jobs')}</span>
         </button>
         <button
@@ -616,15 +624,15 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
           title={t(translations, language, 'theNorth')}
           data-nav="gulag"
         >
-          <span className="nav-icon">❄</span>
+          <NavIcon type="north" />
           <span className="nav-label">{t(translations, language, 'theNorth')}</span>
         </button>
         <button
-          className={`nav-btn ${displayMode === 'plot' ? 'active' : ''}`}
+          className={`nav-btn ${displayMode === 'plot' ? 'active' : ''} ${actionView === 'plot' ? 'has-action' : ''}`}
           onClick={() => togglePanel('plot')}
           title={t(translations, language, 'plot')}
         >
-          <span className="nav-icon">🌱</span>
+          <NavIcon type="cellar" />
           <span className="nav-label">{t(translations, language, 'plot')}</span>
         </button>
         <button
@@ -632,7 +640,7 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
           onClick={toggleLanguage}
           title={t(translations, language, 'toggleLanguage')}
         >
-          <span className="nav-icon">{language === 'en' ? '🇷🇺' : '🇬🇧'}</span>
+          <span className="nav-icon lang-flag">{language === 'en' ? 'RU' : 'EN'}</span>
           <span className="nav-label">{language === 'en' ? 'Русский' : 'English'}</span>
         </button>
       </div>
@@ -755,7 +763,35 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
 
         {/* Requisition Continue Overlay */}
         {phase === 'requisition' && requisitionStage === 'waiting' && (
-          <div className="requisition-continue-overlay">
+          <div className={`requisition-continue-overlay ${G.requisitionData?.heroIdx !== undefined && G.requisitionData?.heroIdx !== -1 ? 'has-hero' : ''}`}>
+            {/* Hero of the Soviet Union Banner */}
+            {G.requisitionData?.heroIdx !== undefined && G.requisitionData?.heroIdx !== -1 && (
+              <div className="hero-announcement">
+                <div className="hero-medal">
+                  <div className="medal-star">★</div>
+                  <div className="medal-rays">
+                    {[...Array(12)].map((_, i) => (
+                      <div key={i} className="medal-ray" style={{ '--ray-index': i }} />
+                    ))}
+                  </div>
+                </div>
+                <div className="hero-title">{t(translations, language, 'heroOfSovietUnion')}</div>
+                <div className="hero-name">
+                  {G.requisitionData.heroIdx === 0
+                    ? t(translations, language, 'you')
+                    : G.requisitionData.heroName}
+                </div>
+                <div className="hero-subtitle">{t(translations, language, 'heroAchievement')}</div>
+                <div className="hero-immunity">
+                  <span className="immunity-shield">🛡</span>
+                  {t(translations, language, 'heroImmune', {
+                    name: G.requisitionData.heroIdx === 0
+                      ? t(translations, language, 'you')
+                      : G.requisitionData.heroName
+                  })}
+                </div>
+              </div>
+            )}
             <div className="requisition-summary">
               <h3>{t(translations, language, 'yearComplete', { year: G.year })}</h3>
               {G.requisitionData?.failedJobs?.length > 0 && (

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getCardImagePath } from '../../game/Card.js';
 import { translations, t, getJobName } from '../translations.js';
+import { SUITS } from '../../game/constants.js';
+import SuitIcon from './SuitIcon.jsx';
 import './TrickAreaHTML.css';
 
 // Helper to get requisition status message
@@ -22,8 +24,6 @@ function getRequisitionStatusMessage(language, currentRequisitionSuit, currentJo
   return t(translations, language, 'requisition');
 }
 
-const SUITS = ['Hearts', 'Diamonds', 'Clubs', 'Spades'];
-const SUIT_SYMBOLS = { Hearts: '♥', Diamonds: '♦', Clubs: '♣', Spades: '♠' };
 const FACE_CARD_SYMBOLS = { 11: 'J', 12: 'Q', 13: 'K' };
 
 // Find trump face cards (J, Q, K) in a job bucket
@@ -215,9 +215,7 @@ export function TrickAreaHTML({
             <div className="info-trump">
               <span className="label">{t(translations, language, 'task')}</span>
               {trump ? (
-                <span className={`suit-symbol ${trump.toLowerCase()}`}>
-                  {SUIT_SYMBOLS[trump]}
-                </span>
+                <SuitIcon suit={trump} className="suit-symbol" />
               ) : isFamine ? (
                 <span className="famine">{t(translations, language, 'famineYear')}</span>
               ) : (
@@ -228,9 +226,7 @@ export function TrickAreaHTML({
             {trick.length > 0 && (
               <div className="info-lead">
                 <span className="label">{t(translations, language, 'lead')}</span>
-                <span className={`suit-symbol ${trick[0][1].suit.toLowerCase()}`}>
-                  {SUIT_SYMBOLS[trick[0][1].suit]}
-                </span>
+                <SuitIcon suit={trick[0][1].suit} className="suit-symbol" />
               </div>
             )}
           </>
@@ -240,9 +236,7 @@ export function TrickAreaHTML({
         {phase === 'requisition' && (
           <div className="info-requisition">
             {currentRequisitionSuit && (
-              <span className={`suit-symbol ${currentRequisitionSuit.toLowerCase()}`}>
-                {SUIT_SYMBOLS[currentRequisitionSuit]}
-              </span>
+              <SuitIcon suit={currentRequisitionSuit} className="suit-symbol" />
             )}
             <span className="requisition-text">
               {getRequisitionStatusMessage(language, currentRequisitionSuit, currentJobStage, requisitionStage) ||
@@ -263,9 +257,7 @@ export function TrickAreaHTML({
                 key={suit}
                 className={`job-indicator ${isHighlighted ? 'highlighted' : ''} ${isClaimed ? 'claimed' : ''}`}
               >
-                <span className={`suit-symbol ${suit.toLowerCase()}`}>
-                  {SUIT_SYMBOLS[suit]}
-                </span>
+                <SuitIcon suit={suit} className="suit-symbol" />
                 <span className="progress">
                   {isClaimed ? '✓' : `${hours}/40`}
                 </span>
@@ -306,10 +298,11 @@ export function TrickAreaHTML({
               const hasPlayed = hasPlayerPlayed(playerIdx);
               const isCurrentTurn = currentPlayer === playerIdx && !hasPlayed;
               const isHumanTurn = isMyTurn && playerIdx === 0 && !hasPlayed;
+              const medals = player?.medals || 0;
 
               return (
                 <div key={playerIdx} className={`player-column ${getSlotClass(playerIdx)}`}>
-                  <div className={`player-panel ${isActive ? 'active' : ''} ${playerIdx === 0 ? 'human' : ''}`}>
+                  <div className={`player-panel ${isActive ? 'active' : ''} ${playerIdx === 0 ? 'human' : ''} ${medals === 4 ? 'hero-candidate' : ''}`}>
                     {playerIdx !== 0 && (
                       <img
                         src={PORTRAITS[(playerIdx - 1) % PORTRAITS.length]}
@@ -323,22 +316,37 @@ export function TrickAreaHTML({
                         {isLeader && <span className="leader-star">★</span>}
                       </span>
                       <span className="player-score">
-                        {visibleScore > 0 ? `${visibleScore} ${t(translations, language, 'pts')}` : (playerIdx === 0 ? '' : `${handSize} ${t(translations, language, 'cards')}`)}
+                        {visibleScore > 0 ? `${visibleScore} ${t(translations, language, 'pts')}` : ''}
                       </span>
                     </div>
-                    {playerIdx !== 0 && (
-                      <div className="player-hand-cards">
-                        {Array.from({ length: Math.min(4, handSize) }).map((_, idx) => (
-                          <img
-                            key={idx}
-                            src="assets/cards/back.svg"
-                            alt="card"
-                            className="mini-card"
-                          />
-                        ))}
-                        {handSize > 4 && <span className="extra-cards">+{handSize - 4}</span>}
-                      </div>
-                    )}
+                    {/* Hand cards and medal tracker container */}
+                    <div className="hand-medals-wrapper">
+                      {playerIdx !== 0 && (
+                        <div className="player-hand-cards">
+                          {Array.from({ length: handSize }).map((_, idx) => (
+                            <img
+                              key={idx}
+                              src="assets/cards/back.svg"
+                              alt="card"
+                              className="mini-card"
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {/* Medal tracker - shows tricks won this year */}
+                      {variants.heroOfSovietUnion && (
+                        <div className={`medal-tracker ${medals > 0 ? 'has-medals' : ''} ${medals === 4 ? 'hero' : ''}`}>
+                          {[0, 1, 2, 3].map((i) => (
+                            <span
+                              key={i}
+                              className={`medal-slot ${i < medals ? 'earned' : 'empty'}`}
+                            >
+                              ★
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div
@@ -425,7 +433,7 @@ export function TrickAreaHTML({
                       <div className="tile-header-row">
                         <div className="tile-header-left">
                           <div className="tile-header-top">
-                            <span className={`suit-symbol ${suit.toLowerCase()}`}>{SUIT_SYMBOLS[suit]}</span>
+                            <SuitIcon suit={suit} className="suit-symbol" />
                             {isTrump && <span className="trump-badge">★</span>}
                             {trumpFaceCards.length > 0 && (
                               <span className="trump-face-badges">
@@ -915,18 +923,57 @@ export function TrickAreaHTML({
         {/* Trump Selection - only show when it's the player's turn */}
         {phase === 'planning' && !trump && onSetTrump && isMyTurn && (
           <div className="trump-selection">
-            <h2 className="selection-title">{t(translations, language, 'chooseMainTask')}</h2>
+            {/* Propaganda sunburst background */}
+            <div className="trump-sunburst">
+              {[...Array(24)].map((_, i) => (
+                <div key={i} className="sunburst-ray" style={{ '--ray-index': i }} />
+              ))}
+            </div>
+
+            {/* Central star decoration */}
+            <div className="trump-star-decoration">★</div>
+
+            {/* Header with Soviet styling */}
+            <div className="trump-header">
+              <div className="trump-header-line" />
+              <h2 className="selection-title">
+                {language === 'en' ? 'FIVE YEAR PLAN' : 'ПЯТИЛЕТНИЙ ПЛАН'}
+              </h2>
+              <h3 className="selection-subtitle">{t(translations, language, 'chooseMainTask')}</h3>
+              <div className="trump-header-line" />
+            </div>
+
+            {/* Task selection buttons */}
             <div className="trump-buttons">
-              {SUITS.map((suit) => (
+              {SUITS.map((suit, index) => (
                 <button
                   key={suit}
                   className={`trump-btn ${suit.toLowerCase()}`}
                   onClick={() => onSetTrump(suit)}
+                  style={{ '--btn-index': index }}
                 >
-                  <span className="suit-symbol">{SUIT_SYMBOLS[suit]}</span>
-                  <span className="suit-name">{getJobName(language, suit)}</span>
+                  <div className="trump-btn-inner">
+                    <div className="trump-btn-badge">
+                      <span className="badge-star">★</span>
+                    </div>
+                    <SuitIcon suit={suit} className="suit-symbol" />
+                    <span className="suit-name">{getJobName(language, suit)}</span>
+                    <div className="trump-btn-quota">
+                      <span className="quota-label">{language === 'en' ? 'QUOTA' : 'ПЛАН'}</span>
+                      <span className="quota-value">40</span>
+                    </div>
+                  </div>
+                  <div className="trump-btn-corner tl" />
+                  <div className="trump-btn-corner tr" />
+                  <div className="trump-btn-corner bl" />
+                  <div className="trump-btn-corner br" />
                 </button>
               ))}
+            </div>
+
+            {/* Bottom slogan */}
+            <div className="trump-slogan">
+              {language === 'en' ? '★ FOR THE GLORY OF THE COLLECTIVE ★' : '★ ВО СЛАВУ КОЛХОЗА ★'}
             </div>
           </div>
         )}

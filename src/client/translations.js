@@ -5,7 +5,7 @@ export const translations = {
     // Nav bar
     menu: 'Menu',
     brigade: 'Brigade',
-    jobs: 'Jobs',
+    jobs: 'Fields',
     theNorth: 'The North',
     plot: 'Cellar',
     toggleLanguage: 'Toggle Language',
@@ -51,6 +51,9 @@ export const translations = {
     checkingJob: 'Checking {job}...',
     revealingPlots: 'Revealing plots...',
     exilingCards: 'Exiling cards...',
+    heroOfSovietUnion: 'Hero of the Soviet Union',
+    heroImmune: '{name} is immune from requisition!',
+    heroAchievement: 'Won all 4 tricks this year',
 
     // Trump selection
     chooseMainTask: 'Choose Main Task',
@@ -82,7 +85,7 @@ export const translations = {
     // Nav bar
     menu: 'Меню',
     brigade: 'Бригада',
-    jobs: 'Работы',
+    jobs: 'Поля',
     theNorth: 'Север',
     plot: 'Подвал',
     toggleLanguage: 'Сменить язык',
@@ -128,6 +131,9 @@ export const translations = {
     checkingJob: 'Проверка: {job}...',
     revealingPlots: 'Раскрытие подвалов...',
     exilingCards: 'Отправка на Север...',
+    heroOfSovietUnion: 'Герой Советского Союза',
+    heroImmune: '{name} защищён от реквизиции!',
+    heroAchievement: 'Выиграл все 4 взятки',
 
     // Trump selection
     chooseMainTask: 'Выберите главную задачу',
@@ -162,11 +168,11 @@ export function t(translations, lang, key, params = {}) {
   return str.replace(/\{(\w+)\}/g, (_, k) => params[k] ?? `{${k}}`);
 }
 
-// Job names by suit
+// Job names by suit (suits are now crop-based)
 export function getJobName(lang, suit) {
   const jobNames = {
-    en: { Hearts: 'Wheat', Diamonds: 'Beets', Clubs: 'Potatoes', Spades: 'Sunflower' },
-    ru: { Hearts: 'Пшеница', Diamonds: 'Свёкла', Clubs: 'Картофель', Spades: 'Подсолнух' },
+    en: { Wheat: 'Wheat', Beet: 'Beets', Potato: 'Potatoes', Sunflower: 'Sunflower' },
+    ru: { Wheat: 'Пшеница', Beet: 'Свёкла', Potato: 'Картофель', Sunflower: 'Подсолнух' },
   };
   return jobNames[lang]?.[suit] || jobNames.en[suit] || suit;
 }

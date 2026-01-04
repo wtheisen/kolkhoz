@@ -1,0 +1,165 @@
+import React from 'react';
+
+// Crop-based suit icons for kolkhoz theme
+// Wheat & Sunflower = cream/gold suits
+// Potato & Beet = red suits
+
+// ============================================
+// Navigation Icons - Soviet themed, monochrome
+// ============================================
+
+const MenuIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="nav-svg">
+    <rect x="3" y="5" width="18" height="2" rx="1"/>
+    <rect x="3" y="11" width="18" height="2" rx="1"/>
+    <rect x="3" y="17" width="18" height="2" rx="1"/>
+  </svg>
+);
+
+const BrigadeIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="nav-svg">
+    {/* Central figure */}
+    <circle cx="12" cy="7" r="3"/>
+    <path d="M7 20 L12 13 L17 20 Z"/>
+    {/* Left figure */}
+    <circle cx="5" cy="10" r="2.2"/>
+    <path d="M2 19 L5 14 L8 19 Z"/>
+    {/* Right figure */}
+    <circle cx="19" cy="10" r="2.2"/>
+    <path d="M16 19 L19 14 L22 19 Z"/>
+  </svg>
+);
+
+const FieldsIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="nav-svg">
+    {/* Wheat stalks in field rows */}
+    <path d="M4 20 L20 20" stroke="currentColor" strokeWidth="2" fill="none"/>
+    {/* Left wheat */}
+    <path d="M7 20 L7 12" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+    <ellipse cx="5.5" cy="10" rx="1.8" ry="1" transform="rotate(-30 5.5 10)"/>
+    <ellipse cx="8.5" cy="10" rx="1.8" ry="1" transform="rotate(30 8.5 10)"/>
+    <ellipse cx="7" cy="8" rx="1.2" ry="2"/>
+    {/* Right wheat */}
+    <path d="M17 20 L17 12" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+    <ellipse cx="15.5" cy="10" rx="1.8" ry="1" transform="rotate(-30 15.5 10)"/>
+    <ellipse cx="18.5" cy="10" rx="1.8" ry="1" transform="rotate(30 18.5 10)"/>
+    <ellipse cx="17" cy="8" rx="1.2" ry="2"/>
+    {/* Center wheat */}
+    <path d="M12 20 L12 10" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+    <ellipse cx="10.5" cy="8" rx="1.8" ry="1" transform="rotate(-30 10.5 8)"/>
+    <ellipse cx="13.5" cy="8" rx="1.8" ry="1" transform="rotate(30 13.5 8)"/>
+    <ellipse cx="12" cy="6" rx="1.2" ry="2"/>
+  </svg>
+);
+
+const NorthIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="nav-svg">
+    {/* Snowflake - 6 spokes with arms */}
+    <rect x="11" y="2" width="2" height="20" rx="1"/>
+    <rect x="2" y="11" width="20" height="2" rx="1"/>
+    <rect x="11" y="2" width="2" height="20" rx="1" transform="rotate(60 12 12)"/>
+    <rect x="11" y="2" width="2" height="20" rx="1" transform="rotate(-60 12 12)"/>
+    {/* Small diamonds at tips */}
+    <circle cx="12" cy="12" r="2"/>
+  </svg>
+);
+
+const CellarIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="nav-svg">
+    {/* Stairs going down */}
+    <path d="M4 4 L4 8 L8 8 L8 12 L12 12 L12 16 L16 16 L16 20 L20 20"
+          stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+    {/* Door frame at top */}
+    <path d="M2 2 L2 8 L4 8" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+    <path d="M2 2 L8 2" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+  </svg>
+);
+
+export function NavIcon({ type, className = '' }) {
+  const icons = {
+    menu: MenuIcon,
+    brigade: BrigadeIcon,
+    fields: FieldsIcon,
+    north: NorthIcon,
+    cellar: CellarIcon,
+  };
+
+  const IconComponent = icons[type];
+  if (!IconComponent) {
+    return <span className={className}>?</span>;
+  }
+  return (
+    <span className={`nav-icon-wrapper ${className}`}>
+      <IconComponent />
+    </span>
+  );
+}
+
+const WheatIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="suit-svg">
+    <path d="M12 2 L12 22" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+    <ellipse cx="9" cy="5" rx="2.5" ry="1.2" transform="rotate(-30 9 5)"/>
+    <ellipse cx="8.5" cy="8" rx="2.5" ry="1.2" transform="rotate(-25 8.5 8)"/>
+    <ellipse cx="9" cy="11" rx="2.5" ry="1.2" transform="rotate(-20 9 11)"/>
+    <ellipse cx="15" cy="5" rx="2.5" ry="1.2" transform="rotate(30 15 5)"/>
+    <ellipse cx="15.5" cy="8" rx="2.5" ry="1.2" transform="rotate(25 15.5 8)"/>
+    <ellipse cx="15" cy="11" rx="2.5" ry="1.2" transform="rotate(20 15 11)"/>
+    <ellipse cx="12" cy="3" rx="1.8" ry="2.5"/>
+  </svg>
+);
+
+const SunflowerIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="suit-svg">
+    <circle cx="12" cy="10" r="4"/>
+    <ellipse cx="12" cy="3" rx="2" ry="3"/>
+    <ellipse cx="17" cy="5" rx="2" ry="3" transform="rotate(45 17 5)"/>
+    <ellipse cx="19" cy="10" rx="3" ry="2"/>
+    <ellipse cx="17" cy="15" rx="2" ry="3" transform="rotate(-45 17 15)"/>
+    <ellipse cx="12" cy="17" rx="2" ry="3"/>
+    <ellipse cx="7" cy="15" rx="2" ry="3" transform="rotate(45 7 15)"/>
+    <ellipse cx="5" cy="10" rx="3" ry="2"/>
+    <ellipse cx="7" cy="5" rx="2" ry="3" transform="rotate(-45 7 5)"/>
+    <path d="M12 14 L12 23" stroke="currentColor" strokeWidth="2" fill="none"/>
+  </svg>
+);
+
+const PotatoIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="suit-svg">
+    <path d="M12 3 C6 3 3 8 3 12 C3 17 6 21 12 21 C18 21 21 17 21 12 C21 8 18 3 12 3 Z"/>
+    <circle cx="8" cy="9" r="1" fill="none" stroke="currentColor" strokeWidth="0.8" opacity="0.6"/>
+    <circle cx="15" cy="11" r="0.8" fill="none" stroke="currentColor" strokeWidth="0.8" opacity="0.6"/>
+    <circle cx="10" cy="15" r="0.9" fill="none" stroke="currentColor" strokeWidth="0.8" opacity="0.6"/>
+  </svg>
+);
+
+const BeetIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="suit-svg">
+    <path d="M12 8 C7 8 5 12 6 16 C7 19 10 22 12 22 C14 22 17 19 18 16 C19 12 17 8 12 8 Z"/>
+    <path d="M10 8 C9 5 7 3 6 2 C8 3 10 4 11 7"/>
+    <path d="M12 7 C12 4 12 2 12 1 C12 2 12 4 12 7"/>
+    <path d="M14 8 C15 5 17 3 18 2 C16 3 14 4 13 7"/>
+    <path d="M8 12 Q12 13 16 12" stroke="currentColor" strokeWidth="0.5" fill="none" opacity="0.4"/>
+    <path d="M9 15 Q12 16 15 15" stroke="currentColor" strokeWidth="0.5" fill="none" opacity="0.4"/>
+  </svg>
+);
+
+const SUIT_ICONS = {
+  Wheat: WheatIcon,
+  Sunflower: SunflowerIcon,
+  Potato: PotatoIcon,
+  Beet: BeetIcon,
+};
+
+export function SuitIcon({ suit, className = '' }) {
+  const IconComponent = SUIT_ICONS[suit];
+  if (!IconComponent) {
+    return <span className={className}>?</span>;
+  }
+  return (
+    <span className={`suit-icon ${suit.toLowerCase()} ${className}`}>
+      <IconComponent />
+    </span>
+  );
+}
+
+export default SuitIcon;
