@@ -80,6 +80,7 @@ export function TrickAreaHTML({
   requisitionStage = 'idle',
   currentRequisitionSuit = null,
   currentJobStage = 'header',
+  flyingExileCards = [],
   // Language
   language = 'ru',
   // Variants
@@ -93,6 +94,18 @@ export function TrickAreaHTML({
       return 0;
     }
     return card.value;
+  };
+
+  // Filter out cards that are currently flying to gulag (being animated)
+  const getVisibleRevealedCards = (revealedCards, playerIdx) => {
+    if (!revealedCards || flyingExileCards.length === 0) return revealedCards || [];
+    return revealedCards.filter(card =>
+      !flyingExileCards.some(fc =>
+        fc.playerIdx === playerIdx &&
+        fc.card.suit === card.suit &&
+        fc.card.value === card.value
+      )
+    );
   };
   // Track animated swap for bot visual feedback
   const [animatedSwap, setAnimatedSwap] = useState(null);
@@ -746,7 +759,7 @@ export function TrickAreaHTML({
             <div className="swap-bots-row">
               {[1, 2, 3].map((botIdx) => {
                 const bot = players?.[botIdx];
-                const revealedCards = bot?.plot?.revealed || [];
+                const revealedCards = getVisibleRevealedCards(bot?.plot?.revealed, botIdx);
                 const hiddenCount = bot?.plot?.hidden?.length || 0;
 
                 return (
@@ -777,6 +790,14 @@ export function TrickAreaHTML({
                             rc.card.suit === card.suit &&
                             rc.card.value === card.value
                           );
+                        // Mark cards that are about to be exiled
+                        const isAboutToBeExiled = phase === 'requisition' &&
+                          currentJobStage === 'revealing' &&
+                          requisitionData?.exiledCards?.some(ec =>
+                            ec.playerIdx === botIdx &&
+                            ec.card.suit === card.suit &&
+                            ec.card.value === card.value
+                          );
                         const isDimmed = phase === 'requisition' &&
                           currentRequisitionSuit &&
                           !isCurrentSuit;
@@ -785,27 +806,13 @@ export function TrickAreaHTML({
                             key={`revealed-${idx}`}
                             src={getCardImagePath(card)}
                             alt={`${card.value} of ${card.suit}`}
-                            className={`swap-mini-card revealed ${isNewlyRevealed ? 'newly-revealed' : ''} ${isDimmed ? 'dimmed' : ''}`}
+                            className={`swap-mini-card revealed ${isNewlyRevealed ? 'newly-revealed' : ''} ${isAboutToBeExiled ? 'about-to-exile' : ''} ${isDimmed ? 'dimmed' : ''}`}
                             data-card={`${card.suit}-${card.value}`}
                             data-player={botIdx}
                           />
                         );
                       })}
-                      {/* Ghost cards for exiling animation - cards already removed from state */}
-                      {phase === 'requisition' && currentJobStage === 'exiling' &&
-                        (requisitionData?.exiledCards || [])
-                          .filter(ec => ec.playerIdx === botIdx && ec.card.suit === currentRequisitionSuit)
-                          .map((ec, idx) => (
-                            <img
-                              key={`exiling-ghost-${idx}`}
-                              src={getCardImagePath(ec.card)}
-                              alt={`${ec.card.value} of ${ec.card.suit}`}
-                              className="swap-mini-card revealed exiling"
-                              data-card={`${ec.card.suit}-${ec.card.value}`}
-                              data-player={botIdx}
-                            />
-                          ))
-                      }
+                      {/* Ghost cards not needed anymore - cards stay in revealed until flying animation */}
                       {/* Hidden cards (backs) */}
                       {Array.from({ length: hiddenCount }).map((_, idx) => (
                         <img
@@ -859,7 +866,7 @@ export function TrickAreaHTML({
                   <span className="box-count">{playerPlot?.revealed?.length || 0}</span>
                 </div>
                 <div className="swap-cards">
-                  {(playerPlot?.revealed || []).map((card, idx) => {
+                  {getVisibleRevealedCards(playerPlot?.revealed, 0).map((card, idx) => {
                     const isCurrentSuit = card.suit === currentRequisitionSuit;
                     const isNewlyRevealed = phase === 'requisition' &&
                       isCurrentSuit &&
@@ -869,13 +876,21 @@ export function TrickAreaHTML({
                         rc.card.suit === card.suit &&
                         rc.card.value === card.value
                       );
+                    // Mark cards that are about to be exiled
+                    const isAboutToBeExiled = phase === 'requisition' &&
+                      currentJobStage === 'revealing' &&
+                      requisitionData?.exiledCards?.some(ec =>
+                        ec.playerIdx === 0 &&
+                        ec.card.suit === card.suit &&
+                        ec.card.value === card.value
+                      );
                     const isDimmed = phase === 'requisition' &&
                       currentRequisitionSuit &&
                       !isCurrentSuit;
                     return (
                       <div
                         key={`revealed-${idx}`}
-                        className={`swap-card-slot readonly ${isNewlyRevealed ? 'newly-revealed' : ''} ${isDimmed ? 'dimmed' : ''}`}
+                        className={`swap-card-slot readonly ${isNewlyRevealed ? 'newly-revealed' : ''} ${isAboutToBeExiled ? 'about-to-exile' : ''} ${isDimmed ? 'dimmed' : ''}`}
                         data-card={`${card.suit}-${card.value}`}
                         data-player="0"
                       >
@@ -887,25 +902,7 @@ export function TrickAreaHTML({
                       </div>
                     );
                   })}
-                  {/* Ghost cards for exiling animation - cards already removed from state */}
-                  {phase === 'requisition' && currentJobStage === 'exiling' &&
-                    (requisitionData?.exiledCards || [])
-                      .filter(ec => ec.playerIdx === 0 && ec.card.suit === currentRequisitionSuit)
-                      .map((ec, idx) => (
-                        <div
-                          key={`exiling-ghost-${idx}`}
-                          className="swap-card-slot readonly exiling"
-                          data-card={`${ec.card.suit}-${ec.card.value}`}
-                          data-player="0"
-                        >
-                          <img
-                            src={getCardImagePath(ec.card)}
-                            alt={`${ec.card.value} of ${ec.card.suit}`}
-                            draggable={false}
-                          />
-                        </div>
-                      ))
-                  }
+                  {/* Ghost cards not needed anymore - cards stay in revealed until flying animation */}
                   {(!playerPlot?.revealed || playerPlot.revealed.length === 0) && (
                     <div className="empty-slot">—</div>
                   )}

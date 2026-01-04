@@ -2242,6 +2242,14 @@
   }
 }
 
+/* Card marked for exile - subtle red border during reveal phase */
+.swap-mini-card.about-to-exile,
+.swap-card-slot.about-to-exile img {
+  box-shadow: 0 0 12px rgba(196, 30, 58, 0.8);
+  outline: 2px solid rgba(196, 30, 58, 0.9);
+  outline-offset: 1px;
+}
+
 /* Card being exiled - pulsing red glow */
 .swap-mini-card.exiling,
 .swap-card-slot.exiling {

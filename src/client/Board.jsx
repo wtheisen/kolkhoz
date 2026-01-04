@@ -710,6 +710,7 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
           requisitionStage={requisitionStage}
           currentRequisitionSuit={currentRequisitionSuit}
           currentJobStage={currentJobStage}
+          flyingExileCards={flyingExileCards}
           // Language
           language={language}
         />

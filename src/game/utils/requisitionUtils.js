@@ -270,12 +270,8 @@ function performStandard(G, suit, bucket, variants, heroIdx = -1) {
 
     if (suitCards.length === 0) continue;
 
-    // Exile highest
+    // Exile highest (don't remove from plot yet - wait for animation)
     const card = suitCards[0];
-    const cardIndex = p.plot.revealed.findIndex(
-      (c) => c.suit === card.suit && c.value === card.value
-    );
-    p.plot.revealed.splice(cardIndex, 1);
     addToExiled(G, `${card.suit}-${card.value}`);
     G.trickHistory[G.trickHistory.length - 1].requisitions.push(
       `${p.name} отправить на Север ${cardToString(card)}`
@@ -287,13 +283,9 @@ function performStandard(G, suit, bucket, variants, heroIdx = -1) {
       card: { ...card },
     });
 
-    // Party official exiles second card
+    // Party official exiles second card (don't remove from plot yet - wait for animation)
     if (partyOfficial && suitCards.length > 1) {
       const card2 = suitCards[1];
-      const card2Index = p.plot.revealed.findIndex(
-        (c) => c.suit === card2.suit && c.value === card2.value
-      );
-      p.plot.revealed.splice(card2Index, 1);
       addToExiled(G, `${card2.suit}-${card2.value}`);
       G.trickHistory[G.trickHistory.length - 1].requisitions.push(
         `Партийный чиновник: ${p.name} отправить на Север ${cardToString(card2)}`
@@ -432,41 +424,9 @@ function revealMatchingCards(G, suit, informant, vulnerabilityFilter, variants) 
   return allRevealedCards;
 }
 
-// Exile a card from a player's plot
+// Exile a card from a player's plot (don't remove yet - wait for animation)
 function exileCard(G, [player, card]) {
-  let cardIndex = (player.plot.revealed || []).findIndex(
-    (c) => c.suit === card.suit && c.value === card.value
-  );
-
-  if (cardIndex !== -1) {
-    player.plot.revealed.splice(cardIndex, 1);
-  } else if (player.plot.stacks) {
-    // Check stacks
-    for (const stack of player.plot.stacks) {
-      cardIndex = (stack.revealed || []).findIndex(
-        (c) => c.suit === card.suit && c.value === card.value
-      );
-      if (cardIndex !== -1) {
-        stack.revealed.splice(cardIndex, 1);
-        break;
-      }
-      cardIndex = (stack.hidden || []).findIndex(
-        (c) => c.suit === card.suit && c.value === card.value
-      );
-      if (cardIndex !== -1) {
-        stack.hidden.splice(cardIndex, 1);
-        break;
-      }
-    }
-
-    // Clean up empty stacks
-    player.plot.stacks = player.plot.stacks.filter(
-      (stack) =>
-        (stack.revealed && stack.revealed.length > 0) ||
-        (stack.hidden && stack.hidden.length > 0)
-    );
-  }
-
+  // Just track the exile - actual removal happens in applyExiledCards
   addToExiled(G, `${card.suit}-${card.value}`);
   G.trickHistory[G.trickHistory.length - 1].requisitions.push(
     `${player.name} отправить на Север ${cardToString(card)}`
@@ -479,5 +439,53 @@ function exileCard(G, [player, card]) {
       playerIdx,
       card: { ...card },
     });
+  }
+}
+
+// Apply exiled cards - actually remove them from players' plots
+// Called after animation completes (when user clicks continue)
+export function applyExiledCards(G) {
+  if (!G.requisitionData?.exiledCards) return;
+
+  for (const { playerIdx, card } of G.requisitionData.exiledCards) {
+    const player = G.players[playerIdx];
+    if (!player) continue;
+
+    // Try to remove from plot.revealed
+    let cardIndex = (player.plot.revealed || []).findIndex(
+      (c) => c.suit === card.suit && c.value === card.value
+    );
+
+    if (cardIndex !== -1) {
+      player.plot.revealed.splice(cardIndex, 1);
+      continue;
+    }
+
+    // Try to remove from stacks (36-card variants)
+    if (player.plot.stacks) {
+      for (const stack of player.plot.stacks) {
+        cardIndex = (stack.revealed || []).findIndex(
+          (c) => c.suit === card.suit && c.value === card.value
+        );
+        if (cardIndex !== -1) {
+          stack.revealed.splice(cardIndex, 1);
+          break;
+        }
+        cardIndex = (stack.hidden || []).findIndex(
+          (c) => c.suit === card.suit && c.value === card.value
+        );
+        if (cardIndex !== -1) {
+          stack.hidden.splice(cardIndex, 1);
+          break;
+        }
+      }
+
+      // Clean up empty stacks
+      player.plot.stacks = player.plot.stacks.filter(
+        (stack) =>
+          (stack.revealed && stack.revealed.length > 0) ||
+          (stack.hidden && stack.hidden.length > 0)
+      );
+    }
   }
 }

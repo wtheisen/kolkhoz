@@ -13,7 +13,7 @@ import {
   generateAutoAssignment,
   isYearComplete,
 } from './utils/trickUtils.js';
-import { performRequisition } from './utils/requisitionUtils.js';
+import { performRequisition, applyExiledCards } from './utils/requisitionUtils.js';
 import { getWinner, transitionToNextYear, setRandomTrump } from './utils/scoringUtils.js';
 import { getPrioritizedMoves } from './utils/aiUtils.js';
 
@@ -509,6 +509,8 @@ export const KolkhozGame = {
       },
       moves: {
         continueToNextYear: ({ G, random, events }) => {
+          // Actually remove exiled cards from plots (after animation)
+          applyExiledCards(G);
           // Clear animation data
           G.requisitionData = null;
           // Transition to next year
