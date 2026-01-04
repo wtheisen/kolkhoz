@@ -122,6 +122,10 @@ export function App() {
   const [gameStarted, setGameStarted] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState('kolkhoz');
   const [customVariants, setCustomVariants] = useState({ ...DEFAULT_VARIANTS });
+  const [lang, setLang] = useState('ru'); // 'ru' or 'en'
+
+  // Helper to get text based on language
+  const t = (ru, en) => lang === 'ru' ? ru : en;
 
   // Get active variants based on selected preset
   const variants = selectedPreset === 'custom'
@@ -167,19 +171,22 @@ export function App() {
         {/* Left: Title + Buttons */}
         <div className="lobby-left">
           <div className="lobby-title">
-            <h1 title="Kolkhoz - Collective Farm">Колхоз</h1>
-            <h2 title="Pyatiletka - Five-Year Plan">Пятилетка</h2>
+            <h1 title={t('Kolkhoz - Collective Farm', 'Колхоз - Коллективное хозяйство')}>Колхоз</h1>
+            <h2 title={t('Pyatiletka - Five-Year Plan', 'Пятилетка')}>Пятилетка</h2>
           </div>
           <div className="lobby-buttons">
             <button className="start-btn" onClick={() => setGameStarted(true)}>
-              Start Game
+              {t('Начать игру', 'Start Game')}
             </button>
             <button
               className={`rules-btn ${showRules ? 'active' : ''}`}
               onClick={() => setShowRules(!showRules)}
             >
-              {showRules ? 'Options' : 'Rules'}
+              {showRules ? t('Настройки', 'Options') : t('Правила', 'Rules')}
             </button>
+          </div>
+          <div className="lobby-author">
+            {t('Автор игры: Уильям Тайсон', 'Game by: William Theisen')}
           </div>
         </div>
 
@@ -187,20 +194,20 @@ export function App() {
         <div className="lobby-right-panel">
           {showRules ? (
             <div className="rules-panel">
-              <h3>Kolkhoz Rules</h3>
+              <h3>{t('Правила Колхоза', 'Kolkhoz Rules')}</h3>
               <div className="rules-text">
-                <h4>Objective</h4>
-                <p>Complete collective farm jobs while protecting your private plot. Highest score wins!</p>
-                <h4>Gameplay</h4>
-                <p>• Play cards to tricks - must follow lead suit if able</p>
-                <p>• Trick winner assigns cards to matching job suits</p>
-                <p>• Jobs need 40 work hours to complete</p>
-                <h4>Trump Face Cards</h4>
-                <p>• <strong>Jack (Пьяница)</strong>: Worth 0, gets exiled instead of your cards</p>
-                <p>• <strong>Queen (Доносчик)</strong>: All players become vulnerable</p>
-                <p>• <strong>King (Чиновник)</strong>: Exiles two cards instead of one</p>
-                <h4>Scoring</h4>
-                <p>Cards in your plot = your score. Highest score wins!</p>
+                <h4>{t('Цель', 'Objective')}</h4>
+                <p>{t('Выполняйте колхозные работы, защищая свой участок. Побеждает тот, у кого больше очков!', 'Complete collective farm jobs while protecting your private plot. Highest score wins!')}</p>
+                <h4>{t('Игровой процесс', 'Gameplay')}</h4>
+                <p>{t('• Играйте карты во взятки — следуйте масти, если можете', '• Play cards to tricks - must follow lead suit if able')}</p>
+                <p>{t('• Победитель взятки назначает карты на работы соответствующей масти', '• Trick winner assigns cards to matching job suits')}</p>
+                <p>{t('• Для завершения работы нужно 40 рабочих часов', '• Jobs need 40 work hours to complete')}</p>
+                <h4>{t('Козырные фигуры', 'Trump Face Cards')}</h4>
+                <p>• <strong>{t('Валет (Пьяница)', 'Jack (Drunkard)')}</strong>: {t('Стоит 0, ссылается вместо ваших карт', 'Worth 0, gets exiled instead of your cards')}</p>
+                <p>• <strong>{t('Дама (Доносчик)', 'Queen (Informer)')}</strong>: {t('Все игроки становятся уязвимы', 'All players become vulnerable')}</p>
+                <p>• <strong>{t('Король (Чиновник)', 'King (Bureaucrat)')}</strong>: {t('Ссылает две карты вместо одной', 'Exiles two cards instead of one')}</p>
+                <h4>{t('Подсчёт очков', 'Scoring')}</h4>
+                <p>{t('Карты на вашем участке = ваши очки. Побеждает тот, у кого больше!', 'Cards in your plot = your score. Highest score wins!')}</p>
               </div>
             </div>
           ) : (
@@ -215,7 +222,7 @@ export function App() {
                   >
                     <div className="preset-badge">
                       <div className="preset-star">★</div>
-                      <div className="preset-name" title={preset.nameEn}>{preset.name}</div>
+                      <div className="preset-name">{t(preset.name, preset.nameEn)}</div>
                     </div>
                   </div>
                 ))}
@@ -227,24 +234,24 @@ export function App() {
                   /* Editable options for Custom */
                   <div className="custom-options">
                     <div className="variant-row">
-                      <span className="variant-label" title="Deck">Колода:</span>
-                      <label className="radio-option" title="52 cards">
+                      <span className="variant-label">{t('Колода:', 'Deck:')}</span>
+                      <label className="radio-option">
                         <input
                           type="radio"
                           name="deckType"
                           checked={customVariants.deckType === 52}
                           onChange={() => setCustomVariants({ ...customVariants, deckType: 52 })}
                         />
-                        52 карты
+                        {t('52 карты', '52 cards')}
                       </label>
-                      <label className="radio-option" title="36 cards">
+                      <label className="radio-option">
                         <input
                           type="radio"
                           name="deckType"
                           checked={customVariants.deckType === 36}
                           onChange={() => setCustomVariants({ ...customVariants, deckType: 36 })}
                         />
-                        36 карт
+                        {t('36 карт', '36 cards')}
                       </label>
                     </div>
 
@@ -253,15 +260,15 @@ export function App() {
                         // Hide accumulateJobs for 36-card deck
                         if (key === 'accumulateJobs' && customVariants.deckType === 36) return null;
                         return (
-                          <label key={key} className="variant-item" title={info.descEn}>
+                          <label key={key} className="variant-item">
                             <input
                               type="checkbox"
                               checked={customVariants[key]}
                               onChange={(e) => setCustomVariants({ ...customVariants, [key]: e.target.checked })}
                             />
                             <div className="variant-item-content">
-                              <span className="variant-item-name" title={info.nameEn}>{info.name}</span>
-                              <span className="variant-item-desc">{info.desc}</span>
+                              <span className="variant-item-name">{t(info.name, info.nameEn)}</span>
+                              <span className="variant-item-desc">{t(info.desc, info.descEn)}</span>
                             </div>
                           </label>
                         );
@@ -272,18 +279,18 @@ export function App() {
                   /* Read-only display for presets */
                   <div className="preset-summary">
                     <div className="variant-row">
-                      <span className="variant-label">Колода:</span>
-                      <span className="variant-value" title={`${variants.deckType} cards`}>{variants.deckType} карт</span>
+                      <span className="variant-label">{t('Колода:', 'Deck:')}</span>
+                      <span className="variant-value">{variants.deckType} {t('карт', 'cards')}</span>
                     </div>
                     <div className="variant-list">
                       {Object.entries(VARIANT_INFO).map(([key, info]) => {
                         if (!variants[key]) return null;
                         return (
-                          <div key={key} className="variant-item enabled" title={info.descEn}>
+                          <div key={key} className="variant-item enabled">
                             <span className="variant-check">✓</span>
                             <div className="variant-item-content">
-                              <span className="variant-item-name" title={info.nameEn}>{info.name}</span>
-                              <span className="variant-item-desc">{info.desc}</span>
+                              <span className="variant-item-name">{t(info.name, info.nameEn)}</span>
+                              <span className="variant-item-desc">{t(info.desc, info.descEn)}</span>
                             </div>
                           </div>
                         );
@@ -295,6 +302,15 @@ export function App() {
             </div>
           )}
         </div>
+
+        {/* Language toggle */}
+        <button
+          className="lang-toggle"
+          onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')}
+          title={t('Switch to English', 'Переключить на русский')}
+        >
+          {lang === 'ru' ? '🇬🇧' : '🇷🇺'}
+        </button>
       </div>
     );
   }
