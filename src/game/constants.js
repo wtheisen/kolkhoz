@@ -28,4 +28,5 @@ export const DEFAULT_VARIANTS = {
   ordenNachalniku: false, // Stack cards (36-card only)
   medalsCount: false,     // Tricks contribute to score
   accumulateJobs: false,  // Unclaimed jobs carry over (52-card)
+  heroOfSovietUnion: true,  // Win all 4 tricks = immune from requisition
 };

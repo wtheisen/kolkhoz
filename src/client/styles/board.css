@@ -193,6 +193,232 @@ html, body {
   accent-color: var(--red);
 }
 
+/* Preset Selection Cards - Soviet Medal/Badge Style */
+.preset-cards {
+  display: flex;
+  gap: clamp(0.75rem, 1.5vw, 1.25rem);
+  margin-bottom: clamp(1rem, 2vh, 1.5rem);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.preset-card {
+  flex: 1;
+  min-width: 120px;
+  max-width: 160px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  transform-origin: center bottom;
+}
+
+.preset-card:hover {
+  transform: translateY(-4px) scale(1.02);
+}
+
+.preset-card:active {
+  transform: translateY(-2px) scale(1.01);
+}
+
+/* Badge - the main circular/octagonal medal shape */
+.preset-badge {
+  position: relative;
+  background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 50%, #1a1a1a 100%);
+  border: 3px solid var(--border-dark);
+  border-radius: 8px;
+  padding: clamp(1rem, 2vh, 1.5rem) clamp(0.5rem, 1vw, 0.75rem);
+  text-align: center;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+/* Diagonal stripe accent */
+.preset-badge::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, transparent 0%, var(--red) 20%, var(--red) 80%, transparent 100%);
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+}
+
+.preset-card:hover .preset-badge::before,
+.preset-card.selected .preset-badge::before {
+  opacity: 1;
+}
+
+/* Corner decorations */
+.preset-badge::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold-dark), transparent);
+  opacity: 0.3;
+}
+
+.preset-card:hover .preset-badge,
+.preset-card.selected .preset-badge {
+  border-color: var(--gold);
+  box-shadow:
+    0 0 20px rgba(212, 168, 87, 0.2),
+    inset 0 0 30px rgba(212, 168, 87, 0.05);
+}
+
+.preset-card.selected .preset-badge {
+  background: linear-gradient(135deg, #1f1a14 0%, #0d0d0d 50%, #1f1a14 100%);
+  border-color: var(--gold-bright);
+  box-shadow:
+    0 0 25px rgba(212, 168, 87, 0.3),
+    0 4px 15px rgba(0, 0, 0, 0.4),
+    inset 0 0 40px rgba(212, 168, 87, 0.08);
+}
+
+/* Star icon */
+.preset-star {
+  font-size: clamp(1.2rem, 2.5vw, 1.6rem);
+  color: var(--red);
+  text-shadow: 0 0 10px rgba(196, 30, 58, 0.3);
+  margin-bottom: 0.25rem;
+  transition: all 0.3s ease;
+  opacity: 0.7;
+}
+
+.preset-card:hover .preset-star {
+  opacity: 1;
+  transform: scale(1.1);
+  text-shadow: 0 0 15px rgba(196, 30, 58, 0.5);
+}
+
+.preset-card.selected .preset-star {
+  color: var(--gold);
+  opacity: 1;
+  text-shadow: 0 0 20px rgba(212, 168, 87, 0.6);
+  animation: star-pulse 2s ease-in-out infinite;
+}
+
+@keyframes star-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+/* Preset name */
+.preset-name {
+  font-family: var(--font-display);
+  color: var(--cream);
+  font-size: clamp(0.9rem, 1.5vw, 1.1rem);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: color 0.3s ease;
+}
+
+.preset-card:hover .preset-name {
+  color: var(--cream);
+}
+
+.preset-card.selected .preset-name {
+  color: var(--gold);
+  text-shadow: 0 0 10px rgba(212, 168, 87, 0.3);
+}
+
+/* Ribbon - the banner below */
+.preset-ribbon {
+  position: relative;
+  background: linear-gradient(180deg, var(--red-dark) 0%, var(--red) 50%, var(--red-dark) 100%);
+  margin: 0 -4px;
+  margin-top: -2px;
+  padding: clamp(0.3rem, 0.6vh, 0.5rem) clamp(0.5rem, 1vw, 0.75rem);
+  text-align: center;
+  clip-path: polygon(
+    0% 0%,
+    100% 0%,
+    100% calc(100% - 6px),
+    50% 100%,
+    0% calc(100% - 6px)
+  );
+  transition: all 0.3s ease;
+}
+
+/* Ribbon fold shadows */
+.preset-ribbon::before,
+.preset-ribbon::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 8px;
+  height: 8px;
+  background: var(--red-dark);
+}
+
+.preset-ribbon::before {
+  left: 0;
+  clip-path: polygon(0 0, 100% 100%, 0 100%);
+}
+
+.preset-ribbon::after {
+  right: 0;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+.preset-card:hover .preset-ribbon,
+.preset-card.selected .preset-ribbon {
+  background: linear-gradient(180deg, var(--red) 0%, var(--red-bright) 50%, var(--red) 100%);
+  box-shadow: 0 4px 12px rgba(196, 30, 58, 0.3);
+}
+
+.preset-description {
+  color: var(--cream);
+  font-size: clamp(0.6rem, 1vw, 0.7rem);
+  font-family: var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.9;
+}
+
+/* Custom Options Container */
+.custom-options {
+  border-top: 1px solid var(--border-dark);
+  padding-top: clamp(0.75rem, 1.5vh, 1rem);
+  margin-top: clamp(0.5rem, 1vh, 0.75rem);
+}
+
+.custom-options h3 {
+  margin-bottom: clamp(0.4rem, 1vh, 0.75rem);
+  margin-top: 0.5rem;
+  color: var(--cream);
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  letter-spacing: 0.1em;
+  font-size: clamp(0.85rem, 1.5vw, 1rem);
+}
+
+.custom-options h3:first-child {
+  margin-top: 0;
+}
+
+.custom-options label {
+  display: block;
+  margin: clamp(0.2rem, 0.4vh, 0.4rem) 0;
+  cursor: pointer;
+  color: var(--cream-dark);
+  font-weight: 400;
+  font-size: clamp(0.75rem, 1.2vw, 0.9rem);
+}
+
+.custom-options label:hover {
+  color: var(--gold);
+}
+
+.custom-options input {
+  margin-right: 0.4rem;
+  accent-color: var(--red);
+}
+
 .lobby-buttons {
   display: flex;
   flex-direction: column;
