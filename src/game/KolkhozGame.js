@@ -161,6 +161,7 @@ function submitAssignments({ G, events }) {
   const suitsInTrick = new Set(G.lastTrick.map(([, card]) => card.suit));
 
   // Validate assignments - cards can only go to jobs represented in the trick
+  // (Claimed/finished jobs can still receive cards)
   for (const [, targetSuit] of Object.entries(G.pendingAssignments)) {
     if (!suitsInTrick.has(targetSuit)) {
       return INVALID_MOVE;

@@ -3,6 +3,17 @@
 
 import { THRESHOLD } from '../constants.js';
 
+// Find the Hero of the Soviet Union (player who won all 4 medals this year)
+function findHero(G, variants) {
+  if (!variants.heroOfSovietUnion) return -1;
+  for (let i = 0; i < G.players.length; i++) {
+    if (G.players[i].medals === 4) {
+      return i;
+    }
+  }
+  return -1;
+}
+
 // Perform requisition for all failed jobs
 export function performRequisition(G, variants) {
   // Initialize animation tracking data
@@ -27,6 +38,14 @@ export function performRequisition(G, variants) {
     requisitions: [],
   });
 
+  // Check for Hero of the Soviet Union
+  const heroIdx = findHero(G, variants);
+  if (heroIdx !== -1) {
+    G.trickHistory[G.trickHistory.length - 1].requisitions.push(
+      `${G.players[heroIdx].name} - Герой Советского Союза!`
+    );
+  }
+
   for (const [suit, bucket] of Object.entries(G.jobBuckets)) {
     if (G.workHours[suit] >= THRESHOLD) {
       continue;
@@ -36,11 +55,11 @@ export function performRequisition(G, variants) {
     G.requisitionData.failedJobs.push(suit);
 
     if (variants.miceVariant) {
-      performMiceVariant(G, suit, bucket, variants);
+      performMiceVariant(G, suit, bucket, variants, heroIdx);
     } else if (variants.deckType === 36) {
-      perform36Card(G, suit, bucket, variants);
+      perform36Card(G, suit, bucket, variants, heroIdx);
     } else {
-      performStandard(G, suit, bucket, variants);
+      performStandard(G, suit, bucket, variants, heroIdx);
     }
   }
 }
@@ -103,14 +122,17 @@ function cardToString(card) {
 }
 
 // Mice variant requisition
-function performMiceVariant(G, suit, bucket, variants) {
+function performMiceVariant(G, suit, bucket, variants, heroIdx = -1) {
   if (handleDrunkard(G, bucket, variants, suit)) return;
 
   const informant = hasInformant(bucket, G.trump, variants);
   const partyOfficial = hasPartyOfficial(bucket, G.trump, variants);
 
+  // Hero of the Soviet Union: hero is immune, everyone else reveals
+  const vulnerabilityFilter = heroIdx !== -1 ? (p, idx) => idx !== heroIdx : null;
+
   // All players reveal matching cards
-  const allRevealedCards = revealMatchingCards(G, suit, informant, null, variants);
+  const allRevealedCards = revealMatchingCards(G, suit, informant, vulnerabilityFilter, variants);
   if (allRevealedCards.length === 0) return;
 
   // Sort and exile highest
@@ -127,14 +149,18 @@ function performMiceVariant(G, suit, bucket, variants) {
 }
 
 // 36-card deck requisition
-function perform36Card(G, suit, bucket, variants) {
+function perform36Card(G, suit, bucket, variants, heroIdx = -1) {
   if (handleDrunkard(G, bucket, variants, suit)) return;
 
   const informant = hasInformant(bucket, G.trump, variants);
   const partyOfficial = hasPartyOfficial(bucket, G.trump, variants);
 
   // For ordenNachalniku: only players with stacks are vulnerable
-  const vulnerabilityFilter = (p) => {
+  // Hero of the Soviet Union: hero is immune, everyone else is vulnerable
+  const vulnerabilityFilter = (p, idx) => {
+    if (heroIdx !== -1) {
+      return idx !== heroIdx;
+    }
     if (!variants.ordenNachalniku) return true;
     const hasStacks = p.plot.stacks && p.plot.stacks.length > 0;
     return informant || hasStacks;
@@ -143,8 +169,9 @@ function perform36Card(G, suit, bucket, variants) {
   const allRevealedCards = revealMatchingCards(G, suit, informant, vulnerabilityFilter, variants);
 
   // Also check plot.revealed for vulnerable players
-  for (const p of G.players) {
-    if (!vulnerabilityFilter(p)) continue;
+  for (let i = 0; i < G.players.length; i++) {
+    const p = G.players[i];
+    if (!vulnerabilityFilter(p, i)) continue;
 
     const revealedMatching = (p.plot.revealed || []).filter((c) => c.suit === suit);
     for (const card of revealedMatching) {
@@ -182,7 +209,7 @@ function perform36Card(G, suit, bucket, variants) {
 }
 
 // Standard 52-card requisition
-function performStandard(G, suit, bucket, variants) {
+function performStandard(G, suit, bucket, variants, heroIdx = -1) {
   if (handleDrunkard(G, bucket, variants, suit)) return;
 
   const informant = hasInformant(bucket, G.trump, variants);
@@ -190,13 +217,33 @@ function performStandard(G, suit, bucket, variants) {
 
   for (let i = 0; i < G.players.length; i++) {
     const p = G.players[i];
-    const isVulnerable =
-      variants.northernStyle || p.hasWonTrickThisYear || informant;
+
+    // Hero of the Soviet Union: hero is immune, everyone else is vulnerable
+    let isVulnerable;
+    if (heroIdx !== -1) {
+      isVulnerable = i !== heroIdx;
+    } else {
+      isVulnerable = variants.northernStyle || p.hasWonTrickThisYear || informant;
+    }
 
     if (!isVulnerable) continue;
 
-    // Reveal matching cards from hidden plot
-    const toReveal = (p.plot.hidden || []).filter((c) => c.suit === suit);
+    // Get matching hidden cards
+    const matchingHidden = (p.plot.hidden || []).filter((c) => c.suit === suit);
+
+    let toReveal;
+    if (informant) {
+      // Informant: reveal ALL matching cards
+      toReveal = matchingHidden;
+    } else {
+      // No informant: reveal only the HIGHEST matching card
+      if (matchingHidden.length > 0) {
+        const highest = matchingHidden.reduce((max, c) => c.value > max.value ? c : max);
+        toReveal = [highest];
+      } else {
+        toReveal = [];
+      }
+    }
 
     // Track revealed cards for animation
     for (const card of toReveal) {
@@ -207,8 +254,14 @@ function performStandard(G, suit, bucket, variants) {
       });
     }
 
+    // Move revealed cards
     p.plot.revealed.push(...toReveal);
-    p.plot.hidden = (p.plot.hidden || []).filter((c) => c.suit !== suit);
+
+    // Remove only the revealed cards from hidden (not all matching)
+    for (const card of toReveal) {
+      const idx = p.plot.hidden.findIndex(c => c.suit === card.suit && c.value === card.value);
+      if (idx !== -1) p.plot.hidden.splice(idx, 1);
+    }
 
     // Check for matching cards in revealed plot
     const suitCards = (p.plot.revealed || [])
@@ -261,7 +314,7 @@ function revealMatchingCards(G, suit, informant, vulnerabilityFilter, variants) 
 
   for (let i = 0; i < G.players.length; i++) {
     const p = G.players[i];
-    if (vulnerabilityFilter && !vulnerabilityFilter(p)) continue;
+    if (vulnerabilityFilter && !vulnerabilityFilter(p, i)) continue;
 
     const matchingHidden = (p.plot.hidden || []).filter((c) => c.suit === suit);
 

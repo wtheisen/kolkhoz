@@ -367,8 +367,9 @@ export function TrickAreaHTML({
                   const bucket = jobBuckets?.[suit] || [];
 
                   // Is this suit a valid drop target? (only relevant in assignment phase)
+                  // Claimed/finished jobs can still receive cards
                   const isAssignmentPhase = phase === 'assignment';
-                  const isValidTarget = isAssignmentPhase && suitsInTrick.has(suit) && !isClaimed;
+                  const isValidTarget = isAssignmentPhase && suitsInTrick.has(suit);
                   const isDropTarget = assignDragState && isValidTarget;
                   const isDropHover = assignDragState?.dropTarget === suit;
 
