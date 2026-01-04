@@ -43,24 +43,44 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
   const assignCardRefs = useRef({});
   const jobDropRefs = useRef({});
 
-  // AI card play animation state - triggered by bgio-effects
+  // AI card play animation state - use queue to handle rapid-fire bot moves
+  const [animationQueue, setAnimationQueue] = useState([]);
   const [currentAiAnimation, setCurrentAiAnimation] = useState(null);
 
   // Listen for cardPlayed effects from bgio-effects
-  // bgio-effects queues effects and fires callbacks sequentially with their durations
-  // The onEndCallback clears the animation when the effect duration expires
+  // When bots play after human, multiple effects fire rapidly - we queue them
   useEffectListener(
     'cardPlayed',
     useCallback(({ playerIdx, card }) => {
       const key = `${card.suit}-${card.value}`;
-      setCurrentAiAnimation({ playerIdx, card, key });
+      setAnimationQueue(q => [...q, { playerIdx, card, key }]);
     }, []),
     [],
     useCallback(() => {
+      // Effect duration expired - clear current animation to trigger next in queue
       setCurrentAiAnimation(null);
     }, []),
     []
   );
+
+  // Process animation queue - start next animation when current completes
+  useEffect(() => {
+    if (animationQueue.length > 0 && !currentAiAnimation) {
+      const [next, ...rest] = animationQueue;
+      setAnimationQueue(rest);
+      setCurrentAiAnimation(next);
+    }
+  }, [animationQueue, currentAiAnimation]);
+
+  // Timeout fallback - ensure animation clears even if bgio-effects onEnd doesn't fire
+  useEffect(() => {
+    if (currentAiAnimation) {
+      const timer = setTimeout(() => {
+        setCurrentAiAnimation(null);
+      }, 750); // Slightly longer than CSS animation (600ms)
+      return () => clearTimeout(timer);
+    }
+  }, [currentAiAnimation]);
 
   // Requisition animation state
   const [requisitionStage, setRequisitionStage] = useState('idle');
