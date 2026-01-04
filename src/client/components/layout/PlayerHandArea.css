@@ -1,0 +1,444 @@
+/* PlayerHandArea - fixed to bottom, always shows 50% of cards */
+
+.player-hand-area {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: clamp(8px, 1vw, 16px);
+  padding: 0 clamp(16px, 3vw, 40px);
+  padding-left: calc(100px + clamp(16px, 3vw, 40px)); /* Account for nav bar */
+  background: transparent;
+  z-index: 50;
+  overflow: visible;
+  transform: translateY(50%);
+}
+
+/* Plot cards section - overlap using margin */
+.player-hand-area .plot-cards-section {
+  display: flex;
+  align-items: flex-end;
+}
+
+.player-hand-area .plot-card {
+  position: relative;
+  width: var(--card-width, clamp(50px, 10vw, 120px));
+  cursor: pointer;
+  transition: transform 0.2s ease, z-index 0.2s;
+  transform-origin: bottom center;
+  margin-left: calc(var(--card-width, clamp(50px, 10vw, 120px)) * -0.7);
+  z-index: calc(var(--index, 0) + 1);
+}
+
+.player-hand-area .plot-card:first-child {
+  margin-left: 0;
+}
+
+.player-hand-area .plot-card:hover {
+  transform: translateY(-15px) scale(1.08);
+  z-index: 100;
+}
+
+.player-hand-area .plot-card.dimmed {
+  opacity: 0.4;
+  filter: saturate(0.3) brightness(0.7);
+  transition: opacity 0.2s ease, filter 0.2s ease, transform 0.2s ease;
+}
+
+.player-hand-area .plot-card.dimmed:hover {
+  opacity: 1;
+  filter: none;
+}
+
+.player-hand-area .plot-card img {
+  width: 100%;
+  border-radius: 6px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Divider between zones */
+.player-hand-area .hand-divider {
+  width: 3px;
+  height: calc(var(--card-width, clamp(50px, 10vw, 120px)) * 0.7);
+  background: linear-gradient(to bottom, transparent, #d4a857 20%, #d4a857 80%, transparent);
+  flex-shrink: 0;
+  align-self: flex-end;
+  margin-bottom: calc(var(--card-width, clamp(50px, 10vw, 120px)) * 0.75);
+  box-shadow: 0 0 8px rgba(212, 168, 87, 0.5);
+}
+
+/* Assignment cards section */
+.player-hand-area .assign-cards-section {
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(8px, 1vw, 16px);
+}
+
+.player-hand-area .hand-card.assign-draggable {
+  cursor: grab;
+}
+
+.player-hand-area .hand-card.assign-draggable:active {
+  cursor: grabbing;
+}
+
+.player-hand-area .hand-card.assign-draggable:hover {
+  transform: translateY(-15px) scale(1.08);
+  z-index: 100;
+}
+
+.player-hand-area .hand-card.assign-draggable::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 8px;
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 10px rgba(212, 168, 87, 0.5);
+  pointer-events: none;
+  animation: pulse-gold 1.5s ease-in-out infinite;
+}
+
+.player-hand-area .hand-card.assign-draggable.assigned {
+  opacity: 0.7;
+}
+
+.player-hand-area .hand-card.assign-draggable.assigned::before {
+  border-color: var(--green);
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+  animation: none;
+}
+
+/* Assigned badge on cards */
+.player-hand-area .hand-card .assigned-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: clamp(20px, 3vw, 28px);
+  height: clamp(20px, 3vw, 28px);
+  background: #0a0a0a;
+  border: 2px solid #d4a857;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(12px, 1.8vw, 16px);
+  font-weight: bold;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  z-index: 10;
+}
+
+.player-hand-area .hand-card .assigned-badge.potato,
+.player-hand-area .hand-card .assigned-badge.beet {
+  color: #c41e3a;
+}
+
+.player-hand-area .hand-card .assigned-badge.wheat,
+.player-hand-area .hand-card .assigned-badge.sunflower {
+  color: #e8dcc4;
+}
+
+/* Confirm assignment button */
+.player-hand-area .confirm-assign-btn {
+  padding: clamp(1rem, 2vh, 1.6rem) clamp(2rem, 5vw, 3rem);
+  background: linear-gradient(135deg, #8b0000 0%, #c41e3a 50%, #8b0000 100%);
+  color: #e8dcc4;
+  border: 3px solid #d4a857;
+  border-radius: 8px;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(1.2rem, 2.5vw, 1.8rem);
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: confirm-appear 0.3s ease-out;
+  margin-left: auto;
+  margin-right: clamp(16px, 3vw, 32px);
+  align-self: flex-start;
+  margin-bottom: calc(var(--card-width, clamp(50px, 10vw, 120px)) * 0.5);
+}
+
+@keyframes confirm-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.player-hand-area .confirm-assign-btn:hover {
+  background: linear-gradient(135deg, #6b0000 0%, #a01830 50%, #6b0000 100%);
+  box-shadow: 0 0 20px rgba(196, 30, 58, 0.5), 0 0 30px rgba(212, 168, 87, 0.2);
+  transform: scale(1.05);
+}
+
+/* Hand cards section */
+.player-hand-area .hand-cards-section {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: clamp(8px, 1vw, 16px);
+  padding-left: 6px;
+}
+
+/* In assignment mode, overlap hand cards */
+.player-hand-area.assignment-mode .hand-cards-section {
+  gap: 0;
+}
+
+.player-hand-area.assignment-mode .hand-cards-section .hand-card {
+  margin-left: calc(var(--card-width, clamp(50px, 10vw, 120px)) * -0.6);
+}
+
+.player-hand-area.assignment-mode .hand-cards-section .hand-card:first-child {
+  margin-left: 0;
+}
+
+.player-hand-area.assignment-mode .hand-cards-section .hand-card:hover {
+  z-index: 50;
+}
+
+.player-hand-area .hand-card {
+  position: relative;
+  transition: transform 0.2s ease, z-index 0s;
+  transform-origin: bottom center;
+  cursor: default;
+}
+
+.player-hand-area .hand-card img {
+  width: var(--card-width, clamp(50px, 10vw, 120px));
+  border-radius: 6px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.player-hand-area .hand-card.playable {
+  cursor: grab;
+}
+
+.player-hand-area .hand-card.playable:active {
+  cursor: grabbing;
+}
+
+.player-hand-area .hand-card.playable:hover {
+  transform: translateY(-15px) scale(1.08);
+  z-index: 100;
+}
+
+.player-hand-area .hand-card.playable::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 8px;
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 10px rgba(212, 168, 87, 0.5);
+  pointer-events: none;
+  animation: pulse-gold 1.5s ease-in-out infinite;
+}
+
+.player-hand-area .hand-card.invalid {
+  opacity: 0.4;
+  cursor: not-allowed;
+  filter: saturate(0.3) brightness(0.7);
+}
+
+.player-hand-area .hand-card.dragging {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* Swap buttons */
+.swap-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
+  margin-right: clamp(8px, 1.5vw, 16px);
+  align-self: flex-start;
+  margin-bottom: calc(var(--card-width, clamp(50px, 10vw, 120px)) * 0.5);
+}
+
+.player-hand-area .confirm-swap-btn {
+  padding: clamp(0.5rem, 1vh, 0.8rem) clamp(1rem, 2vw, 1.5rem);
+  background: linear-gradient(135deg, #8b0000 0%, #c41e3a 50%, #8b0000 100%);
+  color: #e8dcc4;
+  border: 2px solid #d4a857;
+  border-radius: 6px;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(0.9rem, 1.8vw, 1.2rem);
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: confirm-appear 0.3s ease-out;
+  flex-shrink: 0;
+}
+
+.player-hand-area .confirm-swap-btn:hover {
+  background: linear-gradient(135deg, #6b0000 0%, #a01830 50%, #6b0000 100%);
+  box-shadow: 0 0 20px rgba(196, 30, 58, 0.5), 0 0 30px rgba(212, 168, 87, 0.2);
+  transform: scale(1.05);
+}
+
+.player-hand-area .undo-swap-btn {
+  padding: clamp(0.4rem, 0.8vh, 0.6rem) clamp(0.8rem, 1.5vw, 1.2rem);
+  background: linear-gradient(135deg, #333 0%, #555 50%, #333 100%);
+  color: #e8dcc4;
+  border: 2px solid #888;
+  border-radius: 6px;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(0.75rem, 1.4vw, 1rem);
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.player-hand-area .undo-swap-btn:hover {
+  background: linear-gradient(135deg, #444 0%, #666 50%, #444 100%);
+  box-shadow: 0 0 15px rgba(136, 136, 136, 0.4);
+  transform: scale(1.05);
+}
+
+/* Swap mode styling */
+.player-hand-area.swap-mode {
+  background: linear-gradient(
+    to top,
+    rgba(212, 168, 87, 0.08) 0%,
+    transparent 60%
+  );
+}
+
+.player-hand-area.swap-mode .hand-card.swappable {
+  cursor: grab;
+  position: relative;
+}
+
+.player-hand-area.swap-mode .hand-card.swappable::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 8px;
+  border: 2px solid var(--gold);
+  opacity: 0.6;
+  pointer-events: none;
+  animation: swap-ready-pulse 1.5s ease-in-out infinite;
+}
+
+.player-hand-area.swap-mode .hand-card.swappable:hover {
+  transform: translateY(-18px) scale(1.1);
+  z-index: 100;
+}
+
+.player-hand-area.swap-mode .hand-card.swappable:hover::before {
+  opacity: 1;
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 20px rgba(212, 168, 87, 0.5);
+  animation: none;
+}
+
+.player-hand-area.swap-mode .hand-card.swappable:hover img {
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(212, 168, 87, 0.3);
+}
+
+.player-hand-area.swap-mode .hand-card.swappable:active {
+  cursor: grabbing;
+}
+
+.player-hand-area.swap-mode .hand-card.swap-dragging {
+  opacity: 0.3;
+  transform: scale(0.9);
+  cursor: grabbing;
+}
+
+.player-hand-area.swap-mode .hand-card.swap-dragging::before {
+  display: none;
+}
+
+@keyframes swap-ready-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(212, 168, 87, 0.2);
+    border-color: var(--gold);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(212, 168, 87, 0.4);
+    border-color: var(--gold-bright);
+  }
+}
+
+/* Legacy swap states */
+.plot-card.swappable,
+.hand-card.swappable {
+  cursor: grab;
+}
+
+.plot-card.swappable:hover,
+.hand-card.swappable:hover {
+  transform: translateY(-4px) scale(1.02);
+  z-index: 10;
+}
+
+.plot-card.swap-dragging,
+.hand-card.swap-dragging {
+  opacity: 0.4;
+  transform: scale(0.95);
+  cursor: grabbing;
+}
+
+.plot-card.swap-target,
+.hand-card.swap-target {
+  animation: swap-target-pulse 1s ease-in-out infinite;
+}
+
+.plot-card.swap-target::after,
+.hand-card.swap-target::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border: 2px dashed var(--gold);
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+.plot-card.swap-hover,
+.hand-card.swap-hover {
+  transform: scale(1.08);
+  z-index: 20;
+}
+
+.plot-card.swap-hover::after,
+.hand-card.swap-hover::after {
+  border: 3px solid var(--gold-bright);
+  background: rgba(76, 175, 80, 0.25);
+  animation: none;
+}
+
+.plot-card.swap-hover img,
+.hand-card.swap-hover img {
+  box-shadow: 0 0 25px rgba(76, 175, 80, 0.5), 0 0 50px rgba(212, 168, 87, 0.3);
+}
+
+@keyframes swap-target-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(212, 168, 87, 0);
+  }
+  50% {
+    box-shadow: 0 0 15px 3px rgba(212, 168, 87, 0.4);
+  }
+}

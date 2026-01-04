@@ -1,0 +1,150 @@
+/* Kolkhoz Base Styles - Touch support, resets, global utilities */
+
+/* Touch Support - prevent accidental zoom/scroll */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Game Board - Flexbox layout for proper scaling */
+.game-board {
+  display: flex;
+  flex-direction: row;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  background: var(--bg-primary);
+  background-image:
+    radial-gradient(ellipse at center, rgba(212, 168, 87, 0.02) 0%, transparent 70%);
+  overflow: hidden;
+}
+
+/* Main content area */
+.game-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* Pulse animation for turn indicator */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Pulse gold animation for playable cards */
+@keyframes pulse-gold {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(212, 168, 87, 0.4);
+    border-color: var(--gold);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(212, 168, 87, 0.7);
+    border-color: var(--gold-bright);
+  }
+}
+
+/* Tooltips */
+[title] {
+  cursor: help;
+}
+
+/* Touch device specific */
+@media (pointer: coarse) {
+  .lobby button {
+    min-height: 48px;
+    padding: 1rem 1.5rem;
+  }
+}
+
+/* Portrait mode warning */
+@media (orientation: portrait) and (max-width: 900px) {
+  .portrait-warning {
+    display: flex !important;
+  }
+
+  .game-board,
+  .lobby {
+    filter: blur(3px);
+    pointer-events: none;
+  }
+}
+
+.portrait-warning {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(10, 10, 10, 0.95);
+  z-index: 9999;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+}
+
+.portrait-warning svg {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 1.5rem;
+  fill: var(--gold);
+  animation: rotate-phone 2s ease-in-out infinite;
+}
+
+.portrait-warning h2 {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  color: var(--gold);
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.portrait-warning p {
+  color: var(--cream-dark);
+  font-size: 1rem;
+}
+
+@keyframes rotate-phone {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-15deg); }
+  75% { transform: rotate(90deg); }
+}
+
+/* Crop suit symbol colors */
+.suit-symbol.potato,
+.suit-symbol.beet {
+  color: #c41e3a;
+}
+
+.suit-symbol.wheat,
+.suit-symbol.sunflower {
+  color: #e8dcc4;
+}
+
+/* Crop suit icon colors */
+.suit-icon.potato,
+.suit-icon.beet {
+  color: #c41e3a;
+}
+
+.suit-icon.wheat,
+.suit-icon.sunflower {
+  color: #e8dcc4;
+}
+
+/* Hide player plot - shown in trick area via nav */
+.player-plot {
+  display: none;
+}

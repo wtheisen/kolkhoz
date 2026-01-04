@@ -1,0 +1,115 @@
+/* OptionsPanel - Menu and rules display */
+
+/* Mobile Panel Content - fills game-content area */
+.mobile-panel-content {
+  flex: 1;
+  background: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.mobile-panel-content > div {
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--bg-secondary);
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.mobile-panel-content h3 {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  color: var(--gold);
+  margin: 0 0 15px 0;
+  font-size: 1.3rem;
+}
+
+.mobile-panel-content h4 {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  color: var(--cream);
+  margin: 15px 0 8px 0;
+  font-size: 1rem;
+}
+
+.mobile-panel-content h5 {
+  color: var(--gold);
+  margin: 12px 0 6px 0;
+  font-size: 0.9rem;
+}
+
+.mobile-panel-content p {
+  color: var(--cream-dark);
+  margin: 4px 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* Options Panel */
+.options-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.options-panel .rules-section {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.options-panel .menu-btn-action {
+  margin-top: 20px;
+  padding: 12px 24px;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: 1rem;
+  background: var(--red);
+  color: var(--cream);
+  border: 2px solid var(--gold-dark);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.options-panel .menu-btn-action:hover {
+  background: var(--red-dark);
+  box-shadow: 0 0 15px rgba(196, 30, 58, 0.4);
+}
+
+/* Menu options container */
+.menu-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Rules text styling (in-game) */
+.rules-text {
+  text-align: left;
+}
+
+.rules-text h4 {
+  color: var(--gold);
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  margin-top: 15px;
+  margin-bottom: 8px;
+  font-size: 1rem;
+}
+
+.rules-text h4:first-child {
+  margin-top: 0;
+}
+
+.rules-text p {
+  color: var(--cream-dark);
+  margin-bottom: 6px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.rules-text strong {
+  color: var(--gold);
+}

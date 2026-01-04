@@ -1,0 +1,157 @@
+/* Animation Components CSS */
+
+/* Ghost card following cursor */
+.drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1000;
+  transform: translate(-50%, -50%) scale(1.1) rotate(3deg);
+  filter: drop-shadow(0 15px 25px rgba(0,0,0,0.5));
+}
+
+/* AI Card Play Animation - animation handled by Web Animations API in JS */
+.ai-play-card {
+  position: fixed;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  z-index: 999;
+  width: clamp(50px, 8vw, 100px);
+  will-change: transform;
+  transform-origin: top left;
+  transition: transform 0.6s ease-out;
+}
+
+.ai-play-card img {
+  width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5),
+              0 0 15px rgba(196, 30, 58, 0.4);
+}
+
+/* Pulse gold animation for playable cards */
+@keyframes pulse-gold {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(212, 168, 87, 0.6), 0 0 24px rgba(212, 168, 87, 0.3);
+    border-color: var(--gold);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(212, 168, 87, 0.8), 0 0 32px rgba(212, 168, 87, 0.5);
+    border-color: var(--gold-bright);
+  }
+}
+
+/* Flying card for HTML trick area - AI assignment animation */
+/* Flying card - animation handled by Web Animations API in JS */
+.flying-card-html {
+  position: fixed;
+  pointer-events: none;
+  z-index: 999;
+  width: clamp(50px, 8vw, 100px);
+  filter: drop-shadow(0 8px 25px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 15px rgba(212, 168, 87, 0.4));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flying-card-html img {
+  width: 100%;
+  border-radius: 6px;
+  animation: card-fade 0.65s ease-in-out forwards;
+}
+
+@keyframes card-fade {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.flying-card-html .flying-value {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(5rem, 12vw, 9rem);
+  font-weight: bold;
+  color: #ffd700;
+  text-shadow:
+    -2px -2px 0 #000,
+    2px -2px 0 #000,
+    -2px 2px 0 #000,
+    2px 2px 0 #000,
+    0 0 6px rgba(255, 215, 0, 0.5);
+  animation: value-pop 1.8s ease-out forwards;
+  z-index: 1000;
+}
+
+@keyframes value-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.4);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Flying exile card - requisition animation to gulag */
+.flying-exile-card {
+  position: fixed;
+  pointer-events: none;
+  z-index: 999;
+  width: clamp(50px, 8vw, 100px);
+  filter: drop-shadow(0 8px 25px rgba(196, 30, 58, 0.6)) drop-shadow(0 0 15px rgba(196, 30, 58, 0.4));
+}
+
+.flying-exile-card img {
+  width: 100%;
+  border-radius: 6px;
+}
+
+/* Point loss indicator - floats up when card is exiled */
+.exile-point-loss {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1001;
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: bold;
+  color: #ff3333;
+  text-shadow:
+    0 0 15px rgba(255, 50, 50, 1),
+    0 0 30px rgba(255, 50, 50, 0.8),
+    0 0 45px rgba(255, 50, 50, 0.5),
+    3px 3px 6px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+}
+
+/* Swap drag ghost */
+.swap-drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.swap-drag-ghost img {
+  filter: drop-shadow(0 8px 20px rgba(0,0,0,0.5));
+}
+
+/* Assignment drag ghost */
+.assign-drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.assign-drag-ghost img {
+  filter: drop-shadow(0 8px 20px rgba(0,0,0,0.5));
+}

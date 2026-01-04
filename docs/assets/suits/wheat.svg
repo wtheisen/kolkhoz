@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+  <!-- Wheat stalk - stylized grain head -->
+  <path d="M12 2 L12 22" stroke="currentColor" stroke-width="1.5" fill="none"/>
+  <!-- Grain kernels - left side -->
+  <ellipse cx="9" cy="5" rx="2.5" ry="1.2" transform="rotate(-30 9 5)"/>
+  <ellipse cx="8.5" cy="8" rx="2.5" ry="1.2" transform="rotate(-25 8.5 8)"/>
+  <ellipse cx="9" cy="11" rx="2.5" ry="1.2" transform="rotate(-20 9 11)"/>
+  <!-- Grain kernels - right side -->
+  <ellipse cx="15" cy="5" rx="2.5" ry="1.2" transform="rotate(30 15 5)"/>
+  <ellipse cx="15.5" cy="8" rx="2.5" ry="1.2" transform="rotate(25 15.5 8)"/>
+  <ellipse cx="15" cy="11" rx="2.5" ry="1.2" transform="rotate(20 15 11)"/>
+  <!-- Top kernel -->
+  <ellipse cx="12" cy="3" rx="1.8" ry="2.5"/>
+</svg>

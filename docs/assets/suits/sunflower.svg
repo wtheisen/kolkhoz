@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+  <!-- Center seed head -->
+  <circle cx="12" cy="10" r="4"/>
+  <!-- Petals around the center -->
+  <ellipse cx="12" cy="3" rx="2" ry="3"/>
+  <ellipse cx="17" cy="5" rx="2" ry="3" transform="rotate(45 17 5)"/>
+  <ellipse cx="19" cy="10" rx="3" ry="2"/>
+  <ellipse cx="17" cy="15" rx="2" ry="3" transform="rotate(-45 17 15)"/>
+  <ellipse cx="12" cy="17" rx="2" ry="3"/>
+  <ellipse cx="7" cy="15" rx="2" ry="3" transform="rotate(45 7 15)"/>
+  <ellipse cx="5" cy="10" rx="3" ry="2"/>
+  <ellipse cx="7" cy="5" rx="2" ry="3" transform="rotate(-45 7 5)"/>
+  <!-- Stem -->
+  <path d="M12 14 L12 23" stroke="currentColor" stroke-width="2" fill="none"/>
+</svg>

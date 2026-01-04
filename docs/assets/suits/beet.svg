@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+  <!-- Beet root body - tapered shape -->
+  <path d="M12 8
+           C7 8 5 12 6 16
+           C7 19 10 22 12 22
+           C14 22 17 19 18 16
+           C19 12 17 8 12 8 Z"/>
+  <!-- Leaves/greens at top -->
+  <path d="M10 8 C9 5 7 3 6 2 C8 3 10 4 11 7" fill="currentColor"/>
+  <path d="M12 7 C12 4 12 2 12 1 C12 2 12 4 12 7" fill="currentColor"/>
+  <path d="M14 8 C15 5 17 3 18 2 C16 3 14 4 13 7" fill="currentColor"/>
+  <!-- Root ridges -->
+  <path d="M8 12 Q12 13 16 12" stroke="currentColor" stroke-width="0.5" fill="none" opacity="0.4"/>
+  <path d="M9 15 Q12 16 15 15" stroke="currentColor" stroke-width="0.5" fill="none" opacity="0.4"/>
+</svg>

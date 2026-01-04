@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+  <!-- Potato body - organic oval shape -->
+  <path d="M12 3
+           C6 3 3 8 3 12
+           C3 17 6 21 12 21
+           C18 21 21 17 21 12
+           C21 8 18 3 12 3 Z"/>
+  <!-- Eyes/spots on potato -->
+  <circle cx="8" cy="9" r="1" fill="none" stroke="currentColor" stroke-width="0.8" opacity="0.6"/>
+  <circle cx="15" cy="11" r="0.8" fill="none" stroke="currentColor" stroke-width="0.8" opacity="0.6"/>
+  <circle cx="10" cy="15" r="0.9" fill="none" stroke="currentColor" stroke-width="0.8" opacity="0.6"/>
+</svg>

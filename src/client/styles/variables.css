@@ -1,0 +1,28 @@
+/* Color Variables */
+:root {
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #141414;
+  --bg-card: #1a1a1a;
+  --gold: #d4a857;
+  --gold-bright: #ffd700;
+  --gold-dark: #b8860b;
+  --red: #c41e3a;
+  --red-dark: #8b0000;
+  --red-bright: #dc143c;
+  --cream: #e8dcc4;
+  --cream-dark: #c4b89a;
+  --text-primary: #e8dcc4;
+  --text-secondary: #a09080;
+  --border-gold: #d4a857;
+  --border-dark: #333;
+
+  /* Additional colors */
+  --soviet-red: var(--red);
+  --green: #4CAF50;
+  --green-dark: #2d5a3a;
+  --border-brown: #3a3025;
+
+  /* Typography */
+  --font-display: 'Russo One', 'Oswald', sans-serif;
+  --font-body: 'Oswald', sans-serif;
+}

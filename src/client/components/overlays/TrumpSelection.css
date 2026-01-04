@@ -1,0 +1,363 @@
+/* TrumpSelection - Soviet Propaganda Style
+   Dramatic Five Year Plan announcement aesthetic */
+
+.trump-selection {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at center, rgba(139, 0, 0, 0.3) 0%, transparent 70%),
+    linear-gradient(180deg, #0d0d0d 0%, #1a1512 50%, #0d0d0d 100%);
+  z-index: 10;
+  overflow: hidden;
+  animation: trump-fade-in 0.4s ease-out;
+}
+
+@keyframes trump-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Rotating sunburst rays */
+.trump-sunburst {
+  position: absolute;
+  inset: -50%;
+  animation: sunburst-rotate 60s linear infinite;
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+@keyframes sunburst-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.sunburst-ray {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200%;
+  height: 4px;
+  background: linear-gradient(90deg, transparent 0%, #d4a857 50%, transparent 100%);
+  transform-origin: left center;
+  transform: rotate(calc(var(--ray-index) * 15deg));
+}
+
+/* Central decorative star */
+.trump-star-decoration {
+  position: absolute;
+  font-size: clamp(200px, 40vw, 400px);
+  color: rgba(139, 0, 0, 0.08);
+  pointer-events: none;
+  animation: star-pulse 3s ease-in-out infinite;
+}
+
+@keyframes star-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.08; }
+  50% { transform: scale(1.05); opacity: 0.12; }
+}
+
+/* Header section */
+.trump-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(0.3rem, 1vh, 0.6rem);
+  margin-bottom: clamp(1rem, 3vh, 2rem);
+  z-index: 1;
+  animation: header-slide-down 0.5s ease-out 0.1s both;
+}
+
+@keyframes header-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.trump-header-line {
+  width: clamp(150px, 40vw, 300px);
+  height: 3px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    #8b0000 20%,
+    #d4a857 50%,
+    #8b0000 80%,
+    transparent 100%
+  );
+}
+
+.selection-title {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  color: #d4a857;
+  font-size: clamp(1.4rem, 3.5vw, 2.5rem);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 20px rgba(212, 168, 87, 0.5),
+    0 4px 8px rgba(0, 0, 0, 0.8);
+  margin: 0;
+}
+
+.selection-subtitle {
+  font-family: 'Oswald', sans-serif;
+  color: #e8dcc4;
+  font-size: clamp(0.9rem, 1.8vw, 1.3rem);
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin: 0;
+  opacity: 0.9;
+}
+
+/* Task selection buttons container */
+.trump-buttons {
+  display: flex;
+  gap: clamp(0.8rem, 2vw, 1.5rem);
+  flex-wrap: wrap;
+  justify-content: center;
+  z-index: 1;
+  padding: 0 1rem;
+}
+
+/* Individual task buttons - propaganda poster cards */
+.trump-btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: clamp(90px, 18vw, 150px);
+  padding: clamp(0.8rem, 2vh, 1.2rem);
+  padding-top: clamp(1.2rem, 2.5vh, 1.8rem);
+  background:
+    linear-gradient(180deg,
+      rgba(45, 40, 35, 0.95) 0%,
+      rgba(30, 27, 24, 0.98) 100%
+    );
+  border: 3px solid #8b0000;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: btn-appear 0.4s ease-out both;
+  animation-delay: calc(0.15s + var(--btn-index) * 0.1s);
+  overflow: visible;
+}
+
+@keyframes btn-appear {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.trump-btn::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(212, 168, 87, 0.3);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+/* Corner decorations */
+.trump-btn-corner {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-color: #d4a857;
+  border-style: solid;
+  border-width: 0;
+}
+
+.trump-btn-corner.tl { top: -1px; left: -1px; border-top-width: 3px; border-left-width: 3px; }
+.trump-btn-corner.tr { top: -1px; right: -1px; border-top-width: 3px; border-right-width: 3px; }
+.trump-btn-corner.bl { bottom: -1px; left: -1px; border-bottom-width: 3px; border-left-width: 3px; }
+.trump-btn-corner.br { bottom: -1px; right: -1px; border-bottom-width: 3px; border-right-width: 3px; }
+
+/* Inner content wrapper */
+.trump-btn-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(0.2rem, 0.5vh, 0.4rem);
+}
+
+/* Top badge with star */
+.trump-btn-badge {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(180deg, #c41e3a 0%, #8b0000 100%);
+  border: 2px solid #d4a857;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.badge-star {
+  color: #d4a857;
+  font-size: 12px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Suit symbol */
+.trump-btn .suit-symbol {
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1;
+  transition: transform 0.3s ease, text-shadow 0.3s ease;
+}
+
+.trump-btn.potato .suit-symbol,
+.trump-btn.beet .suit-symbol,
+.trump-btn.potato .suit-icon,
+.trump-btn.beet .suit-icon {
+  color: #c41e3a;
+  text-shadow: 0 2px 10px rgba(196, 30, 58, 0.4);
+}
+
+.trump-btn.wheat .suit-symbol,
+.trump-btn.sunflower .suit-symbol,
+.trump-btn.wheat .suit-icon,
+.trump-btn.sunflower .suit-icon {
+  color: #e8dcc4;
+  text-shadow: 0 2px 10px rgba(232, 220, 196, 0.3);
+}
+
+/* Suit name */
+.trump-btn .suit-name {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(0.7rem, 1.4vw, 1rem);
+  color: #d4a857;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Quota indicator at bottom */
+.trump-btn-quota {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: clamp(0.3rem, 0.8vh, 0.5rem);
+  padding-top: clamp(0.3rem, 0.8vh, 0.5rem);
+  border-top: 1px solid rgba(212, 168, 87, 0.3);
+  width: 100%;
+}
+
+.quota-label {
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(0.5rem, 0.9vw, 0.7rem);
+  color: #888;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.quota-value {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(0.9rem, 1.6vw, 1.2rem);
+  color: #e8dcc4;
+}
+
+/* Hover state */
+.trump-btn:hover {
+  transform: translateY(-4px) scale(1.02);
+  border-color: #d4a857;
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.6),
+    0 0 30px rgba(212, 168, 87, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.trump-btn:hover .suit-symbol {
+  transform: scale(1.1);
+}
+
+.trump-btn.potato:hover .suit-symbol,
+.trump-btn.beet:hover .suit-symbol,
+.trump-btn.potato:hover .suit-icon,
+.trump-btn.beet:hover .suit-icon {
+  text-shadow: 0 0 20px rgba(196, 30, 58, 0.8);
+}
+
+.trump-btn.wheat:hover .suit-symbol,
+.trump-btn.sunflower:hover .suit-symbol,
+.trump-btn.wheat:hover .suit-icon,
+.trump-btn.sunflower:hover .suit-icon {
+  text-shadow: 0 0 20px rgba(232, 220, 196, 0.8);
+}
+
+.trump-btn:hover .trump-btn-badge {
+  animation: badge-glow 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes badge-glow {
+  from { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); }
+  to { box-shadow: 0 2px 15px rgba(212, 168, 87, 0.6); }
+}
+
+/* Active/click state */
+.trump-btn:active {
+  transform: translateY(-2px) scale(0.98);
+}
+
+/* Bottom slogan */
+.trump-slogan {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(0.6rem, 1.2vw, 0.9rem);
+  color: #c41e3a;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-top: clamp(1rem, 3vh, 2rem);
+  z-index: 1;
+  animation: slogan-fade 0.5s ease-out 0.6s both;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes slogan-fade {
+  from { opacity: 0; }
+  to { opacity: 0.7; }
+}
+
+/* Waiting for AI to pick trump */
+.trump-waiting {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 10;
+}
+
+.trump-waiting .waiting-text {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(1rem, 2vw, 1.4rem);
+  color: #d4a857;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  animation: waiting-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes waiting-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
