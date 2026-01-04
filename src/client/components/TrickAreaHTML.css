@@ -163,15 +163,15 @@
 
 .suit-symbol.hearts,
 .suit-symbol.diamonds {
-  color: #e63946;
+  color: var(--red);
   text-shadow:
-    0 0 5px rgba(230, 57, 70, 0.4),
+    0 0 5px rgba(196, 30, 58, 0.4),
     0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .suit-symbol.clubs,
 .suit-symbol.spades {
-  color: #e8dcc4;
+  color: var(--cream);
   text-shadow:
     0 0 4px rgba(232, 220, 196, 0.25),
     0 1px 2px rgba(0, 0, 0, 0.4);
@@ -295,7 +295,7 @@
 /* Claimed job - success lamp */
 .job-indicator.claimed {
   background: rgba(76, 175, 80, 0.2);
-  border-color: #4CAF50;
+  border-color: var(--green);
   box-shadow:
     inset 0 1px 3px rgba(0, 0, 0, 0.4),
     0 0 8px rgba(76, 175, 80, 0.3),
@@ -307,7 +307,7 @@
 }
 
 .job-indicator.claimed .progress {
-  color: #5cb85c;
+  color: var(--green);
   text-shadow: 0 0 5px rgba(92, 184, 92, 0.5);
 }
 
@@ -807,7 +807,7 @@
 }
 
 .job-row.claimed {
-  border-color: #4CAF50;
+  border-color: var(--green);
 }
 
 .year-row.current {
@@ -890,7 +890,7 @@
 /* Plot View */
 .plot-row.revealed {
   background: rgba(76, 175, 80, 0.1);
-  border-color: #4CAF50;
+  border-color: var(--green);
 }
 
 .plot-row.hidden {
@@ -910,7 +910,7 @@
 }
 
 .plot-row.revealed .row-label .title {
-  color: #4CAF50;
+  color: var(--green);
 }
 
 .plot-row.hidden .row-label .title {
@@ -1072,7 +1072,7 @@
 
 .assign-job-tile.claimed {
   opacity: 0.4;
-  border-color: #4CAF50;
+  border-color: var(--green);
 }
 
 .assign-job-tile.invalid-target {
@@ -1098,7 +1098,7 @@
 }
 
 .assign-job-tile.drop-hover {
-  border-color: #4CAF50;
+  border-color: var(--green);
   border-style: solid;
   background: rgba(76, 175, 80, 0.15);
   box-shadow: 0 0 25px rgba(76, 175, 80, 0.4);
@@ -1197,16 +1197,26 @@
   font-family: 'Oswald', sans-serif;
   font-size: clamp(1.1rem, 2vw, 1.4rem);
   font-weight: bold;
-  color: #d4a857;
-  text-shadow: 0 0 8px rgba(212, 168, 87, 0.6);
+  color: #ffd700;
+  text-shadow:
+    -1px -1px 0 #000,
+    1px -1px 0 #000,
+    -1px 1px 0 #000,
+    1px 1px 0 #000,
+    0 0 4px rgba(255, 215, 0, 0.4);
   white-space: nowrap;
   animation: point-popup-float 1.2s ease-out forwards;
   pointer-events: none;
 }
 
 .tile-header-left .point-popup.remove {
-  color: #c41e3a;
-  text-shadow: 0 0 8px rgba(196, 30, 58, 0.6);
+  color: #ff5555;
+  text-shadow:
+    -1px -1px 0 #000,
+    1px -1px 0 #000,
+    -1px 1px 0 #000,
+    1px 1px 0 #000,
+    0 0 4px rgba(255, 85, 85, 0.4);
 }
 
 .tile-header-right {
@@ -1231,7 +1241,7 @@
 
 .tile-header-right .reward-card.claimed {
   opacity: 1;
-  border: 2px solid #4CAF50;
+  border: 2px solid var(--green);
   box-shadow: 0 0 8px rgba(76, 175, 80, 0.4);
 }
 
@@ -1371,7 +1381,7 @@
 }
 
 .assign-card.assigned img {
-  border-color: #4CAF50;
+  border-color: var(--green);
 }
 
 /* Badge showing where card is assigned */
@@ -1485,7 +1495,7 @@
 }
 
 .swap-row.revealed {
-  border-color: #2d5a3a;
+  border-color: var(--green-dark);
   background:
     linear-gradient(135deg, rgba(45, 90, 58, 0.15) 0%, transparent 50%),
     rgba(15, 18, 15, 0.9);
@@ -1524,7 +1534,7 @@
 }
 
 .swap-row.revealed .row-title {
-  color: #5cb85c;
+  color: var(--green);
   text-shadow: 0 0 12px rgba(92, 184, 92, 0.3);
 }
 
@@ -1644,7 +1654,7 @@
   content: '';
   position: absolute;
   inset: -5px;
-  border: 3px solid #5cb85c;
+  border: 3px solid var(--green);
   border-radius: 8px;
   background: rgba(92, 184, 92, 0.15);
   pointer-events: none;
@@ -1853,7 +1863,7 @@
 
 /* Confirmed state - this bot finished swapping */
 .swap-bot-section.confirmed {
-  border-color: #2d5a3a;
+  border-color: var(--green-dark);
   background:
     linear-gradient(135deg, rgba(76, 175, 80, 0.08) 0%, transparent 50%),
     rgba(18, 20, 18, 0.85);
@@ -1896,7 +1906,7 @@
 }
 
 .swap-bot-section.confirmed .swap-bot-portrait {
-  border-color: #4CAF50;
+  border-color: var(--green);
 }
 
 .swap-bot-name {
@@ -1916,11 +1926,11 @@
 }
 
 .swap-bot-section.confirmed .swap-bot-name {
-  color: #5cb85c;
+  color: var(--green);
 }
 
 .confirmed-check {
-  color: #4CAF50;
+  color: var(--green);
   margin-left: 0.3em;
   font-size: 0.9em;
   text-shadow: 0 0 6px rgba(76, 175, 80, 0.5);
@@ -2257,7 +2267,7 @@
 }
 
 .swap-player-box.revealed {
-  border-color: #2d5a3a;
+  border-color: var(--green-dark);
   background:
     linear-gradient(135deg, rgba(45, 90, 58, 0.1) 0%, transparent 40%),
     rgba(14, 18, 14, 0.92);
@@ -2288,7 +2298,7 @@
 }
 
 .swap-player-box.revealed .box-title {
-  color: #5cb85c;
+  color: var(--green);
   text-shadow: 0 0 10px rgba(92, 184, 92, 0.3);
 }
 
@@ -2376,7 +2386,7 @@
 .swap-status-bar .confirmed-badge {
   font-family: 'Oswald', sans-serif;
   font-size: clamp(0.7rem, 1.2vw, 0.9rem);
-  color: #4CAF50;
+  color: var(--green);
   padding: clamp(0.1rem, 0.2vh, 0.15rem) clamp(0.4rem, 0.8vw, 0.6rem);
   background: rgba(76, 175, 80, 0.15);
   border: 1px solid rgba(76, 175, 80, 0.4);

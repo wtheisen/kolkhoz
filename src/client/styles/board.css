@@ -30,6 +30,16 @@ html, body {
   --text-secondary: #a09080;
   --border-gold: #d4a857;
   --border-dark: #333;
+
+  /* Additional colors */
+  --soviet-red: var(--red);
+  --green: #4CAF50;
+  --green-dark: #2d5a3a;
+  --border-brown: #3a3025;
+
+  /* Typography */
+  --font-display: 'Russo One', 'Oswald', sans-serif;
+  --font-body: 'Oswald', sans-serif;
 }
 
 /* Lobby - horizontal 2-column layout */
@@ -412,7 +422,7 @@ html, body {
 }
 
 .player-hand-area .hand-card.assign-draggable.assigned::before {
-  border-color: #4CAF50;
+  border-color: var(--green);
   box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
   animation: none;
 }
@@ -902,9 +912,11 @@ html, body {
   font-weight: bold;
   color: #ffd700;
   text-shadow:
-    0 0 20px rgba(255, 215, 0, 1),
-    0 0 40px rgba(255, 215, 0, 0.8),
-    2px 2px 4px rgba(0, 0, 0, 0.9);
+    -2px -2px 0 #000,
+    2px -2px 0 #000,
+    -2px 2px 0 #000,
+    2px 2px 0 #000,
+    0 0 6px rgba(255, 215, 0, 0.5);
   animation: value-pop 1.8s ease-out forwards;
   z-index: 1000;
 }
@@ -1000,7 +1012,7 @@ html, body {
 
 .requisition-summary .no-exile {
   font-size: 1.1rem;
-  color: #4caf50;
+  color: var(--green);
   margin: 0.5rem 0;
 }
 
@@ -1724,7 +1736,7 @@ html, body {
 }
 
 .progress-bar-fill.complete {
-  background: #4CAF50;
+  background: var(--green);
 }
 
 .progress-text {
@@ -1802,7 +1814,7 @@ html, body {
 }
 
 .year-number {
-  font-family: monospace;
+  font-family: var(--font-body);
   font-size: 14px;
   color: var(--cream);
 }
