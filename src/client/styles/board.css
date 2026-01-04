@@ -102,7 +102,7 @@ html, body {
 /* Right column wrapper */
 .lobby-right-panel {
   flex: 2;
-  max-width: 500px;
+  max-width: 600px;
   display: flex;
   align-items: stretch;
 }
@@ -194,55 +194,74 @@ html, body {
 }
 
 /* Preset Selection Cards - Soviet Medal/Badge Style */
+/* Preset Cards Container - horizontal strip like medal rack */
 .preset-cards {
   display: flex;
-  gap: clamp(0.75rem, 1.5vw, 1.25rem);
-  margin-bottom: clamp(1rem, 2vh, 1.5rem);
-  flex-wrap: wrap;
-  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  justify-content: stretch;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(196, 30, 58, 0.08) 20%,
+    rgba(196, 30, 58, 0.12) 50%,
+    rgba(196, 30, 58, 0.08) 80%,
+    transparent 100%
+  );
+  padding: 0.75rem 0.5rem;
+  border-radius: 4px;
+  position: relative;
 }
 
+/* Decorative top/bottom lines */
+.preset-cards::before,
+.preset-cards::after {
+  content: '';
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-dark), transparent);
+}
+
+.preset-cards::before { top: 0; }
+.preset-cards::after { bottom: 0; }
+
+/* Individual preset card */
 .preset-card {
   flex: 1;
-  min-width: 120px;
-  max-width: 160px;
+  min-width: 0; /* Allow shrinking */
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s ease;
   position: relative;
-  transform-origin: center bottom;
 }
 
 .preset-card:hover {
-  transform: translateY(-4px) scale(1.02);
+  transform: translateY(-2px);
 }
 
-.preset-card:active {
-  transform: translateY(-2px) scale(1.01);
-}
-
-/* Badge - the main circular/octagonal medal shape */
+/* The badge container */
 .preset-badge {
   position: relative;
-  background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 50%, #1a1a1a 100%);
-  border: 3px solid var(--border-dark);
-  border-radius: 8px;
-  padding: clamp(1rem, 2vh, 1.5rem) clamp(0.5rem, 1vw, 0.75rem);
+  background: var(--bg-primary);
+  border: 2px solid var(--border-dark);
+  border-radius: 4px;
+  padding: 0.6rem 0.4rem;
   text-align: center;
+  transition: all 0.25s ease;
   overflow: hidden;
-  transition: all 0.3s ease;
 }
 
-/* Diagonal stripe accent */
+/* Subtle corner accents */
 .preset-badge::before {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, transparent 0%, var(--red) 20%, var(--red) 80%, transparent 100%);
-  opacity: 0.6;
-  transition: opacity 0.3s ease;
+  height: 2px;
+  background: var(--red);
+  opacity: 0;
+  transition: opacity 0.25s ease;
 }
 
 .preset-card:hover .preset-badge::before,
@@ -250,72 +269,54 @@ html, body {
   opacity: 1;
 }
 
-/* Corner decorations */
-.preset-badge::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60%;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--gold-dark), transparent);
-  opacity: 0.3;
+.preset-card:hover .preset-badge {
+  border-color: var(--gold-dark);
+  background: rgba(212, 168, 87, 0.03);
 }
 
-.preset-card:hover .preset-badge,
 .preset-card.selected .preset-badge {
   border-color: var(--gold);
+  background: linear-gradient(180deg,
+    rgba(212, 168, 87, 0.08) 0%,
+    rgba(212, 168, 87, 0.03) 100%
+  );
   box-shadow:
-    0 0 20px rgba(212, 168, 87, 0.2),
-    inset 0 0 30px rgba(212, 168, 87, 0.05);
-}
-
-.preset-card.selected .preset-badge {
-  background: linear-gradient(135deg, #1f1a14 0%, #0d0d0d 50%, #1f1a14 100%);
-  border-color: var(--gold-bright);
-  box-shadow:
-    0 0 25px rgba(212, 168, 87, 0.3),
-    0 4px 15px rgba(0, 0, 0, 0.4),
-    inset 0 0 40px rgba(212, 168, 87, 0.08);
+    0 0 15px rgba(212, 168, 87, 0.15),
+    inset 0 0 20px rgba(212, 168, 87, 0.03);
 }
 
 /* Star icon */
 .preset-star {
-  font-size: clamp(1.2rem, 2.5vw, 1.6rem);
+  font-size: 1rem;
   color: var(--red);
-  text-shadow: 0 0 10px rgba(196, 30, 58, 0.3);
-  margin-bottom: 0.25rem;
-  transition: all 0.3s ease;
-  opacity: 0.7;
+  margin-bottom: 0.15rem;
+  transition: all 0.25s ease;
+  opacity: 0.5;
+  line-height: 1;
 }
 
 .preset-card:hover .preset-star {
-  opacity: 1;
-  transform: scale(1.1);
-  text-shadow: 0 0 15px rgba(196, 30, 58, 0.5);
+  opacity: 0.8;
+  color: var(--red-bright);
 }
 
 .preset-card.selected .preset-star {
   color: var(--gold);
   opacity: 1;
-  text-shadow: 0 0 20px rgba(212, 168, 87, 0.6);
-  animation: star-pulse 2s ease-in-out infinite;
-}
-
-@keyframes star-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.15); }
+  text-shadow: 0 0 8px rgba(212, 168, 87, 0.5);
 }
 
 /* Preset name */
 .preset-name {
   font-family: var(--font-display);
-  color: var(--cream);
-  font-size: clamp(0.9rem, 1.5vw, 1.1rem);
-  letter-spacing: 0.05em;
+  color: var(--cream-dark);
+  font-size: clamp(0.65rem, 1.2vw, 0.8rem);
+  letter-spacing: 0.03em;
   text-transform: uppercase;
-  transition: color 0.3s ease;
+  transition: color 0.25s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .preset-card:hover .preset-name {
@@ -324,99 +325,237 @@ html, body {
 
 .preset-card.selected .preset-name {
   color: var(--gold);
-  text-shadow: 0 0 10px rgba(212, 168, 87, 0.3);
 }
 
-/* Ribbon - the banner below */
+/* Ribbon below badge */
 .preset-ribbon {
-  position: relative;
-  background: linear-gradient(180deg, var(--red-dark) 0%, var(--red) 50%, var(--red-dark) 100%);
-  margin: 0 -4px;
-  margin-top: -2px;
-  padding: clamp(0.3rem, 0.6vh, 0.5rem) clamp(0.5rem, 1vw, 0.75rem);
+  background: var(--red-dark);
+  margin: 0 -2px;
+  margin-top: 0;
+  padding: 0.2rem 0.25rem;
   text-align: center;
   clip-path: polygon(
     0% 0%,
     100% 0%,
-    100% calc(100% - 6px),
+    100% calc(100% - 4px),
     50% 100%,
-    0% calc(100% - 6px)
+    0% calc(100% - 4px)
   );
-  transition: all 0.3s ease;
-}
-
-/* Ribbon fold shadows */
-.preset-ribbon::before,
-.preset-ribbon::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  width: 8px;
-  height: 8px;
-  background: var(--red-dark);
-}
-
-.preset-ribbon::before {
-  left: 0;
-  clip-path: polygon(0 0, 100% 100%, 0 100%);
-}
-
-.preset-ribbon::after {
-  right: 0;
-  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+  transition: all 0.25s ease;
 }
 
 .preset-card:hover .preset-ribbon,
 .preset-card.selected .preset-ribbon {
-  background: linear-gradient(180deg, var(--red) 0%, var(--red-bright) 50%, var(--red) 100%);
-  box-shadow: 0 4px 12px rgba(196, 30, 58, 0.3);
+  background: var(--red);
 }
 
 .preset-description {
   color: var(--cream);
-  font-size: clamp(0.6rem, 1vw, 0.7rem);
+  font-size: clamp(0.5rem, 0.9vw, 0.6rem);
   font-family: var(--font-body);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  opacity: 0.9;
+  letter-spacing: 0.05em;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Custom Options Container */
-.custom-options {
-  border-top: 1px solid var(--border-dark);
-  padding-top: clamp(0.75rem, 1.5vh, 1rem);
-  margin-top: clamp(0.5rem, 1vh, 0.75rem);
+/* Variant Details Container */
+.variant-details {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-dark);
+  border-radius: 4px;
+  padding: 0.75rem;
+  position: relative;
 }
 
-.custom-options h3 {
-  margin-bottom: clamp(0.4rem, 1vh, 0.75rem);
-  margin-top: 0.5rem;
-  color: var(--cream);
-  font-family: 'Russo One', 'Oswald', sans-serif;
-  letter-spacing: 0.1em;
-  font-size: clamp(0.85rem, 1.5vw, 1rem);
+/* Decorative corner brackets */
+.variant-details::before,
+.variant-details::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-color: var(--gold-dark);
+  border-style: solid;
+  opacity: 0.4;
 }
 
-.custom-options h3:first-child {
-  margin-top: 0;
+.variant-details::before {
+  top: 4px;
+  left: 4px;
+  border-width: 1px 0 0 1px;
 }
 
-.custom-options label {
-  display: block;
-  margin: clamp(0.2rem, 0.4vh, 0.4rem) 0;
+.variant-details::after {
+  bottom: 4px;
+  right: 4px;
+  border-width: 0 1px 1px 0;
+}
+
+/* Variant row - deck type display */
+.variant-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(212, 168, 87, 0.15);
+}
+
+.variant-label {
+  color: var(--cream-dark);
+  font-size: 0.75rem;
+  font-family: var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.variant-value {
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+}
+
+/* Radio options for custom deck type */
+.radio-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   cursor: pointer;
   color: var(--cream-dark);
-  font-weight: 400;
-  font-size: clamp(0.75rem, 1.2vw, 0.9rem);
+  font-size: 0.75rem;
+  font-family: var(--font-body);
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  transition: all 0.2s ease;
 }
 
-.custom-options label:hover {
+.radio-option:hover {
+  color: var(--cream);
+  background: rgba(212, 168, 87, 0.05);
+}
+
+.radio-option:has(input:checked) {
+  color: var(--gold);
+  background: rgba(212, 168, 87, 0.1);
+}
+
+.radio-option input {
+  accent-color: var(--red);
+  margin: 0;
+}
+
+/* Variant List - items with descriptions */
+.variant-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+/* Scrollbar styling */
+.variant-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.variant-list::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+  border-radius: 2px;
+}
+
+.variant-list::-webkit-scrollbar-thumb {
+  background: var(--gold-dark);
+  border-radius: 2px;
+}
+
+.variant-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.variant-item:hover {
+  background: rgba(212, 168, 87, 0.04);
+  border-color: var(--border-dark);
+}
+
+.variant-item:has(input:checked),
+.variant-item.enabled {
+  background: rgba(212, 168, 87, 0.06);
+  border-color: rgba(212, 168, 87, 0.2);
+}
+
+.variant-item input {
+  accent-color: var(--red);
+  margin: 0;
+  margin-top: 2px;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.variant-check {
+  color: var(--green);
+  font-size: 0.85rem;
+  font-weight: bold;
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+  margin-top: 1px;
+}
+
+.variant-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.variant-item-name {
+  color: var(--cream-dark);
+  font-size: 0.75rem;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  transition: color 0.15s ease;
+}
+
+.variant-item:hover .variant-item-name,
+.variant-item:has(input:checked) .variant-item-name,
+.variant-item.enabled .variant-item-name {
   color: var(--gold);
 }
 
-.custom-options input {
-  margin-right: 0.4rem;
-  accent-color: var(--red);
+.variant-item-desc {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-family: var(--font-body);
+  line-height: 1.4;
+  opacity: 0.85;
+}
+
+/* Custom Options */
+.custom-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* Preset Summary */
+.preset-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .lobby-buttons {

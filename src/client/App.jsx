@@ -12,7 +12,6 @@ const PRESETS = {
   kolkhoz: {
     name: 'Колхоз',
     nameEn: 'Kolkhoz',
-    description: '52 cards, classic rules',
     variants: {
       deckType: 52,
       nomenclature: true,
@@ -28,7 +27,6 @@ const PRESETS = {
   littleKolkhoz: {
     name: 'Колхозик',
     nameEn: 'Little Kolkhoz',
-    description: '36 cards, stacking rewards',
     variants: {
       deckType: 36,
       nomenclature: true,
@@ -44,7 +42,6 @@ const PRESETS = {
   campStyle: {
     name: 'Лагерный',
     nameEn: 'Camp Style',
-    description: '36 cards, no rewards, mice',
     variants: {
       deckType: 36,
       nomenclature: true,
@@ -60,8 +57,59 @@ const PRESETS = {
   custom: {
     name: 'Свой',
     nameEn: 'Custom',
-    description: 'Mix and match',
     variants: null, // Uses current variants state
+  },
+};
+
+// Variant explanations (Russian primary, English as tooltip)
+const VARIANT_INFO = {
+  nomenclature: {
+    name: 'Номенклатура',
+    nameEn: 'Nomenclature',
+    desc: 'Козырные фигуры имеют особые силы: Валет ссылается, Дама раскрывает всех, Король удваивает ссылку',
+    descEn: 'Trump face cards have special powers: Jack gets exiled, Queen exposes everyone, King doubles exile',
+  },
+  allowSwap: {
+    name: 'Обмен',
+    nameEn: 'Swap',
+    desc: 'Обмен картами между рукой и участком в начале каждого года',
+    descEn: 'Swap cards between your hand and plot at the start of each year',
+  },
+  northernStyle: {
+    name: 'Северный стиль',
+    nameEn: 'Northern Style',
+    desc: 'Нет наград за выполнение работ — все остаются уязвимы для реквизиции',
+    descEn: 'No rewards for completing jobs - everyone stays vulnerable to requisition',
+  },
+  miceVariant: {
+    name: 'Мыши',
+    nameEn: 'Mice',
+    desc: 'Все игроки раскрывают весь участок при реквизиции, а не только подходящие карты',
+    descEn: 'All players reveal their entire plot during requisition, not just matching cards',
+  },
+  ordenNachalniku: {
+    name: 'Орден Начальнику',
+    nameEn: 'Order to the Boss',
+    desc: 'Карты, назначенные на выполненные работы, накапливаются как бонусные награды',
+    descEn: 'Cards assigned to completed jobs stack as bonus rewards',
+  },
+  medalsCount: {
+    name: 'Медали',
+    nameEn: 'Medals',
+    desc: 'Победы во взятках учитываются в итоговом счёте',
+    descEn: 'Trick victories count toward your final score',
+  },
+  heroOfSovietUnion: {
+    name: 'Герой',
+    nameEn: 'Hero of Soviet Union',
+    desc: 'Выиграй все 4 взятки за год — получи иммунитет от реквизиции',
+    descEn: 'Win all 4 tricks in a year to become immune from requisition',
+  },
+  accumulateJobs: {
+    name: 'Накопление',
+    nameEn: 'Accumulation',
+    desc: 'Невостребованные награды за работы переносятся на следующий год',
+    descEn: 'Unclaimed job rewards carry over to the next year',
   },
 };
 
@@ -169,115 +217,81 @@ export function App() {
                       <div className="preset-star">★</div>
                       <div className="preset-name" title={preset.nameEn}>{preset.name}</div>
                     </div>
-                    <div className="preset-ribbon">
-                      <span className="preset-description">{preset.description}</span>
-                    </div>
                   </div>
                 ))}
               </div>
 
-              {/* Custom Options - only show when Custom is selected */}
-              {selectedPreset === 'custom' && (
-                <div className="custom-options">
-                  <h3>Deck Type</h3>
+              {/* Variant Details - show for all presets */}
+              <div className="variant-details">
+                {selectedPreset === 'custom' ? (
+                  /* Editable options for Custom */
+                  <div className="custom-options">
+                    <div className="variant-row">
+                      <span className="variant-label" title="Deck">Колода:</span>
+                      <label className="radio-option" title="52 cards">
+                        <input
+                          type="radio"
+                          name="deckType"
+                          checked={customVariants.deckType === 52}
+                          onChange={() => setCustomVariants({ ...customVariants, deckType: 52 })}
+                        />
+                        52 карты
+                      </label>
+                      <label className="radio-option" title="36 cards">
+                        <input
+                          type="radio"
+                          name="deckType"
+                          checked={customVariants.deckType === 36}
+                          onChange={() => setCustomVariants({ ...customVariants, deckType: 36 })}
+                        />
+                        36 карт
+                      </label>
+                    </div>
 
-                  <label>
-                    <input
-                      type="radio"
-                      name="deckType"
-                      checked={customVariants.deckType === 52}
-                      onChange={() => setCustomVariants({ ...customVariants, deckType: 52 })}
-                    />
-                    52-card deck (Classic)
-                  </label>
-
-                  <label>
-                    <input
-                      type="radio"
-                      name="deckType"
-                      checked={customVariants.deckType === 36}
-                      onChange={() => setCustomVariants({ ...customVariants, deckType: 36 })}
-                    />
-                    36-card deck (Camp-style)
-                  </label>
-
-                  <h3>Variant Rules</h3>
-
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={customVariants.nomenclature}
-                      onChange={(e) => setCustomVariants({ ...customVariants, nomenclature: e.target.checked })}
-                    />
-                    <strong title="Nomenklatura - The Party Elite">Номенклатура</strong> - Face card special effects
-                  </label>
-
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={customVariants.allowSwap}
-                      onChange={(e) => setCustomVariants({ ...customVariants, allowSwap: e.target.checked })}
-                    />
-                    <strong title="Obmen - Exchange">Обмен</strong> - Swap hand/plot cards at year start
-                  </label>
-
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={customVariants.northernStyle}
-                      onChange={(e) => setCustomVariants({ ...customVariants, northernStyle: e.target.checked })}
-                    />
-                    <strong title="Severny Stil - Northern Style">Северный стиль</strong> - No job rewards, all vulnerable
-                  </label>
-
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={customVariants.miceVariant}
-                      onChange={(e) => setCustomVariants({ ...customVariants, miceVariant: e.target.checked })}
-                    />
-                    <strong title="Myshi - Mice">Мыши</strong> - All reveal during requisition
-                  </label>
-
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={customVariants.ordenNachalniku}
-                      onChange={(e) => setCustomVariants({ ...customVariants, ordenNachalniku: e.target.checked })}
-                    />
-                    <strong title="Orden Nachalniku - Medal for the Boss">Орден Начальнику</strong> - Stack cards on job complete
-                  </label>
-
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={customVariants.medalsCount}
-                      onChange={(e) => setCustomVariants({ ...customVariants, medalsCount: e.target.checked })}
-                    />
-                    <strong title="Medali - Medals">Медали</strong> - Trick wins add to score
-                  </label>
-
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={customVariants.heroOfSovietUnion}
-                      onChange={(e) => setCustomVariants({ ...customVariants, heroOfSovietUnion: e.target.checked })}
-                    />
-                    <strong title="Geroy Sovetskogo Soyuza - Hero of the Soviet Union">Герой Советского Союза</strong> - Win all 4 tricks = immune
-                  </label>
-
-                  {customVariants.deckType === 52 && (
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={customVariants.accumulateJobs}
-                        onChange={(e) => setCustomVariants({ ...customVariants, accumulateJobs: e.target.checked })}
-                      />
-                      <strong title="Nakoplenie - Accumulation">Накопление</strong> - Job rewards carry over
-                    </label>
-                  )}
-                </div>
-              )}
+                    <div className="variant-list">
+                      {Object.entries(VARIANT_INFO).map(([key, info]) => {
+                        // Hide accumulateJobs for 36-card deck
+                        if (key === 'accumulateJobs' && customVariants.deckType === 36) return null;
+                        return (
+                          <label key={key} className="variant-item" title={info.descEn}>
+                            <input
+                              type="checkbox"
+                              checked={customVariants[key]}
+                              onChange={(e) => setCustomVariants({ ...customVariants, [key]: e.target.checked })}
+                            />
+                            <div className="variant-item-content">
+                              <span className="variant-item-name" title={info.nameEn}>{info.name}</span>
+                              <span className="variant-item-desc">{info.desc}</span>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  /* Read-only display for presets */
+                  <div className="preset-summary">
+                    <div className="variant-row">
+                      <span className="variant-label">Колода:</span>
+                      <span className="variant-value" title={`${variants.deckType} cards`}>{variants.deckType} карт</span>
+                    </div>
+                    <div className="variant-list">
+                      {Object.entries(VARIANT_INFO).map(([key, info]) => {
+                        if (!variants[key]) return null;
+                        return (
+                          <div key={key} className="variant-item enabled" title={info.descEn}>
+                            <span className="variant-check">✓</span>
+                            <div className="variant-item-content">
+                              <span className="variant-item-name" title={info.nameEn}>{info.name}</span>
+                              <span className="variant-item-desc">{info.desc}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
