@@ -231,6 +231,84 @@
   padding-right: clamp(6px, 1vw, 10px) !important;
 }
 
+/* ============================================
+   REQUISITION MODE INFO BAR
+   Red alert panel replacing year/trump/lead
+   ============================================ */
+
+.info-bar.requisition-mode {
+  background:
+    linear-gradient(180deg,
+      rgba(80, 20, 20, 0.9) 0%,
+      rgba(50, 15, 15, 0.95) 40%,
+      rgba(35, 10, 10, 0.95) 100%);
+  border-color: #8b0000;
+  box-shadow:
+    inset 0 1px 0 rgba(196, 30, 58, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 0 15px rgba(139, 0, 0, 0.4),
+    0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* Requisition status section */
+.info-requisition {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.5rem, 1vw, 0.8rem);
+  padding: clamp(6px, 1vh, 10px) clamp(12px, 2vw, 20px) !important;
+  flex: 0 0 auto;
+  background: rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 1;
+}
+
+.info-requisition .suit-symbol {
+  font-size: clamp(1.3rem, 2.2vw, 1.6rem);
+  padding: clamp(4px, 0.6vh, 6px) clamp(8px, 1.2vw, 12px);
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.8) 100%);
+  border-radius: 4px;
+  border: 2px solid #8b0000;
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.5),
+    0 0 12px currentColor;
+  animation: requisition-suit-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes requisition-suit-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 12px currentColor;
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 20px currentColor;
+  }
+}
+
+.info-requisition .requisition-text {
+  font-family: 'Russo One', 'Oswald', sans-serif;
+  font-size: clamp(0.85rem, 1.5vw, 1.1rem);
+  color: #ff6b6b;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-shadow:
+    0 0 10px rgba(255, 107, 107, 0.5),
+    0 2px 4px rgba(0, 0, 0, 0.6);
+  animation: requisition-text-glow 2s ease-in-out infinite;
+  white-space: nowrap;
+}
+
+@keyframes requisition-text-glow {
+  0%, 100% {
+    opacity: 1;
+    text-shadow: 0 0 10px rgba(255, 107, 107, 0.5), 0 2px 4px rgba(0, 0, 0, 0.6);
+  }
+  50% {
+    opacity: 0.85;
+    text-shadow: 0 0 20px rgba(255, 107, 107, 0.8), 0 2px 4px rgba(0, 0, 0, 0.6);
+  }
+}
+
 /* Jobs panel - gauge cluster */
 .info-jobs {
   display: flex;

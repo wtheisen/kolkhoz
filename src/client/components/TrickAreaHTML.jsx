@@ -3,6 +3,25 @@ import { getCardImagePath } from '../../game/Card.js';
 import { translations, t, getJobName } from '../translations.js';
 import './TrickAreaHTML.css';
 
+// Helper to get requisition status message
+function getRequisitionStatusMessage(language, currentRequisitionSuit, currentJobStage, requisitionStage) {
+  if (requisitionStage === 'waiting' || !currentRequisitionSuit) {
+    return null;
+  }
+
+  const jobName = getJobName(language, currentRequisitionSuit);
+
+  if (currentJobStage === 'header') {
+    return t(translations, language, 'checkingJob', { job: jobName });
+  } else if (currentJobStage === 'revealing') {
+    return t(translations, language, 'requisitionStatus', { job: jobName });
+  } else if (currentJobStage === 'exiling') {
+    return t(translations, language, 'requisitionStatus', { job: jobName });
+  }
+
+  return t(translations, language, 'requisition');
+}
+
 const SUITS = ['Hearts', 'Diamonds', 'Clubs', 'Spades'];
 const SUIT_SYMBOLS = { Hearts: '♥', Diamonds: '♦', Clubs: '♣', Spades: '♠' };
 const FACE_CARD_SYMBOLS = { 11: 'J', 12: 'Q', 13: 'K' };
@@ -171,30 +190,50 @@ export function TrickAreaHTML({
   return (
     <div className="trick-area-html">
       {/* Info Bar */}
-      <div className="info-bar">
-        <div className="info-year">
-          <span className="label">{t(translations, language, 'year')}</span>
-          <span className="value">{year}/5</span>
-        </div>
+      <div className={`info-bar ${phase === 'requisition' ? 'requisition-mode' : ''}`}>
+        {/* Normal mode: year/trump/lead */}
+        {phase !== 'requisition' && (
+          <>
+            <div className="info-year">
+              <span className="label">{t(translations, language, 'year')}</span>
+              <span className="value">{year}/5</span>
+            </div>
 
-        <div className="info-trump">
-          <span className="label">{t(translations, language, 'task')}</span>
-          {trump ? (
-            <span className={`suit-symbol ${trump.toLowerCase()}`}>
-              {SUIT_SYMBOLS[trump]}
-            </span>
-          ) : isFamine ? (
-            <span className="famine">{t(translations, language, 'famineYear')}</span>
-          ) : (
-            <span className="no-trump">—</span>
-          )}
-        </div>
+            <div className="info-trump">
+              <span className="label">{t(translations, language, 'task')}</span>
+              {trump ? (
+                <span className={`suit-symbol ${trump.toLowerCase()}`}>
+                  {SUIT_SYMBOLS[trump]}
+                </span>
+              ) : isFamine ? (
+                <span className="famine">{t(translations, language, 'famineYear')}</span>
+              ) : (
+                <span className="no-trump">—</span>
+              )}
+            </div>
 
-        {trick.length > 0 && (
-          <div className="info-lead">
-            <span className="label">{t(translations, language, 'lead')}</span>
-            <span className={`suit-symbol ${trick[0][1].suit.toLowerCase()}`}>
-              {SUIT_SYMBOLS[trick[0][1].suit]}
+            {trick.length > 0 && (
+              <div className="info-lead">
+                <span className="label">{t(translations, language, 'lead')}</span>
+                <span className={`suit-symbol ${trick[0][1].suit.toLowerCase()}`}>
+                  {SUIT_SYMBOLS[trick[0][1].suit]}
+                </span>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Requisition mode: status message with suit icon */}
+        {phase === 'requisition' && (
+          <div className="info-requisition">
+            {currentRequisitionSuit && (
+              <span className={`suit-symbol ${currentRequisitionSuit.toLowerCase()}`}>
+                {SUIT_SYMBOLS[currentRequisitionSuit]}
+              </span>
+            )}
+            <span className="requisition-text">
+              {getRequisitionStatusMessage(language, currentRequisitionSuit, currentJobStage, requisitionStage) ||
+               t(translations, language, 'requisition')}
             </span>
           </div>
         )}

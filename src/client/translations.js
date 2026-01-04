@@ -47,6 +47,10 @@ export const translations = {
     cardsToNorth: 'Cards to North:',
     allJobsComplete: 'All jobs complete!',
     continueToYear: 'Continue to Year {year}',
+    requisitionStatus: '{job} failed — requisitioning',
+    checkingJob: 'Checking {job}...',
+    revealingPlots: 'Revealing plots...',
+    exilingCards: 'Exiling cards...',
 
     // Trump selection
     chooseMainTask: 'Choose Main Task',
@@ -120,6 +124,10 @@ export const translations = {
     cardsToNorth: 'Карт на Север:',
     allJobsComplete: 'Все работы выполнены!',
     continueToYear: 'Продолжить к Году {year}',
+    requisitionStatus: '{job} провалено — реквизиция',
+    checkingJob: 'Проверка: {job}...',
+    revealingPlots: 'Раскрытие подвалов...',
+    exilingCards: 'Отправка на Север...',
 
     // Trump selection
     chooseMainTask: 'Выберите главную задачу',
