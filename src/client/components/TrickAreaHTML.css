@@ -166,9 +166,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* Explicit pixel dimensions for iOS WebKit compatibility */
-  width: clamp(16px, 1.2em, 24px);
-  height: clamp(16px, 1.2em, 24px);
+  /* Use vw units like NavBar - em units break on iOS Safari */
+  width: clamp(16px, 2vw, 24px);
+  height: clamp(16px, 2vw, 24px);
   vertical-align: middle;
 }
 
