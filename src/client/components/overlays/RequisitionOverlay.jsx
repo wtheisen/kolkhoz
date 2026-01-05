@@ -1,5 +1,6 @@
 import React from 'react';
-import { translations, t } from '../../translations.js';
+import { translations, t, getJobName } from '../../translations.js';
+import SuitIcon from '../SuitIcon.jsx';
 import './RequisitionOverlay.css';
 
 export function RequisitionOverlay({
@@ -40,10 +41,13 @@ export function RequisitionOverlay({
         <h3>{t(translations, language, 'yearComplete', { year })}</h3>
         {requisitionData?.failedJobs?.length > 0 && (
           <p className="failed-jobs">
-            {t(translations, language, 'failed')} {requisitionData.failedJobs.map(suit => {
-              const suitSymbols = { Hearts: '♥', Diamonds: '♦', Clubs: '♣', Spades: '♠' };
-              return suitSymbols[suit] || suit;
-            }).join(' ')}
+            {t(translations, language, 'failed')}{' '}
+            {requisitionData.failedJobs.map((suit, idx) => (
+              <span key={suit} className="failed-job-suit">
+                <SuitIcon suit={suit} className="suit-symbol" />
+                {idx < requisitionData.failedJobs.length - 1 ? ' ' : ''}
+              </span>
+            ))}
           </p>
         )}
         {requisitionData?.exiledCards?.length > 0 && (
