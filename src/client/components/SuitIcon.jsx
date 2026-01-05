@@ -1,6 +1,6 @@
 import React from 'react';
 
-// Crop-based icons for kolkhoz theme
+// Crop-based icons for kolkhoz theme - v2
 
 // ============================================
 // Navigation Icons - Soviet themed, monochrome
@@ -154,6 +154,7 @@ const SUIT_ICONS = {
 
 export function SuitIcon({ suit, className = '' }) {
   if (!suit) {
+    console.log('SuitIcon: no suit provided');
     return <span className={className}>?</span>;
   }
   // Normalize suit name to match SUIT_ICONS keys (capitalize first letter)

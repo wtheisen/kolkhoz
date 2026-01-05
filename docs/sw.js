@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kolkhoz-v3';
+const CACHE_NAME = 'kolkhoz-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
