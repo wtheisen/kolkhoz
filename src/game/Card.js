@@ -7,5 +7,5 @@ export function getCardImagePath(card) {
   const faces = { 1: 'ace', 11: 'jack', 12: 'queen', 13: 'king' };
   const rank = faces[card.value] || card.value;
   const suit = card.suit.toLowerCase();
-  return `assets/cards/${rank}_of_${suit}.svg`;
+  return `/assets/cards/${rank}_of_${suit}.svg`;
 }
