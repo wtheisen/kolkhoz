@@ -166,11 +166,18 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Explicit pixel dimensions for iOS WebKit compatibility */
+  width: clamp(16px, 1.2em, 24px);
+  height: clamp(16px, 1.2em, 24px);
+  vertical-align: middle;
 }
 
 .suit-icon .suit-svg {
+  /* Fill the parent container */
   width: 100%;
   height: 100%;
+  /* Block display ensures SVG takes up space on iOS */
+  display: block;
 }
 
 /* Crop suits - Potato & Beet are red */
