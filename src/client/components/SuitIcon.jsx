@@ -98,7 +98,7 @@ export function NavIcon({ type, className = '' }) {
 // ============================================
 
 const WheatIcon = () => (
-  <svg viewBox="0 0 24 24" width="24" height="24" className="suit-svg">
+  <svg viewBox="0 0 24 24" width="1em" height="1em" className="suit-svg">
     <path d="M12 2 L12 22" stroke="currentColor" strokeWidth="1.5" fill="none"/>
     <ellipse cx="9" cy="5" rx="2.5" ry="1.2" transform="rotate(-30 9 5)" fill="currentColor"/>
     <ellipse cx="8.5" cy="8" rx="2.5" ry="1.2" transform="rotate(-25 8.5 8)" fill="currentColor"/>
@@ -111,7 +111,7 @@ const WheatIcon = () => (
 );
 
 const SunflowerIcon = () => (
-  <svg viewBox="0 0 24 24" width="24" height="24" className="suit-svg">
+  <svg viewBox="0 0 24 24" width="1em" height="1em" className="suit-svg">
     <circle cx="12" cy="10" r="4" fill="currentColor"/>
     <ellipse cx="12" cy="3" rx="2" ry="3" fill="currentColor"/>
     <ellipse cx="17" cy="5" rx="2" ry="3" transform="rotate(45 17 5)" fill="currentColor"/>
@@ -126,7 +126,7 @@ const SunflowerIcon = () => (
 );
 
 const PotatoIcon = () => (
-  <svg viewBox="0 0 24 24" width="24" height="24" className="suit-svg">
+  <svg viewBox="0 0 24 24" width="1em" height="1em" className="suit-svg">
     <path d="M12 3 C6 3 3 8 3 12 C3 17 6 21 12 21 C18 21 21 17 21 12 C21 8 18 3 12 3 Z" fill="currentColor"/>
     <circle cx="8" cy="9" r="1" fill="none" stroke="currentColor" strokeWidth="0.8" opacity="0.6"/>
     <circle cx="15" cy="11" r="0.8" fill="none" stroke="currentColor" strokeWidth="0.8" opacity="0.6"/>
@@ -135,7 +135,7 @@ const PotatoIcon = () => (
 );
 
 const BeetIcon = () => (
-  <svg viewBox="0 0 24 24" width="24" height="24" className="suit-svg">
+  <svg viewBox="0 0 24 24" width="1em" height="1em" className="suit-svg">
     <path d="M12 8 C7 8 5 12 6 16 C7 19 10 22 12 22 C14 22 17 19 18 16 C19 12 17 8 12 8 Z" fill="currentColor"/>
     <path d="M10 8 C9 5 7 3 6 2 C8 3 10 4 11 7" fill="currentColor"/>
     <path d="M12 7 C12 4 12 2 12 1 C12 2 12 4 12 7" fill="currentColor"/>
