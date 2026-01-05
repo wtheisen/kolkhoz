@@ -1,6 +1,9 @@
 // Game constants for Kolkhoz
 
-export const SUITS = ['Hearts', 'Diamonds', 'Clubs', 'Spades'];
+// Crop-based suits for kolkhoz theme
+// Wheat & Sunflower = cream/gold (like old black suits)
+// Potato & Beet = red (like old red suits)
+export const SUITS = ['Wheat', 'Sunflower', 'Potato', 'Beet'];
 
 // Work hours threshold to complete a job
 export const THRESHOLD = 40;
