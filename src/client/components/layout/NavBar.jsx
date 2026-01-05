@@ -23,8 +23,8 @@ export function NavBar({
         <span className="nav-label">{t(translations, language, 'menu')}</span>
       </button>
       <button
-        className={`nav-btn ${displayMode === 'game' && activePanel !== 'options' ? 'active' : ''} ${actionView === 'game' ? 'has-action' : ''}`}
-        onClick={() => onSetActivePanel(null)}
+        className={`nav-btn ${displayMode === 'game' ? 'active' : ''} ${actionView === 'game' ? 'has-action' : ''}`}
+        onClick={() => onSetActivePanel('game')}
         title={t(translations, language, 'brigade')}
       >
         <NavIcon type="brigade" />

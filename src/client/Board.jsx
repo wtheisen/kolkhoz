@@ -13,9 +13,9 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
   const phase = ctx.phase;
   const currentSwapPlayer = phase === 'swap' ? parseInt(ctx.currentPlayer, 10) : null;
 
-  // Mobile panel toggle
+  // Mobile panel toggle - 'game' is explicit game view, null means auto-navigate by phase
   const [activePanel, setActivePanel] = useState(null);
-  const togglePanel = (panel) => setActivePanel(activePanel === panel ? null : panel);
+  const togglePanel = (panel) => setActivePanel(activePanel === panel ? 'game' : panel);
 
   // Language toggle (persisted to localStorage)
   const [language, setLanguage] = useState(() => localStorage.getItem('kolkhoz-lang') || 'ru');
@@ -534,9 +534,11 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
     (phase === 'planning' || phase === 'trick') ? 'game' :
     null;
 
-  // Calculate display mode - respect user's panel choice, default to action view
-  // When no panel is selected (null), use actionView if there's an action, otherwise 'game'
+  // Calculate display mode - respect user's explicit panel choice
+  // activePanel values: 'game', 'jobs', 'gulag', 'plot', 'options', or null (auto)
+  // Only use actionView as default when activePanel is null (no explicit choice)
   const displayMode =
+    activePanel === 'game' ? 'game' :
     activePanel === 'jobs' ? 'jobs' :
     activePanel === 'gulag' ? 'gulag' :
     activePanel === 'plot' ? 'plot' :
