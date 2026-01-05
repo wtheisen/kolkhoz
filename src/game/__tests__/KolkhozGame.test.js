@@ -80,10 +80,10 @@ describe('KolkhozGame', () => {
     it('should set trump and transition to trick phase', () => {
       const client = Client({ game: KolkhozGame, numPlayers: 4 });
 
-      client.moves.setTrump('Hearts');
+      client.moves.setTrump('Wheat');
 
       const { G, ctx } = client.getState();
-      expect(G.trump).toBe('Hearts');
+      expect(G.trump).toBe('Wheat');
       expect(ctx.phase).toBe('trick');
     });
 
@@ -117,13 +117,13 @@ describe('KolkhozGame', () => {
         ...KolkhozGame,
         setup: (context, setupData) => {
           const G = KolkhozGame.setup(context, setupData);
-          G.trump = 'Spades';
+          G.trump = 'Wheat';
           G.lead = 0;
-          // All Hearts - player 1 has highest
-          G.players[0].hand = [{ suit: 'Hearts', value: 6 }];
-          G.players[1].hand = [{ suit: 'Hearts', value: 13 }]; // King wins
-          G.players[2].hand = [{ suit: 'Hearts', value: 7 }];
-          G.players[3].hand = [{ suit: 'Hearts', value: 8 }];
+          // All Beet - player 1 has highest
+          G.players[0].hand = [{ suit: 'Beet', value: 6 }];
+          G.players[1].hand = [{ suit: 'Beet', value: 13 }]; // King wins
+          G.players[2].hand = [{ suit: 'Beet', value: 7 }];
+          G.players[3].hand = [{ suit: 'Beet', value: 8 }];
           return G;
         },
       };
@@ -142,13 +142,13 @@ describe('KolkhozGame', () => {
         ...KolkhozGame,
         setup: (context, setupData) => {
           const G = KolkhozGame.setup(context, setupData);
-          G.trump = 'Spades';
+          G.trump = 'Wheat';
           G.lead = 0;
           // Player 2 plays low trump
-          G.players[0].hand = [{ suit: 'Hearts', value: 13 }]; // King leads
-          G.players[1].hand = [{ suit: 'Hearts', value: 10 }];
-          G.players[2].hand = [{ suit: 'Spades', value: 6 }]; // Low trump wins
-          G.players[3].hand = [{ suit: 'Hearts', value: 8 }];
+          G.players[0].hand = [{ suit: 'Beet', value: 13 }]; // King leads
+          G.players[1].hand = [{ suit: 'Beet', value: 10 }];
+          G.players[2].hand = [{ suit: 'Wheat', value: 6 }]; // Low trump wins
+          G.players[3].hand = [{ suit: 'Beet', value: 8 }];
           return G;
         },
       };
@@ -167,12 +167,12 @@ describe('KolkhozGame', () => {
         ...KolkhozGame,
         setup: (context, setupData) => {
           const G = KolkhozGame.setup(context, setupData);
-          G.trump = 'Spades';
+          G.trump = 'Wheat';
           G.lead = 0;
-          G.players[0].hand = [{ suit: 'Hearts', value: 13 }];
-          G.players[1].hand = [{ suit: 'Spades', value: 7 }];
-          G.players[2].hand = [{ suit: 'Spades', value: 10 }]; // Highest trump
-          G.players[3].hand = [{ suit: 'Spades', value: 6 }];
+          G.players[0].hand = [{ suit: 'Beet', value: 13 }];
+          G.players[1].hand = [{ suit: 'Wheat', value: 7 }];
+          G.players[2].hand = [{ suit: 'Wheat', value: 10 }]; // Highest trump
+          G.players[3].hand = [{ suit: 'Wheat', value: 6 }];
           return G;
         },
       };
@@ -193,13 +193,13 @@ describe('KolkhozGame', () => {
         ...KolkhozGame,
         setup: (context, setupData) => {
           const G = KolkhozGame.setup(context, setupData);
-          G.trump = 'Spades';
+          G.trump = 'Wheat';
           G.lead = 0;
-          // All Hearts - auto-assigns to Hearts
-          G.players[0].hand = [{ suit: 'Hearts', value: 7 }];
-          G.players[1].hand = [{ suit: 'Hearts', value: 8 }];
-          G.players[2].hand = [{ suit: 'Hearts', value: 9 }];
-          G.players[3].hand = [{ suit: 'Hearts', value: 10 }];
+          // All Beet - auto-assigns to Beet
+          G.players[0].hand = [{ suit: 'Beet', value: 7 }];
+          G.players[1].hand = [{ suit: 'Beet', value: 8 }];
+          G.players[2].hand = [{ suit: 'Beet', value: 9 }];
+          G.players[3].hand = [{ suit: 'Beet', value: 10 }];
           return G;
         },
       };
@@ -211,7 +211,7 @@ describe('KolkhozGame', () => {
 
       const { G } = client.getState();
       // 7 + 8 + 9 + 10 = 34 work hours
-      expect(G.workHours.Hearts).toBe(34);
+      expect(G.workHours.Beet).toBe(34);
     });
 
     it('should complete job when reaching 40 hours threshold', () => {
@@ -219,14 +219,14 @@ describe('KolkhozGame', () => {
         ...KolkhozGame,
         setup: (context, setupData) => {
           const G = KolkhozGame.setup(context, setupData);
-          G.trump = 'Spades';
+          G.trump = 'Wheat';
           G.lead = 0;
-          G.workHours.Hearts = 6; // Start with 6 (so 6+7+8+9+10=40 completes)
-          // All Hearts - auto-assigns
-          G.players[0].hand = [{ suit: 'Hearts', value: 7 }];
-          G.players[1].hand = [{ suit: 'Hearts', value: 8 }];
-          G.players[2].hand = [{ suit: 'Hearts', value: 9 }];
-          G.players[3].hand = [{ suit: 'Hearts', value: 10 }];
+          G.workHours.Beet = 6; // Start with 6 (so 6+7+8+9+10=40 completes)
+          // All Beet - auto-assigns
+          G.players[0].hand = [{ suit: 'Beet', value: 7 }];
+          G.players[1].hand = [{ suit: 'Beet', value: 8 }];
+          G.players[2].hand = [{ suit: 'Beet', value: 9 }];
+          G.players[3].hand = [{ suit: 'Beet', value: 10 }];
           return G;
         },
       };
@@ -238,8 +238,8 @@ describe('KolkhozGame', () => {
 
       const { G } = client.getState();
       // 6 + 7 + 8 + 9 + 10 = 40
-      expect(G.workHours.Hearts).toBeGreaterThanOrEqual(40);
-      expect(G.claimedJobs).toContain('Hearts');
+      expect(G.workHours.Beet).toBeGreaterThanOrEqual(40);
+      expect(G.claimedJobs).toContain('Beet');
     });
   });
 
@@ -254,10 +254,10 @@ describe('KolkhozGame', () => {
           // 4 cards for famine (3 tricks + 1 for plot)
           for (let i = 0; i < G.players.length; i++) {
             G.players[i].hand = [
-              { suit: 'Hearts', value: 6 + i },
-              { suit: 'Diamonds', value: 6 + i },
-              { suit: 'Clubs', value: 6 + i },
-              { suit: 'Spades', value: 6 + i },
+              { suit: 'Wheat', value: 6 + i },
+              { suit: 'Potato', value: 6 + i },
+              { suit: 'Sunflower', value: 6 + i },
+              { suit: 'Beet', value: 6 + i },
             ];
           }
           return G;
@@ -285,15 +285,15 @@ describe('KolkhozGame', () => {
         setup: (context, setupData) => {
           const G = KolkhozGame.setup(context, setupData);
           G.isFamine = false;
-          G.trump = 'Hearts';
+          G.trump = 'Wheat';
           // 5 cards per player
           for (let i = 0; i < G.players.length; i++) {
             G.players[i].hand = [
-              { suit: 'Hearts', value: 6 + i },
-              { suit: 'Diamonds', value: 6 + i },
-              { suit: 'Clubs', value: 6 + i },
-              { suit: 'Spades', value: 6 + i },
-              { suit: 'Hearts', value: 10 + i },
+              { suit: 'Wheat', value: 6 + i },
+              { suit: 'Potato', value: 6 + i },
+              { suit: 'Sunflower', value: 6 + i },
+              { suit: 'Beet', value: 6 + i },
+              { suit: 'Wheat', value: 10 + i },
             ];
           }
           return G;
@@ -326,19 +326,19 @@ describe('KolkhozGame', () => {
           G.trump = null;
           // Player 0 has high value cards in plot
           G.players[0].plot.revealed = [
-            { suit: 'Hearts', value: 13 },
-            { suit: 'Diamonds', value: 13 },
+            { suit: 'Wheat', value: 13 },
+            { suit: 'Potato', value: 13 },
           ];
-          G.players[1].plot.revealed = [{ suit: 'Clubs', value: 6 }];
-          G.players[2].plot.revealed = [{ suit: 'Spades', value: 7 }];
-          G.players[3].plot.revealed = [{ suit: 'Hearts', value: 8 }];
+          G.players[1].plot.revealed = [{ suit: 'Sunflower', value: 6 }];
+          G.players[2].plot.revealed = [{ suit: 'Beet', value: 7 }];
+          G.players[3].plot.revealed = [{ suit: 'Wheat', value: 8 }];
           // 4 cards for famine tricks
           for (let i = 0; i < G.players.length; i++) {
             G.players[i].hand = [
-              { suit: 'Hearts', value: 6 + i },
-              { suit: 'Diamonds', value: 6 + i },
-              { suit: 'Clubs', value: 6 + i },
-              { suit: 'Spades', value: 6 + i },
+              { suit: 'Wheat', value: 6 + i },
+              { suit: 'Potato', value: 6 + i },
+              { suit: 'Sunflower', value: 6 + i },
+              { suit: 'Beet', value: 6 + i },
             ];
           }
           return G;
