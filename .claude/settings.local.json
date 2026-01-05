@@ -58,7 +58,15 @@
       "Bash(src/client/styles/board.css )",
       "Bash(docs/)",
       "Bash(ls:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(for f in *_of_spades.svg)",
+      "Bash(do mv \"$f\" \"$f/_of_spades/_of_wheat\")",
+      "Bash(for f in *_of_clubs.svg)",
+      "Bash(do mv \"$f\" \"$f/_of_clubs/_of_sunflower\")",
+      "Bash(for f in *_of_diamonds.svg)",
+      "Bash(do mv \"$f\" \"$f/_of_diamonds/_of_potato\")",
+      "Bash(for f in *_of_hearts.svg)",
+      "Bash(do mv \"$f\" \"$f/_of_hearts/_of_beet\")"
     ],
     "deny": [],
     "ask": []
