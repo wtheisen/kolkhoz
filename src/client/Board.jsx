@@ -17,6 +17,9 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
   const [activePanel, setActivePanel] = useState(null);
   const togglePanel = (panel) => setActivePanel(activePanel === panel ? 'game' : panel);
 
+  // Track previous phase for auto-switch detection
+  const prevPhaseRef = useRef(phase);
+
   // Language toggle (persisted to localStorage)
   const [language, setLanguage] = useState(() => localStorage.getItem('kolkhoz-lang') || 'ru');
   const toggleLanguage = () => setLanguage(lang => {
@@ -100,6 +103,15 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
       lastYearRef.current = G.year;
     }
   }, [G.year]);
+
+  // Auto-switch view when phase changes, but don't lock the user there
+  useEffect(() => {
+    if (phase !== prevPhaseRef.current) {
+      // Reset to auto mode so displayMode follows actionView
+      setActivePanel(null);
+      prevPhaseRef.current = phase;
+    }
+  }, [phase]);
 
   // Requisition animation sequence - process job by job
   useEffect(() => {
