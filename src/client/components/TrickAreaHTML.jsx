@@ -76,7 +76,6 @@ export function TrickAreaHTML({
   requisitionStage = 'idle',
   currentRequisitionSuit = null,
   currentJobStage = 'header',
-  flyingExileCards = [],
   // Language
   language = 'ru',
   // Variants
@@ -221,7 +220,6 @@ export function TrickAreaHTML({
             requisitionData={requisitionData}
             currentRequisitionSuit={currentRequisitionSuit}
             currentJobStage={currentJobStage}
-            flyingExileCards={flyingExileCards}
             language={language}
           />
         )}

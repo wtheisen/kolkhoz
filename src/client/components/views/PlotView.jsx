@@ -25,7 +25,6 @@ export function PlotView({
   requisitionData,
   currentRequisitionSuit,
   currentJobStage,
-  flyingExileCards,
   language,
 }) {
   // Track animated swap for bot visual feedback
@@ -47,16 +46,9 @@ export function PlotView({
     }
   }, [lastSwap]);
 
-  // Filter out cards that are currently flying to gulag
-  const getVisibleRevealedCards = (revealedCards, playerIdx) => {
-    if (!revealedCards || flyingExileCards.length === 0) return revealedCards || [];
-    return revealedCards.filter(card =>
-      !flyingExileCards.some(fc =>
-        fc.playerIdx === playerIdx &&
-        fc.card.suit === card.suit &&
-        fc.card.value === card.value
-      )
-    );
+  // Get revealed cards - no longer filtering here, FlyingExileCard hides source via DOM
+  const getVisibleRevealedCards = (revealedCards) => {
+    return revealedCards || [];
   };
 
   // Swap mode
@@ -229,7 +221,7 @@ export function PlotView({
       <div className="swap-bots-row">
         {[1, 2, 3].map((botIdx) => {
           const bot = players?.[botIdx];
-          const revealedCards = getVisibleRevealedCards(bot?.plot?.revealed, botIdx);
+          const revealedCards = getVisibleRevealedCards(bot?.plot?.revealed);
           const hiddenCount = bot?.plot?.hidden?.length || 0;
 
           return (
@@ -332,7 +324,7 @@ export function PlotView({
             <span className="box-count">{playerPlot?.revealed?.length || 0}</span>
           </div>
           <div className="swap-cards">
-            {getVisibleRevealedCards(playerPlot?.revealed, 0).map((card, idx) => {
+            {getVisibleRevealedCards(playerPlot?.revealed).map((card, idx) => {
               const isCurrentSuit = card.suit === currentRequisitionSuit;
               const isNewlyRevealed = phase === 'requisition' &&
                 isCurrentSuit &&

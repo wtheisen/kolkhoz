@@ -40,6 +40,9 @@ export function FlyingExileCard({ card, playerIdx, delay, onComplete }) {
         return;
       }
 
+      // Hide the source card so we don't see duplicates
+      sourceCard.style.opacity = '0';
+
       const sourceRect = sourceCard.getBoundingClientRect();
       const targetRect = gulagButton.getBoundingClientRect();
 

@@ -3,11 +3,13 @@
 
 import { THRESHOLD } from '../constants.js';
 
-// Find the Hero of the Soviet Union (player who won all 4 medals this year)
+// Find the Hero of the Soviet Union (player who won all tricks this year)
 function findHero(G, variants) {
   if (!variants.heroOfSovietUnion) return -1;
+  // Famine year has 3 tricks, normal years have 4
+  const requiredMedals = G.isFamine ? 3 : 4;
   for (let i = 0; i < G.players.length; i++) {
-    if (G.players[i].medals === 4) {
+    if (G.players[i].medals === requiredMedals) {
       return i;
     }
   }
