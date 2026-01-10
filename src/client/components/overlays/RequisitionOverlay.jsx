@@ -27,12 +27,14 @@ export function RequisitionOverlay({
               ))}
             </div>
           </div>
-          <div className="hero-title">{t(translations, language, 'heroOfSovietUnion')}</div>
-          <div className="hero-name">{heroName}</div>
-          <div className="hero-subtitle">{t(translations, language, 'heroAchievement')}</div>
-          <div className="hero-immunity">
-            <span className="immunity-shield">🛡</span>
-            {t(translations, language, 'heroImmune', { name: heroName })}
+          <div className="hero-text">
+            <div className="hero-title">{t(translations, language, 'heroOfSovietUnion')}</div>
+            <div className="hero-name">{heroName}</div>
+            <div className="hero-subtitle">{t(translations, language, 'heroAchievement')}</div>
+            <div className="hero-immunity">
+              <span className="immunity-shield">🛡</span>
+              {t(translations, language, 'heroImmune', { name: heroName })}
+            </div>
           </div>
         </div>
       )}
