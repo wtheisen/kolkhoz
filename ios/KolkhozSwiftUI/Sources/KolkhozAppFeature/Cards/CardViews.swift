@@ -161,7 +161,7 @@ struct CardCornerIndex: View {
     }
 
     var rankFont: Font {
-        .system(size: card.rank.count > 1 ? size.cornerRankFontSize * 0.82 : size.cornerRankFontSize, weight: .black)
+        .kolkhozDisplay(size: card.rank.count > 1 ? size.cornerRankFontSize * 0.82 : size.cornerRankFontSize)
     }
 
     var rankColor: Color {
@@ -177,7 +177,7 @@ struct CompactCardCenter: View {
         VStack(spacing: 2) {
             SuitMark(suit: card.suit, size: 14)
             Text(card.rank)
-                .font(.caption2.weight(.black))
+                .font(.kolkhozTitle(.caption2))
                 .monospacedDigit()
                 .foregroundStyle(tone == .dark ? Color.kolkhozCream : card.suit.cardInkColor)
         }
@@ -441,7 +441,7 @@ struct CardBackView: View {
 
 struct CardBackThumbnail: View {
     var body: some View {
-        cardBackImage
+        cardBackIconImage
             .frame(width: 10, height: 15)
             .clipShape(RoundedRectangle(cornerRadius: 2))
             .overlay {
@@ -449,6 +449,20 @@ struct CardBackThumbnail: View {
                     .stroke(Color.kolkhozGold.opacity(0.62), lineWidth: 0.5)
             }
             .accessibilityHidden(true)
+    }
+}
+
+@ViewBuilder
+var cardBackIconImage: some View {
+    if let image = cardBackIconResourceImage {
+        image
+            .resizable()
+            .interpolation(.none)
+            .antialiased(false)
+            .scaledToFill()
+            .clipShape(RoundedRectangle(cornerRadius: 2))
+    } else {
+        cardBackImage
     }
 }
 
@@ -471,10 +485,18 @@ var cardBackImage: some View {
     }
 }
 
+var cardBackIconResourceImage: Image? {
+    loadCardBackResourceImage(named: "card-back-icon")
+}
+
 var cardBackResourceImage: Image? {
+    loadCardBackResourceImage(named: "card-back")
+}
+
+private func loadCardBackResourceImage(named resourceName: String) -> Image? {
     let bundle = Bundle.kolkhozAppFeatureResources
-    let url = bundle.url(forResource: "card-back", withExtension: "png")
-        ?? bundle.url(forResource: "card-back", withExtension: "png", subdirectory: "Cards")
+    let url = bundle.url(forResource: resourceName, withExtension: "png")
+        ?? bundle.url(forResource: resourceName, withExtension: "png", subdirectory: "Cards")
 
     guard let url else {
         return nil
@@ -501,7 +523,7 @@ struct SuitBadge: View {
         HStack(spacing: 5) {
             SuitMark(suit: suit, size: compact ? 18 : 22)
             Text(compact ? suit.shortName : suit.rawValue)
-                .font(compact ? .caption.weight(.black) : .caption.weight(.semibold))
+                .font(compact ? .kolkhozTitle(.caption) : .kolkhozLabel(.caption))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }

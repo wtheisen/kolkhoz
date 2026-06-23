@@ -22,7 +22,9 @@ public struct KolkhozRootView: View {
     @State private var showingRules = false
     @State private var language: AppLanguage = .english
 
-    public init() {}
+    public init() {
+        KolkhozFontRegistry.registerFonts()
+    }
 
     public var body: some View {
         Group {
@@ -39,7 +41,8 @@ public struct KolkhozRootView: View {
                 }
             }
         }
-            .environmentObject(store)
+        .font(.kolkhozLabel(.body))
+        .environmentObject(store)
     }
 
     private var activeVariants: GameVariants {

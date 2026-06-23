@@ -13,33 +13,48 @@ struct PlayerPanel: View {
             let compact = proxy.size.width < 166
             Group {
                 if compact {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 4) {
-                            Text(displayName(compact: true))
-                                .font(.kolkhozTitle(.caption2))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.72)
-                                .allowsTightening(true)
-                                .foregroundStyle(active ? Color.kolkhozGold : Color.kolkhozCream)
-                            if player.brigadeLeader {
-                                GameIcon(.medalStar, size: 10)
-                            }
-                        }
+                    HStack(spacing: 5) {
+                        PortraitView(player: player, human: human)
+                            .scaleEffect(0.72)
+                            .frame(width: 28, height: 32)
+                            .layoutPriority(0)
 
-                        HStack(spacing: 3) {
-                            Text("\(score)")
-                                .font(.kolkhozLabel(.caption2))
-                                .monospacedDigit()
-                                .foregroundStyle(Color.kolkhozSmoke)
-                            Spacer(minLength: 2)
-                            if player.medals > 0 {
-                                GameIcon(.medalStar, size: 9)
-                                Text("\(player.medals)")
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 4) {
+                                Text(displayName(compact: true))
+                                    .font(.kolkhozTitle(.caption2))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.72)
+                                    .allowsTightening(true)
+                                    .foregroundStyle(active ? Color.kolkhozGold : Color.kolkhozCream)
+                                if player.brigadeLeader {
+                                    GameIcon(.medalStar, size: 10)
+                                }
+                            }
+
+                            HStack(spacing: 3) {
+                                Text("\(score)")
                                     .font(.kolkhozLabel(.caption2))
                                     .monospacedDigit()
                                     .foregroundStyle(Color.kolkhozSmoke)
+                                Spacer(minLength: 2)
+                                if !player.hand.isEmpty {
+                                    HStack(spacing: -3) {
+                                        ForEach(0..<min(player.hand.count, 3), id: \.self) { _ in
+                                            CardBackThumbnail()
+                                        }
+                                    }
+                                }
+                                if player.medals > 0 {
+                                    GameIcon(.medalStar, size: 9)
+                                    Text("\(player.medals)")
+                                        .font(.kolkhozLabel(.caption2))
+                                        .monospacedDigit()
+                                        .foregroundStyle(Color.kolkhozSmoke)
+                                }
                             }
                         }
+                        .layoutPriority(1)
                     }
                 } else {
                     HStack(spacing: 8) {
@@ -1065,7 +1080,7 @@ struct PlotColumn: View {
                 }
                 if cards.isEmpty {
                     Text("-")
-                        .font(.title3.weight(.black))
+                        .font(.kolkhozTitle(.title3))
                         .foregroundStyle(Color.kolkhozSmoke.opacity(0.7))
                         .frame(width: 58, height: 82)
                 }
@@ -1121,7 +1136,7 @@ struct SwapPlotView: View {
 
             HStack(spacing: 10) {
                 Text(swapStatus)
-                    .font(.caption.weight(.bold))
+                    .font(.kolkhozLabel(.caption))
                     .foregroundStyle(Color.kolkhozCreamDim)
                     .lineLimit(1)
                 Spacer()
@@ -1173,7 +1188,7 @@ struct SwapBotPanel: View {
             PortraitView(player: player, human: false)
             VStack(alignment: .leading, spacing: 3) {
                 Text(player.name)
-                    .font(.caption.weight(.black))
+                    .font(.kolkhozTitle(.caption))
                     .foregroundStyle(active ? Color.kolkhozGold : Color.kolkhozCream)
                 HStack(spacing: -4) {
                     ForEach(0..<min(player.hand.count, 5), id: \.self) { _ in
@@ -1181,7 +1196,7 @@ struct SwapBotPanel: View {
                     }
                 }
                 Text("\(player.plot.hidden.count) hidden  \(player.plot.revealed.count) revealed")
-                    .font(.caption2.weight(.semibold))
+                    .font(.kolkhozLabel(.caption2))
                     .foregroundStyle(Color.kolkhozSmoke)
             }
             Spacer()
@@ -1270,7 +1285,7 @@ struct SwapPlotColumn: View {
                     }
                     if cards.isEmpty {
                         Text("-")
-                            .font(.title2.weight(.black))
+                            .font(.kolkhozTitle(.title2))
                             .foregroundStyle(Color.kolkhozSmoke)
                             .frame(width: 58, height: 82)
                     }
@@ -1320,7 +1335,7 @@ struct RequisitionPlayerPlot: View {
             HStack(spacing: 6) {
                 PortraitView(player: player, human: player.id == 0)
                 Text(player.id == 0 ? "You" : player.name)
-                    .font(.caption.weight(.black))
+                    .font(.kolkhozTitle(.caption))
                     .foregroundStyle(Color.kolkhozCream)
                     .lineLimit(1)
             }
@@ -1339,7 +1354,7 @@ struct RequisitionPlayerPlot: View {
                 }
                 if player.plot.revealed.isEmpty && player.plot.hidden.isEmpty {
                     Text("-")
-                        .font(.title3.weight(.black))
+                        .font(.kolkhozTitle(.title3))
                         .foregroundStyle(Color.kolkhozSmoke)
                         .frame(width: 48, height: 68)
                 }
@@ -1368,14 +1383,14 @@ struct RequisitionSummaryPanel: View {
                 urgent: true
             )
             Text("Year \(store.state.year) audit")
-                .font(.caption.weight(.bold))
+                .font(.kolkhozLabel(.caption))
                 .foregroundStyle(Color.kolkhozCreamDim)
 
             ScrollView {
                 VStack(spacing: 8) {
                     if store.state.requisitionEvents.isEmpty {
                         Text("All fields met the quota.")
-                            .font(.caption.weight(.semibold))
+                            .font(.kolkhozLabel(.caption))
                             .foregroundStyle(Color.kolkhozCreamDim)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
@@ -1409,12 +1424,12 @@ struct NorthHistoryView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Text("Year \(year)")
-                            .font(.caption.weight(.black))
+                            .font(.kolkhozTitle(.caption))
                             .textCase(.uppercase)
                             .foregroundStyle(year == store.state.year ? Color.kolkhozRedBright : Color.kolkhozGold)
                         Spacer()
                         Text("\(store.state.exiled[year, default: []].count)")
-                            .font(.caption2.weight(.black))
+                            .font(.kolkhozTitle(.caption2))
                             .monospacedDigit()
                             .foregroundStyle(Color.kolkhozCreamDim)
                     }
@@ -1429,7 +1444,7 @@ struct NorthHistoryView: View {
                                         .frame(width: 34, height: 34)
                                         .opacity(year == store.state.year ? 0.56 : 0.36)
                                     Text("-")
-                                        .font(.caption.weight(.black))
+                                        .font(.kolkhozTitle(.caption))
                                         .foregroundStyle(Color.kolkhozSmoke.opacity(0.72))
                                 }
                                 .frame(maxWidth: .infinity, minHeight: 80)
@@ -1478,15 +1493,15 @@ struct InGameOptionsPanel: View {
 
             VStack(alignment: .leading, spacing: 7) {
                 Text("Rules")
-                    .font(.subheadline.weight(.black))
+                    .font(.kolkhozTitle(.subheadline))
                     .textCase(.uppercase)
                     .foregroundStyle(Color.kolkhozGold)
                 Text("Play tricks, assign captured work to matching jobs, complete quotas, and protect your plot from requisition. Highest final plot score wins.")
-                    .font(.caption.weight(.semibold))
+                    .font(.kolkhozLabel(.caption))
                     .foregroundStyle(Color.kolkhozCreamDim)
                     .fixedSize(horizontal: false, vertical: true)
                 Text("Trump face cards: Jack goes north, Queen exposes everyone, King doubles exile.")
-                    .font(.caption.weight(.semibold))
+                    .font(.kolkhozLabel(.caption))
                     .foregroundStyle(Color.kolkhozCreamDim)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1502,12 +1517,12 @@ struct ColumnHeader: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
-                .font(.caption.weight(.black))
+                .font(.kolkhozTitle(.caption))
                 .textCase(.uppercase)
                 .foregroundStyle(Color.kolkhozGold)
             Spacer()
             Text(subtitle)
-                .font(.caption2.weight(.semibold))
+                .font(.kolkhozLabel(.caption2))
                 .foregroundStyle(Color.kolkhozSmoke)
         }
     }
@@ -1551,7 +1566,7 @@ struct GameOverView: View {
             )
             if let result = store.state.gameResult {
                 Text("Winner: \(store.state.players[result.winnerID].name)")
-                    .font(.headline)
+                    .font(.kolkhozTitle(.headline))
                     .foregroundStyle(Color.kolkhozGold)
                 ForEach(store.state.players) { player in
                     HStack {
@@ -1560,7 +1575,7 @@ struct GameOverView: View {
                         Text("\(result.scores[player.id, default: 0])")
                             .monospacedDigit()
                     }
-                    .font(.subheadline)
+                    .font(.kolkhozLabel(.subheadline))
                     .foregroundStyle(Color.kolkhozCream)
                 }
             }
@@ -1581,7 +1596,7 @@ struct TurnHintView: View {
         HStack(spacing: 10) {
             GameIcon(store.state.currentPlayer == 0 ? .playTap : .gears, size: 24)
             Text(store.state.currentPlayer == 0 ? "Play \(valid.count) legal card\(valid.count == 1 ? "" : "s")." : "AI players are resolving their turns.")
-                .font(.subheadline.weight(.bold))
+                .font(.kolkhozLabel(.subheadline))
                 .foregroundStyle(Color.kolkhozCream)
             Spacer()
         }
@@ -1697,7 +1712,7 @@ struct PlayerHandView: View {
                     .sectionTitle()
                 Spacer()
                 Text("Cellar \(store.state.players[0].plot.hidden.count + store.state.players[0].plot.revealed.count)")
-                    .font(.caption.weight(.bold))
+                    .font(.kolkhozLabel(.caption))
                     .foregroundStyle(Color.kolkhozCreamDim)
             }
 
@@ -1737,3 +1752,59 @@ struct PlayerHandView: View {
         }
     }
 }
+
+#if DEBUG
+private enum PlayerPanelPreviewData {
+    static var opponent: PlayerState {
+        var player = PlayerState(id: 1, name: "Anna Petrova", isHuman: false)
+        player.hand = [
+            Card(suit: .wheat, value: 1),
+            Card(suit: .sunflower, value: 11),
+            Card(suit: .potato, value: 8)
+        ]
+        player.medals = 2
+        player.brigadeLeader = true
+        return player
+    }
+
+    static var human: PlayerState {
+        var player = PlayerState(id: 0, name: "Player", isHuman: true)
+        player.hand = [
+            Card(suit: .beet, value: 13),
+            Card(suit: .wheat, value: 9)
+        ]
+        player.medals = 1
+        return player
+    }
+}
+
+#Preview("Player Panel") {
+    VStack(alignment: .leading, spacing: 14) {
+        PlayerPanel(
+            player: PlayerPanelPreviewData.opponent,
+            score: 18,
+            active: true,
+            human: false
+        )
+        .frame(width: 96, height: 54)
+
+        PlayerPanel(
+            player: PlayerPanelPreviewData.human,
+            score: 24,
+            active: false,
+            human: true
+        )
+        .frame(width: 96, height: 54)
+
+        PlayerPanel(
+            player: PlayerPanelPreviewData.opponent,
+            score: 18,
+            active: true,
+            human: false
+        )
+        .frame(width: 260, height: 62)
+    }
+    .padding(18)
+    .background(Color.kolkhozBackground)
+}
+#endif

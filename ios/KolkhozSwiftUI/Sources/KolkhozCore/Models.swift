@@ -229,6 +229,11 @@ public struct SwapRecord: Codable, Hashable, Sendable {
 public struct GameResult: Codable, Hashable, Sendable {
     public let winnerID: Int
     public let scores: [Int: Int]
+
+    public init(winnerID: Int, scores: [Int: Int]) {
+        self.winnerID = winnerID
+        self.scores = scores
+    }
 }
 
 public enum KolkhozAnimationEvent: Identifiable, Equatable, Sendable {

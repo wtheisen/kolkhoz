@@ -16,6 +16,14 @@ public final class GameStore: ObservableObject {
         self.state = engine.state
     }
 
+    #if DEBUG
+    public init(previewState: KolkhozState) {
+        let engine = KolkhozEngine(testing: previewState)
+        self.engine = engine
+        self.state = engine.state
+    }
+    #endif
+
     public func newGame(variants: GameVariants? = nil) {
         engine.newGame(variants: variants)
         animationEvents = []

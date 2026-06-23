@@ -1,10 +1,6 @@
 import KolkhozCore
+import CoreText
 import SwiftUI
-#if canImport(UIKit)
-import UIKit
-#elseif canImport(AppKit)
-import AppKit
-#endif
 
 struct PanelModifier: ViewModifier {
     func body(content: Content) -> some View {
@@ -117,16 +113,69 @@ extension View {
 }
 
 extension Font {
+    private static let handjetPostScriptName = "Handjet-Regular"
+    private static let handjetElementGrid: Double = 2
+    private static let handjetElementShape: Double = 0
+
     static func kolkhozDisplay(size: CGFloat) -> Font {
-        .system(size: size, weight: .black, design: .monospaced)
+        handjet(size: size, weight: 900)
     }
 
     static func kolkhozTitle(_ style: Font.TextStyle) -> Font {
-        .system(style, design: .monospaced).weight(.black)
+        handjet(size: kolkhozPointSize(for: style), weight: 900)
     }
 
     static func kolkhozLabel(_ style: Font.TextStyle) -> Font {
-        .system(style, design: .monospaced).weight(.bold)
+        handjet(size: kolkhozPointSize(for: style), weight: 700)
+    }
+
+    private static func handjet(size: CGFloat, weight: Double) -> Font {
+        let variations: [NSNumber: NSNumber] = [
+            NSNumber(value: axisTag("wght")): NSNumber(value: weight),
+            NSNumber(value: axisTag("ELGR")): NSNumber(value: handjetElementGrid),
+            NSNumber(value: axisTag("ELSH")): NSNumber(value: handjetElementShape)
+        ]
+        let descriptor = CTFontDescriptorCreateWithAttributes([
+            kCTFontNameAttribute: handjetPostScriptName,
+            kCTFontVariationAttribute: variations
+        ] as CFDictionary)
+        let font = CTFontCreateWithFontDescriptor(descriptor, size, nil)
+        return Font(font)
+    }
+
+    private static func axisTag(_ tag: String) -> UInt32 {
+        tag.utf8.reduce(0) { ($0 << 8) + UInt32($1) }
+    }
+
+    private static func kolkhozPointSize(for style: Font.TextStyle) -> CGFloat {
+        switch style {
+        case .largeTitle: 34
+        case .title: 28
+        case .title2: 22
+        case .title3: 20
+        case .headline: 17
+        case .subheadline: 15
+        case .callout: 16
+        case .caption: 13
+        case .caption2: 11
+        case .footnote: 12
+        case .body: 17
+        @unknown default: 17
+        }
+    }
+}
+
+enum KolkhozFontRegistry {
+    static func registerFonts() {
+        guard let url = Bundle.kolkhozAppFeatureResources.url(
+            forResource: "Handjet",
+            withExtension: "ttf",
+            subdirectory: "Fonts"
+        ) else {
+            return
+        }
+
+        _ = CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
     }
 }
 
