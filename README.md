@@ -1,248 +1,117 @@
-# Kolkhoz (Колхоз) - Browser Card Game
+# Kolkhoz
 
-A fully functional, client-side implementation of the Russian trick-taking card game **Kolkhoz**, playable entirely in the browser with no backend required. This game simulates a Soviet Five-Year Plan (Пятилетка) where players compete as brigade leaders managing agricultural work across 5 years, trying to complete jobs and collect valuable cards while avoiding having their workers sent to the ГУЛАГ (gulag).
+Kolkhoz is a Soviet-themed trick-taking card game. The current source of truth is the
+native SwiftUI implementation in `ios/KolkhozSwiftUI/`.
 
-## 🎮 Current Status
+The older browser implementation and GitHub Pages build remain in the repo for history,
+but when rules or behavior differ, follow the Swift app.
 
-**✅ Fully Playable** - The game is complete and fully functional with:
-- Complete game logic implementation
-- 4-player gameplay (1 human + 3 AI opponents)
-- Full 5-year campaign with all game mechanics
-- Automatic save/load via localStorage
-- Responsive UI with card animations
-- All special card effects implemented
+## Current Status
 
-## 🚀 Quick Start
+The SwiftUI app is playable with:
 
-### Play Locally
+- 4-player gameplay: 1 human and 3 AI opponents.
+- Full 5-year campaign.
+- Native SwiftUI lobby, board, card, swap, assignment, plot, requisition, and game-over screens.
+- Pixel-art card, icon, and UI resources.
+- Deterministic engine support through seeded randomness.
+- Plain Swift smoke tests.
+
+## Quick Start
 
 ```bash
-# From the project root directory
-cd docs
-python3 -m http.server 8000
-
-# Or with Node.js
-npx http-server docs -p 8000
-
-# Then visit http://localhost:8000
+cd ios/KolkhozSwiftUI
+swift run KolkhozSmokeTests
+swift build --target KolkhozAppFeature
+swift build --target KolkhozSwiftUIApp
 ```
 
-### Deploy to GitHub Pages
+To open in Xcode:
 
-The game is ready for deployment. See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
-
-1. Push the `docs/` folder to your repository
-2. Enable GitHub Pages in repository settings
-3. Set source to `master` branch, `/docs` folder
-4. Access at `https://yourusername.github.io/kolkhoz/`
-
-## 📖 About the Game
-
-**Kolkhoz** is a strategic trick-taking card game set during a Soviet Five-Year Plan. Players take turns as the Central Planner (Центральный Плановик), revealing job assignments and managing workers across four agricultural jobs:
-
-- **Hearts (Пахота - Plowing)** - Agricultural work
-- **Diamonds (Жатва - Harvesting)** - Harvest collection
-- **Clubs (Мастерская - Workshop)** - Craftsmanship
-- **Spades (Зерно - Grain)** - Grain production
-
-### Game Flow
-
-1. **Planning Phase** - The Central Planner reveals job cards (Ace-5) for each of the four jobs and declares a trump suit
-2. **Trick-Taking Phase** - Four tricks are played (three in Year 5). Players must follow suit if able
-3. **Job Assignment** - The trick winner (Brigade Leader) assigns workers to jobs. Trump cards can be assigned to any job
-4. **Job Completion** - If a job reaches 40 work hours, the Brigade Leader claims the job card
-5. **Personal Plot Selection** - Each player keeps one card from their hand for their hidden Personal Plot
-6. **Requisition Phase** - Failed jobs (under 40 hours) trigger requisition, where players may lose cards from their Personal Plot
-7. **Year Transition** - After 5 years, players sum their Personal Plot cards. Highest score wins!
-
-### Special Cards (Trump Suit Only)
-
-- **Jack (Пьяница - Drunkard)** - Contributes 0 work hours. If the job fails, the Drunkard is exiled instead of your cards
-- **Queen (Информатор - Informant)** - If the job fails, ALL players reveal their Personal Plots (not just Brigade Leaders)
-- **King (партийец - Party Official)** - If the job is requisitioned, TWO cards are exiled instead of one
-
-## 🏗️ Architecture
-
-This is a **pure client-side implementation** with zero dependencies:
-
-- **No backend required** - All game logic runs in the browser
-- **ES6 modules** - Modern JavaScript with clean imports
-- **localStorage persistence** - Games save automatically after every action
-- **Zero dependencies** - Pure vanilla JavaScript (no frameworks)
-- **Responsive design** - Works on desktop and mobile devices
-- **SVG card graphics** - 62 high-quality card images
-
-### Project Structure
-
-```
-kolkhoz/
-├── docs/                      # Deployable game files
-│   ├── index.html            # Lobby page
-│   ├── game.html             # Main game interface
-│   ├── assets/
-│   │   ├── cards/            # 62 SVG card images
-│   │   ├── medal.svg         # Game icon
-│   │   └── style.css         # Game styling
-│   └── js/
-│       ├── core/             # Game engine
-│       │   ├── constants.js  # Game constants
-│       │   ├── Card.js       # Card class
-│       │   ├── Player.js     # Player class
-│       │   └── GameState.js  # Core game logic (500+ lines)
-│       ├── ai/               # AI opponents
-│       │   ├── AIPlayer.js   # Base AI class
-│       │   └── RandomAI.js   # Random strategy AI
-│       ├── ui/               # User interface
-│       │   ├── GameRenderer.js      # Main renderer
-│       │   ├── CardAnimator.js      # Card animations
-│       │   └── NotificationManager.js # Game notifications
-│       ├── storage/          # Persistence
-│       │   └── GameStorage.js # localStorage management
-│       ├── controller.js     # Game flow orchestration
-│       ├── lobby.js          # Lobby entry point
-│       └── main.js           # Game entry point
-├── static/                   # Legacy Flask assets (deprecated)
-├── templates/                # Legacy Flask templates (deprecated)
-├── rules.txt                 # Game rules documentation
-├── DEPLOYMENT.md             # Deployment guide
-└── README.md                 # This file
+```bash
+cd ios/KolkhozSwiftUI
+xcodegen generate
+open KolkhozSwiftUI.xcodeproj
 ```
 
-## 🎯 Key Features
+Then select the `KolkhozSwiftUIApp` scheme and run on an iPhone simulator or device.
 
-### Game Mechanics
+If SwiftPM reports duplicate modules through both `/Users/wtheisen/Dropbox/...` and
+`/Users/wtheisen/Library/CloudStorage/Dropbox/...`, run commands through one canonical
+path or clear the SwiftPM module cache.
 
-- ✅ **Complete trick-taking logic** - Follow suit, trump cards, trick resolution
-- ✅ **Job assignment system** - Strategic worker placement
-- ✅ **Work hour tracking** - 40-hour threshold for job completion
-- ✅ **Requisition phase** - Complex exile logic with special card effects
-- ✅ **5-year campaign** - Year 5 has unique mechanics (3 tricks, no trump)
-- ✅ **Personal Plot management** - Hidden cards that contribute to final score
+## Game Flow
 
-### User Experience
+1. **Planning** - Reveal jobs and set trump. Year 5 is famine and has no trump.
+2. **Swap** - In years 2-5, each player may swap one hand card with a hidden or revealed plot card when the swap variant is enabled.
+3. **Trick** - Play 4 tricks in normal years and 3 tricks in famine. Players must follow the lead suit if able.
+4. **Assignment** - The trick winner assigns captured cards to jobs. Legal target jobs are the suits present in the completed trick.
+5. **Year end** - Remaining hand cards move to hidden plots.
+6. **Requisition** - Failed jobs may reveal and exile matching plot cards.
+7. Repeat for 5 years. **Highest final plot score wins**.
 
-- ✅ **Drag-and-drop card play** - Intuitive card interaction
-- ✅ **Smooth animations** - Card movements and transitions
-- ✅ **Auto-save** - Game state persists across page refreshes
-- ✅ **Visual feedback** - Clear indication of game state and valid moves
-- ✅ **Responsive layout** - Adapts to different screen sizes
-- ✅ **Game notifications** - Important events are clearly communicated
+## Special Cards
 
-### AI Opponents
+Special cards apply only when `nomenclature` is enabled and the card is in the trump suit:
 
-- ✅ **RandomAI** - Fully functional random strategy AI
-- ✅ **Extensible architecture** - Easy to add smarter AI strategies
-- ✅ **Base AIPlayer class** - Framework for future AI improvements
+- **Jack, Drunkard** - Contributes 0 work hours. If its assigned job fails, the Drunkard is exiled instead of player plot cards for that job.
+- **Queen, Informant** - If its assigned job fails, matching hidden plot cards are all revealed.
+- **King, Party Official** - If its assigned job fails, two matching revealed plot cards are exiled instead of one.
 
-## 🔧 Technical Details
+Famine has no trump, so trump special-card effects do not apply in year 5.
 
-### Browser Compatibility
+## Swift Architecture
 
-- **Chrome/Edge**: 90+
-- **Firefox**: 88+
-- **Safari**: 14+
+```text
+ios/KolkhozSwiftUI/
+  Package.swift
+  project.yml
+  Sources/
+    KolkhozCore/
+      Models.swift              # State, cards, variants, phases, errors
+      KolkhozEngine.swift       # Rules, AI, phase flow, scoring
+    KolkhozAppFeature/
+      GameStore.swift           # SwiftUI adapter around KolkhozEngine
+      KolkhozRootView.swift     # Lobby/game switch
+      Lobby/LobbyView.swift     # Presets, custom variants, rules
+      Board/GameBoardView.swift # Board shell, navigation, animations
+      Board/GameSections.swift  # Phase-specific screens
+      Cards/CardViews.swift     # Card rendering
+      Design/                  # Shared colors, controls, icons
+      Resources/               # Pixel art and UI assets
+    KolkhozSwiftUIApp/
+      KolkhozSwiftUIApp.swift   # App entry point
+    KolkhozSmokeTests/
+      main.swift                # Smoke tests
+```
 
-Requires ES6 module support, template literals, async/await, Map, Set, and localStorage.
+## Data Flow
 
-### Game Logic Implementation
+```text
+SwiftUI gesture
+    -> GameStore action
+    -> KolkhozEngine mutates KolkhozState
+    -> Engine processes automatic AI turns
+    -> GameStore publishes copied state and animation events
+    -> SwiftUI re-renders
+```
 
-All game logic has been faithfully ported from the original Python/Flask implementation:
+Views should call `GameStore`; game rules and state mutations belong in `KolkhozEngine`.
 
-- **Trick resolution** - Trump beats lead suit, highest value wins
-- **Follow-suit validation** - Enforced during trick-taking phase
-- **Job completion** - Threshold-based (40 hours) job claiming
-- **Requisition phase** - Complex special card effects and exile logic
-- **Year transitions** - Proper state management across 5 years
-- **Year 5 mechanics** - 3 tricks only, no trump suit
+## Key Files
 
-### Save System
+- `ios/KolkhozSwiftUI/Sources/KolkhozCore/KolkhozEngine.swift` - Rules, AI, phase transitions, scoring.
+- `ios/KolkhozSwiftUI/Sources/KolkhozCore/Models.swift` - State and model definitions.
+- `ios/KolkhozSwiftUI/Sources/KolkhozAppFeature/GameStore.swift` - MainActor state bridge.
+- `ios/KolkhozSwiftUI/Sources/KolkhozAppFeature/Board/GameSections.swift` - Phase UI and player interactions.
+- `agent-docs/` - Agent-oriented architecture, state, and phase references.
 
-Games automatically save to localStorage after every action:
-- Survives page refreshes
-- Can export/import save files (future feature)
-- Version migration support for future updates
-- Save state includes complete game state serialization
+## Legacy Web App
 
-## 🎨 Customization
+The repository still contains the older web app:
 
-### Styling
+- `src/` - React/boardgame.io source.
+- `docs/` - GitHub Pages build output.
+- `package.json` - Legacy web build/test commands.
 
-Edit `docs/assets/style.css` to customize:
-- Colors and themes
-- Card sizes and spacing
-- Animation speeds
-- Layout and responsive breakpoints
-
-### AI Difficulty
-
-The AI system is designed for easy extension. To add smarter AI:
-
-1. Extend the `AIPlayer` base class in `docs/js/ai/AIPlayer.js`
-2. Implement strategic decision-making:
-   - Prioritize high-value cards
-   - Track played cards
-   - Strategic job selection
-   - Defensive play to avoid requisition
-3. Replace `RandomAI` in the game initialization
-
-## 📝 Development
-
-### Code Quality
-
-- **Modular architecture** - Clean separation of concerns
-- **ES6 classes** - Object-oriented design
-- **Comprehensive game state** - Fully serializable state management
-- **Error handling** - Graceful degradation and user feedback
-
-### Future Enhancements
-
-The codebase is designed for future expansion:
-
-- **Multiplayer support** - Network layer stub exists for WebRTC integration
-- **Better AI** - Extend `AIPlayer` base class with strategic algorithms
-- **Statistics tracking** - Track wins, scores, achievements
-- **Themes** - Easy CSS customization for different visual styles
-- **Undo/Replay** - Game state is fully serializable
-- **Export/Import saves** - Share game states between devices
-- **Tutorial mode** - Interactive guide for new players
-
-### Testing Checklist
-
-Manual testing has verified:
-- ✅ Complete 5-year game completion
-- ✅ Follow-suit validation
-- ✅ Trump card logic
-- ✅ Special cards (J/Q/K effects)
-- ✅ Job completion mechanics
-- ✅ Requisition phase logic
-- ✅ Save/load functionality
-- ✅ Animation smoothness
-- ✅ Year 5 (3 tricks only, no trump)
-- ✅ Game over screen and scoring
-
-## 📄 Files Overview
-
-- **`docs/`** - Complete deployable game (use this for GitHub Pages)
-- **`rules.txt`** - Detailed game rules in English
-- **`DEPLOYMENT.md`** - Step-by-step deployment guide
-- **`static/`** - Legacy Flask assets (not used in current implementation)
-- **`templates/`** - Legacy Flask templates (not used in current implementation)
-
-## 🙏 Acknowledgments
-
-- **Original game design**: Traditional Russian card game "Колхоз"
-- **Game rules**: Based on the documented rules in `rules.txt`
-- **Implementation**: Complete rewrite from Python/Flask to client-side JavaScript
-- **Card graphics**: SVG card images for all 62 cards
-
-## 📚 Additional Resources
-
-- See `rules.txt` for complete game rules
-- See `docs/README.md` for detailed technical documentation
-- See `DEPLOYMENT.md` for deployment instructions
-
----
-
-**Enjoy the game! Good luck avoiding the ГУЛАГ!** 🎴
-
-*For questions, issues, or contributions, please refer to the project repository.*
+Use these only when intentionally working on the legacy browser version.

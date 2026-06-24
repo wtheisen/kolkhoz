@@ -535,7 +535,7 @@ private extension KolkhozEngine {
                         playerID: playerID,
                         suit: suit,
                         card: card,
-                        message: "\(state.players[playerID].name) sends \(card.rank) \(suit.rawValue) north"
+                        message: requisitionExileMessage(playerID: playerID, card: card, suit: suit)
                     ))
                     animationEvents.append(.cardExiled(id: UUID(), playerID: playerID, suit: suit, card: card))
                     exiledForSuit = true
@@ -557,9 +557,23 @@ private extension KolkhozEngine {
                 playerID: heroID,
                 suit: .wheat,
                 card: nil,
-                message: "\(state.players[heroID].name) is immune after winning every trick"
+                message: heroImmunityMessage(playerID: heroID)
             ), at: 0)
         }
+    }
+
+    func requisitionExileMessage(playerID: Int, card: Card, suit: Suit) -> String {
+        if state.players[playerID].isHuman {
+            return "You send \(card.rank) \(suit.rawValue) north"
+        }
+        return "\(state.players[playerID].name) sends \(card.rank) \(suit.rawValue) north"
+    }
+
+    func heroImmunityMessage(playerID: Int) -> String {
+        if state.players[playerID].isHuman {
+            return "You are immune after winning every trick"
+        }
+        return "\(state.players[playerID].name) is immune after winning every trick"
     }
 
     func heroPlayerID() -> Int? {

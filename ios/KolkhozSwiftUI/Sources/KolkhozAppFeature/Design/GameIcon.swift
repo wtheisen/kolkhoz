@@ -7,6 +7,11 @@ import AppKit
 
 enum GameIconAsset: String {
     case menu = "icon-menu"
+    case year1 = "icon-year-1"
+    case year2 = "icon-year-2"
+    case year3 = "icon-year-3"
+    case year4 = "icon-year-4"
+    case year5 = "icon-year-5"
     case brigade = "icon-brigade"
     case jobs = "icon-jobs"
     case north = "icon-north"
@@ -21,7 +26,12 @@ enum GameIconAsset: String {
     case sunflower = "icon-sunflower"
     case potato = "icon-potato"
     case beet = "icon-beet"
+    case trumpWheat = "icon-trump-wheat"
+    case trumpSunflower = "icon-trump-sunflower"
+    case trumpPotato = "icon-trump-potato"
+    case trumpBeet = "icon-trump-beet"
     case cellar = "icon-cellar"
+    case hand = "icon-hand"
 }
 
 struct GameIcon: View {
@@ -48,24 +58,9 @@ struct GameIcon: View {
     }
 
     private var image: Image {
-        let bundle = Bundle.kolkhozAppFeatureResources
-        let url = bundle.url(forResource: asset.rawValue, withExtension: "png")
-            ?? bundle.url(forResource: asset.rawValue, withExtension: "png", subdirectory: "Icons")
-
-        guard let url else {
-            return Image(systemName: "square.fill")
-        }
-
-        #if canImport(UIKit)
-        if let image = UIImage(contentsOfFile: url.path) {
-            return Image(uiImage: image)
-        }
-        #elseif canImport(AppKit)
-        if let image = NSImage(contentsOf: url) {
-            return Image(nsImage: image)
-        }
-        #endif
-
-        return Image(systemName: "square.fill")
+        KolkhozResourceImageCache.image(for: [
+            KolkhozResourceImageCandidate(asset.rawValue),
+            KolkhozResourceImageCandidate(asset.rawValue, subdirectory: "Icons")
+        ]) ?? Image(systemName: "square.fill")
     }
 }

@@ -4,3 +4,10 @@ dist/
 scripts/*.bundle.js
 *.xcuserstate
 xcuserdata/
+
+# Local/editor state
+.claude/settings.local*.json
+*conflicted copy*
+
+# Generated scratch output
+tmp/

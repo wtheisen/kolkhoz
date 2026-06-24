@@ -1,11 +1,9 @@
-import React, { useState, useMemo } from 'react';
-import { Client } from 'boardgame.io/react';
-import { Local } from 'boardgame.io/multiplayer';
-import { MCTSBot } from 'boardgame.io/ai';
-import { EffectsBoardWrapper } from 'bgio-effects/react';
-import { KolkhozGame } from '../game/index.js';
+import React, { useState } from 'react';
 import { Board } from './Board.jsx';
 import { DEFAULT_VARIANTS } from '../game/constants.js';
+
+const SAVE_KEY = 'kolkhoz-save';
+const LANG_KEY = 'kolkhoz-lang';
 
 // Preset configurations
 const PRESETS = {
@@ -112,17 +110,11 @@ const VARIANT_INFO = {
     descEn: 'Unclaimed job rewards carry over to the next year',
   },
 };
-
-// Wrap Board with effects - delays state updates until animations complete
-const BoardWithEffects = EffectsBoardWrapper(Board, {
-  updateStateAfterEffects: true,
-});
-
 export function App() {
-  const [gameStarted, setGameStarted] = useState(false);
+  const [gameStarted, setGameStarted] = useState(() => localStorage.getItem(SAVE_KEY) !== null);
   const [selectedPreset, setSelectedPreset] = useState('kolkhoz');
   const [customVariants, setCustomVariants] = useState({ ...DEFAULT_VARIANTS });
-  const [lang, setLang] = useState('ru'); // 'ru' or 'en'
+  const [lang, setLang] = useState(() => localStorage.getItem(LANG_KEY) || 'ru'); // 'ru' or 'en'
 
   // Helper to get text based on language
   const t = (ru, en) => lang === 'ru' ? ru : en;
@@ -140,28 +132,23 @@ export function App() {
     }
   };
 
-  // Callback to return to lobby for a new game
-  const handleNewGame = () => setGameStarted(false);
+  const toggleLobbyLanguage = () => {
+    const newLang = lang === 'ru' ? 'en' : 'ru';
+    localStorage.setItem(LANG_KEY, newLang);
+    setLang(newLang);
+  };
 
-  // Create client dynamically with selected variants
-  // setupData must be passed in Client config, not as component prop
-  const KolkhozClient = useMemo(() => {
-    if (!gameStarted) return null;
-    return Client({
-      game: KolkhozGame,
-      board: (props) => <BoardWithEffects {...props} onNewGame={handleNewGame} />,
-      numPlayers: 4,
-      multiplayer: Local({
-        bots: {
-          '1': MCTSBot,
-          '2': MCTSBot,
-          '3': MCTSBot,
-        },
-      }),
-      debug: false,
-      setupData: { variants },
-    });
-  }, [gameStarted, variants]);
+  const handleStartGame = () => {
+    localStorage.removeItem(SAVE_KEY);
+    setGameStarted(true);
+  };
+
+  // Callback to return to lobby for a new game
+  const handleNewGame = () => {
+    localStorage.removeItem(SAVE_KEY);
+    setLang(localStorage.getItem(LANG_KEY) || 'ru');
+    setGameStarted(false);
+  };
 
   const [showRules, setShowRules] = useState(false);
 
@@ -175,7 +162,7 @@ export function App() {
             <h2 title={t('Pyatiletka - Five-Year Plan', 'Пятилетка')}>Пятилетка</h2>
           </div>
           <div className="lobby-buttons">
-            <button className="start-btn" onClick={() => setGameStarted(true)}>
+            <button className="start-btn" onClick={handleStartGame}>
               {t('Начать игру', 'Start Game')}
             </button>
             <button
@@ -188,7 +175,7 @@ export function App() {
           <div className="lobby-author-row">
             <button
               className="lang-toggle-inline"
-              onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')}
+              onClick={toggleLobbyLanguage}
               title={t('Switch to English', 'Переключить на русский')}
             >
               {lang === 'ru' ? '🇬🇧' : '🇷🇺'}
@@ -316,5 +303,5 @@ export function App() {
     );
   }
 
-  return <KolkhozClient playerID="0" />;
+  return <Board variants={variants} onNewGame={handleNewGame} />;
 }

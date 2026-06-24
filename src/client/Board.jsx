@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useEffectListener } from 'bgio-effects/react';
+import { useKolkhozGame } from './hooks/useKolkhozGame.js';
 import { TrickAreaHTML } from './components/TrickAreaHTML.jsx';
 import { FlyingCard, AIPlayCard, FlyingExileCard } from './components/animations/index.js';
 import { NavBar, OptionsPanel, PlayerHandArea } from './components/layout/index.js';
@@ -7,11 +7,13 @@ import { RequisitionOverlay, GameOverScreen } from './components/overlays/index.
 import { getCardImagePath } from '../game/Card.js';
 import { translations, t } from './translations.js';
 
-export function Board({ G, ctx, moves, playerID, onNewGame }) {
+export function Board({ variants, onNewGame }) {
+  // Use custom engine hook
+  const { G, ctx, moves, playerID, isMyTurn, currentAnimation, completeAnimation, isReady } = useKolkhozGame({ variants });
+
   const currentPlayer = parseInt(playerID, 10);
-  const isMyTurn = ctx.currentPlayer === playerID;
-  const phase = ctx.phase;
-  const currentSwapPlayer = phase === 'swap' ? parseInt(ctx.currentPlayer, 10) : null;
+  const phase = ctx?.phase;
+  const currentSwapPlayer = phase === 'swap' ? parseInt(ctx?.currentPlayer, 10) : null;
 
   // Mobile panel toggle - 'game' is explicit game view, null means auto-navigate by phase
   const [activePanel, setActivePanel] = useState(null);
@@ -30,10 +32,7 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
 
   // Track if user has confirmed swap locally
   const [swapConfirmedLocally, setSwapConfirmedLocally] = useState(false);
-  const lastYearRef = useRef(G.year);
-
-  // Ref to trick area for getting card slot positions
-  const trickAreaRef = useRef(null);
+  const lastYearRef = useRef(null);
 
   // Drag state for playing cards
   const [dragState, setDragState] = useState(null);
@@ -49,44 +48,22 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
   const assignCardRefs = useRef({});
   const jobDropRefs = useRef({});
 
-  // AI card play animation state - use queue to handle rapid-fire bot moves
-  const [animationQueue, setAnimationQueue] = useState([]);
-  const [currentAiAnimation, setCurrentAiAnimation] = useState(null);
+  // AI card play animation - derived from hook's currentAnimation
+  const currentAiAnimation = currentAnimation?.type === 'cardPlayed' ? {
+    playerIdx: currentAnimation.playerIdx,
+    card: currentAnimation.card,
+    key: `${currentAnimation.card.suit}-${currentAnimation.card.value}`,
+  } : null;
 
-  // Listen for cardPlayed effects from bgio-effects
-  // When bots play after human, multiple effects fire rapidly - we queue them
-  useEffectListener(
-    'cardPlayed',
-    useCallback(({ playerIdx, card }) => {
-      const key = `${card.suit}-${card.value}`;
-      setAnimationQueue(q => [...q, { playerIdx, card, key }]);
-    }, []),
-    [],
-    useCallback(() => {
-      // Effect duration expired - clear current animation to trigger next in queue
-      setCurrentAiAnimation(null);
-    }, []),
-    []
-  );
-
-  // Process animation queue - start next animation when current completes
-  useEffect(() => {
-    if (animationQueue.length > 0 && !currentAiAnimation) {
-      const [next, ...rest] = animationQueue;
-      setAnimationQueue(rest);
-      setCurrentAiAnimation(next);
-    }
-  }, [animationQueue, currentAiAnimation]);
-
-  // Timeout fallback - ensure animation clears even if bgio-effects onEnd doesn't fire
+  // Handle animation completion timeout
   useEffect(() => {
     if (currentAiAnimation) {
       const timer = setTimeout(() => {
-        setCurrentAiAnimation(null);
+        completeAnimation();
       }, 750); // Slightly longer than CSS animation (600ms)
       return () => clearTimeout(timer);
     }
-  }, [currentAiAnimation]);
+  }, [currentAiAnimation, completeAnimation]);
 
   // Requisition animation state
   const [requisitionStage, setRequisitionStage] = useState('idle');
@@ -98,11 +75,11 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
 
   // Reset local swap confirmation when year changes
   useEffect(() => {
-    if (G.year !== lastYearRef.current) {
+    if (G && G.year !== lastYearRef.current) {
       setSwapConfirmedLocally(false);
       lastYearRef.current = G.year;
     }
-  }, [G.year]);
+  }, [G?.year]);
 
   // Auto-switch view when phase changes, but don't lock the user there
   useEffect(() => {
@@ -115,7 +92,7 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
 
   // Requisition animation sequence - process job by job
   useEffect(() => {
-    if (phase !== 'requisition' || !G.requisitionData) {
+    if (!G || phase !== 'requisition' || !G.requisitionData) {
       setRequisitionStage('idle');
       setCurrentJobIndex(0);
       setCurrentJobStage('header');
@@ -135,11 +112,11 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
     setRequisitionStage('processing');
     setCurrentJobIndex(0);
     setCurrentJobStage('header');
-  }, [phase, G.requisitionData]);
+  }, [phase, G?.requisitionData]);
 
   // Job-by-job animation state machine
   useEffect(() => {
-    if (requisitionStage !== 'processing' || !G.requisitionData) return;
+    if (!G || requisitionStage !== 'processing' || !G.requisitionData) return;
 
     const failedJobs = G.requisitionData.failedJobs || [];
     if (currentJobIndex >= failedJobs.length) {
@@ -186,15 +163,15 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
     return () => {
       if (timeout) clearTimeout(timeout);
     };
-  }, [requisitionStage, currentJobIndex, currentJobStage, G.requisitionData]);
+  }, [requisitionStage, currentJobIndex, currentJobStage, G?.requisitionData]);
 
   // Get current requisition suit for highlighting
-  const currentRequisitionSuit = requisitionStage === 'processing' && G.requisitionData?.failedJobs
+  const currentRequisitionSuit = requisitionStage === 'processing' && G?.requisitionData?.failedJobs
     ? G.requisitionData.failedJobs[currentJobIndex]
     : null;
 
   // AI Assignment Animation - compute flying card data
-  const pending = G.pendingAIAssignments;
+  const pending = G?.pendingAIAssignments;
   let flyingCard = null;
 
   if (phase === 'aiAssignment' && pending) {
@@ -213,7 +190,7 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
   }
 
   // Get highlighted suits for job icons - during trick phase, show suits in current trick
-  const highlightedSuits = phase === 'trick' && G.currentTrick.length > 0
+  const highlightedSuits = phase === 'trick' && G?.currentTrick?.length > 0
     ? [...new Set(G.currentTrick.map(([, card]) => card.suit))]
     : pending
       ? [...new Set(Object.values(pending.assignments))]
@@ -222,7 +199,7 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
   // Compute which trick to show
   let trickToShow;
   if (phase === 'assignment') {
-    trickToShow = G.lastTrick;
+    trickToShow = G?.lastTrick || [];
   } else if (phase === 'aiAssignment' && pending) {
     const pendingKeys = new Set(Object.keys(pending.assignments));
     trickToShow = pending.trick.filter(([, card]) => {
@@ -233,11 +210,11 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
   } else {
     // Filter out the card that is currently animating
     if (currentAiAnimation) {
-      trickToShow = G.currentTrick.filter(([, card]) =>
+      trickToShow = (G?.currentTrick || []).filter(([, card]) =>
         `${card.suit}-${card.value}` !== currentAiAnimation.key
       );
     } else {
-      trickToShow = G.currentTrick;
+      trickToShow = G?.currentTrick || [];
     }
   }
 
@@ -278,6 +255,7 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
       index: cardIndex,
       card,
       position: pos,
+      startPosition: pos,
       offset: {
         x: pos.x - (cardRect.left + cardRect.width / 2),
         y: pos.y - (cardRect.top + cardRect.height / 2),
@@ -301,7 +279,11 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
         { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY } :
         { x: e.clientX, y: e.clientY };
 
-      if (isOverDropZone(pos.x, pos.y)) {
+      const dx = pos.x - dragState.startPosition.x;
+      const dy = pos.y - dragState.startPosition.y;
+      const isClick = Math.hypot(dx, dy) < 8;
+
+      if (isClick || isOverDropZone(pos.x, pos.y)) {
         handlePlayCard(dragState.index);
       }
       setDragState(null);
@@ -502,6 +484,15 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
     };
   }, [assignDragState, moves]);
 
+  // Loading state - wait for engine to initialize
+  if (!G || !ctx) {
+    return (
+      <div className="game-board">
+        <div className="loading">Loading...</div>
+      </div>
+    );
+  }
+
   // Handle trump selection
   const handleSetTrump = (suit) => {
     if (phase === 'planning') {
@@ -571,22 +562,21 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
       />
 
       {/* Panel content - only shows for options panel */}
-      {activePanel === 'options' && <OptionsPanel language={language} />}
+      {activePanel === 'options' && <OptionsPanel language={language} onNewGame={onNewGame} />}
 
       {/* Main content area */}
       <div className="game-content">
         {/* Trick Area - now HTML instead of SVG */}
         <TrickAreaHTML
-          ref={trickAreaRef}
           trick={trickToShow}
           numPlayers={G.numPlayers}
           year={G.year}
           trump={G.trump}
           phase={phase}
           isMyTurn={isMyTurn}
-          currentPlayerName={G.players[ctx.currentPlayer]?.name}
+          currentPlayerName={G.players[ctx?.currentPlayer]?.name}
           players={G.players}
-          currentPlayer={parseInt(ctx.currentPlayer, 10)}
+          currentPlayer={parseInt(ctx?.currentPlayer ?? 0, 10)}
           brigadeLeader={G.players.findIndex(p => p.brigadeLeader)}
           displayMode={displayMode}
           workHours={G.workHours}
@@ -610,7 +600,7 @@ export function Board({ G, ctx, moves, playerID, onNewGame }) {
           onSwapDragStart={handleSwapDragStart}
           plotDropRefs={plotDropRefs}
           swapConfirmed={G.swapConfirmed || {}}
-          currentSwapPlayer={phase === 'swap' ? parseInt(ctx.currentPlayer, 10) : null}
+          currentSwapPlayer={phase === 'swap' ? parseInt(ctx?.currentPlayer ?? 0, 10) : null}
           lastSwap={G.lastSwap}
           // Requisition phase props
           requisitionData={G.requisitionData}

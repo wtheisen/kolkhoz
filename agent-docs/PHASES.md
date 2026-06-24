@@ -1,314 +1,232 @@
 # Game Phases & Transitions
 
+The Swift app uses `GamePhase` plus explicit methods in `KolkhozEngine`. It does not use
+boardgame.io hooks. Automatic AI turns are processed by `processAutomaticTurns()`.
+
 ## Phase Flow Diagram
 
-```
-                        ┌──────────────┐
-                        │   planning   │ ← Game starts here
-                        │  (set trump) │
-                        └──────┬───────┘
-                               │
-              ┌────────────────┴────────────────┐
-              │ year > 1 && allowSwap variant?  │
-              └────────────────┬────────────────┘
-                    yes        │        no
-                     ↓         │         ↓
-              ┌──────────┐     │    ┌──────────┐
-              │   swap   │     └───→│  trick   │
-              └────┬─────┘          └────┬─────┘
-                   │                     │
-                   └─────────────────────┘
-                               │
-                               ↓
-                        ┌──────────────┐
-                        │    trick     │←────────────┐
-                        │ (play cards) │             │
-                        └──────┬───────┘             │
-                               │                     │
-              ┌────────────────┴────────────────┐    │
-              │      all cards same suit?       │    │
-              └────────────────┬────────────────┘    │
-                    no         │        yes          │
-                     ↓         │         ↓           │
-              ┌────────────┐   │   (auto-assign)     │
-              │ assignment │   │         │           │
-              └─────┬──────┘   │         │           │
-                    │          │         │           │
-                    └──────────┴─────────┘           │
-                               │                     │
-                               ↓                     │
-                      ┌────────────────┐             │
-                      │ plotSelection  │             │
-                      │  (auto-hide)   │             │
-                      └───────┬────────┘             │
-                              │                      │
-              ┌───────────────┴───────────────┐      │
-              │    trickCount < tricksPerYear │      │
-              │      (4 normal, 3 famine)     │      │
-              └───────────────┬───────────────┘      │
-                    no        │        yes           │
-                     ↓        │         └────────────┘
-              ┌─────────────┐
-              │ requisition │
-              │ (exile cards)│
-              └──────┬──────┘
-                     │
-        ┌────────────┴────────────┐
-        │     year < MAX_YEARS    │
-        └────────────┬────────────┘
-              yes    │      no
-               ↓     │       ↓
-        ┌──────────┐ │  ┌──────────┐
-        │ planning │ │  │ GAME OVER│
-        └──────────┘ │  └──────────┘
-              ↑      │
-              └──────┘
+```text
+                        +--------------+
+                        |   planning   | <- game starts here
+                        |  set trump   |
+                        +------+-------+
+                               |
+              +----------------+----------------+
+              | year > 1 && allowSwap variant?  |
+              +----------------+----------------+
+                    yes        |        no
+                     v         |         v
+              +----------+     |    +----------+
+              |   swap   |-----+--->|  trick   |
+              +----+-----+          +----+-----+
+                   |                     |
+                   +---------------------+
+                               |
+                               v
+                        +--------------+
+                        |    trick     |<----------+
+                        | play cards   |           |
+                        +------+-------+           |
+                               |                   |
+                               v                   |
+                        +--------------+           |
+                        | assignment   |           |
+                        | assign work  |           |
+                        +------+-------+           |
+                               |                   |
+              +----------------+----------------+  |
+              | year complete?                  |  |
+              | 4 normal tricks, 3 famine       |  |
+              +----------------+----------------+  |
+                    yes        |        no         |
+                     v         |         +---------+
+              +---------------+
+              | move hands to |
+              | hidden plots  |
+              +-------+-------+
+                      |
+                      v
+              +---------------+
+              | requisition   |
+              | exile cards   |
+              +-------+-------+
+                      |
+        +-------------+-------------+
+        | year after increment <= 5 |
+        +-------------+-------------+
+              yes     |      no
+               v      |       v
+        +----------+  |  +----------+
+        | planning |  |  | gameOver |
+        +----------+  |  +----------+
 ```
 
 ## Phase Definitions
 
-### 1. Planning Phase
+### 1. Planning
 
-**Purpose:** Set trump suit for the year, reveal job cards.
+**Purpose:** Reveal jobs for the year and set trump.
 
-**Moves:** `declareTrump(suit)`
+**Human actions:** `setTrump(_:)` if the human is the current trump selector and the
+year is not famine.
 
-**Hooks:**
-```javascript
-planning: {
-  start: true,  // Game starts here
-  onBegin: ({ G, random }) => {
-    // Reveal job cards
-    // Check for famine (Ace of Clubs)
-    // If famine, auto-set trump to null
-  },
-  endIf: ({ G }) => G.trump !== null || G.isFamine,
-  next: ({ G }) => {
-    if (G.year > 1 && G.variants.allowSwap) return 'swap';
-    return 'trick';
-  },
-  turn: { order: TurnOrder.ONCE },  // First player declares trump
-}
-```
+**Automatic behavior:**
 
-**Key Logic:**
-- Central Planner (first player) chooses trump
-- Famine year = no trump selection needed
-- Jobs revealed from job piles
+- Famine is `year == 5`.
+- In famine, `trump` is set to `nil` and planning advances automatically.
+- If an AI is the trump selector, it chooses a suit based on hand composition and high cards.
+- After planning, the engine enters `swap` when `allowSwap && year > 1`; otherwise it enters `trick`.
 
----
+**Key logic locations:**
 
-### 2. Swap Phase
+- `setupDecks()`
+- `revealJobs()`
+- `processAutomaticTurns()`
+- `advanceFromPlanning()`
 
-**Purpose:** Allow players to exchange hand cards with hidden plot cards.
+### 2. Swap
 
-**Moves:** `swapCard(plotIndex, handIndex, plotType)`, `confirmSwap()`
+**Purpose:** Let each player exchange at most one hand card with a hidden or revealed
+plot card before tricks begin.
 
-**Hooks:**
-```javascript
-swap: {
-  onBegin: ({ G }) => {
-    G.swapConfirmed = {};
-    // Auto-confirm AI players
-    for (const p of G.players) {
-      if (!p.isHuman) G.swapConfirmed[p.idx] = true;
-    }
-  },
-  endIf: ({ G }) => {
-    // End when all players confirmed
-    return Object.keys(G.swapConfirmed).length === G.numPlayers;
-  },
-  next: 'trick',
-  turn: {
-    activePlayers: { all: 'swap' },  // Simultaneous
-  },
-}
-```
+**Human actions:** `swap(handCard:plotCard:revealed:)`, `undoSwap()`, `confirmSwap()`.
 
-**Key Logic:**
-- Only available years 2-5 with `allowSwap` variant
-- All players act simultaneously
-- Can swap with revealed OR hidden plot cards
-- Card takes on the position's state (revealed stays revealed)
+**Automatic behavior:**
 
----
+- The human acts first.
+- Each AI then optionally swaps its lowest hand card for its best plot card if the plot card is meaningfully better.
+- Each player may stage only one swap.
+- When all players are confirmed, the engine enters `trick` with `currentPlayer = lead`.
 
-### 3. Trick Phase
+**Key logic locations:**
 
-**Purpose:** Players play cards, tricks are resolved.
+- `swapCard(playerID:handCard:plotCard:zone:)`
+- `performAISwapIfUseful(playerID:)`
+- `confirmSwap(playerID:)`
 
-**Moves:** `playCard(cardIndex)`
+### 3. Trick
 
-**Hooks:**
-```javascript
-trick: {
-  onBegin: ({ G }) => {
-    if (G.currentTrick.length === 0) {
-      G.currentTrick = [];
-    }
-  },
-  onEnd: ({ G, ctx }) => {
-    // Resolve trick if complete
-    // Apply assignments if auto-assignable
-    // Check for year end
-  },
-  endIf: ({ G, ctx }) => {
-    // End when trick complete OR year complete
-  },
-  next: ({ G }) => {
-    if (G.needsManualAssignment) return 'assignment';
-    const tricksPerYear = G.isFamine ? 3 : 4;
-    if (G.trickCount >= tricksPerYear) return 'requisition';
-    return 'trick';
-  },
-  turn: {
-    order: {
-      first: ({ G }) => G.lead,
-      next: ({ G, ctx }) => (ctx.playOrderPos + 1) % ctx.numPlayers,
-    },
-  },
-}
-```
+**Purpose:** Players play one card each and determine a brigade leader.
 
-**Key Logic:**
-- Must follow lead suit if able
-- Trump beats lead suit
-- Highest card in winning suit wins
-- Winner becomes brigade leader and leads next
+**Human action:** `playCard(_:)`.
 
----
+**Automatic behavior:**
 
-### 4. Assignment Phase
+- AI players choose a legal card automatically.
+- Players must follow the lead suit if able.
+- Trump beats lead suit.
+- Highest card in the winning suit wins.
+- Winner becomes brigade leader, gains a medal, leads the next trick, and enters assignment.
 
-**Purpose:** Brigade leader assigns trick cards to jobs.
+**Key logic locations:**
 
-**Moves:** `submitAssignments(assignments)`
+- `playCard(playerID:cardIndex:)`
+- `resolveCurrentTrick()`
+- `trickWinner()`
+- `isValidPlay(playerID:cardIndex:)`
+- `chooseCardIndex(for:)`
 
-**Hooks:**
-```javascript
-assignment: {
-  onBegin: ({ G }) => {
-    G.pendingAssignments = {};
-  },
-  endIf: ({ G }) => !G.needsManualAssignment,
-  next: 'plotSelection',
-  turn: {
-    order: {
-      first: ({ G }) => G.lastWinner,  // Brigade leader
-    },
-  },
-}
-```
+### 4. Assignment
 
-**Key Logic:**
-- Only entered if cards are different suits
-- Trump cards can go to any job
-- Non-trump must go to their own suit's job
-- Work hours increase, jobs may complete
+**Purpose:** The trick winner assigns captured work to jobs.
 
----
+**Human actions:** `assign(card:to:)`, then `submitAssignments()` if the human won the
+trick.
 
-### 5. Plot Selection Phase
+**Automatic behavior:**
 
-**Purpose:** Remaining hand cards go to hidden plot.
+- If an AI won the trick, it assigns automatically.
+- Every trick enters assignment; there is no same-suit auto-assignment bypass in the Swift app.
+- Legal target suits are the suits present in `lastTrick`.
+- Each trick card may be assigned to any legal target suit.
+- AI picks one best legal suit and assigns every trick card there.
+- Work hours are applied, and any job reaching 40 hours is claimed immediately.
 
-**Hooks:**
-```javascript
-plotSelection: {
-  onBegin: ({ G }) => {
-    // Auto-move remaining hand to hidden plot
-    for (const p of G.players) {
-      p.plot.hidden.push(...p.hand);
-      p.hand = [];
-    }
-  },
-  endIf: () => true,  // Instant phase
-  next: ({ G }) => {
-    const tricksPerYear = G.isFamine ? 3 : 4;
-    if (G.trickCount >= tricksPerYear) return 'requisition';
-    return 'trick';
-  },
-}
-```
+**Key logic locations:**
 
-**Key Logic:**
-- Completely automatic
-- All remaining cards become hidden plot
-- Ends immediately
+- `assign(card:to:)`
+- `submitAssignments()`
+- `chooseAssignments(for:)`
+- `applyAssignments(_:)`
+- `advanceAfterAssignments()`
 
----
+### 5. Year-End Hand Movement
 
-### 6. Requisition Phase
+There is no `plotSelection` phase in Swift. When the year is complete, the engine calls
+`moveRemainingHandsToPlots()` before requisition.
 
-**Purpose:** Failed jobs cause card exile to GULAG.
+The year is complete when:
 
-**Hooks:**
-```javascript
-requisition: {
-  onBegin: ({ G, ctx }) => {
-    handleRequisition(G, G.variants);
-    // Transition to next year or end game
-  },
-  endIf: () => true,  // Instant phase
-  next: ({ G }) => {
-    if (G.year > MAX_YEARS) return null;  // Game over
-    return 'planning';
-  },
-}
-```
+- `trickCount >= 4` in normal years.
+- `trickCount >= 3` in famine.
+- Any player has an empty hand.
+- Or all players have exactly one card left.
 
-**Key Logic:**
-- Check each job: workHours < 40 = failed
-- Failed job = highest matching suit card exiled
-- Special cards modify behavior:
-  - Jack of Trump (Drunkard): Exiled instead of player card
-  - Queen of Trump (Informant): ALL players reveal plots
-  - King of Trump (Party Official): 2 cards exiled
+### 6. Requisition
 
----
+**Purpose:** Failed jobs may reveal and exile plot cards.
+
+**Human action:** `continueAfterRequisition()`.
+
+**Automatic behavior:**
+
+- Requisition runs when entering the phase and records events for the UI.
+- Failed jobs are those with `workHours[suit] < 40`.
+- Trump Jack assigned to a failed job is the Drunkard and is exiled instead of player cards.
+- Trump Queen assigned to a failed job is the Informant and reveals all players' matching hidden cards.
+- Trump King assigned to a failed job is the Party Official and exiles two matching revealed cards instead of one.
+- `northernStyle`, `miceVariant`, Informant, or having won a trick make a player vulnerable.
+- `heroOfSovietUnion` grants immunity to a player who won every trick that year.
+- Continuing removes exiled plot cards and transitions to the next year or game over.
+
+**Key logic locations:**
+
+- `performRequisition()`
+- `handleDrunkard(in:)`
+- `revealHiddenCards(playerID:suit:revealAll:)`
+- `removeExiledCards()`
+- `continueAfterRequisition()`
+
+### 7. Game Over
+
+After requisition in year 5, `transitionToNextYear()` increments `year` past 5 and calls
+`finishGame()`.
+
+`finishGame()` calculates final scores and picks the player with the highest final plot
+score as the winner.
 
 ## Phase Transition Gotchas
 
-### 1. Instant Phases
-`plotSelection` and `requisition` end immediately via `endIf: () => true`. Their logic runs in `onBegin`.
+### Famine
 
-### 2. Trump Reset
-Trump is set to `null` in `transitionToNextYear()` to ensure planning phase doesn't auto-skip.
+Famine is year 5 in the Swift app. It is not based on revealing an Ace of Clubs.
 
-### 3. Famine Detection
-```javascript
-G.isFamine = revealedJobs.Clubs?.value === 1;  // Ace of Clubs
-```
 Famine means:
-- 3 tricks instead of 4
-- No trump suit
-- 4 cards dealt instead of 5
 
-### 4. Year-End Processing
-Happens in `requisition.onBegin` via `transitionToNextYear()`:
-- Increment year
-- Reset work hours, job buckets
-- Deal new cards
-- Check for new famine
+- 3 tricks instead of 4.
+- No trump suit.
+- 4 cards dealt per player instead of 5.
 
-### 5. activePlayers Mode (Swap)
-Swap phase uses `activePlayers: { all: 'swap' }` for simultaneous play. AI auto-confirms in `onBegin`.
+### Assignment Targets
 
-## Common Phase Bugs
+Legal assignment targets are only the suits present in the completed trick. This differs
+from older docs/rules that said trump cards can go to any job.
 
-| Bug | Cause | Fix |
-|-----|-------|-----|
-| Infinite loop at year start | Trump not reset | Add `G.trump = null` in `transitionToNextYear` |
-| Swap hangs | AI not confirming | Auto-confirm in `swap.onBegin` |
-| Wrong trick count | Checking year instead of isFamine | Use `getTricksPerYear(G.isFamine)` |
-| Double year-end | Phase re-entry | Use `yearEndProcessed` flag |
+### Requisition Timing
+
+`performRequisition()` records exiled cards and events, but plot cards remain visible for
+the requisition screen. `removeExiledCards()` runs only when the user continues.
+
+### Swap Is Sequential
+
+The Swift app processes swap confirmations in player order. AI players are automatic, but
+the implementation is not simultaneous `activePlayers` behavior.
 
 ## Debugging Phase Issues
 
-```javascript
-// Add to any phase hook
-console.log('[DEBUG] Phase:', ctx.phase);
-console.log('[DEBUG] Year:', G.year, 'Trick:', G.trickCount);
-console.log('[DEBUG] Trump:', G.trump, 'Famine:', G.isFamine);
-console.log('[DEBUG] Players hands:', G.players.map(p => p.hand.length));
+```swift
+print("[DEBUG] phase:", state.phase)
+print("[DEBUG] year:", state.year, "trick:", state.trickCount)
+print("[DEBUG] trump:", String(describing: state.trump), "famine:", state.isFamine)
+print("[DEBUG] hands:", state.players.map { $0.hand.count })
 ```

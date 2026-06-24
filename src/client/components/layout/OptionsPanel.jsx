@@ -2,7 +2,7 @@ import React from 'react';
 import { translations, t } from '../../translations.js';
 import './OptionsPanel.css';
 
-export function OptionsPanel({ language }) {
+export function OptionsPanel({ language, onNewGame }) {
   return (
     <div className="mobile-panel-content">
       <div className="options-panel">
@@ -23,7 +23,7 @@ export function OptionsPanel({ language }) {
               <p>• <strong>King ({t(translations, language, 'kingName')})</strong>: {t(translations, language, 'kingDesc')}</p>
             </div>
           </div>
-          <button className="menu-btn-action" onClick={() => window.location.reload()}>
+          <button className="menu-btn-action" onClick={onNewGame}>
             {t(translations, language, 'newGame')}
           </button>
         </div>

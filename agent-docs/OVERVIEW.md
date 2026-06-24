@@ -1,84 +1,103 @@
 # Kolkhoz - Agent Quick Start Guide
 
-A Soviet-themed trick-taking card game built with boardgame.io and React.
+The authoritative implementation is the native SwiftUI app in `ios/KolkhozSwiftUI/`.
+The older browser/boardgame.io implementation still exists in the repo, but when rules
+or behavior differ, follow the Swift app.
 
 ## Tech Stack
-- **boardgame.io 0.50.2** - Game state management
-- **React 18.2** - UI rendering
-- **Vite 5.0** - Build tool
-- **Vitest** - Testing
+
+### iOS app
+- **Swift 6** - Game engine and app code
+- **SwiftUI** - Native UI
+- **Swift Package Manager** - Package targets and smoke tests
+- **XcodeGen** - Generates the iOS Xcode project from `project.yml`
+
+### Legacy web app
+- **boardgame.io 0.50.2**, **React 18.2**, **Vite 5.0**, **Vitest**
 
 ## Quick Commands
+
 ```bash
-npm install          # Install dependencies
-npm run dev          # Dev server at localhost:3000
-npm run build        # Build to docs/ (GitHub Pages)
-npm run test:run     # Run tests once
-npm run test         # Watch mode tests
+cd ios/KolkhozSwiftUI
+swift run KolkhozSmokeTests
+swift build --target KolkhozAppFeature
+swift build --target KolkhozSwiftUIApp
+xcodegen generate
+xcodebuild -project KolkhozSwiftUI.xcodeproj -scheme KolkhozSwiftUIApp -destination 'generic/platform=iOS Simulator' build
+```
+
+If SwiftPM reports duplicate modules through both `/Users/wtheisen/Dropbox/...` and
+`/Users/wtheisen/Library/CloudStorage/Dropbox/...`, clean the SwiftPM module cache or
+run all commands through one canonical path.
+
+Legacy web commands:
+
+```bash
+npm install
+npm run dev
+npm run test:run
+npm run build
 ```
 
 ## Project Layout
-```
-src/
-  game/                    # Game logic (boardgame.io)
-    KolkhozGame.js         # Main game definition - phases, moves
-    constants.js           # SUITS, VALUES, THRESHOLD, variants
-    Card.js                # Card class
-    utils/
-      trickUtils.js        # Trick resolution, card validation
-      deckUtils.js         # Deck prep, dealing
-      scoringUtils.js      # Scoring, year transitions
-      requisitionUtils.js  # Requisition phase logic
-    __tests__/
-      KolkhozGame.test.js  # Game logic tests
-  client/
-    App.jsx                # Lobby with variant selection
-    Board.jsx              # Main game board + flying card animation
-    components/
-      TrickAreaHTML.jsx    # Main play area (HTML/CSS flexbox layout)
-      TrickAreaHTML.css    # Responsive layout styles
-    styles/
-      board.css            # Global styles, fixed player hand
+
+```text
+ios/KolkhozSwiftUI/
+  Package.swift
+  project.yml
+  Sources/
+    KolkhozCore/
+      Models.swift              # Foundation-only game state models
+      KolkhozEngine.swift       # Rules, AI, phase flow, scoring
+    KolkhozAppFeature/
+      GameStore.swift           # MainActor ObservableObject adapter
+      KolkhozRootView.swift     # Lobby/game switch and app-wide state
+      Lobby/LobbyView.swift     # Presets, custom variants, rules
+      Board/GameBoardView.swift # Board shell, navigation, animations
+      Board/GameSections.swift  # Phase panels and board sections
+      Cards/CardViews.swift     # Card rendering
+      Design/                  # Shared colors, controls, icons
+      Resources/               # Pixel art, cards, icons, chrome
+    KolkhozSwiftUIApp/
+      KolkhozSwiftUIApp.swift   # App entry point
+    KolkhozSmokeTests/
+      main.swift                # Plain Swift smoke tests
 ```
 
 ## Game Flow
-1. **Planning** - Reveal jobs, set trump (or famine = no trump)
-2. **Swap** - Optional hand/plot card exchange (years 2-5)
-3. **Trick** - Play 4 tricks (3 in famine), follow suit rules
-4. **Assignment** - Brigade leader assigns cards to jobs
-5. **Requisition** - Failed jobs cause card exile to GULAG
-6. Repeat for 5 years. **Lowest score wins**.
+
+1. **Planning** - Reveal jobs and set trump. Year 5 is famine: no trump.
+2. **Swap** - In years 2-5, each player may swap one hand card with a hidden or revealed plot card when `allowSwap` is enabled.
+3. **Trick** - Play 4 tricks in normal years, 3 tricks in famine. Players must follow the lead suit if able.
+4. **Assignment** - Every completed trick enters assignment. The brigade leader assigns trick cards to one of the suits present in that trick.
+5. **Year end** - After the final trick, remaining hand cards move to hidden plots.
+6. **Requisition** - Failed jobs may reveal and exile matching plot cards.
+7. Repeat for 5 years. **Highest final plot score wins**.
 
 ## Key Files to Read First
-1. `src/game/KolkhozGame.js` - Understand phases and moves
-2. `src/game/constants.js` - Game constants and variants
-3. `src/game/utils/trickUtils.js` - Core trick mechanics
 
-## Testing
-```bash
-npm run test:run
-```
-Tests use boardgame.io's `Client` with mock random for deterministic results.
+1. `ios/KolkhozSwiftUI/Sources/KolkhozCore/KolkhozEngine.swift` - Rules and phase flow.
+2. `ios/KolkhozSwiftUI/Sources/KolkhozCore/Models.swift` - State model reference.
+3. `ios/KolkhozSwiftUI/Sources/KolkhozAppFeature/GameStore.swift` - SwiftUI state bridge.
+4. `ios/KolkhozSwiftUI/Sources/KolkhozAppFeature/Board/GameSections.swift` - Phase-specific UI.
 
 ## Common Tasks
 
-### Adding a new move
-1. Add function in `KolkhozGame.js` moves object
-2. Add to AI enumeration if applicable
-3. Add tests in `__tests__/KolkhozGame.test.js`
+### Changing game rules
+1. Update `KolkhozEngine.swift`.
+2. Update or add a smoke test in `Sources/KolkhozSmokeTests/main.swift`.
+3. Run `swift run KolkhozSmokeTests`.
+
+### Changing UI
+1. Update views in `Sources/KolkhozAppFeature/`.
+2. Keep state mutations inside `KolkhozEngine`; views should call `GameStore`.
+3. Verify with `swift build --target KolkhozSwiftUIApp` and, when possible, an Xcode simulator build.
 
 ### Modifying phase transitions
-- Check `next`, `endIf`, `onBegin`, `onEnd` hooks in phase definitions
-- Key file: `src/game/KolkhozGame.js`
+- Check `processAutomaticTurns()`, `advanceFromPlanning()`, `resolveCurrentTrick()`,
+  `advanceAfterAssignments()`, `performRequisition()`, and `transitionToNextYear()`.
 
-### Fixing game logic bugs
-1. Add failing test first
-2. Fix in appropriate utils file
-3. Verify with `npm run test:run`
+## Build Notes
 
-## Build & Deploy
-```bash
-npm run build        # Outputs to docs/
-git add docs/ && git commit -m "Build" && git push
-```
-GitHub Pages serves from `/docs` on master branch.
+The Swift app is source of truth. The web build in `docs/` is legacy deployable output
+and may not match current rule behavior.

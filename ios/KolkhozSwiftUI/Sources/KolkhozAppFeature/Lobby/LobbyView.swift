@@ -92,6 +92,7 @@ struct LobbyView: View {
 }
 
 struct LobbyTitleColumn: View {
+    @Environment(\.kolkhozLanguage) private var language
     @Binding var showingRules: Bool
     let onStart: () -> Void
     let width: CGFloat
@@ -110,14 +111,14 @@ struct LobbyTitleColumn: View {
 
             VStack(spacing: 9) {
                 Button(action: onStart) {
-                    Text("Start Game")
+                    Text(language.text(en: "Start Game", ru: "Начать игру"))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(CommandButtonStyle(prominent: true))
                 Button {
                     showingRules.toggle()
                 } label: {
-                    Text(showingRules ? "Options" : "Rules")
+                    Text(showingRules ? language.text(en: "Options", ru: "Настройки") : language.text(en: "Rules", ru: "Правила"))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(CommandButtonStyle(prominent: false))
@@ -132,10 +133,10 @@ struct LobbyTitleColumn: View {
             Spacer(minLength: 2)
 
             HStack(spacing: 7) {
-                GameIcon(.medalStar, size: 18)
+                LanguageToggleButton(compact: true)
                 VStack(spacing: 2) {
-                    Text("Game by")
-                    Text("William Theisen")
+                    Text(language.text(en: "Game by", ru: "Автор игры"))
+                    Text(language.text(en: "William Theisen", ru: "Уильям Тайсон"))
                 }
                 .font(.kolkhozTitle(.caption2))
                 .textCase(.uppercase)
@@ -162,21 +163,7 @@ struct TitleCardImage: View {
     }
 
     private var titleImage: Image {
-        guard let url = Bundle.kolkhozAppFeatureResources.url(forResource: "title-card-kolkhoz", withExtension: "png") else {
-            return Image(systemName: "rectangle.fill")
-        }
-
-        #if canImport(UIKit)
-        if let image = UIImage(contentsOfFile: url.path) {
-            return Image(uiImage: image)
-        }
-        #elseif canImport(AppKit)
-        if let image = NSImage(contentsOf: url) {
-            return Image(nsImage: image)
-        }
-        #endif
-
-        return Image(systemName: "rectangle.fill")
+        KolkhozResourceImageCache.image(named: "title-card-kolkhoz") ?? Image(systemName: "rectangle.fill")
     }
 }
 
@@ -206,15 +193,6 @@ struct LobbyPanel: View {
         .frame(width: width, alignment: .topLeading)
         .frame(height: contentHeight, alignment: .top)
         .panelStyle()
-        .overlay(alignment: .bottomTrailing) {
-            GeneratedChromeImage(resourceName: "ui-corner-crops")
-                .aspectRatio(contentMode: .fit)
-                .frame(width: min(68, width * 0.17))
-                .scaleEffect(x: -1, y: -1)
-                .opacity(0.7)
-                .offset(x: 13, y: 12)
-                .allowsHitTesting(false)
-        }
     }
 }
 
@@ -246,6 +224,7 @@ struct VariantPanel: View {
 }
 
 struct PresetSelector: View {
+    @Environment(\.kolkhozLanguage) private var language
     @Binding var selectedPreset: GamePreset
     @Binding var customVariants: GameVariants
 
@@ -258,7 +237,7 @@ struct PresetSelector: View {
                         customVariants = variants
                     }
                 } label: {
-                    Text(preset.title)
+                    Text(language.presetTitle(preset))
                         .font(.kolkhozDisplay(size: 8.5))
                         .textCase(.uppercase)
                         .lineLimit(1)
@@ -316,13 +295,14 @@ struct PresetSummary: View {
 }
 
 struct CustomVariantOptions: View {
+    @Environment(\.kolkhozLanguage) private var language
     @Binding var variants: GameVariants
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Picker("Deck", selection: $variants.deckType) {
-                Text("52 cards").tag(52)
-                Text("36 cards").tag(36)
+            Picker(language.text(en: "Deck", ru: "Колода"), selection: $variants.deckType) {
+                Text(language.text(en: "52 cards", ru: "52 карты")).tag(52)
+                Text(language.text(en: "36 cards", ru: "36 карт")).tag(36)
             }
             .pickerStyle(.segmented)
 
@@ -330,7 +310,9 @@ struct CustomVariantOptions: View {
             VariantToggleRow(row: .allowSwap, isOn: $variants.allowSwap)
             VariantToggleRow(row: .northernStyle, isOn: $variants.northernStyle)
             VariantToggleRow(row: .miceVariant, isOn: $variants.miceVariant)
-            VariantToggleRow(row: .ordenNachalniku, isOn: $variants.ordenNachalniku)
+            if variants.deckType == 36 {
+                VariantToggleRow(row: .ordenNachalniku, isOn: $variants.ordenNachalniku)
+            }
             VariantToggleRow(row: .medalsCount, isOn: $variants.medalsCount)
             VariantToggleRow(row: .heroOfSovietUnion, isOn: $variants.heroOfSovietUnion)
             if variants.deckType != 36 {
@@ -341,21 +323,24 @@ struct CustomVariantOptions: View {
         .onChange(of: variants.deckType) { _, deckType in
             if deckType == 36 {
                 variants.accumulateJobs = false
+            } else {
+                variants.ordenNachalniku = false
             }
         }
     }
 }
 
 struct DeckSummary: View {
+    @Environment(\.kolkhozLanguage) private var language
     let deckType: Int
 
     var body: some View {
         HStack {
-            Text("Deck")
+            Text(language.text(en: "Deck", ru: "Колода"))
                 .font(.kolkhozLabel(.caption))
                 .textCase(.uppercase)
                 .foregroundStyle(Color.kolkhozCreamDim)
-            Text("\(deckType) cards")
+            Text(language.text(en: "\(deckType) cards", ru: "\(deckType) карт"))
                 .font(.kolkhozTitle(.caption))
                 .foregroundStyle(Color.kolkhozGold)
         }
@@ -391,15 +376,16 @@ struct VariantToggleRow: View {
 }
 
 struct VariantText: View {
+    @Environment(\.kolkhozLanguage) private var language
     let row: VariantRowData
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(row.title)
+            Text(row.title(language))
                 .font(.kolkhozTitle(.caption))
                 .textCase(.uppercase)
                 .foregroundStyle(Color.kolkhozGold)
-            Text(row.description)
+            Text(row.description(language))
                 .font(.kolkhozLabel(.caption2))
                 .foregroundStyle(Color.kolkhozSmoke)
                 .fixedSize(horizontal: false, vertical: true)
@@ -408,18 +394,19 @@ struct VariantText: View {
 }
 
 struct RulesPanel: View {
+    @Environment(\.kolkhozLanguage) private var language
     let maxHeight: CGFloat
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Rules")
+                Text(language.text(en: "Rules", ru: "Правила"))
                     .sectionTitle()
-                RuleBlock(title: "Objective", bodyText: "Complete collective farm jobs while protecting your private plot. Highest score wins.")
-                RuleBlock(title: "Gameplay", bodyText: "Play cards into tricks, follow the lead suit if able, then let the trick winner assign captured work to jobs.")
-                RuleBlock(title: "Jobs", bodyText: "Each job needs 40 work hours. Completed jobs can award crop cards to the brigade leader.")
-                RuleBlock(title: "Nomenclature", bodyText: "Trump Jack is the Drunkard, trump Queen is the Informant, and trump King is the Party Official.")
-                RuleBlock(title: "Scoring", bodyText: "Revealed and hidden plot cards count at the end. Medals count only when that variant is enabled.")
+                RuleBlock(title: language.text(en: "Objective", ru: "Цель"), bodyText: language.text(en: "Complete collective farm jobs while protecting your private plot. Highest score wins!", ru: "Выполняйте работы колхоза, защищая свой участок. Побеждает наибольший счёт!"))
+                RuleBlock(title: language.text(en: "Gameplay", ru: "Игра"), bodyText: language.text(en: "Play cards to tricks - must follow lead suit if able", ru: "Играйте карты в трюки - следуйте масти если возможно"))
+                RuleBlock(title: language.text(en: "Jobs", ru: "Поля"), bodyText: language.text(en: "Jobs need 40 work hours to complete", ru: "Работы требуют 40 часов для завершения"))
+                RuleBlock(title: language.text(en: "Trump Face Cards", ru: "Козырные карты"), bodyText: language.text(en: "Jack (Drunkard), Queen (Informer), and King (Official) have special powers.", ru: "Валет (Пьяница), Дама (Доносчик) и Король (Чиновник) имеют особые силы."))
+                RuleBlock(title: language.text(en: "Scoring", ru: "Подсчёт очков"), bodyText: language.text(en: "Cards in your plot = your score. Highest score wins!", ru: "Карты на вашем участке = ваши очки. Побеждает тот, у кого больше!"))
             }
         }
         .frame(maxHeight: max(190, maxHeight))
@@ -457,19 +444,59 @@ enum VariantKey {
 
 struct VariantRowData: Identifiable {
     let key: VariantKey
-    let title: String
-    let description: String
 
-    var id: String { title }
+    var id: String { "\(key)" }
 
-    static let nomenclature = VariantRowData(key: .nomenclature, title: "Nomenclature", description: "Trump face cards have special powers.")
-    static let allowSwap = VariantRowData(key: .allowSwap, title: "Swap", description: "Exchange a hand card with a plot card at the start of each later year.")
-    static let northernStyle = VariantRowData(key: .northernStyle, title: "Northern Style", description: "No job rewards; everyone remains vulnerable to requisition.")
-    static let miceVariant = VariantRowData(key: .miceVariant, title: "Mice", description: "Reveal all matching plot cards during requisition.")
-    static let ordenNachalniku = VariantRowData(key: .ordenNachalniku, title: "Order to the Boss", description: "Completed 36-card jobs stack assigned cards as bonus rewards.")
-    static let medalsCount = VariantRowData(key: .medalsCount, title: "Medals", description: "Trick wins add to the final score.")
-    static let heroOfSovietUnion = VariantRowData(key: .heroOfSovietUnion, title: "Hero", description: "Winning every trick in a year grants requisition immunity.")
-    static let accumulateJobs = VariantRowData(key: .accumulateJobs, title: "Accumulation", description: "Unclaimed job rewards carry over to the next year.")
+    func title(_ language: KolkhozLanguage) -> String {
+        switch key {
+        case .nomenclature:
+            language.text(en: "Nomenclature", ru: "Номенклатура")
+        case .allowSwap:
+            language.text(en: "Swap", ru: "Обмен")
+        case .northernStyle:
+            language.text(en: "Northern Style", ru: "Северный стиль")
+        case .miceVariant:
+            language.text(en: "Mice", ru: "Мыши")
+        case .ordenNachalniku:
+            language.text(en: "Order to the Boss", ru: "Орден Начальнику")
+        case .medalsCount:
+            language.text(en: "Medals", ru: "Медали")
+        case .heroOfSovietUnion:
+            language.text(en: "Hero", ru: "Герой")
+        case .accumulateJobs:
+            language.text(en: "Accumulation", ru: "Накопление")
+        }
+    }
+
+    func description(_ language: KolkhozLanguage) -> String {
+        switch key {
+        case .nomenclature:
+            language.text(en: "Trump face cards have special powers: Jack gets exiled, Queen exposes everyone, King doubles exile.", ru: "Козырные фигуры имеют особые силы: Валет ссылается, Дама раскрывает всех, Король удваивает ссылку.")
+        case .allowSwap:
+            language.text(en: "Swap cards between your hand and plot at the start of each year.", ru: "Обмен картами между рукой и участком в начале каждого года.")
+        case .northernStyle:
+            language.text(en: "No rewards for completing jobs - everyone stays vulnerable to requisition.", ru: "Нет наград за выполнение работ — все остаются уязвимы для реквизиции.")
+        case .miceVariant:
+            language.text(en: "All players reveal their entire plot during requisition, not just matching cards.", ru: "Все игроки раскрывают весь участок при реквизиции, а не только подходящие карты.")
+        case .ordenNachalniku:
+            language.text(en: "Cards assigned to completed jobs stack as bonus rewards.", ru: "Карты, назначенные на выполненные работы, накапливаются как бонусные награды.")
+        case .medalsCount:
+            language.text(en: "Trick victories count toward your final score.", ru: "Победы во взятках учитываются в итоговом счёте.")
+        case .heroOfSovietUnion:
+            language.text(en: "Win all 4 tricks in a year to become immune from requisition.", ru: "Выиграй все 4 взятки за год — получи иммунитет от реквизиции.")
+        case .accumulateJobs:
+            language.text(en: "Unclaimed job rewards carry over to the next year.", ru: "Невостребованные награды за работы переносятся на следующий год.")
+        }
+    }
+
+    static let nomenclature = VariantRowData(key: .nomenclature)
+    static let allowSwap = VariantRowData(key: .allowSwap)
+    static let northernStyle = VariantRowData(key: .northernStyle)
+    static let miceVariant = VariantRowData(key: .miceVariant)
+    static let ordenNachalniku = VariantRowData(key: .ordenNachalniku)
+    static let medalsCount = VariantRowData(key: .medalsCount)
+    static let heroOfSovietUnion = VariantRowData(key: .heroOfSovietUnion)
+    static let accumulateJobs = VariantRowData(key: .accumulateJobs)
 
     static let all = [
         nomenclature,

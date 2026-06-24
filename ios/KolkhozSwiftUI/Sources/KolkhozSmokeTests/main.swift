@@ -95,11 +95,51 @@ func testGameCanReachGameOver() throws {
     expect(engine.state.gameResult != nil, "game should produce a result")
 }
 
+func testRequisitionUsesHumanFacingName() throws {
+    var players = (0..<4).map { id in
+        PlayerState(id: id, name: id == 0 ? "Player" : "Bot \(id)", isHuman: id == 0)
+    }
+    players[0].plot.hidden = [Card(suit: .sunflower, value: 10)]
+
+    var state = KolkhozState(
+        players: players,
+        lead: 0,
+        trumpSelector: 0,
+        variants: GameVariants(deckType: 36, nomenclature: false, northernStyle: true)
+    )
+    state.phase = .assignment
+    state.currentPlayer = 0
+    state.lastWinner = 0
+    state.trickCount = 4
+    state.lastTrick = [
+        TrickPlay(playerID: 0, card: Card(suit: .wheat, value: 7)),
+        TrickPlay(playerID: 1, card: Card(suit: .wheat, value: 8)),
+        TrickPlay(playerID: 2, card: Card(suit: .wheat, value: 12)),
+        TrickPlay(playerID: 3, card: Card(suit: .wheat, value: 13))
+    ]
+
+    let engine = KolkhozEngine(testing: state)
+    for play in engine.state.lastTrick {
+        try engine.assign(card: play.card, to: .wheat)
+    }
+    try engine.submitAssignments()
+
+    expect(
+        engine.state.requisitionEvents.contains { $0.message == "You send 10 Sunflower north" },
+        "human requisition message should use second person"
+    )
+    expect(
+        !engine.state.requisitionEvents.contains { $0.message.contains("Player sends") },
+        "human requisition message should not use raw model name"
+    )
+}
+
 do {
     testNewGameDealsCards()
     testValidCardsRespectLeadSuit()
     try testEngineEmitsCardPlayAnimationEvents()
     try testGameCanReachGameOver()
+    try testRequisitionUsesHumanFacingName()
     print("Kolkhoz smoke tests passed")
 } catch {
     fputs("Smoke test threw error: \(error)\n", stderr)

@@ -67,7 +67,12 @@
       "Bash(do mv \"$f\" \"$f/_of_diamonds/_of_potato\")",
       "Bash(for f in *_of_hearts.svg)",
       "Bash(do mv \"$f\" \"$f/_of_hearts/_of_beet\")",
-      "Bash(convert:*)"
+      "Bash(convert:*)",
+      "Bash(brew install:*)",
+      "Bash(godot --version:*)",
+      "Bash(godot:*)",
+      "Bash(kill:*)",
+      "Bash(open -a Godot .)"
     ],
     "deny": [],
     "ask": []

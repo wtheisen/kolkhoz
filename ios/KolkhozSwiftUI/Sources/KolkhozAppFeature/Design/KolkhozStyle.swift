@@ -1,6 +1,11 @@
 import KolkhozCore
 import CoreText
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 struct PanelModifier: ViewModifier {
     func body(content: Content) -> some View {
@@ -30,61 +35,7 @@ struct PanelModifier: ViewModifier {
                     .stroke(Color.kolkhozRedDark.opacity(0.62), lineWidth: 1)
                     .padding(5)
             }
-            .overlay {
-                PrintCornerFrame(cornerRadius: 8)
-            }
-            .overlay {
-                PanelCornerOrnaments(size: 46, opacity: 0.58)
-                    .padding(2)
-            }
             .shadow(color: .black.opacity(0.35), radius: 8, y: 4)
-    }
-}
-
-struct PrintCornerFrame: View {
-    var cornerRadius: CGFloat = 6
-    var accent: Color = .kolkhozGold
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: cornerRadius)
-                .stroke(accent.opacity(0.42), lineWidth: 1)
-            VStack {
-                HStack {
-                    PrintCornerMark(accent: accent)
-                    Spacer()
-                    PrintCornerMark(accent: accent).rotationEffect(.degrees(90))
-                }
-                Spacer()
-                HStack {
-                    PrintCornerMark(accent: accent).rotationEffect(.degrees(-90))
-                    Spacer()
-                    PrintCornerMark(accent: accent).rotationEffect(.degrees(180))
-                }
-            }
-            .padding(6)
-        }
-        .allowsHitTesting(false)
-    }
-}
-
-private struct PrintCornerMark: View {
-    let accent: Color
-
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            Capsule()
-                .fill(accent.opacity(0.85))
-                .frame(width: 15, height: 2)
-            Capsule()
-                .fill(accent.opacity(0.85))
-                .frame(width: 2, height: 15)
-            Capsule()
-                .fill(Color.kolkhozRed.opacity(0.76))
-                .frame(width: 6, height: 2)
-                .offset(x: 4, y: 4)
-        }
-        .frame(width: 15, height: 15)
     }
 }
 
@@ -114,7 +65,7 @@ extension View {
 
 extension Font {
     private static let handjetPostScriptName = "Handjet-Regular"
-    private static let handjetElementGrid: Double = 2
+    private static let handjetElementGrid: Double = 1
     private static let handjetElementShape: Double = 0
 
     static func kolkhozDisplay(size: CGFloat) -> Font {
@@ -186,6 +137,88 @@ extension Bundle {
     static let kolkhozAppFeatureResources = Bundle.module
     #else
     static let kolkhozAppFeatureResources = Bundle(for: KolkhozAppFeatureBundleToken.self)
+    #endif
+}
+
+struct KolkhozResourceImageCandidate {
+    let name: String
+    let subdirectory: String?
+
+    init(_ name: String, subdirectory: String? = nil) {
+        self.name = name
+        self.subdirectory = subdirectory
+    }
+}
+
+enum KolkhozResourceImageCache {
+    private static let lock = NSLock()
+    #if canImport(UIKit)
+    nonisolated(unsafe) private static var cache: [String: UIImage] = [:]
+    #elseif canImport(AppKit)
+    nonisolated(unsafe) private static var cache: [String: NSImage] = [:]
+    #endif
+
+    static func image(for candidates: [KolkhozResourceImageCandidate]) -> Image? {
+        for candidate in candidates {
+            guard let url = Bundle.kolkhozAppFeatureResources.url(
+                forResource: candidate.name,
+                withExtension: "png",
+                subdirectory: candidate.subdirectory
+            ) else {
+                continue
+            }
+
+            let key = url.path
+            #if canImport(UIKit)
+            if let cached = cachedImage(for: key) {
+                return Image(uiImage: cached)
+            }
+            if let image = UIImage(contentsOfFile: key) {
+                setCachedImage(image, for: key)
+                return Image(uiImage: image)
+            }
+            #elseif canImport(AppKit)
+            if let cached = cachedImage(for: key) {
+                return Image(nsImage: cached)
+            }
+            if let image = NSImage(contentsOf: url) {
+                setCachedImage(image, for: key)
+                return Image(nsImage: image)
+            }
+            #endif
+        }
+
+        return nil
+    }
+
+    static func image(named name: String, subdirectory: String? = nil) -> Image? {
+        image(for: [KolkhozResourceImageCandidate(name, subdirectory: subdirectory)])
+    }
+
+    #if canImport(UIKit)
+    private static func cachedImage(for key: String) -> UIImage? {
+        lock.lock()
+        defer { lock.unlock() }
+        return cache[key]
+    }
+
+    private static func setCachedImage(_ image: UIImage, for key: String) {
+        lock.lock()
+        cache[key] = image
+        lock.unlock()
+    }
+    #elseif canImport(AppKit)
+    private static func cachedImage(for key: String) -> NSImage? {
+        lock.lock()
+        defer { lock.unlock() }
+        return cache[key]
+    }
+
+    private static func setCachedImage(_ image: NSImage, for key: String) {
+        lock.lock()
+        cache[key] = image
+        lock.unlock()
+    }
     #endif
 }
 

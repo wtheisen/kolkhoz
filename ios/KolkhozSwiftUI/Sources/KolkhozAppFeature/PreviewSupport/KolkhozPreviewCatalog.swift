@@ -25,67 +25,54 @@ struct KolkhozPreviewLobbyHost: View {
 
 struct KolkhozPreviewBoardHost: View {
     @StateObject private var store: GameStore
-    @State private var language: AppLanguage
 
-    init(state: KolkhozState, language: AppLanguage = .english) {
+    init(state: KolkhozState) {
         _store = StateObject(wrappedValue: GameStore(previewState: state))
-        _language = State(initialValue: language)
         KolkhozFontRegistry.registerFonts()
     }
 
     var body: some View {
-        GameBoardView(language: $language, onMenu: {})
-            .font(.kolkhozLabel(.body))
-            .environmentObject(store)
+        ZStack {
+            Color.kolkhozTable
+                .ignoresSafeArea()
+            GameBoardView(onMenu: {})
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .font(.kolkhozLabel(.body))
+        .environmentObject(store)
     }
 }
 
-#Preview("00 Lobby") {
+#Preview("00 Lobby", traits: .landscapeLeft) {
     KolkhozPreviewLobbyHost()
-        .previewDevice("iPhone 17 Pro")
-        .previewInterfaceOrientation(.landscapeLeft)
 }
 
-#Preview("01 Lobby Rules") {
+#Preview("01 Lobby Rules", traits: .landscapeLeft) {
     KolkhozPreviewLobbyHost(showingRules: true)
-        .previewDevice("iPhone 17 Pro")
-        .previewInterfaceOrientation(.landscapeLeft)
 }
 
-#Preview("02 Board Planning") {
+#Preview("02 Board Planning", traits: .landscapeLeft) {
     KolkhozPreviewBoardHost(state: KolkhozPreviewFixtures.planningState)
-        .previewDevice("iPhone 17 Pro")
-        .previewInterfaceOrientation(.landscapeLeft)
 }
 
-#Preview("03 Board Trick") {
+#Preview("03 Board Trick", traits: .landscapeLeft) {
     KolkhozPreviewBoardHost(state: KolkhozPreviewFixtures.trickState)
-        .previewDevice("iPhone 17 Pro")
-        .previewInterfaceOrientation(.landscapeLeft)
 }
 
-#Preview("04 Board Assignment") {
+#Preview("04 Board Assignment", traits: .landscapeLeft) {
     KolkhozPreviewBoardHost(state: KolkhozPreviewFixtures.assignmentState)
-        .previewDevice("iPhone 17 Pro")
-        .previewInterfaceOrientation(.landscapeLeft)
 }
 
-#Preview("05 Board Swap") {
+#Preview("05 Board Swap", traits: .landscapeLeft) {
     KolkhozPreviewBoardHost(state: KolkhozPreviewFixtures.swapState)
-        .previewDevice("iPhone 17 Pro")
-        .previewInterfaceOrientation(.landscapeLeft)
 }
 
-#Preview("06 Board Requisition") {
+#Preview("06 Board Requisition", traits: .landscapeLeft) {
     KolkhozPreviewBoardHost(state: KolkhozPreviewFixtures.requisitionState)
-        .previewDevice("iPhone 17 Pro")
-        .previewInterfaceOrientation(.landscapeLeft)
 }
 
-#Preview("07 Board Game Over") {
+#Preview("07 Board Game Over", traits: .landscapeLeft) {
     KolkhozPreviewBoardHost(state: KolkhozPreviewFixtures.gameOverState)
-        .previewDevice("iPhone 17 Pro")
-        .previewInterfaceOrientation(.landscapeLeft)
 }
 
 #Preview("08 Player Panels") {

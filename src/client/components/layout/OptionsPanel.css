@@ -2,7 +2,12 @@
 
 /* Mobile Panel Content - fills game-content area */
 .mobile-panel-content {
-  flex: 1;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: clamp(100px, 13vw, 150px);
+  z-index: 90;
   background: var(--bg-primary);
   display: flex;
   align-items: center;

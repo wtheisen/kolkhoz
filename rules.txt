@@ -12,9 +12,9 @@ The Центральный Плановик then declares the trump suit for the
 b. Фаза Взяток (Faza Vzyatok - Trick-Taking Phase) (Четыре Взятки - Chetyre Vzyatki - Four Tricks):
 Starting with the player to the left of the Центральный Плановик, players lead one card.
 Players follow suit if able; otherwise, they may play any card.
-The highest-ranking card of the lead suit wins the взятка (vzyatka - trick).
+Trump beats the lead suit. If no trump is played, the highest-ranking card of the lead suit wins the взятка (vzyatka - trick). If trump is played, the highest trump wins.
 The winner becomes the Бригадир (Brigadir - Brigade Leader) of the взятка and collects the four played cards.
-The Бригадир then assigns each of the four cards from the взятка to the four matching работы (Pak͡hota, Zhatva, Masterskaya, Zerno). However, workers of the trump suit may be assigned to any job. If the assigned workers pass the Work-Hours threshold for the job, the Бригадир immediately adds the Карты Плановых Заданий for that работа to their Личный Участок face-up.
+The Бригадир then assigns each of the four cards from the взятка to jobs. In the app implementation, legal target jobs are the suits present in the completed взятка, and any card from that взятка may be assigned to any of those target jobs. If the assigned workers pass the 40 Work-Hours threshold for the job, the Бригадир immediately adds the Карты Плановых Заданий for that работа to their Личный Участок face-up.
 The face cards of the trump suit have special effects:
 Jack “Пьяница (P'yanitsa)” - Contributes 0 work hours. If this job is requisitioned, the Jack is sent north instead of a player's card.
 Queen “Информатор (Informator)” - If this job fails, all players must reveal their Personal Plots, not just the Brigade Leaders.
@@ -24,16 +24,16 @@ Four взятки are played in total.
 c. Выбор Личного Участка (Vybor Lichnogo Uchastka - Personal Plot Selection):
 After the fourth взятка, each player keeps one card from their remaining hand for their Личный Участок, adding it face-down.
 d. Фаза Реквизиции (Faza Rekvizitsii - Requisition Phase):
-For each работа that did not reach the 36 work-hour threshold:
+For each работа that did not reach the 40 work-hour threshold:
 If the Пьяница (P'yanitsa) is amongst the workers for that job, the Пьяница (P'yanitsa) is отправить на Север.
-All players who were a Бригадир reveal all cards in their Личный Участок. If the Информатор (Informator) is amongst the workers for the job, instead all players reveal their Личный Участок.
-Among all revealed Личный Участок cards, identify all cards which match with the failed работа.
-The player with the highest value card of that работа among all their Личный Участок cards must отправить на Север (otpravit' na Sever - send to the north) that highest value card of that работа from their Личный Участок. If the партийец (Partiynyy chinovnik) was amongst the workers for the failed job, the second highest card is also отправить на Север.
+Players are vulnerable if they won a взятка during the year, or if a variant such as Northern Style, Mice, or the Информатор (Informator) makes them vulnerable.
+Vulnerable players reveal matching hidden Личный Участок cards for the failed работа. Normally only the highest matching hidden card is revealed; with Mice or the Информатор, all matching hidden cards are revealed.
+Each vulnerable player with revealed cards matching the failed работа must отправить на Север (otpravit' na Sever - send to the north) their highest matching revealed card. If the партийец (Partiynyy chinovnik) was amongst the workers for the failed job, that player sends up to two matching revealed cards instead of one.
 f. Конец Раунда (Konets Raundа - End of Round):
 All played worker cards are reshuffled.
 The role of Центральный Плановик passes to the player to the left.
 A new round begins with the Planning Phase.
-During the final year of the five year plan, there is a Перебои со снабжением (Pereboi so snabzheniyem) and during this year only 3 tricks will be played instead of 4. During the Перебои со снабжением there is no trump and workers may be added to any job
+During the final year of the five year plan, there is a Перебои со снабжением (Pereboi so snabzheniyem). During this year only 3 tricks are played instead of 4, there is no trump, and assignment targets are still limited to the suits present in the completed взятка.
 
 3. Конец Игры и Итоговый Подсчет Очков (Konets Igry i Itogovyy Podschet Ochkov - End of Game and Final Scoring):
 After the completion of the  Пятилетка, players calculate their final scores:

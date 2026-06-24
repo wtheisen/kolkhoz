@@ -650,3 +650,63 @@
   cursor: help;
   border-bottom: 1px dotted var(--gold-dark);
 }
+
+@media (orientation: landscape) and (max-height: 480px) {
+  .lobby {
+    gap: clamp(1rem, 2.5vw, 2rem);
+    padding: 0.75rem clamp(1rem, 2vw, 1.5rem);
+    overflow-y: auto;
+  }
+
+  .lobby-left {
+    max-width: 260px;
+    gap: 1rem;
+  }
+
+  .lobby h1 {
+    font-size: clamp(2.2rem, 5vw, 3.4rem);
+  }
+
+  .lobby h2 {
+    font-size: clamp(0.8rem, 1.6vw, 1rem);
+  }
+
+  .lobby-buttons {
+    gap: 0.6rem;
+  }
+
+  .lobby button {
+    padding: 0.6rem clamp(1.25rem, 3vw, 2rem);
+    font-size: clamp(0.9rem, 1.6vw, 1.05rem);
+  }
+
+  .lobby-author {
+    font-size: 0.75rem;
+  }
+
+  .lobby-right-panel {
+    max-width: 560px;
+  }
+
+  .variant-options,
+  .rules-panel {
+    padding: 0.8rem;
+  }
+
+  .preset-cards {
+    margin-bottom: 0.6rem;
+    padding: 0.5rem;
+  }
+
+  .preset-badge {
+    padding: 0.4rem 0.3rem;
+  }
+
+  .variant-details {
+    padding: 0.55rem;
+  }
+
+  .variant-list {
+    max-height: 170px;
+  }
+}

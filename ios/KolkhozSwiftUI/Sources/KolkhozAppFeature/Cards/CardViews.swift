@@ -41,7 +41,7 @@ enum CardSize {
         switch self {
         case .small: 10
         case .medium: 13
-        case .large: 16
+        case .large: 20
         }
     }
 
@@ -49,15 +49,47 @@ enum CardSize {
         switch self {
         case .small: 8
         case .medium: 10.5
-        case .large: 13.5
+        case .large: 24
         }
     }
 
     var cornerSuitSize: CGFloat {
         switch self {
-        case .small: 4
-        case .medium: 5
-        case .large: 6
+        case .small: 5
+        case .medium: 6
+        case .large: 10
+        }
+    }
+
+    var topCornerRankSuitSpacing: CGFloat {
+        switch self {
+        case .small: -1
+        case .medium: -1
+        case .large: -2
+        }
+    }
+
+    var bottomCornerRankSuitSpacing: CGFloat {
+        switch self {
+        case .small: -1
+        case .medium: -1
+        case .large: -3
+        }
+    }
+
+    var topCornerSuitXOffset: CGFloat {
+        switch self {
+        case .small: 0
+        case .medium: 0
+        case .large: -1
+        }
+    }
+
+    var bottomCornerSuitXOffset: CGFloat {
+        switch self {
+        case .small: 0
+        case .medium: 0
+        case .large: 1
         }
     }
 }
@@ -90,9 +122,26 @@ struct CardView: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color.cardStroke, lineWidth: 0.8)
         }
-        .shadow(color: .black.opacity(0.38), radius: 5, y: 3)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(card.accessibilityName))
     }
 
+}
+
+private extension Card {
+    var accessibilityName: String {
+        "\(spokenRank) of \(suit.rawValue)"
+    }
+
+    var spokenRank: String {
+        switch value {
+        case 1: "Ace"
+        case 11: "Jack"
+        case 12: "Queen"
+        case 13: "King"
+        default: "\(value)"
+        }
+    }
 }
 
 struct CardFaceView: View {
@@ -108,17 +157,17 @@ struct CardFaceView: View {
                 FaceCardCenter(card: card, size: size, tone: tone)
             } else {
                 PipPattern(card: card, size: size)
-                    .padding(.horizontal, size.width * 0.17)
-                    .padding(.vertical, size.height * 0.18)
+                    .padding(.horizontal, size.width * 0.16)
+                    .padding(.vertical, size.height * 0.1)
             }
 
             CardCornerIndex(card: card, tone: tone, size: size, placement: .top)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .offset(x: -size.width * 0.02, y: size.height * 0.01)
+                .offset(x: size.width * 0.03, y: size.height * 0.001)
 
             CardCornerIndex(card: card, tone: tone, size: size, placement: .bottom)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                .offset(x: size.width * 0.035, y: -size.height * 0.02)
+                .offset(x: -size.width * 0.03, y: -size.height * 0.005)
         }
         .padding(size.faceInset)
     }
@@ -136,36 +185,60 @@ struct CardCornerIndex: View {
     let placement: CardCornerPlacement
 
     var body: some View {
-        HStack(spacing: 1) {
-            rankText
-            suitMark
+        VStack(alignment: placement == .top ? .leading : .trailing, spacing: rankSuitSpacing) {
+            if placement == .top {
+                rankText
+                suitMark
+            } else {
+                suitMark
+                rankText
+            }
         }
-        .frame(width: size.cornerWidth, height: size.cornerHeight)
-        .clipped()
+        .frame(width: size.cornerWidth, height: size.cornerHeight + size.cornerSuitSize + 2, alignment: placement == .top ? .topLeading : .bottomTrailing)
     }
 
     var rankText: some View {
-        Text(card.rank)
-            .font(rankFont)
-            .monospacedDigit()
-            .foregroundStyle(rankColor)
-            .lineLimit(1)
-            .minimumScaleFactor(0.55)
-            .allowsTightening(true)
-            .frame(maxWidth: .infinity, maxHeight: size.cornerHeight)
+        PixelText(text: card.rank, size: rankPixelSize, variant: .heavy, color: rankColor)
+            .frame(width: size.cornerWidth, height: size.cornerHeight, alignment: placement == .top ? .leading : .trailing)
     }
 
     var suitMark: some View {
         SuitMark(suit: card.suit, size: size.cornerSuitSize)
             .frame(width: size.cornerSuitSize, height: size.cornerSuitSize)
-    }
-
-    var rankFont: Font {
-        .kolkhozDisplay(size: card.rank.count > 1 ? size.cornerRankFontSize * 0.82 : size.cornerRankFontSize)
+            .offset(x: suitXOffset)
     }
 
     var rankColor: Color {
         tone == .dark ? Color.kolkhozCream : card.suit.cardInkColor
+    }
+
+    var rankSuitSpacing: CGFloat {
+        switch placement {
+        case .top:
+            size.topCornerRankSuitSpacing
+        case .bottom:
+            size.bottomCornerRankSuitSpacing
+        }
+    }
+
+    var suitXOffset: CGFloat {
+        switch placement {
+        case .top:
+            size.topCornerSuitXOffset
+        case .bottom:
+            size.bottomCornerSuitXOffset
+        }
+    }
+
+    var rankPixelSize: PixelFontSize {
+        switch size {
+        case .small:
+            .xSmall
+        case .medium:
+            .caption2
+        case .large:
+            .headline
+        }
     }
 }
 
@@ -176,10 +249,12 @@ struct CompactCardCenter: View {
     var body: some View {
         VStack(spacing: 2) {
             SuitMark(suit: card.suit, size: 14)
-            Text(card.rank)
-                .font(.kolkhozTitle(.caption2))
-                .monospacedDigit()
-                .foregroundStyle(tone == .dark ? Color.kolkhozCream : card.suit.cardInkColor)
+            PixelText(
+                text: card.rank,
+                size: .caption2,
+                variant: .heavy,
+                color: tone == .dark ? Color.kolkhozCream : card.suit.cardInkColor
+            )
         }
     }
 }
@@ -191,30 +266,19 @@ struct FaceCardCenter: View {
 
     var body: some View {
         FaceCardArt(card: card)
-            .frame(width: artSide, height: artSide)
-            .clipShape(RoundedRectangle(cornerRadius: 5))
-            .overlay(alignment: .bottomTrailing) {
-                SuitMark(suit: card.suit, size: max(10, size.width * 0.20))
-                    .padding(3)
-                    .background(
-                        Circle()
-                            .fill(tone == .dark ? Color.kolkhozBlack.opacity(0.72) : Color.cardFill.opacity(0.82))
-                    )
-                    .padding(3)
-            }
-        .overlay {
-            RoundedRectangle(cornerRadius: 5)
-                .stroke(tone == .dark ? Color.kolkhozGold.opacity(0.44) : card.suit.cardInkColor.opacity(0.32), lineWidth: 1)
+            .frame(width: artWidth, height: artHeight)
+            .clipShape(RoundedRectangle(cornerRadius: 0))
+    }
+
+    var artWidth: CGFloat {
+        switch size {
+        case .small: 20
+        case .medium: size.width * 0.45
+        case .large: size.width * 0.45
         }
     }
 
-    var artSide: CGFloat {
-        switch size {
-        case .small: 24
-        case .medium: size.width * 0.66
-        case .large: size.width * 0.68
-        }
-    }
+    var artHeight: CGFloat { artWidth * 1.5 }
 }
 
 struct FaceCardArt: View {
@@ -235,27 +299,12 @@ struct FaceCardArt: View {
     }
 
     var image: Image? {
-        let bundle = Bundle.kolkhozAppFeatureResources
-        for resourceName in faceResourceNames {
-            let url = bundle.url(forResource: resourceName, withExtension: "png")
-                ?? bundle.url(forResource: resourceName, withExtension: "png", subdirectory: "Cards")
-
-            guard let url else {
-                continue
-            }
-
-            #if canImport(UIKit)
-            if let image = UIImage(contentsOfFile: url.path) {
-                return Image(uiImage: image)
-            }
-            #elseif canImport(AppKit)
-            if let image = NSImage(contentsOf: url) {
-                return Image(nsImage: image)
-            }
-            #endif
-        }
-
-        return nil
+        KolkhozResourceImageCache.image(for: faceResourceNames.flatMap { resourceName in
+            [
+                KolkhozResourceImageCandidate(resourceName),
+                KolkhozResourceImageCandidate(resourceName, subdirectory: "Cards")
+            ]
+        })
     }
 
     var faceResourceNames: [String] {
@@ -297,7 +346,6 @@ struct PipPattern: View {
                 ForEach(Array(pipPositions.enumerated()), id: \.offset) { _, point in
                     SuitMark(suit: card.suit, size: pipSize)
                         .frame(width: pipSize, height: pipSize)
-                        .rotationEffect(point.y > 0.5 ? .degrees(180) : .zero)
                         .position(
                             x: proxy.size.width * point.x,
                             y: proxy.size.height * point.y
@@ -309,9 +357,9 @@ struct PipPattern: View {
 
     var pipSize: CGFloat {
         switch size {
-        case .small: 10
-        case .medium: 13
-        case .large: 16
+        case .small: 8
+        case .medium: 10.4
+        case .large: 12.8
         }
     }
 
@@ -320,57 +368,57 @@ struct PipPattern: View {
         case 1:
             return [CGPoint(x: 0.5, y: 0.5)]
         case 2:
-            return [CGPoint(x: 0.5, y: 0.25), CGPoint(x: 0.5, y: 0.75)]
+            return [CGPoint(x: 0.5, y: 0.20), CGPoint(x: 0.5, y: 0.80)]
         case 3:
-            return [CGPoint(x: 0.5, y: 0.22), CGPoint(x: 0.5, y: 0.5), CGPoint(x: 0.5, y: 0.78)]
+            return [CGPoint(x: 0.5, y: 0.18), CGPoint(x: 0.5, y: 0.5), CGPoint(x: 0.5, y: 0.82)]
         case 4:
             return [
-                CGPoint(x: 0.32, y: 0.25), CGPoint(x: 0.68, y: 0.25),
-                CGPoint(x: 0.32, y: 0.75), CGPoint(x: 0.68, y: 0.75)
+                CGPoint(x: 0.25, y: 0.22), CGPoint(x: 0.75, y: 0.22),
+                CGPoint(x: 0.25, y: 0.78), CGPoint(x: 0.75, y: 0.78)
             ]
         case 5:
             return [
-                CGPoint(x: 0.32, y: 0.23), CGPoint(x: 0.68, y: 0.23),
+                CGPoint(x: 0.25, y: 0.20), CGPoint(x: 0.75, y: 0.20),
                 CGPoint(x: 0.5, y: 0.5),
-                CGPoint(x: 0.32, y: 0.77), CGPoint(x: 0.68, y: 0.77)
+                CGPoint(x: 0.25, y: 0.80), CGPoint(x: 0.75, y: 0.80)
             ]
         case 6:
             return [
-                CGPoint(x: 0.32, y: 0.20), CGPoint(x: 0.68, y: 0.20),
-                CGPoint(x: 0.32, y: 0.50), CGPoint(x: 0.68, y: 0.50),
-                CGPoint(x: 0.32, y: 0.80), CGPoint(x: 0.68, y: 0.80)
+                CGPoint(x: 0.25, y: 0.17), CGPoint(x: 0.75, y: 0.17),
+                CGPoint(x: 0.25, y: 0.50), CGPoint(x: 0.75, y: 0.50),
+                CGPoint(x: 0.25, y: 0.83), CGPoint(x: 0.75, y: 0.83)
             ]
         case 7:
             return [
-                CGPoint(x: 0.32, y: 0.18), CGPoint(x: 0.68, y: 0.18),
-                CGPoint(x: 0.5, y: 0.34),
-                CGPoint(x: 0.32, y: 0.50), CGPoint(x: 0.68, y: 0.50),
-                CGPoint(x: 0.32, y: 0.82), CGPoint(x: 0.68, y: 0.82)
+                CGPoint(x: 0.25, y: 0.15), CGPoint(x: 0.75, y: 0.15),
+                CGPoint(x: 0.5, y: 0.31),
+                CGPoint(x: 0.25, y: 0.50), CGPoint(x: 0.75, y: 0.50),
+                CGPoint(x: 0.25, y: 0.85), CGPoint(x: 0.75, y: 0.85)
             ]
         case 8:
             return [
-                CGPoint(x: 0.32, y: 0.17), CGPoint(x: 0.68, y: 0.17),
-                CGPoint(x: 0.5, y: 0.32),
-                CGPoint(x: 0.32, y: 0.47), CGPoint(x: 0.68, y: 0.47),
-                CGPoint(x: 0.5, y: 0.63),
-                CGPoint(x: 0.32, y: 0.83), CGPoint(x: 0.68, y: 0.83)
+                CGPoint(x: 0.25, y: 0.14), CGPoint(x: 0.75, y: 0.14),
+                CGPoint(x: 0.5, y: 0.30),
+                CGPoint(x: 0.25, y: 0.46), CGPoint(x: 0.75, y: 0.46),
+                CGPoint(x: 0.5, y: 0.66),
+                CGPoint(x: 0.25, y: 0.86), CGPoint(x: 0.75, y: 0.86)
             ]
         case 9:
             return [
-                CGPoint(x: 0.32, y: 0.16), CGPoint(x: 0.68, y: 0.16),
-                CGPoint(x: 0.32, y: 0.38), CGPoint(x: 0.68, y: 0.38),
+                CGPoint(x: 0.25, y: 0.13), CGPoint(x: 0.75, y: 0.13),
+                CGPoint(x: 0.25, y: 0.37), CGPoint(x: 0.75, y: 0.37),
                 CGPoint(x: 0.5, y: 0.50),
-                CGPoint(x: 0.32, y: 0.62), CGPoint(x: 0.68, y: 0.62),
-                CGPoint(x: 0.32, y: 0.84), CGPoint(x: 0.68, y: 0.84)
+                CGPoint(x: 0.25, y: 0.63), CGPoint(x: 0.75, y: 0.63),
+                CGPoint(x: 0.25, y: 0.87), CGPoint(x: 0.75, y: 0.87)
             ]
         default:
             return [
-                CGPoint(x: 0.32, y: 0.14), CGPoint(x: 0.68, y: 0.14),
-                CGPoint(x: 0.5, y: 0.28),
-                CGPoint(x: 0.32, y: 0.40), CGPoint(x: 0.68, y: 0.40),
-                CGPoint(x: 0.32, y: 0.60), CGPoint(x: 0.68, y: 0.60),
-                CGPoint(x: 0.5, y: 0.72),
-                CGPoint(x: 0.32, y: 0.86), CGPoint(x: 0.68, y: 0.86)
+                CGPoint(x: 0.25, y: 0.11), CGPoint(x: 0.75, y: 0.11),
+                CGPoint(x: 0.5, y: 0.27),
+                CGPoint(x: 0.25, y: 0.39), CGPoint(x: 0.75, y: 0.39),
+                CGPoint(x: 0.25, y: 0.61), CGPoint(x: 0.75, y: 0.61),
+                CGPoint(x: 0.5, y: 0.73),
+                CGPoint(x: 0.25, y: 0.89), CGPoint(x: 0.75, y: 0.89)
             ]
         }
     }
@@ -399,28 +447,13 @@ struct CardTemplateBackground: View {
     }
 
     var image: Image? {
-        let bundle = Bundle.kolkhozAppFeatureResources
         let resourceName = tone == .dark ? "card-template-dark" : "card-template-light"
-        let url = bundle.url(forResource: resourceName, withExtension: "png")
-            ?? bundle.url(forResource: resourceName, withExtension: "png", subdirectory: "Cards")
-            ?? bundle.url(forResource: "card-template-front", withExtension: "png")
-            ?? bundle.url(forResource: "card-template-front", withExtension: "png", subdirectory: "Cards")
-
-        guard let url else {
-            return nil
-        }
-
-        #if canImport(UIKit)
-        if let image = UIImage(contentsOfFile: url.path) {
-            return Image(uiImage: image)
-        }
-        #elseif canImport(AppKit)
-        if let image = NSImage(contentsOf: url) {
-            return Image(nsImage: image)
-        }
-        #endif
-
-        return nil
+        return KolkhozResourceImageCache.image(for: [
+            KolkhozResourceImageCandidate(resourceName),
+            KolkhozResourceImageCandidate(resourceName, subdirectory: "Cards"),
+            KolkhozResourceImageCandidate("card-template-front"),
+            KolkhozResourceImageCandidate("card-template-front", subdirectory: "Cards")
+        ])
     }
 }
 
@@ -494,25 +527,10 @@ var cardBackResourceImage: Image? {
 }
 
 private func loadCardBackResourceImage(named resourceName: String) -> Image? {
-    let bundle = Bundle.kolkhozAppFeatureResources
-    let url = bundle.url(forResource: resourceName, withExtension: "png")
-        ?? bundle.url(forResource: resourceName, withExtension: "png", subdirectory: "Cards")
-
-    guard let url else {
-        return nil
-    }
-
-    #if canImport(UIKit)
-    if let image = UIImage(contentsOfFile: url.path) {
-        return Image(uiImage: image)
-    }
-    #elseif canImport(AppKit)
-    if let image = NSImage(contentsOf: url) {
-        return Image(nsImage: image)
-    }
-    #endif
-
-    return nil
+    KolkhozResourceImageCache.image(for: [
+        KolkhozResourceImageCandidate(resourceName),
+        KolkhozResourceImageCandidate(resourceName, subdirectory: "Cards")
+    ])
 }
 
 struct SuitBadge: View {
@@ -522,12 +540,8 @@ struct SuitBadge: View {
     var body: some View {
         HStack(spacing: 5) {
             SuitMark(suit: suit, size: compact ? 18 : 22)
-            Text(compact ? suit.shortName : suit.rawValue)
-                .font(compact ? .kolkhozTitle(.caption) : .kolkhozLabel(.caption))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+            PixelText(text: compact ? suit.shortName : suit.rawValue, size: .caption, color: .kolkhozCream)
         }
-        .foregroundStyle(Color.kolkhozCream)
     }
 }
 
@@ -539,5 +553,104 @@ struct SuitMark: View {
         GameIcon(suit.iconAsset, size: size)
             .frame(width: size, height: size)
             .shadow(color: suit.displayColor.opacity(size > 17 ? 0.34 : 0), radius: size > 17 ? 3 : 0)
+    }
+}
+
+#Preview("8 of Wheat - Large") {
+    CardPreviewStage {
+        CardView(card: Card(suit: .wheat, value: 8), size: .large, toneOverride: .light)
+            .scaleEffect(4)
+            .frame(width: CardSize.large.width * 4, height: CardSize.large.height * 4)
+    }
+}
+
+#Preview("Queen of Wheat - Large") {
+    CardPreviewStage {
+        CardView(card: Card(suit: .wheat, value: 12), size: .large, toneOverride: .light)
+            .scaleEffect(4)
+            .frame(width: CardSize.large.width * 4, height: CardSize.large.height * 4)
+    }
+}
+
+#Preview("Numbered Wheat Cards") {
+    CardPreviewStage {
+        HStack(spacing: 18) {
+            ForEach(1...10, id: \.self) { value in
+                CardView(card: Card(suit: .wheat, value: value), size: .large, toneOverride: .light)
+            }
+        }
+        .padding(24)
+    }
+}
+
+#Preview("Suit Samples") {
+    CardPreviewStage {
+        HStack(spacing: 18) {
+            ForEach(Suit.allCases) { suit in
+                CardView(card: Card(suit: suit, value: 8), size: .large, toneOverride: .light)
+            }
+        }
+        .padding(24)
+    }
+}
+
+#Preview("Wheat Face Cards") {
+    CardPreviewStage {
+        HStack(spacing: 18) {
+            ForEach([11, 12, 13], id: \.self) { value in
+                CardView(card: Card(suit: .wheat, value: value), size: .large, toneOverride: .light)
+            }
+        }
+        .padding(24)
+    }
+}
+
+#Preview("All Face Cards") {
+    CardPreviewStage {
+        VStack(spacing: 18) {
+            ForEach([11, 12, 13], id: \.self) { value in
+                HStack(spacing: 18) {
+                    ForEach(Suit.allCases) { suit in
+                        CardView(card: Card(suit: suit, value: value), size: .large, toneOverride: .light)
+                    }
+                }
+            }
+        }
+        .padding(24)
+    }
+}
+
+#Preview("Face Card Sizes") {
+    CardPreviewStage {
+        HStack(alignment: .bottom, spacing: 22) {
+            CardView(card: Card(suit: .wheat, value: 12), size: .small, toneOverride: .light)
+            CardView(card: Card(suit: .wheat, value: 12), size: .medium, toneOverride: .light)
+            CardView(card: Card(suit: .wheat, value: 12), size: .large, toneOverride: .light)
+        }
+        .padding(24)
+    }
+}
+
+#Preview("Card Sizes") {
+    CardPreviewStage {
+        HStack(alignment: .bottom, spacing: 22) {
+            CardView(card: Card(suit: .wheat, value: 8), size: .small, toneOverride: .light)
+            CardView(card: Card(suit: .wheat, value: 8), size: .medium, toneOverride: .light)
+            CardView(card: Card(suit: .wheat, value: 8), size: .large, toneOverride: .light)
+        }
+        .padding(24)
+    }
+}
+
+private struct CardPreviewStage<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .padding(32)
+            .background(Color.kolkhozBackground)
+            .onAppear {
+                KolkhozFontRegistry.registerFonts()
+            }
     }
 }

@@ -31,14 +31,8 @@ struct CommandPanelBackground: View {
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay {
             RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.kolkhozGold.opacity(0.34), lineWidth: 2)
+                .stroke(Color.kolkhozGold.opacity(0.26), lineWidth: 1)
         }
-        .overlay {
-            RoundedRectangle(cornerRadius: 4)
-                .stroke(Color.kolkhozSteel.opacity(0.56), lineWidth: 1)
-                .padding(4)
-        }
-        .overlay { PrintCornerFrame(cornerRadius: 6, accent: .kolkhozGold) }
     }
 }
 
@@ -48,35 +42,21 @@ struct GeneratedChromeImage: View {
 
     @ViewBuilder
     var body: some View {
-        if let capInsets {
-            image
-                .resizable(capInsets: capInsets, resizingMode: .stretch)
-                .interpolation(.none)
-                .antialiased(false)
+        if let image = KolkhozResourceImageCache.image(named: resourceName) {
+            if let capInsets {
+                image
+                    .resizable(capInsets: capInsets, resizingMode: .stretch)
+                    .interpolation(.none)
+                    .antialiased(false)
+            } else {
+                image
+                    .resizable()
+                    .interpolation(.none)
+                    .antialiased(false)
+            }
         } else {
-            image
-                .resizable()
-                .interpolation(.none)
-                .antialiased(false)
+            Color.clear
         }
-    }
-
-    private var image: Image {
-        guard let url = Bundle.kolkhozAppFeatureResources.url(forResource: resourceName, withExtension: "png") else {
-            return Image(systemName: "rectangle.fill")
-        }
-
-        #if canImport(UIKit)
-        if let image = UIImage(contentsOfFile: url.path) {
-            return Image(uiImage: image)
-        }
-        #elseif canImport(AppKit)
-        if let image = NSImage(contentsOf: url) {
-            return Image(nsImage: image)
-        }
-        #endif
-
-        return Image(systemName: "rectangle.fill")
     }
 }
 
@@ -91,25 +71,10 @@ struct ResourceArtImage: View {
     }
 
     private var image: Image {
-        let bundle = Bundle.kolkhozAppFeatureResources
-        let url = bundle.url(forResource: resourceName, withExtension: "png")
-            ?? bundle.url(forResource: resourceName, withExtension: "png", subdirectory: "Embellishments")
-
-        guard let url else {
-            return Image(systemName: "rectangle.fill")
-        }
-
-        #if canImport(UIKit)
-        if let image = UIImage(contentsOfFile: url.path) {
-            return Image(uiImage: image)
-        }
-        #elseif canImport(AppKit)
-        if let image = NSImage(contentsOf: url) {
-            return Image(nsImage: image)
-        }
-        #endif
-
-        return Image(systemName: "rectangle.fill")
+        KolkhozResourceImageCache.image(for: [
+            KolkhozResourceImageCandidate(resourceName),
+            KolkhozResourceImageCandidate(resourceName, subdirectory: "Embellishments")
+        ]) ?? Image(systemName: "rectangle.fill")
     }
 }
 
@@ -138,36 +103,6 @@ struct BadgeSealOrnament: View {
             .scaledToFit()
             .allowsHitTesting(false)
             .accessibilityHidden(true)
-    }
-}
-
-struct PanelCornerOrnaments: View {
-    var size: CGFloat = 54
-    var opacity: Double = 0.68
-
-    var body: some View {
-        VStack {
-            HStack {
-                corner
-                Spacer(minLength: 0)
-                corner.scaleEffect(x: -1, y: 1)
-            }
-            Spacer(minLength: 0)
-            HStack {
-                corner.scaleEffect(x: 1, y: -1)
-                Spacer(minLength: 0)
-                corner.scaleEffect(x: -1, y: -1)
-            }
-        }
-        .opacity(opacity)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-
-    private var corner: some View {
-        ResourceArtImage(resourceName: "corner-crop-pixel")
-            .scaledToFit()
-            .frame(width: size, height: size)
     }
 }
 
@@ -200,18 +135,14 @@ struct PanelTitleRow: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(compact ? .kolkhozTitle(.subheadline) : .kolkhozTitle(.headline))
-                    .textCase(.uppercase)
-                    .foregroundStyle(urgent ? Color.kolkhozRedBright : Color.kolkhozGold)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
+                PixelText(
+                    text: title.uppercased(),
+                    size: compact ? .caption : .headline,
+                    variant: compact ? .heavy : .regular,
+                    color: urgent ? Color.kolkhozRedBright : Color.kolkhozGold
+                )
                 if let subtitle {
-                    Text(subtitle)
-                        .font(.kolkhozLabel(.caption))
-                        .foregroundStyle(Color.kolkhozCreamDim)
-                        .lineLimit(compact ? 2 : 1)
-                        .minimumScaleFactor(0.82)
+                    PixelText(text: subtitle, size: .caption, color: .kolkhozCreamDim)
                 }
             }
             .layoutPriority(1)
@@ -270,9 +201,7 @@ struct MiniRewardCard: View {
 
     var body: some View {
         VStack(spacing: 1) {
-            Text(card.rank)
-                .font(.kolkhozTitle(.caption2))
-                .foregroundStyle(Color.kolkhozCardInk)
+            PixelText(text: card.rank, size: .caption2, variant: .heavy, color: .kolkhozCardInk)
             SuitMark(suit: card.suit, size: 10)
         }
         .frame(width: 24, height: 34)
@@ -286,6 +215,7 @@ struct MiniRewardCard: View {
 }
 
 struct CardSlot: View {
+    @Environment(\.kolkhozLanguage) private var language
     let active: Bool
     let human: Bool
     var width: CGFloat = 58
@@ -303,9 +233,12 @@ struct CardSlot: View {
             .frame(width: width, height: height)
             .overlay {
                 if active {
-                Text(human ? "PLAY" : "WAIT")
-                        .font(.kolkhozTitle(.caption2))
-                        .foregroundStyle(human ? Color.kolkhozGold : Color.kolkhozRedBright)
+                    PixelText(
+                        text: human ? language.text(en: "PLAY", ru: "ХОД") : language.text(en: "WAIT", ru: "ЖДИТЕ"),
+                        size: .caption2,
+                        variant: .heavy,
+                        color: human ? Color.kolkhozGold : Color.kolkhozRedBright
+                    )
                 }
             }
             .scaleEffect(active && pulse ? 1.035 : 1)
@@ -326,12 +259,8 @@ struct AssignmentTargetButton: View {
     var body: some View {
         VStack(spacing: 4) {
             SuitMark(suit: suit, size: 19)
-            Text(title)
-                .font(.kolkhozTitle(.caption2))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+            PixelText(text: title, size: .caption2, variant: .heavy, color: .kolkhozCream)
         }
-        .foregroundStyle(Color.kolkhozCream)
         .frame(maxWidth: .infinity, minHeight: 46)
         .background(selected ? Color.kolkhozGreen.opacity(0.24) : Color.kolkhozBlack.opacity(0.45), in: RoundedRectangle(cornerRadius: 6))
         .overlay {
@@ -343,6 +272,8 @@ struct AssignmentTargetButton: View {
 }
 
 struct RequisitionEventRow: View {
+    @Environment(\.kolkhozLanguage) private var language
+    @EnvironmentObject private var store: GameStore
     let event: RequisitionEvent
 
     var body: some View {
@@ -355,10 +286,8 @@ struct RequisitionEventRow: View {
             .frame(width: 30, height: 30)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(event.suit.rawValue.uppercased())
-                    .font(.kolkhozTitle(.caption2))
-                    .foregroundStyle(Color.kolkhozRedBright)
-                Text(event.message)
+                PixelText(text: language.suitName(event.suit).uppercased(), size: .caption2, variant: .heavy, color: .kolkhozRedBright)
+                Text(language.requisitionMessage(for: event, players: store.state.players))
                     .font(.kolkhozLabel(.caption))
                     .foregroundStyle(Color.kolkhozCream)
                     .lineLimit(2)
@@ -406,16 +335,17 @@ struct CommandButtonStyle: ButtonStyle {
 }
 
 struct CardButton: View {
+    @Environment(\.kolkhozLanguage) private var language
     let card: Card
     let selected: Bool
+    var size: CardSize = .large
     var highlighted = false
     var muted = false
     var positionedAction: ((CGPoint) -> Void)?
     var dragAction: ((CGPoint) -> Void)?
     var dragChanged: ((Card, CGPoint, CGSize) -> Void)?
-    var dragEnded: ((Card, CGSize) -> Void)?
+    var dragEnded: ((Card, CGPoint, CGSize) -> Void)?
     let action: () -> Void
-    @GestureState private var isDragging = false
     @State private var pulse = false
 
     var body: some View {
@@ -424,58 +354,104 @@ struct CardButton: View {
                 x: proxy.frame(in: .named(GameBoardCoordinateSpace.main)).midX,
                 y: proxy.frame(in: .named(GameBoardCoordinateSpace.main)).midY
             )
-            let content = Button {
-                if let positionedAction {
-                    positionedAction(startCenter)
-                } else {
-                    action()
-                }
-            } label: {
-                CardView(card: card, size: .large)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(
-                                selected ? Color.kolkhozGreen : (highlighted ? Color.kolkhozGold : Color.clear),
-                                lineWidth: selected ? 3 : (highlighted ? (pulse ? 4 : 2.5) : 0)
-                            )
-                    }
-                    .shadow(color: highlighted ? Color.kolkhozGold.opacity(pulse ? 0.68 : 0.34) : .clear, radius: pulse ? 16 : 9)
-                    .opacity(isDragging ? 0.32 : (muted ? 0.74 : 1))
-                    .scaleEffect(isDragging ? 0.98 : 1)
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint(dragAction == nil ? Text("") : Text("Drag up or tap to play."))
+
+            interactiveCard(startCenter: startCenter)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(card.accessibilityName(language)))
+            .accessibilityHint(dragAction == nil ? Text("") : Text(language.text(en: "Drag up or tap to play.", ru: "Потяните вверх или нажмите, чтобы сыграть.")))
             .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: pulse)
             .onAppear { pulse = highlighted }
             .onChange(of: highlighted) { _, highlighted in
                 pulse = highlighted
             }
-
-            if let dragAction {
-                content
-                    .highPriorityGesture(playDragGesture(startCenter: startCenter, action: dragAction))
-            } else {
-                content
-            }
         }
-        .frame(width: CardSize.large.width, height: CardSize.large.height)
+        .frame(width: size.width, height: size.height)
+    }
+
+    @ViewBuilder
+    private func interactiveCard(startCenter: CGPoint) -> some View {
+        if let dragAction {
+            cardFace
+                .contentShape(RoundedRectangle(cornerRadius: 8))
+                .onTapGesture {
+                    activate(startCenter: startCenter)
+                }
+                .gesture(playDragGesture(startCenter: startCenter, action: dragAction))
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction {
+                    activate(startCenter: startCenter)
+                }
+        } else {
+            Button {
+                activate(startCenter: startCenter)
+            } label: {
+                cardFace
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var cardFace: some View {
+        CardView(card: card, size: size)
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(
+                        selected ? Color.kolkhozGreen : (highlighted ? Color.kolkhozGold : Color.clear),
+                        lineWidth: selected ? 3 : (highlighted ? (pulse ? 4 : 2.5) : 0)
+                    )
+            }
+            .shadow(color: highlighted ? Color.kolkhozGold.opacity(pulse ? 0.68 : 0.34) : .clear, radius: pulse ? 16 : 9)
+            .opacity(muted ? 0.74 : 1)
+    }
+
+    private func activate(startCenter: CGPoint) {
+        if let positionedAction {
+            positionedAction(startCenter)
+        } else {
+            action()
+        }
     }
 
     private func playDragGesture(startCenter: CGPoint, action: @escaping (CGPoint) -> Void) -> some Gesture {
         DragGesture(minimumDistance: 8, coordinateSpace: .local)
-            .updating($isDragging) { _, state, _ in
-                state = true
-            }
             .onChanged { value in
-                dragChanged?(card, startCenter, value.translation)
+                let translation = value.translation
+                if translation.height < -4 {
+                    dragChanged?(card, startCenter, translation)
+                }
             }
             .onEnded { value in
                 let translation = value.translation
-                dragEnded?(card, translation)
-                guard translation.height < -34, abs(translation.height) > abs(translation.width) * 0.7 else {
-                    return
+                if let dragEnded {
+                    dragEnded(card, startCenter, translation)
+                } else if isPlayDrag(translation, minimumLift: 42, horizontalAllowance: 0.35) {
+                    action(startCenter)
                 }
-                action(startCenter)
             }
+    }
+
+    private func isPlayDrag(_ translation: CGSize, minimumLift: CGFloat, horizontalAllowance: CGFloat) -> Bool {
+        translation.height < -minimumLift &&
+            abs(translation.height) > abs(translation.width) * horizontalAllowance
+    }
+}
+
+private extension Card {
+    func accessibilityName(_ language: KolkhozLanguage) -> String {
+        language.text(en: "\(spokenRank(language)) of \(suit.rawValue)", ru: "\(spokenRank(language)) \(language.suitName(suit))")
+    }
+
+    func spokenRank(_ language: KolkhozLanguage) -> String {
+        switch value {
+        case 1:
+            language.text(en: "Ace", ru: "Туз")
+        case 11:
+            language.text(en: "Jack", ru: "Валет")
+        case 12:
+            language.text(en: "Queen", ru: "Дама")
+        case 13:
+            language.text(en: "King", ru: "Король")
+        default: "\(value)"
+        }
     }
 }

@@ -1,3 +1,12 @@
 .build/
 .swiftpm/
 DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Local generated/reference artifacts
+AssetBackups/
+Mockups/
+
+# Accidental nested output roots
+ios/

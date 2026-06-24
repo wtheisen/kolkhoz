@@ -1,222 +1,196 @@
 # Kolkhoz Architecture
 
+The native SwiftUI implementation in `ios/KolkhozSwiftUI/` is the source of truth for
+rules and app behavior. The older React/boardgame.io code remains in the repo, but should
+not be used to infer current iOS behavior when it differs from Swift.
+
 ## Directory Structure
 
-```
+```text
 kolkhoz/
-├── src/
-│   ├── game/                      # boardgame.io game logic
-│   │   ├── KolkhozGame.js         # Main game definition (526 lines)
-│   │   ├── constants.js           # Game constants
-│   │   ├── Card.js                # Card class
-│   │   ├── index.js               # Exports
-│   │   ├── utils/
-│   │   │   ├── trickUtils.js      # Trick mechanics (193 lines)
-│   │   │   ├── deckUtils.js       # Deck/dealing (149 lines)
-│   │   │   ├── scoringUtils.js    # Scoring/transitions (175 lines)
-│   │   │   └── requisitionUtils.js # Requisition logic (348 lines)
-│   │   └── __tests__/
-│   │       └── KolkhozGame.test.js
-│   ├── client/
-│   │   ├── App.jsx                # Lobby screen
-│   │   ├── Board.jsx              # Main game board + flying card animation
-│   │   ├── index.jsx              # React entry
-│   │   ├── components/
-│   │   │   ├── TrickAreaHTML.jsx  # Main play area (HTML/CSS layout)
-│   │   │   ├── TrickAreaHTML.css  # Responsive flexbox styles
-│   │   │   ├── AssignmentDragDrop.jsx  # Card assignment UI
-│   │   │   ├── SwapDragDrop.jsx   # Swap phase UI
-│   │   │   └── PlayCardDragDrop.jsx    # Card play UI
-│   │   └── styles/
-│   │       └── board.css          # Global styles, fixed player hand
-│   └── ai/                        # (empty - AI uses boardgame.io MCTSBot)
-├── public/                        # Static assets (card images)
-├── docs/                          # BUILD OUTPUT (GitHub Pages)
+├── ios/
+│   └── KolkhozSwiftUI/
+│       ├── Package.swift
+│       ├── project.yml
+│       ├── KolkhozSwiftUI.xcodeproj/
+│       └── Sources/
+│           ├── KolkhozCore/
+│           │   ├── Models.swift
+│           │   └── KolkhozEngine.swift
+│           ├── KolkhozAppFeature/
+│           │   ├── GameStore.swift
+│           │   ├── KolkhozRootView.swift
+│           │   ├── Lobby/
+│           │   │   └── LobbyView.swift
+│           │   ├── Board/
+│           │   │   ├── GameBoardView.swift
+│           │   │   └── GameSections.swift
+│           │   ├── Cards/
+│           │   │   └── CardViews.swift
+│           │   ├── Design/
+│           │   │   ├── Controls.swift
+│           │   │   ├── GameIcon.swift
+│           │   │   └── KolkhozStyle.swift
+│           │   └── Resources/
+│           ├── KolkhozSwiftUIApp/
+│           │   └── KolkhozSwiftUIApp.swift
+│           └── KolkhozSmokeTests/
+│               └── main.swift
+├── src/                         # Legacy web app source
+├── docs/                        # Legacy web build output
+├── agent-docs/
 ├── package.json
-├── vite.config.js
-└── index.html
+└── README.md
 ```
 
 ## Module Responsibilities
 
-### Game Logic (`src/game/`)
+### `KolkhozCore`
+
+Foundation-only game logic with no SwiftUI dependency.
 
 | File | Purpose |
 |------|---------|
-| `KolkhozGame.js` | Phase definitions, moves, turn order, AI enumeration |
-| `constants.js` | SUITS, VALUES, THRESHOLD (40), MAX_YEARS (5), variants |
-| `Card.js` | Card class, display helpers, image paths |
+| `Models.swift` | Suits, cards, variants, players, state, phases, animation events, errors |
+| `KolkhozEngine.swift` | New game setup, AI turns, moves, phase transitions, requisition, scoring |
 
-### Utilities (`src/game/utils/`)
+### `KolkhozAppFeature`
 
-| File | Purpose |
-|------|---------|
-| `trickUtils.js` | `isValidPlay()`, `resolveTrick()`, `applyTrickResult()`, `applyAssignments()` |
-| `deckUtils.js` | `prepareWorkersDeck()`, `dealHands()`, `revealJobs()` |
-| `scoringUtils.js` | `calculateScores()`, `transitionToNextYear()`, `getWinner()` |
-| `requisitionUtils.js` | `handleRequisition()`, special card effects (J/Q/K of trump) |
-
-### Client (`src/client/`)
+SwiftUI feature module for the playable app.
 
 | File | Purpose |
 |------|---------|
-| `App.jsx` | Lobby UI, variant selection, starts game with boardgame.io Client |
-| `Board.jsx` | Main board, routes to phase-specific UIs, handles moves, flying card animation |
-| `components/TrickAreaHTML.jsx` | Main play area - info bar, player panels, card slots (HTML/CSS layout) |
-| `components/TrickAreaHTML.css` | Responsive flexbox layout with CSS variables |
-| `styles/board.css` | Global styles, player hand (fixed position at viewport bottom) |
+| `GameStore.swift` | `@MainActor ObservableObject` bridge around `KolkhozEngine` |
+| `KolkhozRootView.swift` | Owns lobby/game mode, selected preset, custom variants, language |
+| `Lobby/LobbyView.swift` | Start screen, preset selector, custom variant controls, rules panel |
+| `Board/GameBoardView.swift` | Main board shell, nav rail/top bar, panel selection, animation overlay |
+| `Board/GameSections.swift` | Player panels, jobs, assignment, swap, plot, requisition, game over, hand tray |
+| `Cards/CardViews.swift` | Card faces, backs, pips, face-card art, suit marks |
+| `Design/` | Shared panel chrome, colors, fonts, icons, buttons, progress bars |
 
-### Frontend Layout Architecture
+### `KolkhozSwiftUIApp`
 
-The game uses a **pure HTML/CSS flexbox layout** (not SVG):
+The iOS app entry point. `KolkhozSwiftUIApp` opens `KolkhozRootView`.
 
-```
-.game-board (flex row)
-├── .mobile-nav-bar (left sidebar - fixed width)
-└── .game-content (flex column, fills remaining width)
-    └── .trick-area-html (flex: 1, gold border)
-        ├── .info-bar (year, trump, lead suit, job progress)
-        ├── .play-area (flex: 1, min-height: 0)
-        │   ├── .player-panels (3 bot panels + 1 spacer, space-between)
-        │   └── .card-slots (flex: 1, align-items: stretch)
-        │       └── .card-slot (aspect-ratio: 5/7, fills height)
-        └── .player-hand-area (position: fixed, bottom: 0, translateY: 50%)
-```
+### `KolkhozSmokeTests`
 
-**Key CSS patterns:**
-- **Card slots fill available space**: Uses `flex: 1` + `min-height: 0` chain to allow percentage heights
-- **Player hand fixed at bottom**: `position: fixed` with `translateY(50%)` shows top 50% of cards
-- **Trick area margin**: `margin-bottom: var(--visible-hand-height)` stops border above hand
-- **Responsive sizing**: CSS custom properties (`--card-width`, `--visible-hand-height`) keep values in sync
-
-## boardgame.io Integration
-
-### Game Definition Pattern
-```javascript
-// KolkhozGame.js
-export const KolkhozGame = {
-  name: 'kolkhoz',
-  setup: ({ ctx, random }) => initialGameState,
-  phases: {
-    planning: { ... },
-    swap: { ... },
-    trick: { ... },
-    assignment: { ... },
-    plotSelection: { ... },
-    requisition: { ... },
-  },
-  moves: {
-    declareTrump,
-    playCard,
-    submitAssignments,
-    swapCard,
-    confirmSwap,
-  },
-  ai: {
-    enumerate: (G, ctx) => [...possibleMoves],
-  },
-};
-```
-
-### Phase Hooks
-Each phase can define:
-- `onBegin({ G, ctx })` - Run when entering phase
-- `onEnd({ G, ctx })` - Run when leaving phase
-- `endIf({ G, ctx })` - Return truthy to end phase
-- `next({ G, ctx })` - Return next phase name
-- `moves` - Phase-specific moves
-- `turn.activePlayers` - For simultaneous actions (swap phase)
-
-### Client Usage
-```javascript
-// App.jsx
-import { Client } from 'boardgame.io/react';
-import { Local } from 'boardgame.io/multiplayer';
-import { KolkhozGame } from '../game';
-import { Board } from './Board';
-
-const KolkhozClient = Client({
-  game: KolkhozGame,
-  board: Board,
-  multiplayer: Local(),
-  numPlayers: 4,
-});
-```
+Plain Swift executable tests for environments where XCTest is not set up. These cover
+basic dealing, follow-suit validation, animation events, and deterministic game
+completion.
 
 ## Data Flow
 
+```text
+User gesture in SwiftUI
+    |
+    v
+GameStore action
+    |
+    v
+KolkhozEngine method mutates KolkhozState
+    |
+    v
+Engine processes automatic AI turns
+    |
+    v
+GameStore copies engine.state into @Published state
+    |
+    v
+SwiftUI re-renders views
+    |
+    v
+Queued KolkhozAnimationEvent values drive overlays
 ```
-User Action (click card)
-    ↓
-Board.jsx calls moves.playCard(cardIndex)
-    ↓
-boardgame.io validates and applies move
-    ↓
-KolkhozGame mutates G state
-    ↓
-React re-renders with new G, ctx
-    ↓
-UI updates
-```
 
-## AI System
+Views do not mutate `KolkhozState` directly. They call `GameStore`, which calls the
+engine and then publishes the new state.
 
-Uses boardgame.io's MCTSBot (Monte Carlo Tree Search):
-- Enumerate function returns all legal moves
-- Bot simulates games to find best move
-- AI players auto-confirm in swap phase (don't swap strategically)
+## Engine Pattern
 
-```javascript
-ai: {
-  enumerate: (G, ctx) => {
-    const moves = [];
-    // Add all legal moves for current phase
-    if (ctx.phase === 'trick') {
-      for (const idx of getValidCardIndices(G, playerIdx)) {
-        moves.push({ move: 'playCard', args: [idx] });
-      }
-    }
-    return moves;
-  },
+`KolkhozEngine` is a mutable class:
+
+```swift
+public final class KolkhozEngine {
+    public private(set) var state: KolkhozState
+    private var random: SeededGenerator
+    private var animationEvents: [KolkhozAnimationEvent] = []
 }
 ```
 
+Public methods are the user-facing moves:
+
+- `newGame(seed:variants:)`
+- `setTrump(_:)`
+- `playCard(_:)`
+- `swap(handCard:plotCard:revealed:)`
+- `undoSwap()`
+- `confirmSwap()`
+- `assign(card:to:)`
+- `submitAssignments()`
+- `continueAfterRequisition()`
+
+Private helpers handle AI, phase transitions, scoring, and special card behavior.
+
+## Phase Ownership
+
+Phase flow is centralized in these methods:
+
+- `processAutomaticTurns()` - loops through automatic AI planning, swap, trick, and assignment turns.
+- `advanceFromPlanning()` - enters swap or trick after trump selection.
+- `resolveCurrentTrick()` - determines winner and enters assignment.
+- `advanceAfterAssignments()` - either returns to trick or ends the year.
+- `performRequisition()` - records requisition events and exiled cards.
+- `transitionToNextYear()` - resets year state, reveals jobs, deals hands, or finishes game.
+- `finishGame()` - calculates final scores and winner.
+
+## UI Architecture
+
+`GameBoardView` chooses the action panel from `state.phase`, while users can manually
+switch display panels with the nav rail/top bar:
+
+- `game`: player columns, trick slots, and hand tray.
+- `jobs`: work gauges and drag assignment UI.
+- `plot`: swap UI, requisition plot view, or normal plot overview.
+- `north`: exiled card history by year.
+- `options`: in-game menu and rules.
+
+Animation targets are captured with `GeometryReader` in a named coordinate space.
+`GameStore.animationEvents` are consumed one at a time by `LandscapeGameAreaView`.
+
+## AI System
+
+AI is deterministic for a given seed and implemented directly in `KolkhozEngine`:
+
+- Trump: pick the suit with the strongest hand score.
+- Swap: trade the lowest hand card for a significantly better plot card.
+- Trick: play the lowest legal card, unless trying to win a late first trick.
+- Assignment: choose the highest-priority legal suit and assign all trick cards there.
+
+There is no MCTS or boardgame.io AI in the Swift implementation.
+
 ## Build System
 
-**Vite Configuration:**
-```javascript
-// vite.config.js
-export default {
-  plugins: [react()],
-  build: { outDir: 'docs' },  // GitHub Pages
-  server: { port: 3000 },
-};
+Swift Package Manager builds package targets:
+
+```bash
+swift run KolkhozSmokeTests
+swift build --target KolkhozAppFeature
+swift build --target KolkhozSwiftUIApp
 ```
 
-**Output:** Static files in `docs/` - no server needed.
+`project.yml` is the XcodeGen source for the checked-in Xcode project:
+
+```bash
+xcodegen generate
+xcodebuild -project KolkhozSwiftUI.xcodeproj -scheme KolkhozSwiftUIApp -destination 'generic/platform=iOS Simulator' build
+```
 
 ## Testing Architecture
 
-```javascript
-// __tests__/KolkhozGame.test.js
-import { Client } from 'boardgame.io/client';
-import { KolkhozGame } from '../KolkhozGame';
+`Sources/KolkhozSmokeTests/main.swift` defines simple `expect` checks and exits nonzero
+on failure. It currently verifies:
 
-const client = Client({
-  game: KolkhozGame,
-  numPlayers: 4,
-});
-
-client.moves.playCard(0);
-const { G, ctx } = client.getState();
-expect(G.currentTrick.length).toBe(1);
-```
-
-Mock random for determinism:
-```javascript
-const mockRandom = {
-  Number: () => 0.5,
-  Die: (n) => Math.ceil(n / 2),
-  Shuffle: (arr) => [...arr],
-};
-```
+- New game deals 20 worker cards in normal years.
+- Legal human cards respect lead suit.
+- Card play animation events are emitted.
+- A deterministic game can reach `gameOver`.

@@ -1,0 +1,213 @@
+import KolkhozCore
+import SwiftUI
+
+enum OptionsPanelLayout {
+    static let compactWidth: CGFloat = 520
+    static let regularColumnSpacing: CGFloat = 18
+    static let compactStackSpacing: CGFloat = 11
+    static let regularStackSpacing: CGFloat = 14
+    static let actionsMaxWidthRatio: CGFloat = 0.38
+    static let actionsMaxWidth: CGFloat = 230
+    static let minHeight: CGFloat = 206
+    static let idealHeight: CGFloat = 224
+    static let maxHeight: CGFloat = 258
+}
+
+struct InGameOptionsPanel: View {
+    @Environment(\.kolkhozLanguage) private var language
+    let onNewGame: () -> Void
+    let onReturnToLobby: () -> Void
+    @State private var pendingMenuAction: PendingMenuAction?
+
+    var body: some View {
+        GeometryReader { proxy in
+            let compact = proxy.size.width < OptionsPanelLayout.compactWidth
+            let content = menuContent(compact: compact)
+
+            Group {
+                if compact {
+                    content
+                } else {
+                    HStack(alignment: .top, spacing: OptionsPanelLayout.regularColumnSpacing) {
+                        menuActions
+                            .frame(width: min(OptionsPanelLayout.actionsMaxWidth, proxy.size.width * OptionsPanelLayout.actionsMaxWidthRatio), alignment: .topLeading)
+                        Divider()
+                            .overlay(Color.kolkhozGold.opacity(0.35))
+                        menuRules
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                    }
+                }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+        }
+        .frame(minHeight: OptionsPanelLayout.minHeight, idealHeight: OptionsPanelLayout.idealHeight, maxHeight: OptionsPanelLayout.maxHeight)
+        .panelStyle()
+        .alert(confirmTitle, isPresented: Binding(
+            get: { pendingMenuAction != nil },
+            set: { if !$0 { pendingMenuAction = nil } }
+        )) {
+            Button(language.text(en: "Cancel", ru: "Отмена"), role: .cancel) {
+                pendingMenuAction = nil
+            }
+            Button(confirmButtonTitle, role: .destructive) {
+                let action = pendingMenuAction
+                pendingMenuAction = nil
+                switch action {
+                case .newGame:
+                    onNewGame()
+                case .mainMenu:
+                    onReturnToLobby()
+                case nil:
+                    break
+                }
+            }
+        } message: {
+            Text(confirmMessage)
+        }
+    }
+
+    private var confirmTitle: String {
+        switch pendingMenuAction {
+        case .newGame:
+            language.text(en: "Start a new game?", ru: "Начать новую игру?")
+        case .mainMenu:
+            language.text(en: "Return to main menu?", ru: "Вернуться в главное меню?")
+        case nil:
+            language.text(en: "Discard current game?", ru: "Сбросить текущую игру?")
+        }
+    }
+
+    private var confirmButtonTitle: String {
+        switch pendingMenuAction {
+        case .newGame:
+            language.text(en: "New Game", ru: "Новая игра")
+        case .mainMenu:
+            language.text(en: "Main Menu", ru: "Главное меню")
+        case nil:
+            language.text(en: "Discard", ru: "Сбросить")
+        }
+    }
+
+    private var confirmMessage: String {
+        language.text(en: "The current game will be discarded.", ru: "Текущая игра будет сброшена.")
+    }
+
+    private func menuContent(compact: Bool) -> some View {
+        VStack(alignment: .leading, spacing: compact ? OptionsPanelLayout.compactStackSpacing : OptionsPanelLayout.regularStackSpacing) {
+            menuActions
+            Divider()
+                .overlay(Color.kolkhozGold.opacity(0.35))
+            menuRules
+        }
+    }
+
+    private var menuActions: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                GameIcon(.menu, size: 18)
+                Text(language.text(en: "Menu", ru: "Меню"))
+                    .sectionTitle()
+            }
+
+            Text(language.text(en: "Game controls", ru: "Управление игрой"))
+                .font(.kolkhozLabel(.caption2))
+                .textCase(.uppercase)
+                .foregroundStyle(Color.kolkhozSmoke)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Button(language.text(en: "New game", ru: "Новая игра")) {
+                    pendingMenuAction = .newGame
+                }
+                    .buttonStyle(CommandButtonStyle(prominent: true))
+
+                Button {
+                    pendingMenuAction = .mainMenu
+                } label: {
+                    HStack(spacing: 7) {
+                        GameIcon(.menu, size: 15, muted: true)
+                        Text(language.text(en: "Main menu", ru: "Главное меню"))
+                            .font(.kolkhozTitle(.caption))
+                            .textCase(.uppercase)
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(Color.kolkhozCreamDim)
+                    .padding(.horizontal, 12)
+                    .frame(height: 34)
+                    .frame(maxWidth: 170, alignment: .leading)
+                    .background(Color.kolkhozBlack.opacity(0.18), in: RoundedRectangle(cornerRadius: 5))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 5)
+                            .stroke(Color.kolkhozSteel.opacity(0.5), lineWidth: 1)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+
+            LanguageToggleButton()
+        }
+    }
+
+    private var menuRules: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(language.text(en: "Rules", ru: "Правила"))
+                .font(.kolkhozTitle(.subheadline))
+                .textCase(.uppercase)
+                .foregroundStyle(Color.kolkhozGold)
+
+            MenuRuleRow(icon: .jobs, title: language.text(en: "Work", ru: "Работы"), bodyText: language.text(en: "Win tricks, then assign captured cards to matching jobs.", ru: "Выигрывайте взятки и назначайте карты на подходящие работы."))
+            MenuRuleRow(icon: .plot, title: language.text(en: "Protect", ru: "Защита"), bodyText: language.text(en: "Keep plot cards safe from failed-job requisition.", ru: "Берегите карты участка от реквизиции за проваленные работы."))
+            MenuRuleRow(icon: .warning, title: language.text(en: "Trump faces", ru: "Козырные карты"), bodyText: language.text(en: "Jack goes north, Queen exposes, King doubles exile.", ru: "Валет уходит на Север, Дама раскрывает, Король удваивает ссылку."))
+        }
+    }
+}
+
+#if DEBUG
+#Preview("Options Panel") {
+    BoardPreviewStage(width: 640, height: 300) {
+        InGameOptionsPanel(onNewGame: {}, onReturnToLobby: {})
+    }
+}
+
+#Preview("Options Panel - Compact") {
+    BoardPreviewStage(width: 390, height: 330) {
+        InGameOptionsPanel(onNewGame: {}, onReturnToLobby: {})
+    }
+}
+#endif
+
+private enum PendingMenuAction: String, Identifiable {
+    case newGame
+    case mainMenu
+
+    var id: String { rawValue }
+}
+
+struct MenuRuleRow: View {
+    let icon: GameIconAsset
+    let title: String
+    let bodyText: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            GameIcon(icon, size: 17, muted: true)
+                .frame(width: 22, height: 22)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.kolkhozTitle(.caption))
+                    .textCase(.uppercase)
+                    .foregroundStyle(Color.kolkhozGold)
+                Text(bodyText)
+                    .font(.kolkhozLabel(.caption))
+                    .foregroundStyle(Color.kolkhozCreamDim)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.kolkhozBlack.opacity(0.16), in: RoundedRectangle(cornerRadius: 5))
+        .overlay {
+            RoundedRectangle(cornerRadius: 5)
+                .stroke(Color.kolkhozSteel.opacity(0.45), lineWidth: 1)
+        }
+    }
+}
