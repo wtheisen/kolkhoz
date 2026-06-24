@@ -1,7 +1,7 @@
 import KolkhozCore
 import SwiftUI
 
-enum GameAreaShellLayout {
+enum PlayAreaShellLayout {
     static let verticalSpacing: CGFloat = 6
     static let panelTopPadding: CGFloat = 8
     static let panelBottomPadding: CGFloat = 10
@@ -13,7 +13,7 @@ enum GameAreaShellLayout {
     static let panelCornerRadius: CGFloat = 10
 }
 
-struct TrickAreaShellView: View {
+struct PlayAreaShellView: View {
     @EnvironmentObject var store: GameStore
     let displayPanel: GamePanel
     let onReturnToLobby: () -> Void
@@ -37,11 +37,11 @@ struct TrickAreaShellView: View {
             let infoLeading = gameSafeInsets.leading
             let infoTrailing = gameSafeInsets.trailing
             let playContentInset: CGFloat = 0
-            let showsHandTray = displayPanel == .game || store.state.phase == .swap || store.state.phase == .assignment
-            let handOverlayClearance: CGFloat = store.state.phase == .assignment ? GameAreaShellLayout.assignmentHandTrayClearance : (showsHandTray ? GameAreaShellLayout.handTrayClearance : 0)
+            let showsHandTray = displayPanel == .brigade || store.state.phase == .swap || store.state.phase == .assignment
+            let handOverlayClearance: CGFloat = store.state.phase == .assignment ? PlayAreaShellLayout.assignmentHandTrayClearance : (showsHandTray ? PlayAreaShellLayout.handTrayClearance : 0)
 
-            VStack(spacing: GameAreaShellLayout.verticalSpacing) {
-                InfoBarView(jobTargets: $jobTargets)
+            VStack(spacing: PlayAreaShellLayout.verticalSpacing) {
+                TopInfoBarView(jobTargets: $jobTargets)
                     .padding(.leading, infoLeading)
                     .padding(.trailing, infoTrailing)
 
@@ -52,12 +52,12 @@ struct TrickAreaShellView: View {
                             onNewGame: onNewGame,
                             onReturnToLobby: onReturnToLobby
                         )
-                        .frame(maxWidth: GameAreaShellLayout.optionsPanelMaxWidth)
-                        .padding(.horizontal, GameAreaShellLayout.floatingPanelHorizontalPadding)
+                        .frame(maxWidth: PlayAreaShellLayout.optionsPanelMaxWidth)
+                        .padding(.horizontal, PlayAreaShellLayout.floatingPanelHorizontalPadding)
                         .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
 
-                    case .game:
-                        PlayerColumnsView(
+                    case .brigade:
+                        BrigadeView(
                             humanPlayTarget: $humanPlayTarget,
                             playSlotCenters: $playSlotCenters,
                             playSlotFrames: $playSlotFrames,
@@ -66,18 +66,18 @@ struct TrickAreaShellView: View {
                             showLastTrick: showLastTrick
                         )
                         .padding(.horizontal, playContentInset)
-                        .padding(.top, GameAreaShellLayout.panelTopPadding)
-                        .padding(.bottom, GameAreaShellLayout.panelBottomPadding)
+                        .padding(.top, PlayAreaShellLayout.panelTopPadding)
+                        .padding(.bottom, PlayAreaShellLayout.panelBottomPadding)
 
-                        if store.state.phase != .trick && store.state.phase != .assignment {
-                            PhaseActionView()
-                                .frame(maxWidth: GameAreaShellLayout.actionPanelMaxWidth)
-                                .padding(.horizontal, GameAreaShellLayout.floatingPanelHorizontalPadding)
+                        if store.state.phase == .planning || store.state.phase == .gameOver {
+                            PhaseOverlayView()
+                                .frame(maxWidth: PlayAreaShellLayout.actionPanelMaxWidth)
+                                .padding(.horizontal, PlayAreaShellLayout.floatingPanelHorizontalPadding)
                                 .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
                         }
 
                     case .jobs:
-                        AssignmentJobsView(
+                        JobsView(
                             jobTargets: $jobTargets,
                             jobTargetFrames: $jobTargetFrames,
                             assignmentDrag: $assignmentDrag,
@@ -85,14 +85,14 @@ struct TrickAreaShellView: View {
                             selectedAssignmentCard: $selectedAssignmentCard
                         )
                         .padding(.horizontal, playContentInset)
-                        .padding(.top, GameAreaShellLayout.panelTopPadding)
-                        .padding(.bottom, GameAreaShellLayout.panelBottomPadding)
+                        .padding(.top, PlayAreaShellLayout.panelTopPadding)
+                        .padding(.bottom, PlayAreaShellLayout.panelBottomPadding)
 
                     case .north:
-                        NorthHistoryView()
+                        NorthView()
                             .padding(.horizontal, playContentInset)
-                            .padding(.top, GameAreaShellLayout.panelTopPadding)
-                            .padding(.bottom, GameAreaShellLayout.panelBottomPadding)
+                            .padding(.top, PlayAreaShellLayout.panelTopPadding)
+                            .padding(.bottom, PlayAreaShellLayout.panelBottomPadding)
 
                     case .plot:
                         Group {
@@ -105,8 +105,8 @@ struct TrickAreaShellView: View {
                             }
                         }
                         .padding(.horizontal, playContentInset)
-                        .padding(.top, GameAreaShellLayout.panelTopPadding)
-                        .padding(.bottom, GameAreaShellLayout.panelBottomPadding)
+                        .padding(.top, PlayAreaShellLayout.panelTopPadding)
+                        .padding(.bottom, PlayAreaShellLayout.panelBottomPadding)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -119,10 +119,10 @@ struct TrickAreaShellView: View {
                             endPoint: .bottomTrailing
                         )
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: GameAreaShellLayout.panelCornerRadius))
+                    .clipShape(RoundedRectangle(cornerRadius: PlayAreaShellLayout.panelCornerRadius))
                 }
                 .overlay {
-                    RoundedRectangle(cornerRadius: GameAreaShellLayout.panelCornerRadius)
+                    RoundedRectangle(cornerRadius: PlayAreaShellLayout.panelCornerRadius)
                         .stroke(Color.kolkhozRedDark.opacity(0.8), lineWidth: 2)
                 }
                 .padding(.leading, gameSafeInsets.leading)
@@ -135,25 +135,25 @@ struct TrickAreaShellView: View {
 }
 
 #if DEBUG
-#Preview("Game Area Shell - Game") {
+#Preview("Play Area Shell - Brigade") {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.trickState, width: 760, height: 390) {
-        TrickAreaShellPreviewHost(displayPanel: .game)
+        PlayAreaShellPreviewHost(displayPanel: .brigade)
     }
 }
 
-#Preview("Game Area Shell - Jobs") {
+#Preview("Play Area Shell - Jobs") {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.assignmentState, width: 760, height: 390) {
-        TrickAreaShellPreviewHost(displayPanel: .jobs)
+        PlayAreaShellPreviewHost(displayPanel: .jobs)
     }
 }
 
-#Preview("Game Area Shell - Plot") {
+#Preview("Play Area Shell - Plot") {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.swapState, width: 760, height: 390) {
-        TrickAreaShellPreviewHost(displayPanel: .plot)
+        PlayAreaShellPreviewHost(displayPanel: .plot)
     }
 }
 
-private struct TrickAreaShellPreviewHost: View {
+private struct PlayAreaShellPreviewHost: View {
     let displayPanel: GamePanel
     @State private var humanPlayTarget: CGPoint?
     @State private var playSlotCenters: [Int: CGPoint] = [:]
@@ -167,7 +167,7 @@ private struct TrickAreaShellPreviewHost: View {
     @State private var selectedSwapPlot: PlotSelection?
 
     var body: some View {
-        TrickAreaShellView(
+        PlayAreaShellView(
             displayPanel: displayPanel,
             onReturnToLobby: {},
             onNewGame: {},

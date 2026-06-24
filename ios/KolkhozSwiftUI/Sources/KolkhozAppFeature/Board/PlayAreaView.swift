@@ -1,7 +1,7 @@
 import KolkhozCore
 import SwiftUI
 
-enum LandscapeGameAreaLayout {
+enum PlayAreaLayout {
     static let shellHorizontalPadding: CGFloat = 8
     static let shellTopPadding: CGFloat = 8
     static let handTrayLeadingPadding: CGFloat = 18
@@ -12,7 +12,7 @@ enum LandscapeGameAreaLayout {
     static let passiveHandTrayHeight: CGFloat = 70
 }
 
-enum EngineFlightLayout {
+enum PlayAreaFlightLayout {
     static let cardStartScale: CGFloat = 0.52
     static let cardLandedScale: CGFloat = 0.88
     static let cardStartRotation: CGFloat = -5
@@ -27,7 +27,7 @@ enum EngineFlightLayout {
     static let exileLabelOffsetY: CGFloat = 48
 }
 
-struct LandscapeGameAreaView: View {
+struct PlayAreaView: View {
     @EnvironmentObject private var store: GameStore
     let displayPanel: GamePanel
     let gameSafeInsets: EdgeInsets
@@ -51,7 +51,7 @@ struct LandscapeGameAreaView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             GeometryReader { proxy in
-                TrickAreaShellView(
+                PlayAreaShellView(
                     displayPanel: displayPanel,
                     onReturnToLobby: onReturnToLobby,
                     onNewGame: onNewGame,
@@ -69,14 +69,14 @@ struct LandscapeGameAreaView: View {
                     gameSafeInsets: gameSafeInsets,
                     selectedSwapPlot: $selectedSwapPlot
                 )
-                .padding(.horizontal, LandscapeGameAreaLayout.shellHorizontalPadding)
-                .padding(.top, LandscapeGameAreaLayout.shellTopPadding)
+                .padding(.horizontal, PlayAreaLayout.shellHorizontalPadding)
+                .padding(.top, PlayAreaLayout.shellTopPadding)
                 .frame(width: proxy.size.width, height: proxy.size.height)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if showsHandTray {
-                PlayerHandTrayView(
+                LowerHandBarView(
                     playCard: animateAndPlay(_:from:),
                     mode: handTrayMode,
                     selectedSwapHand: $selectedSwapHand,
@@ -87,8 +87,8 @@ struct LandscapeGameAreaView: View {
                     jobTargetFrames: jobTargetFrames,
                     playDropFrame: playSlotFrames[0]
                 )
-                .padding(.leading, LandscapeGameAreaLayout.handTrayLeadingPadding + gameSafeInsets.leading)
-                .padding(.trailing, LandscapeGameAreaLayout.handTrayTrailingPadding + gameSafeInsets.trailing)
+                .padding(.leading, PlayAreaLayout.handTrayLeadingPadding + gameSafeInsets.leading)
+                .padding(.trailing, PlayAreaLayout.handTrayTrailingPadding + gameSafeInsets.trailing)
                 .frame(height: handTrayHeight)
                 .zIndex(10)
             }
@@ -133,14 +133,14 @@ struct LandscapeGameAreaView: View {
         if isResolvingCardPlayAnimations {
             return false
         }
-        return displayPanel == .game || store.state.phase == .swap || store.state.phase == .assignment
+        return displayPanel == .brigade || store.state.phase == .swap || store.state.phase == .assignment
     }
 
-    private var handTrayMode: PlayerHandTrayMode {
+    private var handTrayMode: LowerHandBarMode {
         if isResolvingCardPlayAnimations {
             return .passive
         }
-        if store.state.phase == .trick && displayPanel == .game {
+        if store.state.phase == .trick && displayPanel == .brigade {
             return .trick
         }
         if store.state.phase == .swap {
@@ -155,13 +155,13 @@ struct LandscapeGameAreaView: View {
     private var handTrayHeight: CGFloat {
         switch handTrayMode {
         case .trick:
-            return LandscapeGameAreaLayout.trickHandTrayHeight
+            return PlayAreaLayout.trickHandTrayHeight
         case .swap:
-            return LandscapeGameAreaLayout.swapHandTrayHeight
+            return PlayAreaLayout.swapHandTrayHeight
         case .assignment:
-            return LandscapeGameAreaLayout.assignmentHandTrayHeight
+            return PlayAreaLayout.assignmentHandTrayHeight
         case .passive:
-            return LandscapeGameAreaLayout.passiveHandTrayHeight
+            return PlayAreaLayout.passiveHandTrayHeight
         }
     }
 
@@ -364,16 +364,16 @@ struct EngineFlyingCardView: View {
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(tint, lineWidth: 3)
                 }
-                .scaleEffect(landed ? EngineFlightLayout.cardLandedScale : EngineFlightLayout.cardStartScale)
-                .rotationEffect(.degrees(landed ? 0 : EngineFlightLayout.cardStartRotation))
-                .opacity(landed ? EngineFlightLayout.cardLandedOpacity : 1)
+                .scaleEffect(landed ? PlayAreaFlightLayout.cardLandedScale : PlayAreaFlightLayout.cardStartScale)
+                .rotationEffect(.degrees(landed ? 0 : PlayAreaFlightLayout.cardStartRotation))
+                .opacity(landed ? PlayAreaFlightLayout.cardLandedOpacity : 1)
                 .shadow(color: tint.opacity(0.55), radius: landed ? 10 : 18, y: landed ? 4 : 12)
 
             if let valueText, landed {
                 PixelText(text: valueText, size: .cardRank, variant: .heavy, color: .kolkhozGold)
                     .shadow(color: .black, radius: 3)
                     .transition(.scale(scale: 0.2).combined(with: .opacity))
-                    .offset(y: EngineFlightLayout.valueOffsetY)
+                    .offset(y: PlayAreaFlightLayout.valueOffsetY)
             }
         }
         .position(center)
@@ -406,10 +406,10 @@ struct RewardFlightView: View {
             }
             PixelText(text: language.text(en: "CLAIMED", ru: "ГОТОВО"), size: .caption2, variant: .heavy, color: .kolkhozGreen)
                 .shadow(color: .black, radius: 3)
-                .offset(y: EngineFlightLayout.rewardLabelOffsetY)
+                .offset(y: PlayAreaFlightLayout.rewardLabelOffsetY)
                 .opacity(landed ? 1 : 0)
         }
-        .scaleEffect(landed ? 1 : EngineFlightLayout.rewardStartScale)
+        .scaleEffect(landed ? 1 : PlayAreaFlightLayout.rewardStartScale)
         .position(landed ? target : source)
         .shadow(color: Color.kolkhozGreen.opacity(0.55), radius: 16, y: 8)
         .allowsHitTesting(false)
@@ -442,12 +442,12 @@ struct ExileFlightView: View {
 
             PixelText(text: language.text(en: "NORTH", ru: "СЕВЕР"), size: .caption2, variant: .heavy, color: .kolkhozRedBright)
                 .shadow(color: .black, radius: 3)
-                .offset(y: EngineFlightLayout.exileLabelOffsetY)
+                .offset(y: PlayAreaFlightLayout.exileLabelOffsetY)
                 .opacity(landed ? 1 : 0)
         }
-        .scaleEffect(landed ? EngineFlightLayout.exileLandedScale : 1)
-        .rotationEffect(.degrees(landed ? EngineFlightLayout.exileLandedRotation : EngineFlightLayout.exileStartRotation))
-        .opacity(landed ? EngineFlightLayout.exileLandedOpacity : 1)
+        .scaleEffect(landed ? PlayAreaFlightLayout.exileLandedScale : 1)
+        .rotationEffect(.degrees(landed ? PlayAreaFlightLayout.exileLandedRotation : PlayAreaFlightLayout.exileStartRotation))
+        .opacity(landed ? PlayAreaFlightLayout.exileLandedOpacity : 1)
         .position(landed ? target : source)
         .shadow(color: Color.kolkhozRedBright.opacity(0.55), radius: 16, y: 8)
         .allowsHitTesting(false)
@@ -457,8 +457,8 @@ struct ExileFlightView: View {
 #if DEBUG
 #Preview("Landscape Game Area") {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.trickState, width: 760, height: 430) {
-        LandscapeGameAreaView(
-            displayPanel: .game,
+        PlayAreaView(
+            displayPanel: .brigade,
             gameSafeInsets: EdgeInsets(),
             onReturnToLobby: {},
             onNewGame: {}

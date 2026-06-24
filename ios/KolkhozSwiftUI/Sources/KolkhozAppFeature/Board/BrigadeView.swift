@@ -63,7 +63,7 @@ struct PlayerPanel: View {
                         HStack(spacing: compact ? 3 : 4) {
                             PixelText(
                                 text: displayName(compact: compact),
-                                size: compact ? .caption2 : .caption,
+                                size: compact ? .caption : .caption,
                                 variant: compact ? .heavy : .regular,
                                 color: active ? Color.kolkhozGold : Color.kolkhozCardInk
                             )
@@ -135,88 +135,7 @@ struct PlayerPanel: View {
     }
 }
 
-struct TrickTableView: View {
-    @EnvironmentObject var store: GameStore
-    @Environment(\.kolkhozLanguage) private var language
-
-    var displayedTrick: [TrickPlay] {
-        store.state.phase == .assignment ? store.state.lastTrick : store.state.currentTrick
-    }
-
-    var body: some View {
-        VStack(spacing: 12) {
-            HStack {
-                PixelText(text: language.text(en: "BRIGADE", ru: "БРИГАДА"), size: .headline, color: .kolkhozGold)
-                Spacer()
-                if let winner = store.state.lastWinner, store.state.phase == .assignment {
-                    PixelText(text: language.text(en: "\(store.state.players[winner].name) assigns work", ru: "\(language.playerName(store.state.players[winner])) назначает работы"), size: .caption, color: .kolkhozCreamDim)
-                } else if store.state.phase == .trick {
-                    PixelText(text: turnText, size: .caption, color: .kolkhozCreamDim)
-                }
-            }
-            .padding(8)
-            .background(CommandPanelBackground())
-            .overlay {
-                RoundedRectangle(cornerRadius: 4)
-                    .stroke(Color.kolkhozSteel.opacity(0.8), lineWidth: 1)
-            }
-
-            HStack(spacing: 10) {
-                ForEach(0..<store.state.players.count, id: \.self) { playerID in
-                    let play = displayedTrick.first { $0.playerID == playerID }
-                    let player = store.state.players[playerID]
-                    VStack(spacing: 8) {
-                        PlayerPanel(
-                            player: player,
-                            score: store.visibleScore(for: playerID),
-                            active: store.state.currentPlayer == playerID && play == nil,
-                            human: playerID == 0
-                        )
-                        if let play {
-                            CardView(card: play.card, size: .medium)
-                        } else {
-                            CardSlot(
-                                active: store.state.currentPlayer == playerID && store.state.phase == .trick,
-                                human: playerID == 0
-                            )
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-            }
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity)
-        .background {
-            ZStack {
-                Color.kolkhozTable
-                LinearGradient(
-                    colors: [.kolkhozGold.opacity(0.06), .clear, .kolkhozRed.opacity(0.08)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.kolkhozGold, lineWidth: 3)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.kolkhozRedDark.opacity(0.85), lineWidth: 1.5)
-                .padding(6)
-        }
-        .shadow(color: .black.opacity(0.45), radius: 16, y: 8)
-    }
-
-    var turnText: String {
-        let id = store.state.currentPlayer
-        return id == 0 ? language.text(en: "Your turn", ru: "Ваш ход") : language.text(en: "\(store.state.players[id].name) thinking", ru: "\(store.state.players[id].name) думает")
-    }
-}
-
-struct PlayerColumnsView: View {
+struct BrigadeView: View {
     @EnvironmentObject var store: GameStore
     @Binding var humanPlayTarget: CGPoint?
     @Binding var playSlotCenters: [Int: CGPoint]
@@ -242,7 +161,7 @@ struct PlayerColumnsView: View {
             let rowWidth = columnWidth * CGFloat(playerOrder.count) + spacing * CGFloat(playerOrder.count - 1)
             HStack(alignment: .top, spacing: spacing) {
                 ForEach(playerOrder, id: \.self) { playerID in
-                    PlayerColumnView(
+                    BrigadePlayerColumnView(
                         playerID: playerID,
                         play: displayedTrick.first { $0.playerID == playerID },
                         columnWidth: columnWidth,
@@ -262,7 +181,7 @@ struct PlayerColumnsView: View {
     }
 }
 
-struct PlayerColumnView: View {
+struct BrigadePlayerColumnView: View {
     @EnvironmentObject var store: GameStore
     let playerID: Int
     let play: TrickPlay?
@@ -288,7 +207,7 @@ struct PlayerColumnView: View {
     var playAreaHeight: CGFloat { max(cardSize.height, slotWidth * 1.42) * playAreaScale }
 
     var body: some View {
-        VStack(spacing: compact ? 6 : 10) {
+        VStack(spacing: compact ? 1 : -6) {
             PlayerPanel(
                 player: player,
                 score: store.visibleScore(for: playerID),
@@ -318,7 +237,7 @@ struct PlayerColumnView: View {
                             removal: .opacity
                         ))
                 } else {
-                    CardSlot(active: isCurrentTurn, human: playerID == 0, width: slotWidth, height: slotWidth * 1.42)
+                    CardSlot(active: isCurrentTurn, human: playerID == 0, width: slotWidth, height: slotWidth * 1.55)
                         .scaleEffect(playAreaScale, anchor: .top)
                 }
             }
@@ -386,18 +305,18 @@ struct PlayerColumnView: View {
 
 #Preview("Player Columns") {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.trickState, width: 620, height: 260) {
-        PlayerColumnsPreviewHost()
+        BrigadePreviewHost()
     }
 }
 
-private struct PlayerColumnsPreviewHost: View {
+private struct BrigadePreviewHost: View {
     @State private var humanPlayTarget: CGPoint?
     @State private var playSlotCenters: [Int: CGPoint] = [:]
     @State private var playSlotFrames: [Int: CGRect] = [:]
     @State private var playerPanelCenters: [Int: CGPoint] = [:]
 
     var body: some View {
-        PlayerColumnsView(
+        BrigadeView(
             humanPlayTarget: $humanPlayTarget,
             playSlotCenters: $playSlotCenters,
             playSlotFrames: $playSlotFrames,

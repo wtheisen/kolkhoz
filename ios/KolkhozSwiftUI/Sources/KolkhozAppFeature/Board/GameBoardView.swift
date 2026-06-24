@@ -33,7 +33,7 @@ struct GameBoardView: View {
 
     private var actionPanel: GamePanel {
         if hasPendingBoardAnimations {
-            return .game
+            return .brigade
         }
         switch store.state.phase {
         case .assignment:
@@ -43,7 +43,7 @@ struct GameBoardView: View {
         case .swap:
             return .plot
         default:
-            return .game
+            return .brigade
         }
     }
 
@@ -111,14 +111,14 @@ struct GameBoardView: View {
                 Group {
                     if compactPhone {
                         VStack(spacing: 0) {
-                            CompactNavBarView(
+                            CompactButtonBarView(
                                 activePanel: displayPanel,
                                 actionPanel: actionPanel,
                                 onMenu: onMenu,
                                 onSelectPanel: { selectedPanel = $0 }
                             )
                             .frame(width: contentWidth, height: compactNavHeight)
-                            LandscapeGameAreaView(
+                            PlayAreaView(
                                 displayPanel: displayPanel,
                                 gameSafeInsets: gameSafeInsets,
                                 onReturnToLobby: onMenu,
@@ -131,7 +131,7 @@ struct GameBoardView: View {
                         }
                     } else {
                         ZStack(alignment: .topLeading) {
-                            NavRailView(
+                            LeftButtonBarView(
                                 activePanel: displayPanel,
                                 actionPanel: actionPanel,
                                 width: railWidth,
@@ -140,7 +140,7 @@ struct GameBoardView: View {
                             )
                             .zIndex(20)
 
-                            LandscapeGameAreaView(
+                            PlayAreaView(
                                 displayPanel: displayPanel,
                                 gameSafeInsets: gameSafeInsets,
                                 onReturnToLobby: onMenu,
@@ -175,13 +175,13 @@ struct GameBoardView: View {
 }
 
 #if DEBUG
-#Preview("Game Board - Trick", traits: .landscapeLeft) {
+#Preview("Game Board - Brigade", traits: .landscapeLeft) {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.trickState) {
         GameBoardView(onMenu: {})
     }
 }
 
-#Preview("Game Board - Assignment", traits: .landscapeLeft) {
+#Preview("Game Board - Jobs", traits: .landscapeLeft) {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.assignmentState) {
         GameBoardView(onMenu: {})
     }

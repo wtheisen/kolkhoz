@@ -1,7 +1,7 @@
 import KolkhozCore
 import SwiftUI
 
-enum PlayerHandTrayLayout {
+enum LowerHandBarLayout {
     static let trickHeight: CGFloat = 66
     static let swapHeight: CGFloat = 66
     static let assignmentHeight: CGFloat = 70
@@ -26,18 +26,41 @@ enum PlayerHandTrayLayout {
     static let assignmentHandOffsetY: CGFloat = 24
 }
 
-enum PlayerHandTrayMode {
+enum LowerHandBarMode {
     case passive
     case trick
     case swap
     case assignment
 }
 
-struct PlayerHandTrayView: View {
+struct SwapCommandButtonStyle: ButtonStyle {
+    let prominent: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.kolkhozTitle(.caption))
+            .textCase(.uppercase)
+            .foregroundStyle(prominent ? Color.kolkhozOnAccent : Color.kolkhozCream)
+            .lineLimit(1)
+            .minimumScaleFactor(0.72)
+            .padding(.horizontal, prominent ? 20 : 16)
+            .padding(.top, prominent ? 8 : 7)
+            .padding(.bottom, prominent ? 6 : 5)
+            .frame(minWidth: prominent ? 132 : 88, minHeight: prominent ? 36 : 32)
+            .background {
+                GeneratedChromeImage(resourceName: prominent ? "ui-button-primary" : "ui-button-secondary")
+            }
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .opacity(configuration.isPressed ? 0.82 : 1)
+            .shadow(color: .black.opacity(prominent ? 0.28 : 0.18), radius: prominent ? 5 : 3, y: 2)
+    }
+}
+
+struct LowerHandBarView: View {
     @EnvironmentObject private var store: GameStore
     @Environment(\.kolkhozLanguage) private var language
     let playCard: (Card, CGPoint) -> Void
-    let mode: PlayerHandTrayMode
+    let mode: LowerHandBarMode
     @Binding var selectedSwapHand: Card?
     @Binding var selectedSwapPlot: PlotSelection?
     @Binding var assignmentDrag: AssignmentDragState?
@@ -69,13 +92,13 @@ struct PlayerHandTrayView: View {
     private var visibleTrayHeight: CGFloat {
         switch mode {
         case .trick:
-            return PlayerHandTrayLayout.trickHeight
+            return LowerHandBarLayout.trickHeight
         case .swap:
-            return PlayerHandTrayLayout.swapHeight
+            return LowerHandBarLayout.swapHeight
         case .assignment:
-            return PlayerHandTrayLayout.assignmentHeight
+            return LowerHandBarLayout.assignmentHeight
         case .passive:
-            return PlayerHandTrayLayout.passiveHeight
+            return LowerHandBarLayout.passiveHeight
         }
     }
 
@@ -89,12 +112,12 @@ struct PlayerHandTrayView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: PlayerHandTrayLayout.traySpacing) {
-            trayZone(icon: .cellar, accessibilityLabel: language.text(en: "Cellar", ru: "Подвал"), width: PlayerHandTrayLayout.cellarZoneWidth) {
+        HStack(alignment: .top, spacing: LowerHandBarLayout.traySpacing) {
+            trayZone(icon: .cellar, accessibilityLabel: language.text(en: "Cellar", ru: "Подвал"), width: LowerHandBarLayout.cellarZoneWidth) {
                 compactPlotCards(cards: cellarCards, hidden: true, zone: .hidden)
             }
 
-            trayZone(icon: .plot, accessibilityLabel: language.text(en: "Plot", ru: "Участок"), width: PlayerHandTrayLayout.plotZoneWidth) {
+            trayZone(icon: .plot, accessibilityLabel: language.text(en: "Plot", ru: "Участок"), width: LowerHandBarLayout.plotZoneWidth) {
                 compactPlotCards(cards: plotCards, hidden: false, zone: .revealed)
             }
 
@@ -104,7 +127,7 @@ struct PlayerHandTrayView: View {
 
             if mode == .swap {
                 swapControls
-                    .frame(width: PlayerHandTrayLayout.swapControlsWidth, height: visibleTrayHeight)
+                    .frame(width: LowerHandBarLayout.swapControlsWidth, height: visibleTrayHeight)
             }
 
             if mode == .assignment {
@@ -114,8 +137,8 @@ struct PlayerHandTrayView: View {
         }
         .frame(height: visibleTrayHeight)
         .frame(maxWidth: .infinity, alignment: .top)
-        .padding(.top, PlayerHandTrayLayout.topPadding)
-        .padding(.horizontal, PlayerHandTrayLayout.horizontalPadding)
+        .padding(.top, LowerHandBarLayout.topPadding)
+        .padding(.horizontal, LowerHandBarLayout.horizontalPadding)
     }
 
     private func trayZone<Content: View>(
@@ -124,16 +147,16 @@ struct PlayerHandTrayView: View {
         width: CGFloat? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        HStack(alignment: .top, spacing: PlayerHandTrayLayout.trayZoneSpacing) {
+        HStack(alignment: .top, spacing: LowerHandBarLayout.trayZoneSpacing) {
             GameIcon(icon, size: icon == .hand ? 32 : 24)
                 .accessibilityLabel(accessibilityLabel)
-                .frame(width: PlayerHandTrayLayout.trayZoneIconWidth, height: visibleTrayHeight, alignment: .top)
+                .frame(width: LowerHandBarLayout.trayZoneIconWidth, height: visibleTrayHeight, alignment: .top)
 
             content()
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, PlayerHandTrayLayout.trayZoneHorizontalPadding)
-        .padding(.vertical, PlayerHandTrayLayout.trayZoneVerticalPadding)
+        .padding(.horizontal, LowerHandBarLayout.trayZoneHorizontalPadding)
+        .padding(.vertical, LowerHandBarLayout.trayZoneVerticalPadding)
         .frame(width: width, height: visibleTrayHeight, alignment: .topLeading)
         .background(Color.kolkhozBlack.opacity(icon == .hand ? 0.12 : 0.18), in: RoundedRectangle(cornerRadius: 6))
         .overlay {
@@ -143,7 +166,7 @@ struct PlayerHandTrayView: View {
     }
 
     private func compactPlotCards(cards: [Card], hidden: Bool, zone: PlotCardZone) -> some View {
-        HStack(alignment: .top, spacing: PlayerHandTrayLayout.compactPlotCardSpacing) {
+        HStack(alignment: .top, spacing: LowerHandBarLayout.compactPlotCardSpacing) {
             ForEach(Array(cards.prefix(4).enumerated()), id: \.element.id) { _, card in
                 Button {
                     if mode == .swap && !store.state.swapCount.contains(0) {
@@ -250,7 +273,7 @@ struct PlayerHandTrayView: View {
             }
         }
         .padding(.horizontal, 2)
-        .offset(y: mode == .assignment ? PlayerHandTrayLayout.assignmentHandOffsetY : PlayerHandTrayLayout.handOffsetY)
+        .offset(y: mode == .assignment ? LowerHandBarLayout.assignmentHandOffsetY : LowerHandBarLayout.handOffsetY)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .frame(height: visibleTrayHeight)
         .animation(.spring(response: 0.24, dampingFraction: 0.78), value: handOrder)
@@ -279,11 +302,11 @@ struct PlayerHandTrayView: View {
     private var handCardSpacing: CGFloat {
         switch mode {
         case .passive:
-            return PlayerHandTrayLayout.passiveHandSpacing
+            return LowerHandBarLayout.passiveHandSpacing
         case .assignment:
-            return PlayerHandTrayLayout.assignmentHandSpacing
+            return LowerHandBarLayout.assignmentHandSpacing
         case .trick, .swap:
-            return PlayerHandTrayLayout.activeHandSpacing
+            return LowerHandBarLayout.activeHandSpacing
         }
     }
 
@@ -366,7 +389,7 @@ struct PlayerHandTrayView: View {
     }
 
     private var assignmentControlsWidth: CGFloat {
-        allAssignmentCardsAssigned ? PlayerHandTrayLayout.assignmentSubmitWidth : PlayerHandTrayLayout.assignmentCardsWidth
+        allAssignmentCardsAssigned ? LowerHandBarLayout.assignmentSubmitWidth : LowerHandBarLayout.assignmentCardsWidth
     }
 
     private var assignmentControls: some View {
@@ -426,9 +449,7 @@ struct PlayerHandTrayView: View {
     private func updateAssignmentDrag(_ card: Card, startCenter: CGPoint, translation: CGSize) {
         let drag = AssignmentDragState(card: card, startCenter: startCenter, translation: translation)
         assignmentDrag = drag
-        hoveredAssignmentSuit = jobTargetFrames.first { suit, frame in
-            legalAssignmentTargets.contains(suit) && frame.contains(drag.currentCenter)
-        }?.key
+        hoveredAssignmentSuit = drag.targetSuit(in: jobTargetFrames, legalTargets: legalAssignmentTargets)
     }
 
     private func finishAssignmentDrag(_ card: Card, translation: CGSize) {
@@ -437,9 +458,7 @@ struct PlayerHandTrayView: View {
             hoveredAssignmentSuit = nil
         }
         guard let drag = assignmentDrag else { return }
-        if let target = jobTargetFrames.first(where: { suit, frame in
-            legalAssignmentTargets.contains(suit) && frame.contains(drag.currentCenter)
-        })?.key {
+        if let target = drag.targetSuit(in: jobTargetFrames, legalTargets: legalAssignmentTargets) {
             store.assign(card, to: target)
             selectedAssignmentCard = nextUnassignedAssignmentCard(after: card)
         }
@@ -495,79 +514,27 @@ private extension View {
     }
 }
 
-struct PlayerHandView: View {
-    @EnvironmentObject var store: GameStore
-    @Environment(\.kolkhozLanguage) private var language
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(language.text(en: "Your hand", ru: "Ваша рука"))
-                    .sectionTitle()
-                Spacer()
-                Text(language.text(en: "Cellar \(store.state.players[0].plot.hidden.count + store.state.players[0].plot.revealed.count)", ru: "Подвал \(store.state.players[0].plot.hidden.count + store.state.players[0].plot.revealed.count)"))
-                    .font(.kolkhozLabel(.caption))
-                    .foregroundStyle(Color.kolkhozCreamDim)
-            }
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(store.state.players[0].hand) { card in
-                        let isPlayable = store.validCardsForHuman().contains(card)
-                        let isMuted = store.state.phase == .trick && !isPlayable
-                        CardButton(
-                            card: card,
-                            selected: false,
-                            highlighted: store.state.phase == .trick && isPlayable,
-                            muted: isMuted,
-                            dragAction: store.state.phase == .trick && isPlayable ? { _ in store.play(card) } : nil
-                        ) {
-                            if isPlayable {
-                                store.play(card)
-                            }
-                        }
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-        }
-        .padding(12)
-        .background(
-            LinearGradient(
-                colors: [Color.kolkhozBlack.opacity(0.92), Color.kolkhozIron.opacity(0.88), Color.kolkhozGold.opacity(0.08)],
-                startPoint: .top,
-                endPoint: .bottom
-            ),
-            in: RoundedRectangle(cornerRadius: 8)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.kolkhozGold.opacity(0.75), lineWidth: 2)
-        }
-    }
-}
-
 #if DEBUG
 #Preview("Hand Tray - Trick") {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.trickState, width: 720, height: 112) {
-        PlayerHandTrayPreviewHost(mode: .trick)
+        LowerHandBarPreviewHost(mode: .trick)
     }
 }
 
 #Preview("Hand Tray - Swap") {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.swapState, width: 760, height: 112) {
-        PlayerHandTrayPreviewHost(mode: .swap)
+        LowerHandBarPreviewHost(mode: .swap)
     }
 }
 
 #Preview("Hand Tray - Assignment") {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.assignmentState, width: 820, height: 120) {
-        PlayerHandTrayPreviewHost(mode: .assignment)
+        LowerHandBarPreviewHost(mode: .assignment)
     }
 }
 
-private struct PlayerHandTrayPreviewHost: View {
-    let mode: PlayerHandTrayMode
+private struct LowerHandBarPreviewHost: View {
+    let mode: LowerHandBarMode
     @State private var selectedSwapHand: Card?
     @State private var selectedSwapPlot: PlotSelection?
     @State private var assignmentDrag: AssignmentDragState?
@@ -575,7 +542,7 @@ private struct PlayerHandTrayPreviewHost: View {
     @State private var selectedAssignmentCard: Card?
 
     var body: some View {
-        PlayerHandTrayView(
+        LowerHandBarView(
             playCard: { _, _ in },
             mode: mode,
             selectedSwapHand: $selectedSwapHand,

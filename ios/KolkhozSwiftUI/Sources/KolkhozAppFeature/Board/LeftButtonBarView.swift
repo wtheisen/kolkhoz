@@ -1,7 +1,7 @@
 import KolkhozCore
 import SwiftUI
 
-enum GameNavigationLayout {
+enum LeftButtonBarLayout {
     static let railButtonSpacing: CGFloat = 5
     static let railVerticalPadding: CGFloat = 8
     static let railHorizontalPadding: CGFloat = 5
@@ -9,18 +9,18 @@ enum GameNavigationLayout {
     static let compactHorizontalPadding: CGFloat = 6
     static let compactVerticalPadding: CGFloat = 3
     static let buttonSize: CGFloat = 48
-    static let iconSize: CGFloat = 25
+    static let iconSize: CGFloat = 28
 }
 
 enum GamePanel: Equatable {
     case options
-    case game
+    case brigade
     case jobs
     case north
     case plot
 }
 
-struct NavRailView: View {
+struct LeftButtonBarView: View {
     @EnvironmentObject var store: GameStore
     @Environment(\.kolkhozLanguage) private var language
     let activePanel: GamePanel
@@ -30,35 +30,35 @@ struct NavRailView: View {
     let onSelectPanel: (GamePanel) -> Void
 
     var body: some View {
-        VStack(spacing: GameNavigationLayout.railButtonSpacing) {
+        VStack(spacing: LeftButtonBarLayout.railButtonSpacing) {
             Button { onSelectPanel(.options) } label: {
-                NavButton(title: language.text(en: "Menu", ru: "Меню"), icon: .menu, active: activePanel == .options, action: false)
+                LeftButtonBarButton(title: language.text(en: "Menu", ru: "Меню"), icon: .menu, active: activePanel == .options, action: false)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(language.text(en: "Menu", ru: "Меню"))
-            Button { onSelectPanel(.game) } label: {
-                NavButton(title: language.text(en: "Brigade", ru: "Бригада"), icon: .brigade, active: activePanel == .game, action: actionPanel == .game)
+            Button { onSelectPanel(.brigade) } label: {
+                LeftButtonBarButton(title: language.text(en: "Brigade", ru: "Бригада"), icon: .brigade, active: activePanel == .brigade, action: actionPanel == .brigade)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(language.text(en: "Brigade", ru: "Бригада"))
             Button { onSelectPanel(.jobs) } label: {
-                NavButton(title: language.text(en: "Fields", ru: "Поля"), icon: .jobs, active: activePanel == .jobs, action: actionPanel == .jobs)
+                LeftButtonBarButton(title: language.text(en: "Jobs", ru: "Работы"), icon: .jobs, active: activePanel == .jobs, action: actionPanel == .jobs)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(language.text(en: "Fields", ru: "Поля"))
+            .accessibilityLabel(language.text(en: "Jobs", ru: "Работы"))
             Button { onSelectPanel(.north) } label: {
-                NavButton(title: language.text(en: "The North", ru: "Север"), icon: .north, active: activePanel == .north, action: actionPanel == .north)
+                LeftButtonBarButton(title: language.text(en: "The North", ru: "Север"), icon: .north, active: activePanel == .north, action: actionPanel == .north)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(language.text(en: "The North", ru: "Север"))
             Button { onSelectPanel(.plot) } label: {
-                NavButton(title: language.text(en: "Cellar", ru: "Подвал"), icon: .plot, active: activePanel == .plot, action: actionPanel == .plot)
+                LeftButtonBarButton(title: language.text(en: "Cellar", ru: "Подвал"), icon: .plot, active: activePanel == .plot, action: actionPanel == .plot)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(language.text(en: "Cellar", ru: "Подвал"))
         }
-        .padding(.vertical, GameNavigationLayout.railVerticalPadding)
-        .padding(.horizontal, GameNavigationLayout.railHorizontalPadding)
+        .padding(.vertical, LeftButtonBarLayout.railVerticalPadding)
+        .padding(.horizontal, LeftButtonBarLayout.railHorizontalPadding)
         .frame(width: width)
         .frame(maxHeight: .infinity)
         .background(Color.kolkhozTable)
@@ -66,7 +66,7 @@ struct NavRailView: View {
     }
 }
 
-struct NavButton: View {
+struct LeftButtonBarButton: View {
     let title: String
     let icon: GameIconAsset
     let active: Bool
@@ -77,11 +77,11 @@ struct NavButton: View {
             GeneratedChromeImage(resourceName: backgroundResourceName)
                 .allowsHitTesting(false)
 
-            GameIcon(icon, size: GameNavigationLayout.iconSize, muted: !active)
+            GameIcon(icon, size: LeftButtonBarLayout.iconSize, muted: !active)
                 .padding(.top, action ? 2 : 0)
         }
         .foregroundStyle(active ? Color.kolkhozOnAccent : Color.kolkhozCreamDim)
-        .frame(width: GameNavigationLayout.buttonSize, height: GameNavigationLayout.buttonSize)
+        .frame(width: LeftButtonBarLayout.buttonSize, height: LeftButtonBarLayout.buttonSize)
         .shadow(color: active ? Color.kolkhozRed.opacity(0.35) : .clear, radius: 8, y: 3)
         .help(title)
     }
@@ -100,7 +100,7 @@ struct NavButton: View {
     }
 }
 
-struct CompactNavBarView: View {
+struct CompactButtonBarView: View {
     @Environment(\.kolkhozLanguage) private var language
     let activePanel: GamePanel
     let actionPanel: GamePanel
@@ -108,35 +108,35 @@ struct CompactNavBarView: View {
     let onSelectPanel: (GamePanel) -> Void
 
     var body: some View {
-        HStack(spacing: GameNavigationLayout.compactButtonSpacing) {
+        HStack(spacing: LeftButtonBarLayout.compactButtonSpacing) {
             Button { onSelectPanel(.options) } label: {
-                NavButton(title: language.text(en: "Menu", ru: "Меню"), icon: .menu, active: activePanel == .options, action: false)
+                LeftButtonBarButton(title: language.text(en: "Menu", ru: "Меню"), icon: .menu, active: activePanel == .options, action: false)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(language.text(en: "Menu", ru: "Меню"))
-            Button { onSelectPanel(.game) } label: {
-                NavButton(title: language.text(en: "Brigade", ru: "Бригада"), icon: .brigade, active: activePanel == .game, action: actionPanel == .game)
+            Button { onSelectPanel(.brigade) } label: {
+                LeftButtonBarButton(title: language.text(en: "Brigade", ru: "Бригада"), icon: .brigade, active: activePanel == .brigade, action: actionPanel == .brigade)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(language.text(en: "Brigade", ru: "Бригада"))
             Button { onSelectPanel(.jobs) } label: {
-                NavButton(title: language.text(en: "Fields", ru: "Поля"), icon: .jobs, active: activePanel == .jobs, action: actionPanel == .jobs)
+                LeftButtonBarButton(title: language.text(en: "Jobs", ru: "Работы"), icon: .jobs, active: activePanel == .jobs, action: actionPanel == .jobs)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(language.text(en: "Fields", ru: "Поля"))
+            .accessibilityLabel(language.text(en: "Jobs", ru: "Работы"))
             Button { onSelectPanel(.north) } label: {
-                NavButton(title: language.text(en: "The North", ru: "Север"), icon: .north, active: activePanel == .north, action: actionPanel == .north)
+                LeftButtonBarButton(title: language.text(en: "The North", ru: "Север"), icon: .north, active: activePanel == .north, action: actionPanel == .north)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(language.text(en: "The North", ru: "Север"))
             Button { onSelectPanel(.plot) } label: {
-                NavButton(title: language.text(en: "Cellar", ru: "Подвал"), icon: .plot, active: activePanel == .plot, action: actionPanel == .plot)
+                LeftButtonBarButton(title: language.text(en: "Cellar", ru: "Подвал"), icon: .plot, active: activePanel == .plot, action: actionPanel == .plot)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(language.text(en: "Cellar", ru: "Подвал"))
         }
-        .padding(.horizontal, GameNavigationLayout.compactHorizontalPadding)
-        .padding(.vertical, GameNavigationLayout.compactVerticalPadding)
+        .padding(.horizontal, LeftButtonBarLayout.compactHorizontalPadding)
+        .padding(.vertical, LeftButtonBarLayout.compactVerticalPadding)
         .frame(maxWidth: .infinity)
         .background(Color.kolkhozTable)
     }
@@ -145,7 +145,7 @@ struct CompactNavBarView: View {
 #if DEBUG
 #Preview("Board Nav Rail") {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.assignmentState, width: 92, height: 340) {
-        NavRailView(
+        LeftButtonBarView(
             activePanel: .jobs,
             actionPanel: .jobs,
             width: GameBoardLayout.navRailMaxWidth,
@@ -157,7 +157,7 @@ struct CompactNavBarView: View {
 
 #Preview("Board Compact Nav") {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.swapState, width: 360, height: 72) {
-        CompactNavBarView(
+        CompactButtonBarView(
             activePanel: .plot,
             actionPanel: .plot,
             onMenu: {},

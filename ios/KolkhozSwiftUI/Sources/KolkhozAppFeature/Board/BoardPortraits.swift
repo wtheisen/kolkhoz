@@ -12,39 +12,12 @@ enum BoardPortraitLayout {
     static let humanBadgeSize: CGFloat = 9
 }
 
-struct OpponentsView: View {
-    @EnvironmentObject var store: GameStore
-
-    var body: some View {
-        HStack(spacing: BoardPortraitLayout.opponentsSpacing) {
-            ForEach(store.state.players.dropFirst()) { player in
-                PlayerPanel(
-                    player: player,
-                    score: store.visibleScore(for: player.id),
-                    active: store.state.currentPlayer == player.id,
-                    human: false
-                )
-            }
-        }
-    }
-}
-
 struct PortraitView: View {
     let player: PlayerState
     let human: Bool
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(
-                    LinearGradient(
-                        colors: human
-                            ? [Color.kolkhozGold.opacity(0.42), Color.kolkhozRedDark.opacity(0.72)]
-                            : [Color.kolkhozSteel.opacity(0.58), Color.kolkhozBlack.opacity(0.82)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
             portraitImage
                 .resizable()
                 .interpolation(.none)
@@ -68,11 +41,6 @@ struct PortraitView: View {
             .padding(2)
         }
         .frame(width: BoardPortraitLayout.width, height: BoardPortraitLayout.height)
-        .overlay {
-            RoundedRectangle(cornerRadius: BoardPortraitLayout.cornerRadius)
-                .stroke(human ? Color.kolkhozGold.opacity(0.95) : Color.kolkhozSteel.opacity(0.9), lineWidth: human ? 1.5 : 1)
-        }
-        .shadow(color: human ? Color.kolkhozGold.opacity(0.26) : .black.opacity(0.38), radius: human ? 6 : 4, y: 2)
     }
 
     var portraitImage: Image {
@@ -97,12 +65,6 @@ struct PortraitView: View {
             PortraitView(player: KolkhozPreviewFixtures.trickState.players[2], human: false)
             PortraitView(player: KolkhozPreviewFixtures.trickState.players[3], human: false)
         }
-    }
-}
-
-#Preview("Opponents") {
-    BoardPreviewStoreStage(state: KolkhozPreviewFixtures.trickState, width: 520, height: 92) {
-        OpponentsView()
     }
 }
 #endif

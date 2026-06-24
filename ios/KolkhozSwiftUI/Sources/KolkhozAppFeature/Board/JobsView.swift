@@ -1,7 +1,7 @@
 import KolkhozCore
 import SwiftUI
 
-enum AssignmentSectionLayout {
+enum JobsViewLayout {
     static let gridCompactWidth: CGFloat = 500
     static let gridTightWidth: CGFloat = 560
     static let headerCompactWidth: CGFloat = 520
@@ -19,7 +19,7 @@ enum AssignmentSectionLayout {
     static let tilePadding: CGFloat = 8
 }
 
-struct AssignmentJobsView: View {
+struct JobsView: View {
     @EnvironmentObject private var store: GameStore
     @Environment(\.kolkhozLanguage) private var language
     @Binding var jobTargets: [Suit: CGPoint]
@@ -39,11 +39,11 @@ struct AssignmentJobsView: View {
             assignmentHeader
 
             GeometryReader { proxy in
-                let spacing: CGFloat = proxy.size.width < AssignmentSectionLayout.gridTightWidth ? AssignmentSectionLayout.compactSpacing : AssignmentSectionLayout.regularSpacing
-                let compactGrid = proxy.size.width < AssignmentSectionLayout.gridCompactWidth
+                let spacing: CGFloat = proxy.size.width < JobsViewLayout.gridTightWidth ? JobsViewLayout.compactSpacing : JobsViewLayout.regularSpacing
+                let compactGrid = proxy.size.width < JobsViewLayout.gridCompactWidth
                 let columnCount = compactGrid ? 2 : Suit.allCases.count
                 let rowCount = compactGrid ? 2 : 1
-                let minTileHeight: CGFloat = isAssignmentPhase ? AssignmentSectionLayout.assignmentTileMinHeight : AssignmentSectionLayout.displayTileMinHeight
+                let minTileHeight: CGFloat = isAssignmentPhase ? JobsViewLayout.assignmentTileMinHeight : JobsViewLayout.displayTileMinHeight
                 let tileHeight = max(minTileHeight, (proxy.size.height - spacing * CGFloat(rowCount - 1)) / CGFloat(rowCount))
                 let columns = Array(
                     repeating: GridItem(.flexible(minimum: 0), spacing: spacing),
@@ -88,23 +88,23 @@ struct AssignmentJobsView: View {
 
     private var assignmentHeader: some View {
         GeometryReader { proxy in
-            let compact = proxy.size.width < AssignmentSectionLayout.headerCompactWidth
+            let compact = proxy.size.width < JobsViewLayout.headerCompactWidth
 
-            HStack(spacing: compact ? AssignmentSectionLayout.compactSpacing : AssignmentSectionLayout.regularSpacing) {
+            HStack(spacing: compact ? JobsViewLayout.compactSpacing : JobsViewLayout.regularSpacing) {
                 PanelTitleRow(
-                    title: isAssignmentPhase ? language.text(en: "Assign to jobs", ru: "Назначьте на работы") : language.text(en: "Fields", ru: "Поля"),
+                    title: isAssignmentPhase ? language.text(en: "Assign to jobs", ru: "Назначьте на работы") : language.text(en: "Jobs", ru: "Работы"),
                     subtitle: isAssignmentPhase ? language.text(en: "Drag cards from the hand tray into a valid suit column.", ru: "Перетащите карты из руки в допустимую колонку.") : language.text(en: "Track work progress and rewards.", ru: "Следите за работами и наградами."),
                     icon: .jobs,
                     compact: compact
                 )
                 .layoutPriority(1)
             }
-            .padding(.horizontal, compact ? AssignmentSectionLayout.compactHeaderHorizontalPadding : AssignmentSectionLayout.regularHeaderHorizontalPadding)
-            .padding(.vertical, compact ? AssignmentSectionLayout.compactHeaderVerticalPadding : AssignmentSectionLayout.regularHeaderVerticalPadding)
+            .padding(.horizontal, compact ? JobsViewLayout.compactHeaderHorizontalPadding : JobsViewLayout.regularHeaderHorizontalPadding)
+            .padding(.vertical, compact ? JobsViewLayout.compactHeaderVerticalPadding : JobsViewLayout.regularHeaderVerticalPadding)
             .frame(width: proxy.size.width, height: proxy.size.height)
             .background(CommandPanelBackground())
         }
-        .frame(height: isAssignmentPhase ? AssignmentSectionLayout.assignmentHeaderHeight : AssignmentSectionLayout.displayHeaderHeight)
+        .frame(height: isAssignmentPhase ? JobsViewLayout.assignmentHeaderHeight : JobsViewLayout.displayHeaderHeight)
     }
 
     private func assignedCards(for suit: Suit) -> [AssignmentDisplayCard] {
@@ -142,9 +142,7 @@ struct AssignmentJobsView: View {
     private func updateDrag(_ card: Card, startCenter: CGPoint, translation: CGSize) {
         let drag = AssignmentDragState(card: card, startCenter: startCenter, translation: translation)
         assignmentDrag = drag
-        hoveredSuit = jobTargetFrames.first { suit, frame in
-            legalTargetSet.contains(suit) && frame.contains(drag.currentCenter)
-        }?.key
+        hoveredSuit = drag.targetSuit(in: jobTargetFrames, legalTargets: legalTargetSet)
     }
 
     private func finishDrag(_ card: Card, translation: CGSize) {
@@ -153,9 +151,7 @@ struct AssignmentJobsView: View {
             hoveredSuit = nil
         }
         guard let drag = assignmentDrag else { return }
-        if let target = jobTargetFrames.first(where: { suit, frame in
-            legalTargetSet.contains(suit) && frame.contains(drag.currentCenter)
-        })?.key {
+        if let target = drag.targetSuit(in: jobTargetFrames, legalTargets: legalTargetSet) {
             store.assign(card, to: target)
         }
     }
@@ -194,24 +190,30 @@ struct AssignmentJobTile: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 6) {
-                SuitMark(suit: suit, size: 16)
-                if highlighted {
-                    GameIcon(.medalStar, size: 12)
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    if let reward {
+                        MiniRewardCard(card: reward, claimed: claimed)
+                    } else {
+                        RoundedRectangle(cornerRadius: 3)
+                            .strokeBorder(Color.kolkhozGreen.opacity(0.7), lineWidth: 1)
+                            .frame(width: 24, height: 34)
+                            .overlay {
+                                GameIcon(.check, size: 18)
+                            }
+                    }
+                    ProgressBar(value: min(Double(hours) / 40.0, 1), complete: claimed)
+                    PixelText(
+                        text: claimed ? language.text(en: "DONE", ru: "ГОТОВО") : "\(hours)/40",
+                        size: .headline,
+                        variant: .heavy,
+                        color: claimed ? Color.kolkhozGreen : Color.kolkhozGold
+                    )
                 }
-                Spacer()
-                PixelText(
-                    text: claimed ? language.text(en: "DONE", ru: "ГОТОВО") : "\(totalHours)/40",
-                    size: .caption2,
-                    variant: .heavy,
-                    color: claimed ? Color.kolkhozGreen : Color.kolkhozGold
-                )
             }
 
-            ProgressBar(value: min(Double(totalHours) / 40.0, 1), complete: claimed)
-
             HStack(alignment: .top, spacing: 8) {
-                VStack(spacing: AssignmentSectionLayout.tileCardStackSpacing) {
+                VStack(spacing: JobsViewLayout.tileCardStackSpacing) {
                     ForEach(assignedCards) { item in
                         AssignmentTileCard(
                             item: item,
@@ -231,14 +233,9 @@ struct AssignmentJobTile: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-
-                if let reward, !claimed {
-                    MiniRewardCard(card: reward, claimed: totalHours >= 40)
-                        .scaleEffect(1.05)
-                }
             }
         }
-        .padding(AssignmentSectionLayout.tilePadding)
+        .padding(JobsViewLayout.tilePadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(
             LinearGradient(
@@ -427,6 +424,12 @@ struct AssignmentDragState {
     var currentCenter: CGPoint {
         CGPoint(x: startCenter.x + translation.width, y: startCenter.y + translation.height)
     }
+
+    func targetSuit(in frames: [Suit: CGRect], legalTargets: Set<Suit>) -> Suit? {
+        frames.first { suit, frame in
+            legalTargets.contains(suit) && frame.contains(currentCenter)
+        }?.key
+    }
 }
 
 struct AssignmentDragGhost: View {
@@ -450,17 +453,17 @@ struct AssignmentDragGhost: View {
 #if DEBUG
 #Preview("Assignment Jobs") {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.assignmentState, width: 760, height: 320) {
-        AssignmentJobsPreviewHost()
+        JobsPreviewHost()
     }
 }
 
 #Preview("Assignment Jobs - Compact") {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.assignmentState, width: 430, height: 360) {
-        AssignmentJobsPreviewHost()
+        JobsPreviewHost()
     }
 }
 
-private struct AssignmentJobsPreviewHost: View {
+private struct JobsPreviewHost: View {
     @State private var jobTargets: [Suit: CGPoint] = [:]
     @State private var jobTargetFrames: [Suit: CGRect] = [:]
     @State private var assignmentDrag: AssignmentDragState?
@@ -468,7 +471,7 @@ private struct AssignmentJobsPreviewHost: View {
     @State private var selectedAssignmentCard: Card? = Card(suit: .sunflower, value: 12)
 
     var body: some View {
-        AssignmentJobsView(
+        JobsView(
             jobTargets: $jobTargets,
             jobTargetFrames: $jobTargetFrames,
             assignmentDrag: $assignmentDrag,

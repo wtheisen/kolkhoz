@@ -88,15 +88,6 @@ struct PanelDividerOrnament: View {
     }
 }
 
-struct PlotEmptyOrnament: View {
-    var body: some View {
-        ResourceArtImage(resourceName: "plot-empty-pixel")
-            .scaledToFit()
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-    }
-}
-
 struct BadgeSealOrnament: View {
     var body: some View {
         ResourceArtImage(resourceName: "badge-seal-pixel")
@@ -200,9 +191,9 @@ struct MiniRewardCard: View {
     let claimed: Bool
 
     var body: some View {
-        VStack(spacing: 1) {
-            PixelText(text: card.rank, size: .caption2, variant: .heavy, color: .kolkhozCardInk)
-            SuitMark(suit: card.suit, size: 10)
+        VStack(spacing: -6) {
+            PixelText(text: card.rank, size: .caption, variant: .heavy, color: .kolkhozCardInk)
+            SuitMark(suit: card.suit, size: 18)
         }
         .frame(width: 24, height: 34)
         .background(Color.cardFill, in: RoundedRectangle(cornerRadius: 3))
@@ -210,7 +201,6 @@ struct MiniRewardCard: View {
             RoundedRectangle(cornerRadius: 3)
                 .stroke(claimed ? Color.kolkhozGreen : Color.cardStroke, lineWidth: claimed ? 2 : 1)
         }
-        .shadow(color: .black.opacity(0.35), radius: 3, y: 2)
     }
 }
 
@@ -278,28 +268,25 @@ struct RequisitionEventRow: View {
 
     var body: some View {
         HStack(spacing: 9) {
-            ZStack {
-                Circle()
-                    .fill(Color.kolkhozRedDark.opacity(0.85))
-                SuitMark(suit: event.suit, size: 17)
-            }
-            .frame(width: 30, height: 30)
-
-            VStack(alignment: .leading, spacing: 2) {
-                PixelText(text: language.suitName(event.suit).uppercased(), size: .caption2, variant: .heavy, color: .kolkhozRedBright)
-                Text(language.requisitionMessage(for: event, players: store.state.players))
-                    .font(.kolkhozLabel(.caption))
-                    .foregroundStyle(Color.kolkhozCream)
-                    .lineLimit(2)
-            }
-
-            Spacer()
-
             if let card = event.card {
                 MiniRewardCard(card: card, claimed: false)
             } else {
                 GameIcon(.warning, size: 24)
             }
+
+            VStack(alignment: .leading, spacing: -1) {
+                PixelText(text: language.suitName(event.suit).uppercased(), size: .headline, variant: .heavy, color: .kolkhozRedBright)
+                PixelText(
+                    text: language.requisitionMessage(for: event, players: store.state.players),
+                    size: .headline,
+                    variant: .regular,
+                    color: .kolkhozCream
+                )
+            }
+
+            Spacer()
+
+
         }
         .padding(8)
         .background(Color.kolkhozRedDark.opacity(0.24), in: RoundedRectangle(cornerRadius: 6))

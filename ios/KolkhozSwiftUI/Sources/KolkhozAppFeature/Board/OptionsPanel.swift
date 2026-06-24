@@ -115,37 +115,46 @@ struct InGameOptionsPanel: View {
                 .foregroundStyle(Color.kolkhozSmoke)
 
             VStack(alignment: .leading, spacing: 8) {
-                Button(language.text(en: "New game", ru: "Новая игра")) {
-                    pendingMenuAction = .newGame
-                }
+                HStack {
+                    Spacer(minLength: 0)
+                    Button(language.text(en: "New game", ru: "Новая игра")) {
+                        pendingMenuAction = .newGame
+                    }
                     .buttonStyle(CommandButtonStyle(prominent: true))
-
-                Button {
-                    pendingMenuAction = .mainMenu
-                } label: {
-                    HStack(spacing: 7) {
-                        GameIcon(.menu, size: 15, muted: true)
-                        Text(language.text(en: "Main menu", ru: "Главное меню"))
-                            .font(.kolkhozTitle(.caption))
-                            .textCase(.uppercase)
-                            .lineLimit(1)
-                    }
-                    .foregroundStyle(Color.kolkhozCreamDim)
-                    .padding(.horizontal, 12)
-                    .frame(height: 34)
-                    .frame(maxWidth: 170, alignment: .leading)
-                    .background(Color.kolkhozBlack.opacity(0.18), in: RoundedRectangle(cornerRadius: 5))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 5)
-                            .stroke(Color.kolkhozSteel.opacity(0.5), lineWidth: 1)
-                    }
+                    Spacer(minLength: 0)
                 }
-                .buttonStyle(.plain)
-            }
-
-            HStack(spacing: 8) {
-                LanguageToggleButton()
-                AppearanceToggleButton()
+                HStack {
+                    Spacer(minLength: 0)
+                    Button {
+                        pendingMenuAction = .mainMenu
+                    } label: {
+                        HStack(spacing: 7) {
+                            GameIcon(.menu, size: 15, muted: true)
+                            Text(language.text(en: "Main menu", ru: "Главное меню"))
+                                .font(.kolkhozTitle(.caption))
+                                .textCase(.uppercase)
+                                .lineLimit(1)
+                        }
+                        .foregroundStyle(Color.kolkhozCreamDim)
+                        .padding(.horizontal, 12)
+                        .frame(height: 34)
+                        .frame(maxWidth: 170, alignment: .leading)
+                        .background(Color.kolkhozBlack.opacity(0.18), in: RoundedRectangle(cornerRadius: 5))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 5)
+                                .stroke(Color.kolkhozSteel.opacity(0.5), lineWidth: 1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    Spacer(minLength: 0)
+                }
+                
+                HStack(spacing: 8) {
+                    Spacer(minLength: 0)
+                    LanguageToggleButton()
+                    AppearanceToggleButton()
+                    Spacer(minLength: 0)
+                }
             }
         }
     }

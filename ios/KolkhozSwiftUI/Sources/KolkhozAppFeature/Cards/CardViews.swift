@@ -65,7 +65,7 @@ enum CardSize {
         switch self {
         case .small: -1
         case .medium: -1
-        case .large: -2
+        case .large: -4
         }
     }
 
@@ -73,7 +73,7 @@ enum CardSize {
         switch self {
         case .small: -1
         case .medium: -1
-        case .large: -3
+        case .large: 1
         }
     }
 
@@ -158,16 +158,16 @@ struct CardFaceView: View {
             } else {
                 PipPattern(card: card, size: size)
                     .padding(.horizontal, size.width * 0.16)
-                    .padding(.vertical, size.height * 0.1)
+                    .padding(.vertical, size.height * 0.02)
             }
 
             CardCornerIndex(card: card, tone: tone, size: size, placement: .top)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .offset(x: size.width * 0.03, y: size.height * 0.001)
+                .offset(x: size.width * 0.03, y: size.height * 0.03)
 
             CardCornerIndex(card: card, tone: tone, size: size, placement: .bottom)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                .offset(x: -size.width * 0.03, y: -size.height * 0.005)
+                .offset(x: -size.width * 0.02, y: -size.height * -0.03)
         }
         .padding(size.faceInset)
     }
@@ -359,7 +359,7 @@ struct PipPattern: View {
         switch size {
         case .small: 8
         case .medium: 10.4
-        case .large: 12.8
+        case .large: 14
         }
     }
 
@@ -531,18 +531,6 @@ private func loadCardBackResourceImage(named resourceName: String) -> Image? {
         KolkhozResourceImageCandidate(resourceName),
         KolkhozResourceImageCandidate(resourceName, subdirectory: "Cards")
     ])
-}
-
-struct SuitBadge: View {
-    let suit: Suit
-    let compact: Bool
-
-    var body: some View {
-        HStack(spacing: 5) {
-            SuitMark(suit: suit, size: compact ? 18 : 22)
-            PixelText(text: compact ? suit.shortName : suit.rawValue, size: .caption, color: .kolkhozCream)
-        }
-    }
 }
 
 struct SuitMark: View {
