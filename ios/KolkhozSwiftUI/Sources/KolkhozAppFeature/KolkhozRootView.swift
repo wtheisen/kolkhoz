@@ -8,6 +8,7 @@ public struct KolkhozRootView: View {
     @State private var customVariants = GameVariants.kolkhoz
     @State private var showingRules = false
     @AppStorage("kolkhoz-lang") private var languageRawValue = KolkhozLanguage.ru.rawValue
+    @AppStorage("kolkhoz-appearance") private var appearanceRawValue = KolkhozAppearance.dark.rawValue
     private let initialPanel: GamePanel?
 
     public init() {
@@ -48,10 +49,17 @@ public struct KolkhozRootView: View {
         .environmentObject(store)
         .environment(\.kolkhozLanguage, language)
         .environment(\.toggleKolkhozLanguage, toggleLanguage)
+        .environment(\.kolkhozAppearance, appearance)
+        .environment(\.toggleKolkhozAppearance, toggleAppearance)
+        .preferredColorScheme(appearance.colorScheme)
     }
 
     private var language: KolkhozLanguage {
         KolkhozLanguage(storedValue: languageRawValue)
+    }
+
+    private var appearance: KolkhozAppearance {
+        KolkhozAppearance(storedValue: appearanceRawValue)
     }
 
     private var activeVariants: GameVariants {
@@ -70,6 +78,10 @@ public struct KolkhozRootView: View {
 
     private func toggleLanguage() {
         languageRawValue = language.next.rawValue
+    }
+
+    private func toggleAppearance() {
+        appearanceRawValue = appearance.next.rawValue
     }
 }
 

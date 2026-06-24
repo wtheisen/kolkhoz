@@ -132,8 +132,11 @@ struct LobbyTitleColumn: View {
 
             Spacer(minLength: 2)
 
-            HStack(spacing: 7) {
-                LanguageToggleButton(compact: true)
+            VStack(spacing: 6) {
+                HStack(spacing: 7) {
+                    LanguageToggleButton(compact: true)
+                    AppearanceToggleButton(compact: true)
+                }
                 VStack(spacing: 2) {
                     Text(language.text(en: "Game by", ru: "Автор игры"))
                     Text(language.text(en: "William Theisen", ru: "Уильям Тайсон"))

@@ -129,24 +129,19 @@ struct LanguageToggleButton: View {
 
     var body: some View {
         Button(action: toggleLanguage) {
-            HStack(spacing: compact ? 5 : 7) {
-                GameIcon(.language, size: compact ? 16 : 18)
-                Text(language.toggleLabel)
-                    .font(.kolkhozTitle(compact ? .caption2 : .caption))
-                    .textCase(.uppercase)
-                    .lineLimit(1)
+            ZStack {
+                GeneratedChromeImage(resourceName: "ui-nav-button-inactive")
+                    .allowsHitTesting(false)
+                GameIcon(iconAsset, size: 25)
             }
-            .foregroundStyle(Color.kolkhozGold)
-            .padding(.horizontal, compact ? 8 : 10)
-            .frame(height: compact ? 28 : 32)
-            .background(Color.kolkhozBlack.opacity(0.22), in: RoundedRectangle(cornerRadius: 5))
-            .overlay {
-                RoundedRectangle(cornerRadius: 5)
-                    .stroke(Color.kolkhozGold.opacity(0.55), lineWidth: 1)
-            }
+            .frame(width: 48, height: 48)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(language.toggleTitle))
         .help(language.toggleTitle)
+    }
+
+    private var iconAsset: GameIconAsset {
+        language.next == .en ? .languageEN : .languageRU
     }
 }

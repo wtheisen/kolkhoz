@@ -143,7 +143,10 @@ struct InGameOptionsPanel: View {
                 .buttonStyle(.plain)
             }
 
-            LanguageToggleButton()
+            HStack(spacing: 8) {
+                LanguageToggleButton()
+                AppearanceToggleButton()
+            }
         }
     }
 
