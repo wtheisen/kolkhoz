@@ -1,42 +1,6 @@
 import KolkhozCore
 import SwiftUI
 
-enum PlayAreaLayout {
-    static let shellHorizontalPadding: CGFloat = 8
-    static let shellTopPadding: CGFloat = 8
-    static let handTrayLeadingPadding: CGFloat = 18
-    static let handTrayTrailingPadding: CGFloat = 24
-    static let trickHandTrayHeight: CGFloat = 78
-    static let swapHandTrayHeight: CGFloat = 78
-    static let assignmentHandTrayHeight: CGFloat = 82
-    static let requisitionHandTrayHeight: CGFloat = 78
-    static let passiveHandTrayHeight: CGFloat = 70
-    static let verticalSpacing: CGFloat = 6
-    static let panelTopPadding: CGFloat = 8
-    static let panelBottomPadding: CGFloat = 10
-    static let actionPanelMaxWidth: CGFloat = 500
-    static let optionsPanelMaxWidth: CGFloat = 620
-    static let floatingPanelHorizontalPadding: CGFloat = 20
-    static let handTrayClearance: CGFloat = 78
-    static let assignmentHandTrayClearance: CGFloat = 88
-    static let panelCornerRadius: CGFloat = 10
-}
-
-enum PlayAreaFlightLayout {
-    static let cardStartScale: CGFloat = 0.52
-    static let cardLandedScale: CGFloat = 0.88
-    static let cardStartRotation: CGFloat = -5
-    static let cardLandedOpacity: CGFloat = 0.76
-    static let valueOffsetY: CGFloat = 54
-    static let rewardStartScale: CGFloat = 0.75
-    static let rewardLabelOffsetY: CGFloat = -48
-    static let exileLandedScale: CGFloat = 0.72
-    static let exileStartRotation: CGFloat = 4
-    static let exileLandedRotation: CGFloat = -18
-    static let exileLandedOpacity: CGFloat = 0.65
-    static let exileLabelOffsetY: CGFloat = 48
-}
-
 struct PlayAreaView: View {
     @EnvironmentObject private var store: GameStore
     let displayPanel: GamePanel
@@ -58,44 +22,14 @@ struct PlayAreaView: View {
     @State private var assignedFlightPlayIDs: Set<String> = []
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
             GeometryReader { proxy in
-                playAreaShell(proxy: proxy)
-                .padding(.horizontal, PlayAreaLayout.shellHorizontalPadding)
-                .padding(.top, PlayAreaLayout.shellTopPadding)
+                playAreaShell
+                .padding(.horizontal, 8)
+                .padding(.top, 8)
                 .frame(width: proxy.size.width, height: proxy.size.height)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            if showsHandTray {
-                LowerHandBarView(
-                    playCard: animateAndPlay(_:from:),
-                    mode: handTrayMode,
-                    hand: store.state.players[0].hand,
-                    validCards: store.validCardsForHuman(),
-                    humanSwapStaged: store.state.swapCount.contains(0),
-                    lastTrick: store.state.lastTrick,
-                    pendingAssignments: store.state.pendingAssignments,
-                    year: store.state.year,
-                    hasPendingRequisitionAnimations: hasPendingRequisitionAnimations,
-                    selectedSwapHand: $selectedSwapHand,
-                    selectedSwapPlot: $selectedSwapPlot,
-                    assignmentDrag: $assignmentDrag,
-                    hoveredAssignmentSuit: $hoveredAssignmentSuit,
-                    selectedAssignmentCard: $selectedAssignmentCard,
-                    jobTargetFrames: jobTargetFrames,
-                    playDropFrame: playSlotFrames[0],
-                    onSwapSelection: swapAndConfirm(_:plotSelection:),
-                    onConfirmSwap: store.confirmSwap,
-                    onAssign: store.assign(_:to:),
-                    onSubmitAssignments: store.submitAssignments,
-                    onContinueAfterRequisition: store.continueAfterRequisition
-                )
-                .padding(.leading, PlayAreaLayout.handTrayLeadingPadding + gameSafeInsets.leading)
-                .padding(.trailing, PlayAreaLayout.handTrayTrailingPadding + gameSafeInsets.trailing)
-                .frame(height: handTrayHeight)
-                .zIndex(10)
-            }
 
             if let activeEngineEvent {
                 engineAnimationOverlay(for: activeEngineEvent)
@@ -133,8 +67,8 @@ struct PlayAreaView: View {
         }
     }
 
-    private func playAreaShell(proxy: GeometryProxy) -> some View {
-        VStack(spacing: PlayAreaLayout.verticalSpacing) {
+    private var playAreaShell: some View {
+        VStack(spacing: 0) {
             TopInfoBarView(jobTargets: $jobTargets)
                 .padding(.leading, gameSafeInsets.leading)
                 .padding(.trailing, gameSafeInsets.trailing)
@@ -152,17 +86,21 @@ struct PlayAreaView: View {
                         endPoint: .bottomTrailing
                     )
                 }
-                .clipShape(RoundedRectangle(cornerRadius: PlayAreaLayout.panelCornerRadius))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
             }
             .overlay {
-                RoundedRectangle(cornerRadius: PlayAreaLayout.panelCornerRadius)
+                RoundedRectangle(cornerRadius: 10)
                     .stroke(Color.kolkhozRedDark.opacity(0.8), lineWidth: 2)
             }
             .padding(.leading, gameSafeInsets.leading)
             .padding(.trailing, gameSafeInsets.trailing)
-            .padding(.bottom, handOverlayClearance)
+
+            lowerHandBar
+                .padding(.leading, 18 + gameSafeInsets.leading)
+                .padding(.trailing, 24 + gameSafeInsets.trailing)
+                .frame(height: handTrayHeight, alignment: .top)
+                .zIndex(20)
         }
-        .frame(width: proxy.size.width, height: proxy.size.height)
     }
 
     @ViewBuilder
@@ -173,8 +111,8 @@ struct PlayAreaView: View {
                 onNewGame: onNewGame,
                 onReturnToLobby: onReturnToLobby
             )
-            .frame(maxWidth: PlayAreaLayout.optionsPanelMaxWidth)
-            .padding(.horizontal, PlayAreaLayout.floatingPanelHorizontalPadding)
+            .frame(maxWidth: 620)
+            .padding(.horizontal, 20)
             .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
 
         case .brigade:
@@ -186,13 +124,13 @@ struct PlayAreaView: View {
                 showLastTrick: isResolvingWorkAssignmentAnimations
             )
             .padding(.horizontal, 0)
-            .padding(.top, PlayAreaLayout.panelTopPadding)
-            .padding(.bottom, PlayAreaLayout.panelBottomPadding)
+            .padding(.top, 8)
+            .padding(.bottom, panelContentBottomPadding)
 
             if store.state.phase == .planning || store.state.phase == .gameOver {
                 PhaseOverlayView()
-                    .frame(maxWidth: PlayAreaLayout.actionPanelMaxWidth)
-                    .padding(.horizontal, PlayAreaLayout.floatingPanelHorizontalPadding)
+                    .frame(maxWidth: 500)
+                    .padding(.horizontal, 20)
                     .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
             }
 
@@ -214,36 +152,51 @@ struct PlayAreaView: View {
                 onAssign: store.assign(_:to:)
             )
             .padding(.horizontal, 0)
-            .padding(.top, PlayAreaLayout.panelTopPadding)
-            .padding(.bottom, PlayAreaLayout.panelBottomPadding)
+            .padding(.top, 8)
+            .padding(.bottom, panelContentBottomPadding)
 
         case .north:
             NorthView(exiledByYear: store.state.exiled, currentYear: store.state.year)
                 .padding(.horizontal, 0)
-                .padding(.top, PlayAreaLayout.panelTopPadding)
-                .padding(.bottom, PlayAreaLayout.panelBottomPadding)
+                .padding(.top, 8)
+                .padding(.bottom, panelContentBottomPadding)
 
         case .plot:
             PlotStorageView(selectedPlot: store.state.phase == .swap ? $selectedSwapPlot : nil)
             .padding(.horizontal, 0)
-            .padding(.top, PlayAreaLayout.panelTopPadding)
-            .padding(.bottom, PlayAreaLayout.panelBottomPadding)
+            .padding(.top, 8)
+            .padding(.bottom, panelContentBottomPadding)
         }
     }
 
-    private var handOverlayClearance: CGFloat {
-        if store.state.phase == .assignment {
-            return PlayAreaLayout.assignmentHandTrayClearance
-        }
-        return usesHandTray ? PlayAreaLayout.handTrayClearance : 0
+    private var panelContentBottomPadding: CGFloat {
+        10
     }
 
-    private var usesHandTray: Bool {
-        displayPanel == .brigade || store.state.phase == .swap || store.state.phase == .assignment || store.state.phase == .requisition
-    }
-
-    private var showsHandTray: Bool {
-        usesHandTray && !isResolvingCardPlayAnimations
+    private var lowerHandBar: some View {
+        LowerHandBarView(
+            playCard: animateAndPlay(_:from:),
+            mode: handTrayMode,
+            hand: store.state.players[0].hand,
+            validCards: store.validCardsForHuman(),
+            humanSwapStaged: store.state.swapCount.contains(0),
+            lastTrick: store.state.lastTrick,
+            pendingAssignments: store.state.pendingAssignments,
+            year: store.state.year,
+            hasPendingRequisitionAnimations: hasPendingRequisitionAnimations,
+            selectedSwapHand: $selectedSwapHand,
+            selectedSwapPlot: $selectedSwapPlot,
+            assignmentDrag: $assignmentDrag,
+            hoveredAssignmentSuit: $hoveredAssignmentSuit,
+            selectedAssignmentCard: $selectedAssignmentCard,
+            jobTargetFrames: jobTargetFrames,
+            playDropFrame: playSlotFrames[0],
+            onSwapSelection: swapAndConfirm(_:plotSelection:),
+            onConfirmSwap: store.confirmSwap,
+            onAssign: store.assign(_:to:),
+            onSubmitAssignments: store.submitAssignments,
+            onContinueAfterRequisition: store.continueAfterRequisition
+        )
     }
 
     private var handTrayMode: LowerHandBarMode {
@@ -266,18 +219,7 @@ struct PlayAreaView: View {
     }
 
     private var handTrayHeight: CGFloat {
-        switch handTrayMode {
-        case .trick:
-            return PlayAreaLayout.trickHandTrayHeight
-        case .swap:
-            return PlayAreaLayout.swapHandTrayHeight
-        case .assignment:
-            return PlayAreaLayout.assignmentHandTrayHeight
-        case .requisition:
-            return PlayAreaLayout.requisitionHandTrayHeight
-        case .passive:
-            return PlayAreaLayout.passiveHandTrayHeight
-        }
+        52
     }
 
     private var hasPendingRequisitionAnimations: Bool {
@@ -499,16 +441,16 @@ struct EngineFlyingCardView: View {
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(tint, lineWidth: 3)
                 }
-                .scaleEffect(landed ? PlayAreaFlightLayout.cardLandedScale : PlayAreaFlightLayout.cardStartScale)
-                .rotationEffect(.degrees(landed ? 0 : PlayAreaFlightLayout.cardStartRotation))
-                .opacity(landed ? PlayAreaFlightLayout.cardLandedOpacity : 1)
+                .scaleEffect(landed ? 0.88 : 0.52)
+                .rotationEffect(.degrees(landed ? 0 : -5))
+                .opacity(landed ? 0.76 : 1)
                 .shadow(color: tint.opacity(0.55), radius: landed ? 10 : 18, y: landed ? 4 : 12)
 
             if let valueText, landed {
                 PixelText(text: valueText, size: .cardRank, variant: .heavy, color: .kolkhozGold)
                     .shadow(color: .black, radius: 3)
                     .transition(.scale(scale: 0.2).combined(with: .opacity))
-                    .offset(y: PlayAreaFlightLayout.valueOffsetY)
+                    .offset(y: 54)
             }
         }
         .position(center)
@@ -541,10 +483,10 @@ struct RewardFlightView: View {
             }
             PixelText(text: language.text(en: "CLAIMED", ru: "ГОТОВО"), size: .caption2, variant: .heavy, color: .kolkhozGreen)
                 .shadow(color: .black, radius: 3)
-                .offset(y: PlayAreaFlightLayout.rewardLabelOffsetY)
+                .offset(y: -48)
                 .opacity(landed ? 1 : 0)
         }
-        .scaleEffect(landed ? 1 : PlayAreaFlightLayout.rewardStartScale)
+        .scaleEffect(landed ? 1 : 0.75)
         .position(landed ? target : source)
         .shadow(color: Color.kolkhozGreen.opacity(0.55), radius: 16, y: 8)
         .allowsHitTesting(false)
@@ -577,12 +519,12 @@ struct ExileFlightView: View {
 
             PixelText(text: language.text(en: "NORTH", ru: "СЕВЕР"), size: .caption2, variant: .heavy, color: .kolkhozRedBright)
                 .shadow(color: .black, radius: 3)
-                .offset(y: PlayAreaFlightLayout.exileLabelOffsetY)
+                .offset(y: 48)
                 .opacity(landed ? 1 : 0)
         }
-        .scaleEffect(landed ? PlayAreaFlightLayout.exileLandedScale : 1)
-        .rotationEffect(.degrees(landed ? PlayAreaFlightLayout.exileLandedRotation : PlayAreaFlightLayout.exileStartRotation))
-        .opacity(landed ? PlayAreaFlightLayout.exileLandedOpacity : 1)
+        .scaleEffect(landed ? 0.72 : 1)
+        .rotationEffect(.degrees(landed ? -18 : 4))
+        .opacity(landed ? 0.65 : 1)
         .position(landed ? target : source)
         .shadow(color: Color.kolkhozRedBright.opacity(0.55), radius: 16, y: 8)
         .allowsHitTesting(false)

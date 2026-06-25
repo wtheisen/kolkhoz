@@ -1,29 +1,6 @@
 import KolkhozCore
 import SwiftUI
 
-enum LowerHandBarLayout {
-    static let trickHeight: CGFloat = 66
-    static let swapHeight: CGFloat = 66
-    static let assignmentHeight: CGFloat = 70
-    static let requisitionHeight: CGFloat = 66
-    static let passiveHeight: CGFloat = 60
-    static let horizontalPadding: CGFloat = 16
-    static let topPadding: CGFloat = 4
-    static let traySpacing: CGFloat = 8
-    static let trayZoneIconWidth: CGFloat = 34
-    static let trayZoneSpacing: CGFloat = 6
-    static let trayZoneHorizontalPadding: CGFloat = 6
-    static let trayZoneVerticalPadding: CGFloat = 5
-    static let swapControlsWidth: CGFloat = 150
-    static let requisitionControlsWidth: CGFloat = 150
-    static let assignmentSubmitWidth: CGFloat = 150
-    static let assignmentCardsWidth: CGFloat = 290
-    static let passiveHandSpacing: CGFloat = -38
-    static let assignmentHandSpacing: CGFloat = -38
-    static let activeHandSpacing: CGFloat = 10
-    static let handOffsetY: CGFloat = 30
-}
-
 enum LowerHandBarMode {
     case passive
     case trick
@@ -90,15 +67,15 @@ struct LowerHandBarView: View {
     private var visibleTrayHeight: CGFloat {
         switch mode {
         case .trick:
-            return LowerHandBarLayout.trickHeight
+            return 66
         case .swap:
-            return LowerHandBarLayout.swapHeight
+            return 66
         case .assignment:
-            return LowerHandBarLayout.assignmentHeight
+            return 70
         case .requisition:
-            return LowerHandBarLayout.requisitionHeight
+            return 66
         case .passive:
-            return LowerHandBarLayout.passiveHeight
+            return 60
         }
     }
 
@@ -111,46 +88,44 @@ struct LowerHandBarView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: LowerHandBarLayout.traySpacing) {
+        HStack(alignment: .top, spacing: 8) {
             handTrayZone
 
             if mode == .swap {
                 swapControls
-                    .frame(width: LowerHandBarLayout.swapControlsWidth, height: visibleTrayHeight)
+                    .frame(width: 150, height: visibleTrayHeight)
             }
 
             if mode == .assignment && !allAssignmentCardsAssigned {
                 assignmentControls
-                    .frame(width: LowerHandBarLayout.assignmentCardsWidth, height: visibleTrayHeight)
+                    .frame(width: 290, height: visibleTrayHeight)
             }
 
             if mode == .assignment && allAssignmentCardsAssigned {
                 assignmentSubmitControls
-                    .frame(width: LowerHandBarLayout.assignmentSubmitWidth, height: visibleTrayHeight)
+                    .frame(width: 150, height: visibleTrayHeight)
             }
 
             if mode == .requisition {
                 requisitionControls
-                    .frame(width: LowerHandBarLayout.requisitionControlsWidth, height: visibleTrayHeight)
+                    .frame(width: 150, height: visibleTrayHeight)
             }
         }
         .frame(height: visibleTrayHeight)
         .frame(maxWidth: .infinity, alignment: .top)
-        .padding(.top, LowerHandBarLayout.topPadding)
-        .padding(.horizontal, LowerHandBarLayout.horizontalPadding)
+        .padding(.horizontal, 16)
     }
 
     private var handTrayZone: some View {
-        HStack(alignment: .top, spacing: LowerHandBarLayout.trayZoneSpacing) {
+        HStack(alignment: .top, spacing: 6) {
             GameIcon(.hand, size: 32)
                 .accessibilityLabel(language.text(en: "Hand", ru: "Рука"))
-                .frame(width: LowerHandBarLayout.trayZoneIconWidth, height: visibleTrayHeight, alignment: .top)
+                .frame(width: 34, height: visibleTrayHeight, alignment: .top)
 
             handCards
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, LowerHandBarLayout.trayZoneHorizontalPadding)
-        .padding(.vertical, LowerHandBarLayout.trayZoneVerticalPadding)
+        .padding(.horizontal, 6)
         .frame(height: visibleTrayHeight, alignment: .topLeading)
         .background(Color.kolkhozBlack.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
         .overlay {
@@ -226,7 +201,7 @@ struct LowerHandBarView: View {
             }
         }
         .padding(.horizontal, 2)
-        .offset(y: LowerHandBarLayout.handOffsetY)
+        .offset(y: 4)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .frame(height: visibleTrayHeight)
         .animation(.spring(response: 0.24, dampingFraction: 0.78), value: handOrder)
@@ -255,11 +230,11 @@ struct LowerHandBarView: View {
     private var handCardSpacing: CGFloat {
         switch mode {
         case .passive:
-            return LowerHandBarLayout.passiveHandSpacing
+            return -38
         case .assignment:
-            return LowerHandBarLayout.assignmentHandSpacing
+            return -38
         case .trick, .swap, .requisition:
-            return LowerHandBarLayout.activeHandSpacing
+            return 10
         }
     }
 
@@ -368,7 +343,7 @@ struct LowerHandBarView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .offset(y: LowerHandBarLayout.handOffsetY)
+            .offset(y: 4)
         }
     }
 

@@ -1,13 +1,6 @@
 import KolkhozCore
 import SwiftUI
 
-enum PhaseOverlayLayout {
-    static let panelSpacing: CGFloat = 10
-    static let trumpGridSpacing: CGFloat = 8
-    static let trumpButtonSize: CGFloat = 54
-    static let trumpIconSize: CGFloat = 34
-}
-
 struct PhaseOverlayView: View {
     @EnvironmentObject var store: GameStore
 
@@ -33,7 +26,7 @@ struct PlanningView: View {
     @Environment(\.kolkhozLanguage) private var language
 
     var body: some View {
-        VStack(alignment: .leading, spacing: PhaseOverlayLayout.panelSpacing) {
+        VStack(alignment: .leading, spacing: 10) {
             PanelTitleRow(
                 title: store.state.isFamine ? language.text(en: "Famine year", ru: "Год неурожая") : language.text(en: "Choose Trump", ru: "Выберите козырь"),
                 subtitle: store.state.isFamine ? language.text(en: "No trump suit is used this year.", ru: "В этом году козырь не используется.") : language.text(en: "Pick the trump suit for this year.", ru: "Выберите козырную масть на этот год."),
@@ -48,10 +41,10 @@ struct PlanningView: View {
             } else {
                 LazyVGrid(
                     columns: Array(
-                        repeating: GridItem(.fixed(PhaseOverlayLayout.trumpButtonSize), spacing: PhaseOverlayLayout.trumpGridSpacing),
+                        repeating: GridItem(.fixed(54), spacing: 8),
                         count: 2
                     ),
-                    spacing: PhaseOverlayLayout.trumpGridSpacing
+                    spacing: 8
                 ) {
                     ForEach(Suit.allCases) { suit in
                         Button {
@@ -67,7 +60,7 @@ struct PlanningView: View {
                         .accessibilityLabel(language.text(en: "\(language.suitName(suit)) trump", ru: "\(language.suitName(suit)) козырь"))
                     }
                 }
-                .frame(width: PhaseOverlayLayout.trumpButtonSize * 2 + PhaseOverlayLayout.trumpGridSpacing)
+                .frame(width: 54 * 2 + 8)
                 .frame(maxWidth: .infinity, alignment: .center)
             }
         }
@@ -85,10 +78,10 @@ struct TrumpSelectionButton: View {
             GeneratedChromeImage(resourceName: backgroundResourceName)
                 .allowsHitTesting(false)
 
-            GameIcon(trumpIcon, size: PhaseOverlayLayout.trumpIconSize)
+            GameIcon(trumpIcon, size: 34)
                 .padding(.top, selected ? 2 : 0)
         }
-        .frame(width: PhaseOverlayLayout.trumpButtonSize, height: PhaseOverlayLayout.trumpButtonSize)
+        .frame(width: 54, height: 54)
         .foregroundStyle(selected ? Color.kolkhozOnAccent : Color.kolkhozCreamDim)
         .shadow(color: selected ? Color.kolkhozRed.opacity(0.38) : Color.kolkhozGold.opacity(0.16), radius: selected ? 8 : 4, y: 3)
         .help(title)
@@ -148,9 +141,9 @@ struct GameOverScoreRow: View {
     let winner: Bool
 
     var body: some View {
-        HStack(spacing: 10) {
-            PortraitView(player: player, human: player.isHuman)
-                .frame(width: BoardPortraitLayout.width, height: BoardPortraitLayout.height)
+            HStack(spacing: 10) {
+                PortraitView(player: player, human: player.isHuman)
+                .frame(width: 38, height: 42)
 
             HStack(spacing: 2) {
                 PixelText(

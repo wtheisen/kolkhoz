@@ -1,17 +1,6 @@
 import KolkhozCore
 import SwiftUI
 
-enum BoardPortraitLayout {
-    static let opponentsSpacing: CGFloat = 8
-    static let cornerRadius: CGFloat = 6
-    static let imageCornerRadius: CGFloat = 3
-    static let imageWidth: CGFloat = 32
-    static let imageHeight: CGFloat = 36
-    static let width: CGFloat = 38
-    static let height: CGFloat = 42
-    static let humanBadgeSize: CGFloat = 9
-}
-
 struct PortraitView: View {
     let player: PlayerState
     let human: Bool
@@ -19,28 +8,28 @@ struct PortraitView: View {
     var body: some View {
         ZStack {
             portraitImage
-                .resizable()
-                .interpolation(.none)
+            .resizable()
+            .interpolation(.none)
             .antialiased(false)
                 .scaledToFill()
-                .frame(width: BoardPortraitLayout.imageWidth, height: BoardPortraitLayout.imageHeight)
-                .clipShape(RoundedRectangle(cornerRadius: BoardPortraitLayout.imageCornerRadius))
+                .frame(width: 32, height: 36)
+                .clipShape(RoundedRectangle(cornerRadius: 3))
                 .overlay {
-                    RoundedRectangle(cornerRadius: BoardPortraitLayout.imageCornerRadius)
+                    RoundedRectangle(cornerRadius: 3)
                         .stroke(Color.kolkhozBlack.opacity(0.68), lineWidth: 1)
                 }
             VStack {
                 HStack {
                     Spacer()
                     if human {
-                        GameIcon(.medalStar, size: BoardPortraitLayout.humanBadgeSize)
+                        GameIcon(.medalStar, size: 9)
                     }
                 }
                 Spacer()
             }
             .padding(2)
         }
-        .frame(width: BoardPortraitLayout.width, height: BoardPortraitLayout.height)
+        .frame(width: 38, height: 42)
     }
 
     var portraitImage: Image {

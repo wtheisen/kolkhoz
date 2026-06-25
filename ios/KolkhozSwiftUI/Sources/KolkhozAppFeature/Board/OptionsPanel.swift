@@ -1,14 +1,6 @@
 import KolkhozCore
 import SwiftUI
 
-enum OptionsPanelLayout {
-    static let minStackSpacing: CGFloat = 10
-    static let maxStackSpacing: CGFloat = 14
-    static let minHeight: CGFloat = 206
-    static let idealHeight: CGFloat = 224
-    static let maxHeight: CGFloat = 258
-}
-
 struct InGameOptionsPanel: View {
     @Environment(\.kolkhozLanguage) private var language
     let onNewGame: () -> Void
@@ -17,12 +9,12 @@ struct InGameOptionsPanel: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let stackSpacing = kolkhozClamp(proxy.size.height * 0.05, OptionsPanelLayout.minStackSpacing, OptionsPanelLayout.maxStackSpacing)
+            let stackSpacing = kolkhozClamp(proxy.size.height * 0.05, 10, 14)
 
             menuContent(spacing: stackSpacing)
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
         }
-        .frame(minHeight: OptionsPanelLayout.minHeight, idealHeight: OptionsPanelLayout.idealHeight, maxHeight: OptionsPanelLayout.maxHeight)
+        .frame(minHeight: 206, idealHeight: 224, maxHeight: 258)
         .panelStyle()
         .alert(confirmTitle, isPresented: Binding(
             get: { pendingMenuAction != nil },
@@ -158,12 +150,6 @@ struct InGameOptionsPanel: View {
 #if DEBUG
 #Preview("Options Panel") {
     BoardPreviewStage(width: 640, height: 300) {
-        InGameOptionsPanel(onNewGame: {}, onReturnToLobby: {})
-    }
-}
-
-#Preview("Options Panel - Narrow") {
-    BoardPreviewStage(width: 390, height: 330) {
         InGameOptionsPanel(onNewGame: {}, onReturnToLobby: {})
     }
 }

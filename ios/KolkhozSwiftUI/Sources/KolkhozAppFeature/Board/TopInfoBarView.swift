@@ -1,52 +1,49 @@
 import KolkhozCore
 import SwiftUI
 
-enum TopInfoBarLayout {
-    static let height: CGFloat = 48
-    static let minRowSpacing: CGFloat = 3
-    static let maxRowSpacing: CGFloat = 6
-    static let minYearWidth: CGFloat = 46
-    static let maxYearWidth: CGFloat = 62
-    static let minLeadWidth: CGFloat = 50
-    static let maxLeadWidth: CGFloat = 76
-    static let minGaugeWidth: CGFloat = 72
-    static let maxGaugeWidth: CGFloat = 86
-    static let minGaugeHeight: CGFloat = 34
-    static let maxGaugeHeight: CGFloat = 38
-    static let minGaugeSpacing: CGFloat = 3
-    static let maxGaugeSpacing: CGFloat = 6
-    static let minScoreWidth: CGFloat = 54
-    static let maxScoreWidth: CGFloat = 70
-}
-
 struct TopInfoBarView: View {
     @EnvironmentObject var store: GameStore
-    @Environment(\.kolkhozLanguage) private var language
     @Binding var jobTargets: [Suit: CGPoint]
 
     var body: some View {
         GeometryReader { proxy in
             let cellarScore = store.state.players[0].plot.hidden.reduce(0) { $0 + $1.value }
             let plotScore = store.state.players[0].plot.revealed.reduce(0) { $0 + $1.value }
-            let rowSpacing = kolkhozClamp(proxy.size.width * 0.008, TopInfoBarLayout.minRowSpacing, TopInfoBarLayout.maxRowSpacing)
-            let yearWidth = kolkhozClamp(proxy.size.width * 0.08, TopInfoBarLayout.minYearWidth, TopInfoBarLayout.maxYearWidth)
-            let leadWidth = kolkhozClamp(proxy.size.width * 0.10, TopInfoBarLayout.minLeadWidth, TopInfoBarLayout.maxLeadWidth)
-            let gaugeWidth = kolkhozClamp(proxy.size.width * 0.12, TopInfoBarLayout.minGaugeWidth, TopInfoBarLayout.maxGaugeWidth)
-            let gaugeHeight = kolkhozClamp(proxy.size.height * 0.78, TopInfoBarLayout.minGaugeHeight, TopInfoBarLayout.maxGaugeHeight)
-            let gaugeSpacing = kolkhozClamp(proxy.size.width * 0.006, TopInfoBarLayout.minGaugeSpacing, TopInfoBarLayout.maxGaugeSpacing)
+            let rowSpacing = kolkhozClamp(proxy.size.width * 0.008, 3, 6)
+            let yearWidth = kolkhozClamp(proxy.size.width * 0.2, 64, 72)
+            let gaugeWidth = kolkhozClamp(proxy.size.width * 0.15, 86, 92)
+            let gaugeHeight = kolkhozClamp(proxy.size.height * 0.9, 34, 38)
+            let gaugeSpacing = kolkhozClamp(proxy.size.width * 0.006, 3, 6)
             let gaugesWidth = gaugeWidth * CGFloat(Suit.allCases.count) + gaugeSpacing * CGFloat(Suit.allCases.count - 1)
-            let scoreWidth = kolkhozClamp(proxy.size.width * 0.09, TopInfoBarLayout.minScoreWidth, TopInfoBarLayout.maxScoreWidth)
-            let preferredRowWidth = yearWidth + leadWidth + gaugesWidth + scoreWidth * 2 + rowSpacing * 4
-            let rowWidth = min(proxy.size.width, preferredRowWidth)
+            let scoreWidth = kolkhozClamp(proxy.size.width * 0.04, 54, 70)
+            let scoreGroupWidth = scoreWidth * 2 + rowSpacing
 
-            HStack(spacing: rowSpacing) {
-                TopInfoCell(icon: yearIcon, value: "\(store.state.year)", iconSize: gaugeHeight, contentSpacing: rowSpacing)
-                    .frame(width: yearWidth)
+            ZStack {
+                HStack(spacing: rowSpacing) {
+                    TopInfoCell(icon: yearIcon, iconSize: gaugeHeight * 1.3, contentSpacing: rowSpacing)
+                        .frame(width: yearWidth, alignment: .leading)
 
-                if let lead = store.state.currentTrick.first?.card.suit {
-                    TopInfoCell(suit: lead, value: language.text(en: "Lead", ru: "Ведёт"), suitSize: gaugeHeight * 0.58, contentSpacing: rowSpacing)
-                        .frame(width: leadWidth)
+                    Spacer(minLength: 0)
+
+                    HStack(spacing: rowSpacing) {
+                        TopInfoCell(
+                            icon: .cellar,
+                            value: "\(cellarScore)",
+                            iconSize: gaugeHeight * 0.8,
+                            contentSpacing: rowSpacing
+                        )
+                        .frame(width: scoreWidth)
+                        TopInfoCell(
+                            icon: .plot,
+                            value: "\(plotScore)",
+                            iconSize: gaugeHeight * 0.8,
+                            contentSpacing: rowSpacing
+                        )
+                        .frame(width: scoreWidth)
+                    }
+                    .frame(width: scoreGroupWidth, alignment: .trailing)
                 }
+                .frame(width: proxy.size.width, height: proxy.size.height)
 
                 HStack(spacing: gaugeSpacing) {
                     ForEach(Suit.allCases) { suit in
@@ -55,37 +52,20 @@ struct TopInfoBarView: View {
                             hours: store.state.workHours[suit, default: 0],
                             claimed: store.state.claimedJobs.contains(suit),
                             highlighted: store.state.trump == suit,
-                            width: gaugeWidth,
+                            width: gaugeWidth * 1.1,
                             height: gaugeHeight,
                             jobTargets: $jobTargets
                         )
-                        .frame(width: gaugeWidth)
+                        .frame(width: gaugeWidth * 1.2)
                     }
                 }
                 .frame(width: gaugesWidth)
-
-                TopInfoCell(
-                    icon: .cellar,
-                    value: "\(cellarScore)",
-                    warning: true,
-                    iconSize: gaugeHeight * 0.66,
-                    contentSpacing: rowSpacing
-                )
-                .frame(width: scoreWidth)
-                TopInfoCell(
-                    icon: .plot,
-                    value: "\(plotScore)",
-                    iconSize: gaugeHeight * 0.66,
-                    contentSpacing: rowSpacing
-                )
-                .frame(width: scoreWidth)
             }
-            .frame(width: rowWidth, height: proxy.size.height)
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .center)
             .clipped()
             .background(CommandPanelBackground())
         }
-        .frame(height: TopInfoBarLayout.height)
+        .frame(height: 48)
     }
 
     private var yearIcon: GameIconAsset {
@@ -117,7 +97,7 @@ struct TopInfoCell: View {
                 GameIcon(icon, size: iconSize ?? 24)
             }
             if !label.isEmpty {
-                PixelText(text: label.uppercased(), size: .caption2, color: warning ? Color.kolkhozRedBright : Color.kolkhozSmoke)
+                PixelText(text: label.uppercased(), size: .title, color: warning ? Color.kolkhozRedBright : Color.kolkhozSmoke)
             }
             if let suit {
                 SuitMark(suit: suit, size: suitSize ?? 22)
@@ -125,14 +105,14 @@ struct TopInfoCell: View {
             if let value {
                 PixelText(
                     text: value,
-                    size: .caption,
+                    size: .cardRank,
                     variant: .heavy,
                     color: .kolkhozGold
                 )
             }
         }
         .padding(.horizontal, horizontalPadding)
-        .frame(height: TopInfoBarLayout.height)
+        .frame(height: 48)
         .background(warning ? Color.kolkhozRedDark.opacity(0.18) : Color.clear)
     }
 }
@@ -161,9 +141,9 @@ struct TopInfoJobGauge: View {
             } else {
                 PixelText(
                     text: "\(hours)/40",
-                    size: .caption,
-                    variant: .heavy,
-                    color: highlighted ? Color.kolkhozGold : Color.kolkhozSmoke
+                    size: .title,
+                    variant: .regular,
+                    color: highlighted ? Color.kolkhozRed : Color.kolkhozSmoke
                 )
                     .frame(width: width - height, height: height)
             }
@@ -198,14 +178,8 @@ struct TopInfoJobGauge: View {
 }
 
 #if DEBUG
-#Preview("Info Bar - Wide") {
+#Preview("Info Bar") {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.trickState, width: 760, height: 86) {
-        TopInfoBarPreviewHost()
-    }
-}
-
-#Preview("Info Bar - Narrow") {
-    BoardPreviewStoreStage(state: KolkhozPreviewFixtures.assignmentState, width: 430, height: 86) {
         TopInfoBarPreviewHost()
     }
 }

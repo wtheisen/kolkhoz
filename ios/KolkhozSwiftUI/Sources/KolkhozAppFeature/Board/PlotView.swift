@@ -1,23 +1,6 @@
 import KolkhozCore
 import SwiftUI
 
-enum PlotViewLayout {
-    static let minOpponentHeight: CGFloat = 70
-    static let maxOpponentHeight: CGFloat = 82
-    static let minSpacing: CGFloat = 7
-    static let maxSpacing: CGFloat = 10
-    static let minPadding: CGFloat = 8
-    static let maxPadding: CGFloat = 12
-    static let minColumnCardSpacing: CGFloat = -30
-    static let maxColumnCardSpacing: CGFloat = -24
-    static let minOpponentCardScale: CGFloat = 0.68
-    static let maxOpponentCardScale: CGFloat = 0.76
-    static let minOpponentCardFrameWidth: CGFloat = 25
-    static let maxOpponentCardFrameWidth: CGFloat = 29
-    static let minOpponentCardFrameHeight: CGFloat = 38
-    static let maxOpponentCardFrameHeight: CGFloat = 44
-}
-
 struct PlotViewMetrics {
     let opponentHeight: CGFloat
     let spacing: CGFloat
@@ -35,14 +18,14 @@ struct PlotViewMetrics {
 
     init(size: CGSize) {
         let shorterSide = min(size.width, size.height)
-        opponentHeight = kolkhozClamp(size.height * 0.18, PlotViewLayout.minOpponentHeight, PlotViewLayout.maxOpponentHeight)
-        spacing = kolkhozClamp(shorterSide * 0.02, PlotViewLayout.minSpacing, PlotViewLayout.maxSpacing)
-        padding = kolkhozClamp(shorterSide * 0.025, PlotViewLayout.minPadding, PlotViewLayout.maxPadding)
-        columnCardSpacing = kolkhozClamp(-size.width * 0.04, PlotViewLayout.minColumnCardSpacing, PlotViewLayout.maxColumnCardSpacing)
+        opponentHeight = kolkhozClamp(size.height * 0.18, 70, 82)
+        spacing = kolkhozClamp(shorterSide * 0.02, 7, 10)
+        padding = kolkhozClamp(shorterSide * 0.025, 8, 12)
+        columnCardSpacing = kolkhozClamp(-size.width * 0.04, -30, -24)
         columnTrailingPadding = kolkhozClamp(size.width * 0.035, 20, 28)
-        opponentCardScale = kolkhozClamp(size.width * 0.001, PlotViewLayout.minOpponentCardScale, PlotViewLayout.maxOpponentCardScale)
-        opponentCardFrameWidth = kolkhozClamp(size.width * 0.04, PlotViewLayout.minOpponentCardFrameWidth, PlotViewLayout.maxOpponentCardFrameWidth)
-        opponentCardFrameHeight = kolkhozClamp(size.height * 0.10, PlotViewLayout.minOpponentCardFrameHeight, PlotViewLayout.maxOpponentCardFrameHeight)
+        opponentCardScale = kolkhozClamp(size.width * 0.001, 0.68, 0.76)
+        opponentCardFrameWidth = kolkhozClamp(size.width * 0.04, 25, 29)
+        opponentCardFrameHeight = kolkhozClamp(size.height * 0.10, 38, 44)
         opponentVisibleCardCount = Int(kolkhozClamp(size.width / 190, 3, 4))
         portraitSize = kolkhozClamp(size.width * 0.055, 34, 42)
         panelPadding = kolkhozClamp(shorterSide * 0.018, 7, 8)

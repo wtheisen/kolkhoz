@@ -1,22 +1,6 @@
 import KolkhozCore
 import SwiftUI
 
-enum JobsViewLayout {
-    static let minGridSpacing: CGFloat = 6
-    static let maxGridSpacing: CGFloat = 10
-    static let minTileWidth: CGFloat = 132
-    static let assignmentTileMinHeight: CGFloat = 88
-    static let displayTileMinHeight: CGFloat = 106
-    static let assignmentHeaderHeight: CGFloat = 58
-    static let displayHeaderHeight: CGFloat = 62
-    static let minHeaderHorizontalPadding: CGFloat = 8
-    static let maxHeaderHorizontalPadding: CGFloat = 10
-    static let minHeaderVerticalPadding: CGFloat = 5
-    static let maxHeaderVerticalPadding: CGFloat = 6
-    static let tileCardStackSpacing: CGFloat = -34
-    static let tilePadding: CGFloat = 8
-}
-
 struct JobsView: View {
     @Environment(\.kolkhozLanguage) private var language
     @Binding var jobTargets: [Suit: CGPoint]
@@ -44,11 +28,11 @@ struct JobsView: View {
             assignmentHeader
 
             GeometryReader { proxy in
-                let spacing = kolkhozClamp(proxy.size.width * 0.016, JobsViewLayout.minGridSpacing, JobsViewLayout.maxGridSpacing)
-                let tileMinWidth = kolkhozClamp(proxy.size.width * 0.24, JobsViewLayout.minTileWidth, proxy.size.width)
+                let spacing = kolkhozClamp(proxy.size.width * 0.016, 6, 10)
+                let tileMinWidth = kolkhozClamp(proxy.size.width * 0.05, 96, proxy.size.width)
                 let columnCount = max(1, min(Suit.allCases.count, Int((proxy.size.width + spacing) / (tileMinWidth + spacing))))
                 let rowCount = Int(ceil(Double(Suit.allCases.count) / Double(columnCount)))
-                let minTileHeight: CGFloat = isAssignmentPhase ? JobsViewLayout.assignmentTileMinHeight : JobsViewLayout.displayTileMinHeight
+                let minTileHeight: CGFloat = isAssignmentPhase ? 88 : 106
                 let tileHeight = max(minTileHeight, (proxy.size.height - spacing * CGFloat(rowCount - 1)) / CGFloat(rowCount))
                 let columns = [GridItem(.adaptive(minimum: tileMinWidth), spacing: spacing)]
 
@@ -89,10 +73,10 @@ struct JobsView: View {
 
     private var assignmentHeader: some View {
         GeometryReader { proxy in
-            let horizontalPadding = kolkhozClamp(proxy.size.width * 0.018, JobsViewLayout.minHeaderHorizontalPadding, JobsViewLayout.maxHeaderHorizontalPadding)
-            let verticalPadding = kolkhozClamp(proxy.size.height * 0.10, JobsViewLayout.minHeaderVerticalPadding, JobsViewLayout.maxHeaderVerticalPadding)
+            let horizontalPadding = kolkhozClamp(proxy.size.width * 0.018, 8, 10)
+            let verticalPadding = kolkhozClamp(proxy.size.height * 0.10, 5, 6)
 
-            HStack(spacing: kolkhozClamp(proxy.size.width * 0.016, JobsViewLayout.minGridSpacing, JobsViewLayout.maxGridSpacing)) {
+            HStack(spacing: kolkhozClamp(proxy.size.width * 0.016, 6, 10)) {
                 PanelTitleRow(
                     title: isAssignmentPhase ? language.text(en: "Assign to jobs", ru: "Назначьте на работы") : language.text(en: "Jobs", ru: "Работы"),
                     subtitle: isAssignmentPhase ? language.text(en: "Drag cards from the hand tray into a valid suit column.", ru: "Перетащите карты из руки в допустимую колонку.") : language.text(en: "Track work progress and rewards.", ru: "Следите за работами и наградами."),
@@ -105,7 +89,7 @@ struct JobsView: View {
             .frame(width: proxy.size.width, height: proxy.size.height)
             .background(CommandPanelBackground())
         }
-        .frame(height: isAssignmentPhase ? JobsViewLayout.assignmentHeaderHeight : JobsViewLayout.displayHeaderHeight)
+        .frame(height: isAssignmentPhase ? 58 : 62)
     }
 
     private func assignedCards(for suit: Suit) -> [AssignmentDisplayCard] {
@@ -196,7 +180,7 @@ struct AssignmentJobTile: View {
             }
 
             HStack(alignment: .top, spacing: 8) {
-                VStack(spacing: JobsViewLayout.tileCardStackSpacing) {
+                VStack(spacing: -34) {
                     ForEach(assignedCards) { item in
                         AssignmentTileCard(
                             item: item,
@@ -218,7 +202,7 @@ struct AssignmentJobTile: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         }
-        .padding(JobsViewLayout.tilePadding)
+        .padding(8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(
             LinearGradient(
@@ -406,12 +390,6 @@ struct AssignmentDragGhost: View {
 #if DEBUG
 #Preview("Assignment Jobs") {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.assignmentState, width: 760, height: 320) {
-        JobsPreviewHost()
-    }
-}
-
-#Preview("Assignment Jobs - Narrow") {
-    BoardPreviewStoreStage(state: KolkhozPreviewFixtures.assignmentState, width: 430, height: 360) {
         JobsPreviewHost()
     }
 }

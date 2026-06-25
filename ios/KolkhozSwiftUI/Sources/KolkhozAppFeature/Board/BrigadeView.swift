@@ -1,27 +1,6 @@
 import KolkhozCore
 import SwiftUI
 
-enum PlayerPanelLayout {
-    static let minOuterInset: CGFloat = 5
-    static let maxOuterInset: CGFloat = 7
-    static let minPortraitColumnWidth: CGFloat = 34
-    static let maxPortraitColumnWidth: CGFloat = 46
-    static let portraitColumnWidthRatio: CGFloat = 0.28
-    static let portraitColumnHeightRatio: CGFloat = 1.08
-    static let minPortraitSize: CGFloat = 24
-    static let maxPortraitSize: CGFloat = 40
-    static let nameHeightRatio: CGFloat = 0.51
-    static let minPanelHeight: CGFloat = 54
-    static let minColumnWidth: CGFloat = 68
-    static let playAreaScale: CGFloat = 1.6
-    static let minStatColumnWidth: CGFloat = 44
-    static let maxStatColumnWidth: CGFloat = 50
-    static let minColumnSpacing: CGFloat = 6
-    static let maxColumnSpacing: CGFloat = 8
-    static let minPreferredColumnWidth: CGFloat = 96
-    static let maxPreferredColumnWidth: CGFloat = 120
-}
-
 struct PlayerPanel: View {
     @Environment(\.kolkhozLanguage) private var language
     let player: PlayerState
@@ -33,20 +12,20 @@ struct PlayerPanel: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let outerInset = kolkhozClamp(proxy.size.width * 0.04, PlayerPanelLayout.minOuterInset, PlayerPanelLayout.maxOuterInset)
+            let outerInset = kolkhozClamp(proxy.size.width * 0.04, 5, 7)
             let portraitColumnWidth = min(
-                max(PlayerPanelLayout.minPortraitColumnWidth, proxy.size.width * PlayerPanelLayout.portraitColumnWidthRatio),
-                max(PlayerPanelLayout.minPortraitColumnWidth, proxy.size.height * PlayerPanelLayout.portraitColumnHeightRatio)
+                max(34, proxy.size.width * 0.28),
+                max(34, proxy.size.height * 1.08)
             )
             let portraitSize = kolkhozClamp(
-                max(PlayerPanelLayout.minPortraitSize, proxy.size.height - outerInset * 2 - 2)
+                max(24, proxy.size.height - outerInset * 2 - 2)
                 ,
-                PlayerPanelLayout.minPortraitSize,
-                PlayerPanelLayout.maxPortraitSize
+                24,
+                40
             )
             let rowSpacing = kolkhozClamp(proxy.size.width * 0.025, 3, 5)
             let stackSpacing = kolkhozClamp(proxy.size.width * 0.01, -1, 1)
-            let statColumnWidth = kolkhozClamp(proxy.size.width * 0.22, PlayerPanelLayout.minStatColumnWidth, PlayerPanelLayout.maxStatColumnWidth)
+            let statColumnWidth = kolkhozClamp(proxy.size.width * 0.22, 44, 50)
             let topPadding = kolkhozClamp(proxy.size.height * 0.07, 2, 4)
 
             ZStack {
@@ -103,7 +82,7 @@ struct PlayerPanel: View {
             .scaleEffect(active && pulse ? 1.018 : 1)
             .shadow(color: active ? Color.kolkhozGold.opacity(pulse ? 0.42 : 0.18) : .black.opacity(0.24), radius: active && pulse ? 12 : 4, y: 3)
         }
-        .frame(minHeight: PlayerPanelLayout.minPanelHeight)
+        .frame(minHeight: 54)
     }
 
     private var displayName: String {
@@ -179,10 +158,11 @@ struct BrigadeView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let spacing = kolkhozClamp(proxy.size.width * 0.012, PlayerPanelLayout.minColumnSpacing, PlayerPanelLayout.maxColumnSpacing)
-            let preferredColumnWidth = kolkhozClamp(proxy.size.width * 0.18, PlayerPanelLayout.minPreferredColumnWidth, PlayerPanelLayout.maxPreferredColumnWidth)
+            let spacing = kolkhozClamp(proxy.size.width * 0.012, 28, 48)
+            let preferredColumnWidth = kolkhozClamp(proxy.size.width * 0.18, 96, 120)
             let maxColumnWidth = (proxy.size.width - spacing * CGFloat(playerOrder.count - 1)) / CGFloat(playerOrder.count)
-            let columnWidth = max(PlayerPanelLayout.minColumnWidth, min(preferredColumnWidth, maxColumnWidth))
+            let playerPanelWidth = CardSize.medium.width * 1.6
+            let columnWidth = max(playerPanelWidth, min(preferredColumnWidth, maxColumnWidth))
             let rowWidth = columnWidth * CGFloat(playerOrder.count) + spacing * CGFloat(playerOrder.count - 1)
             HStack(alignment: .top, spacing: spacing) {
                 ForEach(playerOrder, id: \.self) { playerID in
@@ -199,7 +179,7 @@ struct BrigadeView: View {
                 }
             }
             .frame(width: rowWidth, height: proxy.size.height, alignment: .top)
-            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
@@ -222,11 +202,13 @@ struct BrigadePlayerColumnView: View {
 
     var cardSize: CardSize { .medium }
     var slotWidth: CGFloat { kolkhozClamp(columnWidth * 0.52, 44, 76) }
-    var playAreaScale: CGFloat { PlayerPanelLayout.playAreaScale }
-    var playAreaTopOffset: CGFloat { kolkhozClamp(columnWidth * 0.13, 1, 14) }
+    var playAreaScale: CGFloat { 1.6 }
+    var playAreaLeftOffset: CGFloat { kolkhozClamp(columnWidth * 0.06, 37, 54) }
+    var playAreaTopOffset: CGFloat { kolkhozClamp(columnWidth * 0.15, 12, 24) }
     var playerPanelWidth: CGFloat { cardSize.width * playAreaScale }
+    var playerPanelHeight: CGFloat { 40 }
     var playAreaWidth: CGFloat { max(cardSize.width, slotWidth) * playAreaScale }
-    var playAreaHeight: CGFloat { max(cardSize.height, slotWidth * 1.42) * playAreaScale }
+    var playAreaHeight: CGFloat { max(cardSize.height, slotWidth * 1.2) * playAreaScale }
 
     var body: some View {
         VStack(spacing: -kolkhozClamp(columnWidth * 0.055, 2, 6)) {
@@ -237,7 +219,7 @@ struct BrigadePlayerColumnView: View {
                 active: isCurrentTurn,
                 human: playerID == 0
             )
-            .frame(width: playerPanelWidth, height: 40)
+            .frame(width: playerPanelWidth, height: playerPanelHeight)
             .background {
                 GeometryReader { proxy in
                     Color.clear
@@ -260,7 +242,7 @@ struct BrigadePlayerColumnView: View {
                             removal: .opacity
                         ))
                 } else {
-                    CardSlot(active: isCurrentTurn, human: playerID == 0, width: slotWidth, height: slotWidth * 1.55)
+                    CardSlot(active: isCurrentTurn, human: playerID == 0, width: slotWidth, height: slotWidth * 1.4)
                         .scaleEffect(playAreaScale, anchor: .top)
                 }
             }
@@ -273,9 +255,10 @@ struct BrigadePlayerColumnView: View {
                         }
                         .onChange(of: proxy.frame(in: .named(GameBoardCoordinateSpace.main))) { _, _ in
                             updatePlayTarget(from: proxy)
-                        }
+                    }
                 }
             }
+            .padding(.leading, playAreaLeftOffset)
             .padding(.top, playAreaTopOffset)
             .frame(maxHeight: .infinity, alignment: .top)
             .animation(.spring(response: 0.36, dampingFraction: 0.72), value: play?.card.id)

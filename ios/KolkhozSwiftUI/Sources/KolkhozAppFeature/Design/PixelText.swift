@@ -22,6 +22,8 @@ enum PixelFontVariant: String {
 }
 
 struct PixelText: View {
+    private static let opticalYOffset: CGFloat = 4
+
     let text: String
     let size: PixelFontSize
     var variant: PixelFontVariant = .regular
@@ -37,10 +39,12 @@ struct PixelText: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(text))
+            .offset(y: Self.opticalYOffset)
         } else {
             Text(text)
                 .font(fallbackFont)
                 .foregroundStyle(color)
+                .offset(y: Self.opticalYOffset)
         }
     }
 

@@ -59,6 +59,11 @@ struct KolkhozPreviewBoardHost: View {
     KolkhozPreviewBoardHost(state: KolkhozPreviewFixtures.trickState)
 }
 
+#Preview("03a Board Trick iPhone SE", traits: .landscapeLeft) {
+    KolkhozPreviewBoardHost(state: KolkhozPreviewFixtures.trickState)
+        .frame(width: 667, height: 375)
+}
+
 #Preview("04 Board Assignment", traits: .landscapeLeft) {
     KolkhozPreviewBoardHost(state: KolkhozPreviewFixtures.assignmentState)
 }

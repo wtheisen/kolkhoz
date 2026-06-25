@@ -191,7 +191,7 @@ struct ProgressBar: View {
                             endPoint: .trailing
                         )
                     )
-                    .frame(width: max(4, proxy.size.width * value))
+                    .frame(width: max(4, proxy.size.width * value / 2))
             }
         }
         .frame(height: 8)

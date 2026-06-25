@@ -1,22 +1,6 @@
 import KolkhozCore
 import SwiftUI
 
-enum GameBoardLayout {
-    static let minMargin: CGFloat = 4
-    static let maxMargin: CGFloat = 8
-    static let marginRatio: CGFloat = 0.01
-    static let minHorizontalGutter: CGFloat = 0
-    static let maxHorizontalGutter: CGFloat = 24
-    static let horizontalGutterRatio: CGFloat = 0.025
-    static let minContentWidth: CGFloat = 280
-    static let minContentHeight: CGFloat = 240
-    static let minNavHeight: CGFloat = 50
-    static let maxNavHeight: CGFloat = 58
-    static let navHeightRatio: CGFloat = 0.13
-    static let minGameHeight: CGFloat = 220
-    static let minGameWidth: CGFloat = 240
-}
-
 struct GameBoardView: View {
     @EnvironmentObject var store: GameStore
     @Environment(\.kolkhozLanguage) private var language
@@ -74,25 +58,13 @@ struct GameBoardView: View {
 
             GeometryReader { proxy in
                 let shorterSide = min(proxy.size.width, proxy.size.height)
-                let margin = max(
-                    GameBoardLayout.minMargin,
-                    min(GameBoardLayout.maxMargin, shorterSide * GameBoardLayout.marginRatio)
-                )
-                let horizontalGutter = max(
-                    GameBoardLayout.minHorizontalGutter,
-                    min(GameBoardLayout.maxHorizontalGutter, proxy.size.width * GameBoardLayout.horizontalGutterRatio)
-                )
-                let leadingInset = horizontalGutter
-                let trailingInset = horizontalGutter
-                let contentWidth = max(GameBoardLayout.minContentWidth, proxy.size.width - leadingInset - trailingInset - margin * 2)
-                let contentHeight = max(GameBoardLayout.minContentHeight, proxy.size.height - margin * 2)
-                let navHeight = max(
-                    GameBoardLayout.minNavHeight,
-                    min(GameBoardLayout.maxNavHeight, contentHeight * GameBoardLayout.navHeightRatio)
-                )
-                let gameWidth = max(GameBoardLayout.minGameWidth, contentWidth)
-                let gameHeight = max(GameBoardLayout.minGameHeight, contentHeight - navHeight)
-                let gameOriginX = leadingInset + margin
+                let margin = kolkhozClamp(shorterSide * 0.01, 4, 8)
+                let contentWidth = max(280, proxy.size.width - margin * 2)
+                let contentHeight = max(240, proxy.size.height - margin * 2)
+                let railWidth = kolkhozClamp(contentWidth * 0.07, 60, 72)
+                let gameWidth = max(240, contentWidth - railWidth)
+                let gameHeight = max(220, contentHeight)
+                let gameOriginX = margin + railWidth
                 let gameMaxX = gameOriginX + gameWidth
                 let safeMinX = proxy.safeAreaInsets.leading
                 let safeMaxX = proxy.size.width - proxy.safeAreaInsets.trailing
@@ -103,14 +75,13 @@ struct GameBoardView: View {
                     trailing: max(0, gameMaxX - safeMaxX)
                 )
 
-                VStack(spacing: 0) {
-                    TopButtonBarView(
+                HStack(spacing: 0) {
+                    PanelSelectorRailView(
                         activePanel: displayPanel,
                         actionPanel: actionPanel,
-                        onMenu: onMenu,
                         onSelectPanel: { selectedPanel = $0 }
                     )
-                    .frame(width: contentWidth, height: navHeight)
+                    .frame(width: railWidth, height: contentHeight)
 
                     PlayAreaView(
                         displayPanel: displayPanel,
@@ -124,7 +95,7 @@ struct GameBoardView: View {
                     .frame(width: gameWidth, height: gameHeight)
                 }
                 .frame(width: contentWidth, height: contentHeight, alignment: .topLeading)
-                .offset(x: leadingInset + margin, y: margin)
+                .offset(x: margin, y: margin)
                 .clipped()
             }
         }
