@@ -9,7 +9,17 @@ enum PlayAreaLayout {
     static let trickHandTrayHeight: CGFloat = 78
     static let swapHandTrayHeight: CGFloat = 78
     static let assignmentHandTrayHeight: CGFloat = 82
+    static let requisitionHandTrayHeight: CGFloat = 78
     static let passiveHandTrayHeight: CGFloat = 70
+    static let verticalSpacing: CGFloat = 6
+    static let panelTopPadding: CGFloat = 8
+    static let panelBottomPadding: CGFloat = 10
+    static let actionPanelMaxWidth: CGFloat = 500
+    static let optionsPanelMaxWidth: CGFloat = 620
+    static let floatingPanelHorizontalPadding: CGFloat = 20
+    static let handTrayClearance: CGFloat = 78
+    static let assignmentHandTrayClearance: CGFloat = 88
+    static let panelCornerRadius: CGFloat = 10
 }
 
 enum PlayAreaFlightLayout {
@@ -35,7 +45,6 @@ struct PlayAreaView: View {
     let onNewGame: () -> Void
     @State private var activeEngineEvent: KolkhozAnimationEvent?
     @State private var activeEngineEventLanded = false
-    @State private var humanPlayTarget: CGPoint?
     @State private var playSlotCenters: [Int: CGPoint] = [:]
     @State private var playSlotFrames: [Int: CGRect] = [:]
     @State private var playerPanelCenters: [Int: CGPoint] = [:]
@@ -51,24 +60,7 @@ struct PlayAreaView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             GeometryReader { proxy in
-                PlayAreaShellView(
-                    displayPanel: displayPanel,
-                    onReturnToLobby: onReturnToLobby,
-                    onNewGame: onNewGame,
-                    humanPlayTarget: $humanPlayTarget,
-                    playSlotCenters: $playSlotCenters,
-                    playSlotFrames: $playSlotFrames,
-                    playerPanelCenters: $playerPanelCenters,
-                    jobTargets: $jobTargets,
-                    jobTargetFrames: $jobTargetFrames,
-                    assignmentDrag: $assignmentDrag,
-                    hoveredAssignmentSuit: $hoveredAssignmentSuit,
-                    selectedAssignmentCard: $selectedAssignmentCard,
-                    hiddenPlayIDs: hiddenPlayIDs,
-                    showLastTrick: isResolvingWorkAssignmentAnimations,
-                    gameSafeInsets: gameSafeInsets,
-                    selectedSwapPlot: $selectedSwapPlot
-                )
+                playAreaShell(proxy: proxy)
                 .padding(.horizontal, PlayAreaLayout.shellHorizontalPadding)
                 .padding(.top, PlayAreaLayout.shellTopPadding)
                 .frame(width: proxy.size.width, height: proxy.size.height)
@@ -79,13 +71,25 @@ struct PlayAreaView: View {
                 LowerHandBarView(
                     playCard: animateAndPlay(_:from:),
                     mode: handTrayMode,
+                    hand: store.state.players[0].hand,
+                    validCards: store.validCardsForHuman(),
+                    humanSwapStaged: store.state.swapCount.contains(0),
+                    lastTrick: store.state.lastTrick,
+                    pendingAssignments: store.state.pendingAssignments,
+                    year: store.state.year,
+                    hasPendingRequisitionAnimations: hasPendingRequisitionAnimations,
                     selectedSwapHand: $selectedSwapHand,
                     selectedSwapPlot: $selectedSwapPlot,
                     assignmentDrag: $assignmentDrag,
                     hoveredAssignmentSuit: $hoveredAssignmentSuit,
                     selectedAssignmentCard: $selectedAssignmentCard,
                     jobTargetFrames: jobTargetFrames,
-                    playDropFrame: playSlotFrames[0]
+                    playDropFrame: playSlotFrames[0],
+                    onSwapSelection: swapAndConfirm(_:plotSelection:),
+                    onConfirmSwap: store.confirmSwap,
+                    onAssign: store.assign(_:to:),
+                    onSubmitAssignments: store.submitAssignments,
+                    onContinueAfterRequisition: store.continueAfterRequisition
                 )
                 .padding(.leading, PlayAreaLayout.handTrayLeadingPadding + gameSafeInsets.leading)
                 .padding(.trailing, PlayAreaLayout.handTrayTrailingPadding + gameSafeInsets.trailing)
@@ -129,11 +133,117 @@ struct PlayAreaView: View {
         }
     }
 
-    private var showsHandTray: Bool {
-        if isResolvingCardPlayAnimations {
-            return false
+    private func playAreaShell(proxy: GeometryProxy) -> some View {
+        VStack(spacing: PlayAreaLayout.verticalSpacing) {
+            TopInfoBarView(jobTargets: $jobTargets)
+                .padding(.leading, gameSafeInsets.leading)
+                .padding(.trailing, gameSafeInsets.trailing)
+
+            ZStack {
+                panelContent
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background {
+                ZStack {
+                    Color.kolkhozTable
+                    LinearGradient(
+                        colors: [.kolkhozGold.opacity(0.04), .clear, .kolkhozRed.opacity(0.08)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                }
+                .clipShape(RoundedRectangle(cornerRadius: PlayAreaLayout.panelCornerRadius))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: PlayAreaLayout.panelCornerRadius)
+                    .stroke(Color.kolkhozRedDark.opacity(0.8), lineWidth: 2)
+            }
+            .padding(.leading, gameSafeInsets.leading)
+            .padding(.trailing, gameSafeInsets.trailing)
+            .padding(.bottom, handOverlayClearance)
         }
-        return displayPanel == .brigade || store.state.phase == .swap || store.state.phase == .assignment
+        .frame(width: proxy.size.width, height: proxy.size.height)
+    }
+
+    @ViewBuilder
+    private var panelContent: some View {
+        switch displayPanel {
+        case .options:
+            InGameOptionsPanel(
+                onNewGame: onNewGame,
+                onReturnToLobby: onReturnToLobby
+            )
+            .frame(maxWidth: PlayAreaLayout.optionsPanelMaxWidth)
+            .padding(.horizontal, PlayAreaLayout.floatingPanelHorizontalPadding)
+            .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
+
+        case .brigade:
+            BrigadeView(
+                playSlotCenters: $playSlotCenters,
+                playSlotFrames: $playSlotFrames,
+                playerPanelCenters: $playerPanelCenters,
+                hiddenPlayIDs: hiddenPlayIDs,
+                showLastTrick: isResolvingWorkAssignmentAnimations
+            )
+            .padding(.horizontal, 0)
+            .padding(.top, PlayAreaLayout.panelTopPadding)
+            .padding(.bottom, PlayAreaLayout.panelBottomPadding)
+
+            if store.state.phase == .planning || store.state.phase == .gameOver {
+                PhaseOverlayView()
+                    .frame(maxWidth: PlayAreaLayout.actionPanelMaxWidth)
+                    .padding(.horizontal, PlayAreaLayout.floatingPanelHorizontalPadding)
+                    .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
+            }
+
+        case .jobs:
+            JobsView(
+                jobTargets: $jobTargets,
+                jobTargetFrames: $jobTargetFrames,
+                assignmentDrag: $assignmentDrag,
+                hoveredSuit: $hoveredAssignmentSuit,
+                selectedAssignmentCard: $selectedAssignmentCard,
+                isAssignmentPhase: store.state.phase == .assignment,
+                lastTrick: store.state.lastTrick,
+                workHours: store.state.workHours,
+                claimedJobs: store.state.claimedJobs,
+                revealedJobs: store.state.revealedJobs,
+                jobBuckets: store.state.jobBuckets,
+                pendingAssignments: store.state.pendingAssignments,
+                trump: store.state.trump,
+                onAssign: store.assign(_:to:)
+            )
+            .padding(.horizontal, 0)
+            .padding(.top, PlayAreaLayout.panelTopPadding)
+            .padding(.bottom, PlayAreaLayout.panelBottomPadding)
+
+        case .north:
+            NorthView(exiledByYear: store.state.exiled, currentYear: store.state.year)
+                .padding(.horizontal, 0)
+                .padding(.top, PlayAreaLayout.panelTopPadding)
+                .padding(.bottom, PlayAreaLayout.panelBottomPadding)
+
+        case .plot:
+            PlotStorageView(selectedPlot: store.state.phase == .swap ? $selectedSwapPlot : nil)
+            .padding(.horizontal, 0)
+            .padding(.top, PlayAreaLayout.panelTopPadding)
+            .padding(.bottom, PlayAreaLayout.panelBottomPadding)
+        }
+    }
+
+    private var handOverlayClearance: CGFloat {
+        if store.state.phase == .assignment {
+            return PlayAreaLayout.assignmentHandTrayClearance
+        }
+        return usesHandTray ? PlayAreaLayout.handTrayClearance : 0
+    }
+
+    private var usesHandTray: Bool {
+        displayPanel == .brigade || store.state.phase == .swap || store.state.phase == .assignment || store.state.phase == .requisition
+    }
+
+    private var showsHandTray: Bool {
+        usesHandTray && !isResolvingCardPlayAnimations
     }
 
     private var handTrayMode: LowerHandBarMode {
@@ -149,6 +259,9 @@ struct PlayAreaView: View {
         if store.state.phase == .assignment {
             return .assignment
         }
+        if store.state.phase == .requisition {
+            return .requisition
+        }
         return .passive
     }
 
@@ -160,8 +273,19 @@ struct PlayAreaView: View {
             return PlayAreaLayout.swapHandTrayHeight
         case .assignment:
             return PlayAreaLayout.assignmentHandTrayHeight
+        case .requisition:
+            return PlayAreaLayout.requisitionHandTrayHeight
         case .passive:
             return PlayAreaLayout.passiveHandTrayHeight
+        }
+    }
+
+    private var hasPendingRequisitionAnimations: Bool {
+        store.animationEvents.contains { event in
+            if case .cardExiled = event {
+                return true
+            }
+            return false
         }
     }
 
@@ -225,6 +349,17 @@ struct PlayAreaView: View {
 
     private func animateAndPlay(_ card: Card, from _: CGPoint) {
         store.play(card)
+    }
+
+    private func swapAndConfirm(_ handCard: Card, plotSelection: PlotSelection) {
+        store.swap(
+            handCard: handCard,
+            plotCard: plotSelection.card,
+            revealed: plotSelection.zone == .revealed
+        )
+        if store.state.swapCount.contains(0) {
+            store.confirmSwap()
+        }
     }
 
     private func processNextEngineAnimation() {

@@ -5,6 +5,7 @@ enum LowerHandBarLayout {
     static let trickHeight: CGFloat = 66
     static let swapHeight: CGFloat = 66
     static let assignmentHeight: CGFloat = 70
+    static let requisitionHeight: CGFloat = 66
     static let passiveHeight: CGFloat = 60
     static let horizontalPadding: CGFloat = 16
     static let topPadding: CGFloat = 4
@@ -13,17 +14,14 @@ enum LowerHandBarLayout {
     static let trayZoneSpacing: CGFloat = 6
     static let trayZoneHorizontalPadding: CGFloat = 6
     static let trayZoneVerticalPadding: CGFloat = 5
-    static let cellarZoneWidth: CGFloat = 92
-    static let plotZoneWidth: CGFloat = 96
     static let swapControlsWidth: CGFloat = 150
+    static let requisitionControlsWidth: CGFloat = 150
     static let assignmentSubmitWidth: CGFloat = 150
-    static let assignmentCardsWidth: CGFloat = 260
-    static let compactPlotCardSpacing: CGFloat = -28
+    static let assignmentCardsWidth: CGFloat = 290
     static let passiveHandSpacing: CGFloat = -38
     static let assignmentHandSpacing: CGFloat = -38
     static let activeHandSpacing: CGFloat = 10
     static let handOffsetY: CGFloat = 30
-    static let assignmentHandOffsetY: CGFloat = 24
 }
 
 enum LowerHandBarMode {
@@ -31,6 +29,7 @@ enum LowerHandBarMode {
     case trick
     case swap
     case assignment
+    case requisition
 }
 
 struct SwapCommandButtonStyle: ButtonStyle {
@@ -57,10 +56,16 @@ struct SwapCommandButtonStyle: ButtonStyle {
 }
 
 struct LowerHandBarView: View {
-    @EnvironmentObject private var store: GameStore
     @Environment(\.kolkhozLanguage) private var language
     let playCard: (Card, CGPoint) -> Void
     let mode: LowerHandBarMode
+    let hand: [Card]
+    let validCards: Set<Card>
+    let humanSwapStaged: Bool
+    let lastTrick: [TrickPlay]
+    let pendingAssignments: [String: Suit]
+    let year: Int
+    let hasPendingRequisitionAnimations: Bool
     @Binding var selectedSwapHand: Card?
     @Binding var selectedSwapPlot: PlotSelection?
     @Binding var assignmentDrag: AssignmentDragState?
@@ -68,22 +73,15 @@ struct LowerHandBarView: View {
     @Binding var selectedAssignmentCard: Card?
     let jobTargetFrames: [Suit: CGRect]
     let playDropFrame: CGRect?
+    let onSwapSelection: (Card, PlotSelection) -> Void
+    let onConfirmSwap: () -> Void
+    let onAssign: (Card, Suit) -> Void
+    let onSubmitAssignments: () -> Void
+    let onContinueAfterRequisition: () -> Void
     @State private var handOrder: [String] = []
     @State private var draggingHandCardID: String?
     @State private var handDragStartIndex: Int?
     @State private var handDragTranslation: CGSize = .zero
-
-    private var cellarCards: [Card] {
-        store.state.players[0].plot.hidden
-    }
-
-    private var plotCards: [Card] {
-        store.state.players[0].plot.revealed
-    }
-
-    private var hasSwapTargets: Bool {
-        !cellarCards.isEmpty || !plotCards.isEmpty
-    }
 
     private var trayCardSize: CardSize {
         mode == .trick ? .large : .medium
@@ -97,13 +95,14 @@ struct LowerHandBarView: View {
             return LowerHandBarLayout.swapHeight
         case .assignment:
             return LowerHandBarLayout.assignmentHeight
+        case .requisition:
+            return LowerHandBarLayout.requisitionHeight
         case .passive:
             return LowerHandBarLayout.passiveHeight
         }
     }
 
     private var orderedHand: [Card] {
-        let hand = store.state.players[0].hand
         let cardsByID = Dictionary(uniqueKeysWithValues: hand.map { ($0.id, $0) })
         let handIDs = Set(hand.map(\.id))
         let orderedIDs = handOrder.filter { handIDs.contains($0) }
@@ -113,26 +112,26 @@ struct LowerHandBarView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: LowerHandBarLayout.traySpacing) {
-            trayZone(icon: .cellar, accessibilityLabel: language.text(en: "Cellar", ru: "Подвал"), width: LowerHandBarLayout.cellarZoneWidth) {
-                compactPlotCards(cards: cellarCards, hidden: true, zone: .hidden)
-            }
-
-            trayZone(icon: .plot, accessibilityLabel: language.text(en: "Plot", ru: "Участок"), width: LowerHandBarLayout.plotZoneWidth) {
-                compactPlotCards(cards: plotCards, hidden: false, zone: .revealed)
-            }
-
-            trayZone(icon: .hand, accessibilityLabel: language.text(en: "Hand", ru: "Рука")) {
-                handCards
-            }
+            handTrayZone
 
             if mode == .swap {
                 swapControls
                     .frame(width: LowerHandBarLayout.swapControlsWidth, height: visibleTrayHeight)
             }
 
-            if mode == .assignment {
+            if mode == .assignment && !allAssignmentCardsAssigned {
                 assignmentControls
-                    .frame(width: assignmentControlsWidth, height: visibleTrayHeight)
+                    .frame(width: LowerHandBarLayout.assignmentCardsWidth, height: visibleTrayHeight)
+            }
+
+            if mode == .assignment && allAssignmentCardsAssigned {
+                assignmentSubmitControls
+                    .frame(width: LowerHandBarLayout.assignmentSubmitWidth, height: visibleTrayHeight)
+            }
+
+            if mode == .requisition {
+                requisitionControls
+                    .frame(width: LowerHandBarLayout.requisitionControlsWidth, height: visibleTrayHeight)
             }
         }
         .frame(height: visibleTrayHeight)
@@ -141,78 +140,32 @@ struct LowerHandBarView: View {
         .padding(.horizontal, LowerHandBarLayout.horizontalPadding)
     }
 
-    private func trayZone<Content: View>(
-        icon: GameIconAsset,
-        accessibilityLabel: String,
-        width: CGFloat? = nil,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
+    private var handTrayZone: some View {
         HStack(alignment: .top, spacing: LowerHandBarLayout.trayZoneSpacing) {
-            GameIcon(icon, size: icon == .hand ? 32 : 24)
-                .accessibilityLabel(accessibilityLabel)
+            GameIcon(.hand, size: 32)
+                .accessibilityLabel(language.text(en: "Hand", ru: "Рука"))
                 .frame(width: LowerHandBarLayout.trayZoneIconWidth, height: visibleTrayHeight, alignment: .top)
 
-            content()
+            handCards
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, LowerHandBarLayout.trayZoneHorizontalPadding)
         .padding(.vertical, LowerHandBarLayout.trayZoneVerticalPadding)
-        .frame(width: width, height: visibleTrayHeight, alignment: .topLeading)
-        .background(Color.kolkhozBlack.opacity(icon == .hand ? 0.12 : 0.18), in: RoundedRectangle(cornerRadius: 6))
+        .frame(height: visibleTrayHeight, alignment: .topLeading)
+        .background(Color.kolkhozBlack.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
         .overlay {
             RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.kolkhozSteel.opacity(icon == .hand ? 0.32 : 0.46), lineWidth: 1)
+                .stroke(Color.kolkhozSteel.opacity(0.32), lineWidth: 1)
         }
-    }
-
-    private func compactPlotCards(cards: [Card], hidden: Bool, zone: PlotCardZone) -> some View {
-        HStack(alignment: .top, spacing: LowerHandBarLayout.compactPlotCardSpacing) {
-            ForEach(Array(cards.prefix(4).enumerated()), id: \.element.id) { _, card in
-                Button {
-                    if mode == .swap && !store.state.swapCount.contains(0) {
-                        selectedSwapPlot = PlotSelection(card: card, zone: zone)
-                    }
-                } label: {
-                    Group {
-                        if hidden {
-                            CardBackView(size: .small)
-                        } else {
-                            CardView(card: card, size: .small)
-                        }
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(
-                                selectedSwapPlot == PlotSelection(card: card, zone: zone) ? Color.kolkhozGreen : Color.clear,
-                                lineWidth: 2
-                            )
-                    }
-                }
-                .buttonStyle(.plain)
-                .disabled(mode != .swap || store.state.swapCount.contains(0))
-            }
-
-            if cards.isEmpty {
-                RoundedRectangle(cornerRadius: 5)
-                    .stroke(Color.kolkhozSteel.opacity(0.28), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                    .frame(width: 34, height: 48)
-                    .overlay {
-                        GameIcon(hidden ? .cellar : .plot, size: 18, muted: true)
-                            .opacity(0.45)
-                    }
-            }
-        }
-        .padding(.top, 2)
-        .opacity(mode == .passive ? 0.82 : 1)
     }
 
     private var handCards: some View {
         HStack(alignment: .top, spacing: handCardSpacing) {
             let cards = orderedHand
             ForEach(cards) { card in
-                let isPlayable = store.validCardsForHuman().contains(card)
+                let isPlayable = validCards.contains(card)
                 let isTrickPlayable = mode == .trick && isPlayable
-                let isSwapSelectable = mode == .swap && hasSwapTargets && !store.state.swapCount.contains(0)
+                let isSwapSelectable = mode == .swap && !humanSwapStaged
                 let isMuted = mode == .trick && !isPlayable
                 let isReordering = draggingHandCardID == card.id
                 if mode == .trick {
@@ -266,23 +219,23 @@ struct LowerHandBarView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(!isSwapSelectable)
-                    .opacity(mode == .assignment ? 0.74 : 1)
+                    .opacity(1)
                     .handCardPhysicalStyle(active: isReordering, translation: handDragTranslation)
                     .simultaneousGesture(reorderGesture(for: card))
                 }
             }
         }
         .padding(.horizontal, 2)
-        .offset(y: mode == .assignment ? LowerHandBarLayout.assignmentHandOffsetY : LowerHandBarLayout.handOffsetY)
+        .offset(y: LowerHandBarLayout.handOffsetY)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .frame(height: visibleTrayHeight)
         .animation(.spring(response: 0.24, dampingFraction: 0.78), value: handOrder)
         .onAppear {
             syncHandOrder()
         }
-        .onChange(of: store.state.players[0].hand.map(\.id)) { _, _ in
+        .onChange(of: hand.map(\.id)) { _, _ in
             syncHandOrder()
-            if let draggingHandCardID, !store.state.players[0].hand.contains(where: { $0.id == draggingHandCardID }) {
+            if let draggingHandCardID, !hand.contains(where: { $0.id == draggingHandCardID }) {
                 resetHandDrag()
             }
         }
@@ -292,7 +245,7 @@ struct LowerHandBarView: View {
         switch mode {
         case .trick:
             return CardSize.large.width + 10
-        case .swap, .assignment:
+        case .swap, .assignment, .requisition:
             return CardSize.medium.width + 10
         case .passive:
             return max(18, CardSize.medium.width - 38)
@@ -305,7 +258,7 @@ struct LowerHandBarView: View {
             return LowerHandBarLayout.passiveHandSpacing
         case .assignment:
             return LowerHandBarLayout.assignmentHandSpacing
-        case .trick, .swap:
+        case .trick, .swap, .requisition:
             return LowerHandBarLayout.activeHandSpacing
         }
     }
@@ -363,7 +316,7 @@ struct LowerHandBarView: View {
     }
 
     private func syncHandOrder() {
-        let ids = store.state.players[0].hand.map(\.id)
+        let ids = hand.map(\.id)
         let idSet = Set(ids)
         var next = handOrder.filter { idSet.contains($0) }
         for id in ids where !next.contains(id) {
@@ -388,10 +341,6 @@ struct LowerHandBarView: View {
         handDragTranslation = .zero
     }
 
-    private var assignmentControlsWidth: CGFloat {
-        allAssignmentCardsAssigned ? LowerHandBarLayout.assignmentSubmitWidth : LowerHandBarLayout.assignmentCardsWidth
-    }
-
     private var assignmentControls: some View {
         HStack(alignment: .top, spacing: 10) {
             Rectangle()
@@ -405,45 +354,45 @@ struct LowerHandBarView: View {
                 .frame(width: 2, height: visibleTrayHeight - 10)
                 .padding(.top, 5)
 
-            if allAssignmentCardsAssigned {
-                Button(language.text(en: "Submit", ru: "Подтвердить")) {
-                    store.submitAssignments()
-                }
-                .buttonStyle(SwapCommandButtonStyle(prominent: true))
-                .frame(maxHeight: .infinity, alignment: .center)
-            } else {
-                HStack(alignment: .top, spacing: 8) {
-                    ForEach(unassignedAssignmentPlays) { play in
+            HStack(alignment: .top, spacing: 8) {
+                ForEach(unassignedAssignmentPlays) { play in
                         AssignmentCapturedCard(
                             play: play,
-                            playerName: language.playerName(store.state.players[play.playerID]),
-                            assignedSuit: store.state.pendingAssignments[play.card.id],
+                            assignedSuit: pendingAssignments[play.card.id],
                             selected: selectedAssignmentCard == play.card,
                             dragging: assignmentDrag?.card == play.card,
                             onDragChanged: updateAssignmentDrag(_:startCenter:translation:),
-                            onDragEnded: finishAssignmentDrag(_:translation:),
-                            onTapSelect: { selectAssignmentCard(play.card) }
-                        )
-                    }
+                        onDragEnded: finishAssignmentDrag(_:translation:),
+                        onTapSelect: { selectAssignmentCard(play.card) }
+                    )
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .offset(y: -8)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .offset(y: LowerHandBarLayout.handOffsetY)
         }
     }
 
+    private var assignmentSubmitControls: some View {
+        Button(language.text(en: "Confirm", ru: "Подтвердить")) {
+            onSubmitAssignments()
+        }
+        .buttonStyle(SwapCommandButtonStyle(prominent: true))
+        .padding(6)
+        .frame(maxHeight: .infinity, alignment: .center)
+    }
+
     private var unassignedAssignmentPlays: [TrickPlay] {
-        store.state.lastTrick.filter { store.state.pendingAssignments[$0.card.id] == nil }
+        lastTrick.filter { pendingAssignments[$0.card.id] == nil }
     }
 
     private var allAssignmentCardsAssigned: Bool {
-        store.state.phase == .assignment &&
-            !store.state.lastTrick.isEmpty &&
-            store.state.pendingAssignments.count == store.state.lastTrick.count
+        mode == .assignment &&
+            !lastTrick.isEmpty &&
+            pendingAssignments.count == lastTrick.count
     }
 
     private var legalAssignmentTargets: Set<Suit> {
-        Set(store.state.lastTrick.map(\.card.suit))
+        Set(lastTrick.map(\.card.suit))
     }
 
     private func updateAssignmentDrag(_ card: Card, startCenter: CGPoint, translation: CGSize) {
@@ -459,7 +408,7 @@ struct LowerHandBarView: View {
         }
         guard let drag = assignmentDrag else { return }
         if let target = drag.targetSuit(in: jobTargetFrames, legalTargets: legalAssignmentTargets) {
-            store.assign(card, to: target)
+            onAssign(card, target)
             selectedAssignmentCard = nextUnassignedAssignmentCard(after: card)
         }
     }
@@ -469,9 +418,9 @@ struct LowerHandBarView: View {
     }
 
     private func nextUnassignedAssignmentCard(after card: Card) -> Card? {
-        store.state.lastTrick
+        lastTrick
             .map(\.card)
-            .first { $0 != card && store.state.pendingAssignments[$0.id] == nil }
+            .first { $0 != card && pendingAssignments[$0.id] == nil }
     }
 
     private var swapControls: some View {
@@ -484,22 +433,40 @@ struct LowerHandBarView: View {
     }
 
     private var primarySwapTitle: String {
-        store.state.swapCount.contains(0) || (selectedSwapHand != nil && selectedSwapPlot != nil) ? language.text(en: "Swap", ru: "Обмен") : language.text(en: "Keep Hand", ru: "Оставить")
+        humanSwapStaged || (selectedSwapHand != nil && selectedSwapPlot != nil) ? language.text(en: "Swap", ru: "Обмен") : language.text(en: "Keep Hand", ru: "Оставить")
     }
 
     private func performPrimarySwapAction() {
-        if store.state.swapCount.contains(0) {
-            store.confirmSwap()
+        if humanSwapStaged {
+            onConfirmSwap()
         } else if let selectedSwapHand, let selectedSwapPlot {
-            store.swap(handCard: selectedSwapHand, plotCard: selectedSwapPlot.card, revealed: selectedSwapPlot.zone == .revealed)
-            if store.state.swapCount.contains(0) {
-                store.confirmSwap()
-            }
+            onSwapSelection(selectedSwapHand, selectedSwapPlot)
         } else {
-            store.confirmSwap()
+            onConfirmSwap()
         }
         selectedSwapHand = nil
         selectedSwapPlot = nil
+    }
+
+    private var requisitionControls: some View {
+        Button(requisitionContinueTitle) {
+            onContinueAfterRequisition()
+        }
+        .buttonStyle(SwapCommandButtonStyle(prominent: true))
+        .disabled(hasPendingRequisitionAnimations)
+        .opacity(hasPendingRequisitionAnimations ? 0.45 : 1)
+        .padding(6)
+        .frame(maxHeight: .infinity, alignment: .center)
+    }
+
+    private var requisitionContinueTitle: String {
+        if hasPendingRequisitionAnimations {
+            return language.text(en: "Resolving", ru: "Идёт")
+        }
+        if year >= 5 {
+            return language.text(en: "Finish", ru: "Завершить")
+        }
+        return language.text(en: "Year \(year + 1)", ru: "Год \(year + 1)")
     }
 }
 
@@ -533,7 +500,14 @@ private extension View {
     }
 }
 
+#Preview("Hand Tray - Requisition") {
+    BoardPreviewStoreStage(state: KolkhozPreviewFixtures.requisitionState, width: 820, height: 112) {
+        LowerHandBarPreviewHost(mode: .requisition)
+    }
+}
+
 private struct LowerHandBarPreviewHost: View {
+    @EnvironmentObject private var store: GameStore
     let mode: LowerHandBarMode
     @State private var selectedSwapHand: Card?
     @State private var selectedSwapPlot: PlotSelection?
@@ -545,13 +519,30 @@ private struct LowerHandBarPreviewHost: View {
         LowerHandBarView(
             playCard: { _, _ in },
             mode: mode,
+            hand: store.state.players[0].hand,
+            validCards: store.validCardsForHuman(),
+            humanSwapStaged: store.state.swapCount.contains(0),
+            lastTrick: store.state.lastTrick,
+            pendingAssignments: store.state.pendingAssignments,
+            year: store.state.year,
+            hasPendingRequisitionAnimations: store.animationEvents.contains { event in
+                if case .cardExiled = event {
+                    return true
+                }
+                return false
+            },
             selectedSwapHand: $selectedSwapHand,
             selectedSwapPlot: $selectedSwapPlot,
             assignmentDrag: $assignmentDrag,
             hoveredAssignmentSuit: $hoveredAssignmentSuit,
             selectedAssignmentCard: $selectedAssignmentCard,
             jobTargetFrames: [:],
-            playDropFrame: nil
+            playDropFrame: nil,
+            onSwapSelection: { _, _ in },
+            onConfirmSwap: {},
+            onAssign: { _, _ in },
+            onSubmitAssignments: {},
+            onContinueAfterRequisition: {}
         )
         .coordinateSpace(name: GameBoardCoordinateSpace.main)
     }

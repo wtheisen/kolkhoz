@@ -241,62 +241,6 @@ struct CardSlot: View {
     }
 }
 
-struct AssignmentTargetButton: View {
-    let suit: Suit
-    let selected: Bool
-    let title: String
-
-    var body: some View {
-        VStack(spacing: 4) {
-            SuitMark(suit: suit, size: 19)
-            PixelText(text: title, size: .caption2, variant: .heavy, color: .kolkhozCream)
-        }
-        .frame(maxWidth: .infinity, minHeight: 46)
-        .background(selected ? Color.kolkhozGreen.opacity(0.24) : Color.kolkhozBlack.opacity(0.45), in: RoundedRectangle(cornerRadius: 6))
-        .overlay {
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(selected ? Color.kolkhozGreen : Color.kolkhozGold.opacity(0.78), style: StrokeStyle(lineWidth: selected ? 2 : 1.5, dash: selected ? [] : [5]))
-        }
-        .shadow(color: selected ? Color.kolkhozGreen.opacity(0.35) : Color.kolkhozGold.opacity(0.16), radius: selected ? 8 : 5)
-    }
-}
-
-struct RequisitionEventRow: View {
-    @Environment(\.kolkhozLanguage) private var language
-    @EnvironmentObject private var store: GameStore
-    let event: RequisitionEvent
-
-    var body: some View {
-        HStack(spacing: 9) {
-            if let card = event.card {
-                MiniRewardCard(card: card, claimed: false)
-            } else {
-                GameIcon(.warning, size: 24)
-            }
-
-            VStack(alignment: .leading, spacing: -1) {
-                PixelText(text: language.suitName(event.suit).uppercased(), size: .headline, variant: .heavy, color: .kolkhozRedBright)
-                PixelText(
-                    text: language.requisitionMessage(for: event, players: store.state.players),
-                    size: .headline,
-                    variant: .regular,
-                    color: .kolkhozCream
-                )
-            }
-
-            Spacer()
-
-
-        }
-        .padding(8)
-        .background(Color.kolkhozRedDark.opacity(0.24), in: RoundedRectangle(cornerRadius: 6))
-        .overlay {
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.kolkhozRed.opacity(0.65), lineWidth: 1)
-        }
-    }
-}
-
 struct CommandButtonStyle: ButtonStyle {
     let prominent: Bool
 

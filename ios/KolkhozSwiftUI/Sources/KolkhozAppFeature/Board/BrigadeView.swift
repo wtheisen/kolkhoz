@@ -15,20 +15,21 @@ enum PlayerPanelLayout {
     static let compactNameHeight: CGFloat = 20
     static let regularNameHeight: CGFloat = 24
     static let nameHeightRatio: CGFloat = 0.51
-    static let compactThumbnails = 3
-    static let regularThumbnails = 4
     static let minPanelHeight: CGFloat = 54
     static let compactColumnBreakpoint: CGFloat = 108
     static let narrowColumnsBreakpoint: CGFloat = 500
     static let tightColumnsBreakpoint: CGFloat = 620
     static let minColumnWidth: CGFloat = 68
     static let playAreaScale: CGFloat = 1.6
+    static let compactStatColumnWidth: CGFloat = 44
+    static let regularStatColumnWidth: CGFloat = 50
 }
 
 struct PlayerPanel: View {
     @Environment(\.kolkhozLanguage) private var language
     let player: PlayerState
-    let score: Int
+    let plotScore: Int
+    let maxTricks: Int
     let active: Bool
     let human: Bool
     @State private var pulse = false
@@ -45,68 +46,49 @@ struct PlayerPanel: View {
                 compact ? PlayerPanelLayout.compactPortraitSize : PlayerPanelLayout.regularPortraitSize,
                 max(PlayerPanelLayout.minPortraitSize, proxy.size.height - outerInset * 2 - 2)
             )
-            let nameHeight = max(compact ? PlayerPanelLayout.compactNameHeight : PlayerPanelLayout.regularNameHeight, proxy.size.height * PlayerPanelLayout.nameHeightRatio)
-            let thumbnailCount = min(player.hand.count, compact ? PlayerPanelLayout.compactThumbnails : PlayerPanelLayout.regularThumbnails)
 
             ZStack {
                 GeneratedChromeImage(resourceName: "ui-player-panel")
                     .allowsHitTesting(false)
 
-                HStack(alignment: .top, spacing: compact ? 4 : 7) {
+                HStack(alignment: .center) {
                     ZStack {
                         PortraitView(player: player, human: human)
                             .frame(width: portraitSize, height: portraitSize)
                     }
                     .frame(width: portraitColumnWidth, height: max(0, proxy.size.height - outerInset * 2), alignment: .center)
 
-                    VStack(alignment: .leading, spacing: compact ? 1 : 2) {
-                        HStack(spacing: compact ? 3 : 4) {
+                    VStack(alignment: .leading, spacing: compact ? -1 : 1) {
+                        HStack(alignment: .center, spacing: compact ? 3 : 5) {
                             PixelText(
                                 text: displayName(compact: compact),
-                                size: compact ? .caption : .caption,
+                                size: compact ? .caption : .title,
                                 variant: compact ? .heavy : .regular,
                                 color: active ? Color.kolkhozGold : Color.kolkhozCardInk
                             )
-                                .layoutPriority(2)
-                            if player.brigadeLeader {
-                                GameIcon(.medalStar, size: compact ? 15 : 20)
-                            }
-                        }
-                        .frame(height: nameHeight, alignment: .leading)
-
-                        HStack(spacing: compact ? 4 : 6) {
-                            PixelText(text: compact ? "\(score)" : language.text(en: "\(score) points", ru: "\(score) очк"), size: .caption, color: .kolkhozSmoke)
+                            .layoutPriority(2)
 
                             Spacer(minLength: 2)
 
-                            if thumbnailCount > 0 {
-                                HStack(spacing: -3) {
-                                    ForEach(0..<thumbnailCount, id: \.self) { _ in
-                                        CardBackThumbnail()
-                                    }
-                                }
-                            }
-
-                            if player.medals > 0 {
-                                HStack(spacing: 2) {
-                                    GameIcon(.medalStar, size: compact ? 9 : 10)
-                                    PixelText(text: "\(player.medals)", size: .caption2, variant: .heavy, color: .kolkhozGold)
-                                }
-                            } else if !compact {
-                                HStack(spacing: 2) {
-                                    ForEach(0..<4, id: \.self) { _ in
-                                        GameIcon(.medalStar, size: 9, muted: true)
-                                            .opacity(0.18)
-                                    }
-                                }
-                            }
+                            PlayerPlotScoreStat(score: plotScore, compact: compact)
                         }
-                        .frame(maxHeight: .infinity, alignment: .center)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        HStack(alignment: .center, spacing: compact ? 3 : 5) {
+                            PlayerMedalStat(medals: player.medals, maxTricks: maxTricks, compact: compact)
+
+                            Spacer(minLength: 2)
+
+                            PlayerCellarStat(cardCount: player.plot.hidden.count, compact: compact)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    .padding(.top, compact ? 2 : 4)
+                    .offset(x: -4)
                     .layoutPriority(1)
                 }
-                .padding(.horizontal, outerInset)
-                .padding(.vertical, outerInset)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 5)
             }
             .overlay {
                 if active || human {
@@ -120,11 +102,6 @@ struct PlayerPanel: View {
             .shadow(color: active ? Color.kolkhozGold.opacity(pulse ? 0.42 : 0.18) : .black.opacity(0.24), radius: active && pulse ? 12 : 4, y: 3)
         }
         .frame(minHeight: PlayerPanelLayout.minPanelHeight)
-        .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulse)
-        .onAppear { pulse = active }
-        .onChange(of: active) { _, active in
-            pulse = active
-        }
     }
 
     private func displayName(compact: Bool) -> String {
@@ -135,9 +112,65 @@ struct PlayerPanel: View {
     }
 }
 
+private struct PlayerMedalStat: View {
+    let medals: Int
+    let maxTricks: Int
+    let compact: Bool
+
+    var body: some View {
+        HStack(spacing: -4) {
+            ForEach(0..<maxTricks, id: \.self) { index in
+                GameIcon(.medalStar, size: compact ? 12 : 12, muted: index >= medals)
+                    .opacity(index < medals ? 1 : 0.18)
+            }
+        }
+        .frame(minWidth: compact ? 28 : 36, alignment: .leading)
+        .accessibilityLabel("\(medals) tricks won this year")
+    }
+}
+
+private struct PlayerCellarStat: View {
+    let cardCount: Int
+    let compact: Bool
+
+    var body: some View {
+        HStack(spacing: 2) {
+            GameIcon(.cellar, size: compact ? 16 : 16)
+            HStack(spacing: compact ? -6 : -5) {
+                ForEach(0..<cardCount, id: \.self) { _ in
+                    CardBackThumbnail()
+                }
+            }
+        }
+        .frame(width: statColumnWidth, alignment: .leading)
+        .accessibilityLabel("\(cardCount) cellar cards")
+    }
+
+    private var statColumnWidth: CGFloat {
+        compact ? PlayerPanelLayout.compactStatColumnWidth : PlayerPanelLayout.regularStatColumnWidth
+    }
+}
+
+private struct PlayerPlotScoreStat: View {
+    let score: Int
+    let compact: Bool
+
+    var body: some View {
+        HStack(spacing: 2) {
+            GameIcon(.plot, size: compact ? 16 : 16)
+            PixelText(text: "\(score)", size: .headline, variant: .heavy, color: .kolkhozSmoke)
+        }
+        .frame(width: statColumnWidth, alignment: .leading)
+        .accessibilityLabel("\(score) visible plot score")
+    }
+
+    private var statColumnWidth: CGFloat {
+        compact ? PlayerPanelLayout.compactStatColumnWidth : PlayerPanelLayout.regularStatColumnWidth
+    }
+}
+
 struct BrigadeView: View {
     @EnvironmentObject var store: GameStore
-    @Binding var humanPlayTarget: CGPoint?
     @Binding var playSlotCenters: [Int: CGPoint]
     @Binding var playSlotFrames: [Int: CGRect]
     @Binding var playerPanelCenters: [Int: CGPoint]
@@ -165,7 +198,6 @@ struct BrigadeView: View {
                         playerID: playerID,
                         play: displayedTrick.first { $0.playerID == playerID },
                         columnWidth: columnWidth,
-                        humanPlayTarget: $humanPlayTarget,
                         playSlotCenters: $playSlotCenters,
                         playSlotFrames: $playSlotFrames,
                         playerPanelCenters: $playerPanelCenters,
@@ -186,7 +218,6 @@ struct BrigadePlayerColumnView: View {
     let playerID: Int
     let play: TrickPlay?
     let columnWidth: CGFloat
-    @Binding var humanPlayTarget: CGPoint?
     @Binding var playSlotCenters: [Int: CGPoint]
     @Binding var playSlotFrames: [Int: CGRect]
     @Binding var playerPanelCenters: [Int: CGPoint]
@@ -201,20 +232,21 @@ struct BrigadePlayerColumnView: View {
     var cardSize: CardSize { compact ? .medium : .large }
     var slotWidth: CGFloat { min(compact ? 58 : 76, max(44, columnWidth * 0.52)) }
     var playAreaScale: CGFloat { PlayerPanelLayout.playAreaScale }
-    var playAreaTopOffset: CGFloat { compact ? 10 : 14 }
+    var playAreaTopOffset: CGFloat { compact ? 1 : 14 }
     var playerPanelWidth: CGFloat { cardSize.width * playAreaScale }
     var playAreaWidth: CGFloat { max(cardSize.width, slotWidth) * playAreaScale }
     var playAreaHeight: CGFloat { max(cardSize.height, slotWidth * 1.42) * playAreaScale }
 
     var body: some View {
-        VStack(spacing: compact ? 1 : -6) {
+        VStack(spacing: compact ? -6 : -2) {
             PlayerPanel(
                 player: player,
-                score: store.visibleScore(for: playerID),
+                plotScore: store.visibleScore(for: playerID),
+                maxTricks: store.state.isFamine ? 3 : 4,
                 active: isCurrentTurn,
                 human: playerID == 0
             )
-            .frame(width: playerPanelWidth, height: compact ? 50 : 58)
+            .frame(width: playerPanelWidth, height: compact ? 40 : 40)
             .background {
                 GeometryReader { proxy in
                     Color.clear
@@ -266,9 +298,6 @@ struct BrigadePlayerColumnView: View {
         let center = CGPoint(x: frame.midX, y: frame.midY)
         playSlotCenters[playerID] = center
         playSlotFrames[playerID] = frame
-        if playerID == 0 {
-            humanPlayTarget = center
-        }
     }
 }
 
@@ -278,7 +307,8 @@ struct BrigadePlayerColumnView: View {
         VStack(alignment: .leading, spacing: 14) {
             PlayerPanel(
                 player: KolkhozPreviewFixtures.playerPanelOpponent,
-                score: 18,
+                plotScore: 18,
+                maxTricks: 4,
                 active: true,
                 human: false
             )
@@ -286,7 +316,8 @@ struct BrigadePlayerColumnView: View {
 
             PlayerPanel(
                 player: KolkhozPreviewFixtures.playerPanelHuman,
-                score: 24,
+                plotScore: 24,
+                maxTricks: 4,
                 active: false,
                 human: true
             )
@@ -294,7 +325,8 @@ struct BrigadePlayerColumnView: View {
 
             PlayerPanel(
                 player: KolkhozPreviewFixtures.playerPanelOpponent,
-                score: 18,
+                plotScore: 18,
+                maxTricks: 4,
                 active: true,
                 human: false
             )
@@ -310,14 +342,12 @@ struct BrigadePlayerColumnView: View {
 }
 
 private struct BrigadePreviewHost: View {
-    @State private var humanPlayTarget: CGPoint?
     @State private var playSlotCenters: [Int: CGPoint] = [:]
     @State private var playSlotFrames: [Int: CGRect] = [:]
     @State private var playerPanelCenters: [Int: CGPoint] = [:]
 
     var body: some View {
         BrigadeView(
-            humanPlayTarget: $humanPlayTarget,
             playSlotCenters: $playSlotCenters,
             playSlotFrames: $playSlotFrames,
             playerPanelCenters: $playerPanelCenters,

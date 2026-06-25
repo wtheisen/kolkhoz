@@ -25,7 +25,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "KolkhozSwiftUIApp",
-            dependencies: ["KolkhozAppFeature"]
+            dependencies: ["KolkhozAppFeature"],
+            resources: [
+                .process("Assets.xcassets")
+            ]
         ),
         .executableTarget(
             name: "KolkhozSmokeTests",

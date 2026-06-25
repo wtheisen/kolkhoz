@@ -18,27 +18,21 @@ enum PlotViewLayout {
     static let regularOpponentCardScale: CGFloat = 0.76
 }
 
-struct PlotOverviewView: View {
-    var body: some View {
-        PlotStorageView(selectedPlot: nil)
-    }
-}
-
-struct SwapPlotView: View {
-    @Binding var selectedPlot: PlotSelection?
-
-    var body: some View {
-        PlotStorageView(selectedPlot: $selectedPlot)
-    }
-}
-
-private struct PlotStorageView: View {
+struct PlotStorageView: View {
     @EnvironmentObject private var store: GameStore
     @Environment(\.kolkhozLanguage) private var language
     let selectedPlot: Binding<PlotSelection?>?
 
     private var isInteractive: Bool {
         selectedPlot != nil
+    }
+
+    private var isRequisition: Bool {
+        store.state.phase == .requisition
+    }
+
+    private var exiledCards: Set<Card> {
+        isRequisition ? Set(store.state.exiled[store.state.year, default: []]) : []
     }
 
     var body: some View {
@@ -50,38 +44,37 @@ private struct PlotStorageView: View {
             let spacing: CGFloat = dense ? PlotViewLayout.denseSpacing : PlotViewLayout.regularSpacing
 
             VStack(alignment: .leading, spacing: spacing) {
-                PanelTitleRow(
-                    title: language.text(en: "Private plot", ru: "Личный участок"),
-                    subtitle: language.text(en: "Opponent stores above, your cellar below.", ru: "Участки соперников сверху, ваш подвал снизу."),
-                    icon: .plot,
-                    compact: dense
-                )
+                plotHeader(compact: dense)
 
                 HStack(spacing: compact ? PlotViewLayout.compactSpacing : PlotViewLayout.regularSpacing) {
                     ForEach(store.state.players.dropFirst()) { player in
-                        PlayerPlotPanel(player: player, score: store.visibleScore(for: player.id), dense: dense)
+                        PlayerPlotPanel(player: player, score: store.visibleScore(for: player.id), dense: dense, exiledCards: exiledCards)
                     }
                 }
                 .frame(height: opponentHeight)
 
                 HStack(alignment: .top, spacing: spacing) {
                     PlotColumn(
-                        title: language.text(en: "Hidden", ru: "Скрытые"),
+                        title: language.text(en: "Cellar", ru: "Подвал"),
+                        icon: .cellar,
                         subtitle: "\(store.state.players[0].plot.hidden.count)",
                         cards: store.state.players[0].plot.hidden,
                         hidden: true,
                         dense: dense,
+                        exiledCards: exiledCards,
                         isSelected: { selectedPlot?.wrappedValue == PlotSelection(card: $0, zone: .hidden) },
                         onSelect: isInteractive ? { card in
                             selectedPlot?.wrappedValue = PlotSelection(card: card, zone: .hidden)
                         } : nil
                     )
                     PlotColumn(
-                        title: language.text(en: "Rewards", ru: "Награды"),
+                        title: language.text(en: "Plot", ru: "Участок"),
+                        icon: .plot,
                         subtitle: "\(store.state.players[0].plot.revealed.count)",
                         cards: store.state.players[0].plot.revealed,
                         hidden: false,
                         dense: dense,
+                        exiledCards: exiledCards,
                         isSelected: { selectedPlot?.wrappedValue == PlotSelection(card: $0, zone: .revealed) },
                         onSelect: isInteractive ? { card in
                             selectedPlot?.wrappedValue = PlotSelection(card: card, zone: .revealed)
@@ -95,36 +88,81 @@ private struct PlotStorageView: View {
             .background(CommandPanelBackground())
         }
     }
+
+    @ViewBuilder
+    private func plotHeader(compact: Bool) -> some View {
+        if isRequisition {
+            PanelTitleRow(
+                title: language.text(en: "Requisition", ru: "Реквизиция"),
+                subtitle: requisitionSubtitle,
+                icon: .warning,
+                urgent: true,
+                compact: compact
+            )
+        } else {
+            PanelTitleRow(
+                title: language.text(en: "Private plot", ru: "Личный участок"),
+                subtitle: language.text(en: "Opponent stores above, your cellar below.", ru: "Участки соперников сверху, ваш подвал снизу."),
+                icon: .plot,
+                compact: compact
+            )
+        }
+    }
+
+    private var requisitionSubtitle: String {
+        let activeExile = activeCardExileAnimation
+        if let event = activeRequisitionEvent(for: activeExile) {
+            return language.requisitionMessage(for: event, players: store.state.players)
+        }
+        if store.state.requisitionEvents.isEmpty {
+            return language.text(en: "All jobs complete.", ru: "Все работы выполнены.")
+        }
+        if activeExile != nil {
+            return language.text(en: "Resolving requisition...", ru: "Идёт реквизиция...")
+        }
+        return language.text(en: "Audit complete.", ru: "Проверка завершена.")
+    }
+
+    private var activeCardExileAnimation: KolkhozAnimationEvent? {
+        store.animationEvents.first { event in
+            if case .cardExiled = event {
+                return true
+            }
+            return false
+        }
+    }
+
+    private func activeRequisitionEvent(for animation: KolkhozAnimationEvent?) -> RequisitionEvent? {
+        guard case .cardExiled(_, let playerID, let suit, let card) = animation else {
+            return nil
+        }
+        return store.state.requisitionEvents.first {
+            $0.playerID == playerID && $0.suit == suit && $0.card == card
+        }
+    }
 }
 
 struct PlayerPlotPanel: View {
     @Environment(\.kolkhozLanguage) private var language
     let player: PlayerState
-    var score: Int?
+    let score: Int
     let dense: Bool
-    var human = false
     var exiledCards: Set<Card> = []
-    var revealedLimit: Int?
-    var hiddenLimit: Int?
-    var showAllHidden = false
-    var scaleCards = true
 
     var body: some View {
         HStack(spacing: dense ? 6 : 8) {
-            PortraitView(player: player, human: human)
+            PortraitView(player: player, human: false)
                 .frame(width: dense ? 34 : 42, height: dense ? 34 : 42)
 
             VStack(alignment: .leading, spacing: dense ? 5 : 7) {
                 HStack(spacing: 5) {
                     PixelText(text: language.playerName(player), size: .caption2, variant: .heavy, color: .kolkhozCream)
                     Spacer(minLength: 0)
-                    if let score {
-                        PixelText(text: "\(score)", size: .caption2, variant: .heavy, color: .kolkhozGold)
-                    }
+                    PixelText(text: "\(score)", size: .caption2, variant: .heavy, color: .kolkhozGold)
                 }
 
                 HStack(alignment: .top, spacing: dense ? -18 : -15) {
-                    ForEach(Array(player.plot.revealed.prefix(revealedLimit ?? (dense ? 3 : 4)))) { card in
+                    ForEach(Array(player.plot.revealed.prefix(dense ? 3 : 4))) { card in
                         CardView(card: card, size: .small)
                             .overlay {
                                 RoundedRectangle(cornerRadius: 6)
@@ -135,7 +173,6 @@ struct PlayerPlotPanel: View {
                     }
                     ForEach(0..<hiddenCardCount, id: \.self) { _ in
                         CardBackView(size: .small)
-                            .opacity(showAllHidden ? 0.72 : 1)
                             .scaleEffect(cardScale, anchor: .topLeading)
                             .frame(width: cardFrameWidth, height: cardFrameHeight, alignment: .topLeading)
                     }
@@ -158,38 +195,37 @@ struct PlayerPlotPanel: View {
     }
 
     private var hiddenCardCount: Int {
-        if showAllHidden {
-            return player.plot.hidden.count
-        }
-        return min(player.plot.hidden.count, hiddenLimit ?? (dense ? 3 : 4))
+        min(player.plot.hidden.count, dense ? 3 : 4)
     }
 
     private var cardScale: CGFloat {
-        guard scaleCards else { return 1 }
-        return dense ? PlotViewLayout.denseOpponentCardScale : PlotViewLayout.regularOpponentCardScale
+        dense ? PlotViewLayout.denseOpponentCardScale : PlotViewLayout.regularOpponentCardScale
     }
 
     private var cardFrameWidth: CGFloat {
-        scaleCards ? (dense ? 25 : 29) : CardSize.small.width
+        dense ? 25 : 29
     }
 
     private var cardFrameHeight: CGFloat {
-        scaleCards ? (dense ? 38 : 44) : CardSize.small.height
+        dense ? 38 : 44
     }
 }
 
 struct PlotColumn: View {
     let title: String
+    let icon: GameIconAsset
     let subtitle: String
     let cards: [Card]
     let hidden: Bool
     let dense: Bool
+    var exiledCards: Set<Card> = []
     var isSelected: (Card) -> Bool = { _ in false }
     var onSelect: ((Card) -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: dense ? 6 : 8) {
-            HStack(alignment: .firstTextBaseline) {
+            HStack(alignment: .center, spacing: 5) {
+                GameIcon(icon, size: dense ? 17 : 20)
                 PixelText(text: title.uppercased(), size: .caption, variant: .heavy, color: .kolkhozGold)
                 Spacer(minLength: 8)
                 PixelText(text: subtitle, size: .caption2, color: .kolkhozSmoke)
@@ -245,8 +281,22 @@ struct PlotColumn: View {
         }
         .overlay {
             RoundedRectangle(cornerRadius: 8)
-                .stroke(isSelected(card) ? Color.kolkhozGreen : Color.clear, lineWidth: 3)
+                .stroke(cardStrokeColor(card), lineWidth: cardStrokeWidth(card))
         }
+    }
+
+    private func cardStrokeColor(_ card: Card) -> Color {
+        if exiledCards.contains(card) {
+            return .kolkhozRedBright
+        }
+        if isSelected(card) {
+            return .kolkhozGreen
+        }
+        return .clear
+    }
+
+    private func cardStrokeWidth(_ card: Card) -> CGFloat {
+        exiledCards.contains(card) || isSelected(card) ? 3 : 0
     }
 }
 
@@ -255,89 +305,10 @@ struct PlotSelection: Equatable {
     let zone: PlotCardZone
 }
 
-struct RequisitionPlotView: View {
-    @EnvironmentObject private var store: GameStore
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            VStack(spacing: 10) {
-                HStack(spacing: 10) {
-                    ForEach(store.state.players) { player in
-                        PlayerPlotPanel(
-                            player: player,
-                            dense: true,
-                            human: player.id == 0,
-                            exiledCards: exiledCards,
-                            revealedLimit: nil,
-                            showAllHidden: true,
-                            scaleCards: false
-                        )
-                    }
-                }
-                .frame(maxHeight: .infinity)
-            }
-
-            RequisitionSummaryPanel()
-                .frame(width: 310)
-        }
-        .padding(12)
-        .background(CommandPanelBackground())
-    }
-
-    private var exiledCards: Set<Card> {
-        Set(store.state.exiled[store.state.year, default: []])
-    }
-}
-
-struct RequisitionSummaryPanel: View {
-    @EnvironmentObject private var store: GameStore
-    @Environment(\.kolkhozLanguage) private var language
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            PanelTitleRow(
-                title: language.text(en: "Requisition", ru: "Реквизиция"),
-                subtitle: language.text(en: "Unprotected plot cards may be taken.", ru: "Незащищённые карты участка могут забрать."),
-                icon: .warning,
-                urgent: true
-            )
-            Text(language.text(en: "Year \(store.state.year) audit", ru: "Проверка: год \(store.state.year)"))
-                .font(.kolkhozLabel(.caption))
-                .foregroundStyle(Color.kolkhozCreamDim)
-
-            ScrollView {
-                VStack(spacing: 8) {
-                    if store.state.requisitionEvents.isEmpty {
-                        Text(language.text(en: "All jobs complete!", ru: "Все работы выполнены!"))
-                            .font(.kolkhozLabel(.caption))
-                            .foregroundStyle(Color.kolkhozCreamDim)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    } else {
-                        ForEach(store.state.requisitionEvents) { event in
-                            RequisitionEventRow(event: event)
-                        }
-                    }
-                }
-            }
-
-            Button(store.state.year >= 5 ? language.text(en: "Finish plan", ru: "Завершить план") : language.text(en: "Continue to Year \(store.state.year + 1)", ru: "Продолжить к Году \(store.state.year + 1)")) {
-                store.continueAfterRequisition()
-            }
-            .buttonStyle(CommandButtonStyle(prominent: true))
-        }
-        .padding(10)
-        .background(Color.kolkhozRedDark.opacity(0.18), in: RoundedRectangle(cornerRadius: 6))
-        .overlay {
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.kolkhozRed.opacity(0.55), lineWidth: 1.5)
-        }
-    }
-}
-
 #if DEBUG
 #Preview("Plot Overview") {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.trickState, width: 720, height: 330) {
-        PlotOverviewView()
+        PlotStorageView(selectedPlot: nil)
     }
 }
 
@@ -349,7 +320,7 @@ struct RequisitionSummaryPanel: View {
 
 #Preview("Requisition Plot") {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.requisitionState, width: 820, height: 320) {
-        RequisitionPlotView()
+        PlotStorageView(selectedPlot: nil)
     }
 }
 
@@ -357,7 +328,7 @@ private struct SwapPlotPreviewHost: View {
     @State private var selectedPlot: PlotSelection?
 
     var body: some View {
-        SwapPlotView(selectedPlot: $selectedPlot)
+        PlotStorageView(selectedPlot: $selectedPlot)
     }
 }
 #endif

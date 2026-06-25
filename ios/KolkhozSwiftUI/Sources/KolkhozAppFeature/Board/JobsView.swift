@@ -20,17 +20,24 @@ enum JobsViewLayout {
 }
 
 struct JobsView: View {
-    @EnvironmentObject private var store: GameStore
     @Environment(\.kolkhozLanguage) private var language
     @Binding var jobTargets: [Suit: CGPoint]
     @Binding var jobTargetFrames: [Suit: CGRect]
     @Binding var assignmentDrag: AssignmentDragState?
     @Binding var hoveredSuit: Suit?
     @Binding var selectedAssignmentCard: Card?
+    let isAssignmentPhase: Bool
+    let lastTrick: [TrickPlay]
+    let workHours: [Suit: Int]
+    let claimedJobs: Set<Suit>
+    let revealedJobs: [Suit: Card]
+    let jobBuckets: [Suit: [Card]]
+    let pendingAssignments: [String: Suit]
+    let trump: Suit?
+    let onAssign: (Card, Suit) -> Void
 
-    private var isAssignmentPhase: Bool { store.state.phase == .assignment }
     private var legalTargets: [Suit] {
-        Array(Set(store.state.lastTrick.map(\.card.suit))).sorted { $0.rawValue < $1.rawValue }
+        Array(Set(lastTrick.map(\.card.suit))).sorted { $0.rawValue < $1.rawValue }
     }
     private var legalTargetSet: Set<Suit> { Set(legalTargets) }
 
@@ -54,12 +61,11 @@ struct JobsView: View {
                     ForEach(Suit.allCases) { suit in
                         AssignmentJobTile(
                             suit: suit,
-                            hours: store.state.workHours[suit, default: 0],
-                            claimed: store.state.claimedJobs.contains(suit),
-                            reward: store.state.revealedJobs[suit],
+                            hours: workHours[suit, default: 0],
+                            claimed: claimedJobs.contains(suit),
+                            reward: revealedJobs[suit],
                             assignedCards: assignedCards(for: suit),
-                            pendingHours: pendingHours(for: suit),
-                            highlighted: store.state.trump == suit,
+                            highlighted: trump == suit,
                             validTarget: isAssignmentPhase && legalTargetSet.contains(suit),
                             hovered: hoveredSuit == suit,
                             selectedCard: selectedAssignmentCard,
@@ -109,29 +115,14 @@ struct JobsView: View {
 
     private func assignedCards(for suit: Suit) -> [AssignmentDisplayCard] {
         guard isAssignmentPhase else {
-            return store.state.jobBuckets[suit, default: []].map { AssignmentDisplayCard(card: $0, draggable: false) }
+            return jobBuckets[suit, default: []].map { AssignmentDisplayCard(card: $0, draggable: false) }
         }
-        let alreadyBucketed = store.state.jobBuckets[suit, default: []].map { AssignmentDisplayCard(card: $0, draggable: false) }
-        let pending = store.state.lastTrick
+        let alreadyBucketed = jobBuckets[suit, default: []].map { AssignmentDisplayCard(card: $0, draggable: false) }
+        let pending = lastTrick
             .map(\.card)
-            .filter { store.state.pendingAssignments[$0.id] == suit }
+            .filter { pendingAssignments[$0.id] == suit }
             .map { AssignmentDisplayCard(card: $0, draggable: true) }
         return alreadyBucketed + pending
-    }
-
-    private func pendingHours(for suit: Suit) -> Int {
-        guard isAssignmentPhase else { return 0 }
-        return store.state.lastTrick
-            .map(\.card)
-            .filter { store.state.pendingAssignments[$0.id] == suit }
-            .reduce(0) { $0 + workValue(for: $1) }
-    }
-
-    private func workValue(for card: Card) -> Int {
-        if store.state.variants.nomenclature, card.suit == store.state.trump, card.value == 11 {
-            return 0
-        }
-        return card.value
     }
 
     private func updateTarget(_ suit: Suit, frame: CGRect) {
@@ -152,7 +143,7 @@ struct JobsView: View {
         }
         guard let drag = assignmentDrag else { return }
         if let target = drag.targetSuit(in: jobTargetFrames, legalTargets: legalTargetSet) {
-            store.assign(card, to: target)
+            onAssign(card, target)
         }
     }
 
@@ -162,10 +153,10 @@ struct JobsView: View {
 
     private func assignSelectedCard(to suit: Suit) {
         guard legalTargetSet.contains(suit), let card = selectedAssignmentCard else { return }
-        let nextCard = store.state.lastTrick
+        let nextCard = lastTrick
             .map(\.card)
-            .first { $0 != card && store.state.pendingAssignments[$0.id] == nil }
-        store.assign(card, to: suit)
+            .first { $0 != card && pendingAssignments[$0.id] == nil }
+        onAssign(card, suit)
         selectedAssignmentCard = nextCard
     }
 }
@@ -177,7 +168,6 @@ struct AssignmentJobTile: View {
     let claimed: Bool
     let reward: Card?
     let assignedCards: [AssignmentDisplayCard]
-    let pendingHours: Int
     let highlighted: Bool
     let validTarget: Bool
     let hovered: Bool
@@ -185,8 +175,6 @@ struct AssignmentJobTile: View {
     let onDragChanged: (Card, CGPoint, CGSize) -> Void
     let onDragEnded: (Card, CGSize) -> Void
     let onTapAssign: () -> Void
-
-    private var totalHours: Int { hours + pendingHours }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
@@ -338,7 +326,6 @@ struct AssignmentTileCard: View {
 struct AssignmentCapturedCard: View {
     @Environment(\.kolkhozLanguage) private var language
     let play: TrickPlay
-    let playerName: String
     let assignedSuit: Suit?
     let selected: Bool
     let dragging: Bool
@@ -353,21 +340,14 @@ struct AssignmentCapturedCard: View {
                 x: proxy.frame(in: .named(GameBoardCoordinateSpace.main)).midX,
                 y: proxy.frame(in: .named(GameBoardCoordinateSpace.main)).midY
             )
-            VStack(spacing: 3) {
-                CardView(card: play.card, size: .small)
-                    .opacity(isDragging || dragging ? 0.32 : 1)
-                Text(statusText)
-                    .font(.kolkhozTitle(.caption2))
-                    .foregroundStyle(statusColor)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-                    .frame(width: 42, height: 12)
-                    .background(statusBackground, in: Capsule())
-            }
-            .frame(width: 48, height: 74)
+            CardView(card: play.card, size: .medium)
+                .opacity(isDragging || dragging ? 0.32 : 1)
+                .scaleEffect(isDragging || dragging ? 1.05 : 1)
+                .shadow(color: highlightColor.opacity(selected || assignedSuit != nil ? 0.38 : 0.16), radius: selected || assignedSuit != nil ? 9 : 4, y: 2)
+                .frame(width: CardSize.medium.width, height: CardSize.medium.height)
             .overlay {
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(selected ? Color.kolkhozGold : Color.clear, lineWidth: 2)
+                RoundedRectangle(cornerRadius: 7)
+                    .stroke(highlightColor, lineWidth: selected || assignedSuit != nil ? 3 : 0)
             }
             .contentShape(Rectangle())
             .onTapGesture(perform: onTapSelect)
@@ -376,43 +356,21 @@ struct AssignmentCapturedCard: View {
                     .updating($isDragging) { _, state, _ in state = true }
                     .onChanged { value in onDragChanged(play.card, startCenter, value.translation) }
                     .onEnded { value in onDragEnded(play.card, value.translation) }
-            )
+                )
         }
-        .frame(width: 48, height: 74)
+        .frame(width: CardSize.medium.width, height: CardSize.medium.height)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(language.text(en: "\(play.card.rank) of \(play.card.suit.rawValue), captured by \(playerName)", ru: "\(play.card.rank) \(language.suitName(play.card.suit)), взял \(playerName)")))
+        .accessibilityLabel(Text(language.text(en: "\(play.card.rank) of \(play.card.suit.rawValue)", ru: "\(play.card.rank) \(language.suitName(play.card.suit))")))
         .accessibilityValue(Text(assignedSuit.map { language.text(en: "Assigned to \($0.rawValue)", ru: "Назначено на \(language.suitName($0))") } ?? (selected ? language.text(en: "Selected", ru: "Выбрано") : language.text(en: "Unassigned", ru: "Не назначено"))))
         .accessibilityHint(Text(language.text(en: "Tap to select for assignment, or drag to a valid job.", ru: "Нажмите для выбора или перетащите на допустимую работу.")))
         .accessibilityAddTraits(.isButton)
     }
 
-    private var statusText: String {
-        if let assignedSuit {
-            return language.suitShortName(assignedSuit)
-        }
-        return selected ? language.text(en: "SEL", ru: "ВЫБ") : ownerBadgeText
-    }
-
-    private var ownerBadgeText: String {
-        if play.playerID == 0 {
-            return language.text(en: "YOU", ru: "ВЫ")
-        }
-        let prefix = playerName.prefix(3)
-        return String(prefix).uppercased()
-    }
-
-    private var statusColor: Color {
+    private var highlightColor: Color {
         if assignedSuit != nil {
             return Color.kolkhozGreen
         }
-        return selected ? Color.kolkhozGold : Color.kolkhozCreamDim
-    }
-
-    private var statusBackground: Color {
-        if assignedSuit != nil {
-            return Color.kolkhozGreen.opacity(0.16)
-        }
-        return selected ? Color.kolkhozGold.opacity(0.18) : Color.kolkhozBlack.opacity(0.34)
+        return selected ? Color.kolkhozGold : Color.clear
     }
 }
 
@@ -464,6 +422,7 @@ struct AssignmentDragGhost: View {
 }
 
 private struct JobsPreviewHost: View {
+    @EnvironmentObject private var store: GameStore
     @State private var jobTargets: [Suit: CGPoint] = [:]
     @State private var jobTargetFrames: [Suit: CGRect] = [:]
     @State private var assignmentDrag: AssignmentDragState?
@@ -476,7 +435,16 @@ private struct JobsPreviewHost: View {
             jobTargetFrames: $jobTargetFrames,
             assignmentDrag: $assignmentDrag,
             hoveredSuit: $hoveredSuit,
-            selectedAssignmentCard: $selectedAssignmentCard
+            selectedAssignmentCard: $selectedAssignmentCard,
+            isAssignmentPhase: store.state.phase == .assignment,
+            lastTrick: store.state.lastTrick,
+            workHours: store.state.workHours,
+            claimedJobs: store.state.claimedJobs,
+            revealedJobs: store.state.revealedJobs,
+            jobBuckets: store.state.jobBuckets,
+            pendingAssignments: store.state.pendingAssignments,
+            trump: store.state.trump,
+            onAssign: { _, _ in }
         )
         .coordinateSpace(name: GameBoardCoordinateSpace.main)
     }

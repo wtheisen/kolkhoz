@@ -3,7 +3,9 @@ import SwiftUI
 
 enum PhaseOverlayLayout {
     static let panelSpacing: CGFloat = 10
-    static let cardRowSpacing: CGFloat = 8
+    static let trumpGridSpacing: CGFloat = 8
+    static let trumpButtonSize: CGFloat = 54
+    static let trumpIconSize: CGFloat = 34
 }
 
 struct PhaseOverlayView: View {
@@ -33,8 +35,8 @@ struct PlanningView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: PhaseOverlayLayout.panelSpacing) {
             PanelTitleRow(
-                title: store.state.isFamine ? language.text(en: "Famine year", ru: "Год неурожая") : language.text(en: "Choose Main Task", ru: "Выберите главную задачу"),
-                subtitle: store.state.isFamine ? language.text(en: "No trump suit is used this year.", ru: "В этом году козырь не используется.") : language.text(en: "Pick the job suit for this year.", ru: "Выберите масть работы на этот год."),
+                title: store.state.isFamine ? language.text(en: "Famine year", ru: "Год неурожая") : language.text(en: "Choose Trump", ru: "Выберите козырь"),
+                subtitle: store.state.isFamine ? language.text(en: "No trump suit is used this year.", ru: "В этом году козырь не используется.") : language.text(en: "Pick the trump suit for this year.", ru: "Выберите козырную масть на этот год."),
                 icon: store.state.isFamine ? .warning : .jobs,
                 urgent: store.state.isFamine
             )
@@ -44,23 +46,65 @@ struct PlanningView: View {
                     .font(.kolkhozLabel(.subheadline))
                     .foregroundStyle(Color.kolkhozCreamDim)
             } else {
-                HStack(spacing: PhaseOverlayLayout.cardRowSpacing) {
+                LazyVGrid(
+                    columns: Array(
+                        repeating: GridItem(.fixed(PhaseOverlayLayout.trumpButtonSize), spacing: PhaseOverlayLayout.trumpGridSpacing),
+                        count: 2
+                    ),
+                    spacing: PhaseOverlayLayout.trumpGridSpacing
+                ) {
                     ForEach(Suit.allCases) { suit in
                         Button {
                             store.setTrump(suit)
                         } label: {
-                            AssignmentTargetButton(
+                            TrumpSelectionButton(
                                 suit: suit,
-                                selected: store.state.trump == suit,
-                                title: language.suitName(suit)
+                                title: language.suitName(suit),
+                                selected: store.state.trump == suit
                             )
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(language.text(en: "\(language.suitName(suit)) trump", ru: "\(language.suitName(suit)) козырь"))
                     }
                 }
+                .frame(width: PhaseOverlayLayout.trumpButtonSize * 2 + PhaseOverlayLayout.trumpGridSpacing)
+                .frame(maxWidth: .infinity, alignment: .center)
             }
         }
         .panelStyle()
+    }
+}
+
+struct TrumpSelectionButton: View {
+    let suit: Suit
+    let title: String
+    let selected: Bool
+
+    var body: some View {
+        ZStack {
+            GeneratedChromeImage(resourceName: backgroundResourceName)
+                .allowsHitTesting(false)
+
+            GameIcon(trumpIcon, size: PhaseOverlayLayout.trumpIconSize)
+                .padding(.top, selected ? 2 : 0)
+        }
+        .frame(width: PhaseOverlayLayout.trumpButtonSize, height: PhaseOverlayLayout.trumpButtonSize)
+        .foregroundStyle(selected ? Color.kolkhozOnAccent : Color.kolkhozCreamDim)
+        .shadow(color: selected ? Color.kolkhozRed.opacity(0.38) : Color.kolkhozGold.opacity(0.16), radius: selected ? 8 : 4, y: 3)
+        .help(title)
+    }
+
+    private var backgroundResourceName: String {
+        selected ? "ui-nav-button-active-current" : "ui-nav-button-inactive-current"
+    }
+
+    private var trumpIcon: GameIconAsset {
+        switch suit {
+        case .wheat: .trumpWheat
+        case .sunflower: .trumpSunflower
+        case .potato: .trumpPotato
+        case .beet: .trumpBeet
+        }
     }
 }
 

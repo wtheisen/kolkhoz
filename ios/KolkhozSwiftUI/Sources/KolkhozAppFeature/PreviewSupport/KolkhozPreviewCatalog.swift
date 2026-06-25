@@ -79,7 +79,8 @@ struct KolkhozPreviewBoardHost: View {
     VStack(alignment: .leading, spacing: 14) {
         PlayerPanel(
             player: KolkhozPreviewFixtures.playerPanelOpponent,
-            score: 18,
+            plotScore: 18,
+            maxTricks: 4,
             active: true,
             human: false
         )
@@ -87,7 +88,8 @@ struct KolkhozPreviewBoardHost: View {
 
         PlayerPanel(
             player: KolkhozPreviewFixtures.playerPanelHuman,
-            score: 24,
+            plotScore: 24,
+            maxTricks: 4,
             active: false,
             human: true
         )
@@ -95,7 +97,8 @@ struct KolkhozPreviewBoardHost: View {
 
         PlayerPanel(
             player: KolkhozPreviewFixtures.playerPanelOpponent,
-            score: 18,
+            plotScore: 18,
+            maxTricks: 4,
             active: true,
             human: false
         )
