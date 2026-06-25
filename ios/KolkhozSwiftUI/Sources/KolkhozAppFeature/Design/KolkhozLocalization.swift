@@ -125,7 +125,6 @@ extension EnvironmentValues {
 struct LanguageToggleButton: View {
     @Environment(\.kolkhozLanguage) private var language
     @Environment(\.toggleKolkhozLanguage) private var toggleLanguage
-    var compact = false
 
     var body: some View {
         Button(action: toggleLanguage) {

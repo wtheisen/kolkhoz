@@ -2,25 +2,21 @@ import KolkhozCore
 import SwiftUI
 
 enum TopInfoBarLayout {
-    static let compactWidth: CGFloat = 720
-    static let microWidth: CGFloat = 620
     static let height: CGFloat = 48
-    static let rowSpacingMicro: CGFloat = 3
-    static let rowSpacingCompact: CGFloat = 4
-    static let rowSpacingRegular: CGFloat = 6
-    static let yearWidthMicro: CGFloat = 46
-    static let yearWidthCompact: CGFloat = 52
-    static let yearWidthRegular: CGFloat = 92
-    static let leadWidth: CGFloat = 96
-    static let gaugeWidthCompact: CGFloat = 78
-    static let gaugeWidthRegular: CGFloat = 84
-    static let gaugeHeightCompact: CGFloat = 36
-    static let gaugeHeightRegular: CGFloat = 38
-    static let gaugeSpacingCompact: CGFloat = 3
-    static let gaugeSpacingRegular: CGFloat = 6
-    static let scoreWidthMicro: CGFloat = 54
-    static let scoreWidthCompact: CGFloat = 60
-    static let scoreWidthRegular: CGFloat = 84
+    static let minRowSpacing: CGFloat = 3
+    static let maxRowSpacing: CGFloat = 6
+    static let minYearWidth: CGFloat = 46
+    static let maxYearWidth: CGFloat = 62
+    static let minLeadWidth: CGFloat = 50
+    static let maxLeadWidth: CGFloat = 76
+    static let minGaugeWidth: CGFloat = 72
+    static let maxGaugeWidth: CGFloat = 86
+    static let minGaugeHeight: CGFloat = 34
+    static let maxGaugeHeight: CGFloat = 38
+    static let minGaugeSpacing: CGFloat = 3
+    static let maxGaugeSpacing: CGFloat = 6
+    static let minScoreWidth: CGFloat = 54
+    static let maxScoreWidth: CGFloat = 70
 }
 
 struct TopInfoBarView: View {
@@ -30,27 +26,25 @@ struct TopInfoBarView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let compact = proxy.size.width < TopInfoBarLayout.compactWidth
-            let micro = proxy.size.width < TopInfoBarLayout.microWidth
             let cellarScore = store.state.players[0].plot.hidden.reduce(0) { $0 + $1.value }
             let plotScore = store.state.players[0].plot.revealed.reduce(0) { $0 + $1.value }
-            let rowSpacing: CGFloat = micro ? TopInfoBarLayout.rowSpacingMicro : (compact ? TopInfoBarLayout.rowSpacingCompact : TopInfoBarLayout.rowSpacingRegular)
-            let yearWidth: CGFloat = micro ? TopInfoBarLayout.yearWidthMicro : (compact ? TopInfoBarLayout.yearWidthCompact : TopInfoBarLayout.yearWidthRegular)
-            let leadWidth: CGFloat = store.state.currentTrick.first?.card.suit != nil && !compact ? TopInfoBarLayout.leadWidth : 0
-            let gaugeWidth: CGFloat = compact ? TopInfoBarLayout.gaugeWidthCompact : TopInfoBarLayout.gaugeWidthRegular
-            let gaugeSpacing: CGFloat = compact ? TopInfoBarLayout.gaugeSpacingCompact : TopInfoBarLayout.gaugeSpacingRegular
+            let rowSpacing = kolkhozClamp(proxy.size.width * 0.008, TopInfoBarLayout.minRowSpacing, TopInfoBarLayout.maxRowSpacing)
+            let yearWidth = kolkhozClamp(proxy.size.width * 0.08, TopInfoBarLayout.minYearWidth, TopInfoBarLayout.maxYearWidth)
+            let leadWidth = kolkhozClamp(proxy.size.width * 0.10, TopInfoBarLayout.minLeadWidth, TopInfoBarLayout.maxLeadWidth)
+            let gaugeWidth = kolkhozClamp(proxy.size.width * 0.12, TopInfoBarLayout.minGaugeWidth, TopInfoBarLayout.maxGaugeWidth)
+            let gaugeHeight = kolkhozClamp(proxy.size.height * 0.78, TopInfoBarLayout.minGaugeHeight, TopInfoBarLayout.maxGaugeHeight)
+            let gaugeSpacing = kolkhozClamp(proxy.size.width * 0.006, TopInfoBarLayout.minGaugeSpacing, TopInfoBarLayout.maxGaugeSpacing)
             let gaugesWidth = gaugeWidth * CGFloat(Suit.allCases.count) + gaugeSpacing * CGFloat(Suit.allCases.count - 1)
-            let scoreWidth: CGFloat = micro ? TopInfoBarLayout.scoreWidthMicro : (compact ? TopInfoBarLayout.scoreWidthCompact : TopInfoBarLayout.scoreWidthRegular)
-            let visibleCellCount = leadWidth > 0 ? 5 : 4
-            let preferredRowWidth = yearWidth + leadWidth + gaugesWidth + scoreWidth * 2 + rowSpacing * CGFloat(visibleCellCount - 1)
+            let scoreWidth = kolkhozClamp(proxy.size.width * 0.09, TopInfoBarLayout.minScoreWidth, TopInfoBarLayout.maxScoreWidth)
+            let preferredRowWidth = yearWidth + leadWidth + gaugesWidth + scoreWidth * 2 + rowSpacing * 4
             let rowWidth = min(proxy.size.width, preferredRowWidth)
 
             HStack(spacing: rowSpacing) {
-                TopInfoCell(label: compact ? "" : language.text(en: "Year", ru: "Год"), icon: compact ? yearIcon : nil, value: compact ? nil : "\(store.state.year)/5", compact: compact, iconSize: compact ? 42 : nil)
+                TopInfoCell(icon: yearIcon, value: "\(store.state.year)", iconSize: gaugeHeight, contentSpacing: rowSpacing)
                     .frame(width: yearWidth)
 
-                if let lead = store.state.currentTrick.first?.card.suit, !compact {
-                    TopInfoCell(label: language.text(en: "Lead", ru: "Ведёт"), suit: lead, compact: compact)
+                if let lead = store.state.currentTrick.first?.card.suit {
+                    TopInfoCell(suit: lead, value: language.text(en: "Lead", ru: "Ведёт"), suitSize: gaugeHeight * 0.58, contentSpacing: rowSpacing)
                         .frame(width: leadWidth)
                 }
 
@@ -61,7 +55,8 @@ struct TopInfoBarView: View {
                             hours: store.state.workHours[suit, default: 0],
                             claimed: store.state.claimedJobs.contains(suit),
                             highlighted: store.state.trump == suit,
-                            compact: compact,
+                            width: gaugeWidth,
+                            height: gaugeHeight,
                             jobTargets: $jobTargets
                         )
                         .frame(width: gaugeWidth)
@@ -70,18 +65,18 @@ struct TopInfoBarView: View {
                 .frame(width: gaugesWidth)
 
                 TopInfoCell(
-                    label: compact ? "" : language.text(en: "Cellar", ru: "Подвал"),
                     icon: .cellar,
                     value: "\(cellarScore)",
                     warning: true,
-                    compact: compact
+                    iconSize: gaugeHeight * 0.66,
+                    contentSpacing: rowSpacing
                 )
                 .frame(width: scoreWidth)
                 TopInfoCell(
-                    label: compact ? "" : language.text(en: "Plot", ru: "Участок"),
                     icon: .plot,
                     value: "\(plotScore)",
-                    compact: compact
+                    iconSize: gaugeHeight * 0.66,
+                    contentSpacing: rowSpacing
                 )
                 .frame(width: scoreWidth)
             }
@@ -106,35 +101,37 @@ struct TopInfoBarView: View {
 }
 
 struct TopInfoCell: View {
-    let label: String
+    var label: String = ""
     var icon: GameIconAsset? = nil
     var suit: Suit? = nil
     var value: String? = nil
     var warning = false
-    var compact = false
     var iconSize: CGFloat? = nil
+    var suitSize: CGFloat? = nil
+    var contentSpacing: CGFloat = 5
+    var horizontalPadding: CGFloat = 6
 
     var body: some View {
-        HStack(spacing: compact ? 4 : 6) {
+        HStack(spacing: contentSpacing) {
             if let icon {
-                GameIcon(icon, size: iconSize ?? (compact ? 26 : 20))
+                GameIcon(icon, size: iconSize ?? 24)
             }
             if !label.isEmpty {
                 PixelText(text: label.uppercased(), size: .caption2, color: warning ? Color.kolkhozRedBright : Color.kolkhozSmoke)
             }
             if let suit {
-                SuitMark(suit: suit, size: compact ? 17 : 22)
+                SuitMark(suit: suit, size: suitSize ?? 22)
             }
             if let value {
                 PixelText(
                     text: value,
-                    size: compact ? .caption : .headline,
+                    size: .caption,
                     variant: .heavy,
                     color: .kolkhozGold
                 )
             }
         }
-        .padding(.horizontal, compact ? 6 : 10)
+        .padding(.horizontal, horizontalPadding)
         .frame(height: TopInfoBarLayout.height)
         .background(warning ? Color.kolkhozRedDark.opacity(0.18) : Color.clear)
     }
@@ -145,34 +142,33 @@ struct TopInfoJobGauge: View {
     let hours: Int
     let claimed: Bool
     let highlighted: Bool
-    let compact: Bool
+    let width: CGFloat
+    let height: CGFloat
     @Binding var jobTargets: [Suit: CGPoint]
 
     var body: some View {
-        let gaugeWidth: CGFloat = compact ? TopInfoBarLayout.gaugeWidthCompact : TopInfoBarLayout.gaugeWidthRegular
-        let gaugeHeight: CGFloat = compact ? TopInfoBarLayout.gaugeHeightCompact : TopInfoBarLayout.gaugeHeightRegular
         HStack(spacing: 0) {
             if highlighted {
-                GameIcon(trumpIcon, size: compact ? 22 : 32)
-                    .frame(width: gaugeHeight, height: gaugeHeight)
+                GameIcon(trumpIcon, size: height * 0.72)
+                    .frame(width: height, height: height)
             } else {
-                SuitMark(suit: suit, size: compact ? 22 : 19)
-                    .frame(width: gaugeHeight, height: gaugeHeight)
+                SuitMark(suit: suit, size: height * 0.58)
+                    .frame(width: height, height: height)
             }
             if claimed {
-                GameIcon(.check, size: compact ? 13 : 16)
-                    .frame(width: gaugeWidth - gaugeHeight, height: gaugeHeight)
+                GameIcon(.check, size: height * 0.4)
+                    .frame(width: width - height, height: height)
             } else {
                 PixelText(
                     text: "\(hours)/40",
-                    size: compact ? .caption : .caption,
+                    size: .caption,
                     variant: .heavy,
                     color: highlighted ? Color.kolkhozGold : Color.kolkhozSmoke
                 )
-                    .frame(width: gaugeWidth - gaugeHeight, height: gaugeHeight)
+                    .frame(width: width - height, height: height)
             }
         }
-        .frame(width: gaugeWidth, height: gaugeHeight)
+        .frame(width: width, height: height)
         .background {
             GeneratedChromeImage(resourceName: "ui-header-counter")
                 .allowsHitTesting(false)
@@ -202,13 +198,13 @@ struct TopInfoJobGauge: View {
 }
 
 #if DEBUG
-#Preview("Info Bar - Regular") {
+#Preview("Info Bar - Wide") {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.trickState, width: 760, height: 86) {
         TopInfoBarPreviewHost()
     }
 }
 
-#Preview("Info Bar - Compact") {
+#Preview("Info Bar - Narrow") {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.assignmentState, width: 430, height: 86) {
         TopInfoBarPreviewHost()
     }

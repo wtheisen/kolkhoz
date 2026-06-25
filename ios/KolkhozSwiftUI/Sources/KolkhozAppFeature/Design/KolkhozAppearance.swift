@@ -49,7 +49,6 @@ struct AppearanceToggleButton: View {
     @Environment(\.kolkhozAppearance) private var appearance
     @Environment(\.kolkhozLanguage) private var language
     @Environment(\.toggleKolkhozAppearance) private var toggleAppearance
-    var compact = false
 
     var body: some View {
         Button(action: toggleAppearance) {

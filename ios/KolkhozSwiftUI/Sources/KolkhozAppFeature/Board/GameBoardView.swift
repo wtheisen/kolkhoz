@@ -2,22 +2,19 @@ import KolkhozCore
 import SwiftUI
 
 enum GameBoardLayout {
-    static let compactPhoneWidth: CGFloat = 560
-    static let phoneLandscapeHeight: CGFloat = 430
-    static let compactMargin: CGFloat = 4
-    static let regularMargin: CGFloat = 6
-    static let minHorizontalGutter: CGFloat = 24
-    static let maxHorizontalGutter: CGFloat = 42
-    static let horizontalGutterRatio: CGFloat = 0.04
+    static let minMargin: CGFloat = 4
+    static let maxMargin: CGFloat = 8
+    static let marginRatio: CGFloat = 0.01
+    static let minHorizontalGutter: CGFloat = 0
+    static let maxHorizontalGutter: CGFloat = 24
+    static let horizontalGutterRatio: CGFloat = 0.025
     static let minContentWidth: CGFloat = 280
     static let minContentHeight: CGFloat = 240
-    static let compactNavHeight: CGFloat = 54
-    static let compactGameMinHeight: CGFloat = 220
+    static let minNavHeight: CGFloat = 50
+    static let maxNavHeight: CGFloat = 58
+    static let navHeightRatio: CGFloat = 0.13
+    static let minGameHeight: CGFloat = 220
     static let minGameWidth: CGFloat = 240
-    static let navRailMaxWidth: CGFloat = 58
-    static let navRailMinWidth: CGFloat = 48
-    static let navRailWidthRatio: CGFloat = 0.07
-    static let navRailGap: CGFloat = 18
 }
 
 struct GameBoardView: View {
@@ -76,28 +73,26 @@ struct GameBoardView: View {
             .ignoresSafeArea()
 
             GeometryReader { proxy in
-                let compactPhone = proxy.size.width < GameBoardLayout.compactPhoneWidth
-                let phoneLandscape = proxy.size.height < GameBoardLayout.phoneLandscapeHeight
-                let margin: CGFloat = compactPhone ? GameBoardLayout.compactMargin : GameBoardLayout.regularMargin
-                let topInset = compactPhone || phoneLandscape ? 0 : proxy.safeAreaInsets.top
-                let bottomInset = compactPhone || phoneLandscape ? 0 : proxy.safeAreaInsets.bottom
-                let horizontalGutter = compactPhone || phoneLandscape ? 0 : max(
+                let shorterSide = min(proxy.size.width, proxy.size.height)
+                let margin = max(
+                    GameBoardLayout.minMargin,
+                    min(GameBoardLayout.maxMargin, shorterSide * GameBoardLayout.marginRatio)
+                )
+                let horizontalGutter = max(
                     GameBoardLayout.minHorizontalGutter,
                     min(GameBoardLayout.maxHorizontalGutter, proxy.size.width * GameBoardLayout.horizontalGutterRatio)
                 )
                 let leadingInset = horizontalGutter
                 let trailingInset = horizontalGutter
                 let contentWidth = max(GameBoardLayout.minContentWidth, proxy.size.width - leadingInset - trailingInset - margin * 2)
-                let contentHeight = max(GameBoardLayout.minContentHeight, proxy.size.height - topInset - bottomInset - margin * 2)
-                let railWidth = phoneLandscape ? GameBoardLayout.navRailMaxWidth : min(
-                    GameBoardLayout.navRailMaxWidth,
-                    max(GameBoardLayout.navRailMinWidth, contentWidth * GameBoardLayout.navRailWidthRatio)
+                let contentHeight = max(GameBoardLayout.minContentHeight, proxy.size.height - margin * 2)
+                let navHeight = max(
+                    GameBoardLayout.minNavHeight,
+                    min(GameBoardLayout.maxNavHeight, contentHeight * GameBoardLayout.navHeightRatio)
                 )
-                let railGap: CGFloat = compactPhone ? 0 : GameBoardLayout.navRailGap
-                let compactNavHeight = GameBoardLayout.compactNavHeight
-                let gameWidth = compactPhone ? contentWidth : max(GameBoardLayout.minGameWidth, contentWidth - railWidth - railGap)
-                let gameHeight = compactPhone ? max(GameBoardLayout.compactGameMinHeight, contentHeight - compactNavHeight) : contentHeight
-                let gameOriginX = leadingInset + margin + (compactPhone ? 0 : railWidth + railGap)
+                let gameWidth = max(GameBoardLayout.minGameWidth, contentWidth)
+                let gameHeight = max(GameBoardLayout.minGameHeight, contentHeight - navHeight)
+                let gameOriginX = leadingInset + margin
                 let gameMaxX = gameOriginX + gameWidth
                 let safeMinX = proxy.safeAreaInsets.leading
                 let safeMaxX = proxy.size.width - proxy.safeAreaInsets.trailing
@@ -108,55 +103,28 @@ struct GameBoardView: View {
                     trailing: max(0, gameMaxX - safeMaxX)
                 )
 
-                Group {
-                    if compactPhone {
-                        VStack(spacing: 0) {
-                            CompactButtonBarView(
-                                activePanel: displayPanel,
-                                actionPanel: actionPanel,
-                                onMenu: onMenu,
-                                onSelectPanel: { selectedPanel = $0 }
-                            )
-                            .frame(width: contentWidth, height: compactNavHeight)
-                            PlayAreaView(
-                                displayPanel: displayPanel,
-                                gameSafeInsets: gameSafeInsets,
-                                onReturnToLobby: onMenu,
-                                onNewGame: {
-                                    store.newGame()
-                                    selectedPanel = nil
-                                }
-                            )
-                            .frame(width: gameWidth, height: gameHeight)
-                        }
-                    } else {
-                        ZStack(alignment: .topLeading) {
-                            LeftButtonBarView(
-                                activePanel: displayPanel,
-                                actionPanel: actionPanel,
-                                width: railWidth,
-                                onMenu: onMenu,
-                                onSelectPanel: { selectedPanel = $0 }
-                            )
-                            .zIndex(20)
+                VStack(spacing: 0) {
+                    TopButtonBarView(
+                        activePanel: displayPanel,
+                        actionPanel: actionPanel,
+                        onMenu: onMenu,
+                        onSelectPanel: { selectedPanel = $0 }
+                    )
+                    .frame(width: contentWidth, height: navHeight)
 
-                            PlayAreaView(
-                                displayPanel: displayPanel,
-                                gameSafeInsets: gameSafeInsets,
-                                onReturnToLobby: onMenu,
-                                onNewGame: {
-                                    store.newGame()
-                                    selectedPanel = nil
-                                }
-                            )
-                            .frame(width: gameWidth, height: contentHeight)
-                            .offset(x: railWidth + railGap)
-                            .zIndex(0)
+                    PlayAreaView(
+                        displayPanel: displayPanel,
+                        gameSafeInsets: gameSafeInsets,
+                        onReturnToLobby: onMenu,
+                        onNewGame: {
+                            store.newGame()
+                            selectedPanel = nil
                         }
-                    }
+                    )
+                    .frame(width: gameWidth, height: gameHeight)
                 }
                 .frame(width: contentWidth, height: contentHeight, alignment: .topLeading)
-                .offset(x: leadingInset + margin, y: topInset + margin)
+                .offset(x: leadingInset + margin, y: margin)
                 .clipped()
             }
         }

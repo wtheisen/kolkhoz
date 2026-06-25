@@ -2,19 +2,17 @@ import KolkhozCore
 import SwiftUI
 
 enum JobsViewLayout {
-    static let gridCompactWidth: CGFloat = 500
-    static let gridTightWidth: CGFloat = 560
-    static let headerCompactWidth: CGFloat = 520
-    static let compactSpacing: CGFloat = 6
-    static let regularSpacing: CGFloat = 10
+    static let minGridSpacing: CGFloat = 6
+    static let maxGridSpacing: CGFloat = 10
+    static let minTileWidth: CGFloat = 132
     static let assignmentTileMinHeight: CGFloat = 88
     static let displayTileMinHeight: CGFloat = 106
     static let assignmentHeaderHeight: CGFloat = 58
     static let displayHeaderHeight: CGFloat = 62
-    static let compactHeaderHorizontalPadding: CGFloat = 8
-    static let regularHeaderHorizontalPadding: CGFloat = 10
-    static let compactHeaderVerticalPadding: CGFloat = 5
-    static let regularHeaderVerticalPadding: CGFloat = 6
+    static let minHeaderHorizontalPadding: CGFloat = 8
+    static let maxHeaderHorizontalPadding: CGFloat = 10
+    static let minHeaderVerticalPadding: CGFloat = 5
+    static let maxHeaderVerticalPadding: CGFloat = 6
     static let tileCardStackSpacing: CGFloat = -34
     static let tilePadding: CGFloat = 8
 }
@@ -46,16 +44,13 @@ struct JobsView: View {
             assignmentHeader
 
             GeometryReader { proxy in
-                let spacing: CGFloat = proxy.size.width < JobsViewLayout.gridTightWidth ? JobsViewLayout.compactSpacing : JobsViewLayout.regularSpacing
-                let compactGrid = proxy.size.width < JobsViewLayout.gridCompactWidth
-                let columnCount = compactGrid ? 2 : Suit.allCases.count
-                let rowCount = compactGrid ? 2 : 1
+                let spacing = kolkhozClamp(proxy.size.width * 0.016, JobsViewLayout.minGridSpacing, JobsViewLayout.maxGridSpacing)
+                let tileMinWidth = kolkhozClamp(proxy.size.width * 0.24, JobsViewLayout.minTileWidth, proxy.size.width)
+                let columnCount = max(1, min(Suit.allCases.count, Int((proxy.size.width + spacing) / (tileMinWidth + spacing))))
+                let rowCount = Int(ceil(Double(Suit.allCases.count) / Double(columnCount)))
                 let minTileHeight: CGFloat = isAssignmentPhase ? JobsViewLayout.assignmentTileMinHeight : JobsViewLayout.displayTileMinHeight
                 let tileHeight = max(minTileHeight, (proxy.size.height - spacing * CGFloat(rowCount - 1)) / CGFloat(rowCount))
-                let columns = Array(
-                    repeating: GridItem(.flexible(minimum: 0), spacing: spacing),
-                    count: columnCount
-                )
+                let columns = [GridItem(.adaptive(minimum: tileMinWidth), spacing: spacing)]
 
                 LazyVGrid(columns: columns, alignment: .leading, spacing: spacing) {
                     ForEach(Suit.allCases) { suit in
@@ -94,19 +89,19 @@ struct JobsView: View {
 
     private var assignmentHeader: some View {
         GeometryReader { proxy in
-            let compact = proxy.size.width < JobsViewLayout.headerCompactWidth
+            let horizontalPadding = kolkhozClamp(proxy.size.width * 0.018, JobsViewLayout.minHeaderHorizontalPadding, JobsViewLayout.maxHeaderHorizontalPadding)
+            let verticalPadding = kolkhozClamp(proxy.size.height * 0.10, JobsViewLayout.minHeaderVerticalPadding, JobsViewLayout.maxHeaderVerticalPadding)
 
-            HStack(spacing: compact ? JobsViewLayout.compactSpacing : JobsViewLayout.regularSpacing) {
+            HStack(spacing: kolkhozClamp(proxy.size.width * 0.016, JobsViewLayout.minGridSpacing, JobsViewLayout.maxGridSpacing)) {
                 PanelTitleRow(
                     title: isAssignmentPhase ? language.text(en: "Assign to jobs", ru: "Назначьте на работы") : language.text(en: "Jobs", ru: "Работы"),
                     subtitle: isAssignmentPhase ? language.text(en: "Drag cards from the hand tray into a valid suit column.", ru: "Перетащите карты из руки в допустимую колонку.") : language.text(en: "Track work progress and rewards.", ru: "Следите за работами и наградами."),
-                    icon: .jobs,
-                    compact: compact
+                    icon: .jobs
                 )
                 .layoutPriority(1)
             }
-            .padding(.horizontal, compact ? JobsViewLayout.compactHeaderHorizontalPadding : JobsViewLayout.regularHeaderHorizontalPadding)
-            .padding(.vertical, compact ? JobsViewLayout.compactHeaderVerticalPadding : JobsViewLayout.regularHeaderVerticalPadding)
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, verticalPadding)
             .frame(width: proxy.size.width, height: proxy.size.height)
             .background(CommandPanelBackground())
         }
@@ -415,7 +410,7 @@ struct AssignmentDragGhost: View {
     }
 }
 
-#Preview("Assignment Jobs - Compact") {
+#Preview("Assignment Jobs - Narrow") {
     BoardPreviewStoreStage(state: KolkhozPreviewFixtures.assignmentState, width: 430, height: 360) {
         JobsPreviewHost()
     }

@@ -2,27 +2,24 @@ import KolkhozCore
 import SwiftUI
 
 enum PlayerPanelLayout {
-    static let compactWidth: CGFloat = 166
-    static let compactOuterInset: CGFloat = 5
-    static let regularOuterInset: CGFloat = 7
-    static let compactPortraitColumnWidth: CGFloat = 34
-    static let regularPortraitColumnWidth: CGFloat = 46
+    static let minOuterInset: CGFloat = 5
+    static let maxOuterInset: CGFloat = 7
+    static let minPortraitColumnWidth: CGFloat = 34
+    static let maxPortraitColumnWidth: CGFloat = 46
     static let portraitColumnWidthRatio: CGFloat = 0.28
     static let portraitColumnHeightRatio: CGFloat = 1.08
-    static let compactPortraitSize: CGFloat = 30
-    static let regularPortraitSize: CGFloat = 40
     static let minPortraitSize: CGFloat = 24
-    static let compactNameHeight: CGFloat = 20
-    static let regularNameHeight: CGFloat = 24
+    static let maxPortraitSize: CGFloat = 40
     static let nameHeightRatio: CGFloat = 0.51
     static let minPanelHeight: CGFloat = 54
-    static let compactColumnBreakpoint: CGFloat = 108
-    static let narrowColumnsBreakpoint: CGFloat = 500
-    static let tightColumnsBreakpoint: CGFloat = 620
     static let minColumnWidth: CGFloat = 68
     static let playAreaScale: CGFloat = 1.6
-    static let compactStatColumnWidth: CGFloat = 44
-    static let regularStatColumnWidth: CGFloat = 50
+    static let minStatColumnWidth: CGFloat = 44
+    static let maxStatColumnWidth: CGFloat = 50
+    static let minColumnSpacing: CGFloat = 6
+    static let maxColumnSpacing: CGFloat = 8
+    static let minPreferredColumnWidth: CGFloat = 96
+    static let maxPreferredColumnWidth: CGFloat = 120
 }
 
 struct PlayerPanel: View {
@@ -36,16 +33,21 @@ struct PlayerPanel: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let compact = proxy.size.width < PlayerPanelLayout.compactWidth
-            let outerInset: CGFloat = compact ? PlayerPanelLayout.compactOuterInset : PlayerPanelLayout.regularOuterInset
+            let outerInset = kolkhozClamp(proxy.size.width * 0.04, PlayerPanelLayout.minOuterInset, PlayerPanelLayout.maxOuterInset)
             let portraitColumnWidth = min(
-                max(compact ? PlayerPanelLayout.compactPortraitColumnWidth : PlayerPanelLayout.regularPortraitColumnWidth, proxy.size.width * PlayerPanelLayout.portraitColumnWidthRatio),
-                max(PlayerPanelLayout.compactPortraitColumnWidth, proxy.size.height * PlayerPanelLayout.portraitColumnHeightRatio)
+                max(PlayerPanelLayout.minPortraitColumnWidth, proxy.size.width * PlayerPanelLayout.portraitColumnWidthRatio),
+                max(PlayerPanelLayout.minPortraitColumnWidth, proxy.size.height * PlayerPanelLayout.portraitColumnHeightRatio)
             )
-            let portraitSize = min(
-                compact ? PlayerPanelLayout.compactPortraitSize : PlayerPanelLayout.regularPortraitSize,
+            let portraitSize = kolkhozClamp(
                 max(PlayerPanelLayout.minPortraitSize, proxy.size.height - outerInset * 2 - 2)
+                ,
+                PlayerPanelLayout.minPortraitSize,
+                PlayerPanelLayout.maxPortraitSize
             )
+            let rowSpacing = kolkhozClamp(proxy.size.width * 0.025, 3, 5)
+            let stackSpacing = kolkhozClamp(proxy.size.width * 0.01, -1, 1)
+            let statColumnWidth = kolkhozClamp(proxy.size.width * 0.22, PlayerPanelLayout.minStatColumnWidth, PlayerPanelLayout.maxStatColumnWidth)
+            let topPadding = kolkhozClamp(proxy.size.height * 0.07, 2, 4)
 
             ZStack {
                 GeneratedChromeImage(resourceName: "ui-player-panel")
@@ -58,32 +60,32 @@ struct PlayerPanel: View {
                     }
                     .frame(width: portraitColumnWidth, height: max(0, proxy.size.height - outerInset * 2), alignment: .center)
 
-                    VStack(alignment: .leading, spacing: compact ? -1 : 1) {
-                        HStack(alignment: .center, spacing: compact ? 3 : 5) {
+                    VStack(alignment: .leading, spacing: stackSpacing) {
+                        HStack(alignment: .center, spacing: rowSpacing) {
                             PixelText(
-                                text: displayName(compact: compact),
-                                size: compact ? .caption : .title,
-                                variant: compact ? .heavy : .regular,
+                                text: displayName,
+                                size: .caption,
+                                variant: .heavy,
                                 color: active ? Color.kolkhozGold : Color.kolkhozCardInk
                             )
                             .layoutPriority(2)
 
                             Spacer(minLength: 2)
 
-                            PlayerPlotScoreStat(score: plotScore, compact: compact)
+                            PlayerPlotScoreStat(score: plotScore, statColumnWidth: statColumnWidth)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                        HStack(alignment: .center, spacing: compact ? 3 : 5) {
-                            PlayerMedalStat(medals: player.medals, maxTricks: maxTricks, compact: compact)
+                        HStack(alignment: .center, spacing: rowSpacing) {
+                            PlayerMedalStat(medals: player.medals, maxTricks: maxTricks, statColumnWidth: statColumnWidth)
 
                             Spacer(minLength: 2)
 
-                            PlayerCellarStat(cardCount: player.plot.hidden.count, compact: compact)
+                            PlayerCellarStat(cardCount: player.plot.hidden.count, statColumnWidth: statColumnWidth, cardSpacing: -kolkhozClamp(proxy.size.width * 0.03, 5, 6))
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .padding(.top, compact ? 2 : 4)
+                    .padding(.top, topPadding)
                     .offset(x: -4)
                     .layoutPriority(1)
                 }
@@ -104,9 +106,8 @@ struct PlayerPanel: View {
         .frame(minHeight: PlayerPanelLayout.minPanelHeight)
     }
 
-    private func displayName(compact: Bool) -> String {
+    private var displayName: String {
         guard !human else { return language.text(en: "You", ru: "Вы") }
-        guard compact else { return player.name }
         let firstName = player.name.split(separator: " ").first.map(String.init) ?? player.name
         return firstName.count > 6 ? "\(firstName.prefix(6))." : firstName
     }
@@ -115,28 +116,29 @@ struct PlayerPanel: View {
 private struct PlayerMedalStat: View {
     let medals: Int
     let maxTricks: Int
-    let compact: Bool
+    let statColumnWidth: CGFloat
 
     var body: some View {
         HStack(spacing: -4) {
             ForEach(0..<maxTricks, id: \.self) { index in
-                GameIcon(.medalStar, size: compact ? 12 : 12, muted: index >= medals)
+                GameIcon(.medalStar, size: 12, muted: index >= medals)
                     .opacity(index < medals ? 1 : 0.18)
             }
         }
-        .frame(minWidth: compact ? 28 : 36, alignment: .leading)
+        .frame(minWidth: statColumnWidth * 0.72, alignment: .leading)
         .accessibilityLabel("\(medals) tricks won this year")
     }
 }
 
 private struct PlayerCellarStat: View {
     let cardCount: Int
-    let compact: Bool
+    let statColumnWidth: CGFloat
+    let cardSpacing: CGFloat
 
     var body: some View {
         HStack(spacing: 2) {
-            GameIcon(.cellar, size: compact ? 16 : 16)
-            HStack(spacing: compact ? -6 : -5) {
+            GameIcon(.cellar, size: 16)
+            HStack(spacing: cardSpacing) {
                 ForEach(0..<cardCount, id: \.self) { _ in
                     CardBackThumbnail()
                 }
@@ -145,27 +147,19 @@ private struct PlayerCellarStat: View {
         .frame(width: statColumnWidth, alignment: .leading)
         .accessibilityLabel("\(cardCount) cellar cards")
     }
-
-    private var statColumnWidth: CGFloat {
-        compact ? PlayerPanelLayout.compactStatColumnWidth : PlayerPanelLayout.regularStatColumnWidth
-    }
 }
 
 private struct PlayerPlotScoreStat: View {
     let score: Int
-    let compact: Bool
+    let statColumnWidth: CGFloat
 
     var body: some View {
         HStack(spacing: 2) {
-            GameIcon(.plot, size: compact ? 16 : 16)
+            GameIcon(.plot, size: 16)
             PixelText(text: "\(score)", size: .headline, variant: .heavy, color: .kolkhozSmoke)
         }
         .frame(width: statColumnWidth, alignment: .leading)
         .accessibilityLabel("\(score) visible plot score")
-    }
-
-    private var statColumnWidth: CGFloat {
-        compact ? PlayerPanelLayout.compactStatColumnWidth : PlayerPanelLayout.regularStatColumnWidth
     }
 }
 
@@ -185,10 +179,8 @@ struct BrigadeView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let spacing: CGFloat = proxy.size.width < PlayerPanelLayout.tightColumnsBreakpoint ? 6 : 8
-            let compactCards = proxy.size.width < PlayerPanelLayout.narrowColumnsBreakpoint
-            let preferredCardWidth = compactCards ? CardSize.medium.width : CardSize.large.width
-            let preferredColumnWidth = preferredCardWidth * 1.6 + (compactCards ? 4 : 8)
+            let spacing = kolkhozClamp(proxy.size.width * 0.012, PlayerPanelLayout.minColumnSpacing, PlayerPanelLayout.maxColumnSpacing)
+            let preferredColumnWidth = kolkhozClamp(proxy.size.width * 0.18, PlayerPanelLayout.minPreferredColumnWidth, PlayerPanelLayout.maxPreferredColumnWidth)
             let maxColumnWidth = (proxy.size.width - spacing * CGFloat(playerOrder.count - 1)) / CGFloat(playerOrder.count)
             let columnWidth = max(PlayerPanelLayout.minColumnWidth, min(preferredColumnWidth, maxColumnWidth))
             let rowWidth = columnWidth * CGFloat(playerOrder.count) + spacing * CGFloat(playerOrder.count - 1)
@@ -228,17 +220,16 @@ struct BrigadePlayerColumnView: View {
         store.state.phase == .trick && store.state.currentPlayer == playerID && play == nil
     }
 
-    var compact: Bool { columnWidth < PlayerPanelLayout.compactColumnBreakpoint }
-    var cardSize: CardSize { compact ? .medium : .large }
-    var slotWidth: CGFloat { min(compact ? 58 : 76, max(44, columnWidth * 0.52)) }
+    var cardSize: CardSize { .medium }
+    var slotWidth: CGFloat { kolkhozClamp(columnWidth * 0.52, 44, 76) }
     var playAreaScale: CGFloat { PlayerPanelLayout.playAreaScale }
-    var playAreaTopOffset: CGFloat { compact ? 1 : 14 }
+    var playAreaTopOffset: CGFloat { kolkhozClamp(columnWidth * 0.13, 1, 14) }
     var playerPanelWidth: CGFloat { cardSize.width * playAreaScale }
     var playAreaWidth: CGFloat { max(cardSize.width, slotWidth) * playAreaScale }
     var playAreaHeight: CGFloat { max(cardSize.height, slotWidth * 1.42) * playAreaScale }
 
     var body: some View {
-        VStack(spacing: compact ? -6 : -2) {
+        VStack(spacing: -kolkhozClamp(columnWidth * 0.055, 2, 6)) {
             PlayerPanel(
                 player: player,
                 plotScore: store.visibleScore(for: playerID),
@@ -246,7 +237,7 @@ struct BrigadePlayerColumnView: View {
                 active: isCurrentTurn,
                 human: playerID == 0
             )
-            .frame(width: playerPanelWidth, height: compact ? 40 : 40)
+            .frame(width: playerPanelWidth, height: 40)
             .background {
                 GeometryReader { proxy in
                     Color.clear

@@ -2,12 +2,8 @@ import KolkhozCore
 import SwiftUI
 
 enum OptionsPanelLayout {
-    static let compactWidth: CGFloat = 520
-    static let regularColumnSpacing: CGFloat = 18
-    static let compactStackSpacing: CGFloat = 11
-    static let regularStackSpacing: CGFloat = 14
-    static let actionsMaxWidthRatio: CGFloat = 0.38
-    static let actionsMaxWidth: CGFloat = 230
+    static let minStackSpacing: CGFloat = 10
+    static let maxStackSpacing: CGFloat = 14
     static let minHeight: CGFloat = 206
     static let idealHeight: CGFloat = 224
     static let maxHeight: CGFloat = 258
@@ -21,23 +17,9 @@ struct InGameOptionsPanel: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let compact = proxy.size.width < OptionsPanelLayout.compactWidth
-            let content = menuContent(compact: compact)
+            let stackSpacing = kolkhozClamp(proxy.size.height * 0.05, OptionsPanelLayout.minStackSpacing, OptionsPanelLayout.maxStackSpacing)
 
-            Group {
-                if compact {
-                    content
-                } else {
-                    HStack(alignment: .top, spacing: OptionsPanelLayout.regularColumnSpacing) {
-                        menuActions
-                            .frame(width: min(OptionsPanelLayout.actionsMaxWidth, proxy.size.width * OptionsPanelLayout.actionsMaxWidthRatio), alignment: .topLeading)
-                        Divider()
-                            .overlay(Color.kolkhozGold.opacity(0.35))
-                        menuRules
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
-                    }
-                }
-            }
+            menuContent(spacing: stackSpacing)
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
         }
         .frame(minHeight: OptionsPanelLayout.minHeight, idealHeight: OptionsPanelLayout.idealHeight, maxHeight: OptionsPanelLayout.maxHeight)
@@ -92,8 +74,8 @@ struct InGameOptionsPanel: View {
         language.text(en: "The current game will be discarded.", ru: "Текущая игра будет сброшена.")
     }
 
-    private func menuContent(compact: Bool) -> some View {
-        VStack(alignment: .leading, spacing: compact ? OptionsPanelLayout.compactStackSpacing : OptionsPanelLayout.regularStackSpacing) {
+    private func menuContent(spacing: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: spacing) {
             menuActions
             Divider()
                 .overlay(Color.kolkhozGold.opacity(0.35))
@@ -180,7 +162,7 @@ struct InGameOptionsPanel: View {
     }
 }
 
-#Preview("Options Panel - Compact") {
+#Preview("Options Panel - Narrow") {
     BoardPreviewStage(width: 390, height: 330) {
         InGameOptionsPanel(onNewGame: {}, onReturnToLobby: {})
     }

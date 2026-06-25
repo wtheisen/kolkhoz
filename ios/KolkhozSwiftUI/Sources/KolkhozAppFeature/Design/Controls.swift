@@ -6,6 +6,10 @@ import UIKit
 import AppKit
 #endif
 
+func kolkhozClamp(_ value: CGFloat, _ lower: CGFloat, _ upper: CGFloat) -> CGFloat {
+    min(upper, max(lower, value))
+}
+
 struct CommandPanelBackground: View {
     var body: some View {
         ZStack {
@@ -102,57 +106,65 @@ struct PanelTitleRow: View {
     var subtitle: String?
     var icon: GameIconAsset = .medalStar
     var urgent = false
-    var compact = false
 
     var body: some View {
-        HStack(spacing: compact ? 7 : 10) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 5)
-                    .fill(
-                        LinearGradient(
-                            colors: urgent
-                                ? [Color.kolkhozRedDark, Color.kolkhozRed.opacity(0.82)]
-                                : [Color.kolkhozBlack.opacity(0.58), Color.kolkhozSteel.opacity(0.36)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+        GeometryReader { proxy in
+            let scale = kolkhozClamp(proxy.size.width / 520, 0.78, 1)
+            let iconBox = 40 * scale
+            let iconSize = 24 * scale
+            let horizontalPadding = 9 * scale
+            let verticalPadding = 7 * scale
+            let spacing = 10 * scale
+            let ornamentOpacity = kolkhozClamp((proxy.size.width - 320) / 180, 0, urgent ? 0.42 : 0.52)
+
+            HStack(spacing: spacing) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(
+                            LinearGradient(
+                                colors: urgent
+                                    ? [Color.kolkhozRedDark, Color.kolkhozRed.opacity(0.82)]
+                                    : [Color.kolkhozBlack.opacity(0.58), Color.kolkhozSteel.opacity(0.36)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
-                GameIcon(icon, size: compact ? 19 : 24)
-            }
-            .frame(width: compact ? 32 : 40, height: compact ? 32 : 40)
-            .overlay {
-                RoundedRectangle(cornerRadius: 5)
-                    .stroke(urgent ? Color.kolkhozRedBright : Color.kolkhozGold.opacity(0.8), lineWidth: 1.5)
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                PixelText(
-                    text: title.uppercased(),
-                    size: compact ? .caption : .headline,
-                    variant: compact ? .heavy : .regular,
-                    color: urgent ? Color.kolkhozRedBright : Color.kolkhozGold
-                )
-                if let subtitle {
-                    PixelText(text: subtitle, size: .caption, color: .kolkhozCreamDim)
+                    GameIcon(icon, size: iconSize)
                 }
-            }
-            .layoutPriority(1)
+                .frame(width: iconBox, height: iconBox)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(urgent ? Color.kolkhozRedBright : Color.kolkhozGold.opacity(0.8), lineWidth: 1.5)
+                }
 
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, compact ? 7 : 9)
-        .padding(.vertical, compact ? 6 : 7)
-        .background(Color.kolkhozBlack.opacity(0.28), in: RoundedRectangle(cornerRadius: 6))
-        .overlay {
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.kolkhozGold.opacity(0.28), lineWidth: 1)
-        }
-        .overlay(alignment: .trailing) {
-            if !compact {
+                VStack(alignment: .leading, spacing: 2) {
+                    PixelText(
+                        text: title.uppercased(),
+                        size: .caption,
+                        variant: .heavy,
+                        color: urgent ? Color.kolkhozRedBright : Color.kolkhozGold
+                    )
+                    if let subtitle {
+                        PixelText(text: subtitle, size: .caption, color: .kolkhozCreamDim)
+                    }
+                }
+                .layoutPriority(1)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, verticalPadding)
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
+            .background(Color.kolkhozBlack.opacity(0.28), in: RoundedRectangle(cornerRadius: 6))
+            .overlay {
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.kolkhozGold.opacity(0.28), lineWidth: 1)
+            }
+            .overlay(alignment: .trailing) {
                 PanelDividerOrnament()
                     .frame(width: 104, height: 24)
                     .padding(.trailing, 8)
-                    .opacity(urgent ? 0.42 : 0.52)
+                    .opacity(ornamentOpacity)
             }
         }
     }

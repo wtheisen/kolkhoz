@@ -31,58 +31,33 @@ struct LobbyView: View {
                 let usableHeight = max(280, proxy.size.height - insets.top - insets.bottom)
                 let outerPadding: CGFloat = 10
                 let contentWidth = max(260, usableWidth - outerPadding * 2)
-                let compactPhone = contentWidth < 560
-                let titleWidth = compactPhone ? contentWidth : min(210, max(154, contentWidth * 0.26))
-                let titleHeight = compactPhone ? min(326, max(310, usableHeight * 0.40)) : usableHeight - outerPadding * 2
-                let panelWidth = compactPhone ? contentWidth : max(300, contentWidth - titleWidth - 14)
-                let panelHeight = compactPhone ? max(320, usableHeight - titleHeight - outerPadding * 3) : usableHeight - outerPadding * 2
+                let stackSpacing = kolkhozClamp(usableHeight * 0.018, 8, 12)
+                let titleWidth = contentWidth
+                let titleHeight = kolkhozClamp(usableHeight * 0.40, 300, 326)
+                let panelWidth = contentWidth
+                let panelHeight = max(320, usableHeight - titleHeight - outerPadding * 2 - stackSpacing)
 
-                Group {
-                    if compactPhone {
-                        ScrollView(.vertical, showsIndicators: false) {
-                            VStack(spacing: 10) {
-                                LobbyTitleColumn(
-                                    showingRules: $showingRules,
-                                    onStart: onStart,
-                                    width: titleWidth,
-                                    height: titleHeight
-                                )
-                                LobbyPanel(
-                                    selectedPreset: $selectedPreset,
-                                    customVariants: $customVariants,
-                                    variants: activeVariants,
-                                    showingRules: showingRules,
-                                    width: panelWidth,
-                                    maxHeight: panelHeight
-                                )
-                            }
-                            .padding(.horizontal, insets.leading + outerPadding)
-                            .padding(.top, insets.top + outerPadding)
-                            .padding(.bottom, insets.bottom + outerPadding)
-                            .frame(width: proxy.size.width, alignment: .top)
-                        }
-                    } else {
-                        HStack(alignment: .top, spacing: 14) {
-                            LobbyTitleColumn(
-                                showingRules: $showingRules,
-                                onStart: onStart,
-                                width: titleWidth,
-                                height: titleHeight
-                            )
-                            LobbyPanel(
-                                selectedPreset: $selectedPreset,
-                                customVariants: $customVariants,
-                                variants: activeVariants,
-                                showingRules: showingRules,
-                                width: panelWidth,
-                                maxHeight: panelHeight
-                            )
-                        }
-                        .padding(.leading, insets.leading + outerPadding)
-                        .padding(.trailing, insets.trailing + outerPadding)
-                        .padding(.top, insets.top + outerPadding)
-                        .padding(.bottom, insets.bottom + outerPadding)
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: stackSpacing) {
+                        LobbyTitleColumn(
+                            showingRules: $showingRules,
+                            onStart: onStart,
+                            width: titleWidth,
+                            height: titleHeight
+                        )
+                        LobbyPanel(
+                            selectedPreset: $selectedPreset,
+                            customVariants: $customVariants,
+                            variants: activeVariants,
+                            showingRules: showingRules,
+                            width: panelWidth,
+                            maxHeight: panelHeight
+                        )
                     }
+                    .padding(.horizontal, insets.leading + outerPadding)
+                    .padding(.top, insets.top + outerPadding)
+                    .padding(.bottom, insets.bottom + outerPadding)
+                    .frame(width: proxy.size.width, alignment: .top)
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
                 .clipped()
@@ -134,8 +109,8 @@ struct LobbyTitleColumn: View {
 
             VStack(spacing: 6) {
                 HStack(spacing: 7) {
-                    LanguageToggleButton(compact: true)
-                    AppearanceToggleButton(compact: true)
+                    LanguageToggleButton()
+                    AppearanceToggleButton()
                 }
                 VStack(spacing: 2) {
                     Text(language.text(en: "Game by", ru: "Автор игры"))

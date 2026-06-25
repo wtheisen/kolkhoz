@@ -2,20 +2,53 @@ import KolkhozCore
 import SwiftUI
 
 enum PlotViewLayout {
-    static let compactWidth: CGFloat = 760
-    static let denseHeight: CGFloat = 420
-    static let swapTightHeight: CGFloat = 430
-    static let denseOpponentHeight: CGFloat = 70
-    static let regularOpponentHeight: CGFloat = 82
-    static let denseSpacing: CGFloat = 8
-    static let regularSpacing: CGFloat = 10
-    static let compactSpacing: CGFloat = 7
-    static let densePadding: CGFloat = 8
-    static let regularPadding: CGFloat = 12
-    static let denseColumnCardSpacing: CGFloat = -28
-    static let regularColumnCardSpacing: CGFloat = -30
-    static let denseOpponentCardScale: CGFloat = 0.68
-    static let regularOpponentCardScale: CGFloat = 0.76
+    static let minOpponentHeight: CGFloat = 70
+    static let maxOpponentHeight: CGFloat = 82
+    static let minSpacing: CGFloat = 7
+    static let maxSpacing: CGFloat = 10
+    static let minPadding: CGFloat = 8
+    static let maxPadding: CGFloat = 12
+    static let minColumnCardSpacing: CGFloat = -30
+    static let maxColumnCardSpacing: CGFloat = -24
+    static let minOpponentCardScale: CGFloat = 0.68
+    static let maxOpponentCardScale: CGFloat = 0.76
+    static let minOpponentCardFrameWidth: CGFloat = 25
+    static let maxOpponentCardFrameWidth: CGFloat = 29
+    static let minOpponentCardFrameHeight: CGFloat = 38
+    static let maxOpponentCardFrameHeight: CGFloat = 44
+}
+
+struct PlotViewMetrics {
+    let opponentHeight: CGFloat
+    let spacing: CGFloat
+    let padding: CGFloat
+    let columnCardSpacing: CGFloat
+    let columnTrailingPadding: CGFloat
+    let opponentCardScale: CGFloat
+    let opponentCardFrameWidth: CGFloat
+    let opponentCardFrameHeight: CGFloat
+    let opponentVisibleCardCount: Int
+    let portraitSize: CGFloat
+    let panelPadding: CGFloat
+    let headerIconSize: CGFloat
+    let emptyCardSize: CardSize
+
+    init(size: CGSize) {
+        let shorterSide = min(size.width, size.height)
+        opponentHeight = kolkhozClamp(size.height * 0.18, PlotViewLayout.minOpponentHeight, PlotViewLayout.maxOpponentHeight)
+        spacing = kolkhozClamp(shorterSide * 0.02, PlotViewLayout.minSpacing, PlotViewLayout.maxSpacing)
+        padding = kolkhozClamp(shorterSide * 0.025, PlotViewLayout.minPadding, PlotViewLayout.maxPadding)
+        columnCardSpacing = kolkhozClamp(-size.width * 0.04, PlotViewLayout.minColumnCardSpacing, PlotViewLayout.maxColumnCardSpacing)
+        columnTrailingPadding = kolkhozClamp(size.width * 0.035, 20, 28)
+        opponentCardScale = kolkhozClamp(size.width * 0.001, PlotViewLayout.minOpponentCardScale, PlotViewLayout.maxOpponentCardScale)
+        opponentCardFrameWidth = kolkhozClamp(size.width * 0.04, PlotViewLayout.minOpponentCardFrameWidth, PlotViewLayout.maxOpponentCardFrameWidth)
+        opponentCardFrameHeight = kolkhozClamp(size.height * 0.10, PlotViewLayout.minOpponentCardFrameHeight, PlotViewLayout.maxOpponentCardFrameHeight)
+        opponentVisibleCardCount = Int(kolkhozClamp(size.width / 190, 3, 4))
+        portraitSize = kolkhozClamp(size.width * 0.055, 34, 42)
+        panelPadding = kolkhozClamp(shorterSide * 0.018, 7, 8)
+        headerIconSize = kolkhozClamp(size.width * 0.026, 17, 20)
+        emptyCardSize = .small
+    }
 }
 
 struct PlotStorageView: View {
@@ -37,30 +70,26 @@ struct PlotStorageView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let compact = proxy.size.width < PlotViewLayout.compactWidth
-            let denseHeight = isInteractive ? PlotViewLayout.swapTightHeight : PlotViewLayout.denseHeight
-            let dense = compact || proxy.size.height < denseHeight
-            let opponentHeight: CGFloat = dense ? PlotViewLayout.denseOpponentHeight : PlotViewLayout.regularOpponentHeight
-            let spacing: CGFloat = dense ? PlotViewLayout.denseSpacing : PlotViewLayout.regularSpacing
+            let metrics = PlotViewMetrics(size: proxy.size)
 
-            VStack(alignment: .leading, spacing: spacing) {
-                plotHeader(compact: dense)
+            VStack(alignment: .leading, spacing: metrics.spacing) {
+                plotHeader()
 
-                HStack(spacing: compact ? PlotViewLayout.compactSpacing : PlotViewLayout.regularSpacing) {
+                HStack(spacing: metrics.spacing) {
                     ForEach(store.state.players.dropFirst()) { player in
-                        PlayerPlotPanel(player: player, score: store.visibleScore(for: player.id), dense: dense, exiledCards: exiledCards)
+                        PlayerPlotPanel(player: player, score: store.visibleScore(for: player.id), metrics: metrics, exiledCards: exiledCards)
                     }
                 }
-                .frame(height: opponentHeight)
+                .frame(height: metrics.opponentHeight)
 
-                HStack(alignment: .top, spacing: spacing) {
+                HStack(alignment: .top, spacing: metrics.spacing) {
                     PlotColumn(
                         title: language.text(en: "Cellar", ru: "Подвал"),
                         icon: .cellar,
                         subtitle: "\(store.state.players[0].plot.hidden.count)",
                         cards: store.state.players[0].plot.hidden,
                         hidden: true,
-                        dense: dense,
+                        metrics: metrics,
                         exiledCards: exiledCards,
                         isSelected: { selectedPlot?.wrappedValue == PlotSelection(card: $0, zone: .hidden) },
                         onSelect: isInteractive ? { card in
@@ -73,7 +102,7 @@ struct PlotStorageView: View {
                         subtitle: "\(store.state.players[0].plot.revealed.count)",
                         cards: store.state.players[0].plot.revealed,
                         hidden: false,
-                        dense: dense,
+                        metrics: metrics,
                         exiledCards: exiledCards,
                         isSelected: { selectedPlot?.wrappedValue == PlotSelection(card: $0, zone: .revealed) },
                         onSelect: isInteractive ? { card in
@@ -83,28 +112,26 @@ struct PlotStorageView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
-            .padding(dense ? PlotViewLayout.densePadding + 1 : PlotViewLayout.regularPadding)
+            .padding(metrics.padding)
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
             .background(CommandPanelBackground())
         }
     }
 
     @ViewBuilder
-    private func plotHeader(compact: Bool) -> some View {
+    private func plotHeader() -> some View {
         if isRequisition {
             PanelTitleRow(
                 title: language.text(en: "Requisition", ru: "Реквизиция"),
                 subtitle: requisitionSubtitle,
                 icon: .warning,
-                urgent: true,
-                compact: compact
+                urgent: true
             )
         } else {
             PanelTitleRow(
                 title: language.text(en: "Private plot", ru: "Личный участок"),
                 subtitle: language.text(en: "Opponent stores above, your cellar below.", ru: "Участки соперников сверху, ваш подвал снизу."),
-                icon: .plot,
-                compact: compact
+                icon: .plot
             )
         }
     }
@@ -146,46 +173,46 @@ struct PlayerPlotPanel: View {
     @Environment(\.kolkhozLanguage) private var language
     let player: PlayerState
     let score: Int
-    let dense: Bool
+    let metrics: PlotViewMetrics
     var exiledCards: Set<Card> = []
 
     var body: some View {
-        HStack(spacing: dense ? 6 : 8) {
+        HStack(spacing: metrics.spacing * 0.75) {
             PortraitView(player: player, human: false)
-                .frame(width: dense ? 34 : 42, height: dense ? 34 : 42)
+                .frame(width: metrics.portraitSize, height: metrics.portraitSize)
 
-            VStack(alignment: .leading, spacing: dense ? 5 : 7) {
+            VStack(alignment: .leading, spacing: metrics.spacing * 0.7) {
                 HStack(spacing: 5) {
                     PixelText(text: language.playerName(player), size: .caption2, variant: .heavy, color: .kolkhozCream)
                     Spacer(minLength: 0)
                     PixelText(text: "\(score)", size: .caption2, variant: .heavy, color: .kolkhozGold)
                 }
 
-                HStack(alignment: .top, spacing: dense ? -18 : -15) {
-                    ForEach(Array(player.plot.revealed.prefix(dense ? 3 : 4))) { card in
+                HStack(alignment: .top, spacing: metrics.columnCardSpacing * 0.64) {
+                    ForEach(Array(player.plot.revealed.prefix(metrics.opponentVisibleCardCount))) { card in
                         CardView(card: card, size: .small)
                             .overlay {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(exiledCards.contains(card) ? Color.kolkhozRedBright : Color.clear, lineWidth: 3)
                             }
-                            .scaleEffect(cardScale * (exiledCards.contains(card) ? 1.08 : 1), anchor: .topLeading)
-                            .frame(width: cardFrameWidth, height: cardFrameHeight, alignment: .topLeading)
+                            .scaleEffect(metrics.opponentCardScale * (exiledCards.contains(card) ? 1.08 : 1), anchor: .topLeading)
+                            .frame(width: metrics.opponentCardFrameWidth, height: metrics.opponentCardFrameHeight, alignment: .topLeading)
                     }
                     ForEach(0..<hiddenCardCount, id: \.self) { _ in
                         CardBackView(size: .small)
-                            .scaleEffect(cardScale, anchor: .topLeading)
-                            .frame(width: cardFrameWidth, height: cardFrameHeight, alignment: .topLeading)
+                            .scaleEffect(metrics.opponentCardScale, anchor: .topLeading)
+                            .frame(width: metrics.opponentCardFrameWidth, height: metrics.opponentCardFrameHeight, alignment: .topLeading)
                     }
                     if player.plot.hidden.isEmpty && player.plot.revealed.isEmpty {
                         PixelText(text: "-", size: .caption, variant: .heavy, color: Color.kolkhozSmoke.opacity(0.72))
-                            .frame(height: dense ? 32 : 38)
+                            .frame(height: metrics.opponentCardFrameHeight)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .clipped()
             }
         }
-        .padding(dense ? 7 : 8)
+        .padding(metrics.panelPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color.kolkhozBlack.opacity(0.18), in: RoundedRectangle(cornerRadius: 6))
         .overlay {
@@ -195,19 +222,7 @@ struct PlayerPlotPanel: View {
     }
 
     private var hiddenCardCount: Int {
-        min(player.plot.hidden.count, dense ? 3 : 4)
-    }
-
-    private var cardScale: CGFloat {
-        dense ? PlotViewLayout.denseOpponentCardScale : PlotViewLayout.regularOpponentCardScale
-    }
-
-    private var cardFrameWidth: CGFloat {
-        dense ? 25 : 29
-    }
-
-    private var cardFrameHeight: CGFloat {
-        dense ? 38 : 44
+        min(player.plot.hidden.count, metrics.opponentVisibleCardCount)
     }
 }
 
@@ -217,38 +232,38 @@ struct PlotColumn: View {
     let subtitle: String
     let cards: [Card]
     let hidden: Bool
-    let dense: Bool
+    let metrics: PlotViewMetrics
     var exiledCards: Set<Card> = []
     var isSelected: (Card) -> Bool = { _ in false }
     var onSelect: ((Card) -> Void)?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: dense ? 6 : 8) {
+        VStack(alignment: .leading, spacing: metrics.spacing * 0.75) {
             HStack(alignment: .center, spacing: 5) {
-                GameIcon(icon, size: dense ? 17 : 20)
+                GameIcon(icon, size: metrics.headerIconSize)
                 PixelText(text: title.uppercased(), size: .caption, variant: .heavy, color: .kolkhozGold)
                 Spacer(minLength: 8)
                 PixelText(text: subtitle, size: .caption2, color: .kolkhozSmoke)
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: dense ? PlotViewLayout.denseColumnCardSpacing : PlotViewLayout.regularColumnCardSpacing) {
+                HStack(alignment: .top, spacing: metrics.columnCardSpacing) {
                     ForEach(cards) { card in
                         selectableCard(card)
                     }
                     if cards.isEmpty {
                         PixelText(text: "-", size: .title, variant: .heavy, color: Color.kolkhozSmoke.opacity(0.72))
                             .frame(
-                                width: dense ? CardSize.small.width : CardSize.medium.width,
-                                height: dense ? CardSize.small.height : CardSize.medium.height
+                                width: metrics.emptyCardSize.width,
+                                height: metrics.emptyCardSize.height
                             )
                     }
                 }
                 .padding(.vertical, 2)
-                .padding(.trailing, dense ? 20 : 28)
+                .padding(.trailing, metrics.columnTrailingPadding)
             }
         }
-        .padding(dense ? 8 : 10)
+        .padding(metrics.padding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color.kolkhozBlack.opacity(0.14), in: RoundedRectangle(cornerRadius: 6))
         .overlay {
@@ -274,9 +289,9 @@ struct PlotColumn: View {
     private func cardFace(_ card: Card) -> some View {
         Group {
             if hidden {
-                CardBackView(size: dense ? .small : .medium)
+                CardBackView(size: metrics.emptyCardSize)
             } else {
-                CardView(card: card, size: dense ? .small : .medium)
+                CardView(card: card, size: metrics.emptyCardSize)
             }
         }
         .overlay {
