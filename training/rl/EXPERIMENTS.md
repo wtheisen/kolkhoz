@@ -882,3 +882,89 @@ small worst-seat regressions. The next improvement attempt should change the tra
 not just extend these runs: add validation-gated checkpoint acceptance during training,
 try a larger or phase-specialized policy head, or add a real intermediate requisition/job
 completion reward instead of only final score deltas.
+
+## 2026-06-30 Validation-Gated and Job-Shaped Trainer
+
+Added held-out validation directly to `KolkhozPolicyGradientTrainer`:
+
+- `--validation-seeds`
+- `--validation-games-per-seat`
+- `--validation-output`
+- `--validation-baseline-model`
+
+When validation is enabled, every checkpoint is evaluated with the same paired
+rotated-seat direct comparison used by `KolkhozPolicySelector`. The trainer prints
+aggregate deltas plus worst-seat deltas and saves the best validation score to
+`--validation-output` or an automatic `*_best.json`.
+
+Also added intermediate real-engine shaping terms:
+
+- `--work-delta-weight`: reward sampled actions that increase total assigned work hours.
+- `--claim-delta-weight`: reward sampled actions that create newly claimed jobs.
+- `--own-requisition-weight`: penalize sampled actions that immediately create
+  requisition events for the acting player's own plot cards.
+
+Validation-gated plain curriculum run:
+
+```bash
+cd ios/KolkhozSwiftUI
+swift run KolkhozPolicyGradientTrainer \
+  --round-curriculum --round-plot-cards 3 --round-famine-rate 0.25 \
+  --start Sources/KolkhozCore/Resources/kolkhoz_policy.json \
+  --opponent-model Sources/KolkhozCore/Resources/kolkhoz_policy.json \
+  --opponent-mode heuristic \
+  --output ../../training/rl/runs/policy_pg_validated_round_s15610000.json \
+  --history ../../training/rl/runs/policy_pg_validated_round_s15610000_history.json \
+  --validation-output ../../training/rl/runs/policy_pg_validated_round_s15610000_best.json \
+  --validation-seeds 15670000,15680000 \
+  --validation-games-per-seat 24 \
+  --checkpoint-every 128 --episodes 768 --batch-size 16 --seed 15610000 \
+  --optimizer adam --learning-rate 0.00010 --temperature 0.72 \
+  --win-weight 0.85 --strict-weight 0.75 --rank-weight 0.55 --margin-weight 0.07 \
+  --score-delta-weight 0.025 --margin-delta-weight 0.015 \
+  --paired-baseline --seat-balanced-update --advantage-clip 0.7 \
+  --training-seats 0,1,2,3
+```
+
+Best in-training validation checkpoint was `policy_pg_validated_round_s15610000_best.json`.
+Fresh selector on seeds `15850000,15860000,15870000`, `games_per_seat=80`: top delta
+`0.0052` `[-0.0046, 0.0150]`, strict delta `0.0042` `[-0.0062, 0.0146]`, rank delta
+`0.0083` `[-0.0117, 0.0283]`, margin delta `0.0969` `[-0.2395, 0.4333]`,
+worst-seat margin `-0.2833`. No promotion.
+
+Job-shaped validation run:
+
+```bash
+cd ios/KolkhozSwiftUI
+swift run KolkhozPolicyGradientTrainer \
+  --round-curriculum --round-plot-cards 3 --round-famine-rate 0.25 \
+  --start Sources/KolkhozCore/Resources/kolkhoz_policy.json \
+  --opponent-model Sources/KolkhozCore/Resources/kolkhoz_policy.json \
+  --opponent-mode heuristic \
+  --output ../../training/rl/runs/policy_pg_jobshaped_validated_s15730000.json \
+  --history ../../training/rl/runs/policy_pg_jobshaped_validated_s15730000_history.json \
+  --validation-output ../../training/rl/runs/policy_pg_jobshaped_validated_s15730000_best.json \
+  --validation-seeds 15790000,15800000 \
+  --validation-games-per-seat 24 \
+  --checkpoint-every 128 --episodes 1024 --batch-size 16 --seed 15730000 \
+  --optimizer adam --learning-rate 0.00009 --temperature 0.76 \
+  --win-weight 0.8 --strict-weight 0.8 --rank-weight 0.55 --margin-weight 0.055 \
+  --score-delta-weight 0.018 --margin-delta-weight 0.010 \
+  --work-delta-weight 0.0015 --claim-delta-weight 0.18 --own-requisition-weight 0.12 \
+  --paired-baseline --seat-balanced-update --advantage-clip 0.7 \
+  --training-seats 0,1,2,3
+```
+
+The validation gate selected `policy_pg_jobshaped_validated_s15730000_e128.json` and
+rejected later checkpoints as they developed seat and margin regressions. Fresh selector
+result for the saved best model: top delta `0.0042` `[-0.0016, 0.0099]`, strict delta
+`0.0042` `[-0.0016, 0.0099]`, rank delta `0.0073` `[-0.0025, 0.0171]`, margin delta
+`0.1646` `[-0.0054, 0.3346]`, worst-seat top `-0.0042`, worst-seat rank `-0.0042`.
+No promotion.
+
+Conclusion: validation-gated checkpointing works and prevents late overtraining from
+being mistaken for progress. Job/requisition shaping produced the best fresh selector
+score in this batch, but the effect is still too small and seat-sensitive to replace the
+promoted model. The next trainer change should either use validation rollback during
+training or split the policy/action heads by phase so assignment-specific shaping cannot
+disturb trump, swap, and trick behavior globally.

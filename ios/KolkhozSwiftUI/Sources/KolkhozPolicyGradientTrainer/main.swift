@@ -30,10 +30,17 @@ struct Options {
     var marginWeight = 0.05
     var scoreDeltaWeight = 0.0
     var marginDeltaWeight = 0.0
+    var workDeltaWeight = 0.0
+    var claimDeltaWeight = 0.0
+    var ownRequisitionWeight = 0.0
     var pairedBaseline = true
     var seatBalancedUpdate = false
     var advantageClip = 0.0
     var trainingSeats: [Int]?
+    var validationSeeds: [UInt64] = []
+    var validationGamesPerSeat = 0
+    var validationOutputPath: String?
+    var validationBaselinePath: String?
 }
 
 struct RewardWeights {
@@ -65,6 +72,18 @@ struct BatchSummary: Encodable {
     let averageReward: Double
     let averageAdvantage: Double
     let averageShapedReward: Double
+}
+
+struct ValidationSummary {
+    let score: Double
+    let samples: Int
+    let topDelta: Double
+    let strictDelta: Double
+    let rankDelta: Double
+    let marginDelta: Double
+    let worstSeatTop: Double
+    let worstSeatRank: Double
+    let worstSeatMargin: Double
 }
 
 enum TrainerError: Error {
@@ -219,6 +238,21 @@ func parseOptions() -> Options {
                 options.marginDeltaWeight = parsed
                 args.removeFirst()
             }
+        case "--work-delta-weight":
+            if let value = args.first, let parsed = Double(value) {
+                options.workDeltaWeight = parsed
+                args.removeFirst()
+            }
+        case "--claim-delta-weight":
+            if let value = args.first, let parsed = Double(value) {
+                options.claimDeltaWeight = parsed
+                args.removeFirst()
+            }
+        case "--own-requisition-weight":
+            if let value = args.first, let parsed = Double(value) {
+                options.ownRequisitionWeight = parsed
+                args.removeFirst()
+            }
         case "--paired-baseline":
             options.pairedBaseline = true
         case "--no-paired-baseline":
@@ -239,6 +273,23 @@ func parseOptions() -> Options {
                 options.trainingSeats = seats.isEmpty ? nil : seats
                 args.removeFirst()
             }
+        case "--validation-seeds":
+            if let value = args.first {
+                let seeds = value
+                    .split(separator: ",")
+                    .compactMap { UInt64($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+                options.validationSeeds = seeds
+                args.removeFirst()
+            }
+        case "--validation-games-per-seat":
+            if let value = args.first, let parsed = Int(value) {
+                options.validationGamesPerSeat = parsed
+                args.removeFirst()
+            }
+        case "--validation-output":
+            options.validationOutputPath = args.isEmpty ? nil : args.removeFirst()
+        case "--validation-baseline-model":
+            options.validationBaselinePath = args.isEmpty ? nil : args.removeFirst()
         default:
             break
         }
@@ -258,7 +309,10 @@ func playEpisode(
     reward: RewardWeights,
     opponentMode: String,
     scoreDeltaWeight: Double,
-    marginDeltaWeight: Double
+    marginDeltaWeight: Double,
+    workDeltaWeight: Double,
+    claimDeltaWeight: Double,
+    ownRequisitionWeight: Double
 ) throws -> (gradient: PolicyGradient, summary: EpisodeSummary) {
     let engine = KolkhozEngine(
         seed: seed,
@@ -290,6 +344,9 @@ func playEpisode(
                 opponentMode: opponentMode,
                 scoreDeltaWeight: scoreDeltaWeight,
                 marginDeltaWeight: marginDeltaWeight,
+                workDeltaWeight: workDeltaWeight,
+                claimDeltaWeight: claimDeltaWeight,
+                ownRequisitionWeight: ownRequisitionWeight,
                 playerGradients: &playerGradients,
                 playerShapedGradients: &playerShapedGradients,
                 playerShapedRewards: &playerShapedRewards,
@@ -310,6 +367,9 @@ func playEpisode(
                 opponentMode: opponentMode,
                 scoreDeltaWeight: scoreDeltaWeight,
                 marginDeltaWeight: marginDeltaWeight,
+                workDeltaWeight: workDeltaWeight,
+                claimDeltaWeight: claimDeltaWeight,
+                ownRequisitionWeight: ownRequisitionWeight,
                 playerGradients: &playerGradients,
                 playerShapedGradients: &playerShapedGradients,
                 playerShapedRewards: &playerShapedRewards,
@@ -330,6 +390,9 @@ func playEpisode(
                 opponentMode: opponentMode,
                 scoreDeltaWeight: scoreDeltaWeight,
                 marginDeltaWeight: marginDeltaWeight,
+                workDeltaWeight: workDeltaWeight,
+                claimDeltaWeight: claimDeltaWeight,
+                ownRequisitionWeight: ownRequisitionWeight,
                 playerGradients: &playerGradients,
                 playerShapedGradients: &playerShapedGradients,
                 playerShapedRewards: &playerShapedRewards,
@@ -350,6 +413,9 @@ func playEpisode(
                 opponentMode: opponentMode,
                 scoreDeltaWeight: scoreDeltaWeight,
                 marginDeltaWeight: marginDeltaWeight,
+                workDeltaWeight: workDeltaWeight,
+                claimDeltaWeight: claimDeltaWeight,
+                ownRequisitionWeight: ownRequisitionWeight,
                 playerGradients: &playerGradients,
                 playerShapedGradients: &playerShapedGradients,
                 playerShapedRewards: &playerShapedRewards,
@@ -444,7 +510,10 @@ func playRoundEpisode(
     reward: RewardWeights,
     opponentMode: String,
     scoreDeltaWeight: Double,
-    marginDeltaWeight: Double
+    marginDeltaWeight: Double,
+    workDeltaWeight: Double,
+    claimDeltaWeight: Double,
+    ownRequisitionWeight: Double
 ) throws -> (gradient: PolicyGradient, summary: EpisodeSummary) {
     let engine = KolkhozEngine(
         testing: initialState,
@@ -476,6 +545,9 @@ func playRoundEpisode(
                 opponentMode: opponentMode,
                 scoreDeltaWeight: scoreDeltaWeight,
                 marginDeltaWeight: marginDeltaWeight,
+                workDeltaWeight: workDeltaWeight,
+                claimDeltaWeight: claimDeltaWeight,
+                ownRequisitionWeight: ownRequisitionWeight,
                 playerGradients: &playerGradients,
                 playerShapedGradients: &playerShapedGradients,
                 playerShapedRewards: &playerShapedRewards,
@@ -495,6 +567,9 @@ func playRoundEpisode(
                 opponentMode: opponentMode,
                 scoreDeltaWeight: scoreDeltaWeight,
                 marginDeltaWeight: marginDeltaWeight,
+                workDeltaWeight: workDeltaWeight,
+                claimDeltaWeight: claimDeltaWeight,
+                ownRequisitionWeight: ownRequisitionWeight,
                 playerGradients: &playerGradients,
                 playerShapedGradients: &playerShapedGradients,
                 playerShapedRewards: &playerShapedRewards,
@@ -782,6 +857,9 @@ func chooseAndApply(
     opponentMode: String,
     scoreDeltaWeight: Double,
     marginDeltaWeight: Double,
+    workDeltaWeight: Double,
+    claimDeltaWeight: Double,
+    ownRequisitionWeight: Double,
     playerGradients: inout [PolicyGradient],
     playerShapedGradients: inout [PolicyGradient],
     playerShapedRewards: inout [Double],
@@ -790,13 +868,23 @@ func chooseAndApply(
     if trainingSeat == nil || trainingSeat == playerID {
         let beforeScore = engine.finalScore(for: playerID)
         let beforeMargin = scoreMargin(for: playerID, engine: engine)
+        let beforeWork = totalWorkHours(engine.state)
+        let beforeClaims = engine.state.claimedJobs.count
+        let beforeOwnRequisitions = ownRequisitionEvents(playerID: playerID, state: engine.state)
         let selection = try sampleAction(model: model, state: state, playerID: playerID, temperature: temperature, rng: &rng)
         playerGradients[playerID].add(selection.gradient)
         playerActionCounts[playerID] += 1
         try apply(selection.action, to: engine, playerID: playerID)
         let scoreDelta = Double(engine.finalScore(for: playerID) - beforeScore)
         let marginDelta = Double(scoreMargin(for: playerID, engine: engine) - beforeMargin)
-        let shapedReward = scoreDeltaWeight * scoreDelta + marginDeltaWeight * marginDelta
+        let workDelta = Double(totalWorkHours(engine.state) - beforeWork)
+        let claimDelta = Double(engine.state.claimedJobs.count - beforeClaims)
+        let ownRequisitionDelta = Double(ownRequisitionEvents(playerID: playerID, state: engine.state) - beforeOwnRequisitions)
+        let shapedReward = scoreDeltaWeight * scoreDelta
+            + marginDeltaWeight * marginDelta
+            + workDeltaWeight * workDelta
+            + claimDeltaWeight * claimDelta
+            - ownRequisitionWeight * ownRequisitionDelta
         if shapedReward != 0 {
             playerShapedGradients[playerID].add(selection.gradient, scale: shapedReward)
             playerShapedRewards[playerID] += shapedReward
@@ -817,6 +905,14 @@ func scoreMargin(for playerID: Int, engine: KolkhozEngine) -> Int {
         .map { engine.finalScore(for: $0) }
         .max() ?? 0
     return ownScore - bestOpponent
+}
+
+func totalWorkHours(_ state: KolkhozState) -> Int {
+    state.workHours.values.reduce(0, +)
+}
+
+func ownRequisitionEvents(playerID: Int, state: KolkhozState) -> Int {
+    state.requisitionEvents.filter { $0.playerID == playerID && $0.card != nil }.count
 }
 
 func sampleAction(
@@ -984,6 +1080,141 @@ func margin(of playerID: Int, scores: [Int: Int]) -> Int {
     let target = scores[playerID] ?? 0
     let bestOpponent = scores.filter { $0.key != playerID }.map(\.value).max() ?? 0
     return target - bestOpponent
+}
+
+func validationMetrics(for playerID: Int, scores: [Int: Int]) -> (top: Double, strict: Double, rank: Double, margin: Double) {
+    let playerScore = scores[playerID] ?? 0
+    let bestOpponent = scores.filter { $0.key != playerID }.map(\.value).max() ?? 0
+    return (
+        top: playerScore >= bestOpponent ? 1 : 0,
+        strict: playerScore > bestOpponent ? 1 : 0,
+        rank: Double(rank(of: playerID, scores: scores)),
+        margin: Double(playerScore - bestOpponent)
+    )
+}
+
+func mean(_ values: [Double]) -> Double {
+    values.reduce(0, +) / Double(max(1, values.count))
+}
+
+func playValidationGame(seed: UInt64, model: KolkhozPolicyModel?, modelSeat: Int?) throws -> [Int: Int] {
+    let seatModels: [Int: KolkhozPolicyModel]
+    if let model, let modelSeat {
+        seatModels = [modelSeat: model]
+    } else {
+        seatModels = [:]
+    }
+
+    let engine = KolkhozEngine(seed: seed, variants: .kolkhoz, aiModel: nil, aiModels: seatModels)
+    var guardCount = 0
+    while engine.state.phase != .gameOver && guardCount < 1_000 {
+        guardCount += 1
+        let humanModel = modelSeat == 0 ? model : nil
+        let decider = KolkhozAIDecider(state: engine.state, model: humanModel)
+
+        switch engine.state.phase {
+        case .planning where engine.state.currentPlayer == 0:
+            try engine.setTrump(decider.chooseTrump(for: 0))
+        case .swap where engine.state.currentPlayer == 0:
+            if let choice = decider.chooseSwap(for: 0) {
+                try engine.swap(handCard: choice.handCard, plotCard: choice.plotCard, revealed: choice.zone == .revealed)
+            }
+            try engine.confirmSwap()
+        case .trick where engine.state.currentPlayer == 0:
+            let index = decider.chooseCardIndex(for: 0)
+            guard engine.state.players[0].hand.indices.contains(index) else {
+                throw TrainerError.invalidAction
+            }
+            try engine.playCard(engine.state.players[0].hand[index])
+        case .assignment where engine.state.lastWinner == 0:
+            let assignments = decider.chooseAssignments(for: 0)
+            for play in engine.state.lastTrick {
+                guard let suit = assignments[play.card.id] else {
+                    throw TrainerError.invalidAction
+                }
+                try engine.assign(card: play.card, to: suit)
+            }
+            try engine.submitAssignments()
+        case .requisition:
+            engine.continueAfterRequisition()
+        default:
+            break
+        }
+    }
+
+    guard engine.state.phase == .gameOver, let result = engine.state.gameResult else {
+        throw TrainerError.gameDidNotFinish(
+            phase: engine.state.phase,
+            year: engine.state.year,
+            currentPlayer: engine.state.currentPlayer,
+            guardCount: guardCount
+        )
+    }
+    return result.scores
+}
+
+func validateModel(
+    _ model: KolkhozPolicyModel,
+    baselineModel: KolkhozPolicyModel?,
+    seeds: [UInt64],
+    gamesPerSeat: Int
+) throws -> ValidationSummary {
+    var topDeltas: [Double] = []
+    var strictDeltas: [Double] = []
+    var rankDeltas: [Double] = []
+    var marginDeltas: [Double] = []
+    var seatTop = Array(repeating: [Double](), count: 4)
+    var seatRank = Array(repeating: [Double](), count: 4)
+    var seatMargin = Array(repeating: [Double](), count: 4)
+
+    for seedBase in seeds {
+        for seat in 0..<4 {
+            for gameIndex in 0..<gamesPerSeat {
+                let seed = seedBase + UInt64(gameIndex)
+                let candidateScores = try playValidationGame(seed: seed, model: model, modelSeat: seat)
+                let baselineScores = try playValidationGame(
+                    seed: seed,
+                    model: baselineModel,
+                    modelSeat: baselineModel == nil ? nil : seat
+                )
+                let candidate = validationMetrics(for: seat, scores: candidateScores)
+                let baseline = validationMetrics(for: seat, scores: baselineScores)
+                let topDelta = candidate.top - baseline.top
+                let strictDelta = candidate.strict - baseline.strict
+                let rankDelta = baseline.rank - candidate.rank
+                let marginDelta = candidate.margin - baseline.margin
+                topDeltas.append(topDelta)
+                strictDeltas.append(strictDelta)
+                rankDeltas.append(rankDelta)
+                marginDeltas.append(marginDelta)
+                seatTop[seat].append(topDelta)
+                seatRank[seat].append(rankDelta)
+                seatMargin[seat].append(marginDelta)
+            }
+        }
+    }
+
+    let topDelta = mean(topDeltas)
+    let strictDelta = mean(strictDeltas)
+    let rankDelta = mean(rankDeltas)
+    let marginDelta = mean(marginDeltas)
+    let worstSeatTop = seatTop.map(mean).min() ?? 0
+    let worstSeatRank = seatRank.map(mean).min() ?? 0
+    let worstSeatMargin = seatMargin.map(mean).min() ?? 0
+    let regressionPenalty = min(0, worstSeatTop) * 1.5 + min(0, worstSeatRank) + min(0, worstSeatMargin) * 0.02
+    let score = topDelta + strictDelta * 0.5 + rankDelta * 0.25 + marginDelta * 0.02 + regressionPenalty
+
+    return ValidationSummary(
+        score: score,
+        samples: topDeltas.count,
+        topDelta: topDelta,
+        strictDelta: strictDelta,
+        rankDelta: rankDelta,
+        marginDelta: marginDelta,
+        worstSeatTop: worstSeatTop,
+        worstSeatRank: worstSeatRank,
+        worstSeatMargin: worstSeatMargin
+    )
 }
 
 func isValidPlay(state: KolkhozState, playerID: Int, cardIndex: Int) -> Bool {
@@ -1339,6 +1570,16 @@ func checkpointURL(outputPath: String, episode: Int) -> URL {
     return directory.appendingPathComponent("\(base)_e\(episode).json")
 }
 
+func validationBestURL(outputPath: String, validationOutputPath: String?) -> URL {
+    if let validationOutputPath {
+        return URL(fileURLWithPath: validationOutputPath)
+    }
+    let outputURL = URL(fileURLWithPath: outputPath)
+    let directory = outputURL.deletingLastPathComponent()
+    let base = outputURL.deletingPathExtension().lastPathComponent
+    return directory.appendingPathComponent("\(base)_best.json")
+}
+
 func scheduledTrainingSeat(episode: Int, opponentModel: KolkhozPolicyModel?, seats: [Int]?) -> Int? {
     guard opponentModel != nil else { return nil }
     let schedule = seats?.isEmpty == false ? seats! : [0, 1, 2, 3]
@@ -1407,6 +1648,21 @@ func main() throws {
     if let opponentModel, !opponentModel.isCompatible {
         throw TrainerError.incompatibleModel(options.opponentPath ?? "opponent")
     }
+    let validationBaselineModel: KolkhozPolicyModel?
+    if let validationBaselinePath = options.validationBaselinePath {
+        validationBaselineModel = try KolkhozPolicyModel.load(from: URL(fileURLWithPath: validationBaselinePath))
+    } else {
+        validationBaselineModel = opponentModel
+    }
+    if let validationBaselineModel, !validationBaselineModel.isCompatible {
+        throw TrainerError.incompatibleModel(options.validationBaselinePath ?? options.opponentPath ?? "validation baseline")
+    }
+    let validationEnabled = !options.validationSeeds.isEmpty && options.validationGamesPerSeat > 0
+    let validationURL = validationBestURL(
+        outputPath: options.outputPath,
+        validationOutputPath: options.validationOutputPath
+    )
+    var bestValidationScore = -Double.infinity
 
     var batchGradient = PolicyGradient.zerosLike(model)
     var batchActions = 0
@@ -1445,7 +1701,10 @@ func main() throws {
                 reward: reward,
                 opponentMode: options.opponentMode,
                 scoreDeltaWeight: options.scoreDeltaWeight,
-                marginDeltaWeight: options.marginDeltaWeight
+                marginDeltaWeight: options.marginDeltaWeight,
+                workDeltaWeight: options.workDeltaWeight,
+                claimDeltaWeight: options.claimDeltaWeight,
+                ownRequisitionWeight: options.ownRequisitionWeight
             )
         } else {
             try playEpisode(
@@ -1460,7 +1719,10 @@ func main() throws {
                 reward: reward,
                 opponentMode: options.opponentMode,
                 scoreDeltaWeight: options.scoreDeltaWeight,
-                marginDeltaWeight: options.marginDeltaWeight
+                marginDeltaWeight: options.marginDeltaWeight,
+                workDeltaWeight: options.workDeltaWeight,
+                claimDeltaWeight: options.claimDeltaWeight,
+                ownRequisitionWeight: options.ownRequisitionWeight
             )
         }
         if options.seatBalancedUpdate, let trainingSeat {
@@ -1524,6 +1786,23 @@ func main() throws {
                 try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
                 try model.save(to: url)
                 print("checkpoint \(url.path)")
+                if validationEnabled {
+                    let validation = try validateModel(
+                        model,
+                        baselineModel: validationBaselineModel,
+                        seeds: options.validationSeeds,
+                        gamesPerSeat: options.validationGamesPerSeat
+                    )
+                    print(
+                        "validation episode=\(episode) score=\(String(format: "%.4f", validation.score)) samples=\(validation.samples) top_delta=\(String(format: "%.4f", validation.topDelta)) strict_delta=\(String(format: "%.4f", validation.strictDelta)) rank_delta=\(String(format: "%.4f", validation.rankDelta)) margin_delta=\(String(format: "%.4f", validation.marginDelta)) worst_top=\(String(format: "%.4f", validation.worstSeatTop)) worst_rank=\(String(format: "%.4f", validation.worstSeatRank)) worst_margin=\(String(format: "%.4f", validation.worstSeatMargin))"
+                    )
+                    if validation.score > bestValidationScore {
+                        bestValidationScore = validation.score
+                        try FileManager.default.createDirectory(at: validationURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+                        try model.save(to: validationURL)
+                        print("validation_best \(validationURL.path)")
+                    }
+                }
             }
             batchGradient = PolicyGradient.zerosLike(model)
             seatBatchGradients = Array(repeating: PolicyGradient.zerosLike(model), count: 4)

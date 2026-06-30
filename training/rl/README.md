@@ -62,12 +62,15 @@ swift run KolkhozPolicyGradientTrainer \
   --opponent-mode heuristic \
   --output ../../training/rl/runs/policy_pg_vs_bundle.json \
   --history ../../training/rl/runs/policy_pg_vs_bundle_history.json \
+  --validation-output ../../training/rl/runs/policy_pg_vs_bundle_best.json \
+  --validation-seeds 15670000,15680000 --validation-games-per-seat 24 \
   --checkpoint-every 256 \
   --episodes 1024 --batch-size 16 --optimizer adam --learning-rate 0.003 \
   --temperature 0.9 --paired-baseline \
   --expand-hidden 96 --expand-scale 0.006 \
   --win-weight 1.0 --strict-weight 0.4 --rank-weight 0.25 --margin-weight 0.05 \
   --score-delta-weight 0.015 --margin-delta-weight 0.01 \
+  --work-delta-weight 0.001 --claim-delta-weight 0.15 --own-requisition-weight 0.10 \
   --seat-balanced-update --advantage-clip 2.0 \
   --training-seats 0,1,2,3
 ```
@@ -91,12 +94,17 @@ to a subset of rotated seats for focused continuation runs. `--expand-hidden N` 
 loaded policy while preserving the original hidden units, and `--expand-scale` controls
 the small random initialization for the added units. `--score-delta-weight` and
 `--margin-delta-weight` add dense score/margin shaping after sampled actions while keeping
-the final paired-baseline reward in place. `--round-curriculum` trains on synthetic
-single-year real-engine states instead of full games; pair it with `--round-plot-cards`
-and `--round-famine-rate` to randomize existing plots and famine rounds before doing any
-full-game fine-tuning or promotion benchmark. Sweep `--win-weight`, `--strict-weight`,
-`--rank-weight`, and `--margin-weight` when testing reward functions; early runs should
-prefer promotion-aligned rewards that improve strict top rate without creating a bad
+the final paired-baseline reward in place. `--work-delta-weight`,
+`--claim-delta-weight`, and `--own-requisition-weight` add intermediate shaping for real
+engine work progress, newly claimed jobs, and own-card requisition hits. `--round-curriculum`
+trains on synthetic single-year real-engine states instead of full games; pair it with
+`--round-plot-cards` and `--round-famine-rate` to randomize existing plots and famine
+rounds before doing any full-game fine-tuning or promotion benchmark.
+`--validation-seeds` plus `--validation-games-per-seat` runs held-out same-seed
+rotated-seat validation at checkpoints and saves the best model to `--validation-output`
+or an automatic `*_best.json`. Sweep `--win-weight`, `--strict-weight`, `--rank-weight`,
+and `--margin-weight` when testing reward functions; early runs should prefer
+promotion-aligned rewards that improve strict top rate without creating a bad
 seat-specific regression.
 
 Held-out real-engine evaluation without further training:
