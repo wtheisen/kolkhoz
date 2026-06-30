@@ -856,3 +856,29 @@ Promotion decision: promote `policy_pg_round_curriculum_s14980000_e640.json` to
 `ios/KolkhozSwiftUI/Sources/KolkhozCore/Resources/kolkhoz_policy.json`. This is the
 first gradient-based RL checkpoint in this search to beat the current evolutionary
 bundled model on two fresh real-engine paired rotated-seat benchmark blocks.
+
+## 2026-06-30 Post-Promotion Continuation Attempts
+
+After promoting `policy_pg_round_curriculum_s14980000_e640.json`, tried to improve on the
+new bundled policy directly. All runs used the promoted model as both `--start` and
+`--opponent-model`, with `--opponent-mode heuristic`, paired same-state baseline,
+seat-balanced updates, and held-out full-game selection against
+`Sources/KolkhozCore/Resources/kolkhoz_policy.json`.
+
+Runs attempted:
+
+| Candidate family | Setup | Best selector result vs promoted policy | Decision |
+|---|---|---|---|
+| `policy_pg_full_finetune_s15190000` | full-game continuation, 512 episodes, strict/rank/margin reward, low LR | `e192`: top delta `0.0042 [-0.0035, 0.0118]`, rank delta `0.0042 [-0.0091, 0.0174]`, margin delta `0.1135 [-0.1148, 0.3419]` | no promotion |
+| `policy_pg_round_long_balanced_s15250000` | round curriculum, 2048 episodes, balanced strict/rank/margin reward, plot=3, famine=0.25 | `e512`: top delta `0.0042 [-0.0023, 0.0106]`, rank delta `0.0125 [-0.0004, 0.0254]`, margin delta `0.2833 [-0.0602, 0.6269]`, worst-seat top `-0.0042` | no promotion |
+| `policy_pg_round_long_margin_s15310000` | round curriculum, 2048 episodes, margin-heavy reward, plot=4, famine=0.35 | best score stayed negative; `e1280` top delta `0.0069 [-0.0036, 0.0175]`, margin delta `0.1792 [-0.2067, 0.5650]`, worst-seat margin `-0.5722` | no promotion |
+| `policy_pg_round_strict_s15450000` | round curriculum, 2048 episodes, strict/top-heavy reward, lower dense margin pressure, plot=3, famine=0.20 | `e2048`: top delta `0.0052 [-0.0088, 0.0192]`, strict delta `0.0073 [-0.0064, 0.0210]`, rank delta `0.0177 [-0.0094, 0.0449]`, margin delta `-0.0177 [-0.5312, 0.4958]` | no promotion |
+
+Conclusion: the curriculum trainer had not obviously plateaued during the successful
+promotion run, but simply training longer from the promoted model did not produce a
+benchmark-clear improvement. Reward-function changes moved the tiny directional gains
+around but did not clear top/strict/rank confidence intervals, and they still introduced
+small worst-seat regressions. The next improvement attempt should change the trainer,
+not just extend these runs: add validation-gated checkpoint acceptance during training,
+try a larger or phase-specialized policy head, or add a real intermediate requisition/job
+completion reward instead of only final score deltas.
