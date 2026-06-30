@@ -201,7 +201,7 @@ struct LowerHandBarView: View {
             }
         }
         .padding(.horizontal, 2)
-        .offset(y: 4)
+        .offset(y: 8)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .frame(height: visibleTrayHeight)
         .animation(.spring(response: 0.24, dampingFraction: 0.78), value: handOrder)

@@ -30,11 +30,19 @@ struct PlanningView: View {
             PanelTitleRow(
                 title: store.state.isFamine ? language.text(en: "Famine year", ru: "Год неурожая") : language.text(en: "Choose Trump", ru: "Выберите козырь"),
                 subtitle: store.state.isFamine ? language.text(en: "No trump suit is used this year.", ru: "В этом году козырь не используется.") : language.text(en: "Pick the trump suit for this year.", ru: "Выберите козырную масть на этот год."),
-                icon: store.state.isFamine ? .warning : .jobs,
+                icon: store.state.isFamine ? .famine : .jobs,
                 urgent: store.state.isFamine
             )
 
             if store.state.isFamine {
+                ResourceArtImage(resourceName: "art-famine-banner")
+                    .scaledToFit()
+                    .frame(maxWidth: 270, maxHeight: 68)
+                    .opacity(0.9)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+
                 Text(language.text(en: "No trump suit is used this year.", ru: "В этом году козырь не используется."))
                     .font(.kolkhozLabel(.subheadline))
                     .foregroundStyle(Color.kolkhozCreamDim)

@@ -25,16 +25,16 @@ struct JobsView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            assignmentHeader
+            //assignmentHeader
 
             GeometryReader { proxy in
                 let spacing = kolkhozClamp(proxy.size.width * 0.016, 6, 10)
-                let tileMinWidth = kolkhozClamp(proxy.size.width * 0.05, 96, proxy.size.width)
-                let columnCount = max(1, min(Suit.allCases.count, Int((proxy.size.width + spacing) / (tileMinWidth + spacing))))
-                let rowCount = Int(ceil(Double(Suit.allCases.count) / Double(columnCount)))
                 let minTileHeight: CGFloat = isAssignmentPhase ? 88 : 106
-                let tileHeight = max(minTileHeight, (proxy.size.height - spacing * CGFloat(rowCount - 1)) / CGFloat(rowCount))
-                let columns = [GridItem(.adaptive(minimum: tileMinWidth), spacing: spacing)]
+                let tileHeight = max(minTileHeight, proxy.size.height * 0.98)
+                let columns = Array(
+                    repeating: GridItem(.flexible(minimum: 0, maximum: .infinity), spacing: spacing),
+                    count: Suit.allCases.count
+                )
 
                 LazyVGrid(columns: columns, alignment: .leading, spacing: spacing) {
                     ForEach(Suit.allCases) { suit in
@@ -64,7 +64,7 @@ struct JobsView: View {
                         }
                     }
                 }
-                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+                .frame(width: proxy.size.width, height: tileHeight, alignment: .topLeading)
             }
             .frame(maxHeight: .infinity)
         }
@@ -179,7 +179,7 @@ struct AssignmentJobTile: View {
                 }
             }
 
-            HStack(alignment: .top, spacing: 8) {
+            ScrollView(.vertical, showsIndicators: assignedCards.count > 2) {
                 VStack(spacing: -34) {
                     ForEach(assignedCards) { item in
                         AssignmentTileCard(
@@ -199,8 +199,10 @@ struct AssignmentJobTile: View {
                             .frame(maxWidth: .infinity, minHeight: 42, alignment: .center)
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
+            .scrollDisabled(assignedCards.count <= 2)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .clipped()
         }
         .padding(8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

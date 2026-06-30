@@ -9,6 +9,13 @@ enum GamePanel: Equatable {
     case plot
 }
 
+enum BoardRailButtonMetrics {
+    static let size: CGFloat = 42
+    static let panelIconSize: CGFloat = 28
+    static let utilityIconSize: CGFloat = 28
+    static let spacing: CGFloat = 6
+}
+
 struct PanelSelectorButton: View {
     let title: String
     let icon: GameIconAsset
@@ -20,11 +27,11 @@ struct PanelSelectorButton: View {
             GeneratedChromeImage(resourceName: backgroundResourceName)
                 .allowsHitTesting(false)
 
-            GameIcon(icon, size: 28, muted: !active)
+            GameIcon(icon, size: BoardRailButtonMetrics.panelIconSize, muted: !active)
                 .padding(.top, action ? 2 : 0)
         }
         .foregroundStyle(active ? Color.kolkhozOnAccent : Color.kolkhozCreamDim)
-        .frame(width: 48, height: 48)
+        .frame(width: BoardRailButtonMetrics.size, height: BoardRailButtonMetrics.size)
         .shadow(color: active ? Color.kolkhozRed.opacity(0.35) : .clear, radius: 8, y: 3)
         .help(title)
     }
@@ -50,7 +57,7 @@ struct PanelSelectorRailView: View {
     let onSelectPanel: (GamePanel) -> Void
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: BoardRailButtonMetrics.spacing) {
             Button { onSelectPanel(.options) } label: {
                 PanelSelectorButton(title: language.text(en: "Menu", ru: "Меню"), icon: .menu, active: activePanel == .options, action: false)
             }
@@ -76,6 +83,9 @@ struct PanelSelectorRailView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(language.text(en: "Cellar", ru: "Подвал"))
+
+            LanguageToggleButton(buttonSize: BoardRailButtonMetrics.size, iconSize: BoardRailButtonMetrics.utilityIconSize)
+            AppearanceToggleButton(buttonSize: BoardRailButtonMetrics.size, iconSize: BoardRailButtonMetrics.utilityIconSize)
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 3)

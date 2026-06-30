@@ -15,6 +15,8 @@ struct PlotViewMetrics {
     let panelPadding: CGFloat
     let headerIconSize: CGFloat
     let emptyCardSize: CardSize
+    let playerCardSize: CardSize
+    let playerCardScale: CGFloat
 
     init(size: CGSize) {
         let shorterSide = min(size.width, size.height)
@@ -31,6 +33,8 @@ struct PlotViewMetrics {
         panelPadding = kolkhozClamp(shorterSide * 0.018, 7, 8)
         headerIconSize = kolkhozClamp(size.width * 0.026, 17, 20)
         emptyCardSize = .small
+        playerCardSize = .small
+        playerCardScale = 1.0
     }
 }
 
@@ -38,6 +42,7 @@ struct PlotStorageView: View {
     @EnvironmentObject private var store: GameStore
     @Environment(\.kolkhozLanguage) private var language
     let selectedPlot: Binding<PlotSelection?>?
+    var hiddenExiledPlotCards: Set<Card> = []
 
     private var isInteractive: Bool {
         selectedPlot != nil
@@ -54,13 +59,22 @@ struct PlotStorageView: View {
     var body: some View {
         GeometryReader { proxy in
             let metrics = PlotViewMetrics(size: proxy.size)
+            let localPlayerID = store.localPlayerID
+            let localPlayer = store.state.players[localPlayerID]
 
             VStack(alignment: .leading, spacing: metrics.spacing) {
                 plotHeader()
+                    .frame(height: isRequisition ? 58 : 54)
 
                 HStack(spacing: metrics.spacing) {
-                    ForEach(store.state.players.dropFirst()) { player in
-                        PlayerPlotPanel(player: player, score: store.visibleScore(for: player.id), metrics: metrics, exiledCards: exiledCards)
+                    ForEach(store.state.players.filter { $0.id != localPlayerID }) { player in
+                        PlayerPlotPanel(
+                            player: player,
+                            score: visibleScore(for: player),
+                            metrics: metrics,
+                            exiledCards: exiledCards,
+                            hiddenExiledPlotCards: hiddenExiledPlotCards
+                        )
                     }
                 }
                 .frame(height: metrics.opponentHeight)
@@ -69,9 +83,9 @@ struct PlotStorageView: View {
                     PlotColumn(
                         title: language.text(en: "Cellar", ru: "Подвал"),
                         icon: .cellar,
-                        subtitle: "\(store.state.players[0].plot.hidden.count)",
-                        cards: store.state.players[0].plot.hidden,
-                        hidden: true,
+                        subtitle: "\(visibleHiddenCards(for: localPlayer).count)",
+                        cards: visibleHiddenCards(for: localPlayer),
+                        hidden: false,
                         metrics: metrics,
                         exiledCards: exiledCards,
                         isSelected: { selectedPlot?.wrappedValue == PlotSelection(card: $0, zone: .hidden) },
@@ -82,8 +96,8 @@ struct PlotStorageView: View {
                     PlotColumn(
                         title: language.text(en: "Plot", ru: "Участок"),
                         icon: .plot,
-                        subtitle: "\(store.state.players[0].plot.revealed.count)",
-                        cards: store.state.players[0].plot.revealed,
+                        subtitle: "\(visibleRevealedCards(for: localPlayer).count)",
+                        cards: visibleRevealedCards(for: localPlayer),
                         hidden: false,
                         metrics: metrics,
                         exiledCards: exiledCards,
@@ -107,13 +121,13 @@ struct PlotStorageView: View {
             PanelTitleRow(
                 title: language.text(en: "Requisition", ru: "Реквизиция"),
                 subtitle: requisitionSubtitle,
-                icon: .warning,
+                icon: .requisitionNorth,
                 urgent: true
             )
         } else {
             PanelTitleRow(
                 title: language.text(en: "Private plot", ru: "Личный участок"),
-                subtitle: language.text(en: "Opponent stores above, your cellar below.", ru: "Участки соперников сверху, ваш подвал снизу."),
+                subtitle: language.text(en: "Other stores above, active player's cellar below.", ru: "Участки других сверху, подвал активного игрока снизу."),
                 icon: .plot
             )
         }
@@ -150,6 +164,21 @@ struct PlotStorageView: View {
             $0.playerID == playerID && $0.suit == suit && $0.card == card
         }
     }
+
+    private func visibleHiddenCards(for player: PlayerState) -> [Card] {
+        player.plot.hidden.filter { !hiddenExiledPlotCards.contains($0) }
+    }
+
+    private func visibleRevealedCards(for player: PlayerState) -> [Card] {
+        player.plot.revealed.filter { !hiddenExiledPlotCards.contains($0) }
+    }
+
+    private func visibleScore(for player: PlayerState) -> Int {
+        let hiddenValue = player.plot.revealed
+            .filter { hiddenExiledPlotCards.contains($0) }
+            .reduce(0) { $0 + $1.value }
+        return store.visibleScore(for: player.id) - hiddenValue
+    }
 }
 
 struct PlayerPlotPanel: View {
@@ -158,42 +187,50 @@ struct PlayerPlotPanel: View {
     let score: Int
     let metrics: PlotViewMetrics
     var exiledCards: Set<Card> = []
+    var hiddenExiledPlotCards: Set<Card> = []
 
     var body: some View {
-        HStack(spacing: metrics.spacing * 0.75) {
-            PortraitView(player: player, human: false)
-                .frame(width: metrics.portraitSize, height: metrics.portraitSize)
+        HStack(alignment: .top, spacing: metrics.spacing * 0.75) {
+            VStack(spacing: 3) {
+                ZStack(alignment: .topTrailing) {
+                    PortraitView(player: player, human: player.isHuman)
+                        .frame(width: metrics.portraitSize, height: metrics.portraitSize)
+                    if hasVulnerableCard {
+                        GameIcon(.statusVulnerable, size: 14)
+                            .padding(.top, -3)
+                            .padding(.trailing, -4)
+                    }
+                }
+                PixelText(text: language.playerName(player), size: .caption2, variant: .heavy, color: .kolkhozCream)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .frame(width: metrics.portraitSize + 12, alignment: .top)
 
             VStack(alignment: .leading, spacing: metrics.spacing * 0.7) {
-                HStack(spacing: 5) {
-                    PixelText(text: language.playerName(player), size: .caption2, variant: .heavy, color: .kolkhozCream)
-                    Spacer(minLength: 0)
-                    PixelText(text: "\(score)", size: .caption2, variant: .heavy, color: .kolkhozGold)
-                }
-
-                HStack(alignment: .top, spacing: metrics.columnCardSpacing * 0.64) {
-                    ForEach(Array(player.plot.revealed.prefix(metrics.opponentVisibleCardCount))) { card in
-                        CardView(card: card, size: .small)
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 6)
-                                    .stroke(exiledCards.contains(card) ? Color.kolkhozRedBright : Color.clear, lineWidth: 3)
-                            }
-                            .scaleEffect(metrics.opponentCardScale * (exiledCards.contains(card) ? 1.08 : 1), anchor: .topLeading)
-                            .frame(width: metrics.opponentCardFrameWidth, height: metrics.opponentCardFrameHeight, alignment: .topLeading)
-                    }
-                    ForEach(0..<hiddenCardCount, id: \.self) { _ in
-                        CardBackView(size: .small)
-                            .scaleEffect(metrics.opponentCardScale, anchor: .topLeading)
-                            .frame(width: metrics.opponentCardFrameWidth, height: metrics.opponentCardFrameHeight, alignment: .topLeading)
-                    }
-                    if player.plot.hidden.isEmpty && player.plot.revealed.isEmpty {
-                        PixelText(text: "-", size: .caption, variant: .heavy, color: Color.kolkhozSmoke.opacity(0.72))
-                            .frame(height: metrics.opponentCardFrameHeight)
-                    }
+                HStack(alignment: .center, spacing: metrics.spacing * 0.5) {
+                    OpponentPlotMiniSection(
+                        icon: .cellar,
+                        value: "\(visibleHiddenCards.count)",
+                        cards: visibleHiddenCards,
+                        hidden: true,
+                        metrics: metrics,
+                        exiledCards: exiledCards
+                    )
+                    OpponentPlotMiniSection(
+                        icon: .plot,
+                        value: "\(score)",
+                        cards: visibleRevealedCards,
+                        hidden: false,
+                        metrics: metrics,
+                        exiledCards: exiledCards
+                    )
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .clipped()
             }
+            .padding(.top, 0)
+            .frame(maxHeight: .infinity, alignment: .top)
         }
         .padding(metrics.panelPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -204,8 +241,70 @@ struct PlayerPlotPanel: View {
         }
     }
 
-    private var hiddenCardCount: Int {
-        min(player.plot.hidden.count, metrics.opponentVisibleCardCount)
+    private var hasVulnerableCard: Bool {
+        visibleRevealedCards.contains { exiledCards.contains($0) }
+            || visibleHiddenCards.contains { exiledCards.contains($0) }
+    }
+
+    private var visibleHiddenCards: [Card] {
+        player.plot.hidden.filter { !hiddenExiledPlotCards.contains($0) }
+    }
+
+    private var visibleRevealedCards: [Card] {
+        player.plot.revealed.filter { !hiddenExiledPlotCards.contains($0) }
+    }
+
+}
+
+private struct OpponentPlotMiniSection: View {
+    let icon: GameIconAsset
+    let value: String
+    let cards: [Card]
+    let hidden: Bool
+    let metrics: PlotViewMetrics
+    let exiledCards: Set<Card>
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 3) {
+            VStack(spacing: 1) {
+                GameIcon(icon, size: metrics.headerIconSize)
+                PixelText(text: value, size: .caption2, variant: .heavy, color: .kolkhozGold)
+            }
+            .frame(width: metrics.headerIconSize + 5)
+
+            HStack(alignment: .center, spacing: metrics.columnCardSpacing * 0.56) {
+                ForEach(Array(cards.prefix(2))) { card in
+                    cardView(card)
+                }
+                if cards.isEmpty {
+                    PixelText(text: "-", size: .caption, variant: .heavy, color: Color.kolkhozSmoke.opacity(0.72))
+                        .frame(width: metrics.opponentCardFrameWidth, height: metrics.opponentCardFrameHeight)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .clipped()
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 3)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .background(Color.kolkhozBlack.opacity(0.12), in: RoundedRectangle(cornerRadius: 4))
+    }
+
+    @ViewBuilder
+    private func cardView(_ card: Card) -> some View {
+        Group {
+            if hidden {
+                CardBackView(size: .small)
+            } else {
+                CardView(card: card, size: .small)
+            }
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(exiledCards.contains(card) ? Color.kolkhozRedBright : Color.clear, lineWidth: 3)
+        }
+        .scaleEffect(metrics.opponentCardScale * (exiledCards.contains(card) ? 1.08 : 1), anchor: .topLeading)
+        .frame(width: metrics.opponentCardFrameWidth, height: metrics.opponentCardFrameHeight, alignment: .topLeading)
     }
 }
 
@@ -237,8 +336,8 @@ struct PlotColumn: View {
                     if cards.isEmpty {
                         PixelText(text: "-", size: .title, variant: .heavy, color: Color.kolkhozSmoke.opacity(0.72))
                             .frame(
-                                width: metrics.emptyCardSize.width,
-                                height: metrics.emptyCardSize.height
+                                width: metrics.playerCardSize.width * metrics.playerCardScale,
+                                height: metrics.playerCardSize.height * metrics.playerCardScale
                             )
                     }
                 }
@@ -272,15 +371,21 @@ struct PlotColumn: View {
     private func cardFace(_ card: Card) -> some View {
         Group {
             if hidden {
-                CardBackView(size: metrics.emptyCardSize)
+                CardBackView(size: metrics.playerCardSize)
             } else {
-                CardView(card: card, size: metrics.emptyCardSize)
+                CardView(card: card, size: metrics.playerCardSize)
             }
         }
         .overlay {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(cardStrokeColor(card), lineWidth: cardStrokeWidth(card))
         }
+        .scaleEffect(metrics.playerCardScale, anchor: .topLeading)
+        .frame(
+            width: metrics.playerCardSize.width * metrics.playerCardScale,
+            height: metrics.playerCardSize.height * metrics.playerCardScale,
+            alignment: .topLeading
+        )
     }
 
     private func cardStrokeColor(_ card: Card) -> Color {

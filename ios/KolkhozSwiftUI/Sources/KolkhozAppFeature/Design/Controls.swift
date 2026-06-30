@@ -43,24 +43,100 @@ struct CommandPanelBackground: View {
 struct GeneratedChromeImage: View {
     let resourceName: String
     var capInsets: EdgeInsets?
+    var resizingMode: Image.ResizingMode = .stretch
 
     @ViewBuilder
     var body: some View {
         if let image = KolkhozResourceImageCache.image(named: resourceName) {
             if let capInsets {
                 image
-                    .resizable(capInsets: capInsets, resizingMode: .stretch)
+                    .resizable(capInsets: capInsets, resizingMode: resizingMode)
                     .interpolation(.none)
                     .antialiased(false)
             } else {
-                image
-                    .resizable()
-                    .interpolation(.none)
-                    .antialiased(false)
+                switch resizingMode {
+                case .tile:
+                    image
+                        .resizable(capInsets: EdgeInsets(), resizingMode: .tile)
+                        .interpolation(.none)
+                        .antialiased(false)
+                case .stretch:
+                    image
+                        .resizable()
+                        .interpolation(.none)
+                        .antialiased(false)
+                @unknown default:
+                    image
+                        .resizable()
+                        .interpolation(.none)
+                        .antialiased(false)
+                }
             }
         } else {
             Color.clear
         }
+    }
+}
+
+enum BoardGoldSeparatorOrientation {
+    case vertical
+    case horizontal
+}
+
+struct BoardGoldSeparatorView: View {
+    let orientation: BoardGoldSeparatorOrientation
+
+    var body: some View {
+        ZStack {
+            fallback
+            GeneratedChromeImage(resourceName: resourceName, resizingMode: .tile)
+        }
+        .accessibilityHidden(true)
+    }
+
+    private var resourceName: String {
+        switch orientation {
+        case .vertical:
+            "ui-left-rail-separator-tile"
+        case .horizontal:
+            "ui-play-area-separator-horizontal-tile"
+        }
+    }
+
+    @ViewBuilder
+    private var fallback: some View {
+        switch orientation {
+        case .vertical:
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: separatorColors,
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(maxWidth: 8)
+        case .horizontal:
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: separatorColors,
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(maxHeight: 8)
+        }
+    }
+
+    private var separatorColors: [Color] {
+        [
+            .kolkhozBlack.opacity(0.44),
+            .kolkhozGold,
+            .kolkhozGoldBright,
+            .kolkhozGold,
+            .kolkhozBlack.opacity(0.44)
+        ]
     }
 }
 
@@ -260,16 +336,17 @@ struct CommandButtonStyle: ButtonStyle {
         configuration.label
             .font(.kolkhozTitle(.subheadline))
             .textCase(.uppercase)
-            .foregroundStyle(prominent ? Color.kolkhozOnAccent : Color.kolkhozCream)
+            .foregroundStyle(prominent ? Color.kolkhozOnAccent : Color.kolkhozCardInk)
             .lineLimit(1)
             .minimumScaleFactor(0.72)
-            .shadow(color: prominent ? Color.kolkhozBlack.opacity(0.8) : Color.kolkhozGold.opacity(0.22), radius: prominent ? 2 : 0, y: prominent ? 1 : 0)
+            .shadow(color: prominent ? Color.kolkhozBlack.opacity(0.8) : Color.kolkhozCream.opacity(0.55), radius: prominent ? 2 : 1, y: prominent ? 1 : 1)
             .padding(.horizontal, prominent ? 42 : 36)
             .padding(.top, prominent ? 14 : 12)
             .padding(.bottom, prominent ? 10 : 9)
-            .frame(minWidth: prominent ? 160 : 132, minHeight: prominent ? 58 : 52)
+            .frame(maxWidth: .infinity, minHeight: prominent ? 58 : 52)
             .background {
                 GeneratedChromeImage(resourceName: prominent ? "ui-button-primary" : "ui-button-secondary")
+                    .aspectRatio(4, contentMode: .fit)
             }
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .opacity(configuration.isPressed ? 0.82 : 1)

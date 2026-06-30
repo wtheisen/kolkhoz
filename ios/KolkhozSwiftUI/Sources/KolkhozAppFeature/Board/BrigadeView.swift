@@ -8,6 +8,7 @@ struct PlayerPanel: View {
     let maxTricks: Int
     let active: Bool
     let human: Bool
+    var protected = false
     @State private var pulse = false
 
     var body: some View {
@@ -24,7 +25,7 @@ struct PlayerPanel: View {
                 40
             )
             let rowSpacing = kolkhozClamp(proxy.size.width * 0.025, 3, 5)
-            let stackSpacing = kolkhozClamp(proxy.size.width * 0.01, -1, 1)
+            let stackSpacing = kolkhozClamp(proxy.size.width * 0.01, -1, -1)
             let statColumnWidth = kolkhozClamp(proxy.size.width * 0.22, 44, 50)
             let topPadding = kolkhozClamp(proxy.size.height * 0.07, 2, 4)
 
@@ -36,6 +37,7 @@ struct PlayerPanel: View {
                     ZStack {
                         PortraitView(player: player, human: human)
                             .frame(width: portraitSize, height: portraitSize)
+                            .offset(x: -2, y: 2)
                     }
                     .frame(width: portraitColumnWidth, height: max(0, proxy.size.height - outerInset * 2), alignment: .center)
 
@@ -65,11 +67,11 @@ struct PlayerPanel: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .padding(.top, topPadding)
-                    .offset(x: -4)
                     .layoutPriority(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.leading, 5)
+                .padding(.leading, 10)
+                .offset(y: -2)
             }
             .overlay {
                 if active || human {
@@ -79,16 +81,59 @@ struct PlayerPanel: View {
                         .allowsHitTesting(false)
                 }
             }
+            .overlay(alignment: .topTrailing) {
+                PlayerStatusBadgeStrip(badges: statusBadges)
+                    .padding(.top, 3)
+                    .padding(.trailing, 5)
+            }
             .scaleEffect(active && pulse ? 1.018 : 1)
             .shadow(color: active ? Color.kolkhozGold.opacity(pulse ? 0.42 : 0.18) : .black.opacity(0.24), radius: active && pulse ? 12 : 4, y: 3)
         }
         .frame(minHeight: 54)
     }
 
+    private var statusBadges: [GameIconAsset] {
+        var badges: [GameIconAsset] = []
+        if active {
+            badges.append(player.isHuman ? .statusCurrentTurn : .statusAIThinking)
+        }
+        if player.brigadeLeader {
+            badges.append(.statusBrigadeLeader)
+        }
+        if protected {
+            badges.append(.statusProtected)
+        }
+        return badges
+    }
+
     private var displayName: String {
         guard !human else { return language.text(en: "You", ru: "Вы") }
         let firstName = player.name.split(separator: " ").first.map(String.init) ?? player.name
         return firstName.count > 6 ? "\(firstName.prefix(6))." : firstName
+    }
+}
+
+private struct PlayerStatusBadgeStrip: View {
+    let badges: [GameIconAsset]
+
+    var body: some View {
+        if !badges.isEmpty {
+            HStack(spacing: -3) {
+                ForEach(Array(badges.prefix(3).enumerated()), id: \.offset) { _, badge in
+                    GameIcon(badge, size: 13)
+                        .frame(width: 14, height: 14)
+                }
+            }
+            .padding(.horizontal, 2)
+            .padding(.vertical, 1)
+            .background(Color.kolkhozBlack.opacity(0.42), in: RoundedRectangle(cornerRadius: 3))
+            .overlay {
+                RoundedRectangle(cornerRadius: 3)
+                    .stroke(Color.kolkhozGold.opacity(0.3), lineWidth: 1)
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
     }
 }
 
@@ -155,15 +200,19 @@ struct BrigadeView: View {
     }
 
     var playerOrder: [Int] { [1, 2, 3, 0] }
+    private let columnSpacingFill: CGFloat = 0.72
 
     var body: some View {
         GeometryReader { proxy in
-            let spacing = kolkhozClamp(proxy.size.width * 0.012, 28, 48)
-            let preferredColumnWidth = kolkhozClamp(proxy.size.width * 0.18, 96, 120)
-            let maxColumnWidth = (proxy.size.width - spacing * CGFloat(playerOrder.count - 1)) / CGFloat(playerOrder.count)
+            let columnCount = CGFloat(playerOrder.count)
             let playerPanelWidth = CardSize.medium.width * 1.6
-            let columnWidth = max(playerPanelWidth, min(preferredColumnWidth, maxColumnWidth))
-            let rowWidth = columnWidth * CGFloat(playerOrder.count) + spacing * CGFloat(playerOrder.count - 1)
+            let preferredColumnWidth = kolkhozClamp(proxy.size.width * 0.18, 96, 120)
+            let columnWidth = max(playerPanelWidth, preferredColumnWidth)
+            let totalColumnWidth = columnWidth * columnCount
+            let availableSpacing = max(0, (proxy.size.width - totalColumnWidth) / max(1, columnCount - 1))
+            let spacing = availableSpacing * columnSpacingFill
+            let rowWidth = totalColumnWidth + spacing * (columnCount - 1)
+
             HStack(alignment: .top, spacing: spacing) {
                 ForEach(playerOrder, id: \.self) { playerID in
                     BrigadePlayerColumnView(
@@ -178,7 +227,7 @@ struct BrigadeView: View {
                     .frame(width: columnWidth)
                 }
             }
-            .frame(width: rowWidth, height: proxy.size.height, alignment: .top)
+            .frame(width: rowWidth, height: proxy.size.height, alignment: .topLeading)
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -199,12 +248,18 @@ struct BrigadePlayerColumnView: View {
     var isCurrentTurn: Bool {
         store.state.phase == .trick && store.state.currentPlayer == playerID && play == nil
     }
+    var isProtectedFromRequisition: Bool {
+        store.state.phase == .requisition
+            && store.state.variants.heroOfSovietUnion
+            && player.medals >= maxTricksForYear
+    }
 
     var cardSize: CardSize { .medium }
+    var maxTricksForYear: Int { store.state.isFamine ? 3 : 4 }
     var slotWidth: CGFloat { kolkhozClamp(columnWidth * 0.52, 44, 76) }
-    var playAreaScale: CGFloat { 1.6 }
-    var playAreaLeftOffset: CGFloat { kolkhozClamp(columnWidth * 0.06, 37, 54) }
-    var playAreaTopOffset: CGFloat { kolkhozClamp(columnWidth * 0.15, 12, 24) }
+    var playAreaScale: CGFloat { 1.8 }
+    var playAreaLeftOffset: CGFloat { kolkhozClamp(columnWidth * 0.06, 30, 54) }
+    var playAreaTopOffset: CGFloat { kolkhozClamp(columnWidth * 0.15, 18, 24) }
     var playerPanelWidth: CGFloat { cardSize.width * playAreaScale }
     var playerPanelHeight: CGFloat { 40 }
     var playAreaWidth: CGFloat { max(cardSize.width, slotWidth) * playAreaScale }
@@ -215,9 +270,10 @@ struct BrigadePlayerColumnView: View {
             PlayerPanel(
                 player: player,
                 plotScore: store.visibleScore(for: playerID),
-                maxTricks: store.state.isFamine ? 3 : 4,
+                maxTricks: maxTricksForYear,
                 active: isCurrentTurn,
-                human: playerID == 0
+                human: playerID == 0,
+                protected: isProtectedFromRequisition
             )
             .frame(width: playerPanelWidth, height: playerPanelHeight)
             .background {

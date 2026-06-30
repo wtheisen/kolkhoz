@@ -6,14 +6,20 @@ import KolkhozCore
 public final class GameStore: ObservableObject {
     @Published public private(set) var state: KolkhozState
     @Published public private(set) var animationEvents: [KolkhozAnimationEvent] = []
+    @Published public private(set) var revealedPlayerID: Int?
     @Published public var lastError: String?
 
     private var engine: KolkhozEngine
 
-    public init(seed: UInt64 = UInt64(Date().timeIntervalSince1970), variants: GameVariants = .kolkhoz) {
-        let engine = KolkhozEngine(seed: seed, variants: variants)
+    public init(
+        seed: UInt64 = UInt64(Date().timeIntervalSince1970),
+        variants: GameVariants = .kolkhoz,
+        controllers: [PlayerController] = PlayerController.defaultControllers
+    ) {
+        let engine = KolkhozEngine(seed: seed, variants: variants, controllers: controllers)
         self.engine = engine
         self.state = engine.state
+        self.revealedPlayerID = engine.state.players.filter(\.isHuman).count > 1 ? nil : engine.state.humanPlayer.id
     }
 
     #if DEBUG
@@ -24,38 +30,43 @@ public final class GameStore: ObservableObject {
     }
     #endif
 
-    public func newGame(variants: GameVariants? = nil) {
-        engine.newGame(variants: variants)
+    public func newGame(variants: GameVariants? = nil, controllers: [PlayerController]? = nil) {
+        revealedPlayerID = nil
+        if let controllers {
+            engine = KolkhozEngine(variants: variants ?? state.variants, controllers: controllers)
+        } else {
+            engine.newGame(variants: variants)
+        }
         animationEvents = []
         sync()
     }
 
     public func setTrump(_ suit: Suit) {
-        perform { try engine.setTrump(suit) }
+        perform { try engine.setTrump(suit, playerID: localPlayerID) }
     }
 
     public func play(_ card: Card) {
-        perform { try engine.playCard(card) }
+        perform { try engine.playCard(card, playerID: localPlayerID) }
     }
 
     public func swap(handCard: Card, plotCard: Card, revealed: Bool) {
-        perform { try engine.swap(handCard: handCard, plotCard: plotCard, revealed: revealed) }
+        perform { try engine.swap(handCard: handCard, plotCard: plotCard, revealed: revealed, playerID: localPlayerID) }
     }
 
     public func confirmSwap() {
-        perform { try engine.confirmSwap() }
+        perform { try engine.confirmSwap(playerID: localPlayerID) }
     }
 
     public func undoSwap() {
-        perform { try engine.undoSwap() }
+        perform { try engine.undoSwap(playerID: localPlayerID) }
     }
 
     public func assign(_ card: Card, to suit: Suit) {
-        perform { try engine.assign(card: card, to: suit) }
+        perform { try engine.assign(card: card, to: suit, playerID: localPlayerID) }
     }
 
     public func submitAssignments() {
-        perform { try engine.submitAssignments() }
+        perform { try engine.submitAssignments(playerID: localPlayerID) }
     }
 
     public func continueAfterRequisition() {
@@ -68,7 +79,31 @@ public final class GameStore: ObservableObject {
     }
 
     public func validCardsForHuman() -> Set<Card> {
-        engine.validCardsForHuman()
+        engine.validCardsForHuman(playerID: localPlayerID)
+    }
+
+    public var localPlayerID: Int {
+        if state.players.indices.contains(state.currentPlayer), state.players[state.currentPlayer].isHuman {
+            return state.currentPlayer
+        }
+        if state.phase == .assignment,
+           let winner = state.lastWinner,
+           state.players.indices.contains(winner),
+           state.players[winner].isHuman {
+            return winner
+        }
+        return state.players.first(where: \.isHuman)?.id ?? 0
+    }
+
+    public var isHotSeatPrivacyRequired: Bool {
+        state.phase != .gameOver &&
+            state.players.filter(\.isHuman).count > 1 &&
+            revealedPlayerID != localPlayerID
+    }
+
+    public func revealLocalPlayer() {
+        revealedPlayerID = localPlayerID
+        lastError = nil
     }
 
     private func perform(_ action: () throws -> Void) {
@@ -84,6 +119,20 @@ public final class GameStore: ObservableObject {
     private func sync() {
         state = engine.state
         animationEvents.append(contentsOf: engine.drainAnimationEvents())
+        updateHotSeatReveal()
+    }
+
+    private func updateHotSeatReveal() {
+        if state.phase == .gameOver || state.players.filter(\.isHuman).count <= 1 {
+            revealedPlayerID = localPlayerID
+            return
+        }
+        if let revealedPlayerID,
+           state.players.indices.contains(revealedPlayerID),
+           state.players[revealedPlayerID].isHuman {
+            return
+        }
+        revealedPlayerID = nil
     }
 
     public func consumeAnimationEvent(_ id: UUID) {

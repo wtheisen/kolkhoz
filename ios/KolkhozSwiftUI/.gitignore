@@ -1,4 +1,5 @@
 .build/
+build/
 .swiftpm/
 .derivedData/
 DerivedData/

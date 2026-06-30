@@ -6,6 +6,7 @@ public struct KolkhozRootView: View {
     @State private var showingLobby: Bool
     @State private var selectedPreset: GamePreset = .kolkhoz
     @State private var customVariants = GameVariants.kolkhoz
+    @State private var playerControllers = PlayerController.defaultControllers
     @State private var showingRules = false
     @AppStorage("kolkhoz-lang") private var languageRawValue = KolkhozLanguage.ru.rawValue
     @AppStorage("kolkhoz-appearance") private var appearanceRawValue = KolkhozAppearance.dark.rawValue
@@ -17,6 +18,7 @@ public struct KolkhozRootView: View {
         if let preview = KolkhozLaunchPreview.current {
             _store = StateObject(wrappedValue: GameStore(previewState: preview.state))
             _showingLobby = State(initialValue: preview.showingLobby)
+            _showingRules = State(initialValue: preview.showingRules)
             initialPanel = preview.panel
             return
         }
@@ -35,6 +37,7 @@ public struct KolkhozRootView: View {
                     LobbyView(
                         selectedPreset: $selectedPreset,
                         customVariants: $customVariants,
+                        playerControllers: $playerControllers,
                         showingRules: $showingRules,
                         onStart: startGame
                     )
@@ -67,7 +70,7 @@ public struct KolkhozRootView: View {
     }
 
     private func startGame() {
-        store.newGame(variants: activeVariants)
+        store.newGame(variants: activeVariants, controllers: playerControllers)
         showingLobby = false
     }
 
@@ -89,6 +92,7 @@ public struct KolkhozRootView: View {
 private struct KolkhozLaunchPreview {
     let state: KolkhozState
     let showingLobby: Bool
+    var showingRules = false
     let panel: GamePanel?
 
     static var current: KolkhozLaunchPreview? {
@@ -97,8 +101,12 @@ private struct KolkhozLaunchPreview {
         }
 
         switch value {
+        case "rules":
+            return KolkhozLaunchPreview(state: KolkhozPreviewFixtures.planningState, showingLobby: true, showingRules: true, panel: nil)
         case "planning":
             return KolkhozLaunchPreview(state: KolkhozPreviewFixtures.planningState, showingLobby: false, panel: nil)
+        case "famine":
+            return KolkhozLaunchPreview(state: KolkhozPreviewFixtures.faminePlanningState, showingLobby: false, panel: nil)
         case "trick":
             return KolkhozLaunchPreview(state: KolkhozPreviewFixtures.trickState, showingLobby: false, panel: nil)
         case "assignment":
@@ -109,8 +117,12 @@ private struct KolkhozLaunchPreview {
             return KolkhozLaunchPreview(state: KolkhozPreviewFixtures.requisitionState, showingLobby: false, panel: nil)
         case "north":
             return KolkhozLaunchPreview(state: KolkhozPreviewFixtures.requisitionState, showingLobby: false, panel: .north)
+        case "options":
+            return KolkhozLaunchPreview(state: KolkhozPreviewFixtures.trickState, showingLobby: false, panel: .options)
         case "gameOver":
             return KolkhozLaunchPreview(state: KolkhozPreviewFixtures.gameOverState, showingLobby: false, panel: nil)
+        case "hotSeatPass":
+            return KolkhozLaunchPreview(state: KolkhozPreviewFixtures.hotSeatPassState, showingLobby: false, panel: nil)
         default:
             return nil
         }

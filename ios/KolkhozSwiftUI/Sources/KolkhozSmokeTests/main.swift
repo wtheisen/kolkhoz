@@ -18,6 +18,10 @@ func testNewGameDealsCards() {
     expect(state.revealedJobs.count == Suit.allCases.count, "expected one revealed job per suit")
 }
 
+func testDefaultKolkhozDisablesNomenclature() {
+    expect(!GameVariants.kolkhoz.nomenclature, "default Kolkhoz preset should not enable nomenklatura")
+}
+
 func testValidCardsRespectLeadSuit() {
     let engine = KolkhozEngine(seed: 100)
     var state = engine.state
@@ -95,6 +99,78 @@ func testGameCanReachGameOver() throws {
     expect(engine.state.gameResult != nil, "game should produce a result")
 }
 
+func testPolicyModelCanDriveGameOver() throws {
+    let inputSize = 34
+    let hiddenSize = 4
+    let model = KolkhozPolicyModel(
+        version: 1,
+        featureVersion: 1,
+        inputSize: inputSize,
+        hiddenSize: hiddenSize,
+        w1: Array(repeating: 0.01, count: inputSize * hiddenSize),
+        b1: Array(repeating: 0, count: hiddenSize),
+        w2: Array(repeating: 0.01, count: hiddenSize),
+        b2: 0
+    )
+    expect(model.isCompatible, "test policy model should match Swift feature contract")
+
+    let engine = KolkhozEngine(seed: 91, aiModel: model)
+    var turnGuard = 0
+
+    while engine.state.phase != .gameOver && turnGuard < 500 {
+        turnGuard += 1
+
+        switch engine.state.phase {
+        case .planning where engine.state.currentPlayer == 0:
+            try engine.setTrump(.wheat)
+
+        case .swap:
+            try engine.confirmSwap()
+
+        case .trick where engine.state.currentPlayer == 0:
+            let card = engine.validCardsForHuman().sorted { $0.value < $1.value }.first ?? engine.state.players[0].hand[0]
+            try engine.playCard(card)
+
+        case .assignment:
+            let target = engine.state.lastTrick.first?.card.suit ?? .wheat
+            for play in engine.state.lastTrick {
+                try engine.assign(card: play.card, to: target)
+            }
+            try engine.submitAssignments()
+
+        case .requisition:
+            engine.continueAfterRequisition()
+
+        default:
+            break
+        }
+    }
+
+    expect(engine.state.phase == .gameOver, "compatible policy model should be able to drive AI turns")
+}
+
+func testHotSeatStopsOnSecondHumanTurn() throws {
+    var players = (0..<4).map { id in
+        PlayerState(id: id, name: id < 2 ? "Player \(id + 1)" : "Bot \(id)", isHuman: id < 2)
+    }
+    players[0].hand = [Card(suit: .wheat, value: 9)]
+    players[1].hand = [Card(suit: .wheat, value: 6)]
+    players[2].hand = [Card(suit: .wheat, value: 7)]
+    players[3].hand = [Card(suit: .wheat, value: 8)]
+
+    var state = KolkhozState(players: players, lead: 1, trumpSelector: 0)
+    state.phase = .trick
+    state.currentPlayer = 1
+    state.trump = nil
+
+    let engine = KolkhozEngine(testing: state)
+    try engine.playCard(Card(suit: .wheat, value: 6), playerID: 1)
+
+    expect(engine.state.phase == .trick, "hot-seat trick should pause before the next human")
+    expect(engine.state.currentPlayer == 0, "hot-seat trick should rotate to player 1 after AI seats")
+    expect(engine.state.currentTrick.map(\.playerID) == [1, 2, 3], "AI seats should auto-play between human turns")
+}
+
 func testRequisitionUsesHumanFacingName() throws {
     var players = (0..<4).map { id in
         PlayerState(id: id, name: id == 0 ? "Player" : "Bot \(id)", isHuman: id == 0)
@@ -125,20 +201,23 @@ func testRequisitionUsesHumanFacingName() throws {
     try engine.submitAssignments()
 
     expect(
-        engine.state.requisitionEvents.contains { $0.message == "You send 10 Sunflower north" },
-        "human requisition message should use second person"
+        engine.state.requisitionEvents.contains { $0.message == "Player sends 10 Sunflower north" },
+        "human requisition message should use the seat name"
     )
     expect(
-        !engine.state.requisitionEvents.contains { $0.message.contains("Player sends") },
-        "human requisition message should not use raw model name"
+        !engine.state.requisitionEvents.contains { $0.message.contains("You send") },
+        "human requisition message should not collapse every hot-seat human to you"
     )
 }
 
 do {
     testNewGameDealsCards()
+    testDefaultKolkhozDisablesNomenclature()
     testValidCardsRespectLeadSuit()
     try testEngineEmitsCardPlayAnimationEvents()
     try testGameCanReachGameOver()
+    try testPolicyModelCanDriveGameOver()
+    try testHotSeatStopsOnSecondHumanTurn()
     try testRequisitionUsesHumanFacingName()
     print("Kolkhoz smoke tests passed")
 } catch {

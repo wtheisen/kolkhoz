@@ -9,12 +9,16 @@ struct InGameOptionsPanel: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let stackSpacing = kolkhozClamp(proxy.size.height * 0.05, 10, 14)
+            let stackSpacing = kolkhozClamp(proxy.size.height * 0.035, 7, 10)
 
-            menuContent(spacing: stackSpacing)
+            ScrollView(.vertical, showsIndicators: false) {
+                menuContent(spacing: stackSpacing)
+                    .padding(.bottom, 6)
+            }
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+            .clipped()
         }
-        .frame(minHeight: 206, idealHeight: 224, maxHeight: 258)
+        .frame(minHeight: 206, idealHeight: 300, maxHeight: 360)
         .panelStyle()
         .alert(confirmTitle, isPresented: Binding(
             get: { pendingMenuAction != nil },
@@ -135,10 +139,12 @@ struct InGameOptionsPanel: View {
 
     private var menuRules: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(language.text(en: "Rules", ru: "Правила"))
-                .font(.kolkhozTitle(.subheadline))
-                .textCase(.uppercase)
-                .foregroundStyle(Color.kolkhozGold)
+            HStack(spacing: 8) {
+                Text(language.text(en: "Rules", ru: "Правила"))
+                    .font(.kolkhozTitle(.subheadline))
+                    .textCase(.uppercase)
+                    .foregroundStyle(Color.kolkhozGold)
+            }
 
             MenuRuleRow(icon: .jobs, title: language.text(en: "Work", ru: "Работы"), bodyText: language.text(en: "Win tricks, then assign captured cards to matching jobs.", ru: "Выигрывайте взятки и назначайте карты на подходящие работы."))
             MenuRuleRow(icon: .plot, title: language.text(en: "Protect", ru: "Защита"), bodyText: language.text(en: "Keep plot cards safe from failed-job requisition.", ru: "Берегите карты участка от реквизиции за проваленные работы."))

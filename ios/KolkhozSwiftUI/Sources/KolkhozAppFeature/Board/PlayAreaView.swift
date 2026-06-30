@@ -26,7 +26,6 @@ struct PlayAreaView: View {
             GeometryReader { proxy in
                 playAreaShell
                 .padding(.horizontal, 8)
-                .padding(.top, 8)
                 .frame(width: proxy.size.width, height: proxy.size.height)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -69,7 +68,11 @@ struct PlayAreaView: View {
 
     private var playAreaShell: some View {
         VStack(spacing: 0) {
-            TopInfoBarView(jobTargets: $jobTargets)
+            TopInfoBarView(
+                jobTargets: $jobTargets,
+                displayedWorkHours: displayedWorkHours,
+                displayedClaimedJobs: displayedClaimedJobs
+            )
                 .padding(.leading, gameSafeInsets.leading)
                 .padding(.trailing, gameSafeInsets.trailing)
 
@@ -88,9 +91,15 @@ struct PlayAreaView: View {
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             }
-            .overlay {
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.kolkhozRedDark.opacity(0.8), lineWidth: 2)
+            .overlay(alignment: .top) {
+                BoardGoldSeparatorView(orientation: .horizontal)
+                    .frame(height: playAreaSeparatorThickness)
+                    .allowsHitTesting(false)
+            }
+            .overlay(alignment: .bottom) {
+                BoardGoldSeparatorView(orientation: .horizontal)
+                    .frame(height: playAreaSeparatorThickness)
+                    .allowsHitTesting(false)
             }
             .padding(.leading, gameSafeInsets.leading)
             .padding(.trailing, gameSafeInsets.trailing)
@@ -143,10 +152,10 @@ struct PlayAreaView: View {
                 selectedAssignmentCard: $selectedAssignmentCard,
                 isAssignmentPhase: store.state.phase == .assignment,
                 lastTrick: store.state.lastTrick,
-                workHours: store.state.workHours,
-                claimedJobs: store.state.claimedJobs,
+                workHours: displayedWorkHours,
+                claimedJobs: displayedClaimedJobs,
                 revealedJobs: store.state.revealedJobs,
-                jobBuckets: store.state.jobBuckets,
+                jobBuckets: displayedJobBuckets,
                 pendingAssignments: store.state.pendingAssignments,
                 trump: store.state.trump,
                 onAssign: store.assign(_:to:)
@@ -158,13 +167,16 @@ struct PlayAreaView: View {
         case .north:
             NorthView(exiledByYear: store.state.exiled, currentYear: store.state.year)
                 .padding(.horizontal, 0)
-                .padding(.top, 8)
+                .padding(.top, 0)
                 .padding(.bottom, panelContentBottomPadding)
 
         case .plot:
-            PlotStorageView(selectedPlot: store.state.phase == .swap ? $selectedSwapPlot : nil)
+            PlotStorageView(
+                selectedPlot: store.state.phase == .swap ? $selectedSwapPlot : nil,
+                hiddenExiledPlotCards: hiddenExiledPlotCards
+            )
             .padding(.horizontal, 0)
-            .padding(.top, 8)
+            .padding(.top, 0)
             .padding(.bottom, panelContentBottomPadding)
         }
     }
@@ -173,13 +185,18 @@ struct PlayAreaView: View {
         10
     }
 
+    private var playAreaSeparatorThickness: CGFloat {
+        4
+    }
+
     private var lowerHandBar: some View {
-        LowerHandBarView(
+        let playerID = store.localPlayerID
+        return LowerHandBarView(
             playCard: animateAndPlay(_:from:),
             mode: handTrayMode,
-            hand: store.state.players[0].hand,
+            hand: store.state.players[playerID].hand,
             validCards: store.validCardsForHuman(),
-            humanSwapStaged: store.state.swapCount.contains(0),
+            humanSwapStaged: store.state.swapCount.contains(playerID),
             lastTrick: store.state.lastTrick,
             pendingAssignments: store.state.pendingAssignments,
             year: store.state.year,
@@ -190,7 +207,7 @@ struct PlayAreaView: View {
             hoveredAssignmentSuit: $hoveredAssignmentSuit,
             selectedAssignmentCard: $selectedAssignmentCard,
             jobTargetFrames: jobTargetFrames,
-            playDropFrame: playSlotFrames[0],
+            playDropFrame: playSlotFrames[playerID],
             onSwapSelection: swapAndConfirm(_:plotSelection:),
             onConfirmSwap: store.confirmSwap,
             onAssign: store.assign(_:to:),
@@ -241,6 +258,68 @@ struct PlayAreaView: View {
             activeEngineEvent.map(isWorkAssignment(_:)) == true
     }
 
+    private var displayedWorkHours: [Suit: Int] {
+        var hours = store.state.workHours
+        for event in queuedWorkAssignments {
+            guard case .workAssigned(_, _, _, let targetSuit, let value) = event else { continue }
+            hours[targetSuit, default: 0] -= value
+        }
+        if let activeEngineEvent,
+           activeEngineEventLanded,
+           case .workAssigned(_, _, _, let targetSuit, let value) = activeEngineEvent {
+            hours[targetSuit, default: 0] += value
+        }
+        return hours.mapValues { max(0, $0) }
+    }
+
+    private var displayedClaimedJobs: Set<Suit> {
+        store.state.claimedJobs.filter { displayedWorkHours[$0, default: 0] >= 40 }
+    }
+
+    private var displayedJobBuckets: [Suit: [Card]] {
+        var buckets = store.state.jobBuckets
+        for event in queuedWorkAssignments {
+            guard case .workAssigned(_, _, let card, let targetSuit, _) = event else { continue }
+            buckets[targetSuit, default: []].removeFirstOccurrence(of: card)
+        }
+        if let activeEngineEvent,
+           activeEngineEventLanded,
+           case .workAssigned(_, _, let card, let targetSuit, _) = activeEngineEvent {
+            buckets[targetSuit, default: []].append(card)
+        }
+        return buckets
+    }
+
+    private var hiddenExiledPlotCards: Set<Card> {
+        var hiddenCards = Set(store.state.exiled[store.state.year, default: []])
+        for event in queuedCardExiles {
+            guard case .cardExiled(_, _, _, let card) = event,
+                  let card else {
+                continue
+            }
+            hiddenCards.remove(card)
+        }
+        if let activeEngineEvent,
+           case .cardExiled(_, _, _, let card) = activeEngineEvent,
+           let card {
+            hiddenCards.insert(card)
+        }
+        return hiddenCards
+    }
+
+    private var queuedWorkAssignments: [KolkhozAnimationEvent] {
+        store.animationEvents.filter(isWorkAssignment(_:))
+    }
+
+    private var queuedCardExiles: [KolkhozAnimationEvent] {
+        store.animationEvents.filter { event in
+            if case .cardExiled = event {
+                return true
+            }
+            return false
+        }
+    }
+
     private var hiddenPlayIDs: Set<String> {
         var ids = assignedFlightPlayIDs
         for event in store.animationEvents {
@@ -263,7 +342,7 @@ struct PlayAreaView: View {
 
     private func shouldHidePlayedCard(for event: KolkhozAnimationEvent) -> Bool {
         guard case .cardPlayed(_, let playerID, let card) = event,
-              playerID != 0 else {
+              !store.state.players[playerID].isHuman else {
             return false
         }
         return visibleTrickContains(playerID: playerID, card: card)
@@ -271,7 +350,7 @@ struct PlayAreaView: View {
 
     private func isQueuedAICardPlay(_ event: KolkhozAnimationEvent) -> Bool {
         guard case .cardPlayed(_, let playerID, let card) = event,
-              playerID != 0 else {
+              !store.state.players[playerID].isHuman else {
             return false
         }
         return visibleTrickContains(playerID: playerID, card: card)
@@ -299,7 +378,7 @@ struct PlayAreaView: View {
             plotCard: plotSelection.card,
             revealed: plotSelection.zone == .revealed
         )
-        if store.state.swapCount.contains(0) {
+        if store.state.swapCount.contains(store.localPlayerID) {
             store.confirmSwap()
         }
     }
@@ -409,6 +488,13 @@ enum GameBoardCoordinateSpace {
 
 private func playID(playerID: Int, card: Card) -> String {
     "\(playerID)-\(card.id)"
+}
+
+private extension Array where Element: Equatable {
+    mutating func removeFirstOccurrence(of element: Element) {
+        guard let index = firstIndex(of: element) else { return }
+        remove(at: index)
+    }
 }
 
 private func eventDuration(_ event: KolkhozAnimationEvent) -> TimeInterval {

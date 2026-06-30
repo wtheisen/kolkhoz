@@ -13,6 +13,8 @@ targets:
     platform: iOS
     sources:
       - Sources/KolkhozCore
+    resources:
+      - Sources/KolkhozCore/Resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.kolkhoz.KolkhozCore

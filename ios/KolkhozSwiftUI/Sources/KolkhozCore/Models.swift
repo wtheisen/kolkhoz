@@ -51,7 +51,7 @@ public struct GameVariants: Codable, Hashable, Sendable {
         self.heroOfSovietUnion = heroOfSovietUnion
     }
 
-    public static let kolkhoz = GameVariants()
+    public static let kolkhoz = GameVariants(nomenclature: false)
 
     public static let littleKolkhoz = GameVariants(
         deckType: 36,
@@ -76,6 +76,31 @@ public struct GameVariants: Codable, Hashable, Sendable {
         accumulateJobs: false,
         heroOfSovietUnion: true
     )
+}
+
+public enum PlayerController: String, CaseIterable, Codable, Hashable, Identifiable, Sendable {
+    case human
+    case heuristicAI
+    case neuralAI
+
+    public var id: String { rawValue }
+
+    public static let defaultControllers: [PlayerController] = [
+        .human,
+        .neuralAI,
+        .neuralAI,
+        .neuralAI
+    ]
+
+    public static func normalized(_ controllers: [PlayerController]) -> [PlayerController] {
+        var normalized = (0..<4).map { index in
+            controllers.indices.contains(index) ? controllers[index] : defaultControllers[index]
+        }
+        if !normalized.contains(.human) {
+            normalized[0] = .human
+        }
+        return normalized
+    }
 }
 
 public enum GamePreset: String, CaseIterable, Codable, Identifiable, Sendable {
@@ -313,7 +338,7 @@ public struct KolkhozState: Codable, Sendable {
     }
 
     public var numPlayers: Int { players.count }
-    public var humanPlayer: PlayerState { players[0] }
+    public var humanPlayer: PlayerState { players.first(where: \.isHuman) ?? players[0] }
 }
 
 public enum KolkhozMoveError: Error, Equatable {

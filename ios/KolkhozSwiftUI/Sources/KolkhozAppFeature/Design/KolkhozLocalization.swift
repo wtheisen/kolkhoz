@@ -65,7 +65,7 @@ enum KolkhozLanguage: String, CaseIterable {
     }
 
     func playerName(_ player: PlayerState) -> String {
-        player.isHuman ? text(en: "You", ru: "Вы") : player.name
+        player.name
     }
 
     func phaseName(_ phase: GamePhase) -> String {
@@ -89,13 +89,12 @@ enum KolkhozLanguage: String, CaseIterable {
         guard self == .ru else { return event.message }
 
         if let playerID = event.playerID, let card = event.card, players.indices.contains(playerID) {
-            let name = players[playerID].isHuman ? "Вы" : players[playerID].name
+            let name = players[playerID].name
             return "\(name) отправляет \(card.rank) \(suitName(event.suit)) на Север"
         }
 
         if let playerID = event.playerID, players.indices.contains(playerID) {
-            let name = players[playerID].isHuman ? "Вы защищены" : "\(players[playerID].name) защищён"
-            return "\(name) после победы во всех взятках"
+            return "\(players[playerID].name) защищён после победы во всех взятках"
         }
 
         return "\(suitName(event.suit)) провалено; нет уязвимых подходящих карт"
@@ -125,15 +124,22 @@ extension EnvironmentValues {
 struct LanguageToggleButton: View {
     @Environment(\.kolkhozLanguage) private var language
     @Environment(\.toggleKolkhozLanguage) private var toggleLanguage
+    let buttonSize: CGFloat
+    let iconSize: CGFloat
+
+    init(buttonSize: CGFloat = 48, iconSize: CGFloat = 25) {
+        self.buttonSize = buttonSize
+        self.iconSize = iconSize
+    }
 
     var body: some View {
         Button(action: toggleLanguage) {
             ZStack {
                 GeneratedChromeImage(resourceName: "ui-nav-button-inactive")
                     .allowsHitTesting(false)
-                GameIcon(iconAsset, size: 25)
+                GameIcon(iconAsset, size: iconSize)
             }
-            .frame(width: 48, height: 48)
+            .frame(width: buttonSize, height: buttonSize)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(language.toggleTitle))

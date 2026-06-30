@@ -49,15 +49,22 @@ struct AppearanceToggleButton: View {
     @Environment(\.kolkhozAppearance) private var appearance
     @Environment(\.kolkhozLanguage) private var language
     @Environment(\.toggleKolkhozAppearance) private var toggleAppearance
+    let buttonSize: CGFloat
+    let iconSize: CGFloat
+
+    init(buttonSize: CGFloat = 48, iconSize: CGFloat = 25) {
+        self.buttonSize = buttonSize
+        self.iconSize = iconSize
+    }
 
     var body: some View {
         Button(action: toggleAppearance) {
             ZStack {
                 GeneratedChromeImage(resourceName: "ui-nav-button-inactive")
                     .allowsHitTesting(false)
-                GameIcon(.appearance, size: 25)
+                GameIcon(.appearance, size: iconSize)
             }
-            .frame(width: 48, height: 48)
+            .frame(width: buttonSize, height: buttonSize)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(appearance.toggleTitle(language)))

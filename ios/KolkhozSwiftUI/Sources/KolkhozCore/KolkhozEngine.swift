@@ -8,10 +8,20 @@ public final class KolkhozEngine {
     public private(set) var state: KolkhozState
     private var random: SeededGenerator
     private var animationEvents: [KolkhozAnimationEvent] = []
+    private let aiModels: [Int: KolkhozPolicyModel]
+    private let controllers: [PlayerController]
 
-    public init(seed: UInt64 = UInt64(Date().timeIntervalSince1970), variants: GameVariants = .kolkhoz) {
+    public init(
+        seed: UInt64 = UInt64(Date().timeIntervalSince1970),
+        variants: GameVariants = .kolkhoz,
+        controllers: [PlayerController] = PlayerController.defaultControllers,
+        aiModel: KolkhozPolicyModel? = .bundled(),
+        aiModels: [Int: KolkhozPolicyModel] = [:]
+    ) {
         self.random = SeededGenerator(seed: seed)
-        let players = KolkhozEngine.makePlayers(random: &random)
+        self.controllers = PlayerController.normalized(controllers)
+        self.aiModels = KolkhozEngine.makeAIModels(defaultModel: aiModel, seatModels: aiModels, controllers: self.controllers)
+        let players = KolkhozEngine.makePlayers(random: &random, controllers: self.controllers)
         let lead = Int(random.next() % UInt64(players.count))
         let selector = Int(random.next() % UInt64(players.count))
         self.state = KolkhozState(players: players, lead: lead, trumpSelector: selector, variants: variants)
@@ -19,15 +29,22 @@ public final class KolkhozEngine {
         processAutomaticTurns()
     }
 
-    public init(testing state: KolkhozState) {
+    public init(
+        testing state: KolkhozState,
+        controllers: [PlayerController]? = nil,
+        aiModel: KolkhozPolicyModel? = nil,
+        aiModels: [Int: KolkhozPolicyModel] = [:]
+    ) {
         self.random = SeededGenerator(seed: 1)
+        self.controllers = PlayerController.normalized(controllers ?? state.players.map { $0.isHuman ? .human : .heuristicAI })
+        self.aiModels = KolkhozEngine.makeAIModels(defaultModel: aiModel, seatModels: aiModels, controllers: self.controllers)
         self.state = state
     }
 
     public func newGame(seed: UInt64 = UInt64(Date().timeIntervalSince1970), variants: GameVariants? = nil) {
         animationEvents = []
         random = SeededGenerator(seed: seed)
-        let players = KolkhozEngine.makePlayers(random: &random)
+        let players = KolkhozEngine.makePlayers(random: &random, controllers: controllers)
         let lead = Int(random.next() % UInt64(players.count))
         let selector = Int(random.next() % UInt64(players.count))
         state = KolkhozState(players: players, lead: lead, trumpSelector: selector, variants: variants ?? state.variants)
@@ -41,68 +58,74 @@ public final class KolkhozEngine {
         return events
     }
 
-    public func setTrump(_ suit: Suit) throws {
+    public func setTrump(_ suit: Suit, playerID: Int? = nil) throws {
         guard state.phase == .planning else { throw KolkhozMoveError.wrongPhase }
-        guard state.currentPlayer == 0 else { throw KolkhozMoveError.wrongPlayer }
+        let playerID = playerID ?? state.currentPlayer
+        guard isHumanTurn(playerID) else { throw KolkhozMoveError.wrongPlayer }
         state.trump = suit
         advanceFromPlanning()
         processAutomaticTurns()
     }
 
-    public func playCard(_ card: Card) throws {
+    public func playCard(_ card: Card, playerID: Int? = nil) throws {
         guard state.phase == .trick else { throw KolkhozMoveError.wrongPhase }
-        guard state.currentPlayer == 0 else { throw KolkhozMoveError.wrongPlayer }
-        guard let cardIndex = state.players[0].hand.firstIndex(of: card), isValidPlay(playerID: 0, cardIndex: cardIndex) else {
+        let playerID = playerID ?? state.currentPlayer
+        guard isHumanTurn(playerID) else { throw KolkhozMoveError.wrongPlayer }
+        guard let cardIndex = state.players[playerID].hand.firstIndex(of: card), isValidPlay(playerID: playerID, cardIndex: cardIndex) else {
             throw KolkhozMoveError.invalidCard
         }
-        playCard(playerID: 0, cardIndex: cardIndex)
+        playCard(playerID: playerID, cardIndex: cardIndex)
         processAutomaticTurns()
     }
 
-    public func swap(handCard: Card, plotCard: Card, revealed: Bool) throws {
+    public func swap(handCard: Card, plotCard: Card, revealed: Bool, playerID: Int? = nil) throws {
         guard state.phase == .swap else { throw KolkhozMoveError.wrongPhase }
-        guard state.currentPlayer == 0 else { throw KolkhozMoveError.wrongPlayer }
-        guard !state.swapCount.contains(0) else { throw KolkhozMoveError.invalidCard }
-        try swapCard(playerID: 0, handCard: handCard, plotCard: plotCard, zone: revealed ? .revealed : .hidden)
+        let playerID = playerID ?? state.currentPlayer
+        guard isHumanTurn(playerID) else { throw KolkhozMoveError.wrongPlayer }
+        guard !state.swapCount.contains(playerID) else { throw KolkhozMoveError.invalidCard }
+        try swapCard(playerID: playerID, handCard: handCard, plotCard: plotCard, zone: revealed ? .revealed : .hidden)
     }
 
-    public func undoSwap() throws {
+    public func undoSwap(playerID: Int? = nil) throws {
         guard state.phase == .swap else { throw KolkhozMoveError.wrongPhase }
-        guard state.currentPlayer == 0 else { throw KolkhozMoveError.wrongPlayer }
+        let playerID = playerID ?? state.currentPlayer
+        guard isHumanTurn(playerID) else { throw KolkhozMoveError.wrongPlayer }
         guard let lastSwap = state.lastSwap,
-              lastSwap.playerID == 0,
-              state.swapCount.contains(0),
-              state.players[0].hand.indices.contains(lastSwap.handIndex) else {
+              lastSwap.playerID == playerID,
+              state.swapCount.contains(playerID),
+              state.players[playerID].hand.indices.contains(lastSwap.handIndex) else {
             throw KolkhozMoveError.invalidCard
         }
 
         switch lastSwap.plotZone {
         case .hidden:
-            guard state.players[0].plot.hidden.indices.contains(lastSwap.plotIndex) else { throw KolkhozMoveError.invalidCard }
-            let temporary = state.players[0].plot.hidden[lastSwap.plotIndex]
-            state.players[0].plot.hidden[lastSwap.plotIndex] = state.players[0].hand[lastSwap.handIndex]
-            state.players[0].hand[lastSwap.handIndex] = temporary
+            guard state.players[playerID].plot.hidden.indices.contains(lastSwap.plotIndex) else { throw KolkhozMoveError.invalidCard }
+            let temporary = state.players[playerID].plot.hidden[lastSwap.plotIndex]
+            state.players[playerID].plot.hidden[lastSwap.plotIndex] = state.players[playerID].hand[lastSwap.handIndex]
+            state.players[playerID].hand[lastSwap.handIndex] = temporary
         case .revealed:
-            guard state.players[0].plot.revealed.indices.contains(lastSwap.plotIndex) else { throw KolkhozMoveError.invalidCard }
-            let temporary = state.players[0].plot.revealed[lastSwap.plotIndex]
-            state.players[0].plot.revealed[lastSwap.plotIndex] = state.players[0].hand[lastSwap.handIndex]
-            state.players[0].hand[lastSwap.handIndex] = temporary
+            guard state.players[playerID].plot.revealed.indices.contains(lastSwap.plotIndex) else { throw KolkhozMoveError.invalidCard }
+            let temporary = state.players[playerID].plot.revealed[lastSwap.plotIndex]
+            state.players[playerID].plot.revealed[lastSwap.plotIndex] = state.players[playerID].hand[lastSwap.handIndex]
+            state.players[playerID].hand[lastSwap.handIndex] = temporary
         }
 
-        state.swapCount.remove(0)
+        state.swapCount.remove(playerID)
         state.lastSwap = nil
     }
 
-    public func confirmSwap() throws {
+    public func confirmSwap(playerID: Int? = nil) throws {
         guard state.phase == .swap else { throw KolkhozMoveError.wrongPhase }
-        guard state.currentPlayer == 0 else { throw KolkhozMoveError.wrongPlayer }
-        confirmSwap(playerID: 0)
+        let playerID = playerID ?? state.currentPlayer
+        guard isHumanTurn(playerID) else { throw KolkhozMoveError.wrongPlayer }
+        confirmSwap(playerID: playerID)
         processAutomaticTurns()
     }
 
-    public func assign(card: Card, to suit: Suit) throws {
+    public func assign(card: Card, to suit: Suit, playerID: Int? = nil) throws {
         guard state.phase == .assignment else { throw KolkhozMoveError.wrongPhase }
-        guard state.lastWinner == 0 else { throw KolkhozMoveError.wrongPlayer }
+        let playerID = playerID ?? state.lastWinner ?? state.currentPlayer
+        guard isHumanAssignment(playerID) else { throw KolkhozMoveError.wrongPlayer }
         let legalTargets = Set(state.lastTrick.map(\.card.suit))
         guard legalTargets.contains(suit), state.lastTrick.contains(where: { $0.card == card }) else {
             throw KolkhozMoveError.invalidAssignment
@@ -110,9 +133,10 @@ public final class KolkhozEngine {
         state.pendingAssignments[card.id] = suit
     }
 
-    public func submitAssignments() throws {
+    public func submitAssignments(playerID: Int? = nil) throws {
         guard state.phase == .assignment else { throw KolkhozMoveError.wrongPhase }
-        guard state.lastWinner == 0 else { throw KolkhozMoveError.wrongPlayer }
+        let playerID = playerID ?? state.lastWinner ?? state.currentPlayer
+        guard isHumanAssignment(playerID) else { throw KolkhozMoveError.wrongPlayer }
         guard state.pendingAssignments.count == state.lastTrick.count else {
             throw KolkhozMoveError.invalidAssignment
         }
@@ -129,10 +153,11 @@ public final class KolkhozEngine {
         processAutomaticTurns()
     }
 
-    public func validCardsForHuman() -> Set<Card> {
-        guard state.phase == .trick, state.currentPlayer == 0 else { return [] }
-        return Set(state.players[0].hand.enumerated().compactMap { index, card in
-            isValidPlay(playerID: 0, cardIndex: index) ? card : nil
+    public func validCardsForHuman(playerID: Int? = nil) -> Set<Card> {
+        let playerID = playerID ?? state.currentPlayer
+        guard state.phase == .trick, isHumanTurn(playerID) else { return [] }
+        return Set(state.players[playerID].hand.enumerated().compactMap { index, card in
+            isValidPlay(playerID: playerID, cardIndex: index) ? card : nil
         })
     }
 
@@ -157,17 +182,40 @@ public final class KolkhozEngine {
 }
 
 private extension KolkhozEngine {
-    static func makePlayers(random: inout SeededGenerator) -> [PlayerState] {
+    static func makeAIModels(defaultModel: KolkhozPolicyModel?, seatModels: [Int: KolkhozPolicyModel], controllers: [PlayerController]) -> [Int: KolkhozPolicyModel] {
+        var models = seatModels.filter { $0.value.isCompatible }
+        if models.isEmpty, let defaultModel, defaultModel.isCompatible {
+            for playerID in controllers.indices where controllers[playerID] == .neuralAI {
+                models[playerID] = defaultModel
+            }
+        }
+        return models
+    }
+
+    static func makePlayers(random: inout SeededGenerator, controllers: [PlayerController]) -> [PlayerState] {
         var names = playerNames
-        var players = [PlayerState(id: 0, name: "Player", isHuman: true)]
+        var players = [PlayerState(id: 0, name: "Player 1", isHuman: controllers[0] == .human)]
 
         for id in 1..<4 {
             let index = Int(random.next() % UInt64(names.count))
             let name = names.remove(at: index)
-            players.append(PlayerState(id: id, name: name, isHuman: false))
+            let playerName = controllers[id] == .human ? "Player \(id + 1)" : name
+            players.append(PlayerState(id: id, name: playerName, isHuman: controllers[id] == .human))
         }
 
         return players
+    }
+
+    func isHumanTurn(_ playerID: Int) -> Bool {
+        state.players.indices.contains(playerID) &&
+            state.currentPlayer == playerID &&
+            state.players[playerID].isHuman
+    }
+
+    func isHumanAssignment(_ playerID: Int) -> Bool {
+        state.players.indices.contains(playerID) &&
+            state.lastWinner == playerID &&
+            state.players[playerID].isHuman
     }
 
     func setupDecks() {
@@ -237,24 +285,25 @@ private extension KolkhozEngine {
             case .planning where state.isFamine:
                 advanceFromPlanning()
 
-            case .planning where state.currentPlayer != 0:
-                state.trump = chooseTrump(for: state.currentPlayer)
+            case .planning where !state.players[state.currentPlayer].isHuman:
+                state.trump = aiDecider(for: state.currentPlayer).chooseTrump(for: state.currentPlayer)
                 advanceFromPlanning()
 
             case .swap:
-                if state.currentPlayer == 0 {
+                if state.players[state.currentPlayer].isHuman {
                     return
                 }
                 performAISwapIfUseful(playerID: state.currentPlayer)
                 confirmSwap(playerID: state.currentPlayer)
 
-            case .trick where state.currentPlayer != 0:
+            case .trick where !state.players[state.currentPlayer].isHuman:
                 let playerID = state.currentPlayer
-                let cardIndex = chooseCardIndex(for: playerID)
+                let cardIndex = aiDecider(for: playerID).chooseCardIndex(for: playerID)
                 playCard(playerID: playerID, cardIndex: cardIndex)
 
-            case .assignment where state.lastWinner != 0:
-                let assignments = chooseAssignments(for: state.lastWinner ?? 0)
+            case .assignment where state.lastWinner.map({ !state.players[$0].isHuman }) == true:
+                let winner = state.lastWinner ?? 0
+                let assignments = aiDecider(for: winner).chooseAssignments(for: winner)
                 applyAssignments(assignments)
                 advanceAfterAssignments()
 
@@ -322,22 +371,12 @@ private extension KolkhozEngine {
     }
 
     func performAISwapIfUseful(playerID: Int) {
-        guard !state.swapCount.contains(playerID),
-              let handCard = state.players[playerID].hand.min(by: { $0.value < $1.value }) else {
-            return
-        }
+        guard let choice = aiDecider(for: playerID).chooseSwap(for: playerID) else { return }
+        try? swapCard(playerID: playerID, handCard: choice.handCard, plotCard: choice.plotCard, zone: choice.zone)
+    }
 
-        let hiddenCandidate = state.players[playerID].plot.hidden.max(by: { $0.value < $1.value }).map { ($0, PlotCardZone.hidden) }
-        let revealedCandidate = state.players[playerID].plot.revealed.max(by: { $0.value < $1.value }).map { ($0, PlotCardZone.revealed) }
-        let candidate = [hiddenCandidate, revealedCandidate]
-            .compactMap { $0 }
-            .max { lhs, rhs in lhs.0.value < rhs.0.value }
-
-        guard let (plotCard, zone) = candidate, plotCard.value > handCard.value + 1 else {
-            return
-        }
-
-        try? swapCard(playerID: playerID, handCard: handCard, plotCard: plotCard, zone: zone)
+    func aiDecider(for playerID: Int) -> KolkhozAIDecider {
+        KolkhozAIDecider(state: state, model: aiModels[playerID])
     }
 
     func playCard(playerID: Int, cardIndex: Int) {
@@ -366,9 +405,9 @@ private extension KolkhozEngine {
         state.players[winner].hasWonTrickThisYear = true
         state.players[winner].medals += 1
 
-        if winner == 0 {
+        if state.players[winner].isHuman {
             state.phase = .assignment
-            state.currentPlayer = 0
+            state.currentPlayer = winner
             state.pendingAssignments = [:]
         } else {
             state.phase = .assignment
@@ -395,45 +434,6 @@ private extension KolkhozEngine {
         let hand = state.players[playerID].hand
         let hasLeadSuit = hand.contains { $0.suit == leadSuit }
         return !hasLeadSuit || hand[cardIndex].suit == leadSuit
-    }
-
-    func chooseTrump(for playerID: Int) -> Suit {
-        let hand = state.players[playerID].hand
-        return Suit.allCases.max { lhs, rhs in
-            let leftScore = hand.filter { $0.suit == lhs }.count * 4 + hand.filter { $0.suit == lhs && $0.value >= 11 }.count * 8
-            let rightScore = hand.filter { $0.suit == rhs }.count * 4 + hand.filter { $0.suit == rhs && $0.value >= 11 }.count * 8
-            return leftScore < rightScore
-        } ?? .wheat
-    }
-
-    func chooseCardIndex(for playerID: Int) -> Int {
-        let hand = state.players[playerID].hand
-        let valid = hand.indices.filter { isValidPlay(playerID: playerID, cardIndex: $0) }
-        guard !valid.isEmpty else { return 0 }
-
-        let wantsWin = state.players[playerID].hasWonTrickThisYear == false && state.trickCount >= 2
-        if wantsWin {
-            return valid.max { hand[$0].value < hand[$1].value } ?? valid[0]
-        }
-        return valid.min { hand[$0].value < hand[$1].value } ?? valid[0]
-    }
-
-    func chooseAssignments(for playerID: Int) -> [String: Suit] {
-        let legalSuits = Array(Set(state.lastTrick.map(\.card.suit)))
-        let bestSuit = legalSuits.max { lhs, rhs in
-            let left = assignmentPriority(for: lhs, playerID: playerID)
-            let right = assignmentPriority(for: rhs, playerID: playerID)
-            return left < right
-        } ?? legalSuits[0]
-
-        return Dictionary(uniqueKeysWithValues: state.lastTrick.map { ($0.card.id, bestSuit) })
-    }
-
-    func assignmentPriority(for suit: Suit, playerID: Int) -> Int {
-        let current = state.workHours[suit, default: 0]
-        let atRisk = (state.players[playerID].plot.hidden + state.players[playerID].plot.revealed).filter { $0.suit == suit }.count
-        let nearCompletion = max(0, 40 - current)
-        return current + atRisk * 12 - nearCompletion / 2
     }
 
     func applyAssignments(_ assignments: [String: Suit]) {
@@ -563,16 +563,10 @@ private extension KolkhozEngine {
     }
 
     func requisitionExileMessage(playerID: Int, card: Card, suit: Suit) -> String {
-        if state.players[playerID].isHuman {
-            return "You send \(card.rank) \(suit.rawValue) north"
-        }
         return "\(state.players[playerID].name) sends \(card.rank) \(suit.rawValue) north"
     }
 
     func heroImmunityMessage(playerID: Int) -> String {
-        if state.players[playerID].isHuman {
-            return "You are immune after winning every trick"
-        }
         return "\(state.players[playerID].name) is immune after winning every trick"
     }
 

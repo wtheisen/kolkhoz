@@ -4,17 +4,22 @@ import SwiftUI
 struct TopInfoBarView: View {
     @EnvironmentObject var store: GameStore
     @Binding var jobTargets: [Suit: CGPoint]
+    var displayedWorkHours: [Suit: Int]? = nil
+    var displayedClaimedJobs: Set<Suit>? = nil
 
     var body: some View {
         GeometryReader { proxy in
-            let cellarScore = store.state.players[0].plot.hidden.reduce(0) { $0 + $1.value }
-            let plotScore = store.state.players[0].plot.revealed.reduce(0) { $0 + $1.value }
+            let localPlayer = store.state.players[store.localPlayerID]
+            let cellarScore = localPlayer.plot.hidden.reduce(0) { $0 + $1.value }
+            let plotScore = localPlayer.plot.revealed.reduce(0) { $0 + $1.value }
             let rowSpacing = kolkhozClamp(proxy.size.width * 0.008, 3, 6)
             let yearWidth = kolkhozClamp(proxy.size.width * 0.2, 64, 72)
             let gaugeWidth = kolkhozClamp(proxy.size.width * 0.15, 86, 92)
             let gaugeHeight = kolkhozClamp(proxy.size.height * 0.9, 34, 38)
             let gaugeSpacing = kolkhozClamp(proxy.size.width * 0.006, 3, 6)
-            let gaugesWidth = gaugeWidth * CGFloat(Suit.allCases.count) + gaugeSpacing * CGFloat(Suit.allCases.count - 1)
+            let gaugeFrameWidth = gaugeWidth * 1.2
+            let gaugesWidth = gaugeFrameWidth * CGFloat(Suit.allCases.count) + gaugeSpacing * CGFloat(Suit.allCases.count - 1)
+            let gaugeClusterLeftOffset = -kolkhozClamp(proxy.size.width * 0.045, 34, 48)
             let scoreWidth = kolkhozClamp(proxy.size.width * 0.04, 54, 70)
             let scoreGroupWidth = scoreWidth * 2 + rowSpacing
 
@@ -49,21 +54,22 @@ struct TopInfoBarView: View {
                     ForEach(Suit.allCases) { suit in
                         TopInfoJobGauge(
                             suit: suit,
-                            hours: store.state.workHours[suit, default: 0],
-                            claimed: store.state.claimedJobs.contains(suit),
+                            hours: workHours[suit, default: 0],
+                            claimed: claimedJobs.contains(suit),
+                            reward: store.state.revealedJobs[suit],
                             highlighted: store.state.trump == suit,
                             width: gaugeWidth * 1.1,
                             height: gaugeHeight,
                             jobTargets: $jobTargets
                         )
-                        .frame(width: gaugeWidth * 1.2)
+                        .frame(width: gaugeFrameWidth)
                     }
                 }
-                .frame(width: gaugesWidth)
+                .frame(width: gaugesWidth, alignment: .leading)
+                .offset(x: gaugeClusterLeftOffset)
             }
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .center)
             .clipped()
-            .background(CommandPanelBackground())
         }
         .frame(height: 48)
     }
@@ -76,6 +82,14 @@ struct TopInfoBarView: View {
         case 4: .year4
         default: .year5
         }
+    }
+
+    private var workHours: [Suit: Int] {
+        displayedWorkHours ?? store.state.workHours
+    }
+
+    private var claimedJobs: Set<Suit> {
+        displayedClaimedJobs ?? store.state.claimedJobs
     }
 
 }
@@ -121,23 +135,20 @@ struct TopInfoJobGauge: View {
     let suit: Suit
     let hours: Int
     let claimed: Bool
+    let reward: Card?
     let highlighted: Bool
     let width: CGFloat
     let height: CGFloat
     @Binding var jobTargets: [Suit: CGPoint]
 
     var body: some View {
-        HStack(spacing: 0) {
-            if highlighted {
-                GameIcon(trumpIcon, size: height * 0.72)
-                    .frame(width: height, height: height)
-            } else {
-                SuitMark(suit: suit, size: height * 0.58)
-                    .frame(width: height, height: height)
-            }
+        HStack(spacing: 4) {
+            rewardMarker
+                .frame(width: height * 0.72, height: height)
+
             if claimed {
                 GameIcon(.check, size: height * 0.4)
-                    .frame(width: width - height, height: height)
+                    .frame(width: width - height * 0.72 - 4, height: height)
             } else {
                 PixelText(
                     text: "\(hours)/40",
@@ -145,7 +156,7 @@ struct TopInfoJobGauge: View {
                     variant: .regular,
                     color: highlighted ? Color.kolkhozRed : Color.kolkhozSmoke
                 )
-                    .frame(width: width - height, height: height)
+                    .frame(width: width - height * 0.72 - 4, height: height)
             }
         }
         .frame(width: width, height: height)
@@ -167,12 +178,18 @@ struct TopInfoJobGauge: View {
         }
     }
 
-    private var trumpIcon: GameIconAsset {
-        switch suit {
-        case .wheat: .trumpWheat
-        case .sunflower: .trumpSunflower
-        case .potato: .trumpPotato
-        case .beet: .trumpBeet
+    @ViewBuilder
+    private var rewardMarker: some View {
+        if let reward {
+            MiniRewardCard(card: reward, claimed: claimed)
+                .scaleEffect(0.84)
+        } else {
+            RoundedRectangle(cornerRadius: 3)
+                .strokeBorder(Color.kolkhozGreen.opacity(0.7), lineWidth: 1)
+                .frame(width: 24, height: 34)
+                .overlay {
+                    GameIcon(.check, size: 17)
+                }
         }
     }
 }

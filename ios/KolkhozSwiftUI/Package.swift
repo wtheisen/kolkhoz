@@ -12,10 +12,18 @@ let package = Package(
         .library(name: "KolkhozCore", targets: ["KolkhozCore"]),
         .library(name: "KolkhozAppFeature", targets: ["KolkhozAppFeature"]),
         .executable(name: "KolkhozSwiftUIApp", targets: ["KolkhozSwiftUIApp"]),
-        .executable(name: "KolkhozSmokeTests", targets: ["KolkhozSmokeTests"])
+        .executable(name: "KolkhozSmokeTests", targets: ["KolkhozSmokeTests"]),
+        .executable(name: "KolkhozPolicyEval", targets: ["KolkhozPolicyEval"]),
+        .executable(name: "KolkhozRealTrainer", targets: ["KolkhozRealTrainer"]),
+        .executable(name: "KolkhozPolicyBenchmark", targets: ["KolkhozPolicyBenchmark"])
     ],
     targets: [
-        .target(name: "KolkhozCore"),
+        .target(
+            name: "KolkhozCore",
+            resources: [
+                .process("Resources")
+            ]
+        ),
         .target(
             name: "KolkhozAppFeature",
             dependencies: ["KolkhozCore"],
@@ -32,6 +40,18 @@ let package = Package(
         ),
         .executableTarget(
             name: "KolkhozSmokeTests",
+            dependencies: ["KolkhozCore"]
+        ),
+        .executableTarget(
+            name: "KolkhozPolicyEval",
+            dependencies: ["KolkhozCore"]
+        ),
+        .executableTarget(
+            name: "KolkhozRealTrainer",
+            dependencies: ["KolkhozCore"]
+        ),
+        .executableTarget(
+            name: "KolkhozPolicyBenchmark",
             dependencies: ["KolkhozCore"]
         )
     ]

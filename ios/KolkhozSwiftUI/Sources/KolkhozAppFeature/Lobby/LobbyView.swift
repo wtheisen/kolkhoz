@@ -9,6 +9,7 @@ import AppKit
 struct LobbyView: View {
     @Binding var selectedPreset: GamePreset
     @Binding var customVariants: GameVariants
+    @Binding var playerControllers: [PlayerController]
     @Binding var showingRules: Bool
     let onStart: () -> Void
 
@@ -32,32 +33,57 @@ struct LobbyView: View {
                 let outerPadding: CGFloat = 10
                 let contentWidth = max(260, usableWidth - outerPadding * 2)
                 let stackSpacing = kolkhozClamp(usableHeight * 0.018, 8, 12)
-                let titleWidth = contentWidth
-                let titleHeight = kolkhozClamp(usableHeight * 0.40, 300, 326)
-                let panelWidth = contentWidth
-                let panelHeight = max(320, usableHeight - titleHeight - outerPadding * 2 - stackSpacing)
+                let usesSideBySideLayout = usableWidth >= 560 && usableWidth > usableHeight
+                let availableContentHeight = max(300, usableHeight - outerPadding * 2)
+                let titleWidth = usesSideBySideLayout ? kolkhozClamp(contentWidth * 0.34, 210, 292) : contentWidth
+                let titleHeight = usesSideBySideLayout ? availableContentHeight : kolkhozClamp(usableHeight * 0.40, 300, 326)
+                let panelWidth = usesSideBySideLayout ? max(300, contentWidth - titleWidth - stackSpacing) : contentWidth
+                let panelHeight = usesSideBySideLayout ? availableContentHeight : max(320, usableHeight - titleHeight - outerPadding * 2 - stackSpacing)
 
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: stackSpacing) {
-                        LobbyTitleColumn(
-                            showingRules: $showingRules,
-                            onStart: onStart,
-                            width: titleWidth,
-                            height: titleHeight
-                        )
-                        LobbyPanel(
-                            selectedPreset: $selectedPreset,
-                            customVariants: $customVariants,
-                            variants: activeVariants,
-                            showingRules: showingRules,
-                            width: panelWidth,
-                            maxHeight: panelHeight
-                        )
+                    Group {
+                        if usesSideBySideLayout {
+                            HStack(alignment: .top, spacing: stackSpacing) {
+                                LobbyTitleColumn(
+                                    showingRules: $showingRules,
+                                    onStart: onStart,
+                                    width: titleWidth,
+                                    height: titleHeight
+                                )
+                                LobbyPanel(
+                                    selectedPreset: $selectedPreset,
+                                    customVariants: $customVariants,
+                                    playerControllers: $playerControllers,
+                                    variants: activeVariants,
+                                    showingRules: showingRules,
+                                    width: panelWidth,
+                                    maxHeight: panelHeight
+                                )
+                            }
+                        } else {
+                            VStack(spacing: stackSpacing) {
+                                LobbyTitleColumn(
+                                    showingRules: $showingRules,
+                                    onStart: onStart,
+                                    width: titleWidth,
+                                    height: titleHeight
+                                )
+                                LobbyPanel(
+                                    selectedPreset: $selectedPreset,
+                                    customVariants: $customVariants,
+                                    playerControllers: $playerControllers,
+                                    variants: activeVariants,
+                                    showingRules: showingRules,
+                                    width: panelWidth,
+                                    maxHeight: panelHeight
+                                )
+                            }
+                        }
                     }
                     .padding(.horizontal, insets.leading + outerPadding)
                     .padding(.top, insets.top + outerPadding)
                     .padding(.bottom, insets.bottom + outerPadding)
-                    .frame(width: proxy.size.width, alignment: .top)
+                    .frame(width: proxy.size.width, alignment: usesSideBySideLayout ? .topLeading : .top)
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
                 .clipped()
@@ -148,6 +174,7 @@ struct TitleCardImage: View {
 struct LobbyPanel: View {
     @Binding var selectedPreset: GamePreset
     @Binding var customVariants: GameVariants
+    @Binding var playerControllers: [PlayerController]
     let variants: GameVariants
     let showingRules: Bool
     let width: CGFloat
@@ -163,6 +190,7 @@ struct LobbyPanel: View {
                 VariantPanel(
                     selectedPreset: $selectedPreset,
                     customVariants: $customVariants,
+                    playerControllers: $playerControllers,
                     variants: variants,
                     maxHeight: contentHeight
                 )
@@ -177,6 +205,7 @@ struct LobbyPanel: View {
 struct VariantPanel: View {
     @Binding var selectedPreset: GamePreset
     @Binding var customVariants: GameVariants
+    @Binding var playerControllers: [PlayerController]
     let variants: GameVariants
     let maxHeight: CGFloat
 
@@ -189,10 +218,17 @@ struct VariantPanel: View {
                 .overlay(Color.kolkhozGold.opacity(0.35))
 
             ScrollView(.vertical, showsIndicators: true) {
-                if selectedPreset == .custom {
-                    CustomVariantOptions(variants: $customVariants)
-                } else {
-                    PresetSummary(variants: variants)
+                VStack(alignment: .leading, spacing: 10) {
+                    SeatControllerOptions(playerControllers: $playerControllers)
+
+                    Divider()
+                        .overlay(Color.kolkhozGold.opacity(0.28))
+
+                    if selectedPreset == .custom {
+                        CustomVariantOptions(variants: $customVariants)
+                    } else {
+                        PresetSummary(variants: variants)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -215,28 +251,21 @@ struct PresetSelector: View {
                         customVariants = variants
                     }
                 } label: {
-                    Text(language.presetTitle(preset))
-                        .font(.kolkhozDisplay(size: 8.5))
-                        .textCase(.uppercase)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-                        .allowsTightening(true)
-                        .padding(.top, 8)
-                    .foregroundStyle(selectedPreset == preset ? Color.kolkhozGold : Color.kolkhozCreamDim)
-                    .frame(maxWidth: .infinity, minHeight: 48)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 5)
-                    .background {
+                    ZStack {
                         GeneratedChromeImage(resourceName: selectedPreset == preset ? "ui-tab-selected" : "ui-tab-unselected")
+                            .aspectRatio(4, contentMode: .fit)
+                        Text(language.presetTitle(preset))
+                            .font(.kolkhozDisplay(size: 8.5))
+                            .textCase(.uppercase)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
+                            .allowsTightening(true)
+                            .foregroundStyle(selectedPreset == preset ? Color.kolkhozOnAccent : Color.kolkhozCardInk)
+                            .padding(.horizontal, 15)
+                            .padding(.top, 3)
                     }
-                    .overlay(alignment: .top) {
-                        if selectedPreset == preset {
-                            Rectangle()
-                                .fill(Color.kolkhozGoldBright.opacity(0.7))
-                                .frame(width: 28, height: 2)
-                                .offset(y: 5)
-                        }
-                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
                 }
                 .buttonStyle(.plain)
             }
@@ -308,6 +337,182 @@ struct CustomVariantOptions: View {
     }
 }
 
+struct SeatControllerOptions: View {
+    @Environment(\.kolkhozLanguage) private var language
+    @Binding var playerControllers: [PlayerController]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 7) {
+                GameIcon(.brigade, size: 18)
+                Text(language.text(en: "Seats", ru: "Места"))
+                    .font(.kolkhozTitle(.caption))
+                    .textCase(.uppercase)
+                    .foregroundStyle(Color.kolkhozGold)
+                Spacer(minLength: 4)
+                GameIcon(.neuralBadge, size: 18)
+                Text(language.text(en: "Local / AI", ru: "Игрок / ИИ"))
+                    .font(.kolkhozLabel(.caption2))
+                    .textCase(.uppercase)
+                    .foregroundStyle(Color.kolkhozCreamDim)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 7)
+            .background(Color.kolkhozBlack.opacity(0.30), in: RoundedRectangle(cornerRadius: 5))
+            .overlay {
+                RoundedRectangle(cornerRadius: 5)
+                    .stroke(Color.kolkhozGold.opacity(0.28), lineWidth: 1)
+            }
+
+            ForEach(0..<4, id: \.self) { playerID in
+                SeatControllerRow(
+                    playerID: playerID,
+                    controller: controllerBinding(for: playerID)
+                )
+            }
+        }
+    }
+
+    private func controllerBinding(for playerID: Int) -> Binding<PlayerController> {
+        Binding(
+            get: {
+                normalizedControllers.indices.contains(playerID) ? normalizedControllers[playerID] : .neuralAI
+            },
+            set: { controller in
+                var next = normalizedControllers
+                next[playerID] = controller
+                playerControllers = next
+            }
+        )
+    }
+
+    private var normalizedControllers: [PlayerController] {
+        PlayerController.normalized(playerControllers)
+    }
+}
+
+struct SeatControllerRow: View {
+    @Environment(\.kolkhozLanguage) private var language
+    let playerID: Int
+    @Binding var controller: PlayerController
+
+    var body: some View {
+        HStack(spacing: 9) {
+            SeatNumberBadge(playerID: playerID, active: controller == .human)
+                .frame(width: 48)
+
+            SeatControllerSelector(playerID: playerID, selection: $controller)
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 5)
+        .background {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(
+                    LinearGradient(
+                        colors: controller == .human
+                            ? [Color.kolkhozGold.opacity(0.10), Color.kolkhozRedDark.opacity(0.08)]
+                            : [Color.kolkhozBlack.opacity(0.28), Color.kolkhozIron.opacity(0.18)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(
+                    controller == .human ? Color.kolkhozGold.opacity(0.36) : Color.kolkhozSteel.opacity(0.42),
+                    lineWidth: 1
+                )
+        }
+        .accessibilityElement(children: .contain)
+    }
+}
+
+struct SeatNumberBadge: View {
+    @Environment(\.kolkhozLanguage) private var language
+    let playerID: Int
+    let active: Bool
+
+    var body: some View {
+        VStack(spacing: 1) {
+            PixelText(
+                text: language.text(en: "P\(playerID + 1)", ru: "И\(playerID + 1)"),
+                size: .caption,
+                variant: .heavy,
+                color: active ? Color.kolkhozGoldBright : Color.kolkhozCreamDim
+            )
+            GameIcon(active ? .humanSeat : .basicAI, size: 14, muted: !active)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 44)
+        .background(active ? Color.kolkhozRedDark.opacity(0.38) : Color.kolkhozBlack.opacity(0.34), in: RoundedRectangle(cornerRadius: 4))
+        .overlay {
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(active ? Color.kolkhozGold.opacity(0.52) : Color.kolkhozSteel.opacity(0.42), lineWidth: 1)
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+struct SeatControllerSelector: View {
+    @Environment(\.kolkhozLanguage) private var language
+    let playerID: Int
+    @Binding var selection: PlayerController
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(PlayerController.allCases) { controller in
+                SeatControllerSegment(
+                    playerID: playerID,
+                    controller: controller,
+                    selected: selection == controller
+                ) {
+                    selection = controller
+                }
+            }
+        }
+        .accessibilityLabel(Text(language.text(en: "AI type", ru: "Тип игрока")))
+    }
+}
+
+struct SeatControllerSegment: View {
+    @Environment(\.kolkhozLanguage) private var language
+    let playerID: Int
+    let controller: PlayerController
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                GeneratedChromeImage(resourceName: selected ? "ui-tab-selected" : "ui-tab-unselected")
+                    .aspectRatio(4, contentMode: .fit)
+                HStack(spacing: 5) {
+                    GameIcon(controller.iconAsset, size: 15, muted: !selected)
+                    Text(controller.shortTitle(language))
+                        .font(.kolkhozTitle(.caption))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.58)
+                        .allowsTightening(true)
+                }
+                .textCase(.uppercase)
+                .foregroundStyle(selected ? Color.kolkhozOnAccent : Color.kolkhozCardInk)
+                .padding(.horizontal, 14)
+                .padding(.top, 2)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 44)
+            .contentShape(Rectangle())
+            .shadow(color: selected ? Color.kolkhozGold.opacity(0.18) : .clear, radius: 5, y: 1)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(language.text(en: "Seat \(playerID + 1), \(controller.fullTitle(language))", ru: "Место \(playerID + 1), \(controller.fullTitle(language))")))
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
 struct DeckSummary: View {
     @Environment(\.kolkhozLanguage) private var language
     let deckType: Int
@@ -325,6 +530,41 @@ struct DeckSummary: View {
         .padding(8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.kolkhozBlack.opacity(0.32), in: RoundedRectangle(cornerRadius: 4))
+    }
+}
+
+private extension PlayerController {
+    func shortTitle(_ language: KolkhozLanguage) -> String {
+        switch self {
+        case .human:
+            language.text(en: "Human", ru: "Игрок")
+        case .heuristicAI:
+            language.text(en: "Basic", ru: "Базовый")
+        case .neuralAI:
+            language.text(en: "Neural", ru: "Нейро")
+        }
+    }
+
+    func fullTitle(_ language: KolkhozLanguage) -> String {
+        switch self {
+        case .human:
+            language.text(en: "Human player", ru: "Живой игрок")
+        case .heuristicAI:
+            language.text(en: "Basic AI", ru: "Базовый ИИ")
+        case .neuralAI:
+            language.text(en: "Neural AI", ru: "Нейро ИИ")
+        }
+    }
+
+    var iconAsset: GameIconAsset {
+        switch self {
+        case .human:
+            .humanSeat
+        case .heuristicAI:
+            .basicAI
+        case .neuralAI:
+            .neuralAI
+        }
     }
 }
 
@@ -378,8 +618,18 @@ struct RulesPanel: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                Text(language.text(en: "Rules", ru: "Правила"))
-                    .sectionTitle()
+                HStack(spacing: 8) {
+                    GameIcon(.rulesScroll, size: 26)
+                    Text(language.text(en: "Rules", ru: "Правила"))
+                        .sectionTitle()
+                }
+                ResourceArtImage(resourceName: "art-rules-divider")
+                    .scaledToFit()
+                    .frame(maxWidth: 280, maxHeight: 44)
+                    .opacity(0.82)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
                 RuleBlock(title: language.text(en: "Objective", ru: "Цель"), bodyText: language.text(en: "Complete collective farm jobs while protecting your private plot. Highest score wins!", ru: "Выполняйте работы колхоза, защищая свой участок. Побеждает наибольший счёт!"))
                 RuleBlock(title: language.text(en: "Gameplay", ru: "Игра"), bodyText: language.text(en: "Play cards to tricks - must follow lead suit if able", ru: "Играйте карты в трюки - следуйте масти если возможно"))
                 RuleBlock(title: language.text(en: "Jobs", ru: "Поля"), bodyText: language.text(en: "Jobs need 40 work hours to complete", ru: "Работы требуют 40 часов для завершения"))
@@ -487,3 +737,51 @@ struct VariantRowData: Identifiable {
         accumulateJobs
     ]
 }
+
+#if DEBUG
+private struct LobbyViewPreviewHost: View {
+    @State private var selectedPreset: GamePreset
+    @State private var customVariants: GameVariants
+    @State private var playerControllers: [PlayerController]
+    @State private var showingRules: Bool
+
+    init(
+        selectedPreset: GamePreset = .kolkhoz,
+        customVariants: GameVariants = .kolkhoz,
+        playerControllers: [PlayerController] = PlayerController.defaultControllers,
+        showingRules: Bool = false
+    ) {
+        _selectedPreset = State(initialValue: selectedPreset)
+        _customVariants = State(initialValue: customVariants)
+        _playerControllers = State(initialValue: playerControllers)
+        _showingRules = State(initialValue: showingRules)
+        KolkhozFontRegistry.registerFonts()
+    }
+
+    var body: some View {
+        LobbyView(
+            selectedPreset: $selectedPreset,
+            customVariants: $customVariants,
+            playerControllers: $playerControllers,
+            showingRules: $showingRules,
+            onStart: {}
+        )
+        .font(.kolkhozLabel(.body))
+    }
+}
+
+#Preview("Lobby - iPhone SE Landscape", traits: .landscapeLeft) {
+    LobbyViewPreviewHost()
+        .frame(width: 667, height: 375)
+}
+
+#Preview("Lobby - Rules Landscape", traits: .landscapeLeft) {
+    LobbyViewPreviewHost(showingRules: true)
+        .frame(width: 852, height: 393)
+}
+
+#Preview("Lobby - Custom Landscape", traits: .landscapeLeft) {
+    LobbyViewPreviewHost(selectedPreset: .custom, customVariants: .campStyle)
+        .frame(width: 852, height: 393)
+}
+#endif

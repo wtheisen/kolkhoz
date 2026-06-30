@@ -5,6 +5,7 @@ import SwiftUI
 struct KolkhozPreviewLobbyHost: View {
     @State private var selectedPreset = KolkhozPreviewFixtures.lobbyPreset
     @State private var customVariants = KolkhozPreviewFixtures.lobbyVariants
+    @State private var playerControllers = PlayerController.defaultControllers
     @State private var showingRules: Bool
 
     init(showingRules: Bool = false) {
@@ -16,6 +17,7 @@ struct KolkhozPreviewLobbyHost: View {
         LobbyView(
             selectedPreset: $selectedPreset,
             customVariants: $customVariants,
+            playerControllers: $playerControllers,
             showingRules: $showingRules,
             onStart: {}
         )

@@ -28,6 +28,12 @@ enum KolkhozPreviewFixtures {
         return state
     }
 
+    static var faminePlanningState: KolkhozState {
+        var state = planningState
+        state.isFamine = true
+        return state
+    }
+
     static var trickState: KolkhozState {
         var state = baseState()
         state.phase = .trick
@@ -140,6 +146,14 @@ enum KolkhozPreviewFixtures {
         state.phase = .gameOver
         state.year = 6
         state.gameResult = GameResult(winnerID: 0, scores: [0: 62, 1: 45, 2: 38, 3: 41])
+        return state
+    }
+
+    static var hotSeatPassState: KolkhozState {
+        var state = trickState
+        state.currentPlayer = 1
+        state.players[1].isHuman = true
+        state.players[1].name = "Player 2"
         return state
     }
 
