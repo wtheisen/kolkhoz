@@ -1,0 +1,222 @@
+[
+  {
+    "actions" : 446,
+    "averageAdvantage" : -0.31625,
+    "averageMargin" : -12.234375,
+    "averageRank" : 2.46875,
+    "averageReward" : -5.204170427930421e-18,
+    "episode" : 16,
+    "gradientNorm" : 0.05907093304763267,
+    "scale" : 1,
+    "topRate" : 0.265625
+  },
+  {
+    "actions" : 443,
+    "averageAdvantage" : -0.012500000000000004,
+    "averageMargin" : -12.90625,
+    "averageRank" : 2.5,
+    "averageReward" : -1.734723475976807e-17,
+    "episode" : 32,
+    "gradientNorm" : 0.05440823542912676,
+    "scale" : 1,
+    "topRate" : 0.25
+  },
+  {
+    "actions" : 445,
+    "averageAdvantage" : -0.09749999999999998,
+    "averageMargin" : -11.046875,
+    "averageRank" : 2.4375,
+    "averageReward" : 1.9081958235744878e-17,
+    "episode" : 48,
+    "gradientNorm" : 0.07398094630546527,
+    "scale" : 1,
+    "topRate" : 0.25
+  },
+  {
+    "actions" : 438,
+    "averageAdvantage" : 0.09250000000000001,
+    "averageMargin" : -12.390625,
+    "averageRank" : 2.484375,
+    "averageReward" : -1.5612511283791264e-17,
+    "episode" : 64,
+    "gradientNorm" : 0.05728771002472516,
+    "scale" : 1,
+    "topRate" : 0.25
+  },
+  {
+    "actions" : 444,
+    "averageAdvantage" : -0.012500000000000025,
+    "averageMargin" : -13.640625,
+    "averageRank" : 2.46875,
+    "averageReward" : 2.949029909160572e-17,
+    "episode" : 80,
+    "gradientNorm" : 0.062037423703337,
+    "scale" : 1,
+    "topRate" : 0.25
+  },
+  {
+    "actions" : 438,
+    "averageAdvantage" : 0.19499999999999998,
+    "averageMargin" : -12.828125,
+    "averageRank" : 2.453125,
+    "averageReward" : 4.336808689942018e-17,
+    "episode" : 96,
+    "gradientNorm" : 0.06688865485628008,
+    "scale" : 1,
+    "topRate" : 0.25
+  },
+  {
+    "actions" : 443,
+    "averageAdvantage" : -0.17624999999999996,
+    "averageMargin" : -10.75,
+    "averageRank" : 2.40625,
+    "averageReward" : 3.469446951953614e-18,
+    "episode" : 112,
+    "gradientNorm" : 0.04761543833336068,
+    "scale" : 1,
+    "topRate" : 0.25
+  },
+  {
+    "actions" : 436,
+    "averageAdvantage" : -0.08781250000000002,
+    "averageMargin" : -10.265625,
+    "averageRank" : 2.484375,
+    "averageReward" : 2.0816681711721685e-17,
+    "episode" : 128,
+    "gradientNorm" : 0.11334355471379491,
+    "scale" : 1,
+    "topRate" : 0.265625
+  },
+  {
+    "actions" : 441,
+    "averageAdvantage" : -0.35374999999999995,
+    "averageMargin" : -10.953125,
+    "averageRank" : 2.453125,
+    "averageReward" : 4.85722573273506e-17,
+    "episode" : 144,
+    "gradientNorm" : 0.04728879108508522,
+    "scale" : 1,
+    "topRate" : 0.28125
+  },
+  {
+    "actions" : 430,
+    "averageAdvantage" : 0.057812500000000024,
+    "averageMargin" : -14.875,
+    "averageRank" : 2.484375,
+    "averageReward" : -2.0816681711721685e-17,
+    "episode" : 160,
+    "gradientNorm" : 0.06301410302761336,
+    "scale" : 1,
+    "topRate" : 0.25
+  },
+  {
+    "actions" : 442,
+    "averageAdvantage" : 0.11031250000000004,
+    "averageMargin" : -14.90625,
+    "averageRank" : 2.46875,
+    "averageReward" : -6.245004513516506e-17,
+    "episode" : 176,
+    "gradientNorm" : 0.049946801509688325,
+    "scale" : 1,
+    "topRate" : 0.265625
+  },
+  {
+    "actions" : 442,
+    "averageAdvantage" : -0.19562500000000002,
+    "averageMargin" : -14.1875,
+    "averageRank" : 2.46875,
+    "averageReward" : 3.9898639947466563e-17,
+    "episode" : 192,
+    "gradientNorm" : 0.0639914390954299,
+    "scale" : 1,
+    "topRate" : 0.25
+  },
+  {
+    "actions" : 450,
+    "averageAdvantage" : 0.01687500000000003,
+    "averageMargin" : -13.125,
+    "averageRank" : 2.46875,
+    "averageReward" : -1.5612511283791264e-17,
+    "episode" : 208,
+    "gradientNorm" : 0.06069217965534853,
+    "scale" : 1,
+    "topRate" : 0.25
+  },
+  {
+    "actions" : 433,
+    "averageAdvantage" : -0.25749999999999995,
+    "averageMargin" : -12.5625,
+    "averageRank" : 2.453125,
+    "averageReward" : -4.85722573273506e-17,
+    "episode" : 224,
+    "gradientNorm" : 0.05850807600987532,
+    "scale" : 1,
+    "topRate" : 0.25
+  },
+  {
+    "actions" : 445,
+    "averageAdvantage" : 0.10000000000000006,
+    "averageMargin" : -15.40625,
+    "averageRank" : 2.46875,
+    "averageReward" : 0,
+    "episode" : 240,
+    "gradientNorm" : 0.04663588971555899,
+    "scale" : 1,
+    "topRate" : 0.265625
+  },
+  {
+    "actions" : 439,
+    "averageAdvantage" : -0.06437500000000002,
+    "averageMargin" : -13.09375,
+    "averageRank" : 2.484375,
+    "averageReward" : 3.469446951953614e-18,
+    "episode" : 256,
+    "gradientNorm" : 0.07818787831309884,
+    "scale" : 1,
+    "topRate" : 0.25
+  },
+  {
+    "actions" : 442,
+    "averageAdvantage" : 0.13593750000000002,
+    "averageMargin" : -14.984375,
+    "averageRank" : 2.46875,
+    "averageReward" : 5.204170427930421e-18,
+    "episode" : 272,
+    "gradientNorm" : 0.07128115839097092,
+    "scale" : 1,
+    "topRate" : 0.25
+  },
+  {
+    "actions" : 441,
+    "averageAdvantage" : 0.01937499999999999,
+    "averageMargin" : -11.765625,
+    "averageRank" : 2.4375,
+    "averageReward" : -7.806255641895632e-18,
+    "episode" : 288,
+    "gradientNorm" : 0.06813642581715901,
+    "scale" : 1,
+    "topRate" : 0.28125
+  },
+  {
+    "actions" : 447,
+    "averageAdvantage" : 0.22062500000000002,
+    "averageMargin" : -10.25,
+    "averageRank" : 2.421875,
+    "averageReward" : 1.0408340855860843e-17,
+    "episode" : 304,
+    "gradientNorm" : 0.07289417395657409,
+    "scale" : 1,
+    "topRate" : 0.296875
+  },
+  {
+    "actions" : 444,
+    "averageAdvantage" : -0.09062500000000004,
+    "averageMargin" : -13.046875,
+    "averageRank" : 2.453125,
+    "averageReward" : 2.7755575615628914e-17,
+    "episode" : 320,
+    "gradientNorm" : 0.04848840238239542,
+    "scale" : 1,
+    "topRate" : 0.25
+  }
+]

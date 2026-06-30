@@ -3,6 +3,7 @@ import KolkhozCore
 
 struct Options {
     var modelPath: String?
+    var baselineModelPath: String?
     var gamesPerSeat = 100
     var seed: UInt64 = 3_000_000
     var minWinDelta = 0.02
@@ -41,6 +42,8 @@ func parseOptions() -> Options {
         switch arg {
         case "--model":
             options.modelPath = args.isEmpty ? nil : args.removeFirst()
+        case "--baseline-model":
+            options.baselineModelPath = args.isEmpty ? nil : args.removeFirst()
         case "--games-per-seat":
             if let value = args.first, let parsed = Int(value) {
                 options.gamesPerSeat = parsed
@@ -192,13 +195,17 @@ func main() throws {
     guard let modelPath = options.modelPath else { throw BenchmarkError.missingModel }
     let model = try KolkhozPolicyModel.load(from: URL(fileURLWithPath: modelPath))
     guard model.isCompatible else { throw BenchmarkError.incompatibleModel }
+    let baselineModel = try options.baselineModelPath.map { try KolkhozPolicyModel.load(from: URL(fileURLWithPath: $0)) }
+    if let baselineModel {
+        guard baselineModel.isCompatible else { throw BenchmarkError.incompatibleModel }
+    }
 
     var samples: [Sample] = []
     for seat in 0..<4 {
         for gameIndex in 0..<options.gamesPerSeat {
-            let seed = options.seed + UInt64(seat * options.gamesPerSeat + gameIndex)
+            let seed = options.seed + UInt64(gameIndex)
             let candidateScores = try playGame(seed: seed, model: model, modelSeat: seat)
-            let heuristicScores = try playGame(seed: seed, model: nil, modelSeat: nil)
+            let heuristicScores = try playGame(seed: seed, model: baselineModel, modelSeat: baselineModel == nil ? nil : seat)
             let candidate = metrics(for: seat, scores: candidateScores)
             let heuristic = metrics(for: seat, scores: heuristicScores)
             samples.append(Sample(
@@ -215,7 +222,8 @@ func main() throws {
         }
     }
 
-    print("paired_real_engine_benchmark games_per_seat=\(options.gamesPerSeat) seed=\(options.seed)")
+    let baselineLabel = baselineModel == nil ? "heuristic" : "baseline_model"
+    print("paired_real_engine_benchmark games_per_seat=\(options.gamesPerSeat) seed=\(options.seed) baseline=\(baselineLabel)")
     _ = printSummary(label: "aggregate", samples: samples, minWinDelta: options.minWinDelta)
     for seat in 0..<4 {
         _ = printSummary(label: "seat_\(seat)", samples: samples.filter { $0.seat == seat })

@@ -15,6 +15,9 @@ let package = Package(
         .executable(name: "KolkhozSmokeTests", targets: ["KolkhozSmokeTests"]),
         .executable(name: "KolkhozPolicyEval", targets: ["KolkhozPolicyEval"]),
         .executable(name: "KolkhozRealTrainer", targets: ["KolkhozRealTrainer"]),
+        .executable(name: "KolkhozSelfPlayTrainer", targets: ["KolkhozSelfPlayTrainer"]),
+        .executable(name: "KolkhozPolicyGradientTrainer", targets: ["KolkhozPolicyGradientTrainer"]),
+        .executable(name: "KolkhozPolicySelector", targets: ["KolkhozPolicySelector"]),
         .executable(name: "KolkhozPolicyBenchmark", targets: ["KolkhozPolicyBenchmark"])
     ],
     targets: [
@@ -48,6 +51,18 @@ let package = Package(
         ),
         .executableTarget(
             name: "KolkhozRealTrainer",
+            dependencies: ["KolkhozCore"]
+        ),
+        .executableTarget(
+            name: "KolkhozSelfPlayTrainer",
+            dependencies: ["KolkhozCore"]
+        ),
+        .executableTarget(
+            name: "KolkhozPolicyGradientTrainer",
+            dependencies: ["KolkhozCore"]
+        ),
+        .executableTarget(
+            name: "KolkhozPolicySelector",
             dependencies: ["KolkhozCore"]
         ),
         .executableTarget(
