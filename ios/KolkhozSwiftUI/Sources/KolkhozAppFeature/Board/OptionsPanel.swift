@@ -159,6 +159,11 @@ struct InGameOptionsPanel: View {
                     AppearanceToggleButton()
                     Spacer(minLength: 0)
                 }
+                HStack {
+                    Spacer(minLength: 0)
+                    ReadabilityToggleButton()
+                    Spacer(minLength: 0)
+                }
             }
         }
     }

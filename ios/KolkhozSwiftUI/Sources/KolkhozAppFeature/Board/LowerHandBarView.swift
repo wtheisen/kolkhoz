@@ -34,6 +34,7 @@ struct SwapCommandButtonStyle: ButtonStyle {
 
 struct LowerHandBarView: View {
     @Environment(\.kolkhozLanguage) private var language
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let playCard: (Card, CGPoint) -> Void
     let mode: LowerHandBarMode
     let hand: [Card]
@@ -188,7 +189,7 @@ struct LowerHandBarView: View {
         .offset(y: 8)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .frame(height: visibleTrayHeight)
-        .animation(.spring(response: 0.24, dampingFraction: 0.78), value: orderedHand.map(\.id))
+        .animation(reduceMotion ? nil : .spring(response: 0.24, dampingFraction: 0.78), value: orderedHand.map(\.id))
         .onChange(of: hand.map(\.id)) { _, _ in
             if let draggingHandCardID, !hand.contains(where: { $0.id == draggingHandCardID }) {
                 resetHandDrag()

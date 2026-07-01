@@ -24,14 +24,18 @@ enum PixelFontVariant: String {
 struct PixelText: View {
     private static let opticalYOffset: CGFloat = 4
 
+    @Environment(\.kolkhozReadability) private var readability
     let text: String
     let size: PixelFontSize
     var variant: PixelFontVariant = .regular
     var color: Color = .kolkhozCream
     var alignment: HorizontalAlignment = .leading
+    var scalesWithReadability = true
 
     var body: some View {
-        if let atlas = PixelFontAtlasCache.shared.atlas(variant: variant, size: size) {
+        if useReadableText {
+            readableText
+        } else if let atlas = PixelFontAtlasCache.shared.atlas(variant: variant, size: size) {
             VStack(alignment: alignment, spacing: 0) {
                 ForEach(Array(text.split(omittingEmptySubsequences: false, whereSeparator: { $0.isNewline }).enumerated()), id: \.offset) { _, line in
                     PixelTextLine(text: String(line), atlas: atlas, color: color)
@@ -46,6 +50,51 @@ struct PixelText: View {
                 .foregroundStyle(color)
                 .offset(y: Self.opticalYOffset)
         }
+    }
+
+    private var useReadableText: Bool {
+        readability == .clear && scalesWithReadability && size != .cardRank
+    }
+
+    private var readableText: some View {
+        Text(text)
+            .font(readableFont)
+            .fontWeight(variant == .heavy ? .bold : .semibold)
+            .foregroundStyle(color)
+            .multilineTextAlignment(readableAlignment)
+            .accessibilityLabel(Text(text))
+    }
+
+    private var readableAlignment: TextAlignment {
+        switch alignment {
+        case .center:
+            .center
+        case .trailing:
+            .trailing
+        default:
+            .leading
+        }
+    }
+
+    private var readableFont: Font {
+        let baseSize: CGFloat
+        switch size {
+        case .xSmall:
+            baseSize = 8
+        case .small:
+            baseSize = 10
+        case .caption2:
+            baseSize = 11
+        case .caption:
+            baseSize = 13
+        case .headline:
+            baseSize = 17
+        case .title:
+            baseSize = 20
+        case .cardRank:
+            baseSize = 24
+        }
+        return .custom("Handjet-Regular", fixedSize: baseSize)
     }
 
     private var fallbackFont: Font {

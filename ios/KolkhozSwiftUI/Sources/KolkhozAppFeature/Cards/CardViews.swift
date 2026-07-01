@@ -201,7 +201,7 @@ struct CardCornerIndex: View {
     }
 
     var rankText: some View {
-        PixelText(text: card.rank, size: rankPixelSize, variant: .heavy, color: rankColor)
+        PixelText(text: card.rank, size: rankPixelSize, variant: .heavy, color: rankColor, scalesWithReadability: false)
             .frame(width: size.cornerWidth, height: size.cornerHeight, alignment: placement == .top ? .leading : .trailing)
     }
 
@@ -257,7 +257,8 @@ struct CompactCardCenter: View {
                 text: card.rank,
                 size: .caption2,
                 variant: .heavy,
-                color: card.suit == trump ? Color.kolkhozRed : (tone == .dark ? Color.kolkhozCream : Color.kolkhozCardInk)
+                color: card.suit == trump ? Color.kolkhozRed : (tone == .dark ? Color.kolkhozCream : Color.kolkhozCardInk),
+                scalesWithReadability: false
             )
         }
     }

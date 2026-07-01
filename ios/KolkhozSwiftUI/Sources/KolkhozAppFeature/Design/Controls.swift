@@ -280,7 +280,7 @@ struct MiniRewardCard: View {
 
     var body: some View {
         VStack(spacing: -6) {
-            PixelText(text: card.rank, size: .caption, variant: .heavy, color: .kolkhozCardInk)
+            PixelText(text: card.rank, size: .caption, variant: .heavy, color: .kolkhozCardInk, scalesWithReadability: false)
             SuitMark(suit: card.suit, size: 18)
         }
         .frame(width: 24, height: 34)

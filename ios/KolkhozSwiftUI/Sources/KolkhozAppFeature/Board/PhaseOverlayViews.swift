@@ -3,6 +3,7 @@ import SwiftUI
 
 struct PhaseOverlayView: View {
     @EnvironmentObject var store: GameStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var tutorialAction: TutorialRequiredAction = .none
     var onTutorialAction: (TutorialRequiredAction) -> Void = { _ in }
 
@@ -22,7 +23,7 @@ struct PhaseOverlayView: View {
         }
         .frame(maxWidth: .infinity)
         .transition(.scale(scale: 0.92).combined(with: .opacity))
-        .animation(.spring(response: 0.34, dampingFraction: 0.78), value: store.state.phase)
+        .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.78), value: store.state.phase)
     }
 }
 

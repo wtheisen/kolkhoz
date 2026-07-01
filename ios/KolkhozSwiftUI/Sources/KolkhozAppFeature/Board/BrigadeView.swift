@@ -90,6 +90,8 @@ struct PlayerPanel: View {
             .shadow(color: active ? Color.kolkhozGold.opacity(pulse ? 0.42 : 0.18) : .black.opacity(0.24), radius: active && pulse ? 12 : 4, y: 3)
         }
         .frame(minHeight: 54)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(accessibilitySummary))
     }
 
     private var statusBadges: [GameIconAsset] {
@@ -110,6 +112,25 @@ struct PlayerPanel: View {
         guard !human else { return language.text(en: "You", ru: "Вы") }
         let firstName = player.name.split(separator: " ").first.map(String.init) ?? player.name
         return firstName.count > 6 ? "\(firstName.prefix(6))." : firstName
+    }
+
+    private var accessibilitySummary: String {
+        var parts = [
+            human ? language.text(en: "You", ru: "Вы") : player.name,
+            language.text(en: "\(plotScore) visible plot score", ru: "\(plotScore) очков открытого участка"),
+            language.text(en: "\(player.plot.hidden.count) cellar cards", ru: "\(player.plot.hidden.count) карт в подвале"),
+            language.text(en: "\(player.medals) of \(maxTricks) tricks won this year", ru: "\(player.medals) из \(maxTricks) взяток за год")
+        ]
+        if active {
+            parts.append(player.isHuman ? language.text(en: "current turn", ru: "ваш ход") : language.text(en: "AI thinking", ru: "ИИ думает"))
+        }
+        if player.brigadeLeader {
+            parts.append(language.text(en: "brigade leader", ru: "бригадир"))
+        }
+        if protected {
+            parts.append(language.text(en: "protected from requisition", ru: "защищён от реквизиции"))
+        }
+        return parts.joined(separator: ", ")
     }
 }
 

@@ -3,6 +3,7 @@ import SwiftUI
 
 struct TutorialWalkthroughView: View {
     @Environment(\.kolkhozLanguage) private var language
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let onClose: () -> Void
     @StateObject private var tutorialStore: GameStore
     @State private var stepIndex = 0
@@ -60,7 +61,7 @@ struct TutorialWalkthroughView: View {
             }
         }
         .font(.kolkhozLabel(.body))
-        .animation(.spring(response: 0.28, dampingFraction: 0.82), value: stepIndex)
+        .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.82), value: stepIndex)
         .onReceive(tutorialStore.$state) { state in
             completeIfStateMatches(state)
         }

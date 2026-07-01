@@ -2,6 +2,7 @@ import KolkhozCore
 import SwiftUI
 
 public struct KolkhozRootView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var store: GameStore
     @State private var showingLobby: Bool
     @State private var selectedPreset: GamePreset = .kolkhoz
@@ -11,6 +12,7 @@ public struct KolkhozRootView: View {
     @State private var showingTutorial = false
     @AppStorage("kolkhoz-lang") private var languageRawValue = KolkhozLanguage.ru.rawValue
     @AppStorage("kolkhoz-appearance") private var appearanceRawValue = KolkhozAppearance.dark.rawValue
+    @AppStorage("kolkhoz-readability") private var readabilityRawValue = KolkhozReadability.standard.rawValue
     private let initialPanel: GamePanel?
 
     public init() {
@@ -24,8 +26,9 @@ public struct KolkhozRootView: View {
             return
         }
         #endif
-        _store = StateObject(wrappedValue: GameStore())
-        _showingLobby = State(initialValue: true)
+        let store = GameStore()
+        _store = StateObject(wrappedValue: store)
+        _showingLobby = State(initialValue: !store.restoredSavedGame)
         initialPanel = nil
     }
 
@@ -66,8 +69,10 @@ public struct KolkhozRootView: View {
         .environment(\.toggleKolkhozLanguage, toggleLanguage)
         .environment(\.kolkhozAppearance, appearance)
         .environment(\.toggleKolkhozAppearance, toggleAppearance)
+        .environment(\.kolkhozReadability, storedReadability)
+        .environment(\.toggleKolkhozReadability, toggleReadability)
         .preferredColorScheme(appearance.colorScheme)
-        .animation(.easeInOut(duration: 0.18), value: showingTutorial)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: showingTutorial)
     }
 
     private var language: KolkhozLanguage {
@@ -76,6 +81,10 @@ public struct KolkhozRootView: View {
 
     private var appearance: KolkhozAppearance {
         KolkhozAppearance(storedValue: appearanceRawValue)
+    }
+
+    private var storedReadability: KolkhozReadability {
+        KolkhozReadability(storedValue: readabilityRawValue)
     }
 
     private var activeVariants: GameVariants {
@@ -102,6 +111,10 @@ public struct KolkhozRootView: View {
 
     private func toggleAppearance() {
         appearanceRawValue = appearance.next.rawValue
+    }
+
+    private func toggleReadability() {
+        readabilityRawValue = storedReadability.next.rawValue
     }
 }
 

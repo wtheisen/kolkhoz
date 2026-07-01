@@ -3,6 +3,7 @@ import SwiftUI
 
 struct PlayAreaView: View {
     @EnvironmentObject private var store: GameStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let displayPanel: GamePanel
     let gameSafeInsets: EdgeInsets
     let onReturnToLobby: () -> Void
@@ -401,6 +402,14 @@ struct PlayAreaView: View {
     private func processNextEngineAnimation() {
         guard activeEngineEvent == nil else { return }
         guard let event = store.animationEvents.first else { return }
+
+        guard !reduceMotion else {
+            store.consumeAnimationEvent(event.id)
+            DispatchQueue.main.async {
+                processNextEngineAnimation()
+            }
+            return
+        }
 
         guard shouldAnimate(event) else {
             store.consumeAnimationEvent(event.id)

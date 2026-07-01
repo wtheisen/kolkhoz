@@ -3,6 +3,7 @@ import SwiftUI
 
 struct TopInfoBarView: View {
     @EnvironmentObject var store: GameStore
+    @Environment(\.kolkhozLanguage) private var language
     @Binding var jobTargets: [Suit: CGPoint]
     var displayedWorkHours: [Suit: Int]? = nil
     var displayedClaimedJobs: Set<Suit>? = nil
@@ -72,6 +73,8 @@ struct TopInfoBarView: View {
             .clipped()
         }
         .frame(height: 48)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(accessibilitySummary))
     }
 
     private var yearIcon: GameIconAsset {
@@ -90,6 +93,24 @@ struct TopInfoBarView: View {
 
     private var claimedJobs: Set<Suit> {
         displayedClaimedJobs ?? store.state.claimedJobs
+    }
+
+    private var accessibilitySummary: String {
+        let localPlayer = store.state.players[store.localPlayerID]
+        let cellarScore = localPlayer.plot.hidden.reduce(0) { $0 + $1.value }
+        let plotScore = localPlayer.plot.revealed.reduce(0) { $0 + $1.value }
+        let trumpText = store.state.trump.map { language.text(en: "\(language.suitName($0)) trump", ru: "\(language.suitName($0)) козырь") }
+            ?? language.text(en: "no trump", ru: "без козыря")
+        let jobs = Suit.allCases.map { suit in
+            let progress = claimedJobs.contains(suit)
+                ? language.text(en: "complete", ru: "готово")
+                : "\(workHours[suit, default: 0]) of 40"
+            return "\(language.suitName(suit)) \(progress)"
+        }.joined(separator: ", ")
+        return language.text(
+            en: "Year \(store.state.year), \(language.phaseName(store.state.phase)), \(trumpText). Jobs: \(jobs). Your cellar score \(cellarScore), visible plot score \(plotScore).",
+            ru: "Год \(store.state.year), \(language.phaseName(store.state.phase)), \(trumpText). Работы: \(jobs). Ваш подвал \(cellarScore), открытый участок \(plotScore)."
+        )
     }
 
 }

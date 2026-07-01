@@ -38,7 +38,8 @@ let package = Package(
             name: "KolkhozSwiftUIApp",
             dependencies: ["KolkhozAppFeature"],
             resources: [
-                .process("Assets.xcassets")
+                .process("Assets.xcassets"),
+                .process("PrivacyInfo.xcprivacy")
             ]
         ),
         .executableTarget(

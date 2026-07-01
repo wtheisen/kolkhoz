@@ -5,6 +5,7 @@ struct GameBoardView: View {
     @EnvironmentObject var store: GameStore
     @Environment(\.kolkhozLanguage) private var language
     @Environment(\.kolkhozAppearance) private var appearance
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let onMenu: () -> Void
     let onTutorial: () -> Void
     let tutorialAction: TutorialRequiredAction
@@ -165,7 +166,7 @@ struct GameBoardView: View {
         .onChange(of: store.state.phase) { _, _ in
             selectedPanel = nil
         }
-        .animation(.easeInOut(duration: 0.18), value: store.isHotSeatPrivacyRequired)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: store.isHotSeatPrivacyRequired)
     }
 }
 

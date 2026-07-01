@@ -150,6 +150,7 @@ struct LobbyTitleColumn: View {
                     LanguageToggleButton()
                     AppearanceToggleButton()
                 }
+                ReadabilityToggleButton()
                 VStack(spacing: 2) {
                     Text(language.text(en: "Game by", ru: "Автор игры"))
                     Text(language.text(en: "William Theisen", ru: "Уильям Тайсон"))

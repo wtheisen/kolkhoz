@@ -68,6 +68,7 @@
 		4F3850D2FE0DE1BCBDFC20D6 /* icon-play-tap.png in Resources */ = {isa = PBXBuildFile; fileRef = 98FBA77FF28227C9D4DB2DC8 /* icon-play-tap.png */; };
 		508444133B6DD2360048DB4D /* ui-tab-selected.png in Resources */ = {isa = PBXBuildFile; fileRef = 73C5AEFF181AC7DFB6B40BED /* ui-tab-selected.png */; };
 		50C89B4B111A92424C959D06 /* icon-status-reward-claimed.png in Resources */ = {isa = PBXBuildFile; fileRef = E455947B164FAF724B565EB2 /* icon-status-reward-claimed.png */; };
+		522C93685BF42F8B391847DF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C763D506930CC0ACF18613F8 /* PrivacyInfo.xcprivacy */; };
 		5275DECC63AC3C09F9DCA327 /* face-queen-potato.png in Resources */ = {isa = PBXBuildFile; fileRef = 4BBF1BB0BC2AEE6BBEE302BB /* face-queen-potato.png */; };
 		537FE25546651B1BC8F1F17D /* icon-year-4.png in Resources */ = {isa = PBXBuildFile; fileRef = 19B27FC529411C7EA4D3A02C /* icon-year-4.png */; };
 		545372FA07FDF7C6235E1E5A /* icon-status-current-turn.png in Resources */ = {isa = PBXBuildFile; fileRef = A4B964A8B303172A546590F0 /* icon-status-current-turn.png */; };
@@ -172,6 +173,7 @@
 		DD396E6936F0D90B2818C542 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BD0FEBD88DBCB5FC39CB1C0 /* Models.swift */; };
 		DDDD13D03193220C66AB193B /* handjet-b2-20px.png in Resources */ = {isa = PBXBuildFile; fileRef = 0F269DB9AED17358660A427D /* handjet-b2-20px.png */; };
 		DEF0188C2BCE5A4FDAB1C696 /* icon-tutorial-cue-inspect.png in Resources */ = {isa = PBXBuildFile; fileRef = 9E3178D230052177C1AE9D58 /* icon-tutorial-cue-inspect.png */; };
+		E0283D85589B2905AD795748 /* KolkhozReadability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E9901F971F3021F966A26F0 /* KolkhozReadability.swift */; };
 		E1770B756B276D9936B351FA /* GameIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EA354C3C0E9831798271B0F /* GameIcon.swift */; };
 		E483208CCDF40D99C4B03AB6 /* face-jack-wheat.png in Resources */ = {isa = PBXBuildFile; fileRef = 0A771F7294DF8CFB6D8D48D2 /* face-jack-wheat.png */; };
 		E4ABBE34FBA34B03AAA0D4FE /* face-jack-sunflower.png in Resources */ = {isa = PBXBuildFile; fileRef = D8C3E03B4D3A2818C98AB33F /* face-jack-sunflower.png */; };
@@ -245,6 +247,7 @@
 		0BD0FEBD88DBCB5FC39CB1C0 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		0C45722A458B7BB073BB8E5A /* TutorialWalkthroughView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TutorialWalkthroughView.swift; sourceTree = "<group>"; };
 		0DB85EE2DB6D3F796D3DB164 /* LobbyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LobbyView.swift; sourceTree = "<group>"; };
+		0E9901F971F3021F966A26F0 /* KolkhozReadability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KolkhozReadability.swift; sourceTree = "<group>"; };
 		0EA354C3C0E9831798271B0F /* GameIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameIcon.swift; sourceTree = "<group>"; };
 		0F269DB9AED17358660A427D /* handjet-b2-20px.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "handjet-b2-20px.png"; sourceTree = "<group>"; };
 		1012268298A598A9BEC48A7A /* icon-sunflower.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-sunflower.png"; sourceTree = "<group>"; };
@@ -380,6 +383,7 @@
 		C425CC2C93686B236FDBCBFD /* handjet-b2-11px.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "handjet-b2-11px.json"; sourceTree = "<group>"; };
 		C484C3D7BC6C0A628FC3F686 /* icon-panel-plot.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-panel-plot.png"; sourceTree = "<group>"; };
 		C5668468E2A9884858869EF2 /* GameBoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameBoardView.swift; sourceTree = "<group>"; };
+		C763D506930CC0ACF18613F8 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		C8FA68A81C8DC0EB8B771914 /* KolkhozAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KolkhozAppearance.swift; sourceTree = "<group>"; };
 		CAAB9E55F15F81752461E830 /* PlayAreaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayAreaView.swift; sourceTree = "<group>"; };
 		CAC4807138A2B9F212A4FC21 /* KolkhozSwiftUIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KolkhozSwiftUIApp.swift; sourceTree = "<group>"; };
@@ -526,6 +530,7 @@
 			children = (
 				BD68D846080B686D885F8781 /* Assets.xcassets */,
 				CAC4807138A2B9F212A4FC21 /* KolkhozSwiftUIApp.swift */,
+				C763D506930CC0ACF18613F8 /* PrivacyInfo.xcprivacy */,
 			);
 			name = KolkhozSwiftUIApp;
 			path = Sources/KolkhozSwiftUIApp;
@@ -762,6 +767,7 @@
 				0EA354C3C0E9831798271B0F /* GameIcon.swift */,
 				C8FA68A81C8DC0EB8B771914 /* KolkhozAppearance.swift */,
 				767D7DFECE8AF455BAD149B6 /* KolkhozLocalization.swift */,
+				0E9901F971F3021F966A26F0 /* KolkhozReadability.swift */,
 				1AAA1DF6E1656B67E7673F63 /* KolkhozStyle.swift */,
 				ECF8B2CB8368D149C8313224 /* PixelText.swift */,
 			);
@@ -878,6 +884,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				14D27AB87FC3988404272958 /* Assets.xcassets in Resources */,
+				522C93685BF42F8B391847DF /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1061,6 +1068,7 @@
 				FF66C45B16B8365E000BE106 /* KolkhozLocalization.swift in Sources */,
 				B25A7E68FA0C246FA704D8E6 /* KolkhozPreviewCatalog.swift in Sources */,
 				A9788656464D622647DCA094 /* KolkhozPreviewFixtures.swift in Sources */,
+				E0283D85589B2905AD795748 /* KolkhozReadability.swift in Sources */,
 				B31C2D0A677630CB7828405D /* KolkhozRootView.swift in Sources */,
 				7489BE6277B910FC503C0C19 /* KolkhozStyle.swift in Sources */,
 				B5460F420E07E4151175C612 /* LeftButtonBarView.swift in Sources */,
@@ -1188,7 +1196,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.kolkhoz.KolkhozCore;
+				PRODUCT_BUNDLE_IDENTIFIER = com.williamtheisen.kolkhoz.core;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1211,7 +1219,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.kolkhoz.KolkhozAppFeature;
+				PRODUCT_BUNDLE_IDENTIFIER = com.williamtheisen.kolkhoz.appfeature;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1234,7 +1242,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.kolkhoz.KolkhozAppFeature;
+				PRODUCT_BUNDLE_IDENTIFIER = com.williamtheisen.kolkhoz.appfeature;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1308,7 +1316,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.kolkhoz.KolkhozSwiftUI;
+				PRODUCT_BUNDLE_IDENTIFIER = com.williamtheisen.kolkhoz;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -1324,7 +1332,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.kolkhoz.KolkhozSwiftUI;
+				PRODUCT_BUNDLE_IDENTIFIER = com.williamtheisen.kolkhoz;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -1345,7 +1353,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.kolkhoz.KolkhozCore;
+				PRODUCT_BUNDLE_IDENTIFIER = com.williamtheisen.kolkhoz.core;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
