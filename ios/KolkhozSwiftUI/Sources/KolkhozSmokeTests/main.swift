@@ -100,11 +100,11 @@ func testGameCanReachGameOver() throws {
 }
 
 func testPolicyModelCanDriveGameOver() throws {
-    let inputSize = 34
+    let inputSize = 83
     let hiddenSize = 4
     let model = KolkhozPolicyModel(
         version: 1,
-        featureVersion: 1,
+        featureVersion: 2,
         inputSize: inputSize,
         hiddenSize: hiddenSize,
         w1: Array(repeating: 0.01, count: inputSize * hiddenSize),
@@ -147,6 +147,34 @@ func testPolicyModelCanDriveGameOver() throws {
     }
 
     expect(engine.state.phase == .gameOver, "compatible policy model should be able to drive AI turns")
+}
+
+func testV5ModelNoSwapDoesNotFallBackToHeuristicSwap() {
+    let hiddenSize = 4
+    let model = KolkhozPolicyModel(
+        version: 1,
+        featureVersion: 5,
+        inputSize: 200,
+        hiddenSize: hiddenSize,
+        w1: Array(repeating: 0, count: 200 * hiddenSize),
+        b1: Array(repeating: 0, count: hiddenSize),
+        w2: Array(repeating: 0, count: hiddenSize),
+        b2: 0
+    )
+    expect(model.isCompatible, "test v5 policy model should match Swift feature contract")
+
+    var players = (0..<4).map { id in
+        PlayerState(id: id, name: id == 0 ? "Player" : "Bot \(id)", isHuman: id == 0)
+    }
+    players[1].hand = [Card(suit: .wheat, value: 6)]
+    players[1].plot.hidden = [Card(suit: .sunflower, value: 13)]
+
+    var state = KolkhozState(players: players, lead: 0, trumpSelector: 0)
+    state.phase = .swap
+    state.currentPlayer = 1
+
+    let decider = KolkhozAIDecider(state: state, model: model)
+    expect(decider.chooseSwap(for: 1) == nil, "v5 model no-swap should be terminal instead of falling back to heuristic swap")
 }
 
 func testHotSeatStopsOnSecondHumanTurn() throws {
@@ -210,6 +238,64 @@ func testRequisitionUsesHumanFacingName() throws {
     )
 }
 
+func testSwappedRewardDoesNotShortNextDeal() {
+    let returnedReward = Card(suit: .wheat, value: 1)
+    let guaranteedDealCards = Set(
+        [returnedReward] +
+            Suit.allCases.flatMap { suit in (9...13).map { Card(suit: suit, value: $0) } }.dropLast()
+    )
+    var players = (0..<4).map { id in
+        PlayerState(id: id, name: id == 0 ? "Player" : "Bot \(id)", isHuman: id == 0)
+    }
+    players[0].plot.revealed = [Card(suit: .wheat, value: 6)]
+    players[1].plot.revealed = [Card(suit: .sunflower, value: 6)]
+    players[2].plot.revealed = [Card(suit: .potato, value: 6)]
+    players[3].plot.revealed = [Card(suit: .beet, value: 6)]
+
+    var state = KolkhozState(players: players, lead: 0, trumpSelector: 0)
+    state.year = 3
+    state.phase = .requisition
+    state.jobPiles = Dictionary(uniqueKeysWithValues: Suit.allCases.map { ($0, []) })
+    state.revealedJobs = [:]
+    state.exiled = [1: Suit.allCases.flatMap { suit in
+        (1...13).map { Card(suit: suit, value: $0) }.filter { card in
+            !guaranteedDealCards.contains(card) && !players.flatMap { $0.plot.revealed }.contains(card)
+        }
+    }]
+
+    let engine = KolkhozEngine(testing: state)
+    engine.continueAfterRequisition()
+
+    let handCounts = engine.state.players.map(\.hand.count)
+    expect(handCounts == [5, 5, 5, 5], "played swapped reward should remain available for the next normal deal")
+    expect(
+        engine.state.players.flatMap(\.hand).contains(returnedReward),
+        "claimed reward that left the plot should be eligible to return to hand"
+    )
+}
+
+func testFinalScoreTieBreaksByTotalMedals() {
+    var players = (0..<4).map { id in
+        PlayerState(id: id, name: id == 0 ? "Player" : "Bot \(id)", isHuman: id == 0)
+    }
+    players[0].plot.hidden = [Card(suit: .wheat, value: 10)]
+    players[1].plot.hidden = [Card(suit: .sunflower, value: 10)]
+    players[2].plot.hidden = [Card(suit: .potato, value: 9)]
+    players[3].plot.hidden = [Card(suit: .beet, value: 8)]
+    players[0].plot.medals = 1
+    players[1].plot.medals = 3
+
+    var state = KolkhozState(players: players, lead: 0, trumpSelector: 0)
+    state.year = 5
+    state.phase = .requisition
+
+    let engine = KolkhozEngine(testing: state)
+    engine.continueAfterRequisition()
+
+    expect(engine.state.phase == .gameOver, "continuing year-five requisition should finish the game")
+    expect(engine.state.gameResult?.winnerID == 1, "equal final scores should break by total medals won")
+}
+
 do {
     testNewGameDealsCards()
     testDefaultKolkhozDisablesNomenclature()
@@ -217,8 +303,11 @@ do {
     try testEngineEmitsCardPlayAnimationEvents()
     try testGameCanReachGameOver()
     try testPolicyModelCanDriveGameOver()
+    testV5ModelNoSwapDoesNotFallBackToHeuristicSwap()
     try testHotSeatStopsOnSecondHumanTurn()
     try testRequisitionUsesHumanFacingName()
+    testSwappedRewardDoesNotShortNextDeal()
+    testFinalScoreTieBreaksByTotalMedals()
     print("Kolkhoz smoke tests passed")
 } catch {
     fputs("Smoke test threw error: \(error)\n", stderr)

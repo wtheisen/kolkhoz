@@ -13,19 +13,22 @@ let package = Package(
         .library(name: "KolkhozAppFeature", targets: ["KolkhozAppFeature"]),
         .executable(name: "KolkhozSwiftUIApp", targets: ["KolkhozSwiftUIApp"]),
         .executable(name: "KolkhozSmokeTests", targets: ["KolkhozSmokeTests"]),
-        .executable(name: "KolkhozPolicyEval", targets: ["KolkhozPolicyEval"]),
-        .executable(name: "KolkhozRealTrainer", targets: ["KolkhozRealTrainer"]),
-        .executable(name: "KolkhozSelfPlayTrainer", targets: ["KolkhozSelfPlayTrainer"]),
         .executable(name: "KolkhozPolicyGradientTrainer", targets: ["KolkhozPolicyGradientTrainer"]),
-        .executable(name: "KolkhozPolicySelector", targets: ["KolkhozPolicySelector"]),
-        .executable(name: "KolkhozPolicyBenchmark", targets: ["KolkhozPolicyBenchmark"])
+        .executable(name: "KolkhozPolicyBenchmark", targets: ["KolkhozPolicyBenchmark"]),
+        .executable(name: "KolkhozPolicyDiagnostics", targets: ["KolkhozPolicyDiagnostics"]),
+        .executable(name: "KolkhozEngineParity", targets: ["KolkhozEngineParity"]),
+        .executable(name: "KolkhozEngineBenchmark", targets: ["KolkhozEngineBenchmark"])
     ],
     targets: [
         .target(
             name: "KolkhozCore",
+            dependencies: ["KolkhozCEngine"],
             resources: [
                 .process("Resources")
             ]
+        ),
+        .target(
+            name: "KolkhozCEngine"
         ),
         .target(
             name: "KolkhozAppFeature",
@@ -46,28 +49,24 @@ let package = Package(
             dependencies: ["KolkhozCore"]
         ),
         .executableTarget(
-            name: "KolkhozPolicyEval",
-            dependencies: ["KolkhozCore"]
-        ),
-        .executableTarget(
-            name: "KolkhozRealTrainer",
-            dependencies: ["KolkhozCore"]
-        ),
-        .executableTarget(
-            name: "KolkhozSelfPlayTrainer",
-            dependencies: ["KolkhozCore"]
-        ),
-        .executableTarget(
             name: "KolkhozPolicyGradientTrainer",
-            dependencies: ["KolkhozCore"]
-        ),
-        .executableTarget(
-            name: "KolkhozPolicySelector",
-            dependencies: ["KolkhozCore"]
+            dependencies: ["KolkhozCore", "KolkhozCEngine"]
         ),
         .executableTarget(
             name: "KolkhozPolicyBenchmark",
             dependencies: ["KolkhozCore"]
+        ),
+        .executableTarget(
+            name: "KolkhozPolicyDiagnostics",
+            dependencies: ["KolkhozCore"]
+        ),
+        .executableTarget(
+            name: "KolkhozEngineParity",
+            dependencies: ["KolkhozCore"]
+        ),
+        .executableTarget(
+            name: "KolkhozEngineBenchmark",
+            dependencies: ["KolkhozCore", "KolkhozCEngine"]
         )
     ]
 )

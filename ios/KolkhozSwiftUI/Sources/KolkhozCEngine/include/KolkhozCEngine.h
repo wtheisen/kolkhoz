@@ -1,0 +1,252 @@
+#ifndef KOLKHOZ_C_ENGINE_H
+#define KOLKHOZ_C_ENGINE_H
+
+#include <stdbool.h>
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define KC_PLAYER_COUNT 4
+#define KC_SUIT_COUNT 4
+#define KC_MAX_YEARS 5
+#define KC_MAX_CARDS 80
+#define KC_MAX_STACKS 16
+#define KC_POLICY_INPUT_SIZE 200
+#define KC_MAX_POLICY_HIDDEN_LAYERS 4
+
+enum {
+    KC_PHASE_PLANNING = 0,
+    KC_PHASE_SWAP = 1,
+    KC_PHASE_TRICK = 2,
+    KC_PHASE_ASSIGNMENT = 3,
+    KC_PHASE_REQUISITION = 4,
+    KC_PHASE_GAME_OVER = 5
+};
+
+enum {
+    KC_ACTION_SET_TRUMP = 1,
+    KC_ACTION_SWAP = 2,
+    KC_ACTION_CONFIRM_SWAP = 3,
+    KC_ACTION_PLAY_CARD = 4,
+    KC_ACTION_ASSIGN = 5,
+    KC_ACTION_SUBMIT_ASSIGNMENTS = 6,
+    KC_ACTION_CONTINUE_AFTER_REQUISITION = 7
+};
+
+typedef struct {
+    int32_t suit;
+    int32_t value;
+} KCCard;
+
+typedef struct {
+    int32_t kind;
+    int32_t player_id;
+    int32_t suit;
+    KCCard card;
+    KCCard hand_card;
+    KCCard plot_card;
+    int32_t plot_zone;
+    int32_t target_suit;
+} KCAction;
+
+typedef struct {
+    int32_t deck_type;
+    bool nomenclature;
+    bool allow_swap;
+    bool northern_style;
+    bool mice_variant;
+    bool orden_nachalniku;
+    bool medals_count;
+    bool accumulate_jobs;
+    bool hero_of_soviet_union;
+} KCVariants;
+
+typedef struct {
+    KCCard cards[KC_MAX_CARDS];
+    int32_t count;
+} KCCardList;
+
+typedef struct {
+    KCCard revealed[KC_MAX_CARDS];
+    int32_t revealed_count;
+    KCCard hidden[KC_MAX_CARDS];
+    int32_t hidden_count;
+} KCPlotStack;
+
+typedef struct {
+    int32_t id;
+    bool is_human;
+    KCCardList hand;
+    KCCardList plot_revealed;
+    KCCardList plot_hidden;
+    int32_t plot_medals;
+    KCPlotStack stacks[KC_MAX_STACKS];
+    int32_t stack_count;
+    bool brigade_leader;
+    bool has_won_trick_this_year;
+    int32_t medals;
+} KCPlayer;
+
+typedef struct {
+    int32_t player_id;
+    KCCard card;
+} KCTrickPlay;
+
+typedef struct {
+    int32_t player_id;
+    int32_t suit;
+    KCCard card;
+    int32_t message_kind;
+} KCRequisitionEvent;
+
+typedef struct {
+    int32_t actions;
+    int32_t checksum;
+} KCGameRunResult;
+
+typedef struct {
+    int32_t episodes;
+    int32_t actions;
+    int32_t checksum;
+    double weight_checksum;
+} KCTrainingBenchmarkResult;
+
+typedef struct {
+    int32_t input_size;
+    int32_t hidden_size;
+    int32_t layer_count;
+    int32_t layer_sizes[KC_MAX_POLICY_HIDDEN_LAYERS];
+    int32_t head_count;
+    double *w1;
+    double *b1;
+    double *layer_weights[KC_MAX_POLICY_HIDDEN_LAYERS];
+    double *layer_biases[KC_MAX_POLICY_HIDDEN_LAYERS];
+    double *w2;
+    double *output_weights;
+    double *b2;
+    double *b2s;
+} KCPolicyModelBuffer;
+
+typedef struct {
+    int32_t episodes;
+    int32_t batch_size;
+    uint64_t seed;
+    double learning_rate;
+    double temperature;
+    double max_gradient_norm;
+    double l2;
+    double win_weight;
+    double strict_weight;
+    double rank_weight;
+    double margin_weight;
+    double score_delta_weight;
+    double margin_delta_weight;
+    double work_delta_weight;
+    double claim_delta_weight;
+    double own_requisition_weight;
+    int32_t thread_count;
+    double greedy_sample_rate;
+    double advantage_baseline_beta;
+    double advantage_clip;
+    double value_learning_rate;
+    double *value_weights;
+    int32_t training_seat_count;
+    int32_t training_seats[KC_PLAYER_COUNT];
+    bool round_curriculum;
+    int32_t round_plot_cards;
+    double round_famine_rate;
+    bool has_opponent_model;
+    bool opponent_is_heuristic;
+    bool paired_baseline;
+    bool freeze_hidden;
+    bool per_transition_value_advantages;
+    bool phase_balanced_ppo;
+    bool use_ppo;
+    bool use_adam;
+    double imitation_weight;
+    double imitation_trump_weight;
+    double imitation_swap_weight;
+    double imitation_play_weight;
+    double imitation_assign_weight;
+    double teacher_forcing_rate;
+    int32_t ppo_epochs;
+    int32_t ppo_minibatch_size;
+    double ppo_clip;
+    double entropy_weight;
+    double adam_beta1;
+    double adam_beta2;
+    double adam_epsilon;
+    KCPolicyModelBuffer opponent_model;
+} KCPolicyGradientConfig;
+
+typedef struct {
+    int32_t episodes;
+    int32_t actions;
+    int32_t batches;
+    int32_t checksum;
+    double top_rate;
+    double average_rank;
+    double average_margin;
+    double average_reward;
+    double average_advantage;
+    double last_gradient_norm;
+    double last_clip_scale;
+    double average_ppo_kl;
+    double average_ppo_abs_kl;
+    double average_ppo_entropy;
+    double average_ppo_clip_fraction;
+    double weight_checksum;
+} KCPolicyGradientResult;
+
+typedef struct {
+    uint64_t rng_state;
+    KCVariants variants;
+    KCPlayer players[KC_PLAYER_COUNT];
+    int32_t lead;
+    int32_t year;
+    int32_t trump;
+    KCCardList job_piles[KC_SUIT_COUNT];
+    KCCard revealed_jobs[KC_SUIT_COUNT];
+    bool has_revealed_job[KC_SUIT_COUNT];
+    bool claimed_jobs[KC_SUIT_COUNT];
+    int32_t work_hours[KC_SUIT_COUNT];
+    KCCardList job_buckets[KC_SUIT_COUNT];
+    KCTrickPlay current_trick[KC_PLAYER_COUNT];
+    int32_t current_trick_count;
+    KCTrickPlay last_trick[KC_PLAYER_COUNT];
+    int32_t last_trick_count;
+    int32_t last_winner;
+    int32_t trick_count;
+    KCCardList exiled[KC_MAX_YEARS + 1];
+    bool is_famine;
+    int32_t phase;
+    int32_t current_player;
+    int32_t trump_selector;
+    int32_t pending_assignment_targets[KC_PLAYER_COUNT];
+    KCRequisitionEvent requisition_events[KC_MAX_CARDS];
+    int32_t requisition_event_count;
+    int32_t game_scores[KC_PLAYER_COUNT];
+    int32_t winner_id;
+    KCCardList accumulated_job_cards[KC_SUIT_COUNT];
+    KCCardList drunkard_replacements;
+    bool swap_confirmed[KC_PLAYER_COUNT];
+    bool swap_count[KC_PLAYER_COUNT];
+} KCEngine;
+
+void kc_variants_kolkhoz(KCVariants *variants);
+void kc_engine_init(KCEngine *engine, uint64_t seed, KCVariants variants);
+int32_t kc_engine_apply(KCEngine *engine, KCAction action);
+int32_t kc_engine_legal_actions(const KCEngine *engine, KCAction *actions, int32_t max_actions);
+int32_t kc_visible_score(const KCEngine *engine, int32_t player_id);
+int32_t kc_final_score(const KCEngine *engine, int32_t player_id);
+KCGameRunResult kc_run_benchmark_game(uint64_t seed, KCVariants variants);
+KCTrainingBenchmarkResult kc_run_gradient_benchmark(uint64_t seed, KCVariants variants, int32_t episodes);
+int32_t kc_train_policy_gradient(KCPolicyModelBuffer model, KCPolicyGradientConfig config, KCPolicyGradientResult *result);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

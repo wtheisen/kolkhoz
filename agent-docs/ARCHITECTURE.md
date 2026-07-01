@@ -37,7 +37,7 @@ kolkhoz/
 │           └── KolkhozSmokeTests/
 │               └── main.swift
 ├── src/                         # Legacy web app source
-├── docs/                        # Legacy web build output
+├── docs/                        # Generated legacy web build output
 ├── agent-docs/
 ├── package.json
 └── README.md

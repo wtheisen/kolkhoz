@@ -244,7 +244,8 @@ private extension KolkhozEngine {
     func makeWorkerDeck() -> [Card] {
         var cards: [Card] = []
         for suit in Suit.allCases {
-            for value in 6...13 {
+            let values = state.variants.deckType == 36 ? Array(6...13) : Array(1...13)
+            for value in values {
                 cards.append(Card(suit: suit, value: value))
             }
         }
@@ -252,18 +253,27 @@ private extension KolkhozEngine {
         var usedCards = Set(state.players.flatMap { player in
             player.hand + player.plot.revealed + player.plot.hidden + player.plot.stacks.flatMap { $0.revealed + $0.hidden }
         })
+        usedCards.formUnion(Set(state.jobPiles.values.flatMap { $0 }))
+        usedCards.formUnion(Set(state.revealedJobs.values))
+        usedCards.formUnion(Set(state.accumulatedJobCards.values.flatMap { $0 }))
+        usedCards.formUnion(Set(state.jobBuckets.values.flatMap { $0 }))
+        usedCards.formUnion(Set(state.currentTrick.map(\.card)))
+        usedCards.formUnion(Set(state.lastTrick.map(\.card)))
         if !state.variants.ordenNachalniku {
             usedCards.formUnion(Set(state.exiled.values.flatMap { $0 }))
         }
 
-        return (cards + state.drunkardReplacements)
-            .filter { !usedCards.contains($0) || state.drunkardReplacements.contains($0) }
-            .shuffled(using: &random)
+        var availableCards = cards.filter { !usedCards.contains($0) }
+        for replacement in state.drunkardReplacements where !availableCards.contains(replacement) {
+            availableCards.append(replacement)
+        }
+
+        return availableCards.shuffled(using: &random)
     }
 
     func dealHands() {
-        var deck = makeWorkerDeck()
         let cardsPerPlayer = state.isFamine ? 4 : 5
+        var deck = makeWorkerDeck()
         for playerID in state.players.indices {
             state.players[playerID].hand = []
         }
@@ -680,7 +690,19 @@ private extension KolkhozEngine {
 
     func finishGame() {
         let scores = Dictionary(uniqueKeysWithValues: state.players.map { ($0.id, finalScore(for: $0.id)) })
-        let winner = scores.max { $0.value < $1.value }?.key ?? 0
+        let winner = state.players.max { lhs, rhs in
+            let lhsScore = scores[lhs.id, default: 0]
+            let rhsScore = scores[rhs.id, default: 0]
+            if lhsScore == rhsScore {
+                let lhsMedals = lhs.plot.medals + lhs.medals
+                let rhsMedals = rhs.plot.medals + rhs.medals
+                if lhsMedals != rhsMedals {
+                    return lhsMedals < rhsMedals
+                }
+                return lhs.id < rhs.id
+            }
+            return lhsScore < rhsScore
+        }?.id ?? 0
         state.gameResult = GameResult(winnerID: winner, scores: scores)
         state.phase = .gameOver
         state.currentPlayer = 0

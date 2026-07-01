@@ -111,7 +111,7 @@ Views should call `GameStore`; game rules and state mutations belong in `Kolkhoz
 The repository still contains the older web app:
 
 - `src/` - React/boardgame.io source.
-- `docs/` - GitHub Pages build output.
+- `docs/` - Generated GitHub Pages build output from `npm run build`; not source.
 - `package.json` - Legacy web build/test commands.
 
 Use these only when intentionally working on the legacy browser version.
