@@ -104,6 +104,7 @@ struct CardView: View {
 
     let card: Card
     let size: CardSize
+    var trump: Suit? = nil
     var toneOverride: CardTone?
 
     var tone: CardTone {
@@ -115,7 +116,7 @@ struct CardView: View {
             CardTemplateBackground(tone: tone)
                 .frame(width: size.width, height: size.height)
 
-            CardFaceView(card: card, size: size, tone: tone)
+            CardFaceView(card: card, size: size, tone: tone, trump: trump)
         }
         .frame(width: size.width, height: size.height)
         .overlay {
@@ -148,11 +149,12 @@ struct CardFaceView: View {
     let card: Card
     let size: CardSize
     let tone: CardTone
+    let trump: Suit?
 
     var body: some View {
         ZStack {
             if size == .small {
-                CompactCardCenter(card: card, tone: tone)
+                CompactCardCenter(card: card, tone: tone, trump: trump)
             } else if card.value >= 11 {
                 FaceCardCenter(card: card, size: size, tone: tone)
             } else {
@@ -161,11 +163,11 @@ struct CardFaceView: View {
                     .padding(.vertical, size.height * 0.02)
             }
 
-            CardCornerIndex(card: card, tone: tone, size: size, placement: .top)
+            CardCornerIndex(card: card, tone: tone, size: size, placement: .top, trump: trump)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .offset(x: size.width * 0.03, y: size.height * 0.03)
 
-            CardCornerIndex(card: card, tone: tone, size: size, placement: .bottom)
+            CardCornerIndex(card: card, tone: tone, size: size, placement: .bottom, trump: trump)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 .offset(x: -size.width * 0.02, y: -size.height * -0.03)
         }
@@ -183,6 +185,7 @@ struct CardCornerIndex: View {
     let tone: CardTone
     let size: CardSize
     let placement: CardCornerPlacement
+    let trump: Suit?
 
     var body: some View {
         VStack(alignment: placement == .top ? .leading : .trailing, spacing: rankSuitSpacing) {
@@ -209,7 +212,7 @@ struct CardCornerIndex: View {
     }
 
     var rankColor: Color {
-        tone == .dark ? Color.kolkhozCream : card.suit.cardInkColor
+        card.suit == trump ? Color.kolkhozRed : (tone == .dark ? Color.kolkhozCream : Color.kolkhozCardInk)
     }
 
     var rankSuitSpacing: CGFloat {
@@ -245,6 +248,7 @@ struct CardCornerIndex: View {
 struct CompactCardCenter: View {
     let card: Card
     let tone: CardTone
+    let trump: Suit?
 
     var body: some View {
         VStack(spacing: 2) {
@@ -253,7 +257,7 @@ struct CompactCardCenter: View {
                 text: card.rank,
                 size: .caption2,
                 variant: .heavy,
-                color: tone == .dark ? Color.kolkhozCream : card.suit.cardInkColor
+                color: card.suit == trump ? Color.kolkhozRed : (tone == .dark ? Color.kolkhozCream : Color.kolkhozCardInk)
             )
         }
     }

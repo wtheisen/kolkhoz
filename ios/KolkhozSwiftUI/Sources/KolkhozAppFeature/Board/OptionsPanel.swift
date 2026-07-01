@@ -5,6 +5,7 @@ struct InGameOptionsPanel: View {
     @Environment(\.kolkhozLanguage) private var language
     let onNewGame: () -> Void
     let onReturnToLobby: () -> Void
+    let onTutorial: () -> Void
     @State private var pendingMenuAction: PendingMenuAction?
 
     var body: some View {
@@ -104,6 +105,31 @@ struct InGameOptionsPanel: View {
                 HStack {
                     Spacer(minLength: 0)
                     Button {
+                        onTutorial()
+                    } label: {
+                        HStack(spacing: 7) {
+                            GameIcon(.tutorial, size: 15, muted: true)
+                            Text(language.text(en: "How to play", ru: "Как играть"))
+                                .font(.kolkhozTitle(.caption))
+                                .textCase(.uppercase)
+                                .lineLimit(1)
+                        }
+                        .foregroundStyle(Color.kolkhozCreamDim)
+                        .padding(.horizontal, 12)
+                        .frame(height: 34)
+                        .frame(maxWidth: 170, alignment: .leading)
+                        .background(Color.kolkhozBlack.opacity(0.18), in: RoundedRectangle(cornerRadius: 5))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 5)
+                                .stroke(Color.kolkhozGold.opacity(0.42), lineWidth: 1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    Spacer(minLength: 0)
+                }
+                HStack {
+                    Spacer(minLength: 0)
+                    Button {
                         pendingMenuAction = .mainMenu
                     } label: {
                         HStack(spacing: 7) {
@@ -156,7 +182,7 @@ struct InGameOptionsPanel: View {
 #if DEBUG
 #Preview("Options Panel") {
     BoardPreviewStage(width: 640, height: 300) {
-        InGameOptionsPanel(onNewGame: {}, onReturnToLobby: {})
+        InGameOptionsPanel(onNewGame: {}, onReturnToLobby: {}, onTutorial: {})
     }
 }
 #endif

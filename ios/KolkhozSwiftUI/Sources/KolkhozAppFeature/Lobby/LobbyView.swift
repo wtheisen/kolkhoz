@@ -11,6 +11,7 @@ struct LobbyView: View {
     @Binding var customVariants: GameVariants
     @Binding var playerControllers: [PlayerController]
     @Binding var showingRules: Bool
+    let onTutorial: () -> Void
     let onStart: () -> Void
 
     var activeVariants: GameVariants {
@@ -46,6 +47,7 @@ struct LobbyView: View {
                             HStack(alignment: .top, spacing: stackSpacing) {
                                 LobbyTitleColumn(
                                     showingRules: $showingRules,
+                                    onTutorial: onTutorial,
                                     onStart: onStart,
                                     width: titleWidth,
                                     height: titleHeight
@@ -64,6 +66,7 @@ struct LobbyView: View {
                             VStack(spacing: stackSpacing) {
                                 LobbyTitleColumn(
                                     showingRules: $showingRules,
+                                    onTutorial: onTutorial,
                                     onStart: onStart,
                                     width: titleWidth,
                                     height: titleHeight
@@ -95,6 +98,7 @@ struct LobbyView: View {
 struct LobbyTitleColumn: View {
     @Environment(\.kolkhozLanguage) private var language
     @Binding var showingRules: Bool
+    let onTutorial: () -> Void
     let onStart: () -> Void
     let width: CGFloat
     let height: CGFloat
@@ -116,6 +120,14 @@ struct LobbyTitleColumn: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(CommandButtonStyle(prominent: true))
+                Button(action: onTutorial) {
+                    HStack(spacing: 8) {
+                        GameIcon(.tutorial, size: 20)
+                        Text(language.text(en: "How to Play", ru: "Как играть"))
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(CommandButtonStyle(prominent: false))
                 Button {
                     showingRules.toggle()
                 } label: {
@@ -764,6 +776,7 @@ private struct LobbyViewPreviewHost: View {
             customVariants: $customVariants,
             playerControllers: $playerControllers,
             showingRules: $showingRules,
+            onTutorial: {},
             onStart: {}
         )
         .font(.kolkhozLabel(.body))

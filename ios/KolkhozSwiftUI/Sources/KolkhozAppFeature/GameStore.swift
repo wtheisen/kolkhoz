@@ -22,6 +22,13 @@ public final class GameStore: ObservableObject {
         self.revealedPlayerID = engine.state.players.filter(\.isHuman).count > 1 ? nil : engine.state.humanPlayer.id
     }
 
+    public init(scriptedState: KolkhozState) {
+        let engine = KolkhozEngine(testing: scriptedState)
+        self.engine = engine
+        self.state = engine.state
+        self.revealedPlayerID = engine.state.humanPlayer.id
+    }
+
     #if DEBUG
     public init(previewState: KolkhozState) {
         let engine = KolkhozEngine(testing: previewState)
@@ -39,6 +46,14 @@ public final class GameStore: ObservableObject {
         }
         animationEvents = []
         sync()
+    }
+
+    public func loadScriptedState(_ scriptedState: KolkhozState) {
+        engine = KolkhozEngine(testing: scriptedState)
+        state = engine.state
+        animationEvents = []
+        lastError = nil
+        revealedPlayerID = engine.state.humanPlayer.id
     }
 
     public func setTrump(_ suit: Suit) {

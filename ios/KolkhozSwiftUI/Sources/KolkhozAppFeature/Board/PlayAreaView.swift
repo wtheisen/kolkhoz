@@ -6,6 +6,9 @@ struct PlayAreaView: View {
     let displayPanel: GamePanel
     let gameSafeInsets: EdgeInsets
     let onReturnToLobby: () -> Void
+    let onTutorial: () -> Void
+    let tutorialAction: TutorialRequiredAction
+    let onTutorialAction: (TutorialRequiredAction) -> Void
     let onNewGame: () -> Void
     @State private var activeEngineEvent: KolkhozAnimationEvent?
     @State private var activeEngineEventLanded = false
@@ -36,7 +39,7 @@ struct PlayAreaView: View {
             }
 
             if let assignmentDrag {
-                AssignmentDragGhost(drag: assignmentDrag, canDrop: hoveredAssignmentSuit != nil)
+                AssignmentDragGhost(drag: assignmentDrag, canDrop: hoveredAssignmentSuit != nil, trump: store.state.trump)
                     .zIndex(80)
             }
         }
@@ -118,7 +121,8 @@ struct PlayAreaView: View {
         case .options:
             InGameOptionsPanel(
                 onNewGame: onNewGame,
-                onReturnToLobby: onReturnToLobby
+                onReturnToLobby: onReturnToLobby,
+                onTutorial: onTutorial
             )
             .frame(maxWidth: 620)
             .padding(.horizontal, 20)
@@ -137,7 +141,10 @@ struct PlayAreaView: View {
             .padding(.bottom, panelContentBottomPadding)
 
             if store.state.phase == .planning || store.state.phase == .gameOver {
-                PhaseOverlayView()
+                PhaseOverlayView(
+                    tutorialAction: tutorialAction,
+                    onTutorialAction: onTutorialAction
+                )
                     .frame(maxWidth: 500)
                     .padding(.horizontal, 20)
                     .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
@@ -158,6 +165,8 @@ struct PlayAreaView: View {
                 jobBuckets: displayedJobBuckets,
                 pendingAssignments: store.state.pendingAssignments,
                 trump: store.state.trump,
+                tutorialAction: tutorialAction,
+                onTutorialAction: onTutorialAction,
                 onAssign: store.assign(_:to:)
             )
             .padding(.horizontal, 0)
@@ -165,7 +174,12 @@ struct PlayAreaView: View {
             .padding(.bottom, panelContentBottomPadding)
 
         case .north:
-            NorthView(exiledByYear: store.state.exiled, currentYear: store.state.year)
+            NorthView(
+                exiledByYear: store.state.exiled,
+                currentYear: store.state.year,
+                tutorialAction: tutorialAction,
+                onTutorialAction: onTutorialAction
+            )
                 .padding(.horizontal, 0)
                 .padding(.top, 0)
                 .padding(.bottom, panelContentBottomPadding)
@@ -196,6 +210,7 @@ struct PlayAreaView: View {
             mode: handTrayMode,
             hand: store.state.players[playerID].hand,
             validCards: store.validCardsForHuman(),
+            trump: store.state.trump,
             humanSwapStaged: store.state.swapCount.contains(playerID),
             lastTrick: store.state.lastTrick,
             pendingAssignments: store.state.pendingAssignments,
@@ -208,8 +223,11 @@ struct PlayAreaView: View {
             selectedAssignmentCard: $selectedAssignmentCard,
             jobTargetFrames: jobTargetFrames,
             playDropFrame: playSlotFrames[playerID],
-            onSwapSelection: swapAndConfirm(_:plotSelection:),
+            tutorialAction: tutorialAction,
+            onTutorialAction: onTutorialAction,
+            onSwapSelection: stageSwap(_:plotSelection:),
             onConfirmSwap: store.confirmSwap,
+            onUndoSwap: store.undoSwap,
             onAssign: store.assign(_:to:),
             onSubmitAssignments: store.submitAssignments,
             onContinueAfterRequisition: store.continueAfterRequisition
@@ -372,15 +390,12 @@ struct PlayAreaView: View {
         store.play(card)
     }
 
-    private func swapAndConfirm(_ handCard: Card, plotSelection: PlotSelection) {
+    private func stageSwap(_ handCard: Card, plotSelection: PlotSelection) {
         store.swap(
             handCard: handCard,
             plotCard: plotSelection.card,
             revealed: plotSelection.zone == .revealed
         )
-        if store.state.swapCount.contains(store.localPlayerID) {
-            store.confirmSwap()
-        }
     }
 
     private func processNextEngineAnimation() {
@@ -443,6 +458,7 @@ struct PlayAreaView: View {
                     source: source,
                     target: target,
                     landed: activeEngineEventLanded,
+                    trump: store.state.trump,
                     tint: .kolkhozRedBright
                 )
             }
@@ -453,6 +469,7 @@ struct PlayAreaView: View {
                     source: source,
                     target: target,
                     landed: activeEngineEventLanded,
+                    trump: store.state.trump,
                     tint: .kolkhozGold,
                     valueText: "+\(value)"
                 )
@@ -464,7 +481,8 @@ struct PlayAreaView: View {
                     suit: suit,
                     source: source,
                     target: target,
-                    landed: activeEngineEventLanded
+                    landed: activeEngineEventLanded,
+                    trump: store.state.trump
                 )
             }
         case .cardExiled(_, let playerID, let suit, let card):
@@ -475,7 +493,8 @@ struct PlayAreaView: View {
                     suit: suit,
                     source: source,
                     target: CGPoint(x: 18, y: 64),
-                    landed: activeEngineEventLanded
+                    landed: activeEngineEventLanded,
+                    trump: store.state.trump
                 )
             }
         }
@@ -515,6 +534,7 @@ struct EngineFlyingCardView: View {
     let source: CGPoint
     let target: CGPoint
     let landed: Bool
+    var trump: Suit? = nil
     let tint: Color
     var valueText: String?
 
@@ -522,7 +542,7 @@ struct EngineFlyingCardView: View {
 
     var body: some View {
         ZStack {
-            CardView(card: card, size: .large)
+            CardView(card: card, size: .large, trump: trump)
                 .overlay {
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(tint, lineWidth: 3)
@@ -551,11 +571,12 @@ struct RewardFlightView: View {
     let source: CGPoint
     let target: CGPoint
     let landed: Bool
+    var trump: Suit? = nil
 
     var body: some View {
         ZStack {
             if let reward {
-                CardView(card: reward, size: .medium)
+                CardView(card: reward, size: .medium, trump: trump)
                     .overlay {
                         RoundedRectangle(cornerRadius: 7)
                             .stroke(Color.kolkhozGreen, lineWidth: 3)
@@ -586,11 +607,12 @@ struct ExileFlightView: View {
     let source: CGPoint
     let target: CGPoint
     let landed: Bool
+    var trump: Suit? = nil
 
     var body: some View {
         ZStack {
             if let card {
-                CardView(card: card, size: .medium)
+                CardView(card: card, size: .medium, trump: trump)
                     .overlay {
                         RoundedRectangle(cornerRadius: 7)
                             .stroke(Color.kolkhozRedBright, lineWidth: 3)
@@ -624,6 +646,9 @@ struct ExileFlightView: View {
             displayPanel: .brigade,
             gameSafeInsets: EdgeInsets(),
             onReturnToLobby: {},
+            onTutorial: {},
+            tutorialAction: .none,
+            onTutorialAction: { _ in },
             onNewGame: {}
         )
     }

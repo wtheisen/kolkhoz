@@ -8,6 +8,7 @@ public struct KolkhozRootView: View {
     @State private var customVariants = GameVariants.kolkhoz
     @State private var playerControllers = PlayerController.defaultControllers
     @State private var showingRules = false
+    @State private var showingTutorial = false
     @AppStorage("kolkhoz-lang") private var languageRawValue = KolkhozLanguage.ru.rawValue
     @AppStorage("kolkhoz-appearance") private var appearanceRawValue = KolkhozAppearance.dark.rawValue
     private let initialPanel: GamePanel?
@@ -39,13 +40,24 @@ public struct KolkhozRootView: View {
                         customVariants: $customVariants,
                         playerControllers: $playerControllers,
                         showingRules: $showingRules,
+                        onTutorial: showTutorial,
                         onStart: startGame
                     )
                 } else {
-                    GameBoardView(initialPanel: initialPanel) {
-                        returnToLobby()
-                    }
+                    GameBoardView(
+                        initialPanel: initialPanel,
+                        onMenu: returnToLobby,
+                        onTutorial: showTutorial
+                    )
                 }
+            }
+
+            if showingTutorial {
+                TutorialWalkthroughView {
+                    showingTutorial = false
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                .zIndex(200)
             }
         }
         .font(.kolkhozLabel(.body))
@@ -55,6 +67,7 @@ public struct KolkhozRootView: View {
         .environment(\.kolkhozAppearance, appearance)
         .environment(\.toggleKolkhozAppearance, toggleAppearance)
         .preferredColorScheme(appearance.colorScheme)
+        .animation(.easeInOut(duration: 0.18), value: showingTutorial)
     }
 
     private var language: KolkhozLanguage {
@@ -77,6 +90,10 @@ public struct KolkhozRootView: View {
     private func returnToLobby() {
         showingRules = false
         showingLobby = true
+    }
+
+    private func showTutorial() {
+        showingTutorial = true
     }
 
     private func toggleLanguage() {

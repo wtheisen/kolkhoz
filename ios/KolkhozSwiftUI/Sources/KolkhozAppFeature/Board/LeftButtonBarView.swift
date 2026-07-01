@@ -54,6 +54,7 @@ struct PanelSelectorRailView: View {
     @Environment(\.kolkhozLanguage) private var language
     let activePanel: GamePanel
     let actionPanel: GamePanel
+    var tutorialTargetPanel: GamePanel?
     let onSelectPanel: (GamePanel) -> Void
 
     var body: some View {
@@ -65,21 +66,25 @@ struct PanelSelectorRailView: View {
             .accessibilityLabel(language.text(en: "Menu", ru: "Меню"))
             Button { onSelectPanel(.brigade) } label: {
                 PanelSelectorButton(title: language.text(en: "Brigade", ru: "Бригада"), icon: .brigade, active: activePanel == .brigade, action: actionPanel == .brigade)
+                    .tutorialBoardCue(active: tutorialTargetPanel == .brigade, icon: .tutorialCueTap, cornerRadius: 6)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(language.text(en: "Brigade", ru: "Бригада"))
             Button { onSelectPanel(.jobs) } label: {
                 PanelSelectorButton(title: language.text(en: "Jobs", ru: "Работы"), icon: .jobs, active: activePanel == .jobs, action: actionPanel == .jobs)
+                    .tutorialBoardCue(active: tutorialTargetPanel == .jobs, icon: .tutorialCueTap, cornerRadius: 6)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(language.text(en: "Jobs", ru: "Работы"))
             Button { onSelectPanel(.north) } label: {
                 PanelSelectorButton(title: language.text(en: "The North", ru: "Север"), icon: .north, active: activePanel == .north, action: actionPanel == .north)
+                    .tutorialBoardCue(active: tutorialTargetPanel == .north, icon: .tutorialCueTap, cornerRadius: 6)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(language.text(en: "The North", ru: "Север"))
             Button { onSelectPanel(.plot) } label: {
                 PanelSelectorButton(title: language.text(en: "Cellar", ru: "Подвал"), icon: .plot, active: activePanel == .plot, action: actionPanel == .plot)
+                    .tutorialBoardCue(active: tutorialTargetPanel == .plot, icon: .tutorialCueTap, cornerRadius: 6)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(language.text(en: "Cellar", ru: "Подвал"))
@@ -100,6 +105,7 @@ struct PanelSelectorRailView: View {
         PanelSelectorRailView(
             activePanel: .plot,
             actionPanel: .plot,
+            tutorialTargetPanel: .jobs,
             onSelectPanel: { _ in }
         )
     }

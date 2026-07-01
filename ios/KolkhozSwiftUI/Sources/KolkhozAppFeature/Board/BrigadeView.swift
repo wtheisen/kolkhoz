@@ -291,7 +291,7 @@ struct BrigadePlayerColumnView: View {
 
             ZStack(alignment: .top) {
                 if let play, !hiddenPlayIDs.contains(play.id) {
-                    CardView(card: play.card, size: cardSize)
+                    CardView(card: play.card, size: cardSize, trump: store.state.trump)
                         .scaleEffect(playAreaScale, anchor: .top)
                         .transition(.asymmetric(
                             insertion: .scale(scale: 0.82).combined(with: .opacity),

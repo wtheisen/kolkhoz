@@ -4,6 +4,8 @@ import SwiftUI
 struct NorthView: View {
     let exiledByYear: [Int: [Card]]
     let currentYear: Int
+    var tutorialAction: TutorialRequiredAction = .none
+    var onTutorialAction: (TutorialRequiredAction) -> Void = { _ in }
 
     var body: some View {
         GeometryReader { proxy in
@@ -37,6 +39,13 @@ struct NorthView: View {
                         .padding(.bottom, 8)
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
+                }
+            }
+            .tutorialBoardCue(active: tutorialAction == .inspectNorthReport, icon: .tutorialCueInspect, cornerRadius: 8)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if tutorialAction == .inspectNorthReport {
+                    onTutorialAction(.inspectNorthReport)
                 }
             }
         }

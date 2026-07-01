@@ -19,6 +19,7 @@ struct KolkhozPreviewLobbyHost: View {
             customVariants: $customVariants,
             playerControllers: $playerControllers,
             showingRules: $showingRules,
+            onTutorial: {},
             onStart: {}
         )
         .font(.kolkhozLabel(.body))
@@ -37,7 +38,7 @@ struct KolkhozPreviewBoardHost: View {
         ZStack {
             Color.kolkhozTable
                 .ignoresSafeArea()
-            GameBoardView(onMenu: {})
+            GameBoardView(onMenu: {}, onTutorial: {})
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .font(.kolkhozLabel(.body))

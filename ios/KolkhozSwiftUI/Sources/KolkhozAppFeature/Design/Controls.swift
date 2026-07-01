@@ -359,14 +359,14 @@ struct CardButton: View {
     let card: Card
     let selected: Bool
     var size: CardSize = .large
+    var trump: Suit? = nil
     var highlighted = false
-    var muted = false
+    var highlightColor: Color = .kolkhozRed
     var positionedAction: ((CGPoint) -> Void)?
     var dragAction: ((CGPoint) -> Void)?
     var dragChanged: ((Card, CGPoint, CGSize) -> Void)?
     var dragEnded: ((Card, CGPoint, CGSize) -> Void)?
     let action: () -> Void
-    @State private var pulse = false
 
     var body: some View {
         GeometryReader { proxy in
@@ -379,11 +379,6 @@ struct CardButton: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(card.accessibilityName(language)))
             .accessibilityHint(dragAction == nil ? Text("") : Text(language.text(en: "Drag up or tap to play.", ru: "Потяните вверх или нажмите, чтобы сыграть.")))
-            .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: pulse)
-            .onAppear { pulse = highlighted }
-            .onChange(of: highlighted) { _, highlighted in
-                pulse = highlighted
-            }
         }
         .frame(width: size.width, height: size.height)
     }
@@ -412,16 +407,15 @@ struct CardButton: View {
     }
 
     private var cardFace: some View {
-        CardView(card: card, size: size)
+        CardView(card: card, size: size, trump: trump)
             .overlay {
                 RoundedRectangle(cornerRadius: 8)
                     .stroke(
-                        selected ? Color.kolkhozGreen : (highlighted ? Color.kolkhozGold : Color.clear),
-                        lineWidth: selected ? 3 : (highlighted ? (pulse ? 4 : 2.5) : 0)
+                        selected ? Color.kolkhozGreen : (highlighted ? highlightColor : Color.clear),
+                        lineWidth: selected ? 3 : (highlighted ? 3 : 0)
                     )
             }
-            .shadow(color: highlighted ? Color.kolkhozGold.opacity(pulse ? 0.68 : 0.34) : .clear, radius: pulse ? 16 : 9)
-            .opacity(muted ? 0.74 : 1)
+            .shadow(color: highlighted ? highlightColor.opacity(0.34) : .clear, radius: 9)
     }
 
     private func activate(startCenter: CGPoint) {

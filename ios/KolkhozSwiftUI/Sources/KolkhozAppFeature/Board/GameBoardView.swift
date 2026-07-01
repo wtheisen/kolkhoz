@@ -6,10 +6,22 @@ struct GameBoardView: View {
     @Environment(\.kolkhozLanguage) private var language
     @Environment(\.kolkhozAppearance) private var appearance
     let onMenu: () -> Void
+    let onTutorial: () -> Void
+    let tutorialAction: TutorialRequiredAction
+    let onTutorialAction: (TutorialRequiredAction) -> Void
     @State private var selectedPanel: GamePanel?
 
-    init(initialPanel: GamePanel? = nil, onMenu: @escaping () -> Void) {
+    init(
+        initialPanel: GamePanel? = nil,
+        onMenu: @escaping () -> Void,
+        onTutorial: @escaping () -> Void = {},
+        tutorialAction: TutorialRequiredAction = .none,
+        onTutorialAction: @escaping (TutorialRequiredAction) -> Void = { _ in }
+    ) {
         self.onMenu = onMenu
+        self.onTutorial = onTutorial
+        self.tutorialAction = tutorialAction
+        self.onTutorialAction = onTutorialAction
         _selectedPanel = State(initialValue: initialPanel)
     }
 
@@ -31,6 +43,11 @@ struct GameBoardView: View {
 
     private var displayPanel: GamePanel {
         selectedPanel ?? actionPanel
+    }
+
+    private var tutorialPanelTarget: GamePanel? {
+        guard case .tapPanel(let panel) = tutorialAction else { return nil }
+        return panel
     }
 
     private var hasPendingBoardAnimations: Bool {
@@ -94,7 +111,11 @@ struct GameBoardView: View {
                         PanelSelectorRailView(
                             activePanel: displayPanel,
                             actionPanel: actionPanel,
-                            onSelectPanel: { selectedPanel = $0 }
+                            tutorialTargetPanel: tutorialPanelTarget,
+                            onSelectPanel: {
+                                selectedPanel = $0
+                                onTutorialAction(.tapPanel($0))
+                            }
                         )
                         .frame(width: railWidth, height: contentHeight)
 
@@ -106,6 +127,9 @@ struct GameBoardView: View {
                             displayPanel: displayPanel,
                             gameSafeInsets: gameSafeInsets,
                             onReturnToLobby: onMenu,
+                            onTutorial: onTutorial,
+                            tutorialAction: tutorialAction,
+                            onTutorialAction: onTutorialAction,
                             onNewGame: {
                                 store.newGame()
                                 selectedPanel = nil

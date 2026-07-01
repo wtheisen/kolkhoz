@@ -3,12 +3,17 @@ import SwiftUI
 
 struct PhaseOverlayView: View {
     @EnvironmentObject var store: GameStore
+    var tutorialAction: TutorialRequiredAction = .none
+    var onTutorialAction: (TutorialRequiredAction) -> Void = { _ in }
 
     var body: some View {
         Group {
             switch store.state.phase {
             case .planning:
-                PlanningView()
+                PlanningView(
+                    tutorialAction: tutorialAction,
+                    onTutorialAction: onTutorialAction
+                )
             case .gameOver:
                 GameOverView()
             case .swap, .assignment, .requisition, .trick:
@@ -24,6 +29,8 @@ struct PhaseOverlayView: View {
 struct PlanningView: View {
     @EnvironmentObject var store: GameStore
     @Environment(\.kolkhozLanguage) private var language
+    var tutorialAction: TutorialRequiredAction = .none
+    var onTutorialAction: (TutorialRequiredAction) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -57,12 +64,14 @@ struct PlanningView: View {
                     ForEach(Suit.allCases) { suit in
                         Button {
                             store.setTrump(suit)
+                            onTutorialAction(.chooseTrump(suit))
                         } label: {
                             TrumpSelectionButton(
                                 suit: suit,
                                 title: language.suitName(suit),
                                 selected: store.state.trump == suit
                             )
+                            .tutorialBoardCue(active: tutorialAction == .chooseTrump(suit), icon: .tutorialCueButton)
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(language.text(en: "\(language.suitName(suit)) trump", ru: "\(language.suitName(suit)) козырь"))

@@ -16,6 +16,8 @@ struct JobsView: View {
     let jobBuckets: [Suit: [Card]]
     let pendingAssignments: [String: Suit]
     let trump: Suit?
+    let tutorialAction: TutorialRequiredAction
+    let onTutorialAction: (TutorialRequiredAction) -> Void
     let onAssign: (Card, Suit) -> Void
 
     private var legalTargets: [Suit] {
@@ -45,11 +47,15 @@ struct JobsView: View {
                             reward: revealedJobs[suit],
                             assignedCards: assignedCards(for: suit),
                             highlighted: trump == suit,
+                            trump: trump,
+                            tutorialJobCue: tutorialAction == .tapJob(suit),
+                            tutorialRewardCue: tutorialAction == .inspectReward(suit),
                             validTarget: isAssignmentPhase && legalTargetSet.contains(suit),
                             hovered: hoveredSuit == suit,
                             selectedCard: selectedAssignmentCard,
                             onDragChanged: updateDrag(_:startCenter:translation:),
                             onDragEnded: finishDrag(_:translation:),
+                            onTutorialTap: { onTutorialAction(tutorialAction) },
                             onTapAssign: { assignSelectedCard(to: suit) }
                         )
                         .frame(height: tileHeight)
@@ -148,11 +154,15 @@ struct AssignmentJobTile: View {
     let reward: Card?
     let assignedCards: [AssignmentDisplayCard]
     let highlighted: Bool
+    let trump: Suit?
+    let tutorialJobCue: Bool
+    let tutorialRewardCue: Bool
     let validTarget: Bool
     let hovered: Bool
     let selectedCard: Card?
     let onDragChanged: (Card, CGPoint, CGSize) -> Void
     let onDragEnded: (Card, CGSize) -> Void
+    let onTutorialTap: () -> Void
     let onTapAssign: () -> Void
 
     var body: some View {
@@ -161,6 +171,7 @@ struct AssignmentJobTile: View {
                 HStack(spacing: 8) {
                     if let reward {
                         MiniRewardCard(card: reward, claimed: claimed)
+                            .tutorialBoardCue(active: tutorialRewardCue, icon: .tutorialCueInspect, cornerRadius: 3)
                     } else {
                         RoundedRectangle(cornerRadius: 3)
                             .strokeBorder(Color.kolkhozGreen.opacity(0.7), lineWidth: 1)
@@ -184,6 +195,7 @@ struct AssignmentJobTile: View {
                     ForEach(assignedCards) { item in
                         AssignmentTileCard(
                             item: item,
+                            trump: trump,
                             onDragChanged: onDragChanged,
                             onDragEnded: onDragEnded
                         )
@@ -230,11 +242,14 @@ struct AssignmentJobTile: View {
                     style: StrokeStyle(lineWidth: hovered ? 3 : 1.5, dash: validTarget && !hovered ? [6] : [])
                 )
         }
+        .tutorialBoardCue(active: tutorialJobCue, icon: .tutorialCueInspect, cornerRadius: 6)
         .shadow(color: hovered ? Color.kolkhozGreen.opacity(0.42) : (validTarget ? Color.kolkhozGold.opacity(0.16) : .black.opacity(0.25)), radius: hovered ? 14 : 5, y: 3)
         .opacity(claimed ? 0.68 : 1)
         .contentShape(Rectangle())
         .onTapGesture {
-            if validTarget, selectedCard != nil {
+            if tutorialJobCue || tutorialRewardCue {
+                onTutorialTap()
+            } else if validTarget, selectedCard != nil {
                 onTapAssign()
             }
         }
@@ -270,6 +285,7 @@ struct AssignmentDisplayCard: Identifiable, Equatable {
 
 struct AssignmentTileCard: View {
     let item: AssignmentDisplayCard
+    let trump: Suit?
     let onDragChanged: (Card, CGPoint, CGSize) -> Void
     let onDragEnded: (Card, CGSize) -> Void
     @GestureState private var isDragging = false
@@ -280,7 +296,7 @@ struct AssignmentTileCard: View {
                 x: proxy.frame(in: .named(GameBoardCoordinateSpace.main)).midX,
                 y: proxy.frame(in: .named(GameBoardCoordinateSpace.main)).midY
             )
-            CardView(card: item.card, size: .small)
+            CardView(card: item.card, size: .small, trump: trump)
                 .opacity(isDragging ? 0.32 : 1)
                 .overlay {
                     RoundedRectangle(cornerRadius: 6)
@@ -310,6 +326,7 @@ struct AssignmentCapturedCard: View {
     let assignedSuit: Suit?
     let selected: Bool
     let dragging: Bool
+    let trump: Suit?
     let onDragChanged: (Card, CGPoint, CGSize) -> Void
     let onDragEnded: (Card, CGSize) -> Void
     let onTapSelect: () -> Void
@@ -321,7 +338,7 @@ struct AssignmentCapturedCard: View {
                 x: proxy.frame(in: .named(GameBoardCoordinateSpace.main)).midX,
                 y: proxy.frame(in: .named(GameBoardCoordinateSpace.main)).midY
             )
-            CardView(card: play.card, size: .medium)
+            CardView(card: play.card, size: .medium, trump: trump)
                 .opacity(isDragging || dragging ? 0.32 : 1)
                 .scaleEffect(isDragging || dragging ? 1.05 : 1)
                 .shadow(color: highlightColor.opacity(selected || assignedSuit != nil ? 0.38 : 0.16), radius: selected || assignedSuit != nil ? 9 : 4, y: 2)
@@ -374,9 +391,10 @@ struct AssignmentDragState {
 struct AssignmentDragGhost: View {
     let drag: AssignmentDragState
     let canDrop: Bool
+    let trump: Suit?
 
     var body: some View {
-        CardView(card: drag.card, size: .medium)
+        CardView(card: drag.card, size: .medium, trump: trump)
             .overlay {
                 RoundedRectangle(cornerRadius: 7)
                     .stroke(canDrop ? Color.kolkhozGreen : Color.kolkhozGold, lineWidth: 3)
@@ -419,6 +437,8 @@ private struct JobsPreviewHost: View {
             jobBuckets: store.state.jobBuckets,
             pendingAssignments: store.state.pendingAssignments,
             trump: store.state.trump,
+            tutorialAction: .none,
+            onTutorialAction: { _ in },
             onAssign: { _, _ in }
         )
         .coordinateSpace(name: GameBoardCoordinateSpace.main)
