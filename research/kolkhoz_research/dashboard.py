@@ -109,6 +109,7 @@ def _compact(record: dict[str, Any]) -> dict[str, Any]:
         "model": _model_spec(record),
         "training": record.get("training"),
         "progress": record.get("progress"),
+        "curve": record.get("curve"),
         "summary": record.get("summary"),
         "result": record.get("result"),
         "intervals": record.get("intervals"),

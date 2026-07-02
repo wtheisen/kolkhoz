@@ -674,7 +674,32 @@ def _torch_training_progress(
             "total_episodes": episodes,
             "percent": min(1.0, completed / episodes) if episodes else 1.0,
         },
+        "curve": _training_curve(episode_records),
         "summary": summary,
+    }
+
+
+def _training_curve(episode_records: list[dict[str, Any]], max_points: int = 800) -> dict[str, Any]:
+    if not episode_records:
+        return {"points": [], "sampled": False, "source_episodes": 0}
+    stride = max(1, (len(episode_records) + max_points - 1) // max_points)
+    points = []
+    for index, item in enumerate(episode_records):
+        if index % stride != 0 and index != len(episode_records) - 1:
+            continue
+        points.append(
+            {
+                "episode": int(item["episode"]),
+                "reward": float(item["reward"]),
+                "win": float(item["win"]),
+                "rank": float(item["rank"]),
+                "margin": float(item["margin"]),
+            }
+        )
+    return {
+        "points": points,
+        "sampled": stride > 1,
+        "source_episodes": len(episode_records),
     }
 
 
@@ -824,6 +849,7 @@ def train_torch_policy(
             "batched_rollouts": not unbatched,
         },
         "summary": summary,
+        "curve": _training_curve(episode_records),
         "status": "trained",
     }
     if output_path.suffix == ".pt":

@@ -64,6 +64,35 @@
 
       <section class="counts" id="counts"></section>
 
+      <section class="curve-panel">
+        <div class="panel-head">
+          <div>
+            <p class="label">Training curves</p>
+            <h2>Live episode metrics</h2>
+          </div>
+          <span id="curveCount" class="curve-count">0 points</span>
+        </div>
+        <div id="curveEmpty" class="curve-empty">No training curve data yet.</div>
+        <div class="curve-grid">
+          <div class="curve-card">
+            <div class="curve-title"><span>Reward</span><strong id="rewardLatest">-</strong></div>
+            <svg id="rewardCurve" viewBox="0 0 640 190" role="img" aria-label="Reward curve"></svg>
+          </div>
+          <div class="curve-card">
+            <div class="curve-title"><span>Win Rate</span><strong id="winLatest">-</strong></div>
+            <svg id="winCurve" viewBox="0 0 640 190" role="img" aria-label="Win rate curve"></svg>
+          </div>
+          <div class="curve-card">
+            <div class="curve-title"><span>Rank</span><strong id="rankLatest">-</strong></div>
+            <svg id="rankCurve" viewBox="0 0 640 190" role="img" aria-label="Rank curve"></svg>
+          </div>
+          <div class="curve-card">
+            <div class="curve-title"><span>Margin</span><strong id="marginLatest">-</strong></div>
+            <svg id="marginCurve" viewBox="0 0 640 190" role="img" aria-label="Margin curve"></svg>
+          </div>
+        </div>
+      </section>
+
       <section class="content-grid">
         <article class="table-panel">
           <div class="panel-head">

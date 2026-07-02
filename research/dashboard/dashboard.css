@@ -98,7 +98,8 @@ h2 {
 
 .current-panel,
 .metric-panel,
-.table-panel {
+.table-panel,
+.curve-panel {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -111,6 +112,11 @@ h2 {
 }
 
 .table-panel {
+  overflow: hidden;
+}
+
+.curve-panel {
+  margin-top: 16px;
   overflow: hidden;
 }
 
@@ -313,6 +319,89 @@ h2 {
   font-size: 22px;
 }
 
+.curve-count {
+  align-self: center;
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.curve-empty {
+  display: none;
+  padding: 0 18px 18px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.curve-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 12px;
+  padding: 0 18px 18px;
+}
+
+.curve-card {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbf8f0;
+}
+
+.curve-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.curve-title strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.curve-card svg {
+  display: block;
+  width: 100%;
+  height: 190px;
+  overflow: visible;
+}
+
+.curve-axis,
+.curve-gridline {
+  stroke: #dcd6ca;
+  stroke-width: 1;
+}
+
+.curve-raw {
+  fill: none;
+  stroke: rgba(49, 95, 125, 0.26);
+  stroke-width: 1.5;
+}
+
+.curve-smooth {
+  fill: none;
+  stroke: var(--blue);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.curve-point {
+  fill: var(--blue);
+  stroke: var(--panel);
+  stroke-width: 2;
+}
+
+.curve-label {
+  fill: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
 .table-scroll {
   overflow-x: auto;
 }
@@ -376,6 +465,10 @@ td {
 @media (max-width: 1040px) {
   .status-grid,
   .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .curve-grid {
     grid-template-columns: 1fr;
   }
 }
