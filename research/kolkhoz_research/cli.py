@@ -8,6 +8,7 @@ from pathlib import Path
 from .benchmark import benchmark_candidate, mine_seed_panel, run_tournament
 from .c_engine import CEngine, build_shared_library
 from .history import append_history
+from .torch_policy import torch_parity, train_torch_policy
 from .training import train_c_mlp
 
 
@@ -146,6 +147,36 @@ def mine_seeds(args: argparse.Namespace) -> int:
     return _emit(record, args.record)
 
 
+def torch_parity_command(args: argparse.Namespace) -> int:
+    engine = CEngine(build_shared_library(force=args.rebuild))
+    record = torch_parity(
+        engine,
+        model_path=args.model,
+        games_per_seat=args.games_per_seat,
+        seed=args.seed,
+        prefer_mps=not args.cpu,
+    )
+    record["engine"] = asdict(engine.provenance())
+    return _emit(record, args.record)
+
+
+def torch_train_command(args: argparse.Namespace) -> int:
+    engine = CEngine(build_shared_library(force=args.rebuild))
+    record = train_torch_policy(
+        engine,
+        start_model_path=args.start_model,
+        output_path=args.output,
+        episodes=args.episodes,
+        batch_size=args.batch_size,
+        seed=args.seed,
+        learning_rate=args.learning_rate,
+        temperature=args.temperature,
+        prefer_mps=not args.cpu,
+    )
+    record["engine"] = asdict(engine.provenance())
+    return _emit(record, args.record)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="kolkhoz-research")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -223,6 +254,28 @@ def main() -> int:
     mine.add_argument("--record", action="store_true")
     mine.add_argument("--rebuild", action="store_true")
     mine.set_defaults(func=mine_seeds)
+
+    torch_parity_parser = subparsers.add_parser("torch-parity", help="compare a Torch/MPS policy import against C MLP greedy evaluation")
+    torch_parity_parser.add_argument("--model", type=Path, required=True)
+    torch_parity_parser.add_argument("--games-per-seat", type=int, default=4)
+    torch_parity_parser.add_argument("--seed", type=int, default=41_000_000)
+    torch_parity_parser.add_argument("--cpu", action="store_true", help="force CPU instead of MPS")
+    torch_parity_parser.add_argument("--record", action="store_true")
+    torch_parity_parser.add_argument("--rebuild", action="store_true")
+    torch_parity_parser.set_defaults(func=torch_parity_command)
+
+    torch_train_parser = subparsers.add_parser("torch-train", help="train a C-compatible MLP policy with Torch/MPS rollouts")
+    torch_train_parser.add_argument("--start-model", type=Path, required=True)
+    torch_train_parser.add_argument("--output", type=Path, required=True)
+    torch_train_parser.add_argument("--episodes", type=int, default=32)
+    torch_train_parser.add_argument("--batch-size", type=int, default=8)
+    torch_train_parser.add_argument("--seed", type=int, default=42_000_000)
+    torch_train_parser.add_argument("--learning-rate", type=float, default=1e-4)
+    torch_train_parser.add_argument("--temperature", type=float, default=1.0)
+    torch_train_parser.add_argument("--cpu", action="store_true", help="force CPU instead of MPS")
+    torch_train_parser.add_argument("--record", action="store_true")
+    torch_train_parser.add_argument("--rebuild", action="store_true")
+    torch_train_parser.set_defaults(func=torch_train_command)
 
     args = parser.parse_args()
     return args.func(args)

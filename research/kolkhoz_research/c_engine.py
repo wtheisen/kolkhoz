@@ -30,6 +30,26 @@ class KCVariants(ctypes.Structure):
     ]
 
 
+class KCCard(ctypes.Structure):
+    _fields_ = [
+        ("suit", ctypes.c_int32),
+        ("value", ctypes.c_int32),
+    ]
+
+
+class KCAction(ctypes.Structure):
+    _fields_ = [
+        ("kind", ctypes.c_int32),
+        ("player_id", ctypes.c_int32),
+        ("suit", ctypes.c_int32),
+        ("card", KCCard),
+        ("hand_card", KCCard),
+        ("plot_card", KCCard),
+        ("plot_zone", ctypes.c_int32),
+        ("target_suit", ctypes.c_int32),
+    ]
+
+
 class KCGameRunResult(ctypes.Structure):
     _fields_ = [
         ("actions", ctypes.c_int32),
@@ -145,6 +165,16 @@ class KCPolicyMatchupGameResult(ctypes.Structure):
     ]
 
 
+class KCPolicyActionFeatures(ctypes.Structure):
+    _fields_ = [
+        ("action", KCAction),
+        ("action_head", ctypes.c_int32),
+        ("feature_count", ctypes.c_int32),
+        ("feature_indices", ctypes.c_int32 * 256),
+        ("feature_values", ctypes.c_double * 256),
+    ]
+
+
 @dataclass(frozen=True)
 class EngineProvenance:
     git_sha: str
@@ -226,6 +256,30 @@ class CEngine:
         self.lib.kc_variants_kolkhoz.restype = None
         self.lib.kc_run_benchmark_game.argtypes = [ctypes.c_uint64, KCVariants]
         self.lib.kc_run_benchmark_game.restype = KCGameRunResult
+        self.lib.kc_engine_alloc.argtypes = []
+        self.lib.kc_engine_alloc.restype = ctypes.c_void_p
+        self.lib.kc_engine_free.argtypes = [ctypes.c_void_p]
+        self.lib.kc_engine_free.restype = None
+        self.lib.kc_engine_init.argtypes = [ctypes.c_void_p, ctypes.c_uint64, KCVariants]
+        self.lib.kc_engine_init.restype = None
+        self.lib.kc_engine_apply_policy_action.argtypes = [ctypes.c_void_p, KCAction]
+        self.lib.kc_engine_apply_policy_action.restype = ctypes.c_int32
+        self.lib.kc_engine_policy_action_features.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_int32,
+            ctypes.c_int32,
+            ctypes.POINTER(KCPolicyActionFeatures),
+            ctypes.c_int32,
+        ]
+        self.lib.kc_engine_policy_action_features.restype = ctypes.c_int32
+        self.lib.kc_engine_heuristic_policy_action.argtypes = [ctypes.c_void_p, ctypes.POINTER(KCAction)]
+        self.lib.kc_engine_heuristic_policy_action.restype = ctypes.c_bool
+        self.lib.kc_engine_waiting_player.argtypes = [ctypes.c_void_p]
+        self.lib.kc_engine_waiting_player.restype = ctypes.c_int32
+        self.lib.kc_final_score.argtypes = [ctypes.c_void_p, ctypes.c_int32]
+        self.lib.kc_final_score.restype = ctypes.c_int32
+        self.lib.kc_total_medals.argtypes = [ctypes.c_void_p, ctypes.c_int32]
+        self.lib.kc_total_medals.restype = ctypes.c_int32
         self.lib.kc_run_policy_matchup_game.argtypes = [
             ctypes.c_uint64,
             KCVariants,
@@ -253,6 +307,55 @@ class CEngine:
 
     def run_smoke_game(self, seed: int) -> KCGameRunResult:
         return self.lib.kc_run_benchmark_game(ctypes.c_uint64(seed), self.kolkhoz_variants())
+
+    def new_engine(self, seed: int) -> ctypes.c_void_p:
+        pointer = self.lib.kc_engine_alloc()
+        if not pointer:
+            raise MemoryError("kc_engine_alloc failed")
+        self.lib.kc_engine_init(pointer, ctypes.c_uint64(seed), self.kolkhoz_variants())
+        return ctypes.c_void_p(pointer)
+
+    def free_engine(self, pointer: ctypes.c_void_p) -> None:
+        self.lib.kc_engine_free(pointer)
+
+    def waiting_player(self, pointer: ctypes.c_void_p) -> int:
+        return int(self.lib.kc_engine_waiting_player(pointer))
+
+    def policy_action_features(
+        self,
+        pointer: ctypes.c_void_p,
+        *,
+        player_id: int,
+        input_size: int,
+        max_features: int = 256,
+    ) -> list[KCPolicyActionFeatures]:
+        items = (KCPolicyActionFeatures * max_features)()
+        count = self.lib.kc_engine_policy_action_features(
+            pointer,
+            ctypes.c_int32(player_id),
+            ctypes.c_int32(input_size),
+            items,
+            ctypes.c_int32(max_features),
+        )
+        return [items[index] for index in range(int(count))]
+
+    def heuristic_action(self, pointer: ctypes.c_void_p) -> KCAction:
+        action = KCAction()
+        ok = self.lib.kc_engine_heuristic_policy_action(pointer, ctypes.byref(action))
+        if not ok:
+            raise RuntimeError("C heuristic could not choose an action")
+        return action
+
+    def apply_policy_action(self, pointer: ctypes.c_void_p, action: KCAction) -> None:
+        status = int(self.lib.kc_engine_apply_policy_action(pointer, action))
+        if status != 0:
+            raise RuntimeError(f"C engine rejected policy action with status {status}")
+
+    def final_scores(self, pointer: ctypes.c_void_p) -> list[int]:
+        return [int(self.lib.kc_final_score(pointer, player_id)) for player_id in range(4)]
+
+    def total_medals(self, pointer: ctypes.c_void_p) -> list[int]:
+        return [int(self.lib.kc_total_medals(pointer, player_id)) for player_id in range(4)]
 
     def run_policy_matchup_game(
         self,

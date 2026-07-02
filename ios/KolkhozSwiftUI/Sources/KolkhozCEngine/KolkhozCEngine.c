@@ -325,6 +325,14 @@ void kc_engine_init(KCEngine *engine, uint64_t seed, KCVariants variants) {
     kc_engine_init_with_controllers(engine, seed, variants, controllers);
 }
 
+KCEngine *kc_engine_alloc(void) {
+    return calloc(1, sizeof(KCEngine));
+}
+
+void kc_engine_free(KCEngine *engine) {
+    free(engine);
+}
+
 static KCCard kc_draw_from(KCCardList *deck) {
     return kc_list_pop_last(deck);
 }
@@ -1718,6 +1726,10 @@ static int32_t kc_total_medals_for_player(const KCEngine *engine, int32_t player
     return engine->players[player_id].plot_medals + engine->players[player_id].medals;
 }
 
+int32_t kc_total_medals(const KCEngine *engine, int32_t player_id) {
+    return kc_total_medals_for_player(engine, player_id);
+}
+
 static bool kc_player_beats_player(const int32_t *scores, const int32_t *medals, int32_t lhs, int32_t rhs) {
     if (scores[lhs] != scores[rhs]) {
         return scores[lhs] > scores[rhs];
@@ -2253,6 +2265,100 @@ static int32_t kc_policy_candidates(const KCEngine *engine, int32_t player_id, K
     return count;
 }
 
+int32_t kc_engine_policy_action_features(const KCEngine *engine, int32_t player_id, int32_t input_size, KCPolicyActionFeatures *features, int32_t max_features) {
+    if (!engine || !features || max_features <= 0 || input_size <= 0) {
+        return 0;
+    }
+    KCPolicyActionCandidate candidate;
+    int32_t count = 0;
+    if (engine->phase == KC_PHASE_PLANNING) {
+        for (int32_t suit = 0; suit < KC_SUIT_COUNT && count < max_features; suit++) {
+            memset(&candidate, 0, sizeof(candidate));
+            candidate.action = (KCAction){ .kind = KC_ACTION_SET_TRUMP, .player_id = player_id, .suit = suit, .card = kc_no_card(), .hand_card = kc_no_card(), .plot_card = kc_no_card(), .plot_zone = -1, .target_suit = -1 };
+            kc_policy_features(engine, player_id, 0, suit, kc_no_card(), kc_no_card(), -1, 0, input_size, &candidate);
+            features[count].action = candidate.action;
+            features[count].action_head = candidate.action_head;
+            features[count].feature_count = candidate.feature_count;
+            memcpy(features[count].feature_indices, candidate.feature_indices, sizeof(candidate.feature_indices));
+            memcpy(features[count].feature_values, candidate.feature_values, sizeof(candidate.feature_values));
+            count++;
+        }
+    } else if (engine->phase == KC_PHASE_SWAP) {
+        memset(&candidate, 0, sizeof(candidate));
+        candidate.action = (KCAction){ .kind = KC_ACTION_CONFIRM_SWAP, .player_id = player_id, .suit = -1, .card = kc_no_card(), .hand_card = kc_no_card(), .plot_card = kc_no_card(), .plot_zone = -1, .target_suit = -1 };
+        kc_policy_features(engine, player_id, 1, -1, kc_no_card(), kc_no_card(), -1, 0, input_size, &candidate);
+        features[count].action = candidate.action;
+        features[count].action_head = candidate.action_head;
+        features[count].feature_count = candidate.feature_count;
+        memcpy(features[count].feature_indices, candidate.feature_indices, sizeof(candidate.feature_indices));
+        memcpy(features[count].feature_values, candidate.feature_values, sizeof(candidate.feature_values));
+        count++;
+        if (!engine->swap_count[player_id]) {
+            const KCPlayer *player = &engine->players[player_id];
+            for (int32_t hand_index = 0; hand_index < player->hand.count; hand_index++) {
+                KCCard hand_card = player->hand.cards[hand_index];
+                for (int32_t plot_index = 0; plot_index < player->plot_hidden.count && count < max_features; plot_index++) {
+                    KCCard plot_card = player->plot_hidden.cards[plot_index];
+                    memset(&candidate, 0, sizeof(candidate));
+                    candidate.action = (KCAction){ .kind = KC_ACTION_SWAP, .player_id = player_id, .suit = -1, .card = kc_no_card(), .hand_card = hand_card, .plot_card = plot_card, .plot_zone = KC_ZONE_HIDDEN, .target_suit = -1 };
+                    kc_policy_features(engine, player_id, 1, plot_card.suit, plot_card, hand_card, KC_ZONE_HIDDEN, (double)(plot_card.value - hand_card.value) / 13.0, input_size, &candidate);
+                    features[count].action = candidate.action;
+                    features[count].action_head = candidate.action_head;
+                    features[count].feature_count = candidate.feature_count;
+                    memcpy(features[count].feature_indices, candidate.feature_indices, sizeof(candidate.feature_indices));
+                    memcpy(features[count].feature_values, candidate.feature_values, sizeof(candidate.feature_values));
+                    count++;
+                }
+                for (int32_t plot_index = 0; plot_index < player->plot_revealed.count && count < max_features; plot_index++) {
+                    KCCard plot_card = player->plot_revealed.cards[plot_index];
+                    memset(&candidate, 0, sizeof(candidate));
+                    candidate.action = (KCAction){ .kind = KC_ACTION_SWAP, .player_id = player_id, .suit = -1, .card = kc_no_card(), .hand_card = hand_card, .plot_card = plot_card, .plot_zone = KC_ZONE_REVEALED, .target_suit = -1 };
+                    kc_policy_features(engine, player_id, 1, plot_card.suit, plot_card, hand_card, KC_ZONE_REVEALED, (double)(plot_card.value - hand_card.value) / 13.0, input_size, &candidate);
+                    features[count].action = candidate.action;
+                    features[count].action_head = candidate.action_head;
+                    features[count].feature_count = candidate.feature_count;
+                    memcpy(features[count].feature_indices, candidate.feature_indices, sizeof(candidate.feature_indices));
+                    memcpy(features[count].feature_values, candidate.feature_values, sizeof(candidate.feature_values));
+                    count++;
+                }
+            }
+        }
+    } else if (engine->phase == KC_PHASE_TRICK) {
+        const KCCardList *hand = &engine->players[player_id].hand;
+        for (int32_t card_index = 0; card_index < hand->count && count < max_features; card_index++) {
+            if (!kc_is_valid_play(engine, player_id, card_index)) {
+                continue;
+            }
+            KCCard card = hand->cards[card_index];
+            memset(&candidate, 0, sizeof(candidate));
+            candidate.action = (KCAction){ .kind = KC_ACTION_PLAY_CARD, .player_id = player_id, .suit = -1, .card = card, .hand_card = kc_no_card(), .plot_card = kc_no_card(), .plot_zone = -1, .target_suit = -1 };
+            kc_policy_features(engine, player_id, 2, card.suit, card, kc_no_card(), -1, 0, input_size, &candidate);
+            features[count].action = candidate.action;
+            features[count].action_head = candidate.action_head;
+            features[count].feature_count = candidate.feature_count;
+            memcpy(features[count].feature_indices, candidate.feature_indices, sizeof(candidate.feature_indices));
+            memcpy(features[count].feature_values, candidate.feature_values, sizeof(candidate.feature_values));
+            count++;
+        }
+    } else if (engine->phase == KC_PHASE_ASSIGNMENT) {
+        for (int32_t suit = 0; suit < KC_SUIT_COUNT && count < max_features; suit++) {
+            if (!kc_assignment_target_legal(engine, suit)) {
+                continue;
+            }
+            memset(&candidate, 0, sizeof(candidate));
+            candidate.action = (KCAction){ .kind = KC_ACTION_ASSIGN, .player_id = player_id, .suit = -1, .card = kc_no_card(), .hand_card = kc_no_card(), .plot_card = kc_no_card(), .plot_zone = -1, .target_suit = suit };
+            kc_policy_features(engine, player_id, 3, suit, kc_no_card(), kc_no_card(), -1, 0, input_size, &candidate);
+            features[count].action = candidate.action;
+            features[count].action_head = candidate.action_head;
+            features[count].feature_count = candidate.feature_count;
+            memcpy(features[count].feature_indices, candidate.feature_indices, sizeof(candidate.feature_indices));
+            memcpy(features[count].feature_values, candidate.feature_values, sizeof(candidate.feature_values));
+            count++;
+        }
+    }
+    return count;
+}
+
 static bool kc_sample_policy_action(KCPolicyActionCandidate *candidates, int32_t count, KCPolicyModelBuffer model, uint64_t *rng_state, double temperature, double greedy_sample_rate, double *gradient, KCAction *selected) {
     if (count <= 0) {
         return false;
@@ -2402,6 +2508,10 @@ static bool kc_heuristic_policy_action(const KCEngine *engine, KCAction *selecte
     return kc_choose_benchmark_action(actions, count, selected);
 }
 
+bool kc_engine_heuristic_policy_action(const KCEngine *engine, KCAction *selected) {
+    return kc_heuristic_policy_action(engine, selected);
+}
+
 static bool kc_policy_action_equal(KCAction lhs, KCAction rhs) {
     return lhs.kind == rhs.kind
         && lhs.player_id == rhs.player_id
@@ -2465,6 +2575,10 @@ static int32_t kc_apply_policy_action(KCEngine *engine, KCAction action) {
         return kc_engine_apply(engine, confirm);
     }
     return 0;
+}
+
+int32_t kc_engine_apply_policy_action(KCEngine *engine, KCAction action) {
+    return kc_apply_policy_action(engine, action);
 }
 
 static int32_t kc_run_greedy_model_game(uint64_t seed, KCVariants variants, KCPolicyModelBuffer model, int32_t *scores, int32_t *medals, int32_t *winner_id) {

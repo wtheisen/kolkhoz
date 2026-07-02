@@ -220,6 +220,14 @@ typedef struct {
 } KCPolicyMatchupGameResult;
 
 typedef struct {
+    KCAction action;
+    int32_t action_head;
+    int32_t feature_count;
+    int32_t feature_indices[256];
+    double feature_values[256];
+} KCPolicyActionFeatures;
+
+typedef struct {
     uint64_t rng_state;
     KCVariants variants;
     KCPlayer players[KC_PLAYER_COUNT];
@@ -267,12 +275,18 @@ void kc_controllers_default_single_player(KCControllers *controllers);
 void kc_controllers_set(KCControllers *controllers, int32_t player_id, int32_t controller);
 void kc_engine_init(KCEngine *engine, uint64_t seed, KCVariants variants);
 void kc_engine_init_with_controllers(KCEngine *engine, uint64_t seed, KCVariants variants, KCControllers controllers);
+KCEngine *kc_engine_alloc(void);
+void kc_engine_free(KCEngine *engine);
 int32_t kc_engine_apply(KCEngine *engine, KCAction action);
+int32_t kc_engine_apply_policy_action(KCEngine *engine, KCAction action);
 int32_t kc_engine_legal_actions(const KCEngine *engine, KCAction *actions, int32_t max_actions);
+int32_t kc_engine_policy_action_features(const KCEngine *engine, int32_t player_id, int32_t input_size, KCPolicyActionFeatures *features, int32_t max_features);
+bool kc_engine_heuristic_policy_action(const KCEngine *engine, KCAction *selected);
 bool kc_engine_waiting_for_external_action(const KCEngine *engine);
 int32_t kc_engine_waiting_player(const KCEngine *engine);
 int32_t kc_visible_score(const KCEngine *engine, int32_t player_id);
 int32_t kc_final_score(const KCEngine *engine, int32_t player_id);
+int32_t kc_total_medals(const KCEngine *engine, int32_t player_id);
 KCGameRunResult kc_run_benchmark_game(uint64_t seed, KCVariants variants);
 KCTrainingBenchmarkResult kc_run_gradient_benchmark(uint64_t seed, KCVariants variants, int32_t episodes);
 KCPolicyMatchupGameResult kc_run_policy_matchup_game(
