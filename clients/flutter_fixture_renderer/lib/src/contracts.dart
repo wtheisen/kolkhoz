@@ -122,6 +122,7 @@ class Seat {
     required this.isViewer,
     required this.isCurrentTurn,
     required this.isBrigadeLeader,
+    required this.isProtected,
     required this.hand,
     required this.hiddenHandCount,
     required this.plot,
@@ -137,6 +138,7 @@ class Seat {
       isViewer: json['isViewer'] as bool,
       isCurrentTurn: json['isCurrentTurn'] as bool,
       isBrigadeLeader: json['isBrigadeLeader'] as bool,
+      isProtected: json['isProtected'] as bool? ?? false,
       hand: _list(json['hand']).map(ContractCard.fromJson).toList(),
       hiddenHandCount: json['hiddenHandCount'] as int,
       plot: PlotState.fromJson(json['plot']! as Map<String, Object?>),
@@ -151,6 +153,7 @@ class Seat {
   final bool isViewer;
   final bool isCurrentTurn;
   final bool isBrigadeLeader;
+  final bool isProtected;
   final List<ContractCard> hand;
   final int hiddenHandCount;
   final PlotState plot;

@@ -1554,59 +1554,326 @@ class PlayerBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final active = seat.isCurrentTurn;
     final human = seat.isViewer;
-    return Container(
+    return SizedBox(
       width: width,
       height: 40,
-      padding: EdgeInsets.symmetric(horizontal: tokens.spacing.sm),
-      decoration: BoxDecoration(
-        color: tokens.colors.panel,
-        borderRadius: BorderRadius.circular(tokens.radius.sm),
-        border: Border.all(
-          color: active ? tokens.colors.gold : tokens.colors.steel,
-          width: active ? tokens.stroke.emphasis : tokens.stroke.hairline,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: active
+                  ? tokens.colors.gold.withValues(alpha: 0.24)
+                  : tokens.colors.black.withValues(alpha: 0.24),
+              blurRadius: active ? 8 : 4,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
-      ),
-      child: Row(
-        children: [
-          Image.asset(
-            human
-                ? 'ios_resources/Icons/icon-human-seat.png'
-                : 'ios_resources/Icons/icon-basic-ai.png',
-            width: 22,
-          ),
-          SizedBox(width: tokens.spacing.xs),
-          Expanded(
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    seat.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: tokens.colors.cream,
-                      fontSize: tokens.typography.size('caption', 13),
-                      fontWeight: FontWeight.w800,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Image.asset(
+                'ios_resources/ui-player-panel.png',
+                fit: BoxFit.fill,
+                filterQuality: FilterQuality.none,
+              ),
+            ),
+            Positioned.fill(
+              child: Padding(
+                padding: const EdgeInsets.only(left: 10, right: 6),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: clampDouble(width * 0.28, 34, 40),
+                      child: Transform.translate(
+                        offset: const Offset(-2, 2),
+                        child: Image.asset(
+                          human
+                              ? 'ios_resources/Icons/icon-human-seat.png'
+                              : 'ios_resources/Icons/icon-basic-ai.png',
+                          width: 34,
+                          height: 34,
+                          filterQuality: FilterQuality.none,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Transform.translate(
+                        offset: const Offset(0, -2),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          spacing: 0,
+                          children: [
+                            Row(
+                              spacing: 3,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    displayName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: active
+                                          ? tokens.colors.gold
+                                          : tokens.colors.cardInk,
+                                      fontSize: tokens.typography.size(
+                                        'caption',
+                                        13,
+                                      ),
+                                      fontWeight: FontWeight.w900,
+                                      height: 0.9,
+                                    ),
+                                  ),
+                                ),
+                                PlayerPlotScoreStat(
+                                  score: seat.visibleScore,
+                                  tokens: tokens,
+                                ),
+                              ],
+                            ),
+                            Row(
+                              spacing: 0,
+                              children: [
+                                PlayerMedalStat(
+                                  medals: seat.medals,
+                                  maxTricks: maxTricks,
+                                  tokens: tokens,
+                                ),
+                                const Spacer(),
+                                PlayerCellarStat(
+                                  count: seat.plot.hiddenCount,
+                                  tokens: tokens,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(7),
+                      border: Border.all(
+                        color: active
+                            ? tokens.colors.gold.withValues(alpha: 0.78)
+                            : human
+                            ? tokens.colors.red.withValues(alpha: 0.42)
+                            : Colors.transparent,
+                        width: active
+                            ? 1.3
+                            : human
+                            ? 1
+                            : 0,
+                      ),
                     ),
                   ),
                 ),
-                SizedBox(width: tokens.spacing.xs),
-                Text(
-                  '${seat.visibleScore}/$maxTricks',
-                  style: TextStyle(
-                    color: active ? tokens.colors.gold : tokens.colors.creamDim,
-                    fontSize: tokens.typography.size('caption2', 11),
-                    fontWeight: FontWeight.w800,
-                  ),
+              ),
+            ),
+            if (statusBadgeAssets.isNotEmpty)
+              Positioned(
+                top: 3,
+                right: 5,
+                child: PlayerStatusBadgeStrip(
+                  assets: statusBadgeAssets,
+                  tokens: tokens,
                 ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String get displayName {
+    if (seat.isViewer) {
+      return 'You';
+    }
+    final firstName = seat.name.split(' ').first;
+    return firstName.length > 6 ? '${firstName.substring(0, 6)}.' : firstName;
+  }
+
+  List<String> get statusBadgeAssets {
+    return [
+      if (seat.isCurrentTurn)
+        seat.isViewer
+            ? 'icon-status-current-turn.png'
+            : 'icon-status-ai-thinking.png',
+      if (seat.isBrigadeLeader) 'icon-status-brigade-leader.png',
+      if (seat.isProtected) 'icon-status-protected.png',
+    ];
+  }
+}
+
+class PlayerStatusBadgeStrip extends StatelessWidget {
+  const PlayerStatusBadgeStrip({
+    required this.assets,
+    required this.tokens,
+    super.key,
+  });
+
+  final List<String> assets;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: tokens.colors.gold.withValues(alpha: 0.3)),
+      ),
+      child: SizedBox(
+        width: 14 + (assets.take(3).length - 1) * 11,
+        height: 14,
+        child: Stack(
+          children: [
+            for (final (index, asset) in assets.take(3).indexed)
+              Positioned(
+                left: index * 11,
+                top: 0,
+                child: Image.asset(
+                  'ios_resources/Icons/$asset',
+                  width: 14,
+                  height: 14,
+                  filterQuality: FilterQuality.none,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class PlayerPlotScoreStat extends StatelessWidget {
+  const PlayerPlotScoreStat({
+    required this.score,
+    required this.tokens,
+    super.key,
+  });
+
+  final int score;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 34,
+      child: Row(
+        spacing: 2,
+        children: [
+          Image.asset(
+            'ios_resources/Icons/icon-plot.png',
+            width: 12,
+            height: 12,
+            filterQuality: FilterQuality.none,
+          ),
+          Text(
+            '$score',
+            style: TextStyle(
+              color: tokens.colors.smoke,
+              fontSize: tokens.typography.size('headline', 17),
+              fontWeight: FontWeight.w900,
+              height: 0.9,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PlayerMedalStat extends StatelessWidget {
+  const PlayerMedalStat({
+    required this.medals,
+    required this.maxTricks,
+    required this.tokens,
+    super.key,
+  });
+
+  final int medals;
+  final int maxTricks;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 28,
+      height: 10,
+      child: Stack(
+        children: [
+          for (var index = 0; index < maxTricks; index++)
+            Positioned(
+              left: index * 6,
+              top: 0,
+              child: Opacity(
+                opacity: index < medals ? 1 : 0.18,
+                child: Image.asset(
+                  'ios_resources/Icons/icon-medal-star.png',
+                  width: 10,
+                  height: 10,
+                  filterQuality: FilterQuality.none,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class PlayerCellarStat extends StatelessWidget {
+  const PlayerCellarStat({
+    required this.count,
+    required this.tokens,
+    super.key,
+  });
+
+  final int count;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 26,
+      child: Row(
+        spacing: 2,
+        children: [
+          Image.asset(
+            'ios_resources/Icons/icon-cellar.png',
+            width: 12,
+            height: 12,
+            filterQuality: FilterQuality.none,
+          ),
+          SizedBox(
+            width: 12,
+            height: 12,
+            child: Stack(
+              children: [
+                for (var index = 0; index < count.clamp(0, 4); index++)
+                  Positioned(
+                    left: index * 3,
+                    top: 1,
+                    child: Image.asset(
+                      'ios_resources/Cards/card-back-icon.png',
+                      width: 7,
+                      height: 10,
+                      filterQuality: FilterQuality.none,
+                    ),
+                  ),
               ],
             ),
           ),
-          if (seat.isBrigadeLeader)
-            Image.asset(
-              'ios_resources/Icons/icon-status-brigade-leader.png',
-              width: 18,
-            ),
         ],
       ),
     );
