@@ -8,7 +8,7 @@ from pathlib import Path
 from .benchmark import benchmark_candidate, mine_seed_panel, run_tournament
 from .c_engine import CEngine, build_shared_library
 from .history import append_history
-from .torch_policy import torch_parity, train_torch_policy
+from .torch_policy import torch_benchmark_candidate, torch_parity, train_torch_policy
 from .training import train_c_mlp
 
 
@@ -167,6 +167,10 @@ def torch_train_command(args: argparse.Namespace) -> int:
         engine,
         start_model_path=args.start_model,
         output_path=args.output,
+        architecture=args.architecture,
+        layer_sizes=args.layers,
+        scratch_seed=args.scratch_seed,
+        scratch_scale=args.scratch_scale,
         episodes=args.episodes,
         batch_size=args.batch_size,
         seed=args.seed,
@@ -175,6 +179,26 @@ def torch_train_command(args: argparse.Namespace) -> int:
         prefer_mps=not args.cpu,
         rollout_envs=args.rollout_envs,
         unbatched=args.unbatched,
+    )
+    record["engine"] = asdict(engine.provenance())
+    return _emit(record, args.record)
+
+
+def torch_benchmark_command(args: argparse.Namespace) -> int:
+    engine = CEngine(build_shared_library(force=args.rebuild))
+    record = torch_benchmark_candidate(
+        engine,
+        candidate_path=args.candidate,
+        baseline_path=args.baseline,
+        games_per_seat=args.games_per_seat,
+        seed=args.seed,
+        bootstrap_samples=args.bootstrap_samples,
+        min_win_delta=args.min_win_delta,
+        min_rank_delta=args.min_rank_delta,
+        min_margin_delta=args.min_margin_delta,
+        prefer_mps=not args.cpu,
+        rollout_envs=args.rollout_envs,
+        include_games=args.include_games,
     )
     record["engine"] = asdict(engine.provenance())
     return _emit(record, args.record)
@@ -268,9 +292,13 @@ def main() -> int:
     torch_parity_parser.add_argument("--rebuild", action="store_true")
     torch_parity_parser.set_defaults(func=torch_parity_command)
 
-    torch_train_parser = subparsers.add_parser("torch-train", help="train a C-compatible MLP policy with Torch/MPS rollouts")
-    torch_train_parser.add_argument("--start-model", type=Path, required=True)
+    torch_train_parser = subparsers.add_parser("torch-train", help="train a Torch policy with batched C-engine rollouts")
+    torch_train_parser.add_argument("--start-model", type=_path, default=None)
     torch_train_parser.add_argument("--output", type=Path, required=True)
+    torch_train_parser.add_argument("--architecture", choices=["mlp", "residual-mlp"], default="mlp")
+    torch_train_parser.add_argument("--layers", type=_layers, default=[512, 512])
+    torch_train_parser.add_argument("--scratch-seed", type=int, default=1)
+    torch_train_parser.add_argument("--scratch-scale", type=float, default=0.02)
     torch_train_parser.add_argument("--episodes", type=int, default=32)
     torch_train_parser.add_argument("--batch-size", type=int, default=8)
     torch_train_parser.add_argument("--seed", type=int, default=42_000_000)
@@ -282,6 +310,22 @@ def main() -> int:
     torch_train_parser.add_argument("--record", action="store_true")
     torch_train_parser.add_argument("--rebuild", action="store_true")
     torch_train_parser.set_defaults(func=torch_train_command)
+
+    torch_bench_parser = subparsers.add_parser("torch-benchmark", help="paired benchmark for Torch .pt or C JSON policies")
+    torch_bench_parser.add_argument("--candidate", type=Path, required=True)
+    torch_bench_parser.add_argument("--baseline", type=_path, default=None, help="baseline model; omit for heuristic baseline")
+    torch_bench_parser.add_argument("--games-per-seat", type=int, default=32)
+    torch_bench_parser.add_argument("--seed", type=int, default=43_000_000)
+    torch_bench_parser.add_argument("--bootstrap-samples", type=int, default=1000)
+    torch_bench_parser.add_argument("--min-win-delta", type=float, default=0.0)
+    torch_bench_parser.add_argument("--min-rank-delta", type=float, default=0.0)
+    torch_bench_parser.add_argument("--min-margin-delta", type=float, default=0.0)
+    torch_bench_parser.add_argument("--rollout-envs", type=int, default=64)
+    torch_bench_parser.add_argument("--include-games", action="store_true")
+    torch_bench_parser.add_argument("--cpu", action="store_true", help="force CPU instead of MPS")
+    torch_bench_parser.add_argument("--record", action="store_true")
+    torch_bench_parser.add_argument("--rebuild", action="store_true")
+    torch_bench_parser.set_defaults(func=torch_benchmark_command)
 
     args = parser.parse_args()
     return args.func(args)

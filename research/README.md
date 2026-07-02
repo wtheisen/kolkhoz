@@ -36,8 +36,8 @@ where MPS can accelerate batched policy/value updates. The intended boundary is:
 
 The Torch/MPS path can already import the current C MLP policy exactly, drive batches of
 C-engine games through shared legal-action features, run short policy-gradient updates on
-MPS, and export the result back to the C-compatible artifact schema for normal benchmark
-gates.
+MPS, export MLP results back to the C-compatible artifact schema, and save Torch-native
+`.pt` checkpoints for architectures that the app runtime cannot load directly.
 
 ## Quick Smoke
 
@@ -118,6 +118,34 @@ python3 -m research.kolkhoz_research.cli torch-train \
 ```
 
 Use `--unbatched` only for debugging or timing comparisons against the old one-game path.
+Only plain `mlp` policies started from a C JSON artifact can be exported back to JSON.
+Scratch models and residual models should be written as `.pt` checkpoints and evaluated
+with `torch-benchmark`.
+
+Train a deeper Torch-native residual policy from scratch:
+
+```bash
+python3 -m research.kolkhoz_research.cli torch-train \
+  --architecture residual-mlp \
+  --layers 512,512,512,512 \
+  --output research/runs/residual_mlp_4x512/candidate.pt \
+  --episodes 256 \
+  --batch-size 16 \
+  --rollout-envs 64 \
+  --learning-rate 0.0001
+```
+
+Benchmark a Torch `.pt` candidate against the promoted C baseline with paired seeds:
+
+```bash
+python3 -m research.kolkhoz_research.cli torch-benchmark \
+  --candidate research/runs/residual_mlp_4x512/candidate.pt \
+  --baseline training/rl/runs/beat_promoted_wide_seat_heads_v1/20260702T144243Z/candidate.json \
+  --games-per-seat 32 \
+  --rollout-envs 64 \
+  --seed 43000000 \
+  --record
+```
 
 All commands emit structured JSON. Add `--record` to append the record to
 `research/history/experiments.jsonl`.

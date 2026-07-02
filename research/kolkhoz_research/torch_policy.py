@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -7,7 +8,7 @@ from typing import Any
 import torch
 from torch import nn
 
-from .benchmark import _metrics, run_policy_game
+from .benchmark import _ci, _mean, _metrics, run_policy_game
 from .c_engine import CEngine, KCAction
 from .model import HEAD_COUNT, INPUT_SIZE, PolicyArtifact
 
@@ -18,17 +19,50 @@ def best_device(prefer_mps: bool = True) -> torch.device:
     return torch.device("cpu")
 
 
+class ResidualBlock(nn.Module):
+    def __init__(self, width: int) -> None:
+        super().__init__()
+        self.layers = nn.Sequential(
+            nn.Linear(width, width),
+            nn.ReLU(),
+            nn.Linear(width, width),
+        )
+
+    def forward(self, value: torch.Tensor) -> torch.Tensor:
+        return torch.relu(value + self.layers(value))
+
+
 class TorchPolicy(nn.Module):
-    def __init__(self, layer_sizes: list[int], input_size: int = INPUT_SIZE, head_count: int = HEAD_COUNT) -> None:
+    def __init__(
+        self,
+        layer_sizes: list[int],
+        input_size: int = INPUT_SIZE,
+        head_count: int = HEAD_COUNT,
+        architecture: str = "mlp",
+    ) -> None:
         super().__init__()
         self.input_size = input_size
         self.head_count = head_count
+        self.architecture = architecture
+        self.layer_sizes = layer_sizes
         self.layers = nn.ModuleList()
-        previous = input_size
-        for size in layer_sizes:
-            self.layers.append(nn.Linear(previous, size))
-            previous = size
-        self.output = nn.Linear(previous, head_count)
+        if architecture == "mlp":
+            previous = input_size
+            for size in layer_sizes:
+                self.layers.append(nn.Linear(previous, size))
+                previous = size
+            self.output = nn.Linear(previous, head_count)
+        elif architecture == "residual-mlp":
+            if not layer_sizes:
+                raise ValueError("residual-mlp requires at least one layer size")
+            width = layer_sizes[0]
+            if any(size != width for size in layer_sizes):
+                raise ValueError("residual-mlp requires equal layer sizes; depth is the number of sizes")
+            self.input_projection = nn.Linear(input_size, width)
+            self.blocks = nn.ModuleList([ResidualBlock(width) for _ in layer_sizes])
+            self.output = nn.Linear(width, head_count)
+        else:
+            raise ValueError(f"unknown Torch policy architecture {architecture!r}")
 
     @classmethod
     def from_artifact(cls, artifact: PolicyArtifact, device: torch.device) -> "TorchPolicy":
@@ -36,7 +70,7 @@ class TorchPolicy(nn.Module):
             layer_sizes = artifact.layer_sizes
         else:
             layer_sizes = [artifact.hidden_size]
-        model = cls(layer_sizes=layer_sizes, input_size=artifact.input_size, head_count=artifact.head_count)
+        model = cls(layer_sizes=layer_sizes, input_size=artifact.input_size, head_count=artifact.head_count, architecture="mlp")
         with torch.no_grad():
             if artifact.layer_sizes:
                 hidden_weights = artifact.data["hidden_weights"]
@@ -55,13 +89,55 @@ class TorchPolicy(nn.Module):
             model.output.bias.copy_(torch.tensor(b2s, dtype=torch.float32))
         return model.to(device)
 
+    @classmethod
+    def scratch(
+        cls,
+        *,
+        architecture: str,
+        layer_sizes: list[int],
+        input_size: int,
+        head_count: int,
+        seed: int,
+        scale: float,
+        device: torch.device,
+    ) -> "TorchPolicy":
+        torch.manual_seed(seed)
+        random.seed(seed)
+        model = cls(layer_sizes=layer_sizes, input_size=input_size, head_count=head_count, architecture=architecture)
+        with torch.no_grad():
+            for parameter in model.parameters():
+                if parameter.ndim >= 2:
+                    nn.init.normal_(parameter, mean=0.0, std=scale)
+                else:
+                    parameter.zero_()
+        return model.to(device)
+
+    @classmethod
+    def from_checkpoint(cls, path: Path, device: torch.device) -> "TorchPolicy":
+        checkpoint = torch.load(path, map_location="cpu")
+        model = cls(
+            layer_sizes=list(checkpoint["layer_sizes"]),
+            input_size=int(checkpoint.get("input_size", INPUT_SIZE)),
+            head_count=int(checkpoint.get("head_count", HEAD_COUNT)),
+            architecture=str(checkpoint["architecture"]),
+        )
+        model.load_state_dict(checkpoint["state_dict"])
+        return model.to(device)
+
     def forward(self, features: torch.Tensor) -> torch.Tensor:
-        value = features
-        for layer in self.layers:
-            value = torch.relu(layer(value))
+        if self.architecture == "mlp":
+            value = features
+            for layer in self.layers:
+                value = torch.relu(layer(value))
+            return self.output(value)
+        value = torch.relu(self.input_projection(features))
+        for block in self.blocks:
+            value = block(value)
         return self.output(value)
 
     def export_artifact(self, source: PolicyArtifact, path: Path, *, training_record: dict[str, Any] | None = None) -> None:
+        if self.architecture != "mlp":
+            raise ValueError("only mlp Torch policies can be exported to the C-compatible JSON artifact")
         data = dict(source.data)
         data["backend"] = "c-mlp"
         data["training_backend"] = "torch-mps" if next(self.parameters()).device.type == "mps" else "torch"
@@ -77,6 +153,28 @@ class TorchPolicy(nn.Module):
         data["b2s"] = self.output.bias.detach().cpu().reshape(-1).tolist()
         data["b2"] = float(data["b2s"][0]) if data["b2s"] else 0.0
         PolicyArtifact(data=data).save(path)
+
+    def save_checkpoint(self, path: Path, *, training_record: dict[str, Any] | None = None) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        torch.save(
+            {
+                "format": "kolkhoz-torch-policy-v1",
+                "architecture": self.architecture,
+                "layer_sizes": self.layer_sizes,
+                "input_size": self.input_size,
+                "head_count": self.head_count,
+                "state_dict": self.state_dict(),
+                "training_record": training_record,
+            },
+            path,
+        )
+
+
+def load_torch_policy(path: Path, device: torch.device) -> tuple[TorchPolicy, PolicyArtifact | None]:
+    if path.suffix == ".pt":
+        return TorchPolicy.from_checkpoint(path, device), None
+    artifact = PolicyArtifact.load(path)
+    return TorchPolicy.from_artifact(artifact, device), artifact
 
 
 def _candidate_tensor(candidates: list[Any], input_size: int, device: torch.device) -> torch.Tensor:
@@ -206,6 +304,7 @@ def run_torch_games_batched(
     *,
     seeds: list[int],
     seats: list[int],
+    opponent_model: TorchPolicy | None = None,
     sample: bool = False,
     temperature: float = 1.0,
 ) -> list[dict[str, Any]]:
@@ -227,6 +326,7 @@ def run_torch_games_batched(
                 return [item for item in complete if item is not None]
 
             model_groups: list[tuple[int, list[Any], int]] = []
+            opponent_groups: list[tuple[int, list[Any], int]] = []
             progressed = False
             for env_index, env in enumerate(envs):
                 if env["done"]:
@@ -257,16 +357,24 @@ def run_torch_games_batched(
                     if candidates:
                         model_groups.append((env_index, candidates, player_id))
                         continue
+                elif opponent_model is not None:
+                    candidates = engine.policy_action_features(pointer, player_id=player_id, input_size=opponent_model.input_size)
+                    if candidates:
+                        opponent_groups.append((env_index, candidates, player_id))
+                        continue
                 action = engine.heuristic_action(pointer)
                 engine.apply_policy_action(pointer, action)
                 env["actions"] = int(env["actions"]) + 1
                 progressed = True
 
-            if model_groups:
-                scores, spans = _batched_candidate_scores(model, model_groups)
+            def apply_scored_groups(policy: TorchPolicy, groups: list[tuple[int, list[Any], int]], trainable: bool) -> None:
+                nonlocal progressed
+                if not groups:
+                    return
+                scores, spans = _batched_candidate_scores(policy, groups)
                 for env_index, start, end, candidates in spans:
                     logits = scores[start:end]
-                    if sample:
+                    if sample and trainable:
                         distribution = torch.distributions.Categorical(logits=logits / max(temperature, 0.05))
                         selected_tensor = distribution.sample()
                         selected = int(selected_tensor.item())
@@ -276,6 +384,15 @@ def run_torch_games_batched(
                     engine.apply_policy_action(envs[env_index]["pointer"], candidates[selected].action)
                     envs[env_index]["actions"] = int(envs[env_index]["actions"]) + 1
                 progressed = True
+
+            if sample:
+                apply_scored_groups(model, model_groups, True)
+            else:
+                with torch.no_grad():
+                    apply_scored_groups(model, model_groups, True)
+            if opponent_model is not None:
+                with torch.no_grad():
+                    apply_scored_groups(opponent_model, opponent_groups, False)
 
             if not progressed:
                 raise RuntimeError("batched Torch rollout made no progress")
@@ -354,11 +471,147 @@ def torch_parity(
     }
 
 
+def torch_benchmark_candidate(
+    engine: CEngine,
+    *,
+    candidate_path: Path,
+    baseline_path: Path | None,
+    games_per_seat: int,
+    seed: int,
+    bootstrap_samples: int,
+    min_win_delta: float = 0.0,
+    min_rank_delta: float = 0.0,
+    min_margin_delta: float = 0.0,
+    prefer_mps: bool,
+    rollout_envs: int = 64,
+    include_games: bool = False,
+) -> dict[str, Any]:
+    device = best_device(prefer_mps)
+    candidate, _ = load_torch_policy(candidate_path, device)
+    candidate.eval()
+    baseline = None
+    if baseline_path is not None:
+        baseline, _ = load_torch_policy(baseline_path, device)
+        baseline.eval()
+
+    scheduled = [
+        (seed + seat * games_per_seat + offset, seat)
+        for seat in range(4)
+        for offset in range(games_per_seat)
+    ]
+    candidate_games_by_key: dict[tuple[int, int], dict[str, Any]] = {}
+    baseline_games_by_key: dict[tuple[int, int], dict[str, Any]] = {}
+    games: list[dict[str, Any]] = []
+
+    chunk_size = max(1, rollout_envs)
+    for start in range(0, len(scheduled), chunk_size):
+        chunk = scheduled[start:start + chunk_size]
+        candidate_games = run_torch_games_batched(
+            engine,
+            candidate,
+            seeds=[item[0] for item in chunk],
+            seats=[item[1] for item in chunk],
+            opponent_model=baseline,
+        )
+        for game in candidate_games:
+            candidate_games_by_key[(int(game["seed"]), int(game["seat"]))] = game
+
+        if baseline is None:
+            for game_seed, seat in chunk:
+                baseline_games_by_key[(game_seed, seat)] = run_policy_game(
+                    engine,
+                    seed=game_seed,
+                    model=None,
+                    model_is_heuristic=True,
+                    opponent=None,
+                    opponent_is_heuristic=True,
+                    seat=seat,
+                )
+        else:
+            baseline_games = run_torch_games_batched(
+                engine,
+                baseline,
+                seeds=[item[0] for item in chunk],
+                seats=[item[1] for item in chunk],
+                opponent_model=baseline,
+            )
+            for game in baseline_games:
+                baseline_games_by_key[(int(game["seed"]), int(game["seat"]))] = game
+
+    records = []
+    for game_seed, seat in scheduled:
+        candidate_game = candidate_games_by_key[(game_seed, seat)]
+        baseline_game = baseline_games_by_key[(game_seed, seat)]
+        candidate_metrics = candidate_game["metrics"]
+        baseline_metrics = baseline_game["metrics"]
+        records.append(
+            {
+                "seed": game_seed,
+                "seat": seat,
+                "win_delta": candidate_metrics["win"] - baseline_metrics["win"],
+                "rank_delta": baseline_metrics["rank"] - candidate_metrics["rank"],
+                "margin_delta": candidate_metrics["margin"] - baseline_metrics["margin"],
+                "candidate": candidate_metrics,
+                "baseline": baseline_metrics,
+            }
+        )
+        if include_games:
+            games.append({"candidate": candidate_game, "baseline": baseline_game})
+
+    win_values = [record["win_delta"] for record in records]
+    rank_values = [record["rank_delta"] for record in records]
+    margin_values = [record["margin_delta"] for record in records]
+    intervals = {
+        "win_delta": _ci(win_values, bootstrap_samples, seed ^ 0xC00A),
+        "rank_delta": _ci(rank_values, bootstrap_samples, seed ^ 0xC00B),
+        "margin_delta": _ci(margin_values, bootstrap_samples, seed ^ 0xC00C),
+    }
+    pass_gate = (
+        intervals["win_delta"]["low"] >= min_win_delta
+        and intervals["rank_delta"]["low"] >= min_rank_delta
+        and intervals["margin_delta"]["low"] >= min_margin_delta
+    )
+    record: dict[str, Any] = {
+        "kind": "torch_policy_benchmark",
+        "candidate_model": str(candidate_path),
+        "baseline_model": str(baseline_path) if baseline_path else "heuristic",
+        "candidate_architecture": candidate.architecture,
+        "baseline_architecture": baseline.architecture if baseline is not None else "heuristic",
+        "device": str(device),
+        "rollout_envs": chunk_size,
+        "games_per_seat": games_per_seat,
+        "total_games": len(records),
+        "seed": seed,
+        "thresholds": {
+            "min_win_delta": min_win_delta,
+            "min_rank_delta": min_rank_delta,
+            "min_margin_delta": min_margin_delta,
+        },
+        "intervals": intervals,
+        "summary": {
+            "candidate_win_rate": _mean([record["candidate"]["win"] for record in records]),
+            "baseline_win_rate": _mean([record["baseline"]["win"] for record in records]),
+            "candidate_average_rank": _mean([record["candidate"]["rank"] for record in records]),
+            "baseline_average_rank": _mean([record["baseline"]["rank"] for record in records]),
+            "candidate_average_margin": _mean([record["candidate"]["margin"] for record in records]),
+            "baseline_average_margin": _mean([record["baseline"]["margin"] for record in records]),
+        },
+        "status": "passed_gate" if pass_gate else "rejected",
+    }
+    if include_games:
+        record["games"] = games
+    return record
+
+
 def train_torch_policy(
     engine: CEngine,
     *,
-    start_model_path: Path,
+    start_model_path: Path | None,
     output_path: Path,
+    architecture: str,
+    layer_sizes: list[int],
+    scratch_seed: int,
+    scratch_scale: float,
     episodes: int,
     batch_size: int,
     seed: int,
@@ -368,9 +621,21 @@ def train_torch_policy(
     rollout_envs: int,
     unbatched: bool = False,
 ) -> dict[str, Any]:
-    artifact = PolicyArtifact.load(start_model_path)
     device = best_device(prefer_mps)
-    model = TorchPolicy.from_artifact(artifact, device).train()
+    artifact: PolicyArtifact | None = None
+    if start_model_path is None:
+        model = TorchPolicy.scratch(
+            architecture=architecture,
+            layer_sizes=layer_sizes,
+            input_size=INPUT_SIZE,
+            head_count=HEAD_COUNT,
+            seed=scratch_seed,
+            scale=scratch_scale,
+            device=device,
+        )
+    else:
+        model, artifact = load_torch_policy(start_model_path, device)
+    model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     episode_records = []
     pending_losses: list[torch.Tensor] = []
@@ -424,9 +689,17 @@ def train_torch_policy(
     record = {
         "kind": "torch_policy_training",
         "backend": "torch-mps" if device.type == "mps" else "torch",
-        "start_model": str(start_model_path),
+        "start_model": str(start_model_path) if start_model_path else "scratch",
         "output_model": str(output_path),
         "device": str(device),
+        "model": {
+            "architecture": model.architecture,
+            "layers": model.layer_sizes,
+            "input_size": model.input_size,
+            "head_count": model.head_count,
+            "scratch_seed": scratch_seed if start_model_path is None else None,
+            "scratch_scale": scratch_scale if start_model_path is None else None,
+        },
         "training": {
             "episodes": episodes,
             "batch_size": batch_size,
@@ -439,5 +712,10 @@ def train_torch_policy(
         "summary": summary,
         "status": "trained",
     }
-    model.export_artifact(artifact, output_path, training_record=record)
+    if output_path.suffix == ".pt":
+        model.save_checkpoint(output_path, training_record=record)
+    elif artifact is not None:
+        model.export_artifact(artifact, output_path, training_record=record)
+    else:
+        raise ValueError("scratch Torch policies must be saved as .pt checkpoints")
     return record
