@@ -64,6 +64,14 @@ python3 -m research.kolkhoz_research.cli train \
   --record
 ```
 
+`--round-curriculum` uses two consecutive curriculum rounds from a randomized prior
+state. The first round is always non-famine; when `--round-famine-rate` samples famine,
+famine can occur only as the second round.
+
+Policy rollouts use the same assignment shape as the game: the model assigns the next
+unassigned trick card to one legal target suit, then receives another assignment decision
+until the trick is fully assigned.
+
 Benchmark an existing candidate against a policy artifact or the heuristic baseline:
 
 ```bash
@@ -142,6 +150,7 @@ python3 -m research.kolkhoz_research.cli torch-train \
   --architecture action-transformer \
   --layers 256,4,4,1024 \
   --output research/runs/action_transformer_256x4/candidate.pt \
+  --round-curriculum \
   --episodes 512 \
   --batch-size 16 \
   --rollout-envs 64 \

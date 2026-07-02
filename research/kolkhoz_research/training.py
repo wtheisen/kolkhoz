@@ -124,6 +124,7 @@ def train_c_mlp(
         "use_ppo": use_ppo,
         "thread_count": thread_count,
         "round_curriculum": round_curriculum,
+        "curriculum_rounds": 2 if round_curriculum else None,
         "round_plot_cards": round_plot_cards,
         "round_famine_rate": round_famine_rate,
         "opponent_mode": opponent_mode,

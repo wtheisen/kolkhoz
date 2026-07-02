@@ -228,6 +228,9 @@ def torch_train_command(args: argparse.Namespace) -> int:
         temperature=args.temperature,
         prefer_mps=not args.cpu,
         rollout_envs=args.rollout_envs,
+        round_curriculum=args.round_curriculum,
+        round_plot_cards=args.round_plot_cards,
+        round_famine_rate=args.round_famine_rate,
         unbatched=args.unbatched,
         progress_callback=write_current_experiment,
     )
@@ -249,6 +252,9 @@ def torch_benchmark_command(args: argparse.Namespace) -> int:
         min_margin_delta=args.min_margin_delta,
         prefer_mps=not args.cpu,
         rollout_envs=args.rollout_envs,
+        round_curriculum=args.round_curriculum,
+        round_plot_cards=args.round_plot_cards,
+        round_famine_rate=args.round_famine_rate,
         include_games=args.include_games,
         progress_callback=write_current_experiment,
     )
@@ -291,7 +297,7 @@ def main() -> int:
     bench.add_argument("--min-win-delta", type=float, default=0.0)
     bench.add_argument("--min-rank-delta", type=float, default=0.0)
     bench.add_argument("--min-margin-delta", type=float, default=0.0)
-    bench.add_argument("--round-curriculum", action="store_true")
+    bench.add_argument("--round-curriculum", action="store_true", help="benchmark on two-round curriculum episodes; famine can only occur in the second round")
     bench.add_argument("--round-plot-cards", type=int, default=6)
     bench.add_argument("--round-famine-rate", type=float, default=0.2)
     bench.add_argument("--include-games", action="store_true")
@@ -321,7 +327,7 @@ def main() -> int:
     train_parser.add_argument("--ppo-minibatch-size", type=int, default=256)
     train_parser.add_argument("--ppo-clip", type=float, default=0.2)
     train_parser.add_argument("--entropy-weight", type=float, default=0.0)
-    train_parser.add_argument("--round-curriculum", action="store_true")
+    train_parser.add_argument("--round-curriculum", action="store_true", help="train on two-round curriculum episodes; famine can only occur in the second round")
     train_parser.add_argument("--round-plot-cards", type=int, default=6)
     train_parser.add_argument("--round-famine-rate", type=float, default=0.2)
     train_parser.add_argument("--paired-baseline", action="store_true")
@@ -373,6 +379,9 @@ def main() -> int:
     torch_train_parser.add_argument("--learning-rate", type=float, default=1e-4)
     torch_train_parser.add_argument("--temperature", type=float, default=1.0)
     torch_train_parser.add_argument("--rollout-envs", type=int, default=64)
+    torch_train_parser.add_argument("--round-curriculum", action="store_true", help="train on two-round curriculum episodes; famine can only occur in the second round")
+    torch_train_parser.add_argument("--round-plot-cards", type=int, default=6)
+    torch_train_parser.add_argument("--round-famine-rate", type=float, default=0.2)
     torch_train_parser.add_argument("--unbatched", action="store_true", help="use the old one-game-at-a-time rollout path")
     torch_train_parser.add_argument("--cpu", action="store_true", help="force CPU instead of MPS")
     torch_train_parser.add_argument("--record", action="store_true")
@@ -389,6 +398,9 @@ def main() -> int:
     torch_bench_parser.add_argument("--min-rank-delta", type=float, default=0.0)
     torch_bench_parser.add_argument("--min-margin-delta", type=float, default=0.0)
     torch_bench_parser.add_argument("--rollout-envs", type=int, default=64)
+    torch_bench_parser.add_argument("--round-curriculum", action="store_true", help="benchmark on two-round curriculum episodes; famine can only occur in the second round")
+    torch_bench_parser.add_argument("--round-plot-cards", type=int, default=6)
+    torch_bench_parser.add_argument("--round-famine-rate", type=float, default=0.2)
     torch_bench_parser.add_argument("--include-games", action="store_true")
     torch_bench_parser.add_argument("--cpu", action="store_true", help="force CPU instead of MPS")
     torch_bench_parser.add_argument("--record", action="store_true")

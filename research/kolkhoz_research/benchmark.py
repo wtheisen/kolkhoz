@@ -200,6 +200,9 @@ def benchmark_candidate(
         "total_games": len(records),
         "seed": seed,
         "round_curriculum": round_curriculum,
+        "curriculum_rounds": 2 if round_curriculum else None,
+        "round_plot_cards": round_plot_cards,
+        "round_famine_rate": round_famine_rate,
         "thresholds": {
             "min_win_delta": min_win_delta,
             "min_rank_delta": min_rank_delta,

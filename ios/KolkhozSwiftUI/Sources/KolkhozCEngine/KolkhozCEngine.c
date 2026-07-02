@@ -337,7 +337,7 @@ static KCCard kc_draw_from(KCCardList *deck) {
     return kc_list_pop_last(deck);
 }
 
-static void kc_engine_init_random_round(KCEngine *engine, uint64_t seed, KCVariants variants, int32_t plot_cards_per_player, double famine_rate) {
+void kc_engine_init_curriculum(KCEngine *engine, uint64_t seed, KCVariants variants, int32_t plot_cards_per_player, double second_year_famine_rate) {
     memset(engine, 0, sizeof(*engine));
     engine->rng_state = seed == 0 ? 1 : seed;
     engine->variants = variants;
@@ -347,15 +347,18 @@ static void kc_engine_init_random_round(KCEngine *engine, uint64_t seed, KCVaria
     engine->winner_id = KC_NO_PLAYER;
     kc_make_players(engine);
 
-    double safe_famine_rate = famine_rate < 0 ? 0 : (famine_rate > 1 ? 1 : famine_rate);
-    bool is_famine = kc_uniform(engine) < safe_famine_rate;
-    engine->year = is_famine ? KC_MAX_YEARS : 1 + (int32_t)(kc_next(engine) % (KC_MAX_YEARS - 1));
-    engine->is_famine = is_famine;
+    double safe_famine_rate = second_year_famine_rate < 0 ? 0 : (second_year_famine_rate > 1 ? 1 : second_year_famine_rate);
+    bool second_year_famine = kc_uniform(engine) < safe_famine_rate;
+    engine->year = second_year_famine ? KC_MAX_YEARS - 1 : 1 + (int32_t)(kc_next(engine) % (KC_MAX_YEARS - 2));
+    engine->is_famine = false;
     engine->lead = (int32_t)(kc_next(engine) % KC_PLAYER_COUNT);
     engine->trump_selector = (int32_t)(kc_next(engine) % KC_PLAYER_COUNT);
     engine->current_player = engine->trump_selector;
     engine->phase = KC_PHASE_PLANNING;
     engine->trick_count = 0;
+    for (int32_t i = 0; i < KC_PLAYER_COUNT; i++) {
+        engine->pending_assignment_targets[i] = KC_NO_SUIT;
+    }
     memset(engine->swap_confirmed, 0, sizeof(engine->swap_confirmed));
     memset(engine->swap_count, 0, sizeof(engine->swap_count));
 
@@ -382,7 +385,7 @@ static void kc_engine_init_random_round(KCEngine *engine, uint64_t seed, KCVaria
     }
     kc_shuffle(engine, &deck);
 
-    int32_t cards_per_player = is_famine ? 4 : 5;
+    int32_t cards_per_player = 5;
     int32_t plot_limit = plot_cards_per_player < 0 ? 0 : plot_cards_per_player;
     for (int32_t player_id = 0; player_id < KC_PLAYER_COUNT; player_id++) {
         KCPlayer *player = &engine->players[player_id];
@@ -421,6 +424,14 @@ static void kc_engine_init_random_round(KCEngine *engine, uint64_t seed, KCVaria
         }
     }
     kc_process_automatic_turns(engine);
+}
+
+static bool kc_curriculum_should_continue(const KCEngine *engine, bool curriculum, int32_t starting_year) {
+    return !curriculum || engine->year < starting_year + 2;
+}
+
+static bool kc_curriculum_incomplete(const KCEngine *engine, bool curriculum, int32_t starting_year) {
+    return curriculum && engine->phase != KC_PHASE_GAME_OVER && engine->year < starting_year + 2;
 }
 
 static bool kc_is_active_turn(const KCEngine *engine, int32_t player_id) {
@@ -498,6 +509,10 @@ int32_t kc_engine_waiting_player(const KCEngine *engine) {
     default:
         return KC_NO_PLAYER;
     }
+}
+
+int32_t kc_engine_year(const KCEngine *engine) {
+    return engine ? engine->year : 0;
 }
 
 static bool kc_is_valid_play(const KCEngine *engine, int32_t player_id, int32_t card_index) {
@@ -1139,7 +1154,7 @@ static int32_t kc_engine_apply_action(KCEngine *engine, KCAction action) {
             return KC_ERR_INVALID_ASSIGNMENT;
         }
         for (int32_t i = 0; i < engine->last_trick_count; i++) {
-            if (kc_card_equal(engine->last_trick[i].card, action.card)) {
+            if (engine->pending_assignment_targets[i] < 0 && kc_card_equal(engine->last_trick[i].card, action.card)) {
                 engine->pending_assignment_targets[i] = action.target_suit;
                 return 0;
             }
@@ -2401,17 +2416,27 @@ static int32_t kc_policy_candidates(const KCEngine *engine, int32_t player_id, K
             count++;
         }
     } else if (engine->phase == KC_PHASE_ASSIGNMENT) {
-        for (int32_t suit = 0; suit < KC_SUIT_COUNT && count < max_candidates; suit++) {
-            if (!kc_assignment_target_legal(engine, suit)) {
-                continue;
+        int32_t play_index = -1;
+        for (int32_t i = 0; i < engine->last_trick_count; i++) {
+            if (engine->pending_assignment_targets[i] < 0) {
+                play_index = i;
+                break;
             }
-            KCAction action = { .kind = KC_ACTION_ASSIGN, .player_id = player_id, .suit = -1, .card = kc_no_card(), .hand_card = kc_no_card(), .plot_card = kc_no_card(), .plot_zone = -1, .target_suit = suit };
-            candidates[count].action = action;
-            candidates[count].has_features = true;
-            candidates[count].hidden = hidden_cache + ((size_t)count * (size_t)activation_count);
-            kc_policy_features(engine, player_id, 3, suit, kc_no_card(), kc_no_card(), -1, 0, model.input_size, &candidates[count]);
-            candidates[count].score = kc_model_score_cached(model, &candidates[count], candidates[count].hidden);
-            count++;
+        }
+        if (play_index >= 0) {
+            KCCard assigned_card = engine->last_trick[play_index].card;
+            for (int32_t suit = 0; suit < KC_SUIT_COUNT && count < max_candidates; suit++) {
+                if (!kc_assignment_target_legal(engine, suit)) {
+                    continue;
+                }
+                KCAction action = { .kind = KC_ACTION_ASSIGN, .player_id = player_id, .suit = -1, .card = assigned_card, .hand_card = kc_no_card(), .plot_card = kc_no_card(), .plot_zone = -1, .target_suit = suit };
+                candidates[count].action = action;
+                candidates[count].has_features = true;
+                candidates[count].hidden = hidden_cache + ((size_t)count * (size_t)activation_count);
+                kc_policy_features(engine, player_id, 3, suit, assigned_card, kc_no_card(), -1, 0, model.input_size, &candidates[count]);
+                candidates[count].score = kc_model_score_cached(model, &candidates[count], candidates[count].hidden);
+                count++;
+            }
         }
     }
     return count;
@@ -2493,19 +2518,29 @@ int32_t kc_engine_policy_action_features(const KCEngine *engine, int32_t player_
             count++;
         }
     } else if (engine->phase == KC_PHASE_ASSIGNMENT) {
-        for (int32_t suit = 0; suit < KC_SUIT_COUNT && count < max_features; suit++) {
-            if (!kc_assignment_target_legal(engine, suit)) {
-                continue;
+        int32_t play_index = -1;
+        for (int32_t i = 0; i < engine->last_trick_count; i++) {
+            if (engine->pending_assignment_targets[i] < 0) {
+                play_index = i;
+                break;
             }
-            memset(&candidate, 0, sizeof(candidate));
-            candidate.action = (KCAction){ .kind = KC_ACTION_ASSIGN, .player_id = player_id, .suit = -1, .card = kc_no_card(), .hand_card = kc_no_card(), .plot_card = kc_no_card(), .plot_zone = -1, .target_suit = suit };
-            kc_policy_features(engine, player_id, 3, suit, kc_no_card(), kc_no_card(), -1, 0, input_size, &candidate);
-            features[count].action = candidate.action;
-            features[count].action_head = candidate.action_head;
-            features[count].feature_count = candidate.feature_count;
-            memcpy(features[count].feature_indices, candidate.feature_indices, sizeof(candidate.feature_indices));
-            memcpy(features[count].feature_values, candidate.feature_values, sizeof(candidate.feature_values));
-            count++;
+        }
+        if (play_index >= 0) {
+            KCCard assigned_card = engine->last_trick[play_index].card;
+            for (int32_t suit = 0; suit < KC_SUIT_COUNT && count < max_features; suit++) {
+                if (!kc_assignment_target_legal(engine, suit)) {
+                    continue;
+                }
+                memset(&candidate, 0, sizeof(candidate));
+                candidate.action = (KCAction){ .kind = KC_ACTION_ASSIGN, .player_id = player_id, .suit = -1, .card = assigned_card, .hand_card = kc_no_card(), .plot_card = kc_no_card(), .plot_zone = -1, .target_suit = suit };
+                kc_policy_features(engine, player_id, 3, suit, assigned_card, kc_no_card(), -1, 0, input_size, &candidate);
+                features[count].action = candidate.action;
+                features[count].action_head = candidate.action_head;
+                features[count].feature_count = candidate.feature_count;
+                memcpy(features[count].feature_indices, candidate.feature_indices, sizeof(candidate.feature_indices));
+                memcpy(features[count].feature_values, candidate.feature_values, sizeof(candidate.feature_values));
+                count++;
+            }
         }
     }
     return count;
@@ -2707,16 +2742,15 @@ static double kc_imitation_weight_for_head(KCPolicyGradientConfig config, int32_
 
 static int32_t kc_apply_policy_action(KCEngine *engine, KCAction action) {
     if (action.kind == KC_ACTION_ASSIGN) {
-        for (int32_t i = 0; i < engine->last_trick_count; i++) {
-            KCAction assign = action;
-            assign.card = engine->last_trick[i].card;
-            int32_t error = kc_engine_apply(engine, assign);
-            if (error != 0) {
-                return error;
-            }
+        int32_t error = kc_engine_apply(engine, action);
+        if (error != 0) {
+            return error;
         }
-        KCAction submit = { .kind = KC_ACTION_SUBMIT_ASSIGNMENTS, .player_id = action.player_id, .suit = -1, .card = kc_no_card(), .hand_card = kc_no_card(), .plot_card = kc_no_card(), .plot_zone = -1, .target_suit = -1 };
-        return kc_engine_apply(engine, submit);
+        if (engine->phase == KC_PHASE_ASSIGNMENT && kc_pending_assignment_count(engine) >= engine->last_trick_count) {
+            KCAction submit = { .kind = KC_ACTION_SUBMIT_ASSIGNMENTS, .player_id = action.player_id, .suit = -1, .card = kc_no_card(), .hand_card = kc_no_card(), .plot_card = kc_no_card(), .plot_zone = -1, .target_suit = -1 };
+            return kc_engine_apply(engine, submit);
+        }
+        return 0;
     }
     int32_t error = kc_engine_apply(engine, action);
     if (error != 0) {
@@ -2788,7 +2822,7 @@ static int32_t kc_run_greedy_matchup_game(
 ) {
     KCEngine engine;
     if (round_curriculum) {
-        kc_engine_init_random_round(&engine, seed, variants, round_plot_cards, round_famine_rate);
+        kc_engine_init_curriculum(&engine, seed, variants, round_plot_cards, round_famine_rate);
     } else {
         kc_engine_init(&engine, seed, variants);
     }
@@ -2801,7 +2835,7 @@ static int32_t kc_run_greedy_matchup_game(
         return 2;
     }
     int32_t guard_count = 0;
-    while (engine.phase != KC_PHASE_GAME_OVER && (!round_curriculum || engine.year == starting_year) && guard_count < 2000) {
+    while (engine.phase != KC_PHASE_GAME_OVER && kc_curriculum_should_continue(&engine, round_curriculum, starting_year) && guard_count < 2000) {
         guard_count++;
         if (engine.phase == KC_PHASE_REQUISITION) {
             KCAction action = { .kind = KC_ACTION_CONTINUE_AFTER_REQUISITION, .player_id = 0, .suit = -1, .card = kc_no_card(), .hand_card = kc_no_card(), .plot_card = kc_no_card(), .plot_zone = -1, .target_suit = -1 };
@@ -2832,7 +2866,7 @@ static int32_t kc_run_greedy_matchup_game(
     if (!round_curriculum && engine.phase != KC_PHASE_GAME_OVER) {
         return 4;
     }
-    if (round_curriculum && engine.phase != KC_PHASE_GAME_OVER && engine.year == starting_year) {
+    if (kc_curriculum_incomplete(&engine, round_curriculum, starting_year)) {
         return 4;
     }
     for (int32_t player_id = 0; player_id < KC_PLAYER_COUNT; player_id++) {
@@ -2874,7 +2908,7 @@ KCPolicyMatchupGameResult kc_run_policy_matchup_game(
 
     KCEngine engine;
     if (round_curriculum) {
-        kc_engine_init_random_round(&engine, seed, variants, round_plot_cards, round_famine_rate);
+        kc_engine_init_curriculum(&engine, seed, variants, round_plot_cards, round_famine_rate);
     } else {
         kc_engine_init(&engine, seed, variants);
     }
@@ -2897,7 +2931,7 @@ KCPolicyMatchupGameResult kc_run_policy_matchup_game(
     }
 
     int32_t guard_count = 0;
-    while (engine.phase != KC_PHASE_GAME_OVER && (!round_curriculum || engine.year == starting_year) && guard_count < 2000) {
+    while (engine.phase != KC_PHASE_GAME_OVER && kc_curriculum_should_continue(&engine, round_curriculum, starting_year) && guard_count < 2000) {
         guard_count++;
         if (engine.phase == KC_PHASE_REQUISITION) {
             KCAction action = { .kind = KC_ACTION_CONTINUE_AFTER_REQUISITION, .player_id = 0, .suit = -1, .card = kc_no_card(), .hand_card = kc_no_card(), .plot_card = kc_no_card(), .plot_zone = -1, .target_suit = -1 };
@@ -2936,7 +2970,7 @@ KCPolicyMatchupGameResult kc_run_policy_matchup_game(
         result.status = 4;
         return result;
     }
-    if (round_curriculum && engine.phase != KC_PHASE_GAME_OVER && engine.year == starting_year) {
+    if (kc_curriculum_incomplete(&engine, round_curriculum, starting_year)) {
         result.status = 4;
         return result;
     }
@@ -3687,7 +3721,7 @@ static int32_t kc_run_policy_gradient_episode(
     kc_variants_kolkhoz(&variants);
     uint64_t episode_seed = config.seed + (uint64_t)episode;
     if (config.round_curriculum) {
-        kc_engine_init_random_round(&engine, episode_seed, variants, config.round_plot_cards, config.round_famine_rate);
+        kc_engine_init_curriculum(&engine, episode_seed, variants, config.round_plot_cards, config.round_famine_rate);
     } else {
         kc_engine_init(&engine, episode_seed, variants);
     }
@@ -3713,7 +3747,7 @@ static int32_t kc_run_policy_gradient_episode(
     if (!candidates) {
         return 2;
     }
-    while (engine.phase != KC_PHASE_GAME_OVER && (!config.round_curriculum || engine.year == starting_year) && guard_count < 2000) {
+    while (engine.phase != KC_PHASE_GAME_OVER && kc_curriculum_should_continue(&engine, config.round_curriculum, starting_year) && guard_count < 2000) {
         guard_count++;
         if (engine.phase == KC_PHASE_REQUISITION) {
             KCAction action = { .kind = KC_ACTION_CONTINUE_AFTER_REQUISITION, .player_id = 0, .suit = -1, .card = kc_no_card(), .hand_card = kc_no_card(), .plot_card = kc_no_card(), .plot_zone = -1, .target_suit = -1 };
@@ -3755,7 +3789,7 @@ static int32_t kc_run_policy_gradient_episode(
         free(candidates);
         return 4;
     }
-    if (config.round_curriculum && engine.phase != KC_PHASE_GAME_OVER && engine.year == starting_year) {
+    if (kc_curriculum_incomplete(&engine, config.round_curriculum, starting_year)) {
         free(candidates);
         return 4;
     }
@@ -3977,7 +4011,7 @@ static int32_t kc_run_policy_ppo_episode(
     kc_variants_kolkhoz(&variants);
     uint64_t episode_seed = config.seed + (uint64_t)episode;
     if (config.round_curriculum) {
-        kc_engine_init_random_round(&engine, episode_seed, variants, config.round_plot_cards, config.round_famine_rate);
+        kc_engine_init_curriculum(&engine, episode_seed, variants, config.round_plot_cards, config.round_famine_rate);
     } else {
         kc_engine_init(&engine, episode_seed, variants);
     }
@@ -4002,7 +4036,7 @@ static int32_t kc_run_policy_ppo_episode(
     if (!candidates) {
         return 2;
     }
-    while (engine.phase != KC_PHASE_GAME_OVER && (!config.round_curriculum || engine.year == starting_year) && guard_count < 2000) {
+    while (engine.phase != KC_PHASE_GAME_OVER && kc_curriculum_should_continue(&engine, config.round_curriculum, starting_year) && guard_count < 2000) {
         guard_count++;
         if (engine.phase == KC_PHASE_REQUISITION) {
             KCAction action = { .kind = KC_ACTION_CONTINUE_AFTER_REQUISITION, .player_id = 0, .suit = -1, .card = kc_no_card(), .hand_card = kc_no_card(), .plot_card = kc_no_card(), .plot_zone = -1, .target_suit = -1 };
@@ -4091,7 +4125,7 @@ static int32_t kc_run_policy_ppo_episode(
         free(candidates);
         return 4;
     }
-    if (config.round_curriculum && engine.phase != KC_PHASE_GAME_OVER && engine.year == starting_year) {
+    if (kc_curriculum_incomplete(&engine, config.round_curriculum, starting_year)) {
         free(candidates);
         return 4;
     }

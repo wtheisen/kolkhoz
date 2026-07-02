@@ -468,6 +468,34 @@ def _winner(scores: list[int], medals: list[int]) -> int:
     return best
 
 
+def _curriculum_complete(engine: CEngine, pointer: Any, *, start_year: int, round_curriculum: bool) -> bool:
+    return round_curriculum and engine.year(pointer) >= start_year + 2
+
+
+def _game_result(
+    engine: CEngine,
+    pointer: Any,
+    *,
+    seed: int,
+    seat: int,
+    actions: int,
+    log_probs: list[torch.Tensor],
+) -> dict[str, Any]:
+    scores = engine.final_scores(pointer)
+    medals = engine.total_medals(pointer)
+    winner = _winner(scores, medals)
+    return {
+        "seed": seed,
+        "seat": seat,
+        "actions": actions,
+        "scores": scores,
+        "medals": medals,
+        "winner_id": winner,
+        "metrics": asdict(_metrics(scores, medals, winner, seat)),
+        "log_probs": log_probs,
+    }
+
+
 def run_torch_game(
     engine: CEngine,
     model: TorchPolicy,
@@ -476,27 +504,40 @@ def run_torch_game(
     model_seat: int,
     sample: bool = False,
     temperature: float = 1.0,
+    round_curriculum: bool = False,
+    round_plot_cards: int = 0,
+    round_famine_rate: float = 0.0,
 ) -> dict[str, Any]:
-    pointer = engine.new_engine(seed)
+    pointer = engine.new_engine(
+        seed,
+        round_curriculum=round_curriculum,
+        round_plot_cards=round_plot_cards,
+        round_famine_rate=round_famine_rate,
+    )
+    start_year = engine.year(pointer)
     log_probs: list[torch.Tensor] = []
     actions = 0
     try:
         for _ in range(2000):
+            if _curriculum_complete(engine, pointer, start_year=start_year, round_curriculum=round_curriculum):
+                return _game_result(
+                    engine,
+                    pointer,
+                    seed=seed,
+                    seat=model_seat,
+                    actions=actions,
+                    log_probs=log_probs,
+                )
             player_id = engine.waiting_player(pointer)
             if player_id < 0:
-                scores = engine.final_scores(pointer)
-                medals = engine.total_medals(pointer)
-                winner = _winner(scores, medals)
-                return {
-                    "seed": seed,
-                    "seat": model_seat,
-                    "actions": actions,
-                    "scores": scores,
-                    "medals": medals,
-                    "winner_id": winner,
-                    "metrics": asdict(_metrics(scores, medals, winner, model_seat)),
-                    "log_probs": log_probs,
-                }
+                return _game_result(
+                    engine,
+                    pointer,
+                    seed=seed,
+                    seat=model_seat,
+                    actions=actions,
+                    log_probs=log_probs,
+                )
             if player_id == model_seat:
                 candidates = engine.policy_action_features(pointer, player_id=player_id, input_size=model.input_size)
                 if candidates:
@@ -531,18 +572,29 @@ def run_torch_games_batched(
     opponent_model: TorchPolicy | None = None,
     sample: bool = False,
     temperature: float = 1.0,
+    round_curriculum: bool = False,
+    round_plot_cards: int = 0,
+    round_famine_rate: float = 0.0,
 ) -> list[dict[str, Any]]:
-    envs = [
-        {
-            "pointer": engine.new_engine(seed),
-            "seed": seed,
-            "seat": seat,
-            "actions": 0,
-            "log_probs": [],
-            "done": False,
-        }
-        for seed, seat in zip(seeds, seats, strict=True)
-    ]
+    envs = []
+    for seed, seat in zip(seeds, seats, strict=True):
+        pointer = engine.new_engine(
+            seed,
+            round_curriculum=round_curriculum,
+            round_plot_cards=round_plot_cards,
+            round_famine_rate=round_famine_rate,
+        )
+        envs.append(
+            {
+                "pointer": pointer,
+                "start_year": engine.year(pointer),
+                "seed": seed,
+                "seat": seat,
+                "actions": 0,
+                "log_probs": [],
+                "done": False,
+            }
+        )
     complete: list[dict[str, Any] | None] = [None] * len(envs)
     try:
         for _ in range(2000):
@@ -556,22 +608,29 @@ def run_torch_games_batched(
                 if env["done"]:
                     continue
                 pointer = env["pointer"]
+                if _curriculum_complete(engine, pointer, start_year=int(env["start_year"]), round_curriculum=round_curriculum):
+                    complete[env_index] = _game_result(
+                        engine,
+                        pointer,
+                        seed=int(env["seed"]),
+                        seat=int(env["seat"]),
+                        actions=int(env["actions"]),
+                        log_probs=env["log_probs"],
+                    )
+                    env["done"] = True
+                    engine.free_engine(pointer)
+                    progressed = True
+                    continue
                 player_id = engine.waiting_player(pointer)
                 if player_id < 0:
-                    scores = engine.final_scores(pointer)
-                    medals = engine.total_medals(pointer)
-                    winner = _winner(scores, medals)
-                    seat = int(env["seat"])
-                    complete[env_index] = {
-                        "seed": int(env["seed"]),
-                        "seat": seat,
-                        "actions": int(env["actions"]),
-                        "scores": scores,
-                        "medals": medals,
-                        "winner_id": winner,
-                        "metrics": asdict(_metrics(scores, medals, winner, seat)),
-                        "log_probs": env["log_probs"],
-                    }
+                    complete[env_index] = _game_result(
+                        engine,
+                        pointer,
+                        seed=int(env["seed"]),
+                        seat=int(env["seat"]),
+                        actions=int(env["actions"]),
+                        log_probs=env["log_probs"],
+                    )
                     env["done"] = True
                     engine.free_engine(pointer)
                     progressed = True
@@ -710,6 +769,9 @@ def torch_benchmark_candidate(
     min_margin_delta: float = 0.0,
     prefer_mps: bool,
     rollout_envs: int = 64,
+    round_curriculum: bool = False,
+    round_plot_cards: int = 0,
+    round_famine_rate: float = 0.0,
     include_games: bool = False,
     progress_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
@@ -739,6 +801,9 @@ def torch_benchmark_candidate(
             seeds=[item[0] for item in chunk],
             seats=[item[1] for item in chunk],
             opponent_model=baseline,
+            round_curriculum=round_curriculum,
+            round_plot_cards=round_plot_cards,
+            round_famine_rate=round_famine_rate,
         )
         for game in candidate_games:
             candidate_games_by_key[(int(game["seed"]), int(game["seat"]))] = game
@@ -753,6 +818,9 @@ def torch_benchmark_candidate(
                     opponent=None,
                     opponent_is_heuristic=True,
                     seat=seat,
+                    round_curriculum=round_curriculum,
+                    round_plot_cards=round_plot_cards,
+                    round_famine_rate=round_famine_rate,
                 )
         else:
             baseline_games = run_torch_games_batched(
@@ -761,6 +829,9 @@ def torch_benchmark_candidate(
                 seeds=[item[0] for item in chunk],
                 seats=[item[1] for item in chunk],
                 opponent_model=baseline,
+                round_curriculum=round_curriculum,
+                round_plot_cards=round_plot_cards,
+                round_famine_rate=round_famine_rate,
             )
             for game in baseline_games:
                 baseline_games_by_key[(int(game["seed"]), int(game["seat"]))] = game
@@ -775,6 +846,10 @@ def torch_benchmark_candidate(
                     "candidate_architecture": candidate.architecture,
                     "baseline_architecture": baseline.architecture if baseline is not None else "heuristic",
                     "device": str(device),
+                    "round_curriculum": round_curriculum,
+                    "curriculum_rounds": 2 if round_curriculum else None,
+                    "round_plot_cards": round_plot_cards,
+                    "round_famine_rate": round_famine_rate,
                     "progress": {
                         "completed_games": min(start + chunk_size, len(scheduled)),
                         "total_games": len(scheduled),
@@ -824,6 +899,10 @@ def torch_benchmark_candidate(
         "baseline_architecture": baseline.architecture if baseline is not None else "heuristic",
         "device": str(device),
         "rollout_envs": chunk_size,
+        "round_curriculum": round_curriculum,
+        "curriculum_rounds": 2 if round_curriculum else None,
+        "round_plot_cards": round_plot_cards,
+        "round_famine_rate": round_famine_rate,
         "games_per_seat": games_per_seat,
         "total_games": len(records),
         "seed": seed,
@@ -861,6 +940,9 @@ def _torch_training_progress(
     temperature: float,
     rollout_envs: int,
     unbatched: bool,
+    round_curriculum: bool,
+    round_plot_cards: int,
+    round_famine_rate: float,
     completed: int,
     episode_records: list[dict[str, Any]],
     status: str,
@@ -894,6 +976,10 @@ def _torch_training_progress(
             "temperature": temperature,
             "rollout_envs": 1 if unbatched else rollout_envs,
             "batched_rollouts": not unbatched,
+            "round_curriculum": round_curriculum,
+            "curriculum_rounds": 2 if round_curriculum else None,
+            "round_plot_cards": round_plot_cards,
+            "round_famine_rate": round_famine_rate,
         },
         "progress": {
             "completed_episodes": completed,
@@ -945,6 +1031,9 @@ def train_torch_policy(
     temperature: float,
     prefer_mps: bool,
     rollout_envs: int,
+    round_curriculum: bool = False,
+    round_plot_cards: int = 0,
+    round_famine_rate: float = 0.0,
     unbatched: bool = False,
     progress_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
@@ -981,6 +1070,9 @@ def train_torch_policy(
                 temperature=temperature,
                 rollout_envs=rollout_envs,
                 unbatched=unbatched,
+                round_curriculum=round_curriculum,
+                round_plot_cards=round_plot_cards,
+                round_famine_rate=round_famine_rate,
                 completed=completed,
                 episode_records=episode_records,
                 status="running",
@@ -991,7 +1083,17 @@ def train_torch_policy(
         seeds = [seed + completed + offset for offset in range(count)]
         seats = [(completed + offset) % 4 for offset in range(count)]
         games = [
-            run_torch_game(engine, model, seed=seeds[0], model_seat=seats[0], sample=True, temperature=temperature)
+            run_torch_game(
+                engine,
+                model,
+                seed=seeds[0],
+                model_seat=seats[0],
+                sample=True,
+                temperature=temperature,
+                round_curriculum=round_curriculum,
+                round_plot_cards=round_plot_cards,
+                round_famine_rate=round_famine_rate,
+            )
         ] if unbatched else run_torch_games_batched(
             engine,
             model,
@@ -999,6 +1101,9 @@ def train_torch_policy(
             seats=seats,
             sample=True,
             temperature=temperature,
+            round_curriculum=round_curriculum,
+            round_plot_cards=round_plot_cards,
+            round_famine_rate=round_famine_rate,
         )
         for game in games:
             metrics = game["metrics"]
@@ -1032,6 +1137,9 @@ def train_torch_policy(
                     temperature=temperature,
                     rollout_envs=rollout_envs,
                     unbatched=unbatched,
+                    round_curriculum=round_curriculum,
+                    round_plot_cards=round_plot_cards,
+                    round_famine_rate=round_famine_rate,
                     completed=completed,
                     episode_records=episode_records,
                     status="running",
@@ -1073,6 +1181,10 @@ def train_torch_policy(
             "temperature": temperature,
             "rollout_envs": 1 if unbatched else rollout_envs,
             "batched_rollouts": not unbatched,
+            "round_curriculum": round_curriculum,
+            "curriculum_rounds": 2 if round_curriculum else None,
+            "round_plot_cards": round_plot_cards,
+            "round_famine_rate": round_famine_rate,
         },
         "summary": summary,
         "curve": _training_curve(episode_records),

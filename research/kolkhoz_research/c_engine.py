@@ -276,6 +276,14 @@ class CEngine:
         self.lib.kc_engine_free.restype = None
         self.lib.kc_engine_init.argtypes = [ctypes.c_void_p, ctypes.c_uint64, KCVariants]
         self.lib.kc_engine_init.restype = None
+        self.lib.kc_engine_init_curriculum.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_uint64,
+            KCVariants,
+            ctypes.c_int32,
+            ctypes.c_double,
+        ]
+        self.lib.kc_engine_init_curriculum.restype = None
         self.lib.kc_engine_apply_policy_action.argtypes = [ctypes.c_void_p, KCAction]
         self.lib.kc_engine_apply_policy_action.restype = ctypes.c_int32
         self.lib.kc_engine_policy_action_features.argtypes = [
@@ -297,6 +305,8 @@ class CEngine:
         self.lib.kc_engine_heuristic_policy_action.restype = ctypes.c_bool
         self.lib.kc_engine_waiting_player.argtypes = [ctypes.c_void_p]
         self.lib.kc_engine_waiting_player.restype = ctypes.c_int32
+        self.lib.kc_engine_year.argtypes = [ctypes.c_void_p]
+        self.lib.kc_engine_year.restype = ctypes.c_int32
         self.lib.kc_final_score.argtypes = [ctypes.c_void_p, ctypes.c_int32]
         self.lib.kc_final_score.restype = ctypes.c_int32
         self.lib.kc_total_medals.argtypes = [ctypes.c_void_p, ctypes.c_int32]
@@ -329,11 +339,27 @@ class CEngine:
     def run_smoke_game(self, seed: int) -> KCGameRunResult:
         return self.lib.kc_run_benchmark_game(ctypes.c_uint64(seed), self.kolkhoz_variants())
 
-    def new_engine(self, seed: int) -> ctypes.c_void_p:
+    def new_engine(
+        self,
+        seed: int,
+        *,
+        round_curriculum: bool = False,
+        round_plot_cards: int = 0,
+        round_famine_rate: float = 0.0,
+    ) -> ctypes.c_void_p:
         pointer = self.lib.kc_engine_alloc()
         if not pointer:
             raise MemoryError("kc_engine_alloc failed")
-        self.lib.kc_engine_init(pointer, ctypes.c_uint64(seed), self.kolkhoz_variants())
+        if round_curriculum:
+            self.lib.kc_engine_init_curriculum(
+                pointer,
+                ctypes.c_uint64(seed),
+                self.kolkhoz_variants(),
+                ctypes.c_int32(round_plot_cards),
+                ctypes.c_double(round_famine_rate),
+            )
+        else:
+            self.lib.kc_engine_init(pointer, ctypes.c_uint64(seed), self.kolkhoz_variants())
         return ctypes.c_void_p(pointer)
 
     def free_engine(self, pointer: ctypes.c_void_p) -> None:
@@ -341,6 +367,9 @@ class CEngine:
 
     def waiting_player(self, pointer: ctypes.c_void_p) -> int:
         return int(self.lib.kc_engine_waiting_player(pointer))
+
+    def year(self, pointer: ctypes.c_void_p) -> int:
+        return int(self.lib.kc_engine_year(pointer))
 
     def policy_action_features(
         self,

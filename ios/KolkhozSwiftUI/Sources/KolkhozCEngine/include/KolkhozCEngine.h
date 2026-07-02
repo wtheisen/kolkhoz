@@ -312,6 +312,7 @@ void kc_controllers_default_single_player(KCControllers *controllers);
 void kc_controllers_set(KCControllers *controllers, int32_t player_id, int32_t controller);
 void kc_engine_init(KCEngine *engine, uint64_t seed, KCVariants variants);
 void kc_engine_init_with_controllers(KCEngine *engine, uint64_t seed, KCVariants variants, KCControllers controllers);
+void kc_engine_init_curriculum(KCEngine *engine, uint64_t seed, KCVariants variants, int32_t plot_cards_per_player, double second_year_famine_rate);
 KCEngine *kc_engine_alloc(void);
 void kc_engine_free(KCEngine *engine);
 int32_t kc_engine_apply(KCEngine *engine, KCAction action);
@@ -322,6 +323,7 @@ int32_t kc_engine_object_tokens(const KCEngine *engine, int32_t perspective_play
 bool kc_engine_heuristic_policy_action(const KCEngine *engine, KCAction *selected);
 bool kc_engine_waiting_for_external_action(const KCEngine *engine);
 int32_t kc_engine_waiting_player(const KCEngine *engine);
+int32_t kc_engine_year(const KCEngine *engine);
 int32_t kc_visible_score(const KCEngine *engine, int32_t player_id);
 int32_t kc_final_score(const KCEngine *engine, int32_t player_id);
 int32_t kc_total_medals(const KCEngine *engine, int32_t player_id);
