@@ -45,7 +45,9 @@ kolkhoz/
 │           │   └── Resources/
 │           ├── KolkhozSwiftUIApp/
 │           │   └── KolkhozSwiftUIApp.swift
-│           └── KolkhozSmokeTests/
+│           ├── KolkhozSmokeTests/
+│           │   └── main.swift
+│           └── KolkhozContractSmokeTests/
 │               └── main.swift
 ├── agent-docs/
 ├── shared/
@@ -99,6 +101,12 @@ The iOS app entry point. `KolkhozSwiftUIApp` opens `KolkhozRootView`.
 Plain Swift executable tests for environments where XCTest is not set up. These cover
 basic dealing, follow-suit validation, play-card state mutation, deterministic game
 completion, saved-game replay, and online session transport.
+
+### `KolkhozContractSmokeTests`
+
+Foundation-only executable tests that decode `shared/app-contracts/fixtures/*.json` and
+`shared/design/tokens.json`. They catch contract drift without introducing codegen,
+schema dependencies, or renderer code.
 
 ### `shared/app-contracts`
 
@@ -207,6 +215,7 @@ Swift Package Manager builds package targets:
 
 ```bash
 swift run KolkhozSmokeTests
+swift run KolkhozContractSmokeTests
 swift build --target KolkhozAppFeature
 swift build --target KolkhozSwiftUIApp
 ```
@@ -229,6 +238,7 @@ on failure. It currently verifies:
 - A deterministic game can reach `gameOver`.
 - Saved games restore from the C action log.
 - Online sessions redact private state and validate submitted actions.
+- Shared contract fixtures and design tokens decode into Foundation-only Swift structs.
 
 Cross-platform UI alignment should add fixture screenshot tests over
 `shared/app-contracts/fixtures/` as native renderer work grows. The goal is structural and

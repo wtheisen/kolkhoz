@@ -25,6 +25,7 @@ the basis for future clients. The iOS SwiftUI app is the current visual referenc
 ```bash
 cd ios/KolkhozSwiftUI
 swift run KolkhozSmokeTests
+swift run KolkhozContractSmokeTests
 swift build --target KolkhozAppFeature
 swift build --target KolkhozSwiftUIApp
 xcodegen generate
@@ -63,6 +64,8 @@ ios/KolkhozSwiftUI/
       KolkhozSwiftUIApp.swift   # App entry point
     KolkhozSmokeTests/
       main.swift                # Plain Swift smoke tests
+    KolkhozContractSmokeTests/
+      main.swift                # Shared contract fixture smoke tests
 shared/
   app-contracts/
     README.md
@@ -98,6 +101,11 @@ shared/
 2. Update the Swift adapter in `KolkhozHeadlessEngine.swift` only if the C API or snapshot shape changes.
 3. Update or add a smoke test in `Sources/KolkhozSmokeTests/main.swift`.
 4. Run `swift run KolkhozSmokeTests`.
+
+### Changing shared contracts
+1. Update `shared/app-contracts/` or `shared/design/tokens.json`.
+2. Keep the JSON shape renderer-neutral; do not add a UI DSL.
+3. Run `swift run KolkhozContractSmokeTests`.
 
 ### Changing UI
 1. Update views in `Sources/KolkhozAppFeature/`.

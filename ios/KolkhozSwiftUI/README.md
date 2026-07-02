@@ -17,11 +17,13 @@ The app is split into:
 - `KolkhozAppFeature`: SwiftUI store and game screens.
 - `KolkhozSwiftUIApp`: app entry point.
 - `KolkhozSmokeTests`: plain Swift smoke tests for environments without XCTest.
+- `KolkhozContractSmokeTests`: Foundation-only shared contract fixture decoder checks.
 
 ## Local Verification
 
 ```bash
 swift run KolkhozSmokeTests
+swift run KolkhozContractSmokeTests
 swift build --target KolkhozAppFeature
 swift build --target KolkhozSwiftUIApp
 xcodegen generate

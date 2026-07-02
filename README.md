@@ -30,6 +30,7 @@ renderers of those contracts.
 ```bash
 cd ios/KolkhozSwiftUI
 swift run KolkhozSmokeTests
+swift run KolkhozContractSmokeTests
 swift build --target KolkhozAppFeature
 swift build --target KolkhozSwiftUIApp
 ```
@@ -96,6 +97,8 @@ ios/KolkhozSwiftUI/
       KolkhozSwiftUIApp.swift   # App entry point
     KolkhozSmokeTests/
       main.swift                # Smoke tests
+    KolkhozContractSmokeTests/
+      main.swift                # Shared contract fixture smoke tests
 shared/
   app-contracts/                # Platform-neutral table view model schema and fixtures
   design/tokens.json            # Shared visual constants derived from SwiftUI
