@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import torch
 from torch import nn
@@ -485,6 +485,7 @@ def torch_benchmark_candidate(
     prefer_mps: bool,
     rollout_envs: int = 64,
     include_games: bool = False,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     device = best_device(prefer_mps)
     candidate, _ = load_torch_policy(candidate_path, device)
@@ -537,6 +538,24 @@ def torch_benchmark_candidate(
             )
             for game in baseline_games:
                 baseline_games_by_key[(int(game["seed"]), int(game["seat"]))] = game
+        if progress_callback is not None:
+            progress_callback(
+                {
+                    "kind": "torch_policy_benchmark",
+                    "status": "running",
+                    "phase": "benchmark",
+                    "candidate_model": str(candidate_path),
+                    "baseline_model": str(baseline_path) if baseline_path else "heuristic",
+                    "candidate_architecture": candidate.architecture,
+                    "baseline_architecture": baseline.architecture if baseline is not None else "heuristic",
+                    "device": str(device),
+                    "progress": {
+                        "completed_games": min(start + chunk_size, len(scheduled)),
+                        "total_games": len(scheduled),
+                        "percent": min(1.0, (start + chunk_size) / len(scheduled)) if scheduled else 1.0,
+                    },
+                }
+            )
 
     records = []
     for game_seed, seat in scheduled:
@@ -603,6 +622,62 @@ def torch_benchmark_candidate(
     return record
 
 
+def _torch_training_progress(
+    *,
+    model: TorchPolicy,
+    device: torch.device,
+    start_model_path: Path | None,
+    output_path: Path,
+    episodes: int,
+    batch_size: int,
+    seed: int,
+    learning_rate: float,
+    temperature: float,
+    rollout_envs: int,
+    unbatched: bool,
+    completed: int,
+    episode_records: list[dict[str, Any]],
+    status: str,
+) -> dict[str, Any]:
+    recent = episode_records[-min(32, len(episode_records)):]
+    summary = {
+        "average_reward": _mean([item["reward"] for item in recent]),
+        "top_rate": _mean([item["win"] for item in recent]),
+        "average_rank": _mean([item["rank"] for item in recent]),
+        "average_margin": _mean([item["margin"] for item in recent]),
+    } if recent else {}
+    return {
+        "kind": "torch_policy_training",
+        "status": status,
+        "phase": "training",
+        "backend": "torch-mps" if device.type == "mps" else "torch",
+        "start_model": str(start_model_path) if start_model_path else "scratch",
+        "output_model": str(output_path),
+        "device": str(device),
+        "model": {
+            "architecture": model.architecture,
+            "layers": model.layer_sizes,
+            "input_size": model.input_size,
+            "head_count": model.head_count,
+        },
+        "training": {
+            "episodes": episodes,
+            "batch_size": batch_size,
+            "seed": seed,
+            "learning_rate": learning_rate,
+            "temperature": temperature,
+            "rollout_envs": 1 if unbatched else rollout_envs,
+            "batched_rollouts": not unbatched,
+        },
+        "progress": {
+            "completed_episodes": completed,
+            "total_episodes": episodes,
+            "percent": min(1.0, completed / episodes) if episodes else 1.0,
+        },
+        "summary": summary,
+    }
+
+
 def train_torch_policy(
     engine: CEngine,
     *,
@@ -620,6 +695,7 @@ def train_torch_policy(
     prefer_mps: bool,
     rollout_envs: int,
     unbatched: bool = False,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     device = best_device(prefer_mps)
     artifact: PolicyArtifact | None = None
@@ -640,6 +716,25 @@ def train_torch_policy(
     episode_records = []
     pending_losses: list[torch.Tensor] = []
     completed = 0
+    if progress_callback is not None:
+        progress_callback(
+            _torch_training_progress(
+                model=model,
+                device=device,
+                start_model_path=start_model_path,
+                output_path=output_path,
+                episodes=episodes,
+                batch_size=batch_size,
+                seed=seed,
+                learning_rate=learning_rate,
+                temperature=temperature,
+                rollout_envs=rollout_envs,
+                unbatched=unbatched,
+                completed=completed,
+                episode_records=episode_records,
+                status="running",
+            )
+        )
     while completed < episodes:
         count = 1 if unbatched else min(max(1, rollout_envs), episodes - completed)
         seeds = [seed + completed + offset for offset in range(count)]
@@ -672,6 +767,25 @@ def train_torch_policy(
                 }
             )
         completed += len(games)
+        if progress_callback is not None:
+            progress_callback(
+                _torch_training_progress(
+                    model=model,
+                    device=device,
+                    start_model_path=start_model_path,
+                    output_path=output_path,
+                    episodes=episodes,
+                    batch_size=batch_size,
+                    seed=seed,
+                    learning_rate=learning_rate,
+                    temperature=temperature,
+                    rollout_envs=rollout_envs,
+                    unbatched=unbatched,
+                    completed=completed,
+                    episode_records=episode_records,
+                    status="running",
+                )
+            )
         if pending_losses and (len(pending_losses) >= batch_size or completed >= episodes):
             optimizer.zero_grad(set_to_none=True)
             torch.stack(pending_losses).mean().backward()
@@ -718,4 +832,16 @@ def train_torch_policy(
         model.export_artifact(artifact, output_path, training_record=record)
     else:
         raise ValueError("scratch Torch policies must be saved as .pt checkpoints")
+    if progress_callback is not None:
+        progress_callback(
+            {
+                **record,
+                "phase": "training",
+                "progress": {
+                    "completed_episodes": episodes,
+                    "total_episodes": episodes,
+                    "percent": 1.0,
+                },
+            }
+        )
     return record

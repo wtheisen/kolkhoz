@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Kolkhoz Research Dashboard</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/dashboard.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Kolkhoz research</p>
+          <h1>Model Lab</h1>
+        </div>
+        <div class="refresh">
+          <span id="refreshState" class="dot"></span>
+          <span id="updatedAt">Loading</span>
+        </div>
+      </header>
+
+      <section class="status-grid">
+        <article class="current-panel">
+          <div class="panel-head">
+            <div>
+              <p class="label">Current experiment</p>
+              <h2 id="currentTitle">No experiment</h2>
+            </div>
+            <span id="currentStatus" class="status-pill">unknown</span>
+          </div>
+          <div class="model-line">
+            <span id="architecture">unknown</span>
+            <span id="backend">backend unknown</span>
+            <span id="device">device unknown</span>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-meta">
+              <span id="progressLabel">No progress</span>
+              <strong id="progressValue">0%</strong>
+            </div>
+            <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+          </div>
+          <dl class="detail-list">
+            <div><dt>Output</dt><dd id="outputModel">-</dd></div>
+            <div><dt>Baseline</dt><dd id="baselineModel">-</dd></div>
+            <div><dt>Seed</dt><dd id="seedValue">-</dd></div>
+          </dl>
+        </article>
+
+        <article class="metric-panel">
+          <p class="label">Training signal</p>
+          <div class="metric-row"><span>Win/top rate</span><strong id="metricWin">-</strong></div>
+          <div class="metric-row"><span>Average rank</span><strong id="metricRank">-</strong></div>
+          <div class="metric-row"><span>Average margin</span><strong id="metricMargin">-</strong></div>
+          <div class="metric-row"><span>Average reward</span><strong id="metricReward">-</strong></div>
+        </article>
+
+        <article class="metric-panel">
+          <p class="label">Latest benchmark</p>
+          <div id="benchmarkDeltas" class="delta-list"></div>
+        </article>
+      </section>
+
+      <section class="counts" id="counts"></section>
+
+      <section class="content-grid">
+        <article class="table-panel">
+          <div class="panel-head">
+            <div>
+              <p class="label">Timeline</p>
+              <h2>Recent records</h2>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Kind</th>
+                  <th>Architecture</th>
+                  <th>Model</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="timelineBody"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="table-panel">
+          <div class="panel-head">
+            <div>
+              <p class="label">Benchmarks</p>
+              <h2>Promotion evidence</h2>
+            </div>
+          </div>
+          <div id="benchmarkList" class="record-list"></div>
+        </article>
+      </section>
+    </main>
+    <script src="/dashboard.js"></script>
+  </body>
+</html>

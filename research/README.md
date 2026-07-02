@@ -147,6 +147,16 @@ python3 -m research.kolkhoz_research.cli torch-benchmark \
   --record
 ```
 
+Serve the local experiment dashboard:
+
+```bash
+python3 -m research.kolkhoz_research.cli dashboard --port 8765
+```
+
+The dashboard reads durable records from `research/history/experiments.jsonl` and live
+run state from the ignored `research/history/current_experiment.json` file written by
+training and benchmark commands.
+
 All commands emit structured JSON. Add `--record` to append the record to
 `research/history/experiments.jsonl`.
 

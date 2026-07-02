@@ -7,7 +7,8 @@ from pathlib import Path
 
 from .benchmark import benchmark_candidate, mine_seed_panel, run_tournament
 from .c_engine import CEngine, build_shared_library
-from .history import append_history
+from .dashboard import serve_dashboard
+from .history import append_history, write_current_experiment
 from .torch_policy import torch_benchmark_candidate, torch_parity, train_torch_policy
 from .training import train_c_mlp
 
@@ -66,6 +67,16 @@ def _emit(record: dict, record_history: bool) -> int:
 
 def benchmark(args: argparse.Namespace) -> int:
     engine = CEngine(build_shared_library(force=args.rebuild))
+    write_current_experiment(
+        {
+            "kind": "policy_benchmark",
+            "status": "running",
+            "phase": "benchmark",
+            "candidate_model": str(args.candidate),
+            "baseline_model": str(args.baseline) if args.baseline else "heuristic",
+            "progress": {"percent": 0.0, "completed_games": 0, "total_games": args.games_per_seat * 4},
+        }
+    )
     record = benchmark_candidate(
         engine,
         candidate_path=args.candidate,
@@ -82,11 +93,42 @@ def benchmark(args: argparse.Namespace) -> int:
         include_games=args.include_games,
     )
     record["engine"] = asdict(engine.provenance())
+    write_current_experiment(
+        {
+            **record,
+            "phase": "benchmark",
+            "progress": {
+                "percent": 1.0,
+                "completed_games": record["total_games"],
+                "total_games": record["total_games"],
+            },
+        }
+    )
     return _emit(record, args.record)
 
 
 def train(args: argparse.Namespace) -> int:
     engine = CEngine(build_shared_library(force=args.rebuild))
+    write_current_experiment(
+        {
+            "kind": "policy_training",
+            "backend": "c-mlp",
+            "status": "running",
+            "phase": "training",
+            "output_model": str(args.output),
+            "start_model": str(args.start_model) if args.start_model else "scratch",
+            "model": {"architecture": "mlp", "layers": args.layers},
+            "training": {
+                "episodes": args.episodes,
+                "batch_size": args.batch_size,
+                "seed": args.seed,
+                "learning_rate": args.learning_rate,
+                "optimizer": args.optimizer,
+                "thread_count": args.thread_count,
+            },
+            "progress": {"completed_episodes": 0, "total_episodes": args.episodes, "percent": 0.0},
+        }
+    )
     record = train_c_mlp(
         engine,
         output_path=args.output,
@@ -115,6 +157,14 @@ def train(args: argparse.Namespace) -> int:
         round_famine_rate=args.round_famine_rate,
         paired_baseline=args.paired_baseline,
         training_seats=args.training_seats,
+    )
+    write_current_experiment(
+        {
+            **record,
+            "phase": "training",
+            "model": {"architecture": "mlp", "layers": args.layers},
+            "progress": {"completed_episodes": args.episodes, "total_episodes": args.episodes, "percent": 1.0},
+        }
     )
     return _emit(record, args.record)
 
@@ -179,6 +229,7 @@ def torch_train_command(args: argparse.Namespace) -> int:
         prefer_mps=not args.cpu,
         rollout_envs=args.rollout_envs,
         unbatched=args.unbatched,
+        progress_callback=write_current_experiment,
     )
     record["engine"] = asdict(engine.provenance())
     return _emit(record, args.record)
@@ -199,9 +250,26 @@ def torch_benchmark_command(args: argparse.Namespace) -> int:
         prefer_mps=not args.cpu,
         rollout_envs=args.rollout_envs,
         include_games=args.include_games,
+        progress_callback=write_current_experiment,
     )
     record["engine"] = asdict(engine.provenance())
+    write_current_experiment(
+        {
+            **record,
+            "phase": "benchmark",
+            "progress": {
+                "percent": 1.0,
+                "completed_games": record["total_games"],
+                "total_games": record["total_games"],
+            },
+        }
+    )
     return _emit(record, args.record)
+
+
+def dashboard_command(args: argparse.Namespace) -> int:
+    serve_dashboard(host=args.host, port=args.port)
+    return 0
 
 
 def main() -> int:
@@ -326,6 +394,11 @@ def main() -> int:
     torch_bench_parser.add_argument("--record", action="store_true")
     torch_bench_parser.add_argument("--rebuild", action="store_true")
     torch_bench_parser.set_defaults(func=torch_benchmark_command)
+
+    dashboard_parser = subparsers.add_parser("dashboard", help="serve the local research dashboard")
+    dashboard_parser.add_argument("--host", default="127.0.0.1")
+    dashboard_parser.add_argument("--port", type=int, default=8765)
+    dashboard_parser.set_defaults(func=dashboard_command)
 
     args = parser.parse_args()
     return args.func(args)
