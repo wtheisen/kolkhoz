@@ -450,13 +450,23 @@ class TopInfoLayoutTokens {
 }
 
 class JobsLayoutTokens {
-  const JobsLayoutTokens({required this.requiredHours});
+  const JobsLayoutTokens({
+    required this.requiredHours,
+    required this.assignmentMinTileHeight,
+    required this.overviewMinTileHeight,
+  });
 
   factory JobsLayoutTokens.fromJson(Map<String, Object?> json) {
-    return JobsLayoutTokens(requiredHours: _number(json['requiredHours']));
+    return JobsLayoutTokens(
+      requiredHours: _number(json['requiredHours']),
+      assignmentMinTileHeight: _number(json['assignmentMinTileHeight']),
+      overviewMinTileHeight: _number(json['overviewMinTileHeight']),
+    );
   }
 
   final double requiredHours;
+  final double assignmentMinTileHeight;
+  final double overviewMinTileHeight;
 }
 
 Color suitColor(DesignTokens tokens, String suit) {

@@ -1311,27 +1311,216 @@ class JobsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PanelShell(
-      tokens: tokens,
-      title: 'Jobs',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          PhasePromptLine(model: model, tokens: tokens),
-          SizedBox(height: tokens.spacing.md),
-          Expanded(
-            child: GridView.count(
-              crossAxisCount: 2,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              childAspectRatio: 1.35,
+    final assignmentPhase = model.table.phase == 'assignment';
+    return Padding(
+      padding: EdgeInsets.only(
+        left: tokens.spacing.md,
+        right: tokens.spacing.md,
+        top: tokens.spacing.md,
+        bottom: tokens.spacing.lg,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final spacing = clampDouble(
+            constraints.maxWidth * 0.016,
+            tokens.spacing.sm,
+            tokens.spacing.lg,
+          );
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PhasePromptLine(model: model, tokens: tokens),
+              SizedBox(height: spacing),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (
+                      var index = 0;
+                      index < model.table.jobs.length;
+                      index++
+                    )
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            right: index == model.table.jobs.length - 1
+                                ? 0
+                                : spacing,
+                          ),
+                          child: JobTile(
+                            job: model.table.jobs[index],
+                            assignmentPhase: assignmentPhase,
+                            tokens: tokens,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class JobTile extends StatelessWidget {
+  const JobTile({
+    required this.job,
+    required this.assignmentPhase,
+    required this.tokens,
+    super.key,
+  });
+
+  final Job job;
+  final bool assignmentPhase;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = (job.hours / job.requiredHours).clamp(0.0, 1.0);
+    final validTarget = assignmentPhase && job.validAssignmentTarget;
+    final highlighted = job.highlighted;
+    return Opacity(
+      opacity: job.claimed ? 0.68 : 1,
+      child: Container(
+        padding: EdgeInsets.all(tokens.spacing.md),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: validTarget
+                ? [
+                    tokens.colors.gold.withValues(alpha: 0.16),
+                    tokens.colors.panel,
+                  ]
+                : highlighted
+                ? [
+                    tokens.colors.gold.withValues(alpha: 0.18),
+                    tokens.colors.panel,
+                  ]
+                : [tokens.colors.panel, tokens.colors.iron],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+          borderRadius: BorderRadius.circular(tokens.radius.md),
+          border: Border.all(
+            color: validTarget
+                ? tokens.colors.gold
+                : tokens.colors.steel.withValues(alpha: 0.55),
+            width: validTarget
+                ? tokens.stroke.emphasis
+                : tokens.stroke.standard,
+            strokeAlign: BorderSide.strokeAlignInside,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: validTarget
+                  ? tokens.colors.gold.withValues(alpha: 0.16)
+                  : tokens.colors.black.withValues(alpha: 0.25),
+              blurRadius: validTarget ? 12 : 5,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              right: tokens.spacing.sm,
+              bottom: tokens.spacing.sm,
+              child: Opacity(
+                opacity: 0.08,
+                child: SuitMark(suit: job.suit, tokens: tokens, size: 54),
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final job in model.table.jobs)
-                  JobTile(job: job, tokens: tokens),
+                Row(
+                  spacing: tokens.spacing.md,
+                  children: [
+                    job.reward == null
+                        ? EmptyRewardMarker(
+                            suit: job.suit,
+                            size: 34,
+                            tokens: tokens,
+                          )
+                        : MiniRewardCard(
+                            card: job.reward!,
+                            claimed: job.claimed,
+                            height: 34,
+                            tokens: tokens,
+                          ),
+                    Expanded(
+                      child: ProgressBar(
+                        value: progress,
+                        complete: job.claimed,
+                        tokens: tokens,
+                      ),
+                    ),
+                    Text(
+                      job.claimed
+                          ? 'DONE'
+                          : '${job.hours}/${job.requiredHours}',
+                      style: TextStyle(
+                        color: job.claimed
+                            ? tokens.colors.green
+                            : tokens.colors.gold,
+                        fontSize: tokens.typography.size('headline', 17),
+                        fontWeight: FontWeight.w900,
+                        height: 0.9,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: tokens.spacing.md),
+                Expanded(
+                  child: ClipRect(
+                    child: job.assignedCards.isEmpty
+                        ? Center(
+                            child: Text(
+                              validTarget ? 'TAP TO ASSIGN' : '',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: validTarget
+                                    ? tokens.colors.gold
+                                    : Colors.transparent,
+                                fontSize: tokens.typography.size(
+                                  'caption2',
+                                  11,
+                                ),
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          )
+                        : Align(
+                            alignment: Alignment.topCenter,
+                            child: Column(
+                              children: [
+                                for (
+                                  var index = 0;
+                                  index < job.assignedCards.length;
+                                  index++
+                                )
+                                  Transform.translate(
+                                    offset: Offset(
+                                      0,
+                                      index == 0 ? 0 : -34.0 * index,
+                                    ),
+                                    child: GameCard(
+                                      card: job.assignedCards[index],
+                                      tokens: tokens,
+                                      sizeOverride: tokens.card.medium,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                  ),
+                ),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1351,72 +1540,6 @@ class PhasePromptLine extends StatelessWidget {
         color: tokens.colors.gold,
         fontSize: tokens.typography.size('title3', 20),
         fontWeight: FontWeight.w900,
-      ),
-    );
-  }
-}
-
-class JobTile extends StatelessWidget {
-  const JobTile({required this.job, required this.tokens, super.key});
-
-  final Job job;
-  final DesignTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = job.hours / job.requiredHours;
-    final accent = suitColor(tokens, job.suit);
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: job.validAssignmentTarget
-            ? tokens.colors.iron
-            : tokens.colors.panel,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: job.highlighted || job.validAssignmentTarget
-              ? tokens.colors.gold
-              : tokens.colors.iron,
-          width: job.validAssignmentTarget ? 2 : 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              SuitDot(suit: job.suit, tokens: tokens),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  job.suit,
-                  style: TextStyle(color: accent, fontWeight: FontWeight.w800),
-                ),
-              ),
-              Text(
-                job.claimed ? 'done' : '${job.hours}/40',
-                style: TextStyle(color: tokens.colors.cream),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(
-            value: progress.clamp(0, 1),
-            color: job.claimed ? tokens.colors.green : accent,
-            backgroundColor: tokens.colors.background,
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: [
-              if (job.reward != null)
-                MiniCard(card: job.reward!, tokens: tokens),
-              for (final card in job.assignedCards)
-                MiniCard(card: card, tokens: tokens),
-            ],
-          ),
-        ],
       ),
     );
   }
@@ -1863,6 +1986,47 @@ class EmptyRewardMarker extends StatelessWidget {
       ),
       child: Center(
         child: SuitMark(suit: suit, tokens: tokens, size: size * 0.42),
+      ),
+    );
+  }
+}
+
+class ProgressBar extends StatelessWidget {
+  const ProgressBar({
+    required this.value,
+    required this.complete,
+    required this.tokens,
+    super.key,
+  });
+
+  final double value;
+  final bool complete;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 11,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: tokens.colors.black.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(tokens.radius.xs),
+          border: Border.all(color: tokens.colors.steel.withValues(alpha: 0.6)),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(tokens.radius.xs - 1),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: FractionallySizedBox(
+              widthFactor: value.clamp(0, 1),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: complete ? tokens.colors.green : tokens.colors.gold,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
