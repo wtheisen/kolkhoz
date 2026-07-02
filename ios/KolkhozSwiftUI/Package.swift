@@ -13,19 +13,13 @@ let package = Package(
         .library(name: "KolkhozAppFeature", targets: ["KolkhozAppFeature"]),
         .executable(name: "KolkhozSwiftUIApp", targets: ["KolkhozSwiftUIApp"]),
         .executable(name: "KolkhozSmokeTests", targets: ["KolkhozSmokeTests"]),
-        .executable(name: "KolkhozPolicyGradientTrainer", targets: ["KolkhozPolicyGradientTrainer"]),
-        .executable(name: "KolkhozPolicyBenchmark", targets: ["KolkhozPolicyBenchmark"]),
-        .executable(name: "KolkhozPolicyDiagnostics", targets: ["KolkhozPolicyDiagnostics"]),
-        .executable(name: "KolkhozEngineParity", targets: ["KolkhozEngineParity"]),
-        .executable(name: "KolkhozEngineBenchmark", targets: ["KolkhozEngineBenchmark"])
+        .executable(name: "KolkhozContractSmokeTests", targets: ["KolkhozContractSmokeTests"]),
+        .executable(name: "KolkhozOnlineServer", targets: ["KolkhozOnlineServer"])
     ],
     targets: [
         .target(
             name: "KolkhozCore",
-            dependencies: ["KolkhozCEngine"],
-            resources: [
-                .process("Resources")
-            ]
+            dependencies: ["KolkhozCEngine"]
         ),
         .target(
             name: "KolkhozCEngine"
@@ -50,24 +44,11 @@ let package = Package(
             dependencies: ["KolkhozCore"]
         ),
         .executableTarget(
-            name: "KolkhozPolicyGradientTrainer",
-            dependencies: ["KolkhozCore", "KolkhozCEngine"]
+            name: "KolkhozContractSmokeTests"
         ),
         .executableTarget(
-            name: "KolkhozPolicyBenchmark",
+            name: "KolkhozOnlineServer",
             dependencies: ["KolkhozCore"]
-        ),
-        .executableTarget(
-            name: "KolkhozPolicyDiagnostics",
-            dependencies: ["KolkhozCore"]
-        ),
-        .executableTarget(
-            name: "KolkhozEngineParity",
-            dependencies: ["KolkhozCore"]
-        ),
-        .executableTarget(
-            name: "KolkhozEngineBenchmark",
-            dependencies: ["KolkhozCore", "KolkhozCEngine"]
         )
     ]
 )

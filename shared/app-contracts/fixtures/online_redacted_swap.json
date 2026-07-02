@@ -1,0 +1,104 @@
+{
+  "contractVersion": 1,
+  "engineBoundary": {
+    "snapshotRevision": 1,
+    "actionRevision": 1,
+    "source": "onlineServer",
+    "actionLogCount": 22,
+    "redacted": true
+  },
+  "viewer": {
+    "seatID": 2,
+    "isOnline": true,
+    "privacyMode": "redacted",
+    "sessionID": "00000000-0000-4000-8000-000000000222",
+    "inviteCode": "00000000-0000-4000-8000-000000000222",
+    "connection": "connected"
+  },
+  "table": {
+    "year": 3,
+    "phase": "swap",
+    "phasePrompt": {
+      "title": "Swap one card",
+      "body": "Exchange one hand card with your plot, or confirm without swapping.",
+      "tone": "normal",
+      "primaryActionID": "confirm-swap-seat-2"
+    },
+    "currentPlayerID": 2,
+    "leadPlayerID": 1,
+    "trumpSelectorID": 1,
+    "trump": "beet",
+    "isFamine": false,
+    "trickCount": 0,
+    "maxTricks": 4,
+    "seats": [
+      { "id": 0, "name": "Seat 1", "controller": "remoteHuman", "isViewer": false, "isCurrentTurn": false, "isBrigadeLeader": false, "isProtected": false, "hand": [], "hiddenHandCount": 5, "plot": { "revealed": [{ "id": "wheat-2", "suit": "wheat", "value": 2, "rank": "2", "zone": "plotRevealed", "visible": true, "ownerSeatID": 0 }], "hidden": [], "hiddenCount": 2, "stacks": [] }, "medals": 0, "bankedMedals": 0, "visibleScore": 2 },
+      { "id": 1, "name": "Seat 2", "controller": "remoteHuman", "isViewer": false, "isCurrentTurn": false, "isBrigadeLeader": false, "isProtected": false, "hand": [], "hiddenHandCount": 5, "plot": { "revealed": [], "hidden": [], "hiddenCount": 2, "stacks": [] }, "medals": 0, "bankedMedals": 1, "visibleScore": 0 },
+      {
+        "id": 2,
+        "name": "You",
+        "controller": "human",
+        "isViewer": true,
+        "isCurrentTurn": true,
+        "isBrigadeLeader": false,
+        "isProtected": false,
+        "hand": [
+          { "id": "beet-12", "suit": "beet", "value": 12, "rank": "Q", "zone": "hand", "visible": true, "ownerSeatID": 2, "highlighted": true },
+          { "id": "potato-6", "suit": "potato", "value": 6, "rank": "6", "zone": "hand", "visible": true, "ownerSeatID": 2, "selected": true },
+          { "id": "sunflower-8", "suit": "sunflower", "value": 8, "rank": "8", "zone": "hand", "visible": true, "ownerSeatID": 2 },
+          { "id": "wheat-10", "suit": "wheat", "value": 10, "rank": "10", "zone": "hand", "visible": true, "ownerSeatID": 2 },
+          { "id": "beet-7", "suit": "beet", "value": 7, "rank": "7", "zone": "hand", "visible": true, "ownerSeatID": 2 }
+        ],
+        "hiddenHandCount": 0,
+        "plot": {
+          "revealed": [{ "id": "sunflower-4", "suit": "sunflower", "value": 4, "rank": "4", "zone": "plotRevealed", "visible": true, "ownerSeatID": 2 }],
+          "hidden": [{ "id": "potato-13", "suit": "potato", "value": 13, "rank": "K", "zone": "plotHidden", "visible": true, "ownerSeatID": 2, "selected": true }],
+          "hiddenCount": 1,
+          "stacks": []
+        },
+        "medals": 0,
+        "bankedMedals": 0,
+        "visibleScore": 4
+      },
+      { "id": 3, "name": "AI", "controller": "heuristicAI", "isViewer": false, "isCurrentTurn": false, "isBrigadeLeader": false, "isProtected": false, "hand": [], "hiddenHandCount": 5, "plot": { "revealed": [], "hidden": [], "hiddenCount": 2, "stacks": [] }, "medals": 0, "bankedMedals": 0, "visibleScore": 0 }
+    ],
+    "jobs": [
+      { "suit": "wheat", "hours": 0, "requiredHours": 40, "claimed": false, "reward": { "id": "wheat-3", "suit": "wheat", "value": 3, "rank": "3", "zone": "jobReward", "visible": true }, "assignedCards": [], "validAssignmentTarget": false },
+      { "suit": "sunflower", "hours": 0, "requiredHours": 40, "claimed": false, "reward": { "id": "sunflower-1", "suit": "sunflower", "value": 1, "rank": "A", "zone": "jobReward", "visible": true }, "assignedCards": [], "validAssignmentTarget": false },
+      { "suit": "potato", "hours": 0, "requiredHours": 40, "claimed": false, "reward": { "id": "potato-5", "suit": "potato", "value": 5, "rank": "5", "zone": "jobReward", "visible": true }, "assignedCards": [], "validAssignmentTarget": false },
+      { "suit": "beet", "hours": 0, "requiredHours": 40, "claimed": false, "reward": { "id": "beet-4", "suit": "beet", "value": 4, "rank": "4", "zone": "jobReward", "visible": true }, "assignedCards": [], "validAssignmentTarget": false, "highlighted": true }
+    ],
+    "trick": { "plays": [], "winnerSeatID": null },
+    "lastTrick": { "plays": [], "winnerSeatID": null },
+    "scoreboard": [
+      { "seatID": 0, "visibleScore": 2, "finalScore": null },
+      { "seatID": 1, "visibleScore": 0, "finalScore": null },
+      { "seatID": 2, "visibleScore": 4, "finalScore": null },
+      { "seatID": 3, "visibleScore": 0, "finalScore": null }
+    ],
+    "requisitionEvents": []
+  },
+  "panels": {
+    "active": "plot",
+    "suggested": "plot",
+    "available": ["brigade", "jobs", "plot", "north", "options", "rules"],
+    "rightInfo": {
+      "mode": "online",
+      "title": "Online play",
+      "sections": [
+        { "title": "Connected", "body": "This view is redacted for seat 3 and only includes that seat's private cards." }
+      ]
+    }
+  },
+  "selection": {
+    "handCardID": "potato-6",
+    "plotCardID": "potato-13",
+    "assignmentCardID": null,
+    "hoveredSuit": null
+  },
+  "legalActions": [
+    { "id": "swap-potato-6-potato-13", "kind": "swap", "label": "Swap", "enabled": true, "targets": ["potato-6", "potato-13"], "engineAction": { "kind": "swap", "playerID": 2, "handCard": { "suit": 2, "value": 6 }, "plotCard": { "suit": 2, "value": 13 }, "plotZone": 0 } },
+    { "id": "confirm-swap-seat-2", "kind": "confirmSwap", "label": "Confirm", "enabled": true, "targets": [], "engineAction": { "kind": "confirmSwap", "playerID": 2 } }
+  ]
+}
+

@@ -1,9 +1,9 @@
 # Game State Reference
 
 The authoritative state is `KolkhozState` in
-`ios/KolkhozSwiftUI/Sources/KolkhozCore/Models.swift`. The state is stored inside
-`KolkhozEngine`, mutated directly by engine methods, then copied into `GameStore.state`
-for SwiftUI rendering.
+`ios/KolkhozSwiftUI/Sources/KolkhozCore/Models.swift`. Runtime state is produced by the
+C engine through `KolkhozCEngineAdapter` or by online session snapshots, then copied into
+`GameStore.state` for SwiftUI rendering.
 
 ## Complete State Shape
 
@@ -105,7 +105,7 @@ Built-in presets are `kolkhoz`, `littleKolkhoz`, `campStyle`, and `custom`.
 
 ### New Game
 
-`KolkhozEngine.init` and `newGame`:
+`KolkhozCEngineAdapter.init` and `newGame`:
 
 - Make one human and three AI players.
 - Randomize initial lead and trump selector.
@@ -113,19 +113,17 @@ Built-in presets are `kolkhoz`, `littleKolkhoz`, `campStyle`, and `custom`.
 - Reveal one job per suit.
 - Set `isFamine` when `year == 5`.
 - Deal 5 cards per player in normal years or 4 in famine.
-- Process any automatic AI planning/trick/assignment actions.
+- Process any automatic AI planning/trick/assignment actions in the C engine.
 
 ### Playing a Card
 
 ```swift
-let card = state.players[playerID].hand.remove(at: cardIndex)
-state.currentTrick.append(TrickPlay(playerID: playerID, card: card))
-animationEvents.append(.cardPlayed(...))
+try engine.apply(KolkhozEngineAction(kind: .playCard, playerID: ..., card: ...))
 ```
 
-When the trick reaches `state.numPlayers`, `resolveCurrentTrick()` sets `lastWinner`,
-copies `currentTrick` to `lastTrick`, increments `trickCount`, updates `lead`, awards a
-medal, and enters `assignment`.
+When the trick reaches `state.numPlayers`, the C engine sets `lastWinner`, copies
+`currentTrick` to `lastTrick`, increments `trickCount`, updates `lead`, awards a medal,
+and enters `assignment`.
 
 ### Assigning Work
 
@@ -136,7 +134,7 @@ state.pendingAssignments[card.id] = targetSuit
 ```
 
 Legal assignment targets are the suits present in `lastTrick`. A trick card may be
-assigned to any of those suits. This is intentionally the Swift app behavior; do not use
+assigned to any of those suits. This is intentionally the current C/app behavior; do not use
 the older "trump can go anywhere, non-trump to own suit" rule when working on the app.
 
 Submitting assignments adds each card to `jobBuckets[targetSuit]` and adds work hours.
@@ -208,12 +206,13 @@ guard legalTargets.contains(suit),
 
 ### Game Over
 
-After requisition in year 5, `transitionToNextYear()` increments `year` to 6 and calls
-`finishGame()`, which sets `phase = .gameOver` and stores `gameResult`.
+After requisition in year 5, the engine transitions past year 5, sets
+`phase = .gameOver`, and stores `gameResult`.
 
 ## Debugging Tips
 
-Log from `KolkhozEngine` or inspect `GameStore.state`:
+Inspect `KolkhozCEngineAdapter.snapshot`, `KolkhozCEngineAdapter.state`, online session
+updates, or `GameStore.state`:
 
 ```swift
 print("Year:", state.year, "Phase:", state.phase)

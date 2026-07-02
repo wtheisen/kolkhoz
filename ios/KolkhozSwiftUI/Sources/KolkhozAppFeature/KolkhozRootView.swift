@@ -5,6 +5,7 @@ public struct KolkhozRootView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var store: GameStore
     @State private var showingLobby: Bool
+    @State private var showingOnlineLobby = false
     @State private var selectedPreset: GamePreset = .kolkhoz
     @State private var customVariants = GameVariants.kolkhoz
     @State private var playerControllers = PlayerController.defaultControllers
@@ -43,8 +44,11 @@ public struct KolkhozRootView: View {
                         customVariants: $customVariants,
                         playerControllers: $playerControllers,
                         showingRules: $showingRules,
+                        showingOnline: $showingOnlineLobby,
                         onTutorial: showTutorial,
-                        onStart: startGame
+                        onStart: startGame,
+                        onHostOnline: hostOnlineGame,
+                        onJoinOnline: joinOnlineGame
                     )
                 } else {
                     GameBoardView(
@@ -73,6 +77,12 @@ public struct KolkhozRootView: View {
         .environment(\.toggleKolkhozReadability, toggleReadability)
         .preferredColorScheme(appearance.colorScheme)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: showingTutorial)
+        .task(id: store.onlineSessionID) {
+            await pollOnlineGame()
+        }
+        .task {
+            await runOnlineStressIfRequested()
+        }
     }
 
     private var language: KolkhozLanguage {
@@ -93,12 +103,36 @@ public struct KolkhozRootView: View {
 
     private func startGame() {
         store.newGame(variants: activeVariants, controllers: playerControllers)
+        showingOnlineLobby = false
         showingLobby = false
     }
 
     private func returnToLobby() {
+        store.leaveOnlineGame()
         showingRules = false
+        showingOnlineLobby = false
         showingLobby = true
+    }
+
+    private func hostOnlineGame(baseURL: URL, controllers: [PlayerController]) async throws -> String {
+        let code = try await store.hostOnlineGame(baseURL: baseURL, variants: activeVariants, controllers: controllers)
+        showingOnlineLobby = false
+        showingLobby = false
+        return code
+    }
+
+    private func joinOnlineGame(baseURL: URL, inviteCode: String, preferredPlayerID: Int32?) async throws {
+        try await store.joinOnlineGame(baseURL: baseURL, inviteCode: inviteCode, preferredPlayerID: preferredPlayerID)
+        showingOnlineLobby = false
+        showingLobby = false
+    }
+
+    private func pollOnlineGame() async {
+        guard store.onlineSessionID != nil else { return }
+        while !Task.isCancelled, store.onlineSessionID != nil {
+            await store.refreshOnlineGame()
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
     }
 
     private func showTutorial() {
@@ -115,6 +149,22 @@ public struct KolkhozRootView: View {
 
     private func toggleReadability() {
         readabilityRawValue = storedReadability.next.rawValue
+    }
+
+    private func runOnlineStressIfRequested() async {
+        #if DEBUG
+        guard let baseURL = ProcessInfo.processInfo.environment["KOLKHOZ_ONLINE_STRESS_URL"].flatMap(URL.init(string:)) else {
+            return
+        }
+        let maxActions = ProcessInfo.processInfo.environment["KOLKHOZ_ONLINE_STRESS_ACTIONS"].flatMap(Int.init) ?? 24
+        let seed = ProcessInfo.processInfo.environment["KOLKHOZ_ONLINE_STRESS_SEED"].flatMap(UInt64.init) ?? 20260702
+        do {
+            let result = try await KolkhozOnlineStressRunner.run(baseURL: baseURL, seed: seed, maxActions: maxActions)
+            print("KolkhozOnlineStress: PASS session=\(result.sessionID.uuidString) player=\(result.playerID) submitted=\(result.submittedActions) actionLogCount=\(result.actionLogCount) phase=\(result.phase)")
+        } catch {
+            print("KolkhozOnlineStress: FAIL \(error)")
+        }
+        #endif
     }
 }
 

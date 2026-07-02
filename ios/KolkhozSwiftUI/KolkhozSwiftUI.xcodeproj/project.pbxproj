@@ -7,9 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		009095A86A951C1CA4430C26 /* KolkhozEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB9E684E958020AC615CD8F4 /* KolkhozEngine.swift */; };
 		01B708329DC8BDC8F6E72C3A /* icon-year-1.png in Resources */ = {isa = PBXBuildFile; fileRef = 9C947367DE8D7C26EFBA7EF8 /* icon-year-1.png */; };
 		01C0936C5127EAD34F78F0EE /* handjet-b2-11px.png in Resources */ = {isa = PBXBuildFile; fileRef = 320A2DD0041CFED725B99904 /* handjet-b2-11px.png */; };
+		021C381768727240E8BF1D6A /* KolkhozHeadlessEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE97AF4F1DEF75BBC392C409 /* KolkhozHeadlessEngine.swift */; };
 		023DAC77E00D507868B966EA /* PixelText.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECF8B2CB8368D149C8313224 /* PixelText.swift */; };
 		02479D9050B6C9C9C814386E /* art-official-crop-seal.png in Resources */ = {isa = PBXBuildFile; fileRef = B7F2EA18EF28D69529AA60D6 /* art-official-crop-seal.png */; };
 		0479F5861D40E435B0ECED24 /* handjet-b2-20px.json in Resources */ = {isa = PBXBuildFile; fileRef = B274367D9D1D750229C03593 /* handjet-b2-20px.json */; };
@@ -18,7 +18,6 @@
 		0681A7BACC9D4FE98710EC15 /* icon-panel-brigade.png in Resources */ = {isa = PBXBuildFile; fileRef = 38A34E4D3174D5949F2835F2 /* icon-panel-brigade.png */; };
 		07CEEB46927DEA0C286D7EF7 /* face-king.png in Resources */ = {isa = PBXBuildFile; fileRef = B1A1549A10EFB6CDB9848F13 /* face-king.png */; };
 		0979CDB510929A450E9E3C4E /* Handjet.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 17120E8A6ED60B30D5718F86 /* Handjet.ttf */; };
-		0BB5E67DF4F9C9ECD48004A3 /* kolkhoz_policy.json in Resources */ = {isa = PBXBuildFile; fileRef = 0664B11D9EBE4F6118330550 /* kolkhoz_policy.json */; };
 		0C1A2665A948C782643AE593 /* face-queen-nomenklatura-draft-v2.png in Resources */ = {isa = PBXBuildFile; fileRef = 420DD576402D92F7F3F00F7A /* face-queen-nomenklatura-draft-v2.png */; };
 		0E72E0DBCB72308F52080779 /* icon-wheat.png in Resources */ = {isa = PBXBuildFile; fileRef = F7F21E011F34E1EE7CCF5084 /* icon-wheat.png */; };
 		0E91926C2B0D76CD81221935 /* icon-year-5.png in Resources */ = {isa = PBXBuildFile; fileRef = F7455EAEDE1BBA37E68CC7FF /* icon-year-5.png */; };
@@ -33,12 +32,14 @@
 		19E8DB9F64B6F2D38947C683 /* icon-basic-ai.png in Resources */ = {isa = PBXBuildFile; fileRef = F1E4D224FC3C0080A5C4F2A1 /* icon-basic-ai.png */; };
 		1AF5E9B92F26645C6B5CB8D7 /* card-template-dark.png in Resources */ = {isa = PBXBuildFile; fileRef = 1C0D2F61AC0DE28A6E08EABB /* card-template-dark.png */; };
 		1B271A494F1835055B530C0B /* handjet-b4-24px.json in Resources */ = {isa = PBXBuildFile; fileRef = F2C8CB9574F3026FEBC8A131 /* handjet-b4-24px.json */; };
+		1C3575A9AD1A56DEE4EEB686 /* OnlineLobbyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DF6F46C1378ECCAB2A6E74A /* OnlineLobbyView.swift */; };
 		1D39E5C5E02107E493DCCBA9 /* icon-pass-device.png in Resources */ = {isa = PBXBuildFile; fileRef = AE0B306646ADC4E7B6E4DC8F /* icon-pass-device.png */; };
 		1E39AC8F694B47B4070E95EA /* handjet-b2-17px.json in Resources */ = {isa = PBXBuildFile; fileRef = 607D59BDB855F372B0656B1C /* handjet-b2-17px.json */; };
 		1EE5026B63928D94F9D5FE2C /* icon-check.png in Resources */ = {isa = PBXBuildFile; fileRef = 7703710E3EDEAAE27C2754E4 /* icon-check.png */; };
 		204E33F099E12A417FC1EFA6 /* handjet-b4-20px.json in Resources */ = {isa = PBXBuildFile; fileRef = 785DB2A841CC934226759C8E /* handjet-b4-20px.json */; };
 		235AA17320874B4988451D39 /* icon-language.png in Resources */ = {isa = PBXBuildFile; fileRef = 2621E300EBD53648B593CC65 /* icon-language.png */; };
 		2422633FCD7109CAE11CA0F6 /* PlayAreaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAAB9E55F15F81752461E830 /* PlayAreaView.swift */; };
+		25EDD8D829FF398A46953EF3 /* KolkhozOnlineHTTPRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80145021F2F49D14E489EA1F /* KolkhozOnlineHTTPRouter.swift */; };
 		2695003C22192FDECB20E3A2 /* BrigadeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECC8CFE383E459008840E06A /* BrigadeView.swift */; };
 		272B5D4CD2C8DCC45279E5F3 /* ui-play-area-separator-horizontal-tile.png in Resources */ = {isa = PBXBuildFile; fileRef = E46666BBE0BEF4AE2C56997C /* ui-play-area-separator-horizontal-tile.png */; };
 		28C43D5F494164CCD62C5D6C /* art-rules-divider.png in Resources */ = {isa = PBXBuildFile; fileRef = 9060B7F19D3B6CB5269DA92C /* art-rules-divider.png */; };
@@ -46,6 +47,7 @@
 		2F35E54489A62C6A1529955B /* handjet-b2-13px.png in Resources */ = {isa = PBXBuildFile; fileRef = 0474B5B5C4F50AD8EE916F34 /* handjet-b2-13px.png */; };
 		300704FACA60E12EA8ED9811 /* icon-status-vulnerable.png in Resources */ = {isa = PBXBuildFile; fileRef = 36ECE61190132E46CC37048A /* icon-status-vulnerable.png */; };
 		31B7942533188044E658A940 /* face-queen-wheat.png in Resources */ = {isa = PBXBuildFile; fileRef = 1968033CC48C3DDB563877F1 /* face-queen-wheat.png */; };
+		359A02CC9F05F5CAC47DDCB2 /* KolkhozOnlineSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC322CCFB17E743C17A5CDC /* KolkhozOnlineSession.swift */; };
 		36B43FA46C19135C74ABD770 /* icon-status-protected.png in Resources */ = {isa = PBXBuildFile; fileRef = 4FC59DCD845B8EAA31DD0FAA /* icon-status-protected.png */; };
 		37ACCCEDBE11CF019CEDCE3C /* icon-crop-seal.png in Resources */ = {isa = PBXBuildFile; fileRef = 3C3BF3E98A751AC536748F72 /* icon-crop-seal.png */; };
 		39264F318AC8F732BF409843 /* icon-trump-sunflower.png in Resources */ = {isa = PBXBuildFile; fileRef = 1755D278C6DB7F8247BD4584 /* icon-trump-sunflower.png */; };
@@ -111,12 +113,14 @@
 		8EA53297AC1D906FF7007152 /* art-pass-device-placard.png in Resources */ = {isa = PBXBuildFile; fileRef = DAE31DC1CE108C26572ECAEE /* art-pass-device-placard.png */; };
 		9138151135B519E1F667020A /* icon-panel-jobs.png in Resources */ = {isa = PBXBuildFile; fileRef = C26DA4A55B327A08650DEE20 /* icon-panel-jobs.png */; };
 		92B671AACCE658FFF487C42F /* face-jack-beet.png in Resources */ = {isa = PBXBuildFile; fileRef = 3CE9BB3D68AA63448FD44E52 /* face-jack-beet.png */; };
+		92EC256BC22365D208C44A57 /* KolkhozOnlineStressRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59706577EDCFC452F7F77EAD /* KolkhozOnlineStressRunner.swift */; };
 		92F63703F6AEADBC21AC3FDB /* handjet-b2-10px.png in Resources */ = {isa = PBXBuildFile; fileRef = 11FB5D34B4584E05A405B851 /* handjet-b2-10px.png */; };
 		930C89BAE815C71B6ABDE93E /* icon-tutorial-cue-card.png in Resources */ = {isa = PBXBuildFile; fileRef = 8F6A04B3DC06A700B6CC8AE8 /* icon-tutorial-cue-card.png */; };
 		951C2253248623A9BE5A5B7B /* handjet-b2-24px.json in Resources */ = {isa = PBXBuildFile; fileRef = 2FB84C807793957C1C7349D7 /* handjet-b2-24px.json */; };
 		9823443501EA8B4E4881B530 /* icon-neural-badge.png in Resources */ = {isa = PBXBuildFile; fileRef = 2203AB0EF1BEF0AFE7F7961E /* icon-neural-badge.png */; };
 		9A1E2EE014023ACCDAAD634E /* icon-neural-ai.png in Resources */ = {isa = PBXBuildFile; fileRef = B8784DFCACF386D38C9AF520 /* icon-neural-ai.png */; };
 		9A52C0C32A0A848EBD9017BE /* handjet-b2-8px.json in Resources */ = {isa = PBXBuildFile; fileRef = A0F067A217A2BA527DBEE50B /* handjet-b2-8px.json */; };
+		9B8AE9380ACE9726B7AE42B4 /* KolkhozCEngine.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4613CEA60EF63463B6A502DD /* KolkhozCEngine.framework */; };
 		9C6E5DAE9F2C76436C169FB8 /* face-jack-nomenklatura-draft-v2.png in Resources */ = {isa = PBXBuildFile; fileRef = 384DFB950A1A296C1C10CEB9 /* face-jack-nomenklatura-draft-v2.png */; };
 		9DBABF5579BD16BED8439F06 /* card-template-light.png in Resources */ = {isa = PBXBuildFile; fileRef = 829E30BB707E85758A654716 /* card-template-light.png */; };
 		9E02B797498176BB4889FDF1 /* LowerHandBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48B9076D5BB05DBDDE07E30F /* LowerHandBarView.swift */; };
@@ -124,13 +128,15 @@
 		9F329934C49AF0A8823F99DB /* icon-language-en.png in Resources */ = {isa = PBXBuildFile; fileRef = F25303C33CB98D9A81AB5B6B /* icon-language-en.png */; };
 		9F4524FCB551D6E8D78F4B45 /* TutorialScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CF931C55CFF40C96F93C5CF /* TutorialScenario.swift */; };
 		A2703F3DBC7EC7273698899B /* icon-tutorial-cue-tap.png in Resources */ = {isa = PBXBuildFile; fileRef = 08843C1D83BFFF699B3BD501 /* icon-tutorial-cue-tap.png */; };
+		A2BB2FE1B802A803E5A28CF9 /* KolkhozCEngine.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 4613CEA60EF63463B6A502DD /* KolkhozCEngine.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		A597885A972B6BEB2F1AEBDE /* icon-sunflower.png in Resources */ = {isa = PBXBuildFile; fileRef = 1012268298A598A9BEC48A7A /* icon-sunflower.png */; };
 		A62C87E04DCD2E5F9ACCB179 /* face-jack-potato.png in Resources */ = {isa = PBXBuildFile; fileRef = 5BFBE0826F440F4C899574C0 /* face-jack-potato.png */; };
+		A6EF99E9F28B064CC618BEA8 /* KolkhozCEngine.h in Headers */ = {isa = PBXBuildFile; fileRef = 313634FDB8D521250801208F /* KolkhozCEngine.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		A7279A2A9D761BCA60B773DB /* worker1.png in Resources */ = {isa = PBXBuildFile; fileRef = ACD37CBA26F6D18AD3C4F2B5 /* worker1.png */; };
 		A8F0A2F1DA253A48144013D8 /* icon-year-3.png in Resources */ = {isa = PBXBuildFile; fileRef = BC77DF6BEB741BA8D42FC7B9 /* icon-year-3.png */; };
 		A9788656464D622647DCA094 /* KolkhozPreviewFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA49973F5DED16C31B991B4E /* KolkhozPreviewFixtures.swift */; };
 		A9911479F16E32496EACA537 /* NorthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F18259BD442142F3D14DB003 /* NorthView.swift */; };
-		A9C20176B315BBEF2B1B0E78 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 8A79A7968927F465F9BDBB02 /* README.md */; };
+		AB57CC62BF404F438544A5AA /* KolkhozCEngine.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4613CEA60EF63463B6A502DD /* KolkhozCEngine.framework */; };
 		AD0889A99C15AC1E346D2D78 /* icon-hand.png in Resources */ = {isa = PBXBuildFile; fileRef = BFF9E22CA8C47CD3BF7D754E /* icon-hand.png */; };
 		AD30091484C1544CD6FEED6F /* icon-status-brigade-leader.png in Resources */ = {isa = PBXBuildFile; fileRef = 2011E338C816F241A69B9011 /* icon-status-brigade-leader.png */; };
 		AD3A5319159CC2D57CA9A90F /* icon-tutorial-cue-button.png in Resources */ = {isa = PBXBuildFile; fileRef = 7CACF221756D46E73A736488 /* icon-tutorial-cue-button.png */; };
@@ -178,8 +184,8 @@
 		E483208CCDF40D99C4B03AB6 /* face-jack-wheat.png in Resources */ = {isa = PBXBuildFile; fileRef = 0A771F7294DF8CFB6D8D48D2 /* face-jack-wheat.png */; };
 		E4ABBE34FBA34B03AAA0D4FE /* face-jack-sunflower.png in Resources */ = {isa = PBXBuildFile; fileRef = D8C3E03B4D3A2818C98AB33F /* face-jack-sunflower.png */; };
 		E60771F8018977474AE80528 /* TopInfoBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 384E9885D173340AF8A20C09 /* TopInfoBarView.swift */; };
-		E74C64635357D4508C17ADD7 /* KolkhozAI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2134A52C94B990190A446A /* KolkhozAI.swift */; };
 		E77E17999F2920F7ACEF0623 /* worker3.png in Resources */ = {isa = PBXBuildFile; fileRef = 2D69FD4E20951A050FB85505 /* worker3.png */; };
+		E87841849E7B729B0153AC71 /* KolkhozCEngine.c in Sources */ = {isa = PBXBuildFile; fileRef = B912E604D22958B8A39959D3 /* KolkhozCEngine.c */; };
 		EF8A15C8D0BB2E0A4AF2E0EC /* icon-menu.png in Resources */ = {isa = PBXBuildFile; fileRef = 843F04575378B0D40082CE69 /* icon-menu.png */; };
 		EFE6CD9E816852B3C1A7CB9F /* BoardPortraits.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6D50F2D6B8F6900F958BE28 /* BoardPortraits.swift */; };
 		F25D46429BEDCB303A20AA98 /* KolkhozCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2C4F206F7C8F281B4BC5E /* KolkhozCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -203,6 +209,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = B9B1F9D9B94B2F335C0D2392;
 			remoteInfo = KolkhozCore;
+		};
+		B400500490B22E774D8FD9FF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5EFB5AF5E972F5F86616BD55 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F19BD0594687EA43C3C35826;
+			remoteInfo = KolkhozCEngine;
+		};
+		C66283E41A405382A640A9EC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5EFB5AF5E972F5F86616BD55 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F19BD0594687EA43C3C35826;
+			remoteInfo = KolkhozCEngine;
 		};
 		D2E035EA8B41E7F20BBCAF50 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -229,6 +249,7 @@
 			files = (
 				B01BE6D48E00B11B74C05AD6 /* KolkhozAppFeature.framework in Embed Frameworks */,
 				F25D46429BEDCB303A20AA98 /* KolkhozCore.framework in Embed Frameworks */,
+				A2BB2FE1B802A803E5A28CF9 /* KolkhozCEngine.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -239,7 +260,6 @@
 		0474B5B5C4F50AD8EE916F34 /* handjet-b2-13px.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "handjet-b2-13px.png"; sourceTree = "<group>"; };
 		04AD33A04036A1E12F36B4E6 /* Handjet-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Handjet-OFL.txt"; sourceTree = "<group>"; };
 		05088A53A9ED303E587DFAE8 /* GameStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameStore.swift; sourceTree = "<group>"; };
-		0664B11D9EBE4F6118330550 /* kolkhoz_policy.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = kolkhoz_policy.json; sourceTree = "<group>"; };
 		07469EFD3D14FAB64DDB3A7F /* face-king-nomenklatura-draft-v2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "face-king-nomenklatura-draft-v2.png"; sourceTree = "<group>"; };
 		08843C1D83BFFF699B3BD501 /* icon-tutorial-cue-tap.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-tutorial-cue-tap.png"; sourceTree = "<group>"; };
 		0930CF641879974D49185625 /* face-king-wheat.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "face-king-wheat.png"; sourceTree = "<group>"; };
@@ -273,9 +293,11 @@
 		2621E300EBD53648B593CC65 /* icon-language.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-language.png"; sourceTree = "<group>"; };
 		2B91802E9C1E5CE273EC3321 /* ui-left-rail-separator.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ui-left-rail-separator.png"; sourceTree = "<group>"; };
 		2D69FD4E20951A050FB85505 /* worker3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = worker3.png; sourceTree = "<group>"; };
+		2EC322CCFB17E743C17A5CDC /* KolkhozOnlineSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KolkhozOnlineSession.swift; sourceTree = "<group>"; };
 		2F57899B158A92AB44FFAB74 /* plot-empty-pixel.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "plot-empty-pixel.png"; sourceTree = "<group>"; };
 		2F7D3896B7FAC3453843F241 /* icon-north.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-north.png"; sourceTree = "<group>"; };
 		2FB84C807793957C1C7349D7 /* handjet-b2-24px.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "handjet-b2-24px.json"; sourceTree = "<group>"; };
+		313634FDB8D521250801208F /* KolkhozCEngine.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = KolkhozCEngine.h; sourceTree = "<group>"; };
 		320A2DD0041CFED725B99904 /* handjet-b2-11px.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "handjet-b2-11px.png"; sourceTree = "<group>"; };
 		3431F0D0D52B523283DB8139 /* icon-cellar.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-cellar.png"; sourceTree = "<group>"; };
 		36ECE61190132E46CC37048A /* icon-status-vulnerable.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-status-vulnerable.png"; sourceTree = "<group>"; };
@@ -292,6 +314,7 @@
 		42A0420F2DF73C27370738C3 /* art-tutorial-foreman.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "art-tutorial-foreman.png"; sourceTree = "<group>"; };
 		44DD336A910D04C8D7B61DC7 /* handjet-b4-17px.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "handjet-b4-17px.json"; sourceTree = "<group>"; };
 		45A2A3DFA67A49A8710BE9D2 /* card-back-icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "card-back-icon.png"; sourceTree = "<group>"; };
+		4613CEA60EF63463B6A502DD /* KolkhozCEngine.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = KolkhozCEngine.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		484C0D85A871AB0DD780200A /* PhaseOverlayViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhaseOverlayViews.swift; sourceTree = "<group>"; };
 		48B9076D5BB05DBDDE07E30F /* LowerHandBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LowerHandBarView.swift; sourceTree = "<group>"; };
 		4BBF1BB0BC2AEE6BBEE302BB /* face-queen-potato.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "face-queen-potato.png"; sourceTree = "<group>"; };
@@ -302,6 +325,7 @@
 		545A683BF12036932ABC8A4F /* Controls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Controls.swift; sourceTree = "<group>"; };
 		56C8D8E2B98D57401EB14EEE /* art-north-requisition-banner.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "art-north-requisition-banner.png"; sourceTree = "<group>"; };
 		5921749D34F22686232F267A /* iphone17promax-left-gutter-infill-dark.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "iphone17promax-left-gutter-infill-dark.png"; sourceTree = "<group>"; };
+		59706577EDCFC452F7F77EAD /* KolkhozOnlineStressRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KolkhozOnlineStressRunner.swift; sourceTree = "<group>"; };
 		5BFBE0826F440F4C899574C0 /* face-jack-potato.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "face-jack-potato.png"; sourceTree = "<group>"; };
 		5F717E7FF766E092C2ADB236 /* icon-jobs.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-jobs.png"; sourceTree = "<group>"; };
 		607D59BDB855F372B0656B1C /* handjet-b2-17px.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "handjet-b2-17px.json"; sourceTree = "<group>"; };
@@ -326,6 +350,7 @@
 		7CACF221756D46E73A736488 /* icon-tutorial-cue-button.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-tutorial-cue-button.png"; sourceTree = "<group>"; };
 		7DE3AAB07739E254E6A2B27A /* art-neural-bureau-strip.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "art-neural-bureau-strip.png"; sourceTree = "<group>"; };
 		7E5AD46DDAFE2728AA104CEF /* ui-nav-button-active-current.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ui-nav-button-active-current.png"; sourceTree = "<group>"; };
+		80145021F2F49D14E489EA1F /* KolkhozOnlineHTTPRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KolkhozOnlineHTTPRouter.swift; sourceTree = "<group>"; };
 		829E30BB707E85758A654716 /* card-template-light.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "card-template-light.png"; sourceTree = "<group>"; };
 		838FF49BF2A685FAEE463066 /* icon-language-ru.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-language-ru.png"; sourceTree = "<group>"; };
 		843F04575378B0D40082CE69 /* icon-menu.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-menu.png"; sourceTree = "<group>"; };
@@ -334,8 +359,8 @@
 		87339A6A3949A14B042D6505 /* ui-header-counter.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ui-header-counter.png"; sourceTree = "<group>"; };
 		88C0E82D9150A7C89A4F64D4 /* handjet-b2-24px.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "handjet-b2-24px.png"; sourceTree = "<group>"; };
 		8913B1E6569C46E5411B71EC /* KolkhozSwiftUIApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = KolkhozSwiftUIApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		8A79A7968927F465F9BDBB02 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		8D64B7E7F96B0617111D9E58 /* handjet-b4-11px.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "handjet-b4-11px.png"; sourceTree = "<group>"; };
+		8DF6F46C1378ECCAB2A6E74A /* OnlineLobbyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnlineLobbyView.swift; sourceTree = "<group>"; };
 		8F6A04B3DC06A700B6CC8AE8 /* icon-tutorial-cue-card.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-tutorial-cue-card.png"; sourceTree = "<group>"; };
 		9060B7F19D3B6CB5269DA92C /* art-rules-divider.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "art-rules-divider.png"; sourceTree = "<group>"; };
 		926ED4CD77CA59648C87068F /* icon-trump-beet.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-trump-beet.png"; sourceTree = "<group>"; };
@@ -371,6 +396,7 @@
 		B7C6E1693FAFCC94B345E504 /* art-famine-banner.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "art-famine-banner.png"; sourceTree = "<group>"; };
 		B7F2EA18EF28D69529AA60D6 /* art-official-crop-seal.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "art-official-crop-seal.png"; sourceTree = "<group>"; };
 		B8784DFCACF386D38C9AF520 /* icon-neural-ai.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-neural-ai.png"; sourceTree = "<group>"; };
+		B912E604D22958B8A39959D3 /* KolkhozCEngine.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = KolkhozCEngine.c; sourceTree = "<group>"; };
 		BC175902411ECA607462F28C /* handjet-b4-13px.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "handjet-b4-13px.png"; sourceTree = "<group>"; };
 		BC77DF6BEB741BA8D42FC7B9 /* icon-year-3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-year-3.png"; sourceTree = "<group>"; };
 		BD68D846080B686D885F8781 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -395,12 +421,12 @@
 		D673D9C96E0E87718F649A81 /* icon-potato.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-potato.png"; sourceTree = "<group>"; };
 		D8C3E03B4D3A2818C98AB33F /* face-jack-sunflower.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "face-jack-sunflower.png"; sourceTree = "<group>"; };
 		DAE31DC1CE108C26572ECAEE /* art-pass-device-placard.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "art-pass-device-placard.png"; sourceTree = "<group>"; };
+		DE97AF4F1DEF75BBC392C409 /* KolkhozHeadlessEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KolkhozHeadlessEngine.swift; sourceTree = "<group>"; };
 		E26F07B5CF79BE395E2DC58D /* icon-rules-scroll.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-rules-scroll.png"; sourceTree = "<group>"; };
 		E455947B164FAF724B565EB2 /* icon-status-reward-claimed.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-status-reward-claimed.png"; sourceTree = "<group>"; };
 		E46666BBE0BEF4AE2C56997C /* ui-play-area-separator-horizontal-tile.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ui-play-area-separator-horizontal-tile.png"; sourceTree = "<group>"; };
 		E5AB5B97103EC953BB97E015 /* icon-brigade.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-brigade.png"; sourceTree = "<group>"; };
 		E97FAA6E6A20A45139444BA0 /* icon-requisition-north.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-requisition-north.png"; sourceTree = "<group>"; };
-		EB9E684E958020AC615CD8F4 /* KolkhozEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KolkhozEngine.swift; sourceTree = "<group>"; };
 		ECC8CFE383E459008840E06A /* BrigadeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrigadeView.swift; sourceTree = "<group>"; };
 		ECF8B2CB8368D149C8313224 /* PixelText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelText.swift; sourceTree = "<group>"; };
 		EDEB3E26D8704A314084A3E3 /* icon-trump-wheat.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-trump-wheat.png"; sourceTree = "<group>"; };
@@ -416,7 +442,6 @@
 		F7F21E011F34E1EE7CCF5084 /* icon-wheat.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-wheat.png"; sourceTree = "<group>"; };
 		FA49973F5DED16C31B991B4E /* KolkhozPreviewFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KolkhozPreviewFixtures.swift; sourceTree = "<group>"; };
 		FA874756A254A2A264C72E3C /* icon-famine.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-famine.png"; sourceTree = "<group>"; };
-		FB2134A52C94B990190A446A /* KolkhozAI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KolkhozAI.swift; sourceTree = "<group>"; };
 		FB77B7025434491A131AC7CB /* icon-medal-star.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-medal-star.png"; sourceTree = "<group>"; };
 		FBB470F8EA304C041D2FD6DB /* ui-play-area-separator-horizontal.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ui-play-area-separator-horizontal.png"; sourceTree = "<group>"; };
 		FBE44B936EA3BECCB2E821CF /* icon-plot.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-plot.png"; sourceTree = "<group>"; };
@@ -438,6 +463,15 @@
 			files = (
 				66CB9498F3C23909FCAA3244 /* KolkhozAppFeature.framework in Frameworks */,
 				B5BB580EDBED963491976F4D /* KolkhozCore.framework in Frameworks */,
+				9B8AE9380ACE9726B7AE42B4 /* KolkhozCEngine.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC633189A50E21E8207BAEA4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AB57CC62BF404F438544A5AA /* KolkhozCEngine.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -448,19 +482,11 @@
 			isa = PBXGroup;
 			children = (
 				915C243F593CF0442AF14FDF /* KolkhozAppFeature */,
+				C0C2DE1689895241798E77DE /* KolkhozCEngine */,
 				4343A92EF3388146A82362B6 /* KolkhozCore */,
 				497C6D7FF3EF4870F89EA7E1 /* KolkhozSwiftUIApp */,
 				5FF44FB916DF611639D7BD29 /* Products */,
 			);
-			sourceTree = "<group>";
-		};
-		1F620291C8B744B6CBC1D2FA /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				0664B11D9EBE4F6118330550 /* kolkhoz_policy.json */,
-				8A79A7968927F465F9BDBB02 /* README.md */,
-			);
-			path = Resources;
 			sourceTree = "<group>";
 		};
 		222D1F0A7D25629B61E77A2C /* Embellishments */ = {
@@ -506,10 +532,10 @@
 		4343A92EF3388146A82362B6 /* KolkhozCore */ = {
 			isa = PBXGroup;
 			children = (
-				FB2134A52C94B990190A446A /* KolkhozAI.swift */,
-				EB9E684E958020AC615CD8F4 /* KolkhozEngine.swift */,
+				DE97AF4F1DEF75BBC392C409 /* KolkhozHeadlessEngine.swift */,
+				80145021F2F49D14E489EA1F /* KolkhozOnlineHTTPRouter.swift */,
+				2EC322CCFB17E743C17A5CDC /* KolkhozOnlineSession.swift */,
 				0BD0FEBD88DBCB5FC39CB1C0 /* Models.swift */,
-				1F620291C8B744B6CBC1D2FA /* Resources */,
 			);
 			name = KolkhozCore;
 			path = Sources/KolkhozCore;
@@ -540,6 +566,7 @@
 			isa = PBXGroup;
 			children = (
 				A83B6797651B683D7D815A64 /* KolkhozAppFeature.framework */,
+				4613CEA60EF63463B6A502DD /* KolkhozCEngine.framework */,
 				C3C2C4F206F7C8F281B4BC5E /* KolkhozCore.framework */,
 				8913B1E6569C46E5411B71EC /* KolkhozSwiftUIApp.app */,
 			);
@@ -710,6 +737,7 @@
 			isa = PBXGroup;
 			children = (
 				05088A53A9ED303E587DFAE8 /* GameStore.swift */,
+				59706577EDCFC452F7F77EAD /* KolkhozOnlineStressRunner.swift */,
 				61BE5EFD345ECC0CD73A8118 /* KolkhozRootView.swift */,
 				F613675F0903AEC2CFCDA9B6 /* Board */,
 				2FC796AA43FB8827B20869F2 /* Cards */,
@@ -723,12 +751,31 @@
 			path = Sources/KolkhozAppFeature;
 			sourceTree = "<group>";
 		};
+		98493DB8AAA6B478A4982AF9 /* include */ = {
+			isa = PBXGroup;
+			children = (
+				313634FDB8D521250801208F /* KolkhozCEngine.h */,
+			);
+			path = include;
+			sourceTree = "<group>";
+		};
 		B21BD70ED82B11C48A63DA5A /* Lobby */ = {
 			isa = PBXGroup;
 			children = (
 				0DB85EE2DB6D3F796D3DB164 /* LobbyView.swift */,
+				8DF6F46C1378ECCAB2A6E74A /* OnlineLobbyView.swift */,
 			);
 			path = Lobby;
+			sourceTree = "<group>";
+		};
+		C0C2DE1689895241798E77DE /* KolkhozCEngine */ = {
+			isa = PBXGroup;
+			children = (
+				B912E604D22958B8A39959D3 /* KolkhozCEngine.c */,
+				98493DB8AAA6B478A4982AF9 /* include */,
+			);
+			name = KolkhozCEngine;
+			path = Sources/KolkhozCEngine;
 			sourceTree = "<group>";
 		};
 		CED8B00C036C9AD9E44A36C5 /* PreviewSupport */ = {
@@ -776,6 +823,17 @@
 		};
 /* End PBXGroup section */
 
+/* Begin PBXHeadersBuildPhase section */
+		2C0B338FC6D5683350B74F22 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A6EF99E9F28B064CC618BEA8 /* KolkhozCEngine.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
 /* Begin PBXNativeTarget section */
 		439551A8BFB96619FE6C38F3 /* KolkhozAppFeature */ = {
 			isa = PBXNativeTarget;
@@ -802,11 +860,12 @@
 			buildConfigurationList = E36DEF20B0B02C280CE876EB /* Build configuration list for PBXNativeTarget "KolkhozCore" */;
 			buildPhases = (
 				96940582E3DF155D48527B77 /* Sources */,
-				6842DE8DE7440C8F4DCEE277 /* Resources */,
+				FC633189A50E21E8207BAEA4 /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				2AC64183E7FD6CC4BB53541F /* PBXTargetDependency */,
 			);
 			name = KolkhozCore;
 			packageProductDependencies = (
@@ -829,6 +888,7 @@
 			dependencies = (
 				EFA467F84C524735EA66B492 /* PBXTargetDependency */,
 				D8C30F189814917B2083F0A9 /* PBXTargetDependency */,
+				D6ED206F99708416A038E493 /* PBXTargetDependency */,
 			);
 			name = KolkhozSwiftUIApp;
 			packageProductDependencies = (
@@ -836,6 +896,24 @@
 			productName = KolkhozSwiftUIApp;
 			productReference = 8913B1E6569C46E5411B71EC /* KolkhozSwiftUIApp.app */;
 			productType = "com.apple.product-type.application";
+		};
+		F19BD0594687EA43C3C35826 /* KolkhozCEngine */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 24A1CC0B7B85C26FB14BDFBC /* Build configuration list for PBXNativeTarget "KolkhozCEngine" */;
+			buildPhases = (
+				2C0B338FC6D5683350B74F22 /* Headers */,
+				1BABDB32D701042DF841354B /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KolkhozCEngine;
+			packageProductDependencies = (
+			);
+			productName = KolkhozCEngine;
+			productReference = 4613CEA60EF63463B6A502DD /* KolkhozCEngine.framework */;
+			productType = "com.apple.product-type.framework";
 		};
 /* End PBXNativeTarget section */
 
@@ -863,6 +941,7 @@
 			projectRoot = "";
 			targets = (
 				439551A8BFB96619FE6C38F3 /* KolkhozAppFeature */,
+				F19BD0594687EA43C3C35826 /* KolkhozCEngine */,
 				B9B1F9D9B94B2F335C0D2392 /* KolkhozCore */,
 				BEE6AEC3B27370EC85D09BE6 /* KolkhozSwiftUIApp */,
 			);
@@ -870,15 +949,6 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		6842DE8DE7440C8F4DCEE277 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				A9C20176B315BBEF2B1B0E78 /* README.md in Resources */,
-				0BB5E67DF4F9C9ECD48004A3 /* kolkhoz_policy.json in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		E1E4457FBB1AF0CC40A16909 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1043,6 +1113,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		1BABDB32D701042DF841354B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E87841849E7B729B0153AC71 /* KolkhozCEngine.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		3F9A3DAA122A64D85A8F4B82 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1066,6 +1144,7 @@
 				BA89724637A3B4100E9312F5 /* JobsView.swift in Sources */,
 				18CC9209EA946C4599403E8E /* KolkhozAppearance.swift in Sources */,
 				FF66C45B16B8365E000BE106 /* KolkhozLocalization.swift in Sources */,
+				92EC256BC22365D208C44A57 /* KolkhozOnlineStressRunner.swift in Sources */,
 				B25A7E68FA0C246FA704D8E6 /* KolkhozPreviewCatalog.swift in Sources */,
 				A9788656464D622647DCA094 /* KolkhozPreviewFixtures.swift in Sources */,
 				E0283D85589B2905AD795748 /* KolkhozReadability.swift in Sources */,
@@ -1075,6 +1154,7 @@
 				AF7C26BA067016B423D7C1A7 /* LobbyView.swift in Sources */,
 				9E02B797498176BB4889FDF1 /* LowerHandBarView.swift in Sources */,
 				A9911479F16E32496EACA537 /* NorthView.swift in Sources */,
+				1C3575A9AD1A56DEE4EEB686 /* OnlineLobbyView.swift in Sources */,
 				D84BC1B738D760C72E0DCAC3 /* OptionsPanel.swift in Sources */,
 				843F868DF5EB98CB971A3515 /* PhaseOverlayViews.swift in Sources */,
 				023DAC77E00D507868B966EA /* PixelText.swift in Sources */,
@@ -1091,8 +1171,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E74C64635357D4508C17ADD7 /* KolkhozAI.swift in Sources */,
-				009095A86A951C1CA4430C26 /* KolkhozEngine.swift in Sources */,
+				021C381768727240E8BF1D6A /* KolkhozHeadlessEngine.swift in Sources */,
+				25EDD8D829FF398A46953EF3 /* KolkhozOnlineHTTPRouter.swift in Sources */,
+				359A02CC9F05F5CAC47DDCB2 /* KolkhozOnlineSession.swift in Sources */,
 				DD396E6936F0D90B2818C542 /* Models.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1100,10 +1181,20 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		2AC64183E7FD6CC4BB53541F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F19BD0594687EA43C3C35826 /* KolkhozCEngine */;
+			targetProxy = C66283E41A405382A640A9EC /* PBXContainerItemProxy */;
+		};
 		C60FC7A22CBDDB2A96A00030 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = B9B1F9D9B94B2F335C0D2392 /* KolkhozCore */;
 			targetProxy = D2E035EA8B41E7F20BBCAF50 /* PBXContainerItemProxy */;
+		};
+		D6ED206F99708416A038E493 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F19BD0594687EA43C3C35826 /* KolkhozCEngine */;
+			targetProxy = B400500490B22E774D8FD9FF /* PBXContainerItemProxy */;
 		};
 		D8C30F189814917B2083F0A9 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1204,6 +1295,29 @@
 			};
 			name = Release;
 		};
+		13A7FF7F579926D5A05F42F5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				GENERATE_INFOPLIST_FILE = YES;
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.williamtheisen.kolkhoz.cengine;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
 		2D8F052FF3BC16D54A722003 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1226,6 +1340,29 @@
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
+		};
+		7F201FF9ABF7F5E0F698674D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				GENERATE_INFOPLIST_FILE = YES;
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.williamtheisen.kolkhoz.cengine;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
 		};
 		8718E997BF80752A4FEF29CB /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -1364,6 +1501,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		24A1CC0B7B85C26FB14BDFBC /* Build configuration list for PBXNativeTarget "KolkhozCEngine" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7F201FF9ABF7F5E0F698674D /* Debug */,
+				13A7FF7F579926D5A05F42F5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		4DDA47E832FBDA6974681EA3 /* Build configuration list for PBXProject "KolkhozSwiftUI" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

@@ -1,0 +1,103 @@
+{
+  "contractVersion": 1,
+  "engineBoundary": {
+    "snapshotRevision": 1,
+    "actionRevision": 1,
+    "source": "fixture",
+    "actionLogCount": 9,
+    "redacted": false
+  },
+  "viewer": {
+    "seatID": 0,
+    "isOnline": false,
+    "privacyMode": "none",
+    "connection": "offline"
+  },
+  "table": {
+    "year": 2,
+    "phase": "assignment",
+    "phasePrompt": {
+      "title": "Assign work",
+      "body": "Send each captured card to a job suit from the trick.",
+      "tone": "normal",
+      "primaryActionID": "submit-assignments"
+    },
+    "currentPlayerID": 0,
+    "leadPlayerID": 0,
+    "trumpSelectorID": 3,
+    "trump": "sunflower",
+    "isFamine": false,
+    "trickCount": 1,
+    "maxTricks": 4,
+    "seats": [
+      {
+        "id": 0,
+        "name": "You",
+        "controller": "human",
+        "isViewer": true,
+        "isCurrentTurn": true,
+        "isBrigadeLeader": true,
+        "isProtected": false,
+        "hand": [
+          { "id": "wheat-8", "suit": "wheat", "value": 8, "rank": "8", "zone": "hand", "visible": true, "ownerSeatID": 0, "disabled": true },
+          { "id": "potato-12", "suit": "potato", "value": 12, "rank": "Q", "zone": "hand", "visible": true, "ownerSeatID": 0, "disabled": true }
+        ],
+        "hiddenHandCount": 0,
+        "plot": { "revealed": [{ "id": "beet-3", "suit": "beet", "value": 3, "rank": "3", "zone": "plotRevealed", "visible": true, "ownerSeatID": 0 }], "hidden": [{ "id": "wheat-7", "suit": "wheat", "value": 7, "rank": "7", "zone": "plotHidden", "visible": true, "ownerSeatID": 0 }], "hiddenCount": 1, "stacks": [] },
+        "medals": 1,
+        "bankedMedals": 0,
+        "visibleScore": 3
+      },
+      { "id": 1, "name": "Mikhail", "controller": "neuralAI", "isViewer": false, "isCurrentTurn": false, "isBrigadeLeader": false, "isProtected": false, "hand": [], "hiddenHandCount": 2, "plot": { "revealed": [], "hidden": [], "hiddenCount": 1, "stacks": [] }, "medals": 0, "bankedMedals": 0, "visibleScore": 0 },
+      { "id": 2, "name": "Galina", "controller": "neuralAI", "isViewer": false, "isCurrentTurn": false, "isBrigadeLeader": false, "isProtected": false, "hand": [], "hiddenHandCount": 2, "plot": { "revealed": [], "hidden": [], "hiddenCount": 1, "stacks": [] }, "medals": 0, "bankedMedals": 0, "visibleScore": 0 },
+      { "id": 3, "name": "Nadia", "controller": "neuralAI", "isViewer": false, "isCurrentTurn": false, "isBrigadeLeader": false, "isProtected": false, "hand": [], "hiddenHandCount": 2, "plot": { "revealed": [], "hidden": [], "hiddenCount": 1, "stacks": [] }, "medals": 0, "bankedMedals": 0, "visibleScore": 0 }
+    ],
+    "jobs": [
+      { "suit": "wheat", "hours": 18, "requiredHours": 40, "claimed": false, "reward": { "id": "wheat-4", "suit": "wheat", "value": 4, "rank": "4", "zone": "jobReward", "visible": true }, "assignedCards": [{ "id": "wheat-9", "suit": "wheat", "value": 9, "rank": "9", "zone": "jobBucket", "visible": true }], "validAssignmentTarget": true },
+      { "suit": "sunflower", "hours": 10, "requiredHours": 40, "claimed": false, "reward": { "id": "sunflower-5", "suit": "sunflower", "value": 5, "rank": "5", "zone": "jobReward", "visible": true }, "assignedCards": [{ "id": "sunflower-13", "suit": "sunflower", "value": 13, "rank": "K", "zone": "jobBucket", "visible": true, "pending": true }], "validAssignmentTarget": true, "highlighted": true },
+      { "suit": "potato", "hours": 0, "requiredHours": 40, "claimed": false, "reward": { "id": "potato-1", "suit": "potato", "value": 1, "rank": "A", "zone": "jobReward", "visible": true }, "assignedCards": [], "validAssignmentTarget": false },
+      { "suit": "beet", "hours": 41, "requiredHours": 40, "claimed": true, "reward": null, "assignedCards": [{ "id": "beet-11", "suit": "beet", "value": 11, "rank": "J", "zone": "jobBucket", "visible": true }], "validAssignmentTarget": false }
+    ],
+    "trick": { "plays": [], "winnerSeatID": null },
+    "lastTrick": {
+      "plays": [
+        { "seatID": 0, "card": { "id": "sunflower-13", "suit": "sunflower", "value": 13, "rank": "K", "zone": "lastTrick", "visible": true, "ownerSeatID": 0, "pending": true } },
+        { "seatID": 1, "card": { "id": "wheat-9", "suit": "wheat", "value": 9, "rank": "9", "zone": "lastTrick", "visible": true, "ownerSeatID": 1 } },
+        { "seatID": 2, "card": { "id": "wheat-11", "suit": "wheat", "value": 11, "rank": "J", "zone": "lastTrick", "visible": true, "ownerSeatID": 2, "highlighted": true } },
+        { "seatID": 3, "card": { "id": "sunflower-6", "suit": "sunflower", "value": 6, "rank": "6", "zone": "lastTrick", "visible": true, "ownerSeatID": 3 } }
+      ],
+      "winnerSeatID": 0
+    },
+    "scoreboard": [
+      { "seatID": 0, "visibleScore": 3, "finalScore": null },
+      { "seatID": 1, "visibleScore": 0, "finalScore": null },
+      { "seatID": 2, "visibleScore": 0, "finalScore": null },
+      { "seatID": 3, "visibleScore": 0, "finalScore": null }
+    ],
+    "requisitionEvents": []
+  },
+  "panels": {
+    "active": "jobs",
+    "suggested": "jobs",
+    "available": ["brigade", "jobs", "plot", "north", "options", "rules"],
+    "rightInfo": {
+      "mode": "phaseHelp",
+      "title": "Assignment",
+      "sections": [
+        { "title": "Legal targets", "body": "Cards may be assigned to suits present in the completed trick." }
+      ]
+    }
+  },
+  "selection": {
+    "handCardID": null,
+    "plotCardID": null,
+    "assignmentCardID": "wheat-11",
+    "hoveredSuit": "wheat"
+  },
+  "legalActions": [
+    { "id": "assign-wheat-11-to-wheat", "kind": "assign", "label": "Assign to Wheat", "enabled": true, "targets": ["wheat-11", "wheat"], "engineAction": { "kind": "assign", "playerID": 0, "card": { "suit": 0, "value": 11 }, "targetSuit": 0 } },
+    { "id": "assign-wheat-11-to-sunflower", "kind": "assign", "label": "Assign to Sunflower", "enabled": true, "targets": ["wheat-11", "sunflower"], "engineAction": { "kind": "assign", "playerID": 0, "card": { "suit": 0, "value": 11 }, "targetSuit": 1 } },
+    { "id": "submit-assignments", "kind": "submitAssignments", "label": "Commit work", "enabled": false, "targets": [], "engineAction": { "kind": "submitAssignments", "playerID": 0 } }
+  ]
+}
+

@@ -8,13 +8,25 @@ settings:
     SWIFT_VERSION: "6.0"
     IPHONEOS_DEPLOYMENT_TARGET: "17.0"
 targets:
+  KolkhozCEngine:
+    type: framework
+    platform: iOS
+    sources:
+      - Sources/KolkhozCEngine
+    headers:
+      public:
+        - Sources/KolkhozCEngine/include/KolkhozCEngine.h
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.williamtheisen.kolkhoz.cengine
+        GENERATE_INFOPLIST_FILE: YES
   KolkhozCore:
     type: framework
     platform: iOS
     sources:
       - Sources/KolkhozCore
-    resources:
-      - Sources/KolkhozCore/Resources
+    dependencies:
+      - target: KolkhozCEngine
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.williamtheisen.kolkhoz.core
@@ -43,6 +55,7 @@ targets:
     dependencies:
       - target: KolkhozAppFeature
       - target: KolkhozCore
+      - target: KolkhozCEngine
     info:
       path: Generated/Info.plist
       properties:
