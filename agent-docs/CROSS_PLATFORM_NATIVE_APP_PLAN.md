@@ -104,6 +104,10 @@ it should not require pixel-identical output from different UI frameworks.
    - Build widgets that render the fixture JSON and tokens without engine FFI first.
    - Compare screenshots against SwiftUI reference fixtures.
 
+   Initial status: `clients/flutter_fixture_renderer/` renders the planning, assignment,
+   and online-redacted swap fixtures from `shared/app-contracts/fixtures/` using
+   `shared/design/tokens.json`. It is intentionally not a gameplay client yet.
+
 5. Bind Flutter to the C engine through Dart FFI.
    - Generate or hand-maintain minimal Dart bindings for portable actions, snapshots,
      legal actions, save/restore, and replay.
@@ -113,4 +117,3 @@ it should not require pixel-identical output from different UI frameworks.
    - Keep the server authoritative.
    - Deliver viewer-redacted snapshots and legal actions to each native client.
    - Add live updates after the HTTP foundation is stable.
-

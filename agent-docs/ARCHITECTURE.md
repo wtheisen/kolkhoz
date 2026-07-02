@@ -57,6 +57,11 @@ kolkhoz/
 │   │   └── fixtures/
 │   └── design/
 │       └── tokens.json
+├── clients/
+│   └── flutter_fixture_renderer/
+│       ├── lib/
+│       ├── macos/
+│       └── test/
 └── README.md
 ```
 
@@ -120,6 +125,13 @@ Shared design-token source for colors, spacing, typography scale, radii, card di
 layout constants, and animation timings. Values are derived from the SwiftUI app, which
 remains the visual reference for future Flutter clients.
 
+### `clients/flutter_fixture_renderer`
+
+Fixture-only Flutter app for rendering the shared table view model JSON and design tokens.
+It is a renderer prototype only: no C FFI, no action submission, no online transport, and
+no custom UI DSL. It should stay aligned with SwiftUI by consuming `shared/` fixtures and
+tokens directly.
+
 ## Data Flow
 
 ```text
@@ -151,6 +163,9 @@ states use a lightweight `ScriptedGameRuntime`, not the old Swift rules engine.
 Future Flutter clients should follow the same flow: render a presentation view model,
 submit portable engine actions, and accept the next C-engine/server snapshot. They should
 not copy old web UI state or duplicate rules.
+
+The current Flutter code stops one layer earlier: it renders static fixtures only. Dart FFI
+should be added later against the C engine boundary after fixture rendering is stable.
 
 ## Engine Pattern
 
@@ -220,6 +235,15 @@ swift build --target KolkhozAppFeature
 swift build --target KolkhozSwiftUIApp
 ```
 
+Flutter fixture renderer checks:
+
+```bash
+cd clients/flutter_fixture_renderer
+flutter analyze
+flutter test
+flutter build macos --debug
+```
+
 `project.yml` is the XcodeGen source for the checked-in Xcode project:
 
 ```bash
@@ -239,6 +263,7 @@ on failure. It currently verifies:
 - Saved games restore from the C action log.
 - Online sessions redact private state and validate submitted actions.
 - Shared contract fixtures and design tokens decode into Foundation-only Swift structs.
+- Flutter fixture renderer loads shared JSON assets and renders representative fixture states.
 
 Cross-platform UI alignment should add fixture screenshot tests over
 `shared/app-contracts/fixtures/` as native renderer work grows. The goal is structural and
