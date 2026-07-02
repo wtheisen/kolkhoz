@@ -9,8 +9,26 @@ import torch
 from torch import nn
 
 from .benchmark import _ci, _mean, _metrics, run_policy_game
-from .c_engine import CEngine, KCAction
+from .c_engine import CEngine, KCAction, KCObjectToken, OBJECT_SCALAR_COUNT
 from .model import HEAD_COUNT, INPUT_SIZE, PolicyArtifact
+
+OBJECT_TYPE_EMBEDDINGS = 8
+OBJECT_OWNER_EMBEDDINGS = 6
+OBJECT_ZONE_EMBEDDINGS = 32
+OBJECT_SUIT_EMBEDDINGS = 6
+OBJECT_VALUE_EMBEDDINGS = 16
+OBJECT_INDEX_EMBEDDINGS = 64
+
+ObjectBatch = tuple[
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+]
 
 
 def best_device(prefer_mps: bool = True) -> torch.device:
@@ -58,6 +76,18 @@ class ActionTransformer(nn.Module):
         )
         self.player_embedding = nn.Embedding(4, width)
         self.action_embedding = nn.Embedding(max(head_count, 16), width)
+        self.object_type_embedding = nn.Embedding(OBJECT_TYPE_EMBEDDINGS, width)
+        self.object_owner_embedding = nn.Embedding(OBJECT_OWNER_EMBEDDINGS, width)
+        self.object_zone_embedding = nn.Embedding(OBJECT_ZONE_EMBEDDINGS, width)
+        self.object_suit_embedding = nn.Embedding(OBJECT_SUIT_EMBEDDINGS, width)
+        self.object_value_embedding = nn.Embedding(OBJECT_VALUE_EMBEDDINGS, width)
+        self.object_index_embedding = nn.Embedding(OBJECT_INDEX_EMBEDDINGS, width)
+        self.object_scalar_projection = nn.Sequential(
+            nn.Linear(OBJECT_SCALAR_COUNT, width),
+            nn.LayerNorm(width),
+            nn.GELU(),
+            nn.Linear(width, width),
+        )
         self.cls_token = nn.Parameter(torch.zeros(1, 1, width))
         layer = nn.TransformerEncoderLayer(
             d_model=width,
@@ -76,12 +106,25 @@ class ActionTransformer(nn.Module):
             nn.Linear(width, 1),
         )
 
+    def _object_embeddings(self, object_batch: ObjectBatch) -> torch.Tensor:
+        type_ids, owner_ids, zone_ids, suit_ids, value_ids, index_ids, scalars, _ = object_batch
+        return (
+            self.object_type_embedding(type_ids.clamp(0, self.object_type_embedding.num_embeddings - 1))
+            + self.object_owner_embedding(owner_ids.clamp(0, self.object_owner_embedding.num_embeddings - 1))
+            + self.object_zone_embedding(zone_ids.clamp(0, self.object_zone_embedding.num_embeddings - 1))
+            + self.object_suit_embedding(suit_ids.clamp(0, self.object_suit_embedding.num_embeddings - 1))
+            + self.object_value_embedding(value_ids.clamp(0, self.object_value_embedding.num_embeddings - 1))
+            + self.object_index_embedding(index_ids.clamp(0, self.object_index_embedding.num_embeddings - 1))
+            + self.object_scalar_projection(scalars)
+        )
+
     def forward(
         self,
         features: torch.Tensor,
         player_ids: torch.Tensor,
         action_heads: torch.Tensor,
         group_ids: torch.Tensor | None,
+        object_batch: ObjectBatch | None = None,
     ) -> torch.Tensor:
         if features.numel() == 0:
             return torch.empty((0,), dtype=features.dtype, device=features.device)
@@ -99,23 +142,35 @@ class ActionTransformer(nn.Module):
         group_count = int(group_ids.max().item()) + 1
         lengths = torch.bincount(group_ids, minlength=group_count)
         max_length = int(lengths.max().item())
-        sequence = torch.zeros((group_count, max_length + 1, self.width), dtype=tokens.dtype, device=tokens.device)
-        mask = torch.ones((group_count, max_length + 1), dtype=torch.bool, device=tokens.device)
+        object_embeddings = None
+        object_mask = None
+        object_count = 0
+        if object_batch is not None:
+            object_batch = tuple(item.to(tokens.device) for item in object_batch)  # type: ignore[assignment]
+            object_embeddings = self._object_embeddings(object_batch)
+            object_mask = object_batch[-1].bool()
+            object_count = int(object_embeddings.shape[1])
+        sequence = torch.zeros((group_count, max_length + object_count + 1, self.width), dtype=tokens.dtype, device=tokens.device)
+        mask = torch.ones((group_count, max_length + object_count + 1), dtype=torch.bool, device=tokens.device)
         sequence[:, 0:1, :] = self.cls_token.expand(group_count, -1, -1)
         mask[:, 0] = False
+        if object_embeddings is not None and object_mask is not None and object_count > 0:
+            sequence[:, 1:object_count + 1, :] = object_embeddings
+            mask[:, 1:object_count + 1] = object_mask
+        action_start = object_count + 1
         positions: list[torch.Tensor] = []
         for group_index in range(group_count):
             indices = torch.nonzero(group_ids == group_index, as_tuple=False).flatten()
             positions.append(indices)
             length = int(indices.numel())
-            sequence[group_index, 1:length + 1, :] = tokens[indices]
-            mask[group_index, 1:length + 1] = False
+            sequence[group_index, action_start:action_start + length, :] = tokens[indices]
+            mask[group_index, action_start:action_start + length] = False
         encoded = self.encoder(sequence, src_key_padding_mask=mask)
         scores = torch.empty((features.shape[0],), dtype=tokens.dtype, device=tokens.device)
         for group_index, indices in enumerate(positions):
             length = int(indices.numel())
             global_token = encoded[group_index, 0].expand(length, -1)
-            action_tokens = encoded[group_index, 1:length + 1, :]
+            action_tokens = encoded[group_index, action_start:action_start + length, :]
             scores[indices] = self.scorer(torch.cat([action_tokens, global_token], dim=1)).squeeze(1)
         return scores
 
@@ -216,6 +271,10 @@ class TorchPolicy(nn.Module):
         model.load_state_dict(checkpoint["state_dict"])
         return model.to(device)
 
+    @property
+    def uses_object_tokens(self) -> bool:
+        return self.architecture == "action-transformer"
+
     def forward(self, features: torch.Tensor) -> torch.Tensor:
         if self.architecture == "mlp":
             value = features
@@ -233,9 +292,10 @@ class TorchPolicy(nn.Module):
         player_ids: torch.Tensor,
         action_heads: torch.Tensor,
         group_ids: torch.Tensor | None = None,
+        object_batch: ObjectBatch | None = None,
     ) -> torch.Tensor:
         if self.architecture == "action-transformer":
-            return self.action_transformer(features, player_ids, action_heads, group_ids)
+            return self.action_transformer(features, player_ids, action_heads, group_ids, object_batch)
         outputs = self(features)
         head_tensor = _head_indices(action_heads.to(outputs.device), player_ids.to(outputs.device), self.head_count)
         return outputs.gather(1, head_tensor[:, None]).squeeze(1)
@@ -298,11 +358,52 @@ def _candidate_tensor(candidates: list[Any], input_size: int, device: torch.devi
     return features.to(device)
 
 
-def _candidate_scores(model: TorchPolicy, candidates: list[Any], player_id: int) -> torch.Tensor:
+def _object_id(value: int, offset: int, count: int) -> int:
+    return max(0, min(count - 1, int(value) + offset))
+
+
+def _object_token_batch(token_groups: list[list[KCObjectToken] | None], device: torch.device) -> ObjectBatch:
+    group_count = len(token_groups)
+    max_tokens = max(1, max((len(tokens) if tokens is not None else 0) for tokens in token_groups))
+    type_ids = torch.zeros((group_count, max_tokens), dtype=torch.long)
+    owner_ids = torch.zeros((group_count, max_tokens), dtype=torch.long)
+    zone_ids = torch.zeros((group_count, max_tokens), dtype=torch.long)
+    suit_ids = torch.zeros((group_count, max_tokens), dtype=torch.long)
+    value_ids = torch.zeros((group_count, max_tokens), dtype=torch.long)
+    index_ids = torch.zeros((group_count, max_tokens), dtype=torch.long)
+    scalars = torch.zeros((group_count, max_tokens, OBJECT_SCALAR_COUNT), dtype=torch.float32)
+    padding_mask = torch.ones((group_count, max_tokens), dtype=torch.bool)
+    for group_index, tokens in enumerate(token_groups):
+        if not tokens:
+            continue
+        for token_index, token in enumerate(tokens[:max_tokens]):
+            type_ids[group_index, token_index] = _object_id(token.type, 0, OBJECT_TYPE_EMBEDDINGS)
+            owner_ids[group_index, token_index] = _object_id(token.owner, 1, OBJECT_OWNER_EMBEDDINGS)
+            zone_ids[group_index, token_index] = _object_id(token.zone, 0, OBJECT_ZONE_EMBEDDINGS)
+            suit_ids[group_index, token_index] = _object_id(token.suit, 1, OBJECT_SUIT_EMBEDDINGS)
+            value_ids[group_index, token_index] = _object_id(token.value, 0, OBJECT_VALUE_EMBEDDINGS)
+            index_ids[group_index, token_index] = _object_id(token.index, 0, OBJECT_INDEX_EMBEDDINGS)
+            for scalar_index in range(OBJECT_SCALAR_COUNT):
+                scalars[group_index, token_index, scalar_index] = float(token.scalars[scalar_index])
+            padding_mask[group_index, token_index] = False
+    return (
+        type_ids.to(device),
+        owner_ids.to(device),
+        zone_ids.to(device),
+        suit_ids.to(device),
+        value_ids.to(device),
+        index_ids.to(device),
+        scalars.to(device),
+        padding_mask.to(device),
+    )
+
+
+def _candidate_scores(model: TorchPolicy, candidates: list[Any], player_id: int, object_tokens: list[KCObjectToken] | None = None) -> torch.Tensor:
     features = _candidate_tensor(candidates, model.input_size, next(model.parameters()).device)
     player_ids = torch.full((len(candidates),), int(player_id), dtype=torch.long, device=features.device)
     action_heads = torch.tensor([int(candidate.action_head) for candidate in candidates], dtype=torch.long, device=features.device)
-    return model.candidate_scores(features, player_ids, action_heads)
+    object_batch = _object_token_batch([object_tokens], features.device) if model.uses_object_tokens else None
+    return model.candidate_scores(features, player_ids, action_heads, object_batch=object_batch)
 
 
 def _choose_torch_action(
@@ -312,8 +413,9 @@ def _choose_torch_action(
     *,
     sample: bool,
     temperature: float,
+    object_tokens: list[KCObjectToken] | None = None,
 ) -> tuple[KCAction, torch.Tensor | None]:
-    scores = _candidate_scores(model, candidates, player_id)
+    scores = _candidate_scores(model, candidates, player_id, object_tokens)
     if sample:
         distribution = torch.distributions.Categorical(logits=scores / max(temperature, 0.05))
         selected = distribution.sample()
@@ -324,17 +426,18 @@ def _choose_torch_action(
 
 def _batched_candidate_scores(
     model: TorchPolicy,
-    groups: list[tuple[int, list[Any], int]],
+    groups: list[tuple[int, list[Any], int, list[KCObjectToken] | None]],
 ) -> tuple[torch.Tensor, list[tuple[int, int, int, list[Any]]]]:
     device = next(model.parameters()).device
-    total_candidates = sum(len(candidates) for _, candidates, _ in groups)
+    total_candidates = sum(len(candidates) for _, candidates, _, _ in groups)
     features = torch.zeros((total_candidates, model.input_size), dtype=torch.float32)
     player_ids = torch.empty((total_candidates,), dtype=torch.long)
     action_heads = torch.empty((total_candidates,), dtype=torch.long)
     group_ids = torch.empty((total_candidates,), dtype=torch.long)
     spans: list[tuple[int, int, int, list[Any]]] = []
+    object_groups: list[list[KCObjectToken] | None] = []
     row = 0
-    for group_index, (env_index, candidates, player_id) in enumerate(groups):
+    for group_index, (env_index, candidates, player_id, object_tokens) in enumerate(groups):
         start = row
         for candidate in candidates:
             for feature_index in range(candidate.feature_count):
@@ -346,7 +449,15 @@ def _batched_candidate_scores(
             group_ids[row] = group_index
             row += 1
         spans.append((env_index, start, row, candidates))
-    return model.candidate_scores(features.to(device), player_ids.to(device), action_heads.to(device), group_ids.to(device)), spans
+        object_groups.append(object_tokens)
+    object_batch = _object_token_batch(object_groups, device) if model.uses_object_tokens else None
+    return model.candidate_scores(
+        features.to(device),
+        player_ids.to(device),
+        action_heads.to(device),
+        group_ids.to(device),
+        object_batch=object_batch,
+    ), spans
 
 
 def _winner(scores: list[int], medals: list[int]) -> int:
@@ -389,7 +500,15 @@ def run_torch_game(
             if player_id == model_seat:
                 candidates = engine.policy_action_features(pointer, player_id=player_id, input_size=model.input_size)
                 if candidates:
-                    action, log_prob = _choose_torch_action(model, candidates, player_id, sample=sample, temperature=temperature)
+                    object_tokens = engine.object_tokens(pointer, perspective_player=player_id) if model.uses_object_tokens else None
+                    action, log_prob = _choose_torch_action(
+                        model,
+                        candidates,
+                        player_id,
+                        sample=sample,
+                        temperature=temperature,
+                        object_tokens=object_tokens,
+                    )
                     if log_prob is not None:
                         log_probs.append(log_prob)
                 else:
@@ -430,8 +549,8 @@ def run_torch_games_batched(
             if all(env["done"] for env in envs):
                 return [item for item in complete if item is not None]
 
-            model_groups: list[tuple[int, list[Any], int]] = []
-            opponent_groups: list[tuple[int, list[Any], int]] = []
+            model_groups: list[tuple[int, list[Any], int, list[KCObjectToken] | None]] = []
+            opponent_groups: list[tuple[int, list[Any], int, list[KCObjectToken] | None]] = []
             progressed = False
             for env_index, env in enumerate(envs):
                 if env["done"]:
@@ -460,19 +579,21 @@ def run_torch_games_batched(
                 if player_id == env["seat"]:
                     candidates = engine.policy_action_features(pointer, player_id=player_id, input_size=model.input_size)
                     if candidates:
-                        model_groups.append((env_index, candidates, player_id))
+                        object_tokens = engine.object_tokens(pointer, perspective_player=player_id) if model.uses_object_tokens else None
+                        model_groups.append((env_index, candidates, player_id, object_tokens))
                         continue
                 elif opponent_model is not None:
                     candidates = engine.policy_action_features(pointer, player_id=player_id, input_size=opponent_model.input_size)
                     if candidates:
-                        opponent_groups.append((env_index, candidates, player_id))
+                        object_tokens = engine.object_tokens(pointer, perspective_player=player_id) if opponent_model.uses_object_tokens else None
+                        opponent_groups.append((env_index, candidates, player_id, object_tokens))
                         continue
                 action = engine.heuristic_action(pointer)
                 engine.apply_policy_action(pointer, action)
                 env["actions"] = int(env["actions"]) + 1
                 progressed = True
 
-            def apply_scored_groups(policy: TorchPolicy, groups: list[tuple[int, list[Any], int]], trainable: bool) -> None:
+            def apply_scored_groups(policy: TorchPolicy, groups: list[tuple[int, list[Any], int, list[KCObjectToken] | None]], trainable: bool) -> None:
                 nonlocal progressed
                 if not groups:
                     return

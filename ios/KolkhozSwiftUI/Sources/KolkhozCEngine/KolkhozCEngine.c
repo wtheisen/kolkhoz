@@ -1930,6 +1930,158 @@ static int32_t kc_known_score_for_player(const KCEngine *engine, int32_t player_
     return score;
 }
 
+static KCObjectToken *kc_object_append(KCObjectToken *tokens, int32_t max_tokens, int32_t *count, int32_t type, int32_t owner, int32_t zone, int32_t suit, int32_t value, int32_t index) {
+    if (!tokens || !count || *count >= max_tokens) {
+        return NULL;
+    }
+    KCObjectToken *token = &tokens[*count];
+    memset(token, 0, sizeof(*token));
+    token->type = type;
+    token->owner = owner;
+    token->zone = zone;
+    token->suit = suit;
+    token->value = value;
+    token->index = index;
+    (*count)++;
+    return token;
+}
+
+static void kc_object_append_card(KCObjectToken *tokens, int32_t max_tokens, int32_t *count, KCCard card, int32_t owner, int32_t zone, int32_t index, bool reveal, bool hidden) {
+    if (!kc_card_valid(card)) {
+        return;
+    }
+    int32_t exported_zone = reveal ? zone : KC_OBJECT_ZONE_UNKNOWN_HIDDEN;
+    int32_t exported_suit = reveal ? card.suit : -1;
+    int32_t exported_value = reveal ? card.value : 0;
+    KCObjectToken *token = kc_object_append(tokens, max_tokens, count, KC_OBJECT_CARD, owner, exported_zone, exported_suit, exported_value, index);
+    if (!token) {
+        return;
+    }
+    token->scalars[0] = reveal ? 1.0 : 0.0;
+    token->scalars[1] = hidden ? 1.0 : 0.0;
+    token->scalars[2] = reveal ? (double)card.value / 13.0 : 0.0;
+    token->scalars[3] = owner >= 0 ? (double)owner / 3.0 : 0.0;
+}
+
+static void kc_object_append_card_list(KCObjectToken *tokens, int32_t max_tokens, int32_t *count, const KCCardList *list, int32_t owner, int32_t zone, bool reveal, bool hidden) {
+    for (int32_t index = 0; list && index < list->count && *count < max_tokens; index++) {
+        kc_object_append_card(tokens, max_tokens, count, list->cards[index], owner, zone, index, reveal, hidden);
+    }
+}
+
+int32_t kc_engine_object_tokens(const KCEngine *engine, int32_t perspective_player, KCObjectToken *tokens, int32_t max_tokens) {
+    if (!engine || !tokens || max_tokens <= 0) {
+        return 0;
+    }
+    if (perspective_player < 0 || perspective_player >= KC_PLAYER_COUNT) {
+        perspective_player = engine->current_player >= 0 && engine->current_player < KC_PLAYER_COUNT ? engine->current_player : 0;
+    }
+
+    int32_t count = 0;
+    KCObjectToken *global = kc_object_append(tokens, max_tokens, &count, KC_OBJECT_GLOBAL, perspective_player, engine->phase, engine->trump, engine->year, engine->current_player);
+    if (global) {
+        global->scalars[0] = (double)engine->year / 5.0;
+        global->scalars[1] = (double)engine->phase / 5.0;
+        global->scalars[2] = engine->current_player >= 0 ? (double)engine->current_player / 3.0 : 0.0;
+        global->scalars[3] = engine->lead >= 0 ? (double)engine->lead / 3.0 : 0.0;
+        global->scalars[4] = engine->trump_selector >= 0 ? (double)engine->trump_selector / 3.0 : 0.0;
+        global->scalars[5] = (double)engine->trick_count / 4.0;
+        global->scalars[6] = (double)engine->current_trick_count / 4.0;
+        global->scalars[7] = engine->is_famine ? 1.0 : 0.0;
+    }
+
+    for (int32_t player_id = 0; player_id < KC_PLAYER_COUNT && count < max_tokens; player_id++) {
+        const KCPlayer *player = &engine->players[player_id];
+        KCObjectToken *token = kc_object_append(
+            tokens,
+            max_tokens,
+            &count,
+            KC_OBJECT_PLAYER,
+            player_id,
+            engine->controllers.seats[player_id],
+            -1,
+            player->has_won_trick_this_year ? 1 : 0,
+            (player_id - perspective_player + KC_PLAYER_COUNT) % KC_PLAYER_COUNT
+        );
+        if (!token) {
+            continue;
+        }
+        token->scalars[0] = (double)player->hand.count / 5.0;
+        token->scalars[1] = (double)kc_revealed_plot_count_for_player(player, -1) / 16.0;
+        token->scalars[2] = (double)kc_hidden_plot_count_for_player(player, -1) / 16.0;
+        token->scalars[3] = (double)player->medals / 20.0;
+        token->scalars[4] = (double)kc_total_medals_for_player(engine, player_id) / 20.0;
+        token->scalars[5] = (double)kc_visible_score(engine, player_id) / 100.0;
+        token->scalars[6] = (double)(player_id == perspective_player ? kc_known_score_for_player(engine, player_id) : kc_visible_score(engine, player_id)) / 100.0;
+        token->scalars[7] = player->brigade_leader ? 1.0 : 0.0;
+    }
+
+    for (int32_t suit = 0; suit < KC_SUIT_COUNT && count < max_tokens; suit++) {
+        KCObjectToken *token = kc_object_append(
+            tokens,
+            max_tokens,
+            &count,
+            KC_OBJECT_JOB,
+            -1,
+            engine->claimed_jobs[suit] ? 1 : 0,
+            suit,
+            engine->has_revealed_job[suit] ? engine->revealed_jobs[suit].value : 0,
+            suit
+        );
+        if (!token) {
+            continue;
+        }
+        token->scalars[0] = (double)engine->work_hours[suit] / 40.0;
+        token->scalars[1] = (double)(engine->work_hours[suit] < 40 ? 40 - engine->work_hours[suit] : 0) / 40.0;
+        token->scalars[2] = engine->has_revealed_job[suit] ? (double)engine->revealed_jobs[suit].value / 5.0 : 0.0;
+        token->scalars[3] = engine->claimed_jobs[suit] ? 1.0 : 0.0;
+        token->scalars[4] = (double)engine->job_piles[suit].count / 16.0;
+        token->scalars[5] = (double)engine->job_buckets[suit].count / 16.0;
+        token->scalars[6] = (double)engine->accumulated_job_cards[suit].count / 16.0;
+        token->scalars[7] = engine->has_revealed_job[suit] ? 1.0 : 0.0;
+    }
+
+    for (int32_t player_id = 0; player_id < KC_PLAYER_COUNT && count < max_tokens; player_id++) {
+        const KCPlayer *player = &engine->players[player_id];
+        bool own = player_id == perspective_player;
+        kc_object_append_card_list(tokens, max_tokens, &count, &player->hand, player_id, KC_OBJECT_ZONE_HAND, own, true);
+        kc_object_append_card_list(tokens, max_tokens, &count, &player->plot_revealed, player_id, KC_OBJECT_ZONE_PLOT_REVEALED, true, false);
+        kc_object_append_card_list(tokens, max_tokens, &count, &player->plot_hidden, player_id, KC_OBJECT_ZONE_PLOT_HIDDEN, own, true);
+        for (int32_t stack_index = 0; stack_index < player->stack_count && count < max_tokens; stack_index++) {
+            const KCPlotStack *stack = &player->stacks[stack_index];
+            for (int32_t index = 0; index < stack->revealed_count && count < max_tokens; index++) {
+                kc_object_append_card(tokens, max_tokens, &count, stack->revealed[index], player_id, KC_OBJECT_ZONE_STACK_REVEALED, stack_index * KC_MAX_CARDS + index, true, false);
+            }
+            for (int32_t index = 0; index < stack->hidden_count && count < max_tokens; index++) {
+                kc_object_append_card(tokens, max_tokens, &count, stack->hidden[index], player_id, KC_OBJECT_ZONE_STACK_HIDDEN, stack_index * KC_MAX_CARDS + index, own, true);
+            }
+        }
+    }
+
+    for (int32_t suit = 0; suit < KC_SUIT_COUNT && count < max_tokens; suit++) {
+        if (engine->has_revealed_job[suit]) {
+            kc_object_append_card(tokens, max_tokens, &count, engine->revealed_jobs[suit], -1, KC_OBJECT_ZONE_REVEALED_JOB, suit, true, false);
+        }
+        kc_object_append_card_list(tokens, max_tokens, &count, &engine->job_buckets[suit], -1, KC_OBJECT_ZONE_JOB_BUCKET, true, false);
+        kc_object_append_card_list(tokens, max_tokens, &count, &engine->accumulated_job_cards[suit], -1, KC_OBJECT_ZONE_ACCUMULATED_JOB, true, false);
+    }
+
+    for (int32_t index = 0; index < engine->current_trick_count && count < max_tokens; index++) {
+        kc_object_append_card(tokens, max_tokens, &count, engine->current_trick[index].card, engine->current_trick[index].player_id, KC_OBJECT_ZONE_CURRENT_TRICK, index, true, false);
+    }
+    for (int32_t index = 0; index < engine->last_trick_count && count < max_tokens; index++) {
+        kc_object_append_card(tokens, max_tokens, &count, engine->last_trick[index].card, engine->last_trick[index].player_id, KC_OBJECT_ZONE_LAST_TRICK, index, true, false);
+    }
+    for (int32_t year = 0; year <= KC_MAX_YEARS && count < max_tokens; year++) {
+        const KCCardList *exiled = &engine->exiled[year];
+        for (int32_t index = 0; index < exiled->count && count < max_tokens; index++) {
+            kc_object_append_card(tokens, max_tokens, &count, exiled->cards[index], -1, KC_OBJECT_ZONE_EXILED, year * KC_MAX_CARDS + index, true, false);
+        }
+    }
+    kc_object_append_card_list(tokens, max_tokens, &count, &engine->drunkard_replacements, -1, KC_OBJECT_ZONE_DRUNKARD_REPLACEMENT, true, false);
+    return count;
+}
+
 static void kc_add_trick_features(KCPolicyActionCandidate *candidate, int32_t base_index, const KCTrickPlay *plays, int32_t play_count) {
     for (int32_t slot = 0; slot < KC_PLAYER_COUNT; slot++) {
         int32_t offset = base_index + slot * 7;

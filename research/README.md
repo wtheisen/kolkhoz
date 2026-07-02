@@ -149,8 +149,10 @@ python3 -m research.kolkhoz_research.cli torch-train \
 ```
 
 For `action-transformer`, `--layers` means `width,depth,attention_heads,feedforward`.
-This architecture scores the legal action candidates jointly for each decision, so it must
-be saved as a Torch `.pt` checkpoint and evaluated with `torch-benchmark`.
+This architecture prepends visible C-engine object tokens to the legal action candidates,
+then scores the candidates jointly for each decision. Hidden opponent hand/plot/stack cards
+are exported as unknown placeholders, not as leaked suit/value cards. It must be saved as a
+Torch `.pt` checkpoint and evaluated with `torch-benchmark`.
 
 Benchmark a Torch `.pt` candidate against the promoted C baseline with paired seeds:
 

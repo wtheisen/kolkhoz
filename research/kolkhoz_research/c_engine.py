@@ -14,6 +14,8 @@ ENGINE_DIR = REPO_ROOT / "ios/KolkhozSwiftUI/Sources/KolkhozCEngine"
 ENGINE_C = ENGINE_DIR / "KolkhozCEngine.c"
 ENGINE_H = ENGINE_DIR / "include/KolkhozCEngine.h"
 BUILD_DIR = REPO_ROOT / "research/.build"
+OBJECT_SCALAR_COUNT = 8
+MAX_OBJECT_TOKENS = 256
 
 
 class KCVariants(ctypes.Structure):
@@ -175,6 +177,18 @@ class KCPolicyActionFeatures(ctypes.Structure):
     ]
 
 
+class KCObjectToken(ctypes.Structure):
+    _fields_ = [
+        ("type", ctypes.c_int32),
+        ("owner", ctypes.c_int32),
+        ("zone", ctypes.c_int32),
+        ("suit", ctypes.c_int32),
+        ("value", ctypes.c_int32),
+        ("index", ctypes.c_int32),
+        ("scalars", ctypes.c_double * OBJECT_SCALAR_COUNT),
+    ]
+
+
 @dataclass(frozen=True)
 class EngineProvenance:
     git_sha: str
@@ -272,6 +286,13 @@ class CEngine:
             ctypes.c_int32,
         ]
         self.lib.kc_engine_policy_action_features.restype = ctypes.c_int32
+        self.lib.kc_engine_object_tokens.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_int32,
+            ctypes.POINTER(KCObjectToken),
+            ctypes.c_int32,
+        ]
+        self.lib.kc_engine_object_tokens.restype = ctypes.c_int32
         self.lib.kc_engine_heuristic_policy_action.argtypes = [ctypes.c_void_p, ctypes.POINTER(KCAction)]
         self.lib.kc_engine_heuristic_policy_action.restype = ctypes.c_bool
         self.lib.kc_engine_waiting_player.argtypes = [ctypes.c_void_p]
@@ -336,6 +357,22 @@ class CEngine:
             ctypes.c_int32(input_size),
             items,
             ctypes.c_int32(max_features),
+        )
+        return [items[index] for index in range(int(count))]
+
+    def object_tokens(
+        self,
+        pointer: ctypes.c_void_p,
+        *,
+        perspective_player: int,
+        max_tokens: int = MAX_OBJECT_TOKENS,
+    ) -> list[KCObjectToken]:
+        items = (KCObjectToken * max_tokens)()
+        count = self.lib.kc_engine_object_tokens(
+            pointer,
+            ctypes.c_int32(perspective_player),
+            items,
+            ctypes.c_int32(max_tokens),
         )
         return [items[index] for index in range(int(count))]
 

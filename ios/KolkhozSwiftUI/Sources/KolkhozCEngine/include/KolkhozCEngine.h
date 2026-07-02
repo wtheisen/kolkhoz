@@ -15,6 +15,8 @@ extern "C" {
 #define KC_MAX_STACKS 16
 #define KC_POLICY_INPUT_SIZE 200
 #define KC_MAX_POLICY_HIDDEN_LAYERS 4
+#define KC_MAX_OBJECT_TOKENS 256
+#define KC_OBJECT_SCALAR_COUNT 8
 
 enum {
     KC_PHASE_PLANNING = 0,
@@ -39,6 +41,31 @@ enum {
 enum {
     KC_CONTROLLER_EXTERNAL = 0,
     KC_CONTROLLER_HEURISTIC_AI = 1
+};
+
+enum {
+    KC_OBJECT_GLOBAL = 0,
+    KC_OBJECT_PLAYER = 1,
+    KC_OBJECT_JOB = 2,
+    KC_OBJECT_CARD = 3
+};
+
+enum {
+    KC_OBJECT_ZONE_NONE = 0,
+    KC_OBJECT_ZONE_HAND = 1,
+    KC_OBJECT_ZONE_PLOT_REVEALED = 2,
+    KC_OBJECT_ZONE_PLOT_HIDDEN = 3,
+    KC_OBJECT_ZONE_STACK_REVEALED = 4,
+    KC_OBJECT_ZONE_STACK_HIDDEN = 5,
+    KC_OBJECT_ZONE_JOB_PILE = 6,
+    KC_OBJECT_ZONE_REVEALED_JOB = 7,
+    KC_OBJECT_ZONE_JOB_BUCKET = 8,
+    KC_OBJECT_ZONE_CURRENT_TRICK = 9,
+    KC_OBJECT_ZONE_LAST_TRICK = 10,
+    KC_OBJECT_ZONE_EXILED = 11,
+    KC_OBJECT_ZONE_ACCUMULATED_JOB = 12,
+    KC_OBJECT_ZONE_DRUNKARD_REPLACEMENT = 13,
+    KC_OBJECT_ZONE_UNKNOWN_HIDDEN = 14
 };
 
 typedef struct {
@@ -228,6 +255,16 @@ typedef struct {
 } KCPolicyActionFeatures;
 
 typedef struct {
+    int32_t type;
+    int32_t owner;
+    int32_t zone;
+    int32_t suit;
+    int32_t value;
+    int32_t index;
+    double scalars[KC_OBJECT_SCALAR_COUNT];
+} KCObjectToken;
+
+typedef struct {
     uint64_t rng_state;
     KCVariants variants;
     KCPlayer players[KC_PLAYER_COUNT];
@@ -281,6 +318,7 @@ int32_t kc_engine_apply(KCEngine *engine, KCAction action);
 int32_t kc_engine_apply_policy_action(KCEngine *engine, KCAction action);
 int32_t kc_engine_legal_actions(const KCEngine *engine, KCAction *actions, int32_t max_actions);
 int32_t kc_engine_policy_action_features(const KCEngine *engine, int32_t player_id, int32_t input_size, KCPolicyActionFeatures *features, int32_t max_features);
+int32_t kc_engine_object_tokens(const KCEngine *engine, int32_t perspective_player, KCObjectToken *tokens, int32_t max_tokens);
 bool kc_engine_heuristic_policy_action(const KCEngine *engine, KCAction *selected);
 bool kc_engine_waiting_for_external_action(const KCEngine *engine);
 int32_t kc_engine_waiting_player(const KCEngine *engine);
