@@ -32,7 +32,13 @@ enum {
     KC_ACTION_PLAY_CARD = 4,
     KC_ACTION_ASSIGN = 5,
     KC_ACTION_SUBMIT_ASSIGNMENTS = 6,
-    KC_ACTION_CONTINUE_AFTER_REQUISITION = 7
+    KC_ACTION_CONTINUE_AFTER_REQUISITION = 7,
+    KC_ACTION_UNDO_SWAP = 8
+};
+
+enum {
+    KC_CONTROLLER_EXTERNAL = 0,
+    KC_CONTROLLER_HEURISTIC_AI = 1
 };
 
 typedef struct {
@@ -62,6 +68,10 @@ typedef struct {
     bool accumulate_jobs;
     bool hero_of_soviet_union;
 } KCVariants;
+
+typedef struct {
+    int32_t seats[KC_PLAYER_COUNT];
+} KCControllers;
 
 typedef struct {
     KCCard cards[KC_MAX_CARDS];
@@ -207,6 +217,7 @@ typedef struct {
     int32_t lead;
     int32_t year;
     int32_t trump;
+    KCControllers controllers;
     KCCardList job_piles[KC_SUIT_COUNT];
     KCCard revealed_jobs[KC_SUIT_COUNT];
     bool has_revealed_job[KC_SUIT_COUNT];
@@ -233,12 +244,24 @@ typedef struct {
     KCCardList drunkard_replacements;
     bool swap_confirmed[KC_PLAYER_COUNT];
     bool swap_count[KC_PLAYER_COUNT];
+    bool has_last_swap;
+    int32_t last_swap_player_id;
+    int32_t last_swap_plot_zone;
+    int32_t last_swap_plot_index;
+    int32_t last_swap_hand_index;
+    KCCard last_swap_new_plot_card;
 } KCEngine;
 
 void kc_variants_kolkhoz(KCVariants *variants);
+void kc_controllers_all_external(KCControllers *controllers);
+void kc_controllers_default_single_player(KCControllers *controllers);
+void kc_controllers_set(KCControllers *controllers, int32_t player_id, int32_t controller);
 void kc_engine_init(KCEngine *engine, uint64_t seed, KCVariants variants);
+void kc_engine_init_with_controllers(KCEngine *engine, uint64_t seed, KCVariants variants, KCControllers controllers);
 int32_t kc_engine_apply(KCEngine *engine, KCAction action);
 int32_t kc_engine_legal_actions(const KCEngine *engine, KCAction *actions, int32_t max_actions);
+bool kc_engine_waiting_for_external_action(const KCEngine *engine);
+int32_t kc_engine_waiting_player(const KCEngine *engine);
 int32_t kc_visible_score(const KCEngine *engine, int32_t player_id);
 int32_t kc_final_score(const KCEngine *engine, int32_t player_id);
 KCGameRunResult kc_run_benchmark_game(uint64_t seed, KCVariants variants);

@@ -374,6 +374,7 @@ private extension KolkhozEngine {
             state.currentPlayer = state.lead
             state.swapConfirmed = []
             state.swapCount = []
+            state.lastSwap = nil
             return
         }
 

@@ -7,6 +7,7 @@ struct KolkhozPreviewLobbyHost: View {
     @State private var customVariants = KolkhozPreviewFixtures.lobbyVariants
     @State private var playerControllers = PlayerController.defaultControllers
     @State private var showingRules: Bool
+    @State private var showingOnline = false
 
     init(showingRules: Bool = false) {
         _showingRules = State(initialValue: showingRules)
@@ -19,8 +20,11 @@ struct KolkhozPreviewLobbyHost: View {
             customVariants: $customVariants,
             playerControllers: $playerControllers,
             showingRules: $showingRules,
+            showingOnline: $showingOnline,
             onTutorial: {},
-            onStart: {}
+            onStart: {},
+            onHostOnline: { _, _ in UUID().uuidString },
+            onJoinOnline: { _, _, _ in }
         )
         .font(.kolkhozLabel(.body))
     }

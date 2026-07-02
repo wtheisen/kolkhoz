@@ -11,8 +11,11 @@ struct LobbyView: View {
     @Binding var customVariants: GameVariants
     @Binding var playerControllers: [PlayerController]
     @Binding var showingRules: Bool
+    @Binding var showingOnline: Bool
     let onTutorial: () -> Void
     let onStart: () -> Void
+    let onHostOnline: (URL, [PlayerController]) async throws -> String
+    let onJoinOnline: (URL, String, Int32?) async throws -> Void
 
     var activeVariants: GameVariants {
         selectedPreset.variants ?? customVariants
@@ -47,6 +50,7 @@ struct LobbyView: View {
                             HStack(alignment: .top, spacing: stackSpacing) {
                                 LobbyTitleColumn(
                                     showingRules: $showingRules,
+                                    showingOnline: $showingOnline,
                                     onTutorial: onTutorial,
                                     onStart: onStart,
                                     width: titleWidth,
@@ -58,6 +62,9 @@ struct LobbyView: View {
                                     playerControllers: $playerControllers,
                                     variants: activeVariants,
                                     showingRules: showingRules,
+                                    showingOnline: showingOnline,
+                                    onHostOnline: onHostOnline,
+                                    onJoinOnline: onJoinOnline,
                                     width: panelWidth,
                                     maxHeight: panelHeight
                                 )
@@ -66,6 +73,7 @@ struct LobbyView: View {
                             VStack(spacing: stackSpacing) {
                                 LobbyTitleColumn(
                                     showingRules: $showingRules,
+                                    showingOnline: $showingOnline,
                                     onTutorial: onTutorial,
                                     onStart: onStart,
                                     width: titleWidth,
@@ -77,6 +85,9 @@ struct LobbyView: View {
                                     playerControllers: $playerControllers,
                                     variants: activeVariants,
                                     showingRules: showingRules,
+                                    showingOnline: showingOnline,
+                                    onHostOnline: onHostOnline,
+                                    onJoinOnline: onJoinOnline,
                                     width: panelWidth,
                                     maxHeight: panelHeight
                                 )
@@ -98,6 +109,7 @@ struct LobbyView: View {
 struct LobbyTitleColumn: View {
     @Environment(\.kolkhozLanguage) private var language
     @Binding var showingRules: Bool
+    @Binding var showingOnline: Bool
     let onTutorial: () -> Void
     let onStart: () -> Void
     let width: CGFloat
@@ -120,6 +132,17 @@ struct LobbyTitleColumn: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(CommandButtonStyle(prominent: true))
+                Button {
+                    showingRules = false
+                    showingOnline = true
+                } label: {
+                    HStack(spacing: 8) {
+                        GameIcon(.playTap, size: 20)
+                        Text(language.text(en: "Online Play", ru: "Онлайн игра"))
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(CommandButtonStyle(prominent: false))
                 Button(action: onTutorial) {
                     HStack(spacing: 8) {
                         GameIcon(.tutorial, size: 20)
@@ -129,9 +152,15 @@ struct LobbyTitleColumn: View {
                 }
                 .buttonStyle(CommandButtonStyle(prominent: false))
                 Button {
-                    showingRules.toggle()
+                    if showingRules || showingOnline {
+                        showingRules = false
+                        showingOnline = false
+                    } else {
+                        showingRules = true
+                        showingOnline = false
+                    }
                 } label: {
-                    Text(showingRules ? language.text(en: "Options", ru: "Настройки") : language.text(en: "Rules", ru: "Правила"))
+                    Text((showingRules || showingOnline) ? language.text(en: "Options", ru: "Настройки") : language.text(en: "Rules", ru: "Правила"))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(CommandButtonStyle(prominent: false))
@@ -190,6 +219,9 @@ struct LobbyPanel: View {
     @Binding var playerControllers: [PlayerController]
     let variants: GameVariants
     let showingRules: Bool
+    let showingOnline: Bool
+    let onHostOnline: (URL, [PlayerController]) async throws -> String
+    let onJoinOnline: (URL, String, Int32?) async throws -> Void
     let width: CGFloat
     let maxHeight: CGFloat
 
@@ -197,7 +229,13 @@ struct LobbyPanel: View {
         let contentHeight = max(180, maxHeight - 24)
 
         Group {
-            if showingRules {
+            if showingOnline {
+                OnlineLobbyPanel(
+                    variants: variants,
+                    onHost: onHostOnline,
+                    onJoin: onJoinOnline
+                )
+            } else if showingRules {
                 RulesPanel(maxHeight: contentHeight)
             } else {
                 VariantPanel(
@@ -757,6 +795,7 @@ private struct LobbyViewPreviewHost: View {
     @State private var customVariants: GameVariants
     @State private var playerControllers: [PlayerController]
     @State private var showingRules: Bool
+    @State private var showingOnline = false
 
     init(
         selectedPreset: GamePreset = .kolkhoz,
@@ -777,8 +816,11 @@ private struct LobbyViewPreviewHost: View {
             customVariants: $customVariants,
             playerControllers: $playerControllers,
             showingRules: $showingRules,
+            showingOnline: $showingOnline,
             onTutorial: {},
-            onStart: {}
+            onStart: {},
+            onHostOnline: { _, _ in UUID().uuidString },
+            onJoinOnline: { _, _, _ in }
         )
         .font(.kolkhozLabel(.body))
     }

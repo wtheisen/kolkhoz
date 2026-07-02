@@ -17,7 +17,8 @@ let package = Package(
         .executable(name: "KolkhozPolicyBenchmark", targets: ["KolkhozPolicyBenchmark"]),
         .executable(name: "KolkhozPolicyDiagnostics", targets: ["KolkhozPolicyDiagnostics"]),
         .executable(name: "KolkhozEngineParity", targets: ["KolkhozEngineParity"]),
-        .executable(name: "KolkhozEngineBenchmark", targets: ["KolkhozEngineBenchmark"])
+        .executable(name: "KolkhozEngineBenchmark", targets: ["KolkhozEngineBenchmark"]),
+        .executable(name: "KolkhozOnlineServer", targets: ["KolkhozOnlineServer"])
     ],
     targets: [
         .target(
@@ -68,6 +69,10 @@ let package = Package(
         .executableTarget(
             name: "KolkhozEngineBenchmark",
             dependencies: ["KolkhozCore", "KolkhozCEngine"]
+        ),
+        .executableTarget(
+            name: "KolkhozOnlineServer",
+            dependencies: ["KolkhozCore"]
         )
     ]
 )
