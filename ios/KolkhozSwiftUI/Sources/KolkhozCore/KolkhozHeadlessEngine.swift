@@ -65,31 +65,78 @@ public struct KolkhozEnginePlayerSnapshot: Codable, Equatable, Sendable {
     public var brigadeLeader: Bool
     public var wonTrickThisYear: Bool
     public var stacks: [KolkhozEnginePlotStackSnapshot]
+
+    public init(
+        id: Int32,
+        hand: [KolkhozEngineCard],
+        revealedPlot: [KolkhozEngineCard],
+        hiddenPlot: [KolkhozEngineCard],
+        medals: Int32,
+        bankedMedals: Int32,
+        brigadeLeader: Bool,
+        wonTrickThisYear: Bool,
+        stacks: [KolkhozEnginePlotStackSnapshot]
+    ) {
+        self.id = id
+        self.hand = hand
+        self.revealedPlot = revealedPlot
+        self.hiddenPlot = hiddenPlot
+        self.medals = medals
+        self.bankedMedals = bankedMedals
+        self.brigadeLeader = brigadeLeader
+        self.wonTrickThisYear = wonTrickThisYear
+        self.stacks = stacks
+    }
 }
 
 public struct KolkhozEnginePlotStackSnapshot: Codable, Equatable, Sendable {
     public var revealed: [KolkhozEngineCard]
     public var hidden: [KolkhozEngineCard]
+
+    public init(revealed: [KolkhozEngineCard], hidden: [KolkhozEngineCard]) {
+        self.revealed = revealed
+        self.hidden = hidden
+    }
 }
 
 public struct KolkhozEngineTrickPlaySnapshot: Codable, Equatable, Sendable {
     public var playerID: Int32
     public var card: KolkhozEngineCard
+
+    public init(playerID: Int32, card: KolkhozEngineCard) {
+        self.playerID = playerID
+        self.card = card
+    }
 }
 
 public struct KolkhozEngineSuitCardsSnapshot: Codable, Equatable, Sendable {
     public var suit: Int32
     public var cards: [KolkhozEngineCard]
+
+    public init(suit: Int32, cards: [KolkhozEngineCard]) {
+        self.suit = suit
+        self.cards = cards
+    }
 }
 
 public struct KolkhozEngineSuitValueSnapshot: Codable, Equatable, Sendable {
     public var suit: Int32
     public var value: Int32
+
+    public init(suit: Int32, value: Int32) {
+        self.suit = suit
+        self.value = value
+    }
 }
 
 public struct KolkhozEngineAssignmentSnapshot: Codable, Equatable, Sendable {
     public var card: KolkhozEngineCard
     public var targetSuit: Int32
+
+    public init(card: KolkhozEngineCard, targetSuit: Int32) {
+        self.card = card
+        self.targetSuit = targetSuit
+    }
 }
 
 public struct KolkhozEngineRequisitionSnapshot: Codable, Equatable, Sendable {
@@ -97,12 +144,25 @@ public struct KolkhozEngineRequisitionSnapshot: Codable, Equatable, Sendable {
     public var suit: Int32
     public var card: KolkhozEngineCard
     public var message: String
+
+    public init(playerID: Int32, suit: Int32, card: KolkhozEngineCard, message: String) {
+        self.playerID = playerID
+        self.suit = suit
+        self.card = card
+        self.message = message
+    }
 }
 
 public struct KolkhozEngineScoreSnapshot: Codable, Equatable, Sendable {
     public var playerID: Int32
     public var visibleScore: Int32
     public var finalScore: Int32
+
+    public init(playerID: Int32, visibleScore: Int32, finalScore: Int32) {
+        self.playerID = playerID
+        self.visibleScore = visibleScore
+        self.finalScore = finalScore
+    }
 }
 
 public struct KolkhozEngineSwapSnapshot: Codable, Equatable, Sendable {
@@ -111,6 +171,14 @@ public struct KolkhozEngineSwapSnapshot: Codable, Equatable, Sendable {
     public var plotIndex: Int32
     public var handIndex: Int32
     public var newPlotCard: KolkhozEngineCard
+
+    public init(playerID: Int32, plotZone: Int32, plotIndex: Int32, handIndex: Int32, newPlotCard: KolkhozEngineCard) {
+        self.playerID = playerID
+        self.plotZone = plotZone
+        self.plotIndex = plotIndex
+        self.handIndex = handIndex
+        self.newPlotCard = newPlotCard
+    }
 }
 
 public struct KolkhozEngineSnapshot: Codable, Equatable, Sendable {
@@ -143,93 +211,64 @@ public struct KolkhozEngineSnapshot: Codable, Equatable, Sendable {
     public var swapCount: [Int32]
     public var lastSwap: KolkhozEngineSwapSnapshot?
 
-    public init(engine: KolkhozEngine) {
-        let state = engine.state
-        year = Int32(state.year)
-        phase = state.phase.engineCode
-        currentPlayer = Int32(state.currentPlayer)
-        waitingPlayer = switch state.phase {
-        case .assignment:
-            Int32(state.lastWinner ?? -1)
-        case .gameOver:
-            -1
-        default:
-            Int32(state.currentPlayer)
-        }
-        waitingForExternalAction = state.phase != .gameOver
-        lead = Int32(state.lead)
-        trumpSelector = Int32(state.trumpSelector)
-        trump = state.trump?.engineCode ?? -1
-        trickCount = Int32(state.trickCount)
-        isFamine = state.isFamine
-        players = state.players.map { player in
-            KolkhozEnginePlayerSnapshot(
-                id: Int32(player.id),
-                hand: player.hand.map(\.engineCard),
-                revealedPlot: player.plot.revealed.map(\.engineCard),
-                hiddenPlot: player.plot.hidden.map(\.engineCard),
-                medals: Int32(player.medals),
-                bankedMedals: Int32(player.plot.medals),
-                brigadeLeader: player.brigadeLeader,
-                wonTrickThisYear: player.hasWonTrickThisYear,
-                stacks: player.plot.stacks.map { stack in
-                    KolkhozEnginePlotStackSnapshot(
-                        revealed: stack.revealed.map(\.engineCard),
-                        hidden: stack.hidden.map(\.engineCard)
-                    )
-                }
-            )
-        }
-        jobPiles = Self.suitCards(from: state.jobPiles)
-        revealedJobs = Suit.allCases.map { suit in
-            KolkhozEngineSuitCardsSnapshot(suit: suit.engineCode, cards: state.revealedJobs[suit].map { [$0.engineCard] } ?? [])
-        }
-        claimedJobs = Suit.allCases.filter { state.claimedJobs.contains($0) }.map(\.engineCode)
-        workHours = Suit.allCases.map { suit in
-            KolkhozEngineSuitValueSnapshot(suit: suit.engineCode, value: Int32(state.workHours[suit, default: 0]))
-        }
-        jobBuckets = Self.suitCards(from: state.jobBuckets)
-        accumulatedJobCards = Self.suitCards(from: state.accumulatedJobCards)
-        currentTrick = state.currentTrick.map(\.engineSnapshot)
-        lastTrick = state.lastTrick.map(\.engineSnapshot)
-        lastWinner = Int32(state.lastWinner ?? -1)
-        exiled = state.exiled.keys.sorted().map { year in
-            KolkhozEngineSuitCardsSnapshot(
-                suit: Int32(year),
-                cards: state.exiled[year, default: []].map(\.engineCard)
-            )
-        }
-        pendingAssignments = state.lastTrick.compactMap { play in
-            guard let target = state.pendingAssignments[play.card.id] else { return nil }
-            return KolkhozEngineAssignmentSnapshot(card: play.card.engineCard, targetSuit: target.engineCode)
-        }
-        requisitionEvents = state.requisitionEvents.map { event in
-            KolkhozEngineRequisitionSnapshot(
-                playerID: Int32(event.playerID ?? -1),
-                suit: event.suit.engineCode,
-                card: event.card?.engineCard ?? .none,
-                message: event.message
-            )
-        }
-        scores = state.players.map { player in
-            KolkhozEngineScoreSnapshot(
-                playerID: Int32(player.id),
-                visibleScore: Int32(engine.visibleScore(for: player.id)),
-                finalScore: Int32(engine.finalScore(for: player.id))
-            )
-        }
-        winnerID = Int32(state.gameResult?.winnerID ?? -1)
-        swapConfirmed = state.swapConfirmed.sorted().map(Int32.init)
-        swapCount = state.swapCount.sorted().map(Int32.init)
-        lastSwap = state.lastSwap.map { swap in
-            KolkhozEngineSwapSnapshot(
-                playerID: Int32(swap.playerID),
-                plotZone: swap.plotZone.engineCode,
-                plotIndex: Int32(swap.plotIndex),
-                handIndex: Int32(swap.handIndex),
-                newPlotCard: swap.newPlotCard.engineCard
-            )
-        }
+    public init(
+        year: Int32,
+        phase: Int32,
+        currentPlayer: Int32,
+        waitingPlayer: Int32,
+        waitingForExternalAction: Bool,
+        lead: Int32,
+        trumpSelector: Int32,
+        trump: Int32,
+        trickCount: Int32,
+        isFamine: Bool,
+        players: [KolkhozEnginePlayerSnapshot],
+        jobPiles: [KolkhozEngineSuitCardsSnapshot],
+        revealedJobs: [KolkhozEngineSuitCardsSnapshot],
+        claimedJobs: [Int32],
+        workHours: [KolkhozEngineSuitValueSnapshot],
+        jobBuckets: [KolkhozEngineSuitCardsSnapshot],
+        accumulatedJobCards: [KolkhozEngineSuitCardsSnapshot],
+        currentTrick: [KolkhozEngineTrickPlaySnapshot],
+        lastTrick: [KolkhozEngineTrickPlaySnapshot],
+        lastWinner: Int32,
+        exiled: [KolkhozEngineSuitCardsSnapshot],
+        pendingAssignments: [KolkhozEngineAssignmentSnapshot],
+        requisitionEvents: [KolkhozEngineRequisitionSnapshot],
+        scores: [KolkhozEngineScoreSnapshot],
+        winnerID: Int32,
+        swapConfirmed: [Int32],
+        swapCount: [Int32],
+        lastSwap: KolkhozEngineSwapSnapshot?
+    ) {
+        self.year = year
+        self.phase = phase
+        self.currentPlayer = currentPlayer
+        self.waitingPlayer = waitingPlayer
+        self.waitingForExternalAction = waitingForExternalAction
+        self.lead = lead
+        self.trumpSelector = trumpSelector
+        self.trump = trump
+        self.trickCount = trickCount
+        self.isFamine = isFamine
+        self.players = players
+        self.jobPiles = jobPiles
+        self.revealedJobs = revealedJobs
+        self.claimedJobs = claimedJobs
+        self.workHours = workHours
+        self.jobBuckets = jobBuckets
+        self.accumulatedJobCards = accumulatedJobCards
+        self.currentTrick = currentTrick
+        self.lastTrick = lastTrick
+        self.lastWinner = lastWinner
+        self.exiled = exiled
+        self.pendingAssignments = pendingAssignments
+        self.requisitionEvents = requisitionEvents
+        self.scores = scores
+        self.winnerID = winnerID
+        self.swapConfirmed = swapConfirmed
+        self.swapCount = swapCount
+        self.lastSwap = lastSwap
     }
 
     init(cEngine: KCEngine) {
@@ -472,123 +511,6 @@ public final class KolkhozHeadlessEngine {
         }
     }
 
-    public static func legalActions(for engine: KolkhozEngine) -> [KolkhozEngineAction] {
-        let state = engine.state
-        switch state.phase {
-        case .planning:
-            guard !state.isFamine else { return [] }
-            return Suit.allCases.map { suit in
-                KolkhozEngineAction(kind: .setTrump, playerID: Int32(state.currentPlayer), suit: suit.engineCode)
-            }
-
-        case .swap:
-            guard state.players.indices.contains(state.currentPlayer) else { return [] }
-            let playerID = state.currentPlayer
-            var actions: [KolkhozEngineAction] = []
-            if !state.swapCount.contains(playerID) {
-                let hand = state.players[playerID].hand
-                for handCard in hand {
-                    for plotCard in state.players[playerID].plot.hidden {
-                        actions.append(KolkhozEngineAction(
-                            kind: .swap,
-                            playerID: Int32(playerID),
-                            handCard: handCard.engineCard,
-                            plotCard: plotCard.engineCard,
-                            plotZone: PlotCardZone.hidden.engineCode
-                        ))
-                    }
-                    for plotCard in state.players[playerID].plot.revealed {
-                        actions.append(KolkhozEngineAction(
-                            kind: .swap,
-                            playerID: Int32(playerID),
-                            handCard: handCard.engineCard,
-                            plotCard: plotCard.engineCard,
-                            plotZone: PlotCardZone.revealed.engineCode
-                        ))
-                    }
-                }
-            }
-            actions.append(KolkhozEngineAction(kind: .confirmSwap, playerID: Int32(playerID)))
-            if state.swapCount.contains(playerID), state.lastSwap?.playerID == playerID {
-                actions.append(KolkhozEngineAction(kind: .undoSwap, playerID: Int32(playerID)))
-            }
-            return actions
-
-        case .trick:
-            let playerID = state.currentPlayer
-            return engine.validCardsForHuman(playerID: playerID)
-                .sortedByCard()
-                .map { card in
-                    KolkhozEngineAction(kind: .playCard, playerID: Int32(playerID), card: card.engineCard)
-                }
-
-        case .assignment:
-            guard let winner = state.lastWinner else { return [] }
-            if state.pendingAssignments.count >= state.lastTrick.count {
-                return [KolkhozEngineAction(kind: .submitAssignments, playerID: Int32(winner))]
-            }
-            guard let play = state.lastTrick.first(where: { state.pendingAssignments[$0.card.id] == nil }) else {
-                return [KolkhozEngineAction(kind: .submitAssignments, playerID: Int32(winner))]
-            }
-            let legalSuits = Suit.allCases.filter { suit in
-                state.lastTrick.contains { $0.card.suit == suit }
-            }
-            return legalSuits.map { suit in
-                KolkhozEngineAction(
-                    kind: .assign,
-                    playerID: Int32(winner),
-                    card: play.card.engineCard,
-                    targetSuit: suit.engineCode
-                )
-            }
-
-        case .requisition:
-            return [KolkhozEngineAction(kind: .continueAfterRequisition, playerID: 0)]
-
-        case .gameOver:
-            return []
-        }
-    }
-
-    public static func apply(_ action: KolkhozEngineAction, to engine: KolkhozEngine) throws {
-        let playerID = Int(action.playerID)
-        switch action.kind {
-        case .setTrump:
-            guard let suit = Suit(engineCode: action.suit) else { throw KolkhozMoveError.invalidCard }
-            try engine.setTrump(suit, playerID: playerID)
-
-        case .swap:
-            guard let handCard = Card(engineCard: action.handCard),
-                  let plotCard = Card(engineCard: action.plotCard),
-                  let zone = PlotCardZone(engineCode: action.plotZone) else {
-                throw KolkhozMoveError.invalidCard
-            }
-            try engine.swap(handCard: handCard, plotCard: plotCard, revealed: zone == .revealed, playerID: playerID)
-
-        case .confirmSwap:
-            try engine.confirmSwap(playerID: playerID)
-
-        case .playCard:
-            guard let card = Card(engineCard: action.card) else { throw KolkhozMoveError.invalidCard }
-            try engine.playCard(card, playerID: playerID)
-
-        case .assign:
-            guard let card = Card(engineCard: action.card),
-                  let targetSuit = Suit(engineCode: action.targetSuit) else {
-                throw KolkhozMoveError.invalidAssignment
-            }
-            try engine.assign(card: card, to: targetSuit, playerID: playerID)
-
-        case .submitAssignments:
-            try engine.submitAssignments(playerID: playerID)
-
-        case .continueAfterRequisition:
-            engine.continueAfterRequisition()
-
-        case .undoSwap:
-            try engine.undoSwap(playerID: playerID)
-        }
-    }
 }
 
 public struct KolkhozCEngineSavedGame: Codable, Sendable {
@@ -888,7 +810,7 @@ private extension Array where Element == PlayerController {
     }
 }
 
-private extension GamePhase {
+public extension GamePhase {
     var engineCode: Int32 {
         switch self {
         case .planning: 0

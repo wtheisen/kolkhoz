@@ -1,7 +1,8 @@
 # Game Phases & Transitions
 
-The Swift app uses `GamePhase` plus explicit methods in `KolkhozEngine`. It does not use
-boardgame.io hooks. Automatic AI turns are processed by `processAutomaticTurns()`.
+The app uses `GamePhase` values adapted from the C engine through
+`KolkhozCEngineAdapter`. It does not use boardgame.io hooks. Automatic AI turns are
+processed by the C engine.
 
 ## Phase Flow Diagram
 
@@ -79,10 +80,8 @@ year is not famine.
 
 **Key logic locations:**
 
-- `setupDecks()`
-- `revealJobs()`
-- `processAutomaticTurns()`
-- `advanceFromPlanning()`
+- C engine setup/deal/reveal logic in `Sources/KolkhozCEngine/`
+- Swift snapshot/action bridge in `KolkhozHeadlessEngine.swift`
 
 ### 2. Swap
 
@@ -100,9 +99,8 @@ plot card before tricks begin.
 
 **Key logic locations:**
 
-- `swapCard(playerID:handCard:plotCard:zone:)`
-- `performAISwapIfUseful(playerID:)`
-- `confirmSwap(playerID:)`
+- C engine swap and automatic turn logic in `Sources/KolkhozCEngine/`
+- `KolkhozEngineAction(kind: .swap/.confirmSwap/.undoSwap, ...)`
 
 ### 3. Trick
 
@@ -120,11 +118,8 @@ plot card before tricks begin.
 
 **Key logic locations:**
 
-- `playCard(playerID:cardIndex:)`
-- `resolveCurrentTrick()`
-- `trickWinner()`
-- `isValidPlay(playerID:cardIndex:)`
-- `chooseCardIndex(for:)`
+- C engine trick, winner, and legal-action logic in `Sources/KolkhozCEngine/`
+- `KolkhozCEngineAdapter.legalActions()` and `apply(_:)`
 
 ### 4. Assignment
 
@@ -144,11 +139,8 @@ trick.
 
 **Key logic locations:**
 
-- `assign(card:to:)`
-- `submitAssignments()`
-- `chooseAssignments(for:)`
-- `applyAssignments(_:)`
-- `advanceAfterAssignments()`
+- C engine assignment and job-claim logic in `Sources/KolkhozCEngine/`
+- `KolkhozEngineAction(kind: .assign/.submitAssignments, ...)`
 
 ### 5. Year-End Hand Movement
 
@@ -181,25 +173,19 @@ The year is complete when:
 
 **Key logic locations:**
 
-- `performRequisition()`
-- `handleDrunkard(in:)`
-- `revealHiddenCards(playerID:suit:revealAll:)`
-- `removeExiledCards()`
-- `continueAfterRequisition()`
+- C engine requisition and continue logic in `Sources/KolkhozCEngine/`
+- `KolkhozEngineAction(kind: .continueAfterRequisition, ...)`
 
 ### 7. Game Over
 
-After requisition in year 5, `transitionToNextYear()` increments `year` past 5 and calls
-`finishGame()`.
-
-`finishGame()` calculates final scores and picks the player with the highest final plot
-score as the winner.
+After requisition in year 5, the C engine transitions past year 5, calculates final
+scores, and picks the player with the highest final plot score as the winner.
 
 ## Phase Transition Gotchas
 
 ### Famine
 
-Famine is year 5 in the Swift app. It is not based on revealing an Ace of Clubs.
+Famine is year 5 in the app. It is not based on revealing an Ace of Clubs.
 
 Famine means:
 
@@ -214,13 +200,13 @@ from older docs/rules that said trump cards can go to any job.
 
 ### Requisition Timing
 
-`performRequisition()` records exiled cards and events, but plot cards remain visible for
-the requisition screen. `removeExiledCards()` runs only when the user continues.
+The engine records exiled cards and events, but plot cards remain visible for the
+requisition screen. Removal is applied when the user continues.
 
 ### Swap Is Sequential
 
-The Swift app processes swap confirmations in player order. AI players are automatic, but
-the implementation is not simultaneous `activePlayers` behavior.
+The app processes swap confirmations in player order. AI players are automatic, but the
+implementation is not simultaneous `activePlayers` behavior.
 
 ## Debugging Phase Issues
 

@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		009095A86A951C1CA4430C26 /* KolkhozEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB9E684E958020AC615CD8F4 /* KolkhozEngine.swift */; };
 		01B708329DC8BDC8F6E72C3A /* icon-year-1.png in Resources */ = {isa = PBXBuildFile; fileRef = 9C947367DE8D7C26EFBA7EF8 /* icon-year-1.png */; };
 		01C0936C5127EAD34F78F0EE /* handjet-b2-11px.png in Resources */ = {isa = PBXBuildFile; fileRef = 320A2DD0041CFED725B99904 /* handjet-b2-11px.png */; };
 		021C381768727240E8BF1D6A /* KolkhozHeadlessEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE97AF4F1DEF75BBC392C409 /* KolkhozHeadlessEngine.swift */; };
@@ -19,7 +18,6 @@
 		0681A7BACC9D4FE98710EC15 /* icon-panel-brigade.png in Resources */ = {isa = PBXBuildFile; fileRef = 38A34E4D3174D5949F2835F2 /* icon-panel-brigade.png */; };
 		07CEEB46927DEA0C286D7EF7 /* face-king.png in Resources */ = {isa = PBXBuildFile; fileRef = B1A1549A10EFB6CDB9848F13 /* face-king.png */; };
 		0979CDB510929A450E9E3C4E /* Handjet.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 17120E8A6ED60B30D5718F86 /* Handjet.ttf */; };
-		0BB5E67DF4F9C9ECD48004A3 /* kolkhoz_policy.json in Resources */ = {isa = PBXBuildFile; fileRef = 0664B11D9EBE4F6118330550 /* kolkhoz_policy.json */; };
 		0C1A2665A948C782643AE593 /* face-queen-nomenklatura-draft-v2.png in Resources */ = {isa = PBXBuildFile; fileRef = 420DD576402D92F7F3F00F7A /* face-queen-nomenklatura-draft-v2.png */; };
 		0E72E0DBCB72308F52080779 /* icon-wheat.png in Resources */ = {isa = PBXBuildFile; fileRef = F7F21E011F34E1EE7CCF5084 /* icon-wheat.png */; };
 		0E91926C2B0D76CD81221935 /* icon-year-5.png in Resources */ = {isa = PBXBuildFile; fileRef = F7455EAEDE1BBA37E68CC7FF /* icon-year-5.png */; };
@@ -138,7 +136,6 @@
 		A8F0A2F1DA253A48144013D8 /* icon-year-3.png in Resources */ = {isa = PBXBuildFile; fileRef = BC77DF6BEB741BA8D42FC7B9 /* icon-year-3.png */; };
 		A9788656464D622647DCA094 /* KolkhozPreviewFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA49973F5DED16C31B991B4E /* KolkhozPreviewFixtures.swift */; };
 		A9911479F16E32496EACA537 /* NorthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F18259BD442142F3D14DB003 /* NorthView.swift */; };
-		A9C20176B315BBEF2B1B0E78 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 8A79A7968927F465F9BDBB02 /* README.md */; };
 		AB57CC62BF404F438544A5AA /* KolkhozCEngine.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4613CEA60EF63463B6A502DD /* KolkhozCEngine.framework */; };
 		AD0889A99C15AC1E346D2D78 /* icon-hand.png in Resources */ = {isa = PBXBuildFile; fileRef = BFF9E22CA8C47CD3BF7D754E /* icon-hand.png */; };
 		AD30091484C1544CD6FEED6F /* icon-status-brigade-leader.png in Resources */ = {isa = PBXBuildFile; fileRef = 2011E338C816F241A69B9011 /* icon-status-brigade-leader.png */; };
@@ -187,7 +184,6 @@
 		E483208CCDF40D99C4B03AB6 /* face-jack-wheat.png in Resources */ = {isa = PBXBuildFile; fileRef = 0A771F7294DF8CFB6D8D48D2 /* face-jack-wheat.png */; };
 		E4ABBE34FBA34B03AAA0D4FE /* face-jack-sunflower.png in Resources */ = {isa = PBXBuildFile; fileRef = D8C3E03B4D3A2818C98AB33F /* face-jack-sunflower.png */; };
 		E60771F8018977474AE80528 /* TopInfoBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 384E9885D173340AF8A20C09 /* TopInfoBarView.swift */; };
-		E74C64635357D4508C17ADD7 /* KolkhozAI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2134A52C94B990190A446A /* KolkhozAI.swift */; };
 		E77E17999F2920F7ACEF0623 /* worker3.png in Resources */ = {isa = PBXBuildFile; fileRef = 2D69FD4E20951A050FB85505 /* worker3.png */; };
 		E87841849E7B729B0153AC71 /* KolkhozCEngine.c in Sources */ = {isa = PBXBuildFile; fileRef = B912E604D22958B8A39959D3 /* KolkhozCEngine.c */; };
 		EF8A15C8D0BB2E0A4AF2E0EC /* icon-menu.png in Resources */ = {isa = PBXBuildFile; fileRef = 843F04575378B0D40082CE69 /* icon-menu.png */; };
@@ -264,7 +260,6 @@
 		0474B5B5C4F50AD8EE916F34 /* handjet-b2-13px.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "handjet-b2-13px.png"; sourceTree = "<group>"; };
 		04AD33A04036A1E12F36B4E6 /* Handjet-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Handjet-OFL.txt"; sourceTree = "<group>"; };
 		05088A53A9ED303E587DFAE8 /* GameStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameStore.swift; sourceTree = "<group>"; };
-		0664B11D9EBE4F6118330550 /* kolkhoz_policy.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = kolkhoz_policy.json; sourceTree = "<group>"; };
 		07469EFD3D14FAB64DDB3A7F /* face-king-nomenklatura-draft-v2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "face-king-nomenklatura-draft-v2.png"; sourceTree = "<group>"; };
 		08843C1D83BFFF699B3BD501 /* icon-tutorial-cue-tap.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-tutorial-cue-tap.png"; sourceTree = "<group>"; };
 		0930CF641879974D49185625 /* face-king-wheat.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "face-king-wheat.png"; sourceTree = "<group>"; };
@@ -364,7 +359,6 @@
 		87339A6A3949A14B042D6505 /* ui-header-counter.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ui-header-counter.png"; sourceTree = "<group>"; };
 		88C0E82D9150A7C89A4F64D4 /* handjet-b2-24px.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "handjet-b2-24px.png"; sourceTree = "<group>"; };
 		8913B1E6569C46E5411B71EC /* KolkhozSwiftUIApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = KolkhozSwiftUIApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		8A79A7968927F465F9BDBB02 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		8D64B7E7F96B0617111D9E58 /* handjet-b4-11px.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "handjet-b4-11px.png"; sourceTree = "<group>"; };
 		8DF6F46C1378ECCAB2A6E74A /* OnlineLobbyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnlineLobbyView.swift; sourceTree = "<group>"; };
 		8F6A04B3DC06A700B6CC8AE8 /* icon-tutorial-cue-card.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-tutorial-cue-card.png"; sourceTree = "<group>"; };
@@ -433,7 +427,6 @@
 		E46666BBE0BEF4AE2C56997C /* ui-play-area-separator-horizontal-tile.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ui-play-area-separator-horizontal-tile.png"; sourceTree = "<group>"; };
 		E5AB5B97103EC953BB97E015 /* icon-brigade.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-brigade.png"; sourceTree = "<group>"; };
 		E97FAA6E6A20A45139444BA0 /* icon-requisition-north.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-requisition-north.png"; sourceTree = "<group>"; };
-		EB9E684E958020AC615CD8F4 /* KolkhozEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KolkhozEngine.swift; sourceTree = "<group>"; };
 		ECC8CFE383E459008840E06A /* BrigadeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrigadeView.swift; sourceTree = "<group>"; };
 		ECF8B2CB8368D149C8313224 /* PixelText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelText.swift; sourceTree = "<group>"; };
 		EDEB3E26D8704A314084A3E3 /* icon-trump-wheat.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-trump-wheat.png"; sourceTree = "<group>"; };
@@ -449,7 +442,6 @@
 		F7F21E011F34E1EE7CCF5084 /* icon-wheat.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-wheat.png"; sourceTree = "<group>"; };
 		FA49973F5DED16C31B991B4E /* KolkhozPreviewFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KolkhozPreviewFixtures.swift; sourceTree = "<group>"; };
 		FA874756A254A2A264C72E3C /* icon-famine.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-famine.png"; sourceTree = "<group>"; };
-		FB2134A52C94B990190A446A /* KolkhozAI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KolkhozAI.swift; sourceTree = "<group>"; };
 		FB77B7025434491A131AC7CB /* icon-medal-star.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-medal-star.png"; sourceTree = "<group>"; };
 		FBB470F8EA304C041D2FD6DB /* ui-play-area-separator-horizontal.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ui-play-area-separator-horizontal.png"; sourceTree = "<group>"; };
 		FBE44B936EA3BECCB2E821CF /* icon-plot.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-plot.png"; sourceTree = "<group>"; };
@@ -497,15 +489,6 @@
 			);
 			sourceTree = "<group>";
 		};
-		1F620291C8B744B6CBC1D2FA /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				0664B11D9EBE4F6118330550 /* kolkhoz_policy.json */,
-				8A79A7968927F465F9BDBB02 /* README.md */,
-			);
-			path = Resources;
-			sourceTree = "<group>";
-		};
 		222D1F0A7D25629B61E77A2C /* Embellishments */ = {
 			isa = PBXGroup;
 			children = (
@@ -549,13 +532,10 @@
 		4343A92EF3388146A82362B6 /* KolkhozCore */ = {
 			isa = PBXGroup;
 			children = (
-				FB2134A52C94B990190A446A /* KolkhozAI.swift */,
-				EB9E684E958020AC615CD8F4 /* KolkhozEngine.swift */,
 				DE97AF4F1DEF75BBC392C409 /* KolkhozHeadlessEngine.swift */,
 				80145021F2F49D14E489EA1F /* KolkhozOnlineHTTPRouter.swift */,
 				2EC322CCFB17E743C17A5CDC /* KolkhozOnlineSession.swift */,
 				0BD0FEBD88DBCB5FC39CB1C0 /* Models.swift */,
-				1F620291C8B744B6CBC1D2FA /* Resources */,
 			);
 			name = KolkhozCore;
 			path = Sources/KolkhozCore;
@@ -880,7 +860,6 @@
 			buildConfigurationList = E36DEF20B0B02C280CE876EB /* Build configuration list for PBXNativeTarget "KolkhozCore" */;
 			buildPhases = (
 				96940582E3DF155D48527B77 /* Sources */,
-				6842DE8DE7440C8F4DCEE277 /* Resources */,
 				FC633189A50E21E8207BAEA4 /* Frameworks */,
 			);
 			buildRules = (
@@ -970,15 +949,6 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		6842DE8DE7440C8F4DCEE277 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				A9C20176B315BBEF2B1B0E78 /* README.md in Resources */,
-				0BB5E67DF4F9C9ECD48004A3 /* kolkhoz_policy.json in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		E1E4457FBB1AF0CC40A16909 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1201,8 +1171,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E74C64635357D4508C17ADD7 /* KolkhozAI.swift in Sources */,
-				009095A86A951C1CA4430C26 /* KolkhozEngine.swift in Sources */,
 				021C381768727240E8BF1D6A /* KolkhozHeadlessEngine.swift in Sources */,
 				25EDD8D829FF398A46953EF3 /* KolkhozOnlineHTTPRouter.swift in Sources */,
 				359A02CC9F05F5CAC47DDCB2 /* KolkhozOnlineSession.swift in Sources */,

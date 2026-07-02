@@ -28,10 +28,10 @@ ready.
 ## Execution Plan
 
 1. Port iOS offline play to the C engine.
-   - Add a C-backed Swift adapter with the same move surface as the current Swift engine.
+   - Add a C-backed Swift adapter with the app's move surface.
    - Convert C snapshots into existing `KolkhozState` so the SwiftUI board can migrate
      without a broad UI rewrite.
-   - Keep parity tests against the Swift engine until the C-backed path is stable.
+   - Keep smoke tests around representative C action logs and online sessions.
 
 2. Add iOS online bindings.
    - Treat online play as action submission plus snapshot rendering.
@@ -73,9 +73,9 @@ Normal offline `GameStore` play is C-backed. Autosave stores the C engine seed,
 variants, controllers, and portable action log, then restores by replaying those actions
 through the C engine.
 
-Scripted tutorial and preview states still use the Swift engine because they start from
-handcrafted `KolkhozState` values rather than a C seed/action log. Those paths are not
-authoritative gameplay sources.
+Scripted tutorial and preview states use a lightweight `ScriptedGameRuntime` because
+they start from handcrafted `KolkhozState` values rather than a C seed/action log. Those
+paths are not authoritative gameplay sources.
 
 The next migration target is online binding work: redacted snapshots, session
 membership, and a server-owned action log.

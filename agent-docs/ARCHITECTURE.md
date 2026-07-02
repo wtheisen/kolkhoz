@@ -1,8 +1,10 @@
 # Kolkhoz Architecture
 
-The native SwiftUI implementation in `ios/KolkhozSwiftUI/` is the source of truth for
-rules and app behavior. The older React/boardgame.io code remains in the repo, but should
-not be used to infer current iOS behavior when it differs from Swift.
+The C engine under `ios/KolkhozSwiftUI/Sources/KolkhozCEngine/` is the source of truth
+for rules and app behavior. The native SwiftUI app uses that engine through
+`KolkhozCEngineAdapter` for offline play and through online session snapshots/actions for
+multiplayer. The older React/boardgame.io code remains in the repo, but should not be
+used to infer current iOS behavior when it differs from the C engine.
 
 ## Directory Structure
 
@@ -16,7 +18,12 @@ kolkhoz/
 │       └── Sources/
 │           ├── KolkhozCore/
 │           │   ├── Models.swift
-│           │   └── KolkhozEngine.swift
+│           │   ├── KolkhozHeadlessEngine.swift
+│           │   ├── KolkhozOnlineSession.swift
+│           │   └── KolkhozOnlineHTTPRouter.swift
+│           ├── KolkhozCEngine/
+│           │   ├── include/
+│           │   └── *.c
 │           ├── KolkhozAppFeature/
 │           │   ├── GameStore.swift
 │           │   ├── KolkhozRootView.swift
@@ -45,14 +52,21 @@ kolkhoz/
 
 ## Module Responsibilities
 
+### `KolkhozCEngine`
+
+Portable C rules engine. This is the runtime rules implementation for local play,
+online sessions, and eventual non-iOS clients.
+
 ### `KolkhozCore`
 
-Foundation-only game logic with no SwiftUI dependency.
+Foundation-only Swift models and adapters with no SwiftUI dependency.
 
 | File | Purpose |
 |------|---------|
 | `Models.swift` | Suits, cards, variants, players, state, phases, animation events, errors |
-| `KolkhozEngine.swift` | New game setup, AI turns, moves, phase transitions, requisition, scoring |
+| `KolkhozHeadlessEngine.swift` | `KolkhozCEngineAdapter`, C action/snapshot types, saved-game bridge |
+| `KolkhozOnlineSession.swift` | Online session store, redaction, client protocols, local client |
+| `KolkhozOnlineHTTPRouter.swift` | Minimal HTTP routing for the online server |
 
 ### `KolkhozAppFeature`
 
@@ -60,7 +74,7 @@ SwiftUI feature module for the playable app.
 
 | File | Purpose |
 |------|---------|
-| `GameStore.swift` | `@MainActor ObservableObject` bridge around `KolkhozEngine` |
+| `GameStore.swift` | `@MainActor ObservableObject` bridge around C, online, and scripted preview runtimes |
 | `KolkhozRootView.swift` | Owns lobby/game mode, selected preset, custom variants, language |
 | `Lobby/LobbyView.swift` | Start screen, preset selector, custom variant controls, rules panel |
 | `Board/GameBoardView.swift` | Main board shell, nav rail/top bar, panel selection, animation overlay |
@@ -75,8 +89,8 @@ The iOS app entry point. `KolkhozSwiftUIApp` opens `KolkhozRootView`.
 ### `KolkhozSmokeTests`
 
 Plain Swift executable tests for environments where XCTest is not set up. These cover
-basic dealing, follow-suit validation, animation events, and deterministic game
-completion.
+basic dealing, follow-suit validation, play-card state mutation, deterministic game
+completion, saved-game replay, and online session transport.
 
 ## Data Flow
 
@@ -87,13 +101,13 @@ User gesture in SwiftUI
 GameStore action
     |
     v
-KolkhozEngine method mutates KolkhozState
+KolkhozCEngineAdapter applies a C action
     |
     v
-Engine processes automatic AI turns
+C engine advances automatic AI turns and phase transitions
     |
     v
-GameStore copies engine.state into @Published state
+GameStore copies adapter state into @Published state
     |
     v
 SwiftUI re-renders views
@@ -102,24 +116,24 @@ SwiftUI re-renders views
 Queued KolkhozAnimationEvent values drive overlays
 ```
 
-Views do not mutate `KolkhozState` directly. They call `GameStore`, which calls the
-engine and then publishes the new state.
+Views do not mutate `KolkhozState` directly. They call `GameStore`, which calls the C
+runtime or online client and then publishes the new state. Scripted preview/tutorial
+states use a lightweight `ScriptedGameRuntime`, not the old Swift rules engine.
 
 ## Engine Pattern
 
-`KolkhozEngine` is a mutable class:
+`KolkhozCEngineAdapter` is the Swift runtime wrapper around the C state:
 
 ```swift
-public final class KolkhozEngine {
+public final class KolkhozCEngineAdapter {
+    public var snapshot: KolkhozEngineSnapshot { ... }
     public private(set) var state: KolkhozState
-    private var random: SeededGenerator
-    private var animationEvents: [KolkhozAnimationEvent] = []
 }
 ```
 
 Public methods are the user-facing moves:
 
-- `newGame(seed:variants:)`
+- `newGame(seed:variants:controllers:)`
 - `setTrump(_:)`
 - `playCard(_:)`
 - `swap(handCard:plotCard:revealed:)`
@@ -129,19 +143,13 @@ Public methods are the user-facing moves:
 - `submitAssignments()`
 - `continueAfterRequisition()`
 
-Private helpers handle AI, phase transitions, scoring, and special card behavior.
+The shared action type is `KolkhozEngineAction`; offline play applies it directly to the
+C adapter, and online play sends the same action to the session/server.
 
 ## Phase Ownership
 
-Phase flow is centralized in these methods:
-
-- `processAutomaticTurns()` - loops through automatic AI planning, swap, trick, and assignment turns.
-- `advanceFromPlanning()` - enters swap or trick after trump selection.
-- `resolveCurrentTrick()` - determines winner and enters assignment.
-- `advanceAfterAssignments()` - either returns to trick or ends the year.
-- `performRequisition()` - records requisition events and exiled cards.
-- `transitionToNextYear()` - resets year state, reveals jobs, deals hands, or finishes game.
-- `finishGame()` - calculates final scores and winner.
+Phase flow is owned by the C engine. Keep Swift phase logic limited to adapting C
+snapshots into `KolkhozState`, redacting online views, and rendering the correct UI.
 
 ## UI Architecture
 
@@ -159,14 +167,15 @@ Animation targets are captured with `GeometryReader` in a named coordinate space
 
 ## AI System
 
-AI is deterministic for a given seed and implemented directly in `KolkhozEngine`:
+Runtime AI is deterministic for a given seed and implemented in the C engine:
 
 - Trump: pick the suit with the strongest hand score.
 - Swap: trade the lowest hand card for a significantly better plot card.
 - Trick: play the lowest legal card, unless trying to win a late first trick.
 - Assignment: choose the highest-priority legal suit and assign all trick cards there.
 
-There is no MCTS or boardgame.io AI in the Swift implementation.
+Do not add a parallel Swift AI/rules implementation for app gameplay. Future training
+tooling should bind to the C engine contract directly.
 
 ## Build System
 
@@ -192,5 +201,7 @@ on failure. It currently verifies:
 
 - New game deals 20 worker cards in normal years.
 - Legal human cards respect lead suit.
-- Card play animation events are emitted.
+- Card play actions mutate C engine state.
 - A deterministic game can reach `gameOver`.
+- Saved games restore from the C action log.
+- Online sessions redact private state and validate submitted actions.

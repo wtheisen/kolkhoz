@@ -48,20 +48,20 @@ public final class GameStore: ObservableObject {
     public init(scriptedState: KolkhozState) {
         self.autosaveURL = Self.defaultAutosaveURL()
         self.autosaveEnabled = false
-        let engine = KolkhozEngine(testing: scriptedState)
-        self.runtime = .swift(engine)
-        self.state = engine.state
+        let runtime = ScriptedGameRuntime(state: scriptedState)
+        self.runtime = .scripted(runtime)
+        self.state = runtime.state
         self.currentControllers = PlayerController.normalized(scriptedState.players.map { $0.isHuman ? .human : .heuristicAI })
-        self.revealedPlayerID = engine.state.humanPlayer.id
+        self.revealedPlayerID = scriptedState.humanPlayer.id
     }
 
     #if DEBUG
     public init(previewState: KolkhozState) {
         self.autosaveURL = Self.defaultAutosaveURL()
         self.autosaveEnabled = false
-        let engine = KolkhozEngine(testing: previewState)
-        self.runtime = .swift(engine)
-        self.state = engine.state
+        let runtime = ScriptedGameRuntime(state: previewState)
+        self.runtime = .scripted(runtime)
+        self.state = runtime.state
         self.currentControllers = PlayerController.normalized(previewState.players.map { $0.isHuman ? .human : .heuristicAI })
     }
     #endif
@@ -77,7 +77,7 @@ public final class GameStore: ObservableObject {
             switch runtime {
             case .c(let engine):
                 engine.newGame(variants: variants)
-            case .swift, .online:
+            case .scripted, .online:
                 runtime = .c(KolkhozCEngineAdapter(variants: nextVariants, controllers: currentControllers))
             }
         }
@@ -87,12 +87,12 @@ public final class GameStore: ObservableObject {
     }
 
     public func loadScriptedState(_ scriptedState: KolkhozState) {
-        let engine = KolkhozEngine(testing: scriptedState)
-        runtime = .swift(engine)
-        state = engine.state
+        let scripted = ScriptedGameRuntime(state: scriptedState)
+        runtime = .scripted(scripted)
+        state = scripted.state
         animationEvents = []
         lastError = nil
-        revealedPlayerID = engine.state.humanPlayer.id
+        revealedPlayerID = scriptedState.humanPlayer.id
     }
 
     public func setTrump(_ suit: Suit) {
@@ -364,13 +364,13 @@ public final class GameStore: ObservableObject {
 
 @MainActor
 private enum GameRuntime {
-    case swift(KolkhozEngine)
+    case scripted(ScriptedGameRuntime)
     case c(KolkhozCEngineAdapter)
     case online(OnlineGameRuntime)
 
     var state: KolkhozState {
         switch self {
-        case .swift(let engine): engine.state
+        case .scripted(let engine): engine.state
         case .c(let engine): engine.state
         case .online(let engine): engine.state
         }
@@ -383,7 +383,7 @@ private enum GameRuntime {
 
     func drainAnimationEvents() -> [KolkhozAnimationEvent] {
         switch self {
-        case .swift(let engine): engine.drainAnimationEvents()
+        case .scripted: []
         case .c(let engine): engine.drainAnimationEvents()
         case .online: []
         }
@@ -391,7 +391,7 @@ private enum GameRuntime {
 
     func setTrump(_ suit: Suit, playerID: Int) throws {
         switch self {
-        case .swift(let engine): try engine.setTrump(suit, playerID: playerID)
+        case .scripted(let engine): try engine.setTrump(suit, playerID: playerID)
         case .c(let engine): try engine.setTrump(suit, playerID: playerID)
         case .online: throw OnlineGameError.onlineActionRequiresSubmit
         }
@@ -399,7 +399,7 @@ private enum GameRuntime {
 
     func playCard(_ card: Card, playerID: Int) throws {
         switch self {
-        case .swift(let engine): try engine.playCard(card, playerID: playerID)
+        case .scripted(let engine): try engine.playCard(card, playerID: playerID)
         case .c(let engine): try engine.playCard(card, playerID: playerID)
         case .online: throw OnlineGameError.onlineActionRequiresSubmit
         }
@@ -407,7 +407,7 @@ private enum GameRuntime {
 
     func swap(handCard: Card, plotCard: Card, revealed: Bool, playerID: Int) throws {
         switch self {
-        case .swift(let engine): try engine.swap(handCard: handCard, plotCard: plotCard, revealed: revealed, playerID: playerID)
+        case .scripted(let engine): try engine.swap(handCard: handCard, plotCard: plotCard, revealed: revealed, playerID: playerID)
         case .c(let engine): try engine.swap(handCard: handCard, plotCard: plotCard, revealed: revealed, playerID: playerID)
         case .online: throw OnlineGameError.onlineActionRequiresSubmit
         }
@@ -415,7 +415,7 @@ private enum GameRuntime {
 
     func undoSwap(playerID: Int) throws {
         switch self {
-        case .swift(let engine): try engine.undoSwap(playerID: playerID)
+        case .scripted(let engine): try engine.undoSwap(playerID: playerID)
         case .c(let engine): try engine.undoSwap(playerID: playerID)
         case .online: throw OnlineGameError.onlineActionRequiresSubmit
         }
@@ -423,7 +423,7 @@ private enum GameRuntime {
 
     func confirmSwap(playerID: Int) throws {
         switch self {
-        case .swift(let engine): try engine.confirmSwap(playerID: playerID)
+        case .scripted(let engine): try engine.confirmSwap(playerID: playerID)
         case .c(let engine): try engine.confirmSwap(playerID: playerID)
         case .online: throw OnlineGameError.onlineActionRequiresSubmit
         }
@@ -431,7 +431,7 @@ private enum GameRuntime {
 
     func assign(card: Card, to suit: Suit, playerID: Int) throws {
         switch self {
-        case .swift(let engine): try engine.assign(card: card, to: suit, playerID: playerID)
+        case .scripted(let engine): try engine.assign(card: card, to: suit, playerID: playerID)
         case .c(let engine): try engine.assign(card: card, to: suit, playerID: playerID)
         case .online: throw OnlineGameError.onlineActionRequiresSubmit
         }
@@ -439,7 +439,7 @@ private enum GameRuntime {
 
     func submitAssignments(playerID: Int) throws {
         switch self {
-        case .swift(let engine): try engine.submitAssignments(playerID: playerID)
+        case .scripted(let engine): try engine.submitAssignments(playerID: playerID)
         case .c(let engine): try engine.submitAssignments(playerID: playerID)
         case .online: throw OnlineGameError.onlineActionRequiresSubmit
         }
@@ -447,7 +447,7 @@ private enum GameRuntime {
 
     func continueAfterRequisition() {
         switch self {
-        case .swift(let engine): engine.continueAfterRequisition()
+        case .scripted(let engine): engine.continueAfterRequisition()
         case .c(let engine): engine.continueAfterRequisition()
         case .online: break
         }
@@ -455,7 +455,7 @@ private enum GameRuntime {
 
     func visibleScore(for playerID: Int) -> Int {
         switch self {
-        case .swift(let engine): engine.visibleScore(for: playerID)
+        case .scripted(let engine): engine.visibleScore(for: playerID)
         case .c(let engine): engine.visibleScore(for: playerID)
         case .online(let engine): engine.visibleScore(for: playerID)
         }
@@ -463,7 +463,7 @@ private enum GameRuntime {
 
     func validCardsForHuman(playerID: Int) -> Set<Card> {
         switch self {
-        case .swift(let engine): return engine.validCardsForHuman(playerID: playerID)
+        case .scripted(let engine): return engine.validCardsForHuman(playerID: playerID)
         case .c(let engine): return engine.validCardsForHuman(playerID: playerID)
         case .online(let engine):
             return Set(engine.legalActions.compactMap { action in
@@ -481,6 +481,131 @@ private enum GameRuntime {
 private enum OnlineGameError: Error {
     case invalidInviteCode
     case onlineActionRequiresSubmit
+}
+
+@MainActor
+private final class ScriptedGameRuntime {
+    private(set) var state: KolkhozState
+
+    init(state: KolkhozState) {
+        self.state = state
+    }
+
+    func setTrump(_ suit: Suit, playerID: Int) throws {
+        guard state.phase == .planning else { throw KolkhozMoveError.wrongPhase }
+        guard playerID == state.currentPlayer else { throw KolkhozMoveError.wrongPlayer }
+        state.trump = suit
+        state.phase = .trick
+        state.currentPlayer = state.lead
+    }
+
+    func playCard(_ card: Card, playerID: Int) throws {
+        guard state.phase == .trick else { throw KolkhozMoveError.wrongPhase }
+        guard state.players.indices.contains(playerID) else { throw KolkhozMoveError.wrongPlayer }
+        guard let index = state.players[playerID].hand.firstIndex(of: card),
+              validCardsForHuman(playerID: playerID).contains(card) else {
+            throw KolkhozMoveError.invalidCard
+        }
+        state.players[playerID].hand.remove(at: index)
+        state.currentTrick.append(TrickPlay(playerID: playerID, card: card))
+    }
+
+    func swap(handCard: Card, plotCard: Card, revealed: Bool, playerID: Int) throws {
+        guard state.phase == .swap else { throw KolkhozMoveError.wrongPhase }
+        guard state.players.indices.contains(playerID),
+              let handIndex = state.players[playerID].hand.firstIndex(of: handCard) else {
+            throw KolkhozMoveError.invalidCard
+        }
+        if revealed {
+            guard let plotIndex = state.players[playerID].plot.revealed.firstIndex(of: plotCard) else {
+                throw KolkhozMoveError.invalidCard
+            }
+            state.players[playerID].plot.revealed[plotIndex] = handCard
+            state.players[playerID].hand[handIndex] = plotCard
+            state.lastSwap = SwapRecord(playerID: playerID, plotZone: .revealed, plotIndex: plotIndex, handIndex: handIndex, newPlotCard: handCard)
+        } else {
+            guard let plotIndex = state.players[playerID].plot.hidden.firstIndex(of: plotCard) else {
+                throw KolkhozMoveError.invalidCard
+            }
+            state.players[playerID].plot.hidden[plotIndex] = handCard
+            state.players[playerID].hand[handIndex] = plotCard
+            state.lastSwap = SwapRecord(playerID: playerID, plotZone: .hidden, plotIndex: plotIndex, handIndex: handIndex, newPlotCard: handCard)
+        }
+        state.swapCount.insert(playerID)
+    }
+
+    func undoSwap(playerID: Int) throws {
+        guard let lastSwap = state.lastSwap, lastSwap.playerID == playerID else {
+            throw KolkhozMoveError.invalidCard
+        }
+        guard state.players.indices.contains(playerID),
+              state.players[playerID].hand.indices.contains(lastSwap.handIndex) else {
+            throw KolkhozMoveError.invalidCard
+        }
+        switch lastSwap.plotZone {
+        case .hidden:
+            guard state.players[playerID].plot.hidden.indices.contains(lastSwap.plotIndex) else { throw KolkhozMoveError.invalidCard }
+            let card = state.players[playerID].plot.hidden[lastSwap.plotIndex]
+            state.players[playerID].plot.hidden[lastSwap.plotIndex] = state.players[playerID].hand[lastSwap.handIndex]
+            state.players[playerID].hand[lastSwap.handIndex] = card
+        case .revealed:
+            guard state.players[playerID].plot.revealed.indices.contains(lastSwap.plotIndex) else { throw KolkhozMoveError.invalidCard }
+            let card = state.players[playerID].plot.revealed[lastSwap.plotIndex]
+            state.players[playerID].plot.revealed[lastSwap.plotIndex] = state.players[playerID].hand[lastSwap.handIndex]
+            state.players[playerID].hand[lastSwap.handIndex] = card
+        }
+        state.swapCount.remove(playerID)
+        state.lastSwap = nil
+    }
+
+    func confirmSwap(playerID: Int) throws {
+        guard state.phase == .swap else { throw KolkhozMoveError.wrongPhase }
+        state.swapConfirmed.insert(playerID)
+    }
+
+    func assign(card: Card, to suit: Suit, playerID: Int) throws {
+        guard state.phase == .assignment else { throw KolkhozMoveError.wrongPhase }
+        guard state.lastWinner == playerID else { throw KolkhozMoveError.wrongPlayer }
+        state.pendingAssignments[card.id] = suit
+    }
+
+    func submitAssignments(playerID: Int) throws {
+        guard state.phase == .assignment else { throw KolkhozMoveError.wrongPhase }
+        guard state.lastWinner == playerID else { throw KolkhozMoveError.wrongPlayer }
+        state.pendingAssignments = [:]
+    }
+
+    func continueAfterRequisition() {
+        if state.phase == .requisition {
+            state.phase = .planning
+        }
+    }
+
+    func visibleScore(for playerID: Int) -> Int {
+        guard state.players.indices.contains(playerID) else { return 0 }
+        let player = state.players[playerID]
+        var score = player.plot.revealed.reduce(0) { $0 + $1.value }
+        score += player.plot.stacks.reduce(0) { total, stack in
+            total + stack.revealed.reduce(0) { $0 + $1.value }
+        }
+        if state.variants.medalsCount {
+            score += player.medals + player.plot.medals
+        }
+        return score
+    }
+
+    func validCardsForHuman(playerID: Int) -> Set<Card> {
+        guard state.phase == .trick,
+              state.players.indices.contains(playerID) else {
+            return []
+        }
+        guard let leadSuit = state.currentTrick.first?.card.suit else {
+            return Set(state.players[playerID].hand)
+        }
+        let hand = state.players[playerID].hand
+        let hasLeadSuit = hand.contains { $0.suit == leadSuit }
+        return Set(hand.filter { !hasLeadSuit || $0.suit == leadSuit })
+    }
 }
 
 @MainActor
