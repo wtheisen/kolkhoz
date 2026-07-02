@@ -56,6 +56,7 @@ flutter:
   assets:
     - shared/app-contracts/fixtures/
     - shared/design/tokens.json
+    - ios_resources/
     - ios_resources/ui-header-counter.png
     - ios_resources/Icons/
     - ios_resources/Cards/

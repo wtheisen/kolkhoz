@@ -283,11 +283,9 @@ class BoardRail extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: tokens.colors.table,
-      padding: EdgeInsets.symmetric(
-        horizontal: tokens.spacing.sm,
-        vertical: tokens.spacing.xs,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       child: Column(
+        spacing: 6,
         children: [
           RailButton(
             asset: 'icon-panel-menu.png',
@@ -324,7 +322,6 @@ class BoardRail extends StatelessWidget {
             label: 'Plot',
             tokens: tokens,
           ),
-          const Spacer(),
           RailButton(
             asset: 'icon-language.png',
             active: false,
@@ -363,43 +360,66 @@ class RailButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final border = active || action
-        ? tokens.colors.gold
-        : tokens.colors.gold.withValues(alpha: 0.28);
     return Tooltip(
       message: label,
-      child: Container(
+      child: SizedBox(
         width: 42,
         height: 42,
-        margin: EdgeInsets.only(bottom: tokens.spacing.sm),
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: active
-              ? tokens.colors.gold.withValues(alpha: 0.94)
-              : action
-              ? tokens.colors.red.withValues(alpha: 0.42)
-              : tokens.colors.panel,
-          borderRadius: BorderRadius.circular(tokens.radius.sm),
-          border: Border.all(color: border, width: active ? 2 : 1),
-          boxShadow: [
-            if (active)
-              BoxShadow(
-                color: tokens.colors.red.withValues(alpha: 0.32),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            boxShadow: [
+              if (active)
+                BoxShadow(
+                  color: tokens.colors.red.withValues(alpha: 0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+            ],
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned.fill(
+                child: Image.asset(
+                  'ios_resources/$backgroundAsset',
+                  fit: BoxFit.fill,
+                  filterQuality: FilterQuality.none,
+                ),
               ),
-          ],
-        ),
-        child: Image.asset(
-          'ios_resources/Icons/$asset',
-          color: active ? tokens.colors.cardInk : null,
-          errorBuilder: (_, _, _) => Icon(
-            Icons.crop_square,
-            color: active ? tokens.colors.cardInk : tokens.colors.creamDim,
+              Padding(
+                padding: EdgeInsets.only(top: action ? 2 : 0),
+                child: Opacity(
+                  opacity: active ? 1 : 0.82,
+                  child: Image.asset(
+                    'ios_resources/Icons/$asset',
+                    width: 28,
+                    height: 28,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.none,
+                    errorBuilder: (_, _, _) => Icon(
+                      Icons.crop_square,
+                      size: 28,
+                      color: active
+                          ? tokens.colors.cream
+                          : tokens.colors.creamDim,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  String get backgroundAsset {
+    return switch ((active, action)) {
+      (true, true) => 'ui-nav-button-active-current.png',
+      (false, true) => 'ui-nav-button-inactive-current.png',
+      (true, false) => 'ui-nav-button-active.png',
+      (false, false) => 'ui-nav-button-inactive.png',
+    };
   }
 }
 
@@ -420,6 +440,15 @@ class BoardSeparator extends StatelessWidget {
       height: vertical ? null : tokens.layout.board.playAreaSeparatorThickness,
       decoration: BoxDecoration(
         color: tokens.colors.gold,
+        image: DecorationImage(
+          image: AssetImage(
+            vertical
+                ? 'ios_resources/ui-left-rail-separator-tile.png'
+                : 'ios_resources/ui-play-area-separator-horizontal-tile.png',
+          ),
+          repeat: ImageRepeat.repeat,
+          filterQuality: FilterQuality.none,
+        ),
         boxShadow: [
           BoxShadow(
             color: tokens.colors.black.withValues(alpha: 0.5),
