@@ -2164,12 +2164,7 @@ class JobTile extends StatelessWidget {
         padding: EdgeInsets.all(tokens.spacing.md),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: validTarget
-                ? [
-                    tokens.colors.gold.withValues(alpha: 0.16),
-                    tokens.colors.panel,
-                  ]
-                : highlighted
+            colors: highlighted
                 ? [
                     tokens.colors.gold.withValues(alpha: 0.18),
                     tokens.colors.panel,
@@ -2179,15 +2174,6 @@ class JobTile extends StatelessWidget {
             end: Alignment.bottomCenter,
           ),
           borderRadius: BorderRadius.circular(tokens.radius.md),
-          border: Border.all(
-            color: validTarget
-                ? tokens.colors.gold
-                : tokens.colors.steel.withValues(alpha: 0.55),
-            width: validTarget
-                ? tokens.stroke.emphasis
-                : tokens.stroke.standard,
-            strokeAlign: BorderSide.strokeAlignInside,
-          ),
           boxShadow: [
             BoxShadow(
               color: validTarget
@@ -2200,6 +2186,20 @@ class JobTile extends StatelessWidget {
         ),
         child: Stack(
           children: [
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: JobTileBorderPainter(
+                    color: validTarget
+                        ? tokens.colors.gold
+                        : tokens.colors.steel.withValues(alpha: 0.55),
+                    width: 1.5,
+                    dashed: validTarget,
+                    radius: tokens.radius.md,
+                  ),
+                ),
+              ),
+            ),
             Positioned(
               right: tokens.spacing.sm,
               bottom: tokens.spacing.sm,
@@ -2299,6 +2299,58 @@ class JobTile extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class JobTileBorderPainter extends CustomPainter {
+  const JobTileBorderPainter({
+    required this.color,
+    required this.width,
+    required this.dashed,
+    required this.radius,
+  });
+
+  final Color color;
+  final double width;
+  final bool dashed;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width;
+    final rect = Rect.fromLTWH(
+      width / 2,
+      width / 2,
+      size.width - width,
+      size.height - width,
+    );
+    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(radius));
+    final path = Path()..addRRect(rrect);
+    if (!dashed) {
+      canvas.drawPath(path, paint);
+      return;
+    }
+
+    const dash = 6.0;
+    const gap = 6.0;
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        canvas.drawPath(metric.extractPath(distance, distance + dash), paint);
+        distance += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(JobTileBorderPainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.width != width ||
+        oldDelegate.dashed != dashed ||
+        oldDelegate.radius != radius;
   }
 }
 
