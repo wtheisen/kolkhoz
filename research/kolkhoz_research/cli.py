@@ -155,6 +155,7 @@ def torch_parity_command(args: argparse.Namespace) -> int:
         games_per_seat=args.games_per_seat,
         seed=args.seed,
         prefer_mps=not args.cpu,
+        rollout_envs=args.rollout_envs,
     )
     record["engine"] = asdict(engine.provenance())
     return _emit(record, args.record)
@@ -172,6 +173,8 @@ def torch_train_command(args: argparse.Namespace) -> int:
         learning_rate=args.learning_rate,
         temperature=args.temperature,
         prefer_mps=not args.cpu,
+        rollout_envs=args.rollout_envs,
+        unbatched=args.unbatched,
     )
     record["engine"] = asdict(engine.provenance())
     return _emit(record, args.record)
@@ -259,6 +262,7 @@ def main() -> int:
     torch_parity_parser.add_argument("--model", type=Path, required=True)
     torch_parity_parser.add_argument("--games-per-seat", type=int, default=4)
     torch_parity_parser.add_argument("--seed", type=int, default=41_000_000)
+    torch_parity_parser.add_argument("--rollout-envs", type=int, default=64)
     torch_parity_parser.add_argument("--cpu", action="store_true", help="force CPU instead of MPS")
     torch_parity_parser.add_argument("--record", action="store_true")
     torch_parity_parser.add_argument("--rebuild", action="store_true")
@@ -272,6 +276,8 @@ def main() -> int:
     torch_train_parser.add_argument("--seed", type=int, default=42_000_000)
     torch_train_parser.add_argument("--learning-rate", type=float, default=1e-4)
     torch_train_parser.add_argument("--temperature", type=float, default=1.0)
+    torch_train_parser.add_argument("--rollout-envs", type=int, default=64)
+    torch_train_parser.add_argument("--unbatched", action="store_true", help="use the old one-game-at-a-time rollout path")
     torch_train_parser.add_argument("--cpu", action="store_true", help="force CPU instead of MPS")
     torch_train_parser.add_argument("--record", action="store_true")
     torch_train_parser.add_argument("--rebuild", action="store_true")

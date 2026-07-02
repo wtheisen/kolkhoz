@@ -10,6 +10,7 @@
   "parity": {
     "games_per_seat": 2,
     "model": "training/rl/runs/beat_promoted_wide_seat_heads_v1/20260702T144243Z/candidate.json",
+    "rollout_envs": 64,
     "seed": 41000000
   },
   "training": {
@@ -17,6 +18,7 @@
     "episodes": 16,
     "learning_rate": 0.0001,
     "output": "research/runs/torch_mps_repro/candidate.json",
+    "rollout_envs": 64,
     "seed": 42000000,
     "start_model": "training/rl/runs/beat_promoted_wide_seat_heads_v1/20260702T144243Z/candidate.json",
     "temperature": 0.9

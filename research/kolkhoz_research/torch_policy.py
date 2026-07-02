@@ -80,13 +80,13 @@ class TorchPolicy(nn.Module):
 
 
 def _candidate_tensor(candidates: list[Any], input_size: int, device: torch.device) -> torch.Tensor:
-    features = torch.zeros((len(candidates), input_size), dtype=torch.float32, device=device)
+    features = torch.zeros((len(candidates), input_size), dtype=torch.float32)
     for row, candidate in enumerate(candidates):
         for index in range(candidate.feature_count):
             column = int(candidate.feature_indices[index])
             if 0 <= column < input_size:
                 features[row, column] = float(candidate.feature_values[index])
-    return features
+    return features.to(device)
 
 
 def _candidate_scores(model: TorchPolicy, candidates: list[Any], player_id: int) -> torch.Tensor:
@@ -118,6 +118,32 @@ def _choose_torch_action(
         return candidates[int(selected.item())].action, distribution.log_prob(selected)
     selected = int(torch.argmax(scores).item())
     return candidates[selected].action, None
+
+
+def _batched_candidate_scores(
+    model: TorchPolicy,
+    groups: list[tuple[int, list[Any], int]],
+) -> tuple[torch.Tensor, list[tuple[int, int, int, list[Any]]]]:
+    device = next(model.parameters()).device
+    total_candidates = sum(len(candidates) for _, candidates, _ in groups)
+    features = torch.zeros((total_candidates, model.input_size), dtype=torch.float32)
+    heads = torch.empty((total_candidates,), dtype=torch.long)
+    spans: list[tuple[int, int, int, list[Any]]] = []
+    row = 0
+    for env_index, candidates, player_id in groups:
+        start = row
+        for candidate in candidates:
+            for feature_index in range(candidate.feature_count):
+                column = int(candidate.feature_indices[feature_index])
+                if 0 <= column < model.input_size:
+                    features[row, column] = float(candidate.feature_values[feature_index])
+            action_head = int(candidate.action_head)
+            heads[row] = player_id * 4 + (action_head % 4) if model.head_count == 16 else min(max(action_head, 0), model.head_count - 1)
+            row += 1
+        spans.append((env_index, start, row, candidates))
+    outputs = model(features.to(device))
+    head_tensor = heads.to(device)
+    return outputs.gather(1, head_tensor[:, None]).squeeze(1), spans
 
 
 def _winner(scores: list[int], medals: list[int]) -> int:
@@ -174,6 +200,93 @@ def run_torch_game(
     raise RuntimeError("Torch policy game exceeded guard limit")
 
 
+def run_torch_games_batched(
+    engine: CEngine,
+    model: TorchPolicy,
+    *,
+    seeds: list[int],
+    seats: list[int],
+    sample: bool = False,
+    temperature: float = 1.0,
+) -> list[dict[str, Any]]:
+    envs = [
+        {
+            "pointer": engine.new_engine(seed),
+            "seed": seed,
+            "seat": seat,
+            "actions": 0,
+            "log_probs": [],
+            "done": False,
+        }
+        for seed, seat in zip(seeds, seats, strict=True)
+    ]
+    complete: list[dict[str, Any] | None] = [None] * len(envs)
+    try:
+        for _ in range(2000):
+            if all(env["done"] for env in envs):
+                return [item for item in complete if item is not None]
+
+            model_groups: list[tuple[int, list[Any], int]] = []
+            progressed = False
+            for env_index, env in enumerate(envs):
+                if env["done"]:
+                    continue
+                pointer = env["pointer"]
+                player_id = engine.waiting_player(pointer)
+                if player_id < 0:
+                    scores = engine.final_scores(pointer)
+                    medals = engine.total_medals(pointer)
+                    winner = _winner(scores, medals)
+                    seat = int(env["seat"])
+                    complete[env_index] = {
+                        "seed": int(env["seed"]),
+                        "seat": seat,
+                        "actions": int(env["actions"]),
+                        "scores": scores,
+                        "medals": medals,
+                        "winner_id": winner,
+                        "metrics": asdict(_metrics(scores, medals, winner, seat)),
+                        "log_probs": env["log_probs"],
+                    }
+                    env["done"] = True
+                    engine.free_engine(pointer)
+                    progressed = True
+                    continue
+                if player_id == env["seat"]:
+                    candidates = engine.policy_action_features(pointer, player_id=player_id, input_size=model.input_size)
+                    if candidates:
+                        model_groups.append((env_index, candidates, player_id))
+                        continue
+                action = engine.heuristic_action(pointer)
+                engine.apply_policy_action(pointer, action)
+                env["actions"] = int(env["actions"]) + 1
+                progressed = True
+
+            if model_groups:
+                scores, spans = _batched_candidate_scores(model, model_groups)
+                for env_index, start, end, candidates in spans:
+                    logits = scores[start:end]
+                    if sample:
+                        distribution = torch.distributions.Categorical(logits=logits / max(temperature, 0.05))
+                        selected_tensor = distribution.sample()
+                        selected = int(selected_tensor.item())
+                        envs[env_index]["log_probs"].append(distribution.log_prob(selected_tensor))
+                    else:
+                        selected = int(torch.argmax(logits).item())
+                    engine.apply_policy_action(envs[env_index]["pointer"], candidates[selected].action)
+                    envs[env_index]["actions"] = int(envs[env_index]["actions"]) + 1
+                progressed = True
+
+            if not progressed:
+                raise RuntimeError("batched Torch rollout made no progress")
+    finally:
+        for env in envs:
+            if not env["done"]:
+                engine.free_engine(env["pointer"])
+                env["done"] = True
+    raise RuntimeError("batched Torch policy games exceeded guard limit")
+
+
 def torch_parity(
     engine: CEngine,
     *,
@@ -181,6 +294,7 @@ def torch_parity(
     games_per_seat: int,
     seed: int,
     prefer_mps: bool,
+    rollout_envs: int = 64,
 ) -> dict[str, Any]:
     artifact = PolicyArtifact.load(model_path)
     device = best_device(prefer_mps)
@@ -188,10 +302,22 @@ def torch_parity(
     records = []
     same_winner = 0
     same_scores = 0
-    for seat in range(4):
-        for offset in range(games_per_seat):
-            game_seed = seed + seat * games_per_seat + offset
-            torch_game = run_torch_game(engine, model, seed=game_seed, model_seat=seat)
+    scheduled = [
+        (seed + seat * games_per_seat + offset, seat)
+        for seat in range(4)
+        for offset in range(games_per_seat)
+    ]
+    for start in range(0, len(scheduled), max(1, rollout_envs)):
+        chunk = scheduled[start:start + max(1, rollout_envs)]
+        torch_games = run_torch_games_batched(
+            engine,
+            model,
+            seeds=[item[0] for item in chunk],
+            seats=[item[1] for item in chunk],
+        )
+        for torch_game in torch_games:
+            game_seed = int(torch_game["seed"])
+            seat = int(torch_game["seat"])
             c_game = run_policy_game(
                 engine,
                 seed=game_seed,
@@ -239,6 +365,8 @@ def train_torch_policy(
     learning_rate: float,
     temperature: float,
     prefer_mps: bool,
+    rollout_envs: int,
+    unbatched: bool = False,
 ) -> dict[str, Any]:
     artifact = PolicyArtifact.load(start_model_path)
     device = best_device(prefer_mps)
@@ -246,26 +374,40 @@ def train_torch_policy(
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     episode_records = []
     pending_losses: list[torch.Tensor] = []
-    for episode in range(episodes):
-        seat = episode % 4
-        game = run_torch_game(engine, model, seed=seed + episode, model_seat=seat, sample=True, temperature=temperature)
-        metrics = game["metrics"]
-        reward = metrics["win"] - 0.25 * (metrics["rank"] - 1.0) + 0.02 * metrics["margin"]
-        if game["log_probs"]:
-            loss = -torch.stack(game["log_probs"]).sum() * float(reward)
-            pending_losses.append(loss)
-        episode_records.append(
-            {
-                "episode": episode + 1,
-                "seed": seed + episode,
-                "seat": seat,
-                "reward": float(reward),
-                "win": metrics["win"],
-                "rank": metrics["rank"],
-                "margin": metrics["margin"],
-            }
+    completed = 0
+    while completed < episodes:
+        count = 1 if unbatched else min(max(1, rollout_envs), episodes - completed)
+        seeds = [seed + completed + offset for offset in range(count)]
+        seats = [(completed + offset) % 4 for offset in range(count)]
+        games = [
+            run_torch_game(engine, model, seed=seeds[0], model_seat=seats[0], sample=True, temperature=temperature)
+        ] if unbatched else run_torch_games_batched(
+            engine,
+            model,
+            seeds=seeds,
+            seats=seats,
+            sample=True,
+            temperature=temperature,
         )
-        if pending_losses and ((episode + 1) % batch_size == 0 or episode + 1 == episodes):
+        for game in games:
+            metrics = game["metrics"]
+            reward = metrics["win"] - 0.25 * (metrics["rank"] - 1.0) + 0.02 * metrics["margin"]
+            if game["log_probs"]:
+                loss = -torch.stack(game["log_probs"]).sum() * float(reward)
+                pending_losses.append(loss)
+            episode_records.append(
+                {
+                    "episode": len(episode_records) + 1,
+                    "seed": game["seed"],
+                    "seat": game["seat"],
+                    "reward": float(reward),
+                    "win": metrics["win"],
+                    "rank": metrics["rank"],
+                    "margin": metrics["margin"],
+                }
+            )
+        completed += len(games)
+        if pending_losses and (len(pending_losses) >= batch_size or completed >= episodes):
             optimizer.zero_grad(set_to_none=True)
             torch.stack(pending_losses).mean().backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
@@ -291,6 +433,8 @@ def train_torch_policy(
             "seed": seed,
             "learning_rate": learning_rate,
             "temperature": temperature,
+            "rollout_envs": 1 if unbatched else rollout_envs,
+            "batched_rollouts": not unbatched,
         },
         "summary": summary,
         "status": "trained",

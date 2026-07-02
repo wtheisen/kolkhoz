@@ -34,9 +34,10 @@ where MPS can accelerate batched policy/value updates. The intended boundary is:
 - Model backend: `c-mlp` today; future `torch-mps` policy/value models without changing the
   app runtime or promotion logic.
 
-The Torch/MPS path can already import the current C MLP policy exactly, drive games
-through C-engine legal-action features, run short policy-gradient updates on MPS, and
-export the result back to the C-compatible artifact schema for normal benchmark gates.
+The Torch/MPS path can already import the current C MLP policy exactly, drive batches of
+C-engine games through shared legal-action features, run short policy-gradient updates on
+MPS, and export the result back to the C-compatible artifact schema for normal benchmark
+gates.
 
 ## Quick Smoke
 
@@ -100,10 +101,11 @@ Check Torch/MPS parity for an existing C MLP artifact:
 ```bash
 python3 -m research.kolkhoz_research.cli torch-parity \
   --model training/rl/runs/beat_promoted_wide_seat_heads_v1/20260702T144243Z/candidate.json \
-  --games-per-seat 4
+  --games-per-seat 4 \
+  --rollout-envs 64
 ```
 
-Run a small Torch/MPS update and export a C-compatible artifact:
+Run a small batched Torch/MPS update and export a C-compatible artifact:
 
 ```bash
 python3 -m research.kolkhoz_research.cli torch-train \
@@ -111,8 +113,11 @@ python3 -m research.kolkhoz_research.cli torch-train \
   --output research/runs/torch_mps_repro/candidate.json \
   --episodes 64 \
   --batch-size 8 \
+  --rollout-envs 64 \
   --learning-rate 0.0001
 ```
+
+Use `--unbatched` only for debugging or timing comparisons against the old one-game path.
 
 All commands emit structured JSON. Add `--record` to append the record to
 `research/history/experiments.jsonl`.
