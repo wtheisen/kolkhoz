@@ -32,6 +32,13 @@ xcodegen generate
 xcodebuild -project KolkhozSwiftUI.xcodeproj -scheme KolkhozSwiftUIApp -destination 'generic/platform=iOS Simulator' build
 ```
 
+```bash
+cd clients/flutter_fixture_renderer
+flutter analyze
+flutter test
+flutter build macos --debug
+```
+
 If SwiftPM reports duplicate modules through both `/Users/wtheisen/Dropbox/...` and
 `/Users/wtheisen/Library/CloudStorage/Dropbox/...`, clean the SwiftPM module cache or
 run all commands through one canonical path.
@@ -72,6 +79,8 @@ shared/
     schemas/table-view-model.schema.json
     fixtures/                  # Canonical renderer fixtures
   design/tokens.json           # Visual constants derived from SwiftUI
+clients/
+  flutter_fixture_renderer/    # Fixture-only Flutter renderer, no C FFI yet
 ```
 
 ## Game Flow
@@ -93,6 +102,7 @@ shared/
 5. `ios/KolkhozSwiftUI/Sources/KolkhozAppFeature/Board/` - Phase-specific UI.
 6. `shared/app-contracts/README.md` - Platform-neutral presentation contract notes.
 7. `agent-docs/CROSS_PLATFORM_NATIVE_APP_PLAN.md` - Native cross-platform roadmap.
+8. `clients/flutter_fixture_renderer/lib/` - First Flutter fixture renderer.
 
 ## Common Tasks
 
@@ -106,6 +116,12 @@ shared/
 1. Update `shared/app-contracts/` or `shared/design/tokens.json`.
 2. Keep the JSON shape renderer-neutral; do not add a UI DSL.
 3. Run `swift run KolkhozContractSmokeTests`.
+4. Run `flutter test` in `clients/flutter_fixture_renderer` when Flutter is available.
+
+### Changing Flutter fixture rendering
+1. Keep the app fixture-only until Dart FFI is intentionally added.
+2. Load data from `shared/app-contracts/fixtures/` and `shared/design/tokens.json`.
+3. Run `flutter analyze`, `flutter test`, and `flutter build macos --debug`.
 
 ### Changing UI
 1. Update views in `Sources/KolkhozAppFeature/`.

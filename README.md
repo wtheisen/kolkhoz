@@ -35,6 +35,15 @@ swift build --target KolkhozAppFeature
 swift build --target KolkhozSwiftUIApp
 ```
 
+To check the fixture-only Flutter renderer:
+
+```bash
+cd clients/flutter_fixture_renderer
+flutter analyze
+flutter test
+flutter build macos --debug
+```
+
 To open in Xcode:
 
 ```bash
@@ -102,6 +111,8 @@ ios/KolkhozSwiftUI/
 shared/
   app-contracts/                # Platform-neutral table view model schema and fixtures
   design/tokens.json            # Shared visual constants derived from SwiftUI
+clients/
+  flutter_fixture_renderer/     # Flutter renderer for shared JSON fixtures, no engine FFI
 ```
 
 ## Data Flow
@@ -127,4 +138,5 @@ Views should call `GameStore`; game rules and state mutations belong in the C en
 - `ios/KolkhozSwiftUI/Sources/KolkhozAppFeature/Board/` - Phase UI and player interactions.
 - `shared/app-contracts/` - JSON contract scaffolding for future native clients.
 - `shared/design/tokens.json` - Shared design-token source for SwiftUI and future Flutter alignment.
+- `clients/flutter_fixture_renderer/` - Fixture-only Flutter app that renders shared contracts and tokens.
 - `agent-docs/` - Agent-oriented architecture, state, and phase references.
