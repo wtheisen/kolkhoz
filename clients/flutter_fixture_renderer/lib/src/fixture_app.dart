@@ -1898,21 +1898,27 @@ class CardSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final slotColor = active
+        ? human
+              ? tokens.colors.gold
+              : tokens.colors.red
+        : tokens.colors.steel.withValues(alpha: 0.35);
     return CustomPaint(
-      painter: CardSlotPainter(
-        color: active
-            ? tokens.colors.gold
-            : human
-            ? tokens.colors.creamDim
-            : tokens.colors.steel,
-        active: active,
-      ),
+      painter: CardSlotPainter(color: slotColor, active: active),
       child: SizedBox(
         width: width,
         height: height,
         child: Center(
           child: active
-              ? Image.asset('ios_resources/Icons/icon-play-tap.png', width: 18)
+              ? Text(
+                  human ? 'PLAY' : 'WAIT',
+                  style: TextStyle(
+                    color: human ? tokens.colors.gold : tokens.colors.red,
+                    fontSize: tokens.typography.size('caption2', 11),
+                    fontWeight: FontWeight.w900,
+                    height: 0.9,
+                  ),
+                )
               : null,
         ),
       ),
@@ -1928,17 +1934,26 @@ class CardSlotPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color.withValues(alpha: active ? 0.95 : 0.62)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = active ? 2 : 1.4;
     final rect = RRect.fromRectAndRadius(
       Offset.zero & size,
-      const Radius.circular(7),
+      const Radius.circular(8),
     );
+    if (active) {
+      canvas.drawRRect(
+        rect,
+        Paint()
+          ..color = color.withValues(alpha: 0.10)
+          ..style = PaintingStyle.fill,
+      );
+    }
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
     final path = Path()..addRRect(rect);
     const dash = 6.0;
-    const gap = 5.0;
+    const gap = 6.0;
     for (final metric in path.computeMetrics()) {
       var distance = 0.0;
       while (distance < metric.length) {
