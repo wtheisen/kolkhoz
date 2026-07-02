@@ -3,6 +3,9 @@
 The authoritative gameplay implementation is the C engine wrapped by the native SwiftUI
 app in `ios/KolkhozSwiftUI/`.
 
+The old React/boardgame.io/Vite web app has been removed. Do not revive it or use it as
+the basis for future clients. The iOS SwiftUI app is the current visual reference.
+
 ## Tech Stack
 
 ### iOS app
@@ -11,6 +14,11 @@ app in `ios/KolkhozSwiftUI/`.
 - **SwiftUI** - Native UI
 - **Swift Package Manager** - Package targets and smoke tests
 - **XcodeGen** - Generates the iOS Xcode project from `project.yml`
+
+### Shared native foundations
+- **JSON contracts** - Platform-neutral table/view-model fixtures in `shared/app-contracts/`
+- **Design tokens** - Shared colors, spacing, card metrics, typography scale, and motion constants in `shared/design/tokens.json`
+- **Flutter direction** - Planned native renderer for Android, macOS, Windows, and Linux using the C engine through FFI
 
 ## Quick Commands
 
@@ -45,7 +53,9 @@ ios/KolkhozSwiftUI/
       KolkhozRootView.swift     # Lobby/game switch and app-wide state
       Lobby/LobbyView.swift     # Presets, custom variants, rules
       Board/GameBoardView.swift # Board shell, navigation, animations
-      Board/GameSections.swift  # Phase panels and board sections
+      Board/BrigadeView.swift   # Player columns and trick slots
+      Board/JobsView.swift      # Job gauges and assignment UI
+      Board/PlotView.swift      # Plot storage, swap, and requisition UI
       Cards/CardViews.swift     # Card rendering
       Design/                  # Shared colors, controls, icons
       Resources/               # Pixel art, cards, icons, chrome
@@ -53,6 +63,12 @@ ios/KolkhozSwiftUI/
       KolkhozSwiftUIApp.swift   # App entry point
     KolkhozSmokeTests/
       main.swift                # Plain Swift smoke tests
+shared/
+  app-contracts/
+    README.md
+    schemas/table-view-model.schema.json
+    fixtures/                  # Canonical renderer fixtures
+  design/tokens.json           # Visual constants derived from SwiftUI
 ```
 
 ## Game Flow
@@ -71,7 +87,9 @@ ios/KolkhozSwiftUI/
 2. `ios/KolkhozSwiftUI/Sources/KolkhozCore/KolkhozHeadlessEngine.swift` - Swift C adapter, actions, snapshots, saved games.
 3. `ios/KolkhozSwiftUI/Sources/KolkhozCore/Models.swift` - Swift state model reference used by UI.
 4. `ios/KolkhozSwiftUI/Sources/KolkhozAppFeature/GameStore.swift` - SwiftUI state bridge.
-5. `ios/KolkhozSwiftUI/Sources/KolkhozAppFeature/Board/GameSections.swift` - Phase-specific UI.
+5. `ios/KolkhozSwiftUI/Sources/KolkhozAppFeature/Board/` - Phase-specific UI.
+6. `shared/app-contracts/README.md` - Platform-neutral presentation contract notes.
+7. `agent-docs/CROSS_PLATFORM_NATIVE_APP_PLAN.md` - Native cross-platform roadmap.
 
 ## Common Tasks
 
@@ -95,4 +113,5 @@ ios/KolkhozSwiftUI/
 
 The C engine is source of truth. Do not reintroduce a parallel Swift rules engine into
 app runtime paths. Future downloadable clients should bind to the C engine contracts
-instead of reviving retired UI implementations.
+instead of reviving retired UI implementations. Flutter clients should mirror iOS through
+shared presentation contracts, design tokens, assets, and screenshot fixtures.

@@ -1,0 +1,309 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kolkhoz.local/schemas/table-view-model.schema.json",
+  "title": "Kolkhoz Table View Model",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "engineBoundary",
+    "viewer",
+    "table",
+    "panels",
+    "legalActions"
+  ],
+  "properties": {
+    "contractVersion": { "type": "integer", "const": 1 },
+    "engineBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["snapshotRevision", "actionRevision", "source"],
+      "properties": {
+        "snapshotRevision": { "type": "integer", "minimum": 1 },
+        "actionRevision": { "type": "integer", "minimum": 1 },
+        "source": { "enum": ["localC", "onlineServer", "fixture"] },
+        "actionLogCount": { "type": "integer", "minimum": 0 },
+        "redacted": { "type": "boolean" }
+      }
+    },
+    "viewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seatID", "isOnline", "privacyMode"],
+      "properties": {
+        "seatID": { "type": ["integer", "null"], "minimum": 0, "maximum": 3 },
+        "isOnline": { "type": "boolean" },
+        "privacyMode": { "enum": ["none", "hotSeatHidden", "redacted"] },
+        "sessionID": { "type": ["string", "null"] },
+        "inviteCode": { "type": ["string", "null"] },
+        "connection": { "enum": ["offline", "connecting", "connected", "reconnecting", "error"] }
+      }
+    },
+    "table": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "year",
+        "phase",
+        "phasePrompt",
+        "currentPlayerID",
+        "leadPlayerID",
+        "trump",
+        "isFamine",
+        "trickCount",
+        "maxTricks",
+        "seats",
+        "jobs",
+        "trick",
+        "lastTrick",
+        "scoreboard"
+      ],
+      "properties": {
+        "year": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "phase": { "$ref": "#/$defs/phase" },
+        "phasePrompt": { "$ref": "#/$defs/prompt" },
+        "currentPlayerID": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "leadPlayerID": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "trumpSelectorID": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "trump": { "anyOf": [{ "$ref": "#/$defs/suit" }, { "type": "null" }] },
+        "isFamine": { "type": "boolean" },
+        "trickCount": { "type": "integer", "minimum": 0, "maximum": 4 },
+        "maxTricks": { "type": "integer", "minimum": 3, "maximum": 4 },
+        "seats": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/seat" }
+        },
+        "jobs": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/job" }
+        },
+        "trick": { "$ref": "#/$defs/trick" },
+        "lastTrick": { "$ref": "#/$defs/trick" },
+        "scoreboard": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/score" }
+        },
+        "requisitionEvents": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/requisitionEvent" }
+        }
+      }
+    },
+    "panels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["active", "available", "rightInfo"],
+      "properties": {
+        "active": { "$ref": "#/$defs/panel" },
+        "suggested": { "$ref": "#/$defs/panel" },
+        "available": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/panel" },
+          "uniqueItems": true
+        },
+        "rightInfo": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "title", "sections"],
+          "properties": {
+            "mode": { "enum": ["rules", "options", "online", "phaseHelp"] },
+            "title": { "type": "string" },
+            "sections": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/infoSection" }
+            }
+          }
+        }
+      }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "handCardID": { "type": ["string", "null"] },
+        "plotCardID": { "type": ["string", "null"] },
+        "assignmentCardID": { "type": ["string", "null"] },
+        "hoveredSuit": { "anyOf": [{ "$ref": "#/$defs/suit" }, { "type": "null" }] }
+      }
+    },
+    "legalActions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/legalAction" }
+    }
+  },
+  "$defs": {
+    "phase": { "enum": ["planning", "swap", "trick", "assignment", "requisition", "gameOver"] },
+    "panel": { "enum": ["brigade", "jobs", "plot", "north", "options", "rules"] },
+    "suit": { "enum": ["wheat", "sunflower", "potato", "beet"] },
+    "cardZone": { "enum": ["hand", "plotRevealed", "plotHidden", "jobReward", "jobBucket", "trick", "lastTrick", "exiled", "stackRevealed", "stackHidden"] },
+    "prompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "body", "tone"],
+      "properties": {
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "tone": { "enum": ["normal", "urgent", "success", "disabled"] },
+        "primaryActionID": { "type": ["string", "null"] }
+      }
+    },
+    "card": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "suit", "value", "rank", "zone", "visible"],
+      "properties": {
+        "id": { "type": "string" },
+        "suit": { "$ref": "#/$defs/suit" },
+        "value": { "type": "integer", "minimum": 1, "maximum": 13 },
+        "rank": { "type": "string" },
+        "zone": { "$ref": "#/$defs/cardZone" },
+        "visible": { "type": "boolean" },
+        "ownerSeatID": { "type": ["integer", "null"], "minimum": 0, "maximum": 3 },
+        "selected": { "type": "boolean" },
+        "disabled": { "type": "boolean" },
+        "highlighted": { "type": "boolean" },
+        "pending": { "type": "boolean" },
+        "exiled": { "type": "boolean" }
+      }
+    },
+    "seat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "controller", "isViewer", "isCurrentTurn", "isBrigadeLeader", "hand", "plot", "medals", "visibleScore"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "name": { "type": "string" },
+        "controller": { "enum": ["human", "heuristicAI", "neuralAI", "remoteHuman"] },
+        "isViewer": { "type": "boolean" },
+        "isCurrentTurn": { "type": "boolean" },
+        "isBrigadeLeader": { "type": "boolean" },
+        "isProtected": { "type": "boolean" },
+        "hand": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/card" }
+        },
+        "hiddenHandCount": { "type": "integer", "minimum": 0 },
+        "plot": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["revealed", "hidden", "hiddenCount", "stacks"],
+          "properties": {
+            "revealed": { "type": "array", "items": { "$ref": "#/$defs/card" } },
+            "hidden": { "type": "array", "items": { "$ref": "#/$defs/card" } },
+            "hiddenCount": { "type": "integer", "minimum": 0 },
+            "stacks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["revealed", "hiddenCount"],
+                "properties": {
+                  "revealed": { "type": "array", "items": { "$ref": "#/$defs/card" } },
+                  "hiddenCount": { "type": "integer", "minimum": 0 }
+                }
+              }
+            }
+          }
+        },
+        "medals": { "type": "integer", "minimum": 0 },
+        "bankedMedals": { "type": "integer", "minimum": 0 },
+        "visibleScore": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "job": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["suit", "hours", "requiredHours", "claimed", "assignedCards", "validAssignmentTarget"],
+      "properties": {
+        "suit": { "$ref": "#/$defs/suit" },
+        "hours": { "type": "integer", "minimum": 0 },
+        "requiredHours": { "type": "integer", "const": 40 },
+        "claimed": { "type": "boolean" },
+        "reward": { "anyOf": [{ "$ref": "#/$defs/card" }, { "type": "null" }] },
+        "assignedCards": { "type": "array", "items": { "$ref": "#/$defs/card" } },
+        "validAssignmentTarget": { "type": "boolean" },
+        "highlighted": { "type": "boolean" }
+      }
+    },
+    "trick": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plays"],
+      "properties": {
+        "plays": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["seatID", "card"],
+            "properties": {
+              "seatID": { "type": "integer", "minimum": 0, "maximum": 3 },
+              "card": { "$ref": "#/$defs/card" }
+            }
+          }
+        },
+        "winnerSeatID": { "type": ["integer", "null"], "minimum": 0, "maximum": 3 }
+      }
+    },
+    "score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seatID", "visibleScore"],
+      "properties": {
+        "seatID": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "visibleScore": { "type": "integer", "minimum": 0 },
+        "finalScore": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "requisitionEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["message", "suit"],
+      "properties": {
+        "seatID": { "type": ["integer", "null"], "minimum": 0, "maximum": 3 },
+        "suit": { "$ref": "#/$defs/suit" },
+        "card": { "anyOf": [{ "$ref": "#/$defs/card" }, { "type": "null" }] },
+        "message": { "type": "string" }
+      }
+    },
+    "infoSection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "body"],
+      "properties": {
+        "title": { "type": "string" },
+        "body": { "type": "string" }
+      }
+    },
+    "legalAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "enabled", "engineAction"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "enum": ["setTrump", "swap", "confirmSwap", "undoSwap", "playCard", "assign", "submitAssignments", "continueAfterRequisition"] },
+        "label": { "type": "string" },
+        "enabled": { "type": "boolean" },
+        "targets": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "engineAction": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["kind", "playerID"],
+          "properties": {
+            "kind": { "type": "string" },
+            "playerID": { "type": "integer", "minimum": 0, "maximum": 3 }
+          }
+        }
+      }
+    }
+  }
+}
+
