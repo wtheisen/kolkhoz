@@ -1465,7 +1465,6 @@ class GameCard extends StatelessWidget {
       child: Container(
         width: size.width,
         height: size.height,
-        padding: EdgeInsets.all(small ? tokens.spacing.xs : tokens.spacing.sm),
         decoration: BoxDecoration(
           color: tokens.colors.cardFill,
           image: const DecorationImage(
@@ -1480,33 +1479,276 @@ class GameCard extends StatelessWidget {
                 : tokens.stroke.standard,
           ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              card.rank,
-              style: TextStyle(
-                color: card.highlighted
-                    ? tokens.colors.red
-                    : tokens.colors.cardInk,
-                fontSize: size.cornerRankFontSize,
-                fontWeight: FontWeight.w900,
+        child: Padding(
+          padding: EdgeInsets.all(size.faceInset),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: CardCenterFace(card: card, size: size, tokens: tokens),
               ),
-            ),
-            const Spacer(),
-            Align(
-              alignment: Alignment.bottomRight,
-              child: SuitDot(
-                suit: card.suit,
-                tokens: tokens,
-                size: size.cornerSuitSize * 1.8,
+              Positioned(
+                left: size.width * 0.03,
+                top: size.height * 0.03,
+                child: CardCornerIndex(
+                  card: card,
+                  size: size,
+                  tokens: tokens,
+                  placement: CardCornerPlacement.top,
+                ),
               ),
-            ),
-          ],
+              Positioned(
+                right: size.width * 0.02,
+                bottom: -(size.height * 0.03),
+                child: CardCornerIndex(
+                  card: card,
+                  size: size,
+                  tokens: tokens,
+                  placement: CardCornerPlacement.bottom,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+enum CardCornerPlacement { top, bottom }
+
+class CardCornerIndex extends StatelessWidget {
+  const CardCornerIndex({
+    required this.card,
+    required this.size,
+    required this.tokens,
+    required this.placement,
+    super.key,
+  });
+
+  final ContractCard card;
+  final TokenCardSize size;
+  final DesignTokens tokens;
+  final CardCornerPlacement placement;
+
+  @override
+  Widget build(BuildContext context) {
+    final top = placement == CardCornerPlacement.top;
+    final rank = SizedBox(
+      width: size.cornerWidth,
+      height: size.cornerHeight,
+      child: Align(
+        alignment: top ? Alignment.centerLeft : Alignment.centerRight,
+        child: Text(
+          card.rank,
+          style: TextStyle(
+            color: card.highlighted ? tokens.colors.red : tokens.colors.cardInk,
+            fontSize: size.cornerRankFontSize,
+            fontWeight: FontWeight.w900,
+            height: 0.82,
+          ),
+        ),
+      ),
+    );
+    final suit = Transform.translate(
+      offset: Offset(
+        top ? size.topCornerSuitXOffset : size.bottomCornerSuitXOffset,
+        0,
+      ),
+      child: SuitMark(
+        suit: card.suit,
+        tokens: tokens,
+        size: size.cornerSuitSize,
+      ),
+    );
+
+    return SizedBox(
+      width: size.cornerWidth,
+      height: size.cornerHeight + size.cornerSuitSize + 2,
+      child: Column(
+        crossAxisAlignment: top
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.end,
+        mainAxisAlignment: top
+            ? MainAxisAlignment.start
+            : MainAxisAlignment.end,
+        children: top ? [rank, suit] : [suit, rank],
+      ),
+    );
+  }
+}
+
+class CardCenterFace extends StatelessWidget {
+  const CardCenterFace({
+    required this.card,
+    required this.size,
+    required this.tokens,
+    super.key,
+  });
+
+  final ContractCard card;
+  final TokenCardSize size;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    if (size.width <= tokens.card.small.width + 0.1) {
+      return Center(
+        child: SuitMark(suit: card.suit, tokens: tokens, size: size.pipSize),
+      );
+    }
+
+    if (card.value >= 11) {
+      return Center(
+        child: Opacity(
+          opacity: 0.72,
+          child: Image.asset(
+            faceAssetPath(card),
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => SuitMark(
+              suit: card.suit,
+              tokens: tokens,
+              size: size.width * 0.34,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: size.width * 0.16,
+        vertical: size.height * 0.02,
+      ),
+      child: PipPattern(card: card, size: size, tokens: tokens),
+    );
+  }
+}
+
+class PipPattern extends StatelessWidget {
+  const PipPattern({
+    required this.card,
+    required this.size,
+    required this.tokens,
+    super.key,
+  });
+
+  final ContractCard card;
+  final TokenCardSize size;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final positions = pipPositions(card.value);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Stack(
+          children: [
+            for (final point in positions)
+              Positioned(
+                left: constraints.maxWidth * point.dx - size.pipSize / 2,
+                top: constraints.maxHeight * point.dy - size.pipSize / 2,
+                child: SuitMark(
+                  suit: card.suit,
+                  tokens: tokens,
+                  size: size.pipSize,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+List<Offset> pipPositions(int value) {
+  switch (value.clamp(1, 10)) {
+    case 1:
+      return const [Offset(0.5, 0.5)];
+    case 2:
+      return const [Offset(0.5, 0.20), Offset(0.5, 0.80)];
+    case 3:
+      return const [Offset(0.5, 0.18), Offset(0.5, 0.5), Offset(0.5, 0.82)];
+    case 4:
+      return const [
+        Offset(0.25, 0.22),
+        Offset(0.75, 0.22),
+        Offset(0.25, 0.78),
+        Offset(0.75, 0.78),
+      ];
+    case 5:
+      return const [
+        Offset(0.25, 0.20),
+        Offset(0.75, 0.20),
+        Offset(0.5, 0.5),
+        Offset(0.25, 0.80),
+        Offset(0.75, 0.80),
+      ];
+    case 6:
+      return const [
+        Offset(0.25, 0.17),
+        Offset(0.75, 0.17),
+        Offset(0.25, 0.50),
+        Offset(0.75, 0.50),
+        Offset(0.25, 0.83),
+        Offset(0.75, 0.83),
+      ];
+    case 7:
+      return const [
+        Offset(0.25, 0.15),
+        Offset(0.75, 0.15),
+        Offset(0.5, 0.31),
+        Offset(0.25, 0.50),
+        Offset(0.75, 0.50),
+        Offset(0.25, 0.85),
+        Offset(0.75, 0.85),
+      ];
+    case 8:
+      return const [
+        Offset(0.25, 0.14),
+        Offset(0.75, 0.14),
+        Offset(0.5, 0.30),
+        Offset(0.25, 0.46),
+        Offset(0.75, 0.46),
+        Offset(0.5, 0.66),
+        Offset(0.25, 0.86),
+        Offset(0.75, 0.86),
+      ];
+    case 9:
+      return const [
+        Offset(0.25, 0.13),
+        Offset(0.75, 0.13),
+        Offset(0.25, 0.37),
+        Offset(0.75, 0.37),
+        Offset(0.5, 0.50),
+        Offset(0.25, 0.63),
+        Offset(0.75, 0.63),
+        Offset(0.25, 0.87),
+        Offset(0.75, 0.87),
+      ];
+    default:
+      return const [
+        Offset(0.25, 0.11),
+        Offset(0.75, 0.11),
+        Offset(0.5, 0.27),
+        Offset(0.25, 0.39),
+        Offset(0.75, 0.39),
+        Offset(0.25, 0.61),
+        Offset(0.75, 0.61),
+        Offset(0.5, 0.73),
+        Offset(0.25, 0.89),
+        Offset(0.75, 0.89),
+      ];
+  }
+}
+
+String faceAssetPath(ContractCard card) {
+  final rank = switch (card.value) {
+    11 => 'jack',
+    12 => 'queen',
+    13 => 'king',
+    _ => 'king',
+  };
+  return 'ios_resources/Cards/face-$rank-${card.suit}.png';
 }
 
 class MiniCard extends StatelessWidget {
@@ -1541,7 +1783,7 @@ class MiniCard extends StatelessWidget {
       ),
       child: visibleCard == null
           ? Center(
-              child: SuitDot(
+              child: SuitMark(
                 suit: emptySuit ?? 'wheat',
                 tokens: tokens,
                 size: tokens.card.small.cornerSuitSize * 2,
@@ -1561,7 +1803,7 @@ class MiniCard extends StatelessWidget {
                 const Spacer(),
                 Align(
                   alignment: Alignment.bottomRight,
-                  child: SuitDot(
+                  child: SuitMark(
                     suit: visibleCard.suit,
                     tokens: tokens,
                     size: tokens.card.small.cornerSuitSize * 1.6,
@@ -1594,6 +1836,31 @@ class SuitDot extends StatelessWidget {
         color: suitColor(tokens, suit),
         shape: BoxShape.circle,
       ),
+    );
+  }
+}
+
+class SuitMark extends StatelessWidget {
+  const SuitMark({
+    required this.suit,
+    required this.tokens,
+    required this.size,
+    super.key,
+  });
+
+  final String suit;
+  final DesignTokens tokens;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      'ios_resources/Icons/icon-$suit.png',
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      errorBuilder: (_, _, _) =>
+          SuitDot(suit: suit, tokens: tokens, size: size),
     );
   }
 }

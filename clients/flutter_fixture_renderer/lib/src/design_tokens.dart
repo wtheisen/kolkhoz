@@ -233,6 +233,9 @@ class TokenCardSize {
   const TokenCardSize({
     required this.width,
     required this.height,
+    required this.faceInset,
+    required this.cornerWidth,
+    required this.cornerHeight,
     required this.cornerRankFontSize,
     required this.cornerSuitSize,
   });
@@ -241,6 +244,9 @@ class TokenCardSize {
     return TokenCardSize(
       width: _number(json['width']),
       height: _number(json['height']),
+      faceInset: _number(json['faceInset']),
+      cornerWidth: _number(json['cornerWidth']),
+      cornerHeight: _number(json['cornerHeight']),
       cornerRankFontSize: _number(json['cornerRankFontSize']),
       cornerSuitSize: _number(json['cornerSuitSize']),
     );
@@ -248,8 +254,49 @@ class TokenCardSize {
 
   final double width;
   final double height;
+  final double faceInset;
+  final double cornerWidth;
+  final double cornerHeight;
   final double cornerRankFontSize;
   final double cornerSuitSize;
+
+  double get topCornerRankSuitSpacing {
+    if (width >= 70) {
+      return -4;
+    }
+    return -1;
+  }
+
+  double get bottomCornerRankSuitSpacing {
+    if (width >= 70) {
+      return 1;
+    }
+    return -1;
+  }
+
+  double get topCornerSuitXOffset {
+    if (width >= 70) {
+      return -1;
+    }
+    return 0;
+  }
+
+  double get bottomCornerSuitXOffset {
+    if (width >= 70) {
+      return 1;
+    }
+    return 0;
+  }
+
+  double get pipSize {
+    if (width >= 70) {
+      return 14;
+    }
+    if (width >= 58) {
+      return 10.4;
+    }
+    return 8;
+  }
 }
 
 class TokenLayout {
