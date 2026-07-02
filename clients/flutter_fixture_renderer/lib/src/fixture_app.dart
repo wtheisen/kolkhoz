@@ -445,49 +445,131 @@ class TopInfoStrip extends StatelessWidget {
       0,
       (score, card) => score + card.value,
     );
+    final topInfo = tokens.layout.topInfo;
     return SizedBox(
-      height: 48,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TopInfoCell(
-              icon: 'icon-year-${model.table.year.clamp(1, 5)}.png',
-              value: 'Y${model.table.year}',
-              tokens: tokens,
-            ),
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final job in model.table.jobs)
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: tokens.spacing.xs),
-                  child: JobGauge(job: job, tokens: tokens),
-                ),
-            ],
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+      height: topInfo.height,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final rowSpacing = clampDouble(
+            constraints.maxWidth * topInfo.rowSpacingFactor,
+            topInfo.rowSpacingMin,
+            topInfo.rowSpacingMax,
+          );
+          final yearWidth = clampDouble(
+            constraints.maxWidth * topInfo.yearWidthFactor,
+            topInfo.yearWidthMin,
+            topInfo.yearWidthMax,
+          );
+          final gaugeWidth = clampDouble(
+            constraints.maxWidth * topInfo.gaugeWidthFactor,
+            topInfo.gaugeWidthMin,
+            topInfo.gaugeWidthMax,
+          );
+          final gaugeHeight = clampDouble(
+            constraints.maxHeight * topInfo.gaugeHeightFactor,
+            topInfo.gaugeHeightMin,
+            topInfo.gaugeHeightMax,
+          );
+          final gaugeSpacing = clampDouble(
+            constraints.maxWidth * topInfo.gaugeSpacingFactor,
+            topInfo.gaugeSpacingMin,
+            topInfo.gaugeSpacingMax,
+          );
+          final gaugeFrameWidth =
+              gaugeWidth * topInfo.gaugeFrameWidthMultiplier;
+          final gaugesWidth =
+              gaugeFrameWidth * model.table.jobs.length +
+              gaugeSpacing * (model.table.jobs.length - 1);
+          final gaugeClusterLeftOffset = -clampDouble(
+            constraints.maxWidth * topInfo.gaugeClusterLeftOffsetFactor,
+            topInfo.gaugeClusterLeftOffsetMin,
+            topInfo.gaugeClusterLeftOffsetMax,
+          );
+          final scoreWidth = clampDouble(
+            constraints.maxWidth * topInfo.scoreWidthFactor,
+            topInfo.scoreWidthMin,
+            topInfo.scoreWidthMax,
+          );
+          final scoreGroupWidth = scoreWidth * 2 + rowSpacing;
+
+          return ClipRect(
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                TopInfoCell(
-                  icon: 'icon-cellar.png',
-                  value: '$cellarScore',
-                  tokens: tokens,
+                Row(
+                  spacing: rowSpacing,
+                  children: [
+                    SizedBox(
+                      width: yearWidth,
+                      child: TopInfoCell(
+                        icon: 'icon-year-${model.table.year.clamp(1, 5)}.png',
+                        value: '',
+                        iconSize: gaugeHeight * 1.3,
+                        contentSpacing: rowSpacing,
+                        tokens: tokens,
+                      ),
+                    ),
+                    const Spacer(),
+                    SizedBox(
+                      width: scoreGroupWidth,
+                      child: Row(
+                        spacing: rowSpacing,
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          SizedBox(
+                            width: scoreWidth,
+                            child: TopInfoCell(
+                              icon: 'icon-cellar.png',
+                              value: '$cellarScore',
+                              iconSize: gaugeHeight * 0.8,
+                              contentSpacing: rowSpacing,
+                              tokens: tokens,
+                            ),
+                          ),
+                          SizedBox(
+                            width: scoreWidth,
+                            child: TopInfoCell(
+                              icon: 'icon-plot.png',
+                              value: '$plotScore',
+                              iconSize: gaugeHeight * 0.8,
+                              contentSpacing: rowSpacing,
+                              tokens: tokens,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(width: tokens.spacing.sm),
-                TopInfoCell(
-                  icon: 'icon-plot.png',
-                  value: '$plotScore',
-                  tokens: tokens,
+                Transform.translate(
+                  offset: Offset(gaugeClusterLeftOffset, 0),
+                  child: SizedBox(
+                    width: gaugesWidth,
+                    child: Row(
+                      spacing: gaugeSpacing,
+                      children: [
+                        for (final job in model.table.jobs)
+                          SizedBox(
+                            width: gaugeFrameWidth,
+                            child: Center(
+                              child: JobGauge(
+                                job: job,
+                                width:
+                                    gaugeWidth *
+                                    topInfo.gaugeContentWidthMultiplier,
+                                height: gaugeHeight,
+                                tokens: tokens,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -498,70 +580,138 @@ class TopInfoCell extends StatelessWidget {
     required this.icon,
     required this.value,
     required this.tokens,
+    this.iconSize = 24,
+    this.contentSpacing = 5,
     super.key,
   });
 
   final String icon;
   final String value;
   final DesignTokens tokens;
+  final double iconSize;
+  final double contentSpacing;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Image.asset('ios_resources/Icons/$icon', width: 28, height: 28),
-        SizedBox(width: tokens.spacing.xs),
-        Text(
-          value,
-          style: TextStyle(
-            color: tokens.colors.gold,
-            fontSize: tokens.typography.size('title2', 22),
-            fontWeight: FontWeight.w900,
-          ),
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          spacing: contentSpacing,
+          children: [
+            Image.asset(
+              'ios_resources/Icons/$icon',
+              width: iconSize,
+              height: iconSize,
+            ),
+            if (value.isNotEmpty)
+              Text(
+                value,
+                style: TextStyle(
+                  color: tokens.colors.gold,
+                  fontSize: tokens.card.large.cornerRankFontSize,
+                  fontWeight: FontWeight.w900,
+                  height: 0.9,
+                ),
+              ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
 
 class JobGauge extends StatelessWidget {
-  const JobGauge({required this.job, required this.tokens, super.key});
+  const JobGauge({
+    required this.job,
+    required this.width,
+    required this.height,
+    required this.tokens,
+    super.key,
+  });
 
   final Job job;
+  final double width;
+  final double height;
   final DesignTokens tokens;
 
   @override
   Widget build(BuildContext context) {
     final highlighted = job.highlighted || job.validAssignmentTarget;
-    return Container(
-      width: 104,
-      height: 38,
-      padding: EdgeInsets.symmetric(horizontal: tokens.spacing.sm),
-      decoration: BoxDecoration(
-        color: tokens.colors.panel,
-        borderRadius: BorderRadius.circular(tokens.radius.sm),
-        border: Border.all(
-          color: highlighted ? tokens.colors.gold : tokens.colors.steel,
-          width: highlighted ? tokens.stroke.emphasis : tokens.stroke.hairline,
+    final markerWidth =
+        height * tokens.layout.topInfo.rewardMarkerHeightMultiplier;
+    return SizedBox(
+      width: width,
+      height: height,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('ios_resources/ui-header-counter.png'),
+            fit: BoxFit.fill,
+            filterQuality: FilterQuality.none,
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          MiniCard(card: job.reward, tokens: tokens, emptySuit: job.suit),
-          SizedBox(width: tokens.spacing.xs),
-          Expanded(
-            child: Text(
-              job.claimed ? 'OK' : '${job.hours}/${job.requiredHours}',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: highlighted ? tokens.colors.red : tokens.colors.smoke,
-                fontSize: tokens.typography.size('caption', 13),
-                fontWeight: FontWeight.w800,
-              ),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(tokens.radius.sm),
+            border: Border.all(
+              color: highlighted
+                  ? tokens.colors.gold.withValues(alpha: 0.72)
+                  : Colors.transparent,
+              width: highlighted ? tokens.stroke.emphasis : 0,
             ),
           ),
-        ],
+          child: Row(
+            spacing: tokens.spacing.xs,
+            children: [
+              SizedBox(
+                width: markerWidth,
+                height: height,
+                child: Center(
+                  child: job.reward == null
+                      ? EmptyRewardMarker(
+                          suit: job.suit,
+                          size: height * 0.62,
+                          tokens: tokens,
+                        )
+                      : MiniRewardCard(
+                          card: job.reward!,
+                          claimed: job.claimed,
+                          height: height,
+                          tokens: tokens,
+                        ),
+                ),
+              ),
+              Expanded(
+                child: job.claimed
+                    ? Image.asset(
+                        'ios_resources/Icons/icon-check.png',
+                        width:
+                            height *
+                            tokens.layout.topInfo.checkIconHeightMultiplier,
+                        height:
+                            height *
+                            tokens.layout.topInfo.checkIconHeightMultiplier,
+                      )
+                    : Text(
+                        '${job.hours}/${job.requiredHours}',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: highlighted
+                              ? tokens.colors.red
+                              : tokens.colors.smoke,
+                          fontSize: tokens.typography.size('title', 28),
+                          fontWeight: FontWeight.w700,
+                          height: 0.9,
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1656,6 +1806,64 @@ class PipPattern extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class MiniRewardCard extends StatelessWidget {
+  const MiniRewardCard({
+    required this.card,
+    required this.claimed,
+    required this.height,
+    required this.tokens,
+    super.key,
+  });
+
+  final ContractCard card;
+  final bool claimed;
+  final double height;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: claimed ? 0.72 : 1,
+      child: SizedBox(
+        width: height * 0.72,
+        height: height,
+        child: FittedBox(
+          fit: BoxFit.contain,
+          child: MiniCard(card: card, tokens: tokens),
+        ),
+      ),
+    );
+  }
+}
+
+class EmptyRewardMarker extends StatelessWidget {
+  const EmptyRewardMarker({
+    required this.suit,
+    required this.size,
+    required this.tokens,
+    super.key,
+  });
+
+  final String suit;
+  final double size;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size * 0.72,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(tokens.radius.xs),
+        border: Border.all(color: tokens.colors.green.withValues(alpha: 0.7)),
+      ),
+      child: Center(
+        child: SuitMark(suit: suit, tokens: tokens, size: size * 0.42),
+      ),
     );
   }
 }

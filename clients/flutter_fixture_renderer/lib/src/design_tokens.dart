@@ -300,16 +300,24 @@ class TokenCardSize {
 }
 
 class TokenLayout {
-  const TokenLayout({required this.board, required this.jobs});
+  const TokenLayout({
+    required this.board,
+    required this.topInfo,
+    required this.jobs,
+  });
 
   factory TokenLayout.fromJson(Map<String, Object?> json) {
     return TokenLayout(
       board: BoardLayoutTokens.fromJson(json['board']! as Map<String, Object?>),
+      topInfo: TopInfoLayoutTokens.fromJson(
+        json['topInfo']! as Map<String, Object?>,
+      ),
       jobs: JobsLayoutTokens.fromJson(json['jobs']! as Map<String, Object?>),
     );
   }
 
   final BoardLayoutTokens board;
+  final TopInfoLayoutTokens topInfo;
   final JobsLayoutTokens jobs;
 }
 
@@ -346,6 +354,99 @@ class BoardLayoutTokens {
   final double handTrayHeight;
   final double minimumContentWidth;
   final double minimumContentHeight;
+}
+
+class TopInfoLayoutTokens {
+  const TopInfoLayoutTokens({
+    required this.height,
+    required this.rowSpacingFactor,
+    required this.rowSpacingMin,
+    required this.rowSpacingMax,
+    required this.yearWidthFactor,
+    required this.yearWidthMin,
+    required this.yearWidthMax,
+    required this.gaugeWidthFactor,
+    required this.gaugeWidthMin,
+    required this.gaugeWidthMax,
+    required this.gaugeHeightFactor,
+    required this.gaugeHeightMin,
+    required this.gaugeHeightMax,
+    required this.gaugeSpacingFactor,
+    required this.gaugeSpacingMin,
+    required this.gaugeSpacingMax,
+    required this.gaugeFrameWidthMultiplier,
+    required this.gaugeContentWidthMultiplier,
+    required this.gaugeClusterLeftOffsetFactor,
+    required this.gaugeClusterLeftOffsetMin,
+    required this.gaugeClusterLeftOffsetMax,
+    required this.scoreWidthFactor,
+    required this.scoreWidthMin,
+    required this.scoreWidthMax,
+    required this.rewardMarkerHeightMultiplier,
+    required this.checkIconHeightMultiplier,
+  });
+
+  factory TopInfoLayoutTokens.fromJson(Map<String, Object?> json) {
+    return TopInfoLayoutTokens(
+      height: _number(json['height']),
+      rowSpacingFactor: _number(json['rowSpacingFactor']),
+      rowSpacingMin: _number(json['rowSpacingMin']),
+      rowSpacingMax: _number(json['rowSpacingMax']),
+      yearWidthFactor: _number(json['yearWidthFactor']),
+      yearWidthMin: _number(json['yearWidthMin']),
+      yearWidthMax: _number(json['yearWidthMax']),
+      gaugeWidthFactor: _number(json['gaugeWidthFactor']),
+      gaugeWidthMin: _number(json['gaugeWidthMin']),
+      gaugeWidthMax: _number(json['gaugeWidthMax']),
+      gaugeHeightFactor: _number(json['gaugeHeightFactor']),
+      gaugeHeightMin: _number(json['gaugeHeightMin']),
+      gaugeHeightMax: _number(json['gaugeHeightMax']),
+      gaugeSpacingFactor: _number(json['gaugeSpacingFactor']),
+      gaugeSpacingMin: _number(json['gaugeSpacingMin']),
+      gaugeSpacingMax: _number(json['gaugeSpacingMax']),
+      gaugeFrameWidthMultiplier: _number(json['gaugeFrameWidthMultiplier']),
+      gaugeContentWidthMultiplier: _number(json['gaugeContentWidthMultiplier']),
+      gaugeClusterLeftOffsetFactor: _number(
+        json['gaugeClusterLeftOffsetFactor'],
+      ),
+      gaugeClusterLeftOffsetMin: _number(json['gaugeClusterLeftOffsetMin']),
+      gaugeClusterLeftOffsetMax: _number(json['gaugeClusterLeftOffsetMax']),
+      scoreWidthFactor: _number(json['scoreWidthFactor']),
+      scoreWidthMin: _number(json['scoreWidthMin']),
+      scoreWidthMax: _number(json['scoreWidthMax']),
+      rewardMarkerHeightMultiplier: _number(
+        json['rewardMarkerHeightMultiplier'],
+      ),
+      checkIconHeightMultiplier: _number(json['checkIconHeightMultiplier']),
+    );
+  }
+
+  final double height;
+  final double rowSpacingFactor;
+  final double rowSpacingMin;
+  final double rowSpacingMax;
+  final double yearWidthFactor;
+  final double yearWidthMin;
+  final double yearWidthMax;
+  final double gaugeWidthFactor;
+  final double gaugeWidthMin;
+  final double gaugeWidthMax;
+  final double gaugeHeightFactor;
+  final double gaugeHeightMin;
+  final double gaugeHeightMax;
+  final double gaugeSpacingFactor;
+  final double gaugeSpacingMin;
+  final double gaugeSpacingMax;
+  final double gaugeFrameWidthMultiplier;
+  final double gaugeContentWidthMultiplier;
+  final double gaugeClusterLeftOffsetFactor;
+  final double gaugeClusterLeftOffsetMin;
+  final double gaugeClusterLeftOffsetMax;
+  final double scoreWidthFactor;
+  final double scoreWidthMin;
+  final double scoreWidthMax;
+  final double rewardMarkerHeightMultiplier;
+  final double checkIconHeightMultiplier;
 }
 
 class JobsLayoutTokens {
