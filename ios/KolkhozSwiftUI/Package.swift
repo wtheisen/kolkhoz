@@ -13,6 +13,7 @@ let package = Package(
         .library(name: "KolkhozAppFeature", targets: ["KolkhozAppFeature"]),
         .executable(name: "KolkhozSwiftUIApp", targets: ["KolkhozSwiftUIApp"]),
         .executable(name: "KolkhozSmokeTests", targets: ["KolkhozSmokeTests"]),
+        .executable(name: "KolkhozContractSmokeTests", targets: ["KolkhozContractSmokeTests"]),
         .executable(name: "KolkhozOnlineServer", targets: ["KolkhozOnlineServer"])
     ],
     targets: [
@@ -41,6 +42,9 @@ let package = Package(
         .executableTarget(
             name: "KolkhozSmokeTests",
             dependencies: ["KolkhozCore"]
+        ),
+        .executableTarget(
+            name: "KolkhozContractSmokeTests"
         ),
         .executableTarget(
             name: "KolkhozOnlineServer",
