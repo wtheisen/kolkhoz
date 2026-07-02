@@ -926,38 +926,582 @@ class PlotPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final viewer = model.table.seats.firstWhere(
+      (seat) => seat.isViewer,
+      orElse: () => model.table.seats.first,
+    );
+    final opponents = model.table.seats
+        .where((seat) => seat.id != viewer.id)
+        .toList(growable: false);
     return Padding(
-      padding: EdgeInsets.all(tokens.spacing.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          PhasePromptLine(model: model, tokens: tokens),
-          SizedBox(height: tokens.spacing.md),
-          Expanded(
-            child: Row(
-              children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: tokens.spacing.lg,
-                    runSpacing: tokens.spacing.lg,
-                    children: [
-                      for (final seat in model.table.seats)
-                        SizedBox(
-                          width: 210,
-                          child: PlotBadge(seat: seat, tokens: tokens),
-                        ),
+      padding: EdgeInsets.all(tokens.spacing.lg),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final metrics = PlotPanelMetrics.fromSize(
+            constraints.biggest,
+            tokens,
+          );
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 54,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: PhasePromptLine(model: model, tokens: tokens),
+                    ),
+                    if (model.viewer.isOnline) ...[
+                      SizedBox(width: metrics.spacing),
+                      OnlineStatusPill(model: model, tokens: tokens),
                     ],
+                  ],
+                ),
+              ),
+              SizedBox(height: metrics.spacing),
+              SizedBox(
+                height: metrics.opponentHeight,
+                child: Row(
+                  spacing: metrics.spacing,
+                  children: [
+                    for (final seat in opponents)
+                      Expanded(
+                        child: OpponentPlotPanel(
+                          seat: seat,
+                          metrics: metrics,
+                          tokens: tokens,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              SizedBox(height: metrics.spacing),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: metrics.spacing,
+                  children: [
+                    Expanded(
+                      child: LocalPlotColumn(
+                        title: 'Cellar',
+                        iconPath: 'ios_resources/Icons/icon-cellar.png',
+                        cards: viewer.plot.hidden,
+                        hiddenCount: viewer.plot.hiddenCount,
+                        hidden: true,
+                        metrics: metrics,
+                        tokens: tokens,
+                      ),
+                    ),
+                    Expanded(
+                      child: LocalPlotColumn(
+                        title: 'Plot',
+                        iconPath: 'ios_resources/Icons/icon-plot.png',
+                        cards: viewer.plot.revealed,
+                        hiddenCount: viewer.plot.revealed.length,
+                        hidden: false,
+                        metrics: metrics,
+                        tokens: tokens,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class PlotPanelMetrics {
+  const PlotPanelMetrics({
+    required this.spacing,
+    required this.padding,
+    required this.opponentHeight,
+    required this.opponentCardScale,
+    required this.opponentCardFrameWidth,
+    required this.opponentCardFrameHeight,
+    required this.opponentVisibleCardCount,
+    required this.portraitSize,
+    required this.panelPadding,
+    required this.headerIconSize,
+    required this.columnCardSpacing,
+    required this.columnTrailingPadding,
+  });
+
+  factory PlotPanelMetrics.fromSize(Size size, DesignTokens tokens) {
+    final shorter = size.shortestSide;
+    final plot = tokens.layout.plot;
+    return PlotPanelMetrics(
+      spacing: clampDouble(shorter * 0.02, 7, 10),
+      padding: clampDouble(shorter * 0.025, 8, 12),
+      opponentHeight: clampDouble(
+        size.height * 0.18,
+        plot.opponentHeightMin,
+        plot.opponentHeightMax,
+      ),
+      opponentCardScale: clampDouble(size.width * 0.001, 0.68, 0.76),
+      opponentCardFrameWidth: clampDouble(size.width * 0.04, 25, 29),
+      opponentCardFrameHeight: clampDouble(size.height * 0.10, 38, 44),
+      opponentVisibleCardCount: clampDouble(
+        size.width / 190,
+        plot.opponentVisibleCardCountMin,
+        plot.opponentVisibleCardCountMax,
+      ).round(),
+      portraitSize: clampDouble(
+        size.width * 0.055,
+        plot.portraitSizeMin,
+        plot.portraitSizeMax,
+      ),
+      panelPadding: clampDouble(shorter * 0.018, 7, 8),
+      headerIconSize: clampDouble(size.width * 0.026, 17, 20),
+      columnCardSpacing: clampDouble(-size.width * 0.04, -30, -24),
+      columnTrailingPadding: clampDouble(size.width * 0.035, 20, 28),
+    );
+  }
+
+  final double spacing;
+  final double padding;
+  final double opponentHeight;
+  final double opponentCardScale;
+  final double opponentCardFrameWidth;
+  final double opponentCardFrameHeight;
+  final int opponentVisibleCardCount;
+  final double portraitSize;
+  final double panelPadding;
+  final double headerIconSize;
+  final double columnCardSpacing;
+  final double columnTrailingPadding;
+}
+
+class OnlineStatusPill extends StatelessWidget {
+  const OnlineStatusPill({
+    required this.model,
+    required this.tokens,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: tokens.spacing.sm,
+        vertical: tokens.spacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(tokens.radius.sm),
+        border: Border.all(color: tokens.colors.green.withValues(alpha: 0.62)),
+      ),
+      child: Text(
+        'Online: ${model.viewer.isOnline ? model.viewer.connection : 'offline'}',
+        style: TextStyle(
+          color: tokens.colors.creamDim,
+          fontSize: tokens.typography.size('caption', 13),
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class OpponentPlotPanel extends StatelessWidget {
+  const OpponentPlotPanel({
+    required this.seat,
+    required this.metrics,
+    required this.tokens,
+    super.key,
+  });
+
+  final Seat seat;
+  final PlotPanelMetrics metrics;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(metrics.panelPadding),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(tokens.radius.sm),
+        border: Border.all(color: tokens.colors.steel.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: metrics.spacing * 0.75,
+        children: [
+          SizedBox(
+            width: metrics.portraitSize + 12,
+            child: Column(
+              spacing: 3,
+              children: [
+                Image.asset(
+                  seat.isViewer
+                      ? 'ios_resources/Icons/icon-human-seat.png'
+                      : 'ios_resources/Icons/icon-basic-ai.png',
+                  width: metrics.portraitSize,
+                  height: metrics.portraitSize,
+                  fit: BoxFit.contain,
+                ),
+                Text(
+                  seat.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: tokens.colors.cream,
+                    fontSize: tokens.typography.size('caption2', 11),
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                SizedBox(width: tokens.spacing.xl),
-                SizedBox(
-                  width: 270,
-                  child: InfoPanel(model: model, tokens: tokens),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Row(
+              spacing: metrics.spacing * 0.5,
+              children: [
+                Expanded(
+                  child: OpponentPlotMiniSection(
+                    iconPath: 'ios_resources/Icons/icon-cellar.png',
+                    value: '${seat.plot.hiddenCount}',
+                    cards: seat.plot.hidden,
+                    hiddenCount: seat.plot.hiddenCount,
+                    hidden: true,
+                    metrics: metrics,
+                    tokens: tokens,
+                  ),
+                ),
+                Expanded(
+                  child: OpponentPlotMiniSection(
+                    iconPath: 'ios_resources/Icons/icon-plot.png',
+                    value: '${seat.visibleScore}',
+                    cards: seat.plot.revealed,
+                    hiddenCount: seat.plot.revealed.length,
+                    hidden: false,
+                    metrics: metrics,
+                    tokens: tokens,
+                  ),
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class OpponentPlotMiniSection extends StatelessWidget {
+  const OpponentPlotMiniSection({
+    required this.iconPath,
+    required this.value,
+    required this.cards,
+    required this.hiddenCount,
+    required this.hidden,
+    required this.metrics,
+    required this.tokens,
+    super.key,
+  });
+
+  final String iconPath;
+  final String value;
+  final List<ContractCard> cards;
+  final int hiddenCount;
+  final bool hidden;
+  final PlotPanelMetrics metrics;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final cardWidgets = <Widget>[
+      for (final card in cards.take(metrics.opponentVisibleCardCount))
+        SizedBox(
+          width: metrics.opponentCardFrameWidth,
+          height: metrics.opponentCardFrameHeight,
+          child: Transform.scale(
+            alignment: Alignment.topLeft,
+            scale: metrics.opponentCardScale,
+            child: hidden
+                ? CardBackMini(tokens: tokens)
+                : GameCard(card: card, tokens: tokens, small: true),
+          ),
+        ),
+      for (
+        var index = cards.length;
+        index < hiddenCount && index < metrics.opponentVisibleCardCount;
+        index++
+      )
+        SizedBox(
+          width: metrics.opponentCardFrameWidth,
+          height: metrics.opponentCardFrameHeight,
+          child: Transform.scale(
+            alignment: Alignment.topLeft,
+            scale: metrics.opponentCardScale,
+            child: CardBackMini(tokens: tokens),
+          ),
+        ),
+      if (cards.isEmpty && hiddenCount == 0)
+        SizedBox(
+          width: metrics.opponentCardFrameWidth,
+          height: metrics.opponentCardFrameHeight,
+          child: Center(
+            child: Text(
+              '-',
+              style: TextStyle(
+                color: tokens.colors.smoke.withValues(alpha: 0.72),
+                fontSize: tokens.typography.size('caption', 13),
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(tokens.radius.xs),
+      ),
+      child: Row(
+        spacing: 3,
+        children: [
+          SizedBox(
+            width: metrics.headerIconSize + 5,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              spacing: 1,
+              children: [
+                Image.asset(
+                  iconPath,
+                  width: metrics.headerIconSize,
+                  height: metrics.headerIconSize,
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: tokens.colors.gold,
+                    fontSize: tokens.typography.size('caption2', 11),
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ClipRect(
+              child: OverlappedCardRow(
+                itemWidth: metrics.opponentCardFrameWidth,
+                itemHeight: metrics.opponentCardFrameHeight,
+                spacing: metrics.columnCardSpacing * 0.56,
+                children: cardWidgets,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class LocalPlotColumn extends StatelessWidget {
+  const LocalPlotColumn({
+    required this.title,
+    required this.iconPath,
+    required this.cards,
+    required this.hiddenCount,
+    required this.hidden,
+    required this.metrics,
+    required this.tokens,
+    super.key,
+  });
+
+  final String title;
+  final String iconPath;
+  final List<ContractCard> cards;
+  final int hiddenCount;
+  final bool hidden;
+  final PlotPanelMetrics metrics;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final missingBacks = hiddenCount > cards.length
+        ? hiddenCount - cards.length
+        : 0;
+    final cardWidgets = <Widget>[
+      for (final card in cards)
+        hidden
+            ? HighlightableCardBack(card: card, tokens: tokens)
+            : GameCard(card: card, tokens: tokens, small: true),
+      for (var index = 0; index < missingBacks; index++)
+        CardBackMini(tokens: tokens),
+      if (cards.isEmpty && missingBacks == 0)
+        SizedBox(
+          width: tokens.card.small.width,
+          height: tokens.card.small.height,
+          child: Center(
+            child: Text(
+              '-',
+              style: TextStyle(
+                color: tokens.colors.smoke.withValues(alpha: 0.72),
+                fontSize: tokens.typography.size('title', 32),
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ),
+    ];
+
+    return Container(
+      padding: EdgeInsets.all(metrics.padding),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(tokens.radius.sm),
+        border: Border.all(color: tokens.colors.steel.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: metrics.spacing * 0.75,
+        children: [
+          Row(
+            spacing: 5,
+            children: [
+              Image.asset(
+                iconPath,
+                width: metrics.headerIconSize,
+                height: metrics.headerIconSize,
+              ),
+              Text(
+                title.toUpperCase(),
+                style: TextStyle(
+                  color: tokens.colors.gold,
+                  fontSize: tokens.typography.size('caption', 13),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$hiddenCount',
+                style: TextStyle(
+                  color: tokens.colors.smoke,
+                  fontSize: tokens.typography.size('caption2', 11),
+                ),
+              ),
+            ],
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  top: 2,
+                  bottom: 2,
+                  right: metrics.columnTrailingPadding,
+                ),
+                child: OverlappedCardRow(
+                  itemWidth: tokens.card.small.width,
+                  itemHeight: tokens.card.small.height,
+                  spacing: metrics.columnCardSpacing,
+                  children: cardWidgets,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class OverlappedCardRow extends StatelessWidget {
+  const OverlappedCardRow({
+    required this.children,
+    required this.itemWidth,
+    required this.itemHeight,
+    required this.spacing,
+    super.key,
+  });
+
+  final List<Widget> children;
+  final double itemWidth;
+  final double itemHeight;
+  final double spacing;
+
+  @override
+  Widget build(BuildContext context) {
+    final step = itemWidth + spacing > 1 ? itemWidth + spacing : 1.0;
+    final width = children.isEmpty
+        ? 0.0
+        : itemWidth + step * (children.length - 1);
+    return SizedBox(
+      width: width,
+      height: itemHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          for (final (index, child) in children.indexed)
+            Positioned(left: index * step, top: 0, child: child),
+        ],
+      ),
+    );
+  }
+}
+
+class HighlightableCardBack extends StatelessWidget {
+  const HighlightableCardBack({
+    required this.card,
+    required this.tokens,
+    super.key,
+  });
+
+  final ContractCard card;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final border = card.selected
+        ? tokens.colors.green
+        : card.highlighted
+        ? tokens.colors.gold
+        : Colors.transparent;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(tokens.radius.card),
+        border: Border.all(
+          color: border,
+          width: card.selected || card.highlighted ? tokens.stroke.active : 0,
+        ),
+      ),
+      child: CardBackMini(tokens: tokens),
+    );
+  }
+}
+
+class CardBackMini extends StatelessWidget {
+  const CardBackMini({required this.tokens, super.key});
+
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: tokens.card.small.width,
+      height: tokens.card.small.height,
+      decoration: BoxDecoration(
+        color: tokens.colors.panel,
+        image: const DecorationImage(
+          image: AssetImage('ios_resources/Cards/card-back.png'),
+          fit: BoxFit.fill,
+        ),
+        borderRadius: BorderRadius.circular(tokens.radius.card),
+        border: Border.all(color: tokens.colors.iron),
       ),
     );
   }
@@ -1111,46 +1655,6 @@ class CardSlotPainter extends CustomPainter {
   @override
   bool shouldRepaint(CardSlotPainter oldDelegate) =>
       oldDelegate.color != color || oldDelegate.active != active;
-}
-
-class PlotBadge extends StatelessWidget {
-  const PlotBadge({required this.seat, required this.tokens, super.key});
-
-  final Seat seat;
-  final DesignTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(tokens.spacing.md),
-      decoration: BoxDecoration(
-        color: tokens.colors.panel,
-        borderRadius: BorderRadius.circular(tokens.radius.md),
-        border: Border.all(color: tokens.colors.steel),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          PlayerBadge(seat: seat, tokens: tokens),
-          SizedBox(height: tokens.spacing.sm),
-          Text(
-            'Cellar ${seat.plot.hiddenCount}  Plot ${seat.plot.revealed.length}',
-            style: TextStyle(color: tokens.colors.creamDim),
-          ),
-          SizedBox(height: tokens.spacing.sm),
-          Wrap(
-            spacing: tokens.spacing.xs,
-            runSpacing: tokens.spacing.xs,
-            children: [
-              for (final card in seat.plot.revealed)
-                MiniCard(card: card, tokens: tokens),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class DashedSlot extends StatelessWidget {

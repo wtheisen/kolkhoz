@@ -304,6 +304,7 @@ class TokenLayout {
     required this.board,
     required this.topInfo,
     required this.jobs,
+    required this.plot,
   });
 
   factory TokenLayout.fromJson(Map<String, Object?> json) {
@@ -313,12 +314,14 @@ class TokenLayout {
         json['topInfo']! as Map<String, Object?>,
       ),
       jobs: JobsLayoutTokens.fromJson(json['jobs']! as Map<String, Object?>),
+      plot: PlotLayoutTokens.fromJson(json['plot']! as Map<String, Object?>),
     );
   }
 
   final BoardLayoutTokens board;
   final TopInfoLayoutTokens topInfo;
   final JobsLayoutTokens jobs;
+  final PlotLayoutTokens plot;
 }
 
 class BoardLayoutTokens {
@@ -467,6 +470,35 @@ class JobsLayoutTokens {
   final double requiredHours;
   final double assignmentMinTileHeight;
   final double overviewMinTileHeight;
+}
+
+class PlotLayoutTokens {
+  const PlotLayoutTokens({
+    required this.opponentHeightMin,
+    required this.opponentHeightMax,
+    required this.opponentVisibleCardCountMin,
+    required this.opponentVisibleCardCountMax,
+    required this.portraitSizeMin,
+    required this.portraitSizeMax,
+  });
+
+  factory PlotLayoutTokens.fromJson(Map<String, Object?> json) {
+    return PlotLayoutTokens(
+      opponentHeightMin: _number(json['opponentHeightMin']),
+      opponentHeightMax: _number(json['opponentHeightMax']),
+      opponentVisibleCardCountMin: _number(json['opponentVisibleCardCountMin']),
+      opponentVisibleCardCountMax: _number(json['opponentVisibleCardCountMax']),
+      portraitSizeMin: _number(json['portraitSizeMin']),
+      portraitSizeMax: _number(json['portraitSizeMax']),
+    );
+  }
+
+  final double opponentHeightMin;
+  final double opponentHeightMax;
+  final double opponentVisibleCardCountMin;
+  final double opponentVisibleCardCountMax;
+  final double portraitSizeMin;
+  final double portraitSizeMax;
 }
 
 Color suitColor(DesignTokens tokens, String suit) {
