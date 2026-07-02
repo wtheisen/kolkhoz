@@ -5,6 +5,9 @@ for rules and app behavior. The native SwiftUI app uses that engine through
 `KolkhozCEngineAdapter` for offline play and through online session snapshots/actions for
 multiplayer.
 
+The legacy web app has been removed. Current and future clients should not derive design
+or architecture from the retired React/boardgame/Vite implementation.
+
 ## Directory Structure
 
 ```text
@@ -30,7 +33,9 @@ kolkhoz/
 │           │   │   └── LobbyView.swift
 │           │   ├── Board/
 │           │   │   ├── GameBoardView.swift
-│           │   │   └── GameSections.swift
+│           │   │   ├── BrigadeView.swift
+│           │   │   ├── JobsView.swift
+│           │   │   └── PlotView.swift
 │           │   ├── Cards/
 │           │   │   └── CardViews.swift
 │           │   ├── Design/
@@ -43,6 +48,13 @@ kolkhoz/
 │           └── KolkhozSmokeTests/
 │               └── main.swift
 ├── agent-docs/
+├── shared/
+│   ├── app-contracts/
+│   │   ├── README.md
+│   │   ├── schemas/
+│   │   └── fixtures/
+│   └── design/
+│       └── tokens.json
 └── README.md
 ```
 
@@ -74,7 +86,7 @@ SwiftUI feature module for the playable app.
 | `KolkhozRootView.swift` | Owns lobby/game mode, selected preset, custom variants, language |
 | `Lobby/LobbyView.swift` | Start screen, preset selector, custom variant controls, rules panel |
 | `Board/GameBoardView.swift` | Main board shell, nav rail/top bar, panel selection, animation overlay |
-| `Board/GameSections.swift` | Player panels, jobs, assignment, swap, plot, requisition, game over, hand tray |
+| `Board/` | Player panels, jobs, assignment, swap, plot, requisition, game over, hand tray |
 | `Cards/CardViews.swift` | Card faces, backs, pips, face-card art, suit marks |
 | `Design/` | Shared panel chrome, colors, fonts, icons, buttons, progress bars |
 
@@ -87,6 +99,18 @@ The iOS app entry point. `KolkhozSwiftUIApp` opens `KolkhozRootView`.
 Plain Swift executable tests for environments where XCTest is not set up. These cover
 basic dealing, follow-suit validation, play-card state mutation, deterministic game
 completion, saved-game replay, and online session transport.
+
+### `shared/app-contracts`
+
+JSON-first presentation contract scaffolding for native renderers. It documents the
+platform-neutral table view model that future Swift and Dart adapters should project from
+C engine snapshots plus legal actions. It is not a rules engine and not a custom UI DSL.
+
+### `shared/design`
+
+Shared design-token source for colors, spacing, typography scale, radii, card dimensions,
+layout constants, and animation timings. Values are derived from the SwiftUI app, which
+remains the visual reference for future Flutter clients.
 
 ## Data Flow
 
@@ -115,6 +139,10 @@ Queued KolkhozAnimationEvent values drive overlays
 Views do not mutate `KolkhozState` directly. They call `GameStore`, which calls the C
 runtime or online client and then publishes the new state. Scripted preview/tutorial
 states use a lightweight `ScriptedGameRuntime`, not the old Swift rules engine.
+
+Future Flutter clients should follow the same flow: render a presentation view model,
+submit portable engine actions, and accept the next C-engine/server snapshot. They should
+not copy old web UI state or duplicate rules.
 
 ## Engine Pattern
 
@@ -201,3 +229,7 @@ on failure. It currently verifies:
 - A deterministic game can reach `gameOver`.
 - Saved games restore from the C action log.
 - Online sessions redact private state and validate submitted actions.
+
+Cross-platform UI alignment should add fixture screenshot tests over
+`shared/app-contracts/fixtures/` as native renderer work grows. The goal is structural and
+visual consistency with SwiftUI, not pixel-identical output across UI frameworks.

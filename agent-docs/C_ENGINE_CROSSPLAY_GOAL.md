@@ -67,6 +67,10 @@ Build the C-backed Swift offline adapter first. That gives the iOS app a local s
 truth that already behaves like a future online client: render state, submit portable
 actions, and let the engine decide what happens next.
 
+That slice is complete for normal offline play. The current foundation work adds shared
+native app contracts and design tokens so future downloadable clients can mirror the
+SwiftUI app without reviving the removed web implementation.
+
 ## Offline iOS Migration
 
 Normal offline `GameStore` play is C-backed. Autosave stores the C engine seed,
@@ -117,3 +121,15 @@ Initial endpoints:
 
 Remaining production work is to add a live push stream for updates, such as WebSocket or
 server-sent events, so clients do not need to poll state after each turn.
+
+## Native Client Contract Foundation
+
+The next client boundary above C snapshots is the platform-neutral table view model in
+`shared/app-contracts/`. It captures renderer-facing state such as active panel, prompts,
+visible cards, legal action IDs, selection/highlight/disabled state, online status, and
+right-side info/rules content.
+
+`shared/design/tokens.json` captures visual constants that SwiftUI and future Flutter
+renderers should share. The SwiftUI iOS app remains the visual source of truth; Flutter is
+planned for Android and desktop through Dart FFI to the C engine. Do not generate views
+from a custom DSL and do not base future clients on the removed web app.

@@ -16,6 +16,15 @@ The SwiftUI app is playable with:
 - Deterministic engine support through seeded randomness.
 - Plain Swift smoke tests.
 
+The legacy React/boardgame.io/Vite web app was removed. It is preserved only on the
+`archive/legacy-webapp-before-removal` branch for historical reference and should not be
+used as the basis for new app work.
+
+Future downloadable clients should share the C engine gameplay boundary and the shared
+native app contracts in `shared/`. The iOS SwiftUI app remains the visual reference;
+future Android, macOS, Windows, and Linux clients are expected to use Flutter as native
+renderers of those contracts.
+
 ## Quick Start
 
 ```bash
@@ -87,6 +96,9 @@ ios/KolkhozSwiftUI/
       KolkhozSwiftUIApp.swift   # App entry point
     KolkhozSmokeTests/
       main.swift                # Smoke tests
+shared/
+  app-contracts/                # Platform-neutral table view model schema and fixtures
+  design/tokens.json            # Shared visual constants derived from SwiftUI
 ```
 
 ## Data Flow
@@ -110,4 +122,6 @@ Views should call `GameStore`; game rules and state mutations belong in the C en
 - `ios/KolkhozSwiftUI/Sources/KolkhozCore/Models.swift` - State and model definitions.
 - `ios/KolkhozSwiftUI/Sources/KolkhozAppFeature/GameStore.swift` - MainActor state bridge.
 - `ios/KolkhozSwiftUI/Sources/KolkhozAppFeature/Board/` - Phase UI and player interactions.
+- `shared/app-contracts/` - JSON contract scaffolding for future native clients.
+- `shared/design/tokens.json` - Shared design-token source for SwiftUI and future Flutter alignment.
 - `agent-docs/` - Agent-oriented architecture, state, and phase references.
