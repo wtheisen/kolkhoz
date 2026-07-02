@@ -22,7 +22,7 @@ void main() {
 
     await tester.tap(find.text('assignment pending'));
     await tester.pumpAndSettle();
-    expect(find.text('Assign work'), findsOneWidget);
+    expect(find.text('18/40'), findsWidgets);
 
     await tester.tap(find.text('online redacted swap'));
     await tester.pumpAndSettle();

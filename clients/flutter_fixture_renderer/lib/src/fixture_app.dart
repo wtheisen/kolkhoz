@@ -2107,8 +2107,6 @@ class JobsPanel extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              PhasePromptLine(model: model, tokens: tokens),
-              SizedBox(height: spacing),
               Expanded(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
