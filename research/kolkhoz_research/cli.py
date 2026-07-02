@@ -363,7 +363,7 @@ def main() -> int:
     torch_train_parser = subparsers.add_parser("torch-train", help="train a Torch policy with batched C-engine rollouts")
     torch_train_parser.add_argument("--start-model", type=_path, default=None)
     torch_train_parser.add_argument("--output", type=Path, required=True)
-    torch_train_parser.add_argument("--architecture", choices=["mlp", "residual-mlp"], default="mlp")
+    torch_train_parser.add_argument("--architecture", choices=["mlp", "residual-mlp", "action-transformer"], default="mlp")
     torch_train_parser.add_argument("--layers", type=_layers, default=[512, 512])
     torch_train_parser.add_argument("--scratch-seed", type=int, default=1)
     torch_train_parser.add_argument("--scratch-scale", type=float, default=0.02)

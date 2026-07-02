@@ -32,6 +32,94 @@ class ResidualBlock(nn.Module):
         return torch.relu(value + self.layers(value))
 
 
+class ActionTransformer(nn.Module):
+    def __init__(self, input_size: int, head_count: int, layer_sizes: list[int]) -> None:
+        super().__init__()
+        if not layer_sizes:
+            raise ValueError("action-transformer requires at least a model width")
+        width = int(layer_sizes[0])
+        depth = int(layer_sizes[1]) if len(layer_sizes) > 1 else 4
+        heads = int(layer_sizes[2]) if len(layer_sizes) > 2 else 4
+        feedforward = int(layer_sizes[3]) if len(layer_sizes) > 3 else width * 4
+        if width <= 0 or depth <= 0 or heads <= 0 or feedforward <= 0:
+            raise ValueError("action-transformer width, depth, heads, and feedforward must be positive")
+        if width % heads != 0:
+            raise ValueError("action-transformer width must be divisible by attention heads")
+        self.width = width
+        self.depth = depth
+        self.heads = heads
+        self.feedforward = feedforward
+        self.head_count = head_count
+        self.feature_projection = nn.Sequential(
+            nn.Linear(input_size, width),
+            nn.LayerNorm(width),
+            nn.GELU(),
+            nn.Linear(width, width),
+        )
+        self.player_embedding = nn.Embedding(4, width)
+        self.action_embedding = nn.Embedding(max(head_count, 16), width)
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, width))
+        layer = nn.TransformerEncoderLayer(
+            d_model=width,
+            nhead=heads,
+            dim_feedforward=feedforward,
+            dropout=0.05,
+            activation="gelu",
+            batch_first=True,
+            norm_first=True,
+        )
+        self.encoder = nn.TransformerEncoder(layer, num_layers=depth, enable_nested_tensor=False)
+        self.scorer = nn.Sequential(
+            nn.LayerNorm(width * 2),
+            nn.Linear(width * 2, width),
+            nn.GELU(),
+            nn.Linear(width, 1),
+        )
+
+    def forward(
+        self,
+        features: torch.Tensor,
+        player_ids: torch.Tensor,
+        action_heads: torch.Tensor,
+        group_ids: torch.Tensor | None,
+    ) -> torch.Tensor:
+        if features.numel() == 0:
+            return torch.empty((0,), dtype=features.dtype, device=features.device)
+        player_ids = player_ids.to(features.device).clamp(0, 3)
+        head_indices = _head_indices(action_heads.to(features.device), player_ids, self.head_count)
+        tokens = (
+            self.feature_projection(features)
+            + self.player_embedding(player_ids)
+            + self.action_embedding(head_indices.clamp(0, self.action_embedding.num_embeddings - 1))
+        )
+        if group_ids is None:
+            group_ids = torch.zeros((features.shape[0],), dtype=torch.long, device=features.device)
+        else:
+            group_ids = group_ids.to(features.device)
+        group_count = int(group_ids.max().item()) + 1
+        lengths = torch.bincount(group_ids, minlength=group_count)
+        max_length = int(lengths.max().item())
+        sequence = torch.zeros((group_count, max_length + 1, self.width), dtype=tokens.dtype, device=tokens.device)
+        mask = torch.ones((group_count, max_length + 1), dtype=torch.bool, device=tokens.device)
+        sequence[:, 0:1, :] = self.cls_token.expand(group_count, -1, -1)
+        mask[:, 0] = False
+        positions: list[torch.Tensor] = []
+        for group_index in range(group_count):
+            indices = torch.nonzero(group_ids == group_index, as_tuple=False).flatten()
+            positions.append(indices)
+            length = int(indices.numel())
+            sequence[group_index, 1:length + 1, :] = tokens[indices]
+            mask[group_index, 1:length + 1] = False
+        encoded = self.encoder(sequence, src_key_padding_mask=mask)
+        scores = torch.empty((features.shape[0],), dtype=tokens.dtype, device=tokens.device)
+        for group_index, indices in enumerate(positions):
+            length = int(indices.numel())
+            global_token = encoded[group_index, 0].expand(length, -1)
+            action_tokens = encoded[group_index, 1:length + 1, :]
+            scores[indices] = self.scorer(torch.cat([action_tokens, global_token], dim=1)).squeeze(1)
+        return scores
+
+
 class TorchPolicy(nn.Module):
     def __init__(
         self,
@@ -61,6 +149,8 @@ class TorchPolicy(nn.Module):
             self.input_projection = nn.Linear(input_size, width)
             self.blocks = nn.ModuleList([ResidualBlock(width) for _ in layer_sizes])
             self.output = nn.Linear(width, head_count)
+        elif architecture == "action-transformer":
+            self.action_transformer = ActionTransformer(input_size=input_size, head_count=head_count, layer_sizes=layer_sizes)
         else:
             raise ValueError(f"unknown Torch policy architecture {architecture!r}")
 
@@ -105,9 +195,11 @@ class TorchPolicy(nn.Module):
         random.seed(seed)
         model = cls(layer_sizes=layer_sizes, input_size=input_size, head_count=head_count, architecture=architecture)
         with torch.no_grad():
-            for parameter in model.parameters():
+            for name, parameter in model.named_parameters():
                 if parameter.ndim >= 2:
                     nn.init.normal_(parameter, mean=0.0, std=scale)
+                elif "norm" in name and name.endswith("weight"):
+                    parameter.fill_(1.0)
                 else:
                     parameter.zero_()
         return model.to(device)
@@ -134,6 +226,19 @@ class TorchPolicy(nn.Module):
         for block in self.blocks:
             value = block(value)
         return self.output(value)
+
+    def candidate_scores(
+        self,
+        features: torch.Tensor,
+        player_ids: torch.Tensor,
+        action_heads: torch.Tensor,
+        group_ids: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        if self.architecture == "action-transformer":
+            return self.action_transformer(features, player_ids, action_heads, group_ids)
+        outputs = self(features)
+        head_tensor = _head_indices(action_heads.to(outputs.device), player_ids.to(outputs.device), self.head_count)
+        return outputs.gather(1, head_tensor[:, None]).squeeze(1)
 
     def export_artifact(self, source: PolicyArtifact, path: Path, *, training_record: dict[str, Any] | None = None) -> None:
         if self.architecture != "mlp":
@@ -177,6 +282,12 @@ def load_torch_policy(path: Path, device: torch.device) -> tuple[TorchPolicy, Po
     return TorchPolicy.from_artifact(artifact, device), artifact
 
 
+def _head_indices(action_heads: torch.Tensor, player_ids: torch.Tensor, head_count: int) -> torch.Tensor:
+    if head_count == 16:
+        return (player_ids * 4 + (action_heads % 4)).long()
+    return action_heads.clamp(0, head_count - 1).long()
+
+
 def _candidate_tensor(candidates: list[Any], input_size: int, device: torch.device) -> torch.Tensor:
     features = torch.zeros((len(candidates), input_size), dtype=torch.float32)
     for row, candidate in enumerate(candidates):
@@ -189,16 +300,9 @@ def _candidate_tensor(candidates: list[Any], input_size: int, device: torch.devi
 
 def _candidate_scores(model: TorchPolicy, candidates: list[Any], player_id: int) -> torch.Tensor:
     features = _candidate_tensor(candidates, model.input_size, next(model.parameters()).device)
-    outputs = model(features)
-    heads = []
-    for candidate in candidates:
-        action_head = int(candidate.action_head)
-        if model.head_count == 16:
-            heads.append(player_id * 4 + (action_head % 4))
-        else:
-            heads.append(min(max(action_head, 0), model.head_count - 1))
-    head_tensor = torch.tensor(heads, dtype=torch.long, device=outputs.device)
-    return outputs.gather(1, head_tensor[:, None]).squeeze(1)
+    player_ids = torch.full((len(candidates),), int(player_id), dtype=torch.long, device=features.device)
+    action_heads = torch.tensor([int(candidate.action_head) for candidate in candidates], dtype=torch.long, device=features.device)
+    return model.candidate_scores(features, player_ids, action_heads)
 
 
 def _choose_torch_action(
@@ -225,23 +329,24 @@ def _batched_candidate_scores(
     device = next(model.parameters()).device
     total_candidates = sum(len(candidates) for _, candidates, _ in groups)
     features = torch.zeros((total_candidates, model.input_size), dtype=torch.float32)
-    heads = torch.empty((total_candidates,), dtype=torch.long)
+    player_ids = torch.empty((total_candidates,), dtype=torch.long)
+    action_heads = torch.empty((total_candidates,), dtype=torch.long)
+    group_ids = torch.empty((total_candidates,), dtype=torch.long)
     spans: list[tuple[int, int, int, list[Any]]] = []
     row = 0
-    for env_index, candidates, player_id in groups:
+    for group_index, (env_index, candidates, player_id) in enumerate(groups):
         start = row
         for candidate in candidates:
             for feature_index in range(candidate.feature_count):
                 column = int(candidate.feature_indices[feature_index])
                 if 0 <= column < model.input_size:
                     features[row, column] = float(candidate.feature_values[feature_index])
-            action_head = int(candidate.action_head)
-            heads[row] = player_id * 4 + (action_head % 4) if model.head_count == 16 else min(max(action_head, 0), model.head_count - 1)
+            player_ids[row] = int(player_id)
+            action_heads[row] = int(candidate.action_head)
+            group_ids[row] = group_index
             row += 1
         spans.append((env_index, start, row, candidates))
-    outputs = model(features.to(device))
-    head_tensor = heads.to(device)
-    return outputs.gather(1, head_tensor[:, None]).squeeze(1), spans
+    return model.candidate_scores(features.to(device), player_ids.to(device), action_heads.to(device), group_ids.to(device)), spans
 
 
 def _winner(scores: list[int], medals: list[int]) -> int:

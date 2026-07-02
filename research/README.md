@@ -135,6 +135,23 @@ python3 -m research.kolkhoz_research.cli torch-train \
   --learning-rate 0.0001
 ```
 
+Train an action-conditioned transformer policy from scratch:
+
+```bash
+python3 -m research.kolkhoz_research.cli torch-train \
+  --architecture action-transformer \
+  --layers 256,4,4,1024 \
+  --output research/runs/action_transformer_256x4/candidate.pt \
+  --episodes 512 \
+  --batch-size 16 \
+  --rollout-envs 64 \
+  --learning-rate 0.0001
+```
+
+For `action-transformer`, `--layers` means `width,depth,attention_heads,feedforward`.
+This architecture scores the legal action candidates jointly for each decision, so it must
+be saved as a Torch `.pt` checkpoint and evaluated with `torch-benchmark`.
+
 Benchmark a Torch `.pt` candidate against the promoted C baseline with paired seeds:
 
 ```bash

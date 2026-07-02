@@ -1,0 +1,29 @@
+{
+  "backend": "torch-mps",
+  "benchmark": {
+    "baseline_model": "training/rl/runs/beat_promoted_wide_seat_heads_v1/20260702T144243Z/candidate.json",
+    "bootstrap_samples": 100,
+    "games_per_seat": 8,
+    "rollout_envs": 32,
+    "seed": 44000000
+  },
+  "hypothesis": "A Torch action-conditioned transformer can learn from the full legal-action set for each decision instead of scoring each candidate independently.",
+  "training": {
+    "architecture": "action-transformer",
+    "batch_size": 8,
+    "episodes": 32,
+    "layers": [
+      256,
+      4,
+      4,
+      1024
+    ],
+    "learning_rate": 0.0001,
+    "output": "research/runs/action_transformer_torch_smoke/candidate.pt",
+    "rollout_envs": 16,
+    "scratch_scale": 0.02,
+    "scratch_seed": 1,
+    "seed": 44001000,
+    "temperature": 0.9
+  }
+}
