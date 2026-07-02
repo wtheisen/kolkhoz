@@ -362,6 +362,7 @@ class LegalAction {
   const LegalAction({
     required this.id,
     required this.kind,
+    required this.label,
     required this.enabled,
   });
 
@@ -369,12 +370,14 @@ class LegalAction {
     return LegalAction(
       id: json['id'] as String,
       kind: json['kind'] as String,
+      label: json['label'] as String? ?? json['kind'] as String,
       enabled: json['enabled'] as bool,
     );
   }
 
   final String id;
   final String kind;
+  final String label;
   final bool enabled;
 }
 

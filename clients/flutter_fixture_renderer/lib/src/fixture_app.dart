@@ -2087,6 +2087,11 @@ class HandTray extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final viewer = viewerSeat(model);
+    final hand = viewer.hand.toList(growable: false)..sort(compareCardsForHand);
+    final enabledActions = model.legalActions
+        .where((action) => action.enabled)
+        .toList(growable: false);
+    const visibleTrayHeight = 66.0;
     return Padding(
       padding: EdgeInsets.only(
         left: tokens.spacing.handTrayHorizontalLeading,
@@ -2094,68 +2099,126 @@ class HandTray extends StatelessWidget {
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 8,
         children: [
-          Container(
-            width: 34,
-            height: tokens.card.large.height + 12,
-            alignment: Alignment.topCenter,
-            child: Image.asset('ios_resources/Icons/icon-hand.png', width: 32),
-          ),
           Expanded(
             child: Container(
-              height: tokens.card.large.height + 12,
-              padding: EdgeInsets.symmetric(horizontal: tokens.spacing.sm),
+              height: visibleTrayHeight,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
               decoration: BoxDecoration(
                 color: tokens.colors.black.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(tokens.radius.md),
+                borderRadius: BorderRadius.circular(tokens.radius.sm),
                 border: Border.all(
                   color: tokens.colors.steel.withValues(alpha: 0.32),
                 ),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 6,
                 children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (final card in viewer.hand)
-                            Padding(
-                              padding: EdgeInsets.only(
-                                right: tokens.spacing.lg,
-                              ),
-                              child: Transform.translate(
-                                offset: const Offset(0, 8),
-                                child: GameCard(card: card, tokens: tokens),
-                              ),
-                            ),
-                        ],
+                  SizedBox(
+                    width: 34,
+                    height: visibleTrayHeight,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Image.asset(
+                        'ios_resources/Icons/icon-hand.png',
+                        width: 32,
+                        filterQuality: FilterQuality.none,
                       ),
                     ),
                   ),
-                  SizedBox(width: tokens.spacing.md),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 310),
-                    child: Wrap(
-                      spacing: tokens.spacing.sm,
-                      runSpacing: tokens.spacing.xs,
-                      children: [
-                        for (final action in model.legalActions.where(
-                          (action) => action.enabled,
-                        ))
-                          ActionPill(action: action, tokens: tokens),
-                      ],
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SizedBox(
+                        height: visibleTrayHeight,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          spacing: 10,
+                          children: [
+                            for (final card in hand)
+                              Transform.translate(
+                                offset: const Offset(0, 8),
+                                child: GameCard(card: card, tokens: tokens),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
           ),
+          if (enabledActions.isNotEmpty)
+            ActionCommandBar(actions: enabledActions, tokens: tokens),
         ],
       ),
     );
+  }
+}
+
+int compareCardsForHand(ContractCard lhs, ContractCard rhs) {
+  final lhsSuit = suitSortIndex(lhs.suit);
+  final rhsSuit = suitSortIndex(rhs.suit);
+  if (lhsSuit != rhsSuit) {
+    return lhsSuit.compareTo(rhsSuit);
+  }
+  return lhs.value.compareTo(rhs.value);
+}
+
+int suitSortIndex(String suit) {
+  const order = ['wheat', 'sunflower', 'potato', 'beet'];
+  final index = order.indexOf(suit);
+  return index == -1 ? order.length : index;
+}
+
+class ActionCommandBar extends StatelessWidget {
+  const ActionCommandBar({
+    required this.actions,
+    required this.tokens,
+    super.key,
+  });
+
+  final List<LegalAction> actions;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    const visibleTrayHeight = 66.0;
+    return SizedBox(
+      width: actionBarWidth,
+      height: visibleTrayHeight,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          spacing: 8,
+          children: [
+            for (final action in actions)
+              ActionPill(
+                action: action,
+                tokens: tokens,
+                prominent: isProminentAction(action),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  double get actionBarWidth {
+    if (actions.length <= 1) {
+      return 150;
+    }
+    return 268;
+  }
+
+  bool isProminentAction(LegalAction action) {
+    return action.kind == 'confirmSwap' ||
+        action.kind == 'submitAssignments' ||
+        action.kind == 'continueAfterRequisition';
   }
 }
 
@@ -2771,25 +2834,65 @@ class SuitMark extends StatelessWidget {
 }
 
 class ActionPill extends StatelessWidget {
-  const ActionPill({required this.action, required this.tokens, super.key});
+  const ActionPill({
+    required this.action,
+    required this.tokens,
+    required this.prominent,
+    super.key,
+  });
 
   final LegalAction action;
   final DesignTokens tokens;
+  final bool prominent;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: tokens.colors.gold,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        action.kind,
-        style: TextStyle(
-          color: tokens.colors.cardInk,
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
+    return Opacity(
+      opacity: action.enabled ? 1 : 0.45,
+      child: Container(
+        constraints: BoxConstraints(
+          minWidth: prominent ? 132 : 88,
+          minHeight: prominent ? 36 : 32,
+        ),
+        padding: EdgeInsets.only(
+          left: prominent ? 20 : 16,
+          right: prominent ? 20 : 16,
+          top: prominent ? 8 : 7,
+          bottom: prominent ? 6 : 5,
+        ),
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage(
+              prominent
+                  ? 'ios_resources/ui-button-primary.png'
+                  : 'ios_resources/ui-button-secondary.png',
+            ),
+            fit: BoxFit.fill,
+            filterQuality: FilterQuality.none,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: tokens.colors.black.withValues(
+                alpha: prominent ? 0.28 : 0.18,
+              ),
+              blurRadius: prominent ? 5 : 3,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              action.label.toUpperCase(),
+              maxLines: 1,
+              style: TextStyle(
+                color: prominent ? tokens.colors.cardInk : tokens.colors.cream,
+                fontSize: tokens.typography.size('caption', 13),
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
         ),
       ),
     );
