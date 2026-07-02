@@ -18,7 +18,7 @@ void main() {
     expect(find.text('planning trump selection'), findsOneWidget);
     expect(find.text('assignment pending'), findsOneWidget);
     expect(find.text('online redacted swap'), findsOneWidget);
-    expect(find.text('Set trump'), findsOneWidget);
+    expect(find.text('SET TRUMP'), findsOneWidget);
 
     await tester.tap(find.text('assignment pending'));
     await tester.pumpAndSettle();

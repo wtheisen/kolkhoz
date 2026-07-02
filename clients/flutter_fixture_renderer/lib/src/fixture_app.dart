@@ -829,7 +829,7 @@ class BrigadePanel extends StatelessWidget {
             if (model.table.phase == 'planning')
               Align(
                 alignment: Alignment.center,
-                child: InfoPlaque(model: model, tokens: tokens),
+                child: PlanningTrumpPanel(model: model, tokens: tokens),
               ),
           ],
         );
@@ -1820,6 +1820,251 @@ class InfoPlaque extends StatelessWidget {
             style: TextStyle(color: tokens.colors.creamDim),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class PlanningTrumpPanel extends StatelessWidget {
+  const PlanningTrumpPanel({
+    required this.model,
+    required this.tokens,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final trumpActions = model.legalActions
+        .where((action) => action.kind == 'setTrump')
+        .toList(growable: false);
+    return Container(
+      width: 262,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            tokens.colors.panel,
+            tokens.colors.iron.withValues(alpha: 0.96),
+            tokens.colors.black.withValues(alpha: 0.94),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(tokens.radius.md),
+        border: Border.all(
+          color: tokens.colors.gold.withValues(alpha: 0.72),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: tokens.colors.black.withValues(alpha: 0.35),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: tokens.colors.red.withValues(alpha: 0.62)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 10,
+        children: [
+          PanelTitleHeader(
+            title: model.table.phasePrompt.title,
+            subtitle: model.table.phasePrompt.body,
+            iconPath: 'ios_resources/Icons/icon-jobs.png',
+            tokens: tokens,
+          ),
+          if (trumpActions.isEmpty)
+            Text(
+              model.table.phasePrompt.body,
+              style: TextStyle(
+                color: tokens.colors.creamDim,
+                fontSize: tokens.typography.size('subheadline', 15),
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else
+            Center(
+              child: SizedBox(
+                width: 116,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final action in orderedTrumpActions(trumpActions))
+                      TrumpSelectionButton(
+                        action: action,
+                        selected: action.targets.contains(model.table.trump),
+                        tokens: tokens,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  List<LegalAction> orderedTrumpActions(List<LegalAction> actions) {
+    final bySuit = {
+      for (final action in actions)
+        if (action.targets.isNotEmpty) action.targets.first: action,
+    };
+    return ['wheat', 'sunflower', 'potato', 'beet']
+        .map((suit) => bySuit[suit])
+        .whereType<LegalAction>()
+        .toList(growable: false);
+  }
+}
+
+class PanelTitleHeader extends StatelessWidget {
+  const PanelTitleHeader({
+    required this.title,
+    required this.subtitle,
+    required this.iconPath,
+    required this.tokens,
+    super.key,
+  });
+
+  final String title;
+  final String subtitle;
+  final String iconPath;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      spacing: 10,
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                tokens.colors.black.withValues(alpha: 0.58),
+                tokens.colors.steel.withValues(alpha: 0.36),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(5),
+            border: Border.all(
+              color: tokens.colors.gold.withValues(alpha: 0.8),
+              width: 1.5,
+            ),
+          ),
+          child: Center(
+            child: Image.asset(
+              iconPath,
+              width: 24,
+              height: 24,
+              filterQuality: FilterQuality.none,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 2,
+            children: [
+              Text(
+                title.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: tokens.colors.gold,
+                  fontSize: tokens.typography.size('caption', 13),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Text(
+                subtitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: tokens.colors.creamDim,
+                  fontSize: tokens.typography.size('caption', 13),
+                  fontWeight: FontWeight.w700,
+                  height: 1.05,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class TrumpSelectionButton extends StatelessWidget {
+  const TrumpSelectionButton({
+    required this.action,
+    required this.selected,
+    required this.tokens,
+    super.key,
+  });
+
+  final LegalAction action;
+  final bool selected;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final suit = action.targets.isEmpty
+        ? action.label.toLowerCase()
+        : action.targets.first;
+    return Tooltip(
+      message: action.label,
+      child: SizedBox(
+        width: 54,
+        height: 54,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            boxShadow: [
+              BoxShadow(
+                color: selected
+                    ? tokens.colors.red.withValues(alpha: 0.38)
+                    : tokens.colors.gold.withValues(alpha: 0.16),
+                blurRadius: selected ? 8 : 4,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned.fill(
+                child: Image.asset(
+                  selected
+                      ? 'ios_resources/ui-nav-button-active-current.png'
+                      : 'ios_resources/ui-nav-button-inactive-current.png',
+                  fit: BoxFit.fill,
+                  filterQuality: FilterQuality.none,
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.only(top: selected ? 2 : 0),
+                child: Image.asset(
+                  'ios_resources/Icons/icon-trump-$suit.png',
+                  width: 34,
+                  height: 34,
+                  filterQuality: FilterQuality.none,
+                  errorBuilder: (_, _, _) =>
+                      SuitMark(suit: suit, tokens: tokens, size: 28),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

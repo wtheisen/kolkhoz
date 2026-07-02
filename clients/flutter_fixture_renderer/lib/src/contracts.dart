@@ -363,6 +363,7 @@ class LegalAction {
     required this.id,
     required this.kind,
     required this.label,
+    required this.targets,
     required this.enabled,
   });
 
@@ -371,6 +372,7 @@ class LegalAction {
       id: json['id'] as String,
       kind: json['kind'] as String,
       label: json['label'] as String? ?? json['kind'] as String,
+      targets: (json['targets'] as List<Object?>? ?? const []).cast<String>(),
       enabled: json['enabled'] as bool,
     );
   }
@@ -378,6 +380,7 @@ class LegalAction {
   final String id;
   final String kind;
   final String label;
+  final List<String> targets;
   final bool enabled;
 }
 
