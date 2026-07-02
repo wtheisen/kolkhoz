@@ -5,7 +5,7 @@
 Read the agent documentation in `agent-docs/`:
 1. `OVERVIEW.md` - Project structure and quick start
 2. `ARCHITECTURE.md` - How the codebase is organized
-3. `GAME_STATE.md` - The G object and state mutations
+3. `GAME_STATE.md` - State shape and state mutations
 4. `PHASES.md` - Game phase flow and transitions
 
 ## Code Principles
@@ -13,9 +13,9 @@ Read the agent documentation in `agent-docs/`:
 **Keep it simple.** This is a card game, not enterprise software. Prefer straightforward solutions over clever abstractions.
 
 **Follow the frameworks:**
-- **boardgame.io** - Use phases, moves, and hooks as intended. Don't fight the framework.
-- **React** - Functional components, hooks, minimal state. Let boardgame.io manage game state.
-- **Vite** - Standard ES modules. No special configuration needed.
+- **C engine** - Keep rules, legal actions, phase flow, and scoring in `ios/KolkhozSwiftUI/Sources/KolkhozCEngine/`.
+- **SwiftUI** - Keep app state in `GameStore`; views render state and call store actions.
+- **Swift Package Manager/XcodeGen** - Keep package and project wiring in sync.
 
 **Write minimal code:**
 - Fix what's broken, don't refactor what works
@@ -25,24 +25,29 @@ Read the agent documentation in `agent-docs/`:
 
 **Test before committing:**
 ```bash
-npm run test:run
-npm run build
+cd ios/KolkhozSwiftUI
+swift run KolkhozSmokeTests
+swift build --target KolkhozAppFeature
+swift build --target KolkhozSwiftUIApp
 ```
 
 ## Frontend Work
 
-**Always use the frontend-design skill** when working on UI/CSS. It helps think through layout problems properly instead of trial-and-error with CSS values.
+Use the iOS/SwiftUI UI skills when changing app screens or layout. The current SwiftUI
+app is the visual reference for future downloadable clients.
 
 ## Common Patterns
 
-**Game logic** goes in `src/game/` - pure functions that mutate G.
+**Game logic** goes in `ios/KolkhozSwiftUI/Sources/KolkhozCEngine/`.
 
-**UI components** go in `src/client/components/` - render state, call moves.
+**Swift models and adapters** go in `ios/KolkhozSwiftUI/Sources/KolkhozCore/`.
 
-**Phase transitions** use boardgame.io hooks: `onBegin`, `onEnd`, `endIf`, `next`.
+**UI components** go in `ios/KolkhozSwiftUI/Sources/KolkhozAppFeature/`.
 
-**State changes** happen by directly mutating G in moves and hooks (boardgame.io uses Immer).
+**State changes** happen by applying portable engine actions through the C adapter or
+online session. Views should not mutate `KolkhozState` directly.
 
 ## When Debugging
 
-Check the phase flow in `agent-docs/PHASES.md`. Most bugs are phase transition issues - wrong `endIf` conditions, missing state resets, or hooks not running.
+Check the phase flow in `agent-docs/PHASES.md`. Most bugs are phase transition issues,
+snapshot/adaptation issues, or UI state that drifted from the C engine.

@@ -1,8 +1,4 @@
 .DS_Store
-node_modules/
-dist/
-docs/
-scripts/*.bundle.js
 *.xcuserstate
 xcuserdata/
 

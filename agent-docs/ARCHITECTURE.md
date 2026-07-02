@@ -3,8 +3,7 @@
 The C engine under `ios/KolkhozSwiftUI/Sources/KolkhozCEngine/` is the source of truth
 for rules and app behavior. The native SwiftUI app uses that engine through
 `KolkhozCEngineAdapter` for offline play and through online session snapshots/actions for
-multiplayer. The older React/boardgame.io code remains in the repo, but should not be
-used to infer current iOS behavior when it differs from the C engine.
+multiplayer.
 
 ## Directory Structure
 
@@ -43,10 +42,7 @@ kolkhoz/
 │           │   └── KolkhozSwiftUIApp.swift
 │           └── KolkhozSmokeTests/
 │               └── main.swift
-├── src/                         # Legacy web app source
-├── docs/                        # Generated legacy web build output
 ├── agent-docs/
-├── package.json
 └── README.md
 ```
 

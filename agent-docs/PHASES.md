@@ -1,8 +1,7 @@
 # Game Phases & Transitions
 
 The app uses `GamePhase` values adapted from the C engine through
-`KolkhozCEngineAdapter`. It does not use boardgame.io hooks. Automatic AI turns are
-processed by the C engine.
+`KolkhozCEngineAdapter`. Automatic AI turns are processed by the C engine.
 
 ## Phase Flow Diagram
 
@@ -195,8 +194,7 @@ Famine means:
 
 ### Assignment Targets
 
-Legal assignment targets are only the suits present in the completed trick. This differs
-from older docs/rules that said trump cards can go to any job.
+Legal assignment targets are only the suits present in the completed trick.
 
 ### Requisition Timing
 
@@ -205,8 +203,7 @@ requisition screen. Removal is applied when the user continues.
 
 ### Swap Is Sequential
 
-The app processes swap confirmations in player order. AI players are automatic, but the
-implementation is not simultaneous `activePlayers` behavior.
+The app processes swap confirmations in player order. AI players are automatic.
 
 ## Debugging Phase Issues
 

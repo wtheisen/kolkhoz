@@ -3,8 +3,8 @@
 ## Objective
 
 Make the C engine the authoritative game engine for every Kolkhoz client, then layer
-offline iOS play, online iOS play, and future web/Android clients on the same portable
-action and state model.
+offline iOS play, online iOS play, and future downloadable Android/desktop clients on
+the same portable action and state model.
 
 ## Architecture
 
@@ -14,7 +14,7 @@ C engine
     |
     v
 Platform bindings
-  Swift/iOS first, then server, web, Android
+  Swift/iOS first, then server, Flutter/Dart FFI for Android and desktop
     |
     v
 Clients and server
@@ -45,7 +45,7 @@ ready.
    - Broadcast per-viewer state updates over a live transport.
 
 4. Expand to other clients.
-   - Reuse the C action/state contracts for web and Android bindings.
+   - Reuse the C action/state contracts for Flutter Android and desktop bindings.
    - Keep conformance tests around shared action logs so every platform stays in sync.
 
 ## Server Shape

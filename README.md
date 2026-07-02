@@ -1,16 +1,15 @@
 # Kolkhoz
 
 Kolkhoz is a Soviet-themed trick-taking card game. The current source of truth is the
-native SwiftUI implementation in `ios/KolkhozSwiftUI/`.
-
-The older browser implementation and GitHub Pages build remain in the repo for history,
-but when rules or behavior differ, follow the Swift app.
+portable C engine wrapped by the native SwiftUI app in `ios/KolkhozSwiftUI/`.
 
 ## Current Status
 
 The SwiftUI app is playable with:
 
 - 4-player gameplay: 1 human and 3 AI opponents.
+- Offline play backed by the C engine.
+- Online session/server foundations using portable engine actions and redacted snapshots.
 - Full 5-year campaign.
 - Native SwiftUI lobby, board, card, swap, assignment, plot, requisition, and game-over screens.
 - Pixel-art card, icon, and UI resources.
@@ -67,15 +66,20 @@ ios/KolkhozSwiftUI/
   Package.swift
   project.yml
   Sources/
+    KolkhozCEngine/
+      KolkhozCEngine.c          # Portable C rules engine
+      include/KolkhozCEngine.h  # Public C API
     KolkhozCore/
       Models.swift              # State, cards, variants, phases, errors
-      KolkhozEngine.swift       # Rules, AI, phase flow, scoring
+      KolkhozHeadlessEngine.swift # Swift C adapter, snapshots, actions, saved games
+      KolkhozOnlineSession.swift # Authoritative online sessions and client protocols
+      KolkhozOnlineHTTPRouter.swift # HTTP transport routing helpers
     KolkhozAppFeature/
-      GameStore.swift           # SwiftUI adapter around KolkhozEngine
+      GameStore.swift           # SwiftUI adapter around C/online runtimes
       KolkhozRootView.swift     # Lobby/game switch
       Lobby/LobbyView.swift     # Presets, custom variants, rules
-      Board/GameBoardView.swift # Board shell, navigation, animations
-      Board/GameSections.swift  # Phase-specific screens
+      Lobby/OnlineLobbyView.swift # Host/join online setup
+      Board/                    # Board shell, navigation, phase screens
       Cards/CardViews.swift     # Card rendering
       Design/                  # Shared colors, controls, icons
       Resources/               # Pixel art and UI assets
@@ -90,28 +94,20 @@ ios/KolkhozSwiftUI/
 ```text
 SwiftUI gesture
     -> GameStore action
-    -> KolkhozEngine mutates KolkhozState
-    -> Engine processes automatic AI turns
+    -> KolkhozCEngineAdapter applies a portable action
+    -> C engine processes automatic AI turns
     -> GameStore publishes copied state and animation events
     -> SwiftUI re-renders
 ```
 
-Views should call `GameStore`; game rules and state mutations belong in `KolkhozEngine`.
+Views should call `GameStore`; game rules and state mutations belong in the C engine.
 
 ## Key Files
 
-- `ios/KolkhozSwiftUI/Sources/KolkhozCore/KolkhozEngine.swift` - Rules, AI, phase transitions, scoring.
+- `ios/KolkhozSwiftUI/Sources/KolkhozCEngine/` - Portable C rules engine.
+- `ios/KolkhozSwiftUI/Sources/KolkhozCore/KolkhozHeadlessEngine.swift` - Swift C adapter, snapshots, actions, saved games.
+- `ios/KolkhozSwiftUI/Sources/KolkhozCore/KolkhozOnlineSession.swift` - Online session state, redaction, and client protocols.
 - `ios/KolkhozSwiftUI/Sources/KolkhozCore/Models.swift` - State and model definitions.
 - `ios/KolkhozSwiftUI/Sources/KolkhozAppFeature/GameStore.swift` - MainActor state bridge.
-- `ios/KolkhozSwiftUI/Sources/KolkhozAppFeature/Board/GameSections.swift` - Phase UI and player interactions.
+- `ios/KolkhozSwiftUI/Sources/KolkhozAppFeature/Board/` - Phase UI and player interactions.
 - `agent-docs/` - Agent-oriented architecture, state, and phase references.
-
-## Legacy Web App
-
-The repository still contains the older web app:
-
-- `src/` - React/boardgame.io source.
-- `docs/` - Generated GitHub Pages build output from `npm run build`; not source.
-- `package.json` - Legacy web build/test commands.
-
-Use these only when intentionally working on the legacy browser version.
