@@ -600,51 +600,170 @@ class BrigadePanel extends StatelessWidget {
         : model.table.trick;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final centerCardSize = tokens.card.large;
+        final playerOrder = orderedSeats(seats);
+        const columnSpacingFill = 0.72;
+        final columnCount = playerOrder.length.toDouble();
+        final playerPanelWidth = tokens.card.medium.width * 1.6;
+        final preferredColumnWidth = clampDouble(
+          constraints.maxWidth * 0.18,
+          96,
+          120,
+        );
+        final columnWidth = playerPanelWidth > preferredColumnWidth
+            ? playerPanelWidth
+            : preferredColumnWidth;
+        final totalColumnWidth = columnWidth * columnCount;
+        final availableSpacing = (constraints.maxWidth - totalColumnWidth)
+            .clamp(0, double.infinity);
+        final spacing = columnCount <= 1
+            ? 0.0
+            : (availableSpacing / (columnCount - 1)) * columnSpacingFill;
+        final rowWidth = totalColumnWidth + spacing * (columnCount - 1);
+
         return Stack(
           children: [
-            Positioned.fill(
-              child: Center(
-                child: DashedSlot(
-                  width: centerCardSize.width * 2.5,
-                  height: centerCardSize.height * 1.35,
-                  tokens: tokens,
-                  label: model.table.phase == 'planning'
-                      ? model.table.phasePrompt.title
-                      : 'Trick',
+            Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: rowWidth,
+                height: constraints.maxHeight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var index = 0; index < playerOrder.length; index++)
+                      Padding(
+                        padding: EdgeInsets.only(
+                          right: index == playerOrder.length - 1 ? 0 : spacing,
+                        ),
+                        child: BrigadePlayerColumn(
+                          seat: playerOrder[index],
+                          play: trick.playForSeat(playerOrder[index].id),
+                          columnWidth: columnWidth,
+                          phase: model.table.phase,
+                          tokens: tokens,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
-            if (seats.length > 1)
+            if (model.table.phase == 'planning')
               Align(
-                alignment: Alignment.topCenter,
-                child: PlayerBadge(seat: seats[1], tokens: tokens),
+                alignment: Alignment.center,
+                child: InfoPlaque(model: model, tokens: tokens),
               ),
-            if (seats.length > 2)
-              Align(
-                alignment: Alignment.centerRight,
-                child: PlayerBadge(seat: seats[2], tokens: tokens),
-              ),
-            if (seats.length > 3)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: PlayerBadge(seat: seats[3], tokens: tokens),
-              ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: PlayerBadge(seat: seats.first, tokens: tokens),
-            ),
-            Align(
-              alignment: Alignment.center,
-              child: TrickCards(trick: trick, tokens: tokens),
-            ),
-            Align(
-              alignment: Alignment.bottomRight,
-              child: InfoPlaque(model: model, tokens: tokens),
-            ),
           ],
         );
       },
+    );
+  }
+
+  List<Seat> orderedSeats(List<Seat> seats) {
+    final byID = {for (final seat in seats) seat.id: seat};
+    return [
+      1,
+      2,
+      3,
+      0,
+    ].map((id) => byID[id]).whereType<Seat>().toList(growable: false);
+  }
+}
+
+extension on Trick {
+  TrickPlay? playForSeat(int seatID) {
+    for (final play in plays) {
+      if (play.seatID == seatID) {
+        return play;
+      }
+    }
+    return null;
+  }
+}
+
+class BrigadePlayerColumn extends StatelessWidget {
+  const BrigadePlayerColumn({
+    required this.seat,
+    required this.play,
+    required this.columnWidth,
+    required this.phase,
+    required this.tokens,
+    super.key,
+  });
+
+  final Seat seat;
+  final TrickPlay? play;
+  final double columnWidth;
+  final String phase;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final cardSize = tokens.card.medium;
+    final maxTricksForYear = 4;
+    final slotWidth = clampDouble(columnWidth * 0.52, 44, 76);
+    const playAreaScale = 1.8;
+    final playAreaLeftOffset = clampDouble(columnWidth * 0.06, 30, 54);
+    final playAreaTopOffset = clampDouble(columnWidth * 0.15, 18, 24);
+    final playerPanelWidth = cardSize.width * playAreaScale;
+    final playAreaWidth =
+        (cardSize.width > slotWidth ? cardSize.width : slotWidth) *
+        playAreaScale;
+    final playAreaHeight =
+        (cardSize.height > slotWidth * 1.2
+            ? cardSize.height
+            : slotWidth * 1.2) *
+        playAreaScale;
+
+    return SizedBox(
+      width: columnWidth,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: playerPanelWidth,
+            height: 40,
+            child: PlayerBadge(
+              seat: seat,
+              tokens: tokens,
+              width: playerPanelWidth,
+              maxTricks: maxTricksForYear,
+            ),
+          ),
+          Transform.translate(
+            offset: Offset(
+              playAreaLeftOffset,
+              -clampDouble(columnWidth * 0.055, 2, 6),
+            ),
+            child: Padding(
+              padding: EdgeInsets.only(top: playAreaTopOffset),
+              child: SizedBox(
+                width: playAreaWidth,
+                height: playAreaHeight,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: Transform.scale(
+                    scale: playAreaScale,
+                    alignment: Alignment.topCenter,
+                    child: play == null
+                        ? CardSlot(
+                            active: phase == 'trick' && seat.isCurrentTurn,
+                            human: seat.isViewer,
+                            width: slotWidth,
+                            height: slotWidth * 1.4,
+                            tokens: tokens,
+                          )
+                        : GameCard(
+                            card: play!.card,
+                            tokens: tokens,
+                            sizeOverride: cardSize,
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -695,21 +814,30 @@ class PlotPanel extends StatelessWidget {
 }
 
 class PlayerBadge extends StatelessWidget {
-  const PlayerBadge({required this.seat, required this.tokens, super.key});
+  const PlayerBadge({
+    required this.seat,
+    required this.tokens,
+    this.width = 178,
+    this.maxTricks = 4,
+    super.key,
+  });
 
   final Seat seat;
   final DesignTokens tokens;
+  final double width;
+  final int maxTricks;
 
   @override
   Widget build(BuildContext context) {
-    final active = seat.isCurrentTurn || seat.isViewer;
+    final active = seat.isCurrentTurn;
+    final human = seat.isViewer;
     return Container(
-      width: 178,
-      margin: EdgeInsets.all(tokens.spacing.md),
-      padding: EdgeInsets.all(tokens.spacing.sm),
+      width: width,
+      height: 40,
+      padding: EdgeInsets.symmetric(horizontal: tokens.spacing.sm),
       decoration: BoxDecoration(
         color: tokens.colors.panel,
-        borderRadius: BorderRadius.circular(tokens.radius.md),
+        borderRadius: BorderRadius.circular(tokens.radius.sm),
         border: Border.all(
           color: active ? tokens.colors.gold : tokens.colors.steel,
           width: active ? tokens.stroke.emphasis : tokens.stroke.hairline,
@@ -717,28 +845,35 @@ class PlayerBadge extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Image.asset('ios_resources/Icons/icon-human-seat.png', width: 30),
-          SizedBox(width: tokens.spacing.sm),
+          Image.asset(
+            human
+                ? 'ios_resources/Icons/icon-human-seat.png'
+                : 'ios_resources/Icons/icon-basic-ai.png',
+            width: 22,
+          ),
+          SizedBox(width: tokens.spacing.xs),
           Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Text(
-                  seat.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: tokens.colors.cream,
-                    fontSize: tokens.typography.size('caption', 13),
-                    fontWeight: FontWeight.w800,
+                Expanded(
+                  child: Text(
+                    seat.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: tokens.colors.cream,
+                      fontSize: tokens.typography.size('caption', 13),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
+                SizedBox(width: tokens.spacing.xs),
                 Text(
-                  '${seat.controller}  ${seat.visibleScore}',
+                  '${seat.visibleScore}/$maxTricks',
                   style: TextStyle(
-                    color: tokens.colors.creamDim,
+                    color: active ? tokens.colors.gold : tokens.colors.creamDim,
                     fontSize: tokens.typography.size('caption2', 11),
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],
@@ -753,6 +888,79 @@ class PlayerBadge extends StatelessWidget {
       ),
     );
   }
+}
+
+class CardSlot extends StatelessWidget {
+  const CardSlot({
+    required this.active,
+    required this.human,
+    required this.width,
+    required this.height,
+    required this.tokens,
+    super.key,
+  });
+
+  final bool active;
+  final bool human;
+  final double width;
+  final double height;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: CardSlotPainter(
+        color: active
+            ? tokens.colors.gold
+            : human
+            ? tokens.colors.creamDim
+            : tokens.colors.steel,
+        active: active,
+      ),
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: Center(
+          child: active
+              ? Image.asset('ios_resources/Icons/icon-play-tap.png', width: 18)
+              : null,
+        ),
+      ),
+    );
+  }
+}
+
+class CardSlotPainter extends CustomPainter {
+  const CardSlotPainter({required this.color, required this.active});
+
+  final Color color;
+  final bool active;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color.withValues(alpha: active ? 0.95 : 0.62)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = active ? 2 : 1.4;
+    final rect = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      const Radius.circular(7),
+    );
+    final path = Path()..addRRect(rect);
+    const dash = 6.0;
+    const gap = 5.0;
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        canvas.drawPath(metric.extractPath(distance, distance + dash), paint);
+        distance += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(CardSlotPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.active != active;
 }
 
 class PlotBadge extends StatelessWidget {
@@ -1234,16 +1442,19 @@ class GameCard extends StatelessWidget {
     required this.card,
     required this.tokens,
     this.small = false,
+    this.sizeOverride,
     super.key,
   });
 
   final ContractCard card;
   final DesignTokens tokens;
   final bool small;
+  final TokenCardSize? sizeOverride;
 
   @override
   Widget build(BuildContext context) {
-    final size = small ? tokens.card.small : tokens.card.large;
+    final size =
+        sizeOverride ?? (small ? tokens.card.small : tokens.card.large);
     final border = card.selected
         ? tokens.colors.green
         : card.highlighted
@@ -1278,9 +1489,7 @@ class GameCard extends StatelessWidget {
                 color: card.highlighted
                     ? tokens.colors.red
                     : tokens.colors.cardInk,
-                fontSize: small
-                    ? tokens.card.small.cornerRankFontSize
-                    : tokens.card.large.cornerRankFontSize,
+                fontSize: size.cornerRankFontSize,
                 fontWeight: FontWeight.w900,
               ),
             ),
@@ -1290,9 +1499,7 @@ class GameCard extends StatelessWidget {
               child: SuitDot(
                 suit: card.suit,
                 tokens: tokens,
-                size: small
-                    ? tokens.card.small.cornerSuitSize * 1.8
-                    : tokens.card.large.cornerSuitSize * 1.8,
+                size: size.cornerSuitSize * 1.8,
               ),
             ),
           ],
