@@ -1,4 +1,5 @@
 .DS_Store
+node_modules/
 *.xcuserstate
 xcuserdata/
 
@@ -9,3 +10,8 @@ xcuserdata/
 # Generated scratch output
 tmp/
 training/rl/runs/
+research/runs/
+research/.build/
+research/.venv/
+research/__pycache__/
+*.pyc
