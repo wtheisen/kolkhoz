@@ -211,6 +211,15 @@ typedef struct {
 } KCPolicyGradientResult;
 
 typedef struct {
+    int32_t status;
+    int32_t actions;
+    int32_t checksum;
+    int32_t scores[KC_PLAYER_COUNT];
+    int32_t medals[KC_PLAYER_COUNT];
+    int32_t winner_id;
+} KCPolicyMatchupGameResult;
+
+typedef struct {
     uint64_t rng_state;
     KCVariants variants;
     KCPlayer players[KC_PLAYER_COUNT];
@@ -266,6 +275,18 @@ int32_t kc_visible_score(const KCEngine *engine, int32_t player_id);
 int32_t kc_final_score(const KCEngine *engine, int32_t player_id);
 KCGameRunResult kc_run_benchmark_game(uint64_t seed, KCVariants variants);
 KCTrainingBenchmarkResult kc_run_gradient_benchmark(uint64_t seed, KCVariants variants, int32_t episodes);
+KCPolicyMatchupGameResult kc_run_policy_matchup_game(
+    uint64_t seed,
+    KCVariants variants,
+    KCPolicyModelBuffer model,
+    bool model_is_heuristic,
+    KCPolicyModelBuffer opponent_model,
+    bool opponent_is_heuristic,
+    int32_t model_seat,
+    bool round_curriculum,
+    int32_t round_plot_cards,
+    double round_famine_rate
+);
 int32_t kc_train_policy_gradient(KCPolicyModelBuffer model, KCPolicyGradientConfig config, KCPolicyGradientResult *result);
 
 #ifdef __cplusplus

@@ -1,0 +1,26 @@
+{
+  "backend": "c-mlp",
+  "benchmark": {
+    "bootstrap_samples": 1000,
+    "games_per_seat": 120,
+    "min_margin_delta": 0.0,
+    "min_rank_delta": 0.0,
+    "min_win_delta": 0.0,
+    "seed": 13500000
+  },
+  "hypothesis": "A small C-backed round-curriculum MLP is a continuity baseline for the new C/Python harness.",
+  "training": {
+    "batch_size": 128,
+    "episodes": 512,
+    "layers": [
+      128,
+      128
+    ],
+    "optimizer": "adam",
+    "round_curriculum": true,
+    "round_famine_rate": 0.2,
+    "round_plot_cards": 6,
+    "seed": 9810000,
+    "thread_count": 4
+  }
+}

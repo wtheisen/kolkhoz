@@ -2586,6 +2586,115 @@ static int32_t kc_run_greedy_matchup_game(
     return 0;
 }
 
+KCPolicyMatchupGameResult kc_run_policy_matchup_game(
+    uint64_t seed,
+    KCVariants variants,
+    KCPolicyModelBuffer model,
+    bool model_is_heuristic,
+    KCPolicyModelBuffer opponent_model,
+    bool opponent_is_heuristic,
+    int32_t model_seat,
+    bool round_curriculum,
+    int32_t round_plot_cards,
+    double round_famine_rate
+) {
+    KCPolicyMatchupGameResult result;
+    memset(&result, 0, sizeof(result));
+    result.winner_id = KC_NO_PLAYER;
+    if (model_seat < 0 || model_seat >= KC_PLAYER_COUNT) {
+        result.status = 1;
+        return result;
+    }
+
+    KCEngine engine;
+    if (round_curriculum) {
+        kc_engine_init_random_round(&engine, seed, variants, round_plot_cards, round_famine_rate);
+    } else {
+        kc_engine_init(&engine, seed, variants);
+    }
+    int32_t starting_year = engine.year;
+    int32_t model_activation_count = model_is_heuristic ? 0 : kc_policy_activation_count(model);
+    int32_t opponent_activation_count = opponent_is_heuristic ? 0 : kc_policy_activation_count(opponent_model);
+    if ((!model_is_heuristic && model_activation_count <= 0) ||
+        (!opponent_is_heuristic && opponent_activation_count <= 0)) {
+        result.status = 1;
+        return result;
+    }
+    int32_t hidden_size = model_activation_count > opponent_activation_count ? model_activation_count : opponent_activation_count;
+    if (hidden_size < 1) {
+        hidden_size = 1;
+    }
+    double *hidden_cache = malloc((size_t)256 * (size_t)hidden_size * sizeof(double));
+    if (!hidden_cache) {
+        result.status = 2;
+        return result;
+    }
+
+    int32_t guard_count = 0;
+    while (engine.phase != KC_PHASE_GAME_OVER && (!round_curriculum || engine.year == starting_year) && guard_count < 2000) {
+        guard_count++;
+        if (engine.phase == KC_PHASE_REQUISITION) {
+            KCAction action = { .kind = KC_ACTION_CONTINUE_AFTER_REQUISITION, .player_id = 0, .suit = -1, .card = kc_no_card(), .hand_card = kc_no_card(), .plot_card = kc_no_card(), .plot_zone = -1, .target_suit = -1 };
+            int32_t error = kc_engine_apply(&engine, action);
+            if (error != 0) {
+                free(hidden_cache);
+                result.status = 10 + error;
+                return result;
+            }
+            result.actions += 1;
+            continue;
+        }
+        int32_t player_id = engine.phase == KC_PHASE_ASSIGNMENT ? engine.last_winner : engine.current_player;
+        bool use_model = player_id == model_seat;
+        bool use_heuristic = use_model ? model_is_heuristic : opponent_is_heuristic;
+        KCPolicyModelBuffer selected_model = use_model ? model : opponent_model;
+        KCAction selected;
+        bool ok = use_heuristic
+            ? kc_heuristic_policy_action(&engine, &selected)
+            : kc_greedy_policy_action(&engine, player_id, selected_model, hidden_cache, &selected);
+        if (!ok) {
+            free(hidden_cache);
+            result.status = 3;
+            return result;
+        }
+        int32_t error = kc_apply_policy_action(&engine, selected);
+        if (error != 0) {
+            free(hidden_cache);
+            result.status = 10 + error;
+            return result;
+        }
+        result.actions += 1;
+    }
+    free(hidden_cache);
+    if (!round_curriculum && engine.phase != KC_PHASE_GAME_OVER) {
+        result.status = 4;
+        return result;
+    }
+    if (round_curriculum && engine.phase != KC_PHASE_GAME_OVER && engine.year == starting_year) {
+        result.status = 4;
+        return result;
+    }
+
+    int32_t score_sum = 0;
+    int32_t winner = engine.winner_id;
+    for (int32_t player_id = 0; player_id < KC_PLAYER_COUNT; player_id++) {
+        result.scores[player_id] = kc_final_score(&engine, player_id);
+        result.medals[player_id] = kc_total_medals_for_player(&engine, player_id);
+        score_sum += result.scores[player_id];
+    }
+    if (winner < 0) {
+        winner = 0;
+        for (int32_t player_id = 1; player_id < KC_PLAYER_COUNT; player_id++) {
+            if (kc_player_beats_player(result.scores, result.medals, player_id, winner)) {
+                winner = player_id;
+            }
+        }
+    }
+    result.winner_id = winner;
+    result.checksum = winner * 31 + score_sum;
+    return result;
+}
+
 static int32_t kc_rank_for_player(const int32_t *scores, const int32_t *medals, int32_t player_id) {
     int32_t rank = 1;
     for (int32_t other = 0; other < KC_PLAYER_COUNT; other++) {
