@@ -1,0 +1,5677 @@
+import 'dart:math' as math;
+import 'dart:ui' show FontVariation, clampDouble, lerpDouble;
+
+import 'package:flutter/material.dart';
+
+import 'assignment_display.dart';
+import 'brigade_display.dart';
+import 'card_art_display.dart';
+import 'card_display.dart';
+import 'render_model.dart';
+import 'design_tokens.dart';
+import 'game_constants.dart';
+import 'hand_display.dart';
+import 'hot_seat_display.dart';
+import 'job_display.dart';
+import 'lower_bar_actions.dart';
+import 'north_display.dart';
+import 'options_display.dart';
+import 'panel_title_display.dart';
+import 'phase_display.dart';
+import 'pixel_text.dart';
+import 'player_panel_display.dart';
+import 'plot_display.dart';
+import 'trump_actions.dart';
+import 'table_display.dart';
+import 'board/board_chrome.dart';
+import 'board/board_metrics.dart';
+import 'board/board_rail.dart';
+
+export 'board/board_chrome.dart';
+export 'board/board_metrics.dart';
+export 'board/board_rail.dart';
+
+const kolkhozFontStyle = TextStyle(
+  fontFamily: 'Handjet',
+  fontVariations: [FontVariation('ELGR', 1), FontVariation('ELSH', 0)],
+);
+
+class KolkhozBoard extends StatelessWidget {
+  const KolkhozBoard({
+    required this.model,
+    required this.tokens,
+    this.onAction,
+    this.onPanelSelected,
+    this.onSwapHandCardTap,
+    this.onPlotCardTap,
+    this.onAssignmentCardTap,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+  final ValueChanged<LegalAction>? onAction;
+  final ValueChanged<String>? onPanelSelected;
+  final ValueChanged<String>? onSwapHandCardTap;
+  final void Function(String cardID, String zone)? onPlotCardTap;
+  final ValueChanged<String>? onAssignmentCardTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTextStyle.merge(
+      style: kolkhozFontStyle,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final metrics = ResponsiveBoardMetrics.fromSize(
+            constraints.biggest,
+            tokens,
+          );
+          final margin = metrics.margin;
+          final contentWidth = constraints.maxWidth - margin * 2;
+          final contentHeight = constraints.maxHeight - margin * 2;
+          final railWidth = metrics.railWidth(contentWidth);
+          final separatorWidth = metrics.separatorWidth;
+          final gameWidth = contentWidth - railWidth - separatorWidth;
+          final safePadding = MediaQuery.paddingOf(context);
+
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              color: tokens.colors.table,
+              gradient: RadialGradient(
+                colors: [
+                  tokens.colors.gold.withValues(alpha: 0.16),
+                  tokens.colors.table.withValues(alpha: 0),
+                ],
+                radius: 0.72,
+              ),
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              fit: StackFit.expand,
+              children: [
+                if (safePadding.left > 0)
+                  Positioned(
+                    left: boardLeftGutterOffset(safePadding.left),
+                    top: 0,
+                    bottom: 0,
+                    child: BoardGutterInfill(
+                      side: BoardGutterInfillSide.left,
+                      width: boardLeftGutterWidth(safePadding.left),
+                    ),
+                  ),
+                if (safePadding.right > 0)
+                  Positioned(
+                    right: boardRightGutterOffset(safePadding.right),
+                    top: 0,
+                    bottom: 0,
+                    child: BoardGutterInfill(
+                      side: BoardGutterInfillSide.right,
+                      width: boardRightGutterWidth(safePadding.right),
+                    ),
+                  ),
+                Padding(
+                  padding: EdgeInsets.all(margin),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        width: railWidth,
+                        child: BoardRail(
+                          activePanel: model.panels.active,
+                          actionPanel: actionPanelFor(model.table.phase),
+                          tokens: tokens,
+                          metrics: metrics,
+                          onPanelSelected: onPanelSelected,
+                        ),
+                      ),
+                      BoardSeparator(
+                        tokens: tokens,
+                        vertical: true,
+                        thickness: separatorWidth,
+                      ),
+                      SizedBox(
+                        width: gameWidth,
+                        height: contentHeight,
+                        child: BoardPlayArea(
+                          model: model,
+                          tokens: tokens,
+                          metrics: metrics,
+                          onAction: onAction,
+                          onPanelSelected: onPanelSelected,
+                          onSwapHandCardTap: onSwapHandCardTap,
+                          onPlotCardTap: onPlotCardTap,
+                          onAssignmentCardTap: onAssignmentCardTap,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (model.viewer.privacyMode == viewerPrivacyHotSeatHidden)
+                  Positioned.fill(
+                    child: HotSeatPrivacyOverlay(model: model, tokens: tokens),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class HotSeatPrivacyOverlay extends StatelessWidget {
+  const HotSeatPrivacyOverlay({
+    required this.model,
+    required this.tokens,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final player = hotSeatPrivacyPlayer(model);
+    return ColoredBox(
+      color: tokens.colors.black.withValues(alpha: hotSeatScrimOpacity),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final panelWidth = hotSeatPanelWidth(constraints.maxWidth);
+          final portraitSlotSize = hotSeatPortraitSlotSize(
+            constraints.maxHeight,
+          );
+          return Center(
+            child: SizedBox(
+              width: panelWidth,
+              child: PanelStyleSurface(
+                tokens: tokens,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: hotSeatPanelHorizontalPadding,
+                  vertical: hotSeatPanelVerticalPadding,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: hotSeatContentSpacing,
+                  children: [
+                    SizedBox(
+                      height: hotSeatTitleRowHeight,
+                      child: PanelTitleRow(
+                        title: 'Pass Device',
+                        subtitle: 'Seat ${player.id + 1} is up.',
+                        iconPath: 'ios_resources/Icons/icon-pass-device.png',
+                        tokens: tokens,
+                      ),
+                    ),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: hotSeatPlacardMaxWidth,
+                        maxHeight: hotSeatPlacardMaxHeight,
+                      ),
+                      child: Opacity(
+                        opacity: hotSeatPlacardOpacity,
+                        child: Image.asset(
+                          'ios_resources/Embellishments/art-pass-device-placard.png',
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.none,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: portraitSlotSize,
+                      height: portraitSlotSize,
+                      child: Center(
+                        child: DecoratedBox(
+                          key: const Key('hot-seat-portrait-shadow'),
+                          decoration: BoxDecoration(
+                            boxShadow: [
+                              BoxShadow(
+                                color: tokens.colors.black.withValues(
+                                  alpha: hotSeatPortraitShadowOpacity,
+                                ),
+                                blurRadius: hotSeatPortraitShadowRadius,
+                                offset: const Offset(
+                                  0,
+                                  hotSeatPortraitShadowYOffset,
+                                ),
+                              ),
+                            ],
+                          ),
+                          child: PlayerPortrait(
+                            seat: player,
+                            tokens: tokens,
+                            width: playerPortraitFrameWidth,
+                            height: playerPortraitFrameHeight,
+                            badgeVisible: true,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      spacing: hotSeatLabelSpacing,
+                      children: [
+                        PixelText(
+                          player.name.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          size: PixelTextSize.title,
+                          variant: PixelTextVariant.heavy,
+                          color: tokens.colors.gold,
+                        ),
+                        Text(
+                          hotSeatPhaseLine(model).toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.clip,
+                          style: kolkhozFontStyle.copyWith(
+                            color: tokens.colors.creamDim,
+                            fontSize: hotSeatPhaseLineFontSize,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(
+                      width: hotSeatReadyButtonMaxWidth,
+                      child: HotSeatReadyButton(tokens: tokens),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class HotSeatReadyButton extends StatelessWidget {
+  const HotSeatReadyButton({required this.tokens, super.key});
+
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('hot-seat-ready-button'),
+      height: commandButtonProminentMinHeight,
+      padding: const EdgeInsets.only(
+        left: commandButtonProminentHorizontalPadding,
+        right: commandButtonProminentHorizontalPadding,
+        top: commandButtonProminentTopPadding,
+        bottom: commandButtonProminentBottomPadding,
+      ),
+      decoration: BoxDecoration(
+        image: const DecorationImage(
+          image: AssetImage('ios_resources/ui-button-primary.png'),
+          fit: BoxFit.fill,
+          filterQuality: FilterQuality.none,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: tokens.colors.black.withValues(
+              alpha: commandButtonProminentOuterShadowOpacity,
+            ),
+            blurRadius: commandButtonProminentOuterShadowRadius,
+            offset: const Offset(0, commandButtonProminentOuterShadowYOffset),
+          ),
+        ],
+      ),
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: CommandSurfaceButtonLabel('READY', tokens: tokens),
+        ),
+      ),
+    );
+  }
+}
+
+const playAreaPanelCornerRadius = 10.0;
+
+class BoardPlayArea extends StatelessWidget {
+  const BoardPlayArea({
+    required this.model,
+    required this.tokens,
+    required this.metrics,
+    this.onAction,
+    this.onPanelSelected,
+    this.onSwapHandCardTap,
+    this.onPlotCardTap,
+    this.onAssignmentCardTap,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+  final ResponsiveBoardMetrics metrics;
+  final ValueChanged<LegalAction>? onAction;
+  final ValueChanged<String>? onPanelSelected;
+  final ValueChanged<String>? onSwapHandCardTap;
+  final void Function(String cardID, String zone)? onPlotCardTap;
+  final ValueChanged<String>? onAssignmentCardTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: metrics.playAreaHorizontalPadding,
+      ),
+      child: Column(
+        children: [
+          TopInfoStrip(model: model, tokens: tokens, metrics: metrics),
+          Expanded(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: tokens.colors.table,
+                      gradient: LinearGradient(
+                        colors: [
+                          tokens.colors.gold.withValues(alpha: 0.04),
+                          tokens.colors.table,
+                          tokens.colors.red.withValues(alpha: 0.08),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(
+                        playAreaPanelCornerRadius,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      bottom: metrics.panelContentBottomPadding,
+                    ),
+                    child: ActivePanelView(
+                      model: model,
+                      tokens: tokens,
+                      onAction: onAction,
+                      onPlotCardTap: onPlotCardTap,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: BoardSeparator(
+                    tokens: tokens,
+                    thickness: metrics.playAreaSeparatorThickness,
+                  ),
+                ),
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: BoardSeparator(
+                    tokens: tokens,
+                    thickness: metrics.playAreaSeparatorThickness,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: metrics.handTrayHeight,
+            child: OverflowBox(
+              alignment: Alignment.topCenter,
+              minHeight: metrics.handTrayVisibleHeight,
+              maxHeight: metrics.handTrayVisibleHeight,
+              child: HandTray(
+                model: model,
+                tokens: tokens,
+                metrics: metrics,
+                onAction: onAction,
+                onSwapHandCardTap: onSwapHandCardTap,
+                onAssignmentCardTap: onAssignmentCardTap,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const iconMutedSaturationMatrix = <double>[
+  0.76378,
+  0.21456,
+  0.02166,
+  0,
+  0,
+  0.06378,
+  0.91456,
+  0.02166,
+  0,
+  0,
+  0.06378,
+  0.21456,
+  0.72166,
+  0,
+  0,
+  0,
+  0,
+  0,
+  1,
+  0,
+];
+const iconMutedOpacity = 0.82;
+
+class TopInfoStrip extends StatelessWidget {
+  const TopInfoStrip({
+    required this.model,
+    required this.tokens,
+    required this.metrics,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+  final ResponsiveBoardMetrics metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    final localPlayer = localSeat(model);
+    final jobs = jobsInDisplayOrder(model.table.jobs);
+    final cellarScore = localPlayer.plot.hidden.fold<int>(
+      0,
+      (score, card) => score + card.value,
+    );
+    final plotScore = localPlayer.plot.revealed.fold<int>(
+      0,
+      (score, card) => score + card.value,
+    );
+    final topInfo = tokens.layout.topInfo;
+    return SizedBox(
+      height: metrics.topInfoHeight,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final rowSpacing = clampDouble(
+            constraints.maxWidth * topInfo.rowSpacingFactor,
+            topInfo.rowSpacingMin,
+            topInfo.rowSpacingMax,
+          );
+          final yearWidth = clampDouble(
+            constraints.maxWidth * topInfo.yearWidthFactor,
+            topInfo.yearWidthMin,
+            topInfo.yearWidthMax,
+          );
+          final gaugeWidth = clampDouble(
+            constraints.maxWidth * topInfo.gaugeWidthFactor,
+            topInfo.gaugeWidthMin,
+            topInfo.gaugeWidthMax,
+          );
+          final gaugeHeight = clampDouble(
+            constraints.maxHeight * topInfo.gaugeHeightFactor,
+            topInfo.gaugeHeightMin,
+            topInfo.gaugeHeightMax,
+          );
+          final gaugeSpacing = clampDouble(
+            constraints.maxWidth * topInfo.gaugeSpacingFactor,
+            topInfo.gaugeSpacingMin,
+            topInfo.gaugeSpacingMax,
+          );
+          final gaugeFrameWidth =
+              gaugeWidth * topInfo.gaugeFrameWidthMultiplier;
+          final gaugesWidth =
+              gaugeFrameWidth * jobs.length + gaugeSpacing * (jobs.length - 1);
+          final gaugeClusterLeftOffset = -clampDouble(
+            constraints.maxWidth * topInfo.gaugeClusterLeftOffsetFactor,
+            topInfo.gaugeClusterLeftOffsetMin,
+            topInfo.gaugeClusterLeftOffsetMax,
+          );
+          final scoreWidth = clampDouble(
+            constraints.maxWidth * topInfo.scoreWidthFactor,
+            topInfo.scoreWidthMin,
+            topInfo.scoreWidthMax,
+          );
+          final scoreGroupWidth = scoreWidth * 2 + rowSpacing;
+
+          return ClipRect(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Row(
+                  spacing: rowSpacing,
+                  children: [
+                    SizedBox(
+                      width: yearWidth,
+                      child: TopInfoCell(
+                        icon: 'icon-year-${model.table.year.clamp(1, 5)}.png',
+                        value: '',
+                        iconSize: gaugeHeight * 1.3,
+                        contentSpacing: rowSpacing,
+                        height: metrics.topInfoHeight,
+                        tokens: tokens,
+                      ),
+                    ),
+                    const Spacer(),
+                    SizedBox(
+                      width: scoreGroupWidth,
+                      child: Row(
+                        spacing: rowSpacing,
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          SizedBox(
+                            width: scoreWidth,
+                            child: TopInfoCell(
+                              icon: 'icon-cellar.png',
+                              value: '$cellarScore',
+                              iconSize: gaugeHeight * 0.8,
+                              contentSpacing: rowSpacing,
+                              height: metrics.topInfoHeight,
+                              tokens: tokens,
+                            ),
+                          ),
+                          SizedBox(
+                            width: scoreWidth,
+                            child: TopInfoCell(
+                              icon: 'icon-plot.png',
+                              value: '$plotScore',
+                              iconSize: gaugeHeight * 0.8,
+                              contentSpacing: rowSpacing,
+                              height: metrics.topInfoHeight,
+                              tokens: tokens,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                Transform.translate(
+                  offset: Offset(gaugeClusterLeftOffset, 0),
+                  child: OverflowBox(
+                    minWidth: 0,
+                    maxWidth: gaugesWidth,
+                    minHeight: 0,
+                    maxHeight: gaugeHeight,
+                    alignment: Alignment.center,
+                    child: SizedBox(
+                      width: gaugesWidth,
+                      height: gaugeHeight,
+                      child: Row(
+                        spacing: gaugeSpacing,
+                        children: [
+                          for (final job in jobs)
+                            SizedBox(
+                              width: gaugeFrameWidth,
+                              child: Center(
+                                child: JobGauge(
+                                  job: job,
+                                  highlighted: model.table.trump == job.suit,
+                                  width:
+                                      gaugeWidth *
+                                      topInfo.gaugeContentWidthMultiplier,
+                                  height: gaugeHeight,
+                                  tokens: tokens,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class TopInfoCell extends StatelessWidget {
+  const TopInfoCell({
+    required this.icon,
+    required this.value,
+    required this.tokens,
+    required this.height,
+    this.iconSize = 24,
+    this.contentSpacing = 5,
+    this.horizontalPadding = 6,
+    super.key,
+  });
+
+  final String icon;
+  final String value;
+  final DesignTokens tokens;
+  final double height;
+  final double iconSize;
+  final double contentSpacing;
+  final double horizontalPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: OverflowBox(
+          minWidth: 0,
+          maxWidth: double.infinity,
+          minHeight: height,
+          maxHeight: height,
+          alignment: Alignment.centerLeft,
+          child: SizedBox(
+            height: height,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: contentSpacing,
+                children: [
+                  Image.asset(
+                    'ios_resources/Icons/$icon',
+                    width: iconSize,
+                    height: iconSize,
+                    filterQuality: FilterQuality.none,
+                  ),
+                  if (value.isNotEmpty)
+                    PixelText(
+                      value,
+                      size: PixelTextSize.cardRank,
+                      variant: PixelTextVariant.heavy,
+                      color: tokens.colors.gold,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class JobGauge extends StatelessWidget {
+  const JobGauge({
+    required this.job,
+    required this.highlighted,
+    required this.width,
+    required this.height,
+    required this.tokens,
+    super.key,
+  });
+
+  final Job job;
+  final bool highlighted;
+  final double width;
+  final double height;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final markerWidth =
+        height * tokens.layout.topInfo.rewardMarkerHeightMultiplier;
+    const contentSpacing = 4.0;
+    final contentWidth = width - markerWidth - contentSpacing;
+    return SizedBox(
+      width: width,
+      height: height,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('ios_resources/ui-header-counter.png'),
+            fit: BoxFit.fill,
+            filterQuality: FilterQuality.none,
+          ),
+        ),
+        child: Row(
+          spacing: contentSpacing,
+          children: [
+            SizedBox(
+              width: markerWidth,
+              height: height,
+              child: Center(
+                child: job.reward == null
+                    ? EmptyRewardMarker(
+                        size: 34,
+                        checkSize: topInfoEmptyRewardCheckSize,
+                        tokens: tokens,
+                      )
+                    : MiniRewardCard(
+                        card: job.reward!,
+                        claimed: job.claimed,
+                        height: height * 0.84,
+                        tokens: tokens,
+                      ),
+              ),
+            ),
+            SizedBox(
+              width: contentWidth,
+              height: height,
+              child: job.claimed
+                  ? Center(
+                      child: Image.asset(
+                        'ios_resources/Icons/icon-check.png',
+                        width:
+                            height *
+                            tokens.layout.topInfo.checkIconHeightMultiplier,
+                        height:
+                            height *
+                            tokens.layout.topInfo.checkIconHeightMultiplier,
+                        filterQuality: FilterQuality.none,
+                      ),
+                    )
+                  : Center(
+                      child: PixelText(
+                        '${job.hours}/$jobRequiredHours',
+                        textAlign: TextAlign.center,
+                        size: PixelTextSize.title,
+                        variant: PixelTextVariant.regular,
+                        color: highlighted
+                            ? tokens.colors.red
+                            : tokens.colors.smoke,
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ActivePanelView extends StatelessWidget {
+  const ActivePanelView({
+    required this.model,
+    required this.tokens,
+    this.onAction,
+    this.onPlotCardTap,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+  final ValueChanged<LegalAction>? onAction;
+  final void Function(String cardID, String zone)? onPlotCardTap;
+
+  @override
+  Widget build(BuildContext context) {
+    switch (model.panels.active) {
+      case panelJobs:
+        return JobsPanel(model: model, tokens: tokens, onAction: onAction);
+      case panelPlot:
+        return PlotPanel(
+          model: model,
+          tokens: tokens,
+          onPlotCardTap: onPlotCardTap,
+        );
+      case panelNorth:
+        return NorthPanel(model: model, tokens: tokens);
+      case panelOptions:
+        return OptionsPanel(model: model, tokens: tokens);
+      default:
+        return BrigadePanel(model: model, tokens: tokens, onAction: onAction);
+    }
+  }
+}
+
+class CommandPanelSurface extends StatelessWidget {
+  const CommandPanelSurface({
+    required this.tokens,
+    required this.child,
+    this.padding = EdgeInsets.zero,
+    super.key,
+  });
+
+  final DesignTokens tokens;
+  final EdgeInsetsGeometry padding;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(tokens.radius.md),
+        border: Border.all(color: tokens.colors.gold.withValues(alpha: 0.26)),
+        gradient: LinearGradient(
+          colors: [
+            tokens.colors.panel,
+            tokens.colors.iron,
+            tokens.colors.black,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(tokens.radius.md),
+          gradient: LinearGradient(
+            colors: [
+              tokens.colors.gold.withValues(alpha: 0.14),
+              Colors.transparent,
+              tokens.colors.redDark.withValues(alpha: 0.14),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Padding(padding: padding, child: child),
+      ),
+    );
+  }
+}
+
+class PanelStyleSurface extends StatelessWidget {
+  const PanelStyleSurface({
+    required this.tokens,
+    required this.child,
+    this.padding = const EdgeInsets.all(12),
+    this.constraints,
+    super.key,
+  });
+
+  final DesignTokens tokens;
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final BoxConstraints? constraints;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: constraints,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            tokens.colors.panel,
+            tokens.colors.iron.withValues(alpha: 0.96),
+            tokens.colors.black.withValues(alpha: 0.94),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(tokens.radius.panelOuter),
+        border: Border.all(
+          color: tokens.colors.gold.withValues(alpha: 0.72),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: tokens.colors.black.withValues(alpha: 0.35),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(tokens.radius.panelOuter),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      tokens.colors.gold.withValues(alpha: 0.16),
+                      Colors.transparent,
+                      tokens.colors.redDark.withValues(alpha: 0.18),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Padding(padding: padding, child: child),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Padding(
+                padding: const EdgeInsets.all(5),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(
+                      tokens.radius.panelInner,
+                    ),
+                    border: Border.all(
+                      color: tokens.colors.redDark.withValues(alpha: 0.62),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PanelTitleRow extends StatelessWidget {
+  const PanelTitleRow({
+    required this.title,
+    required this.iconPath,
+    required this.tokens,
+    this.subtitle,
+    this.urgent = false,
+    super.key,
+  });
+
+  final String title;
+  final String? subtitle;
+  final String iconPath;
+  final bool urgent;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final iconBox = panelTitleIconBox(constraints.maxWidth);
+        final iconSize = panelTitleIconSize(constraints.maxWidth);
+        final horizontalPadding = panelTitleHorizontalPadding(
+          constraints.maxWidth,
+        );
+        final verticalPadding = panelTitleVerticalPadding(constraints.maxWidth);
+        final spacing = panelTitleSpacing(constraints.maxWidth);
+        final ornamentOpacity = panelTitleEffectiveOrnamentOpacity(
+          constraints.maxWidth,
+          urgent: urgent,
+        );
+        final titleColumn = Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: 2,
+          children: [
+            PixelText(
+              title.toUpperCase(),
+              size: PixelTextSize.caption,
+              variant: PixelTextVariant.heavy,
+              color: urgent ? tokens.colors.redBright : tokens.colors.gold,
+            ),
+            if (subtitle != null)
+              PixelText(
+                subtitle!,
+                size: PixelTextSize.caption,
+                color: tokens.colors.creamDim,
+              ),
+          ],
+        );
+        final titleContent = constraints.hasBoundedHeight
+            ? SizedBox(
+                height: math.max(
+                  0,
+                  constraints.maxHeight - verticalPadding * 2,
+                ),
+                child: ClipRect(
+                  child: OverflowBox(
+                    maxHeight: double.infinity,
+                    alignment: Alignment.centerLeft,
+                    child: titleColumn,
+                  ),
+                ),
+              )
+            : titleColumn;
+
+        return Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: verticalPadding,
+          ),
+          decoration: BoxDecoration(
+            color: tokens.colors.black.withValues(alpha: 0.28),
+            borderRadius: BorderRadius.circular(tokens.radius.md),
+            border: Border.all(
+              color: tokens.colors.gold.withValues(alpha: 0.28),
+            ),
+          ),
+          child: Stack(
+            alignment: Alignment.centerLeft,
+            children: [
+              Positioned(
+                right: panelTitleOrnamentTrailingPadding,
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: ornamentOpacity,
+                    child: Image.asset(
+                      'ios_resources/Embellishments/panel-divider-pixel.png',
+                      width: panelTitleOrnamentWidth,
+                      height: panelTitleOrnamentHeight,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.none,
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
+              ),
+              Row(
+                spacing: spacing,
+                children: [
+                  Container(
+                    width: iconBox,
+                    height: iconBox,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: urgent
+                            ? [
+                                tokens.colors.redDark,
+                                tokens.colors.red.withValues(alpha: 0.82),
+                              ]
+                            : [
+                                tokens.colors.black.withValues(alpha: 0.58),
+                                tokens.colors.steel.withValues(alpha: 0.36),
+                              ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(5),
+                      border: Border.all(
+                        color: urgent
+                            ? tokens.colors.redBright
+                            : tokens.colors.gold.withValues(alpha: 0.8),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Center(
+                      child: Image.asset(
+                        iconPath,
+                        width: iconSize,
+                        height: iconSize,
+                        filterQuality: FilterQuality.none,
+                      ),
+                    ),
+                  ),
+                  Expanded(child: titleContent),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class OptionsPanel extends StatelessWidget {
+  const OptionsPanel({required this.model, required this.tokens, super.key});
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return OptionsPanelFrame(
+      tokens: tokens,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final sectionSpacing = optionsMenuSectionSpacing(
+            constraints.maxHeight.isFinite ? constraints.maxHeight : 300,
+          );
+          return PanelStyleSurface(
+            tokens: tokens,
+            constraints: const BoxConstraints(
+              minHeight: optionsPanelSurfaceMinHeight,
+              maxHeight: optionsPanelSurfaceMaxHeight,
+            ),
+            padding: const EdgeInsets.all(12),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.only(
+                  bottom: optionsMenuContentBottomPadding,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: sectionSpacing,
+                  children: [
+                    OptionsMenuHeader(tokens: tokens),
+                    OptionsMenuActions(tokens: tokens),
+                    Divider(color: tokens.colors.gold.withValues(alpha: 0.35)),
+                    OptionsMenuRules(tokens: tokens),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class OptionsPanelFrame extends StatelessWidget {
+  const OptionsPanelFrame({
+    required this.tokens,
+    required this.child,
+    super.key,
+  });
+
+  final DesignTokens tokens;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: optionsPanelHorizontalPadding,
+      ),
+      child: Align(
+        alignment: Alignment.center,
+        child: ConstrainedBox(
+          key: const Key('options-panel-frame'),
+          constraints: const BoxConstraints(maxWidth: optionsPanelMaxWidth),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              boxShadow: [
+                BoxShadow(
+                  color: tokens.colors.black.withValues(
+                    alpha: optionsPanelOuterShadowOpacity,
+                  ),
+                  blurRadius: optionsPanelOuterShadowRadius,
+                  offset: const Offset(0, optionsPanelOuterShadowYOffset),
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class OptionsMenuHeader extends StatelessWidget {
+  const OptionsMenuHeader({required this.tokens, super.key});
+
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      spacing: optionsMenuHeaderSpacing,
+      children: [
+        Image.asset(
+          'ios_resources/Icons/icon-menu.png',
+          width: optionsMenuHeaderIconSize,
+          height: optionsMenuHeaderIconSize,
+          filterQuality: FilterQuality.none,
+        ),
+        Text(
+          'MENU',
+          maxLines: 1,
+          overflow: TextOverflow.clip,
+          style: kolkhozFontStyle.copyWith(
+            color: tokens.colors.gold,
+            fontSize: optionsMenuHeaderFontSize,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class OptionsMenuActions extends StatelessWidget {
+  const OptionsMenuActions({required this.tokens, super.key});
+
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: optionsMenuActionsSpacing,
+      children: [
+        Text(
+          'GAME CONTROLS',
+          maxLines: 1,
+          overflow: TextOverflow.clip,
+          style: kolkhozFontStyle.copyWith(
+            color: tokens.colors.smoke,
+            fontSize: optionsMenuSectionLabelFontSize,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: optionsMenuControlsSpacing,
+          children: [
+            Center(
+              child: ActionSurfaceButton(
+                label: 'NEW GAME',
+                iconPath: null,
+                prominent: true,
+                tokens: tokens,
+              ),
+            ),
+            Center(
+              child: ActionSurfaceButton(
+                label: 'HOW TO PLAY',
+                iconPath: 'ios_resources/Icons/icon-tutorial.png',
+                prominent: false,
+                tokens: tokens,
+              ),
+            ),
+            Center(
+              child: ActionSurfaceButton(
+                label: 'MAIN MENU',
+                iconPath: 'ios_resources/Icons/icon-menu.png',
+                prominent: false,
+                mutedBorder: true,
+                tokens: tokens,
+              ),
+            ),
+            Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: optionsMenuChromeToggleSpacing,
+                children: [
+                  OptionsChromeToggle(
+                    iconPath: 'ios_resources/Icons/icon-language-ru.png',
+                    label: 'Language',
+                    tokens: tokens,
+                  ),
+                  OptionsChromeToggle(
+                    iconPath: 'ios_resources/Icons/icon-appearance.png',
+                    label: 'Appearance',
+                    tokens: tokens,
+                  ),
+                ],
+              ),
+            ),
+            Center(child: ReadabilitySurfaceButton(tokens: tokens)),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class OptionsMenuRules extends StatelessWidget {
+  const OptionsMenuRules({required this.tokens, super.key});
+
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: optionsMenuRulesSpacing,
+      children: [
+        Text(
+          'RULES',
+          maxLines: 1,
+          overflow: TextOverflow.clip,
+          style: kolkhozFontStyle.copyWith(
+            color: tokens.colors.gold,
+            fontSize: optionsMenuRulesHeaderFontSize,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        MenuRuleRow(
+          iconPath: 'ios_resources/Icons/icon-jobs.png',
+          title: 'Work',
+          body: 'Win tricks, then assign captured cards to matching jobs.',
+          tokens: tokens,
+        ),
+        MenuRuleRow(
+          iconPath: 'ios_resources/Icons/icon-plot.png',
+          title: 'Protect',
+          body: 'Keep plot cards safe from failed-job requisition.',
+          tokens: tokens,
+        ),
+        MenuRuleRow(
+          iconPath: 'ios_resources/Icons/icon-warning.png',
+          title: 'Trump faces',
+          body: 'Jack goes north, Queen exposes, King doubles exile.',
+          tokens: tokens,
+        ),
+      ],
+    );
+  }
+}
+
+class OptionsChromeToggle extends StatelessWidget {
+  const OptionsChromeToggle({
+    required this.iconPath,
+    required this.label,
+    required this.tokens,
+    super.key,
+  });
+
+  final String iconPath;
+  final String label;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: label,
+      child: SizedBox(
+        width: optionsChromeToggleSize,
+        height: optionsChromeToggleSize,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned.fill(
+              child: Image.asset(
+                'ios_resources/ui-nav-button-inactive.png',
+                fit: BoxFit.fill,
+                filterQuality: FilterQuality.none,
+              ),
+            ),
+            Image.asset(
+              iconPath,
+              width: optionsChromeToggleIconSize,
+              height: optionsChromeToggleIconSize,
+              filterQuality: FilterQuality.none,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ReadabilitySurfaceButton extends StatelessWidget {
+  const ReadabilitySurfaceButton({required this.tokens, super.key});
+
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: optionsReadabilityButtonWidth,
+      height: optionsMenuActionHeight,
+      padding: const EdgeInsets.symmetric(
+        horizontal: optionsMenuActionHorizontalPadding,
+      ),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: tokens.colors.gold.withValues(alpha: 0.42)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: optionsMenuActionContentSpacing,
+        children: [
+          SizedBox(
+            width: optionsReadabilityGlyphBoxWidth,
+            child: Center(
+              child: Text(
+                'Aa',
+                maxLines: 1,
+                overflow: TextOverflow.clip,
+                style: kolkhozFontStyle.copyWith(
+                  color: tokens.colors.creamDim,
+                  fontSize: optionsReadabilityFontSize,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+          Flexible(
+            child: Text(
+              'CLEAR TEXT',
+              maxLines: 1,
+              overflow: TextOverflow.clip,
+              style: kolkhozFontStyle.copyWith(
+                color: tokens.colors.creamDim,
+                fontSize: optionsReadabilityFontSize,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ActionSurfaceButton extends StatelessWidget {
+  const ActionSurfaceButton({
+    required this.label,
+    required this.iconPath,
+    required this.prominent,
+    required this.tokens,
+    this.mutedBorder = false,
+    super.key,
+  });
+
+  final String label;
+  final String? iconPath;
+  final bool prominent;
+  final bool mutedBorder;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    if (prominent) {
+      return CommandSurfaceButton(label: label, tokens: tokens);
+    }
+    return Container(
+      width: optionsMenuActionWidth,
+      height: optionsMenuActionHeight,
+      padding: const EdgeInsets.symmetric(
+        horizontal: optionsMenuActionHorizontalPadding,
+      ),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(
+          color: mutedBorder
+              ? tokens.colors.steel.withValues(alpha: 0.5)
+              : tokens.colors.gold.withValues(alpha: 0.42),
+        ),
+      ),
+      child: Row(
+        spacing: optionsMenuActionContentSpacing,
+        children: [
+          if (iconPath != null)
+            Opacity(
+              opacity: iconMutedOpacity,
+              child: ColorFiltered(
+                colorFilter: const ColorFilter.matrix(
+                  iconMutedSaturationMatrix,
+                ),
+                child: Image.asset(
+                  iconPath!,
+                  width: optionsMenuActionIconSize,
+                  height: optionsMenuActionIconSize,
+                  filterQuality: FilterQuality.none,
+                ),
+              ),
+            ),
+          Flexible(
+            child: Text(
+              label.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.clip,
+              style: kolkhozFontStyle.copyWith(
+                color: tokens.colors.creamDim,
+                fontSize: optionsMenuActionFontSize,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CommandSurfaceButton extends StatelessWidget {
+  const CommandSurfaceButton({
+    required this.label,
+    required this.tokens,
+    super.key,
+  });
+
+  final String label;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('command-surface-button'),
+      width: commandButtonProminentWidth,
+      height: commandButtonProminentMinHeight,
+      constraints: const BoxConstraints(
+        minHeight: commandButtonProminentMinHeight,
+      ),
+      padding: const EdgeInsets.only(
+        left: commandButtonProminentHorizontalPadding,
+        right: commandButtonProminentHorizontalPadding,
+        top: commandButtonProminentTopPadding,
+        bottom: commandButtonProminentBottomPadding,
+      ),
+      decoration: BoxDecoration(
+        image: const DecorationImage(
+          image: AssetImage('ios_resources/ui-button-primary.png'),
+          fit: BoxFit.fill,
+          filterQuality: FilterQuality.none,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: tokens.colors.black.withValues(
+              alpha: commandButtonProminentOuterShadowOpacity,
+            ),
+            blurRadius: commandButtonProminentOuterShadowRadius,
+            offset: const Offset(0, commandButtonProminentOuterShadowYOffset),
+          ),
+        ],
+      ),
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: CommandSurfaceButtonLabel(label.toUpperCase(), tokens: tokens),
+        ),
+      ),
+    );
+  }
+}
+
+class CommandSurfaceButtonLabel extends StatelessWidget {
+  const CommandSurfaceButtonLabel(
+    this.label, {
+    required this.tokens,
+    super.key,
+  });
+
+  final String label;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label.toUpperCase(),
+      maxLines: 1,
+      overflow: TextOverflow.clip,
+      style: kolkhozFontStyle.copyWith(
+        color: tokens.colors.onAccent,
+        fontSize: commandButtonProminentFontSize,
+        fontWeight: FontWeight.w900,
+        shadows: [
+          Shadow(
+            color: tokens.colors.black.withValues(
+              alpha: commandButtonProminentLabelShadowOpacity,
+            ),
+            blurRadius: commandButtonProminentLabelShadowRadius,
+            offset: const Offset(0, commandButtonProminentLabelShadowYOffset),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const commandButtonProminentWidth = commandButtonProminentMinHeight * 4;
+const commandButtonProminentMinHeight = 58.0;
+const commandButtonProminentFontSize = 15.0;
+const commandButtonProminentHorizontalPadding = 42.0;
+const commandButtonProminentTopPadding = 14.0;
+const commandButtonProminentBottomPadding = 10.0;
+const commandButtonProminentLabelShadowOpacity = 0.8;
+const commandButtonProminentLabelShadowRadius = 2.0;
+const commandButtonProminentLabelShadowYOffset = 1.0;
+const commandButtonProminentOuterShadowOpacity = 0.34;
+const commandButtonProminentOuterShadowRadius = 8.0;
+const commandButtonProminentOuterShadowYOffset = 3.0;
+
+class MenuRuleRow extends StatelessWidget {
+  const MenuRuleRow({
+    required this.iconPath,
+    required this.title,
+    required this.body,
+    required this.tokens,
+    super.key,
+  });
+
+  final String iconPath;
+  final String title;
+  final String body;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(7),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: tokens.colors.steel.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 8,
+        children: [
+          SizedBox(
+            width: 22,
+            height: 22,
+            child: Center(
+              child: Opacity(
+                opacity: 0.82,
+                child: ColorFiltered(
+                  colorFilter: const ColorFilter.matrix(
+                    iconMutedSaturationMatrix,
+                  ),
+                  child: Image.asset(
+                    iconPath,
+                    width: 17,
+                    height: 17,
+                    filterQuality: FilterQuality.none,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 2,
+              children: [
+                Text(
+                  title.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  style: kolkhozFontStyle.copyWith(
+                    color: tokens.colors.gold,
+                    fontSize: menuRuleTitleFontSize,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  body,
+                  softWrap: true,
+                  style: kolkhozFontStyle.copyWith(
+                    color: tokens.colors.creamDim,
+                    fontSize: menuRuleBodyFontSize,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const menuRuleTitleFontSize = 13.0;
+const menuRuleBodyFontSize = 13.0;
+
+class NorthPanel extends StatelessWidget {
+  const NorthPanel({required this.model, required this.tokens, super.key});
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final exiledByYear = model.table.exiledByYear;
+    return CommandPanelSurface(
+      tokens: tokens,
+      child: Stack(
+        children: [
+          Positioned(
+            right: 14,
+            bottom: 8,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = clampDouble(constraints.maxWidth * 0.44, 0, 300);
+                return Opacity(
+                  opacity: 0.16,
+                  child: Image.asset(
+                    'ios_resources/Embellishments/art-north-requisition-banner.png',
+                    width: width,
+                    height: 58,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.none,
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  ),
+                );
+              },
+            ),
+          ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const spacing = 10.0;
+              final columnHeight =
+                  (constraints.maxHeight - northColumnVerticalInset).clamp(
+                    northColumnMinHeight,
+                    double.infinity,
+                  );
+              const headerHeight = northHeaderHeight;
+              final cardScrollHeight = northCardScrollHeight(
+                columnHeight: columnHeight,
+                headerHeight: headerHeight,
+              );
+              return Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: spacing,
+                  children: [
+                    for (var year = 1; year <= finalGameYear; year++)
+                      Expanded(
+                        child: NorthYearColumn(
+                          year: year,
+                          cards: exiledByYear[year] ?? const [],
+                          currentYear: model.table.year,
+                          headerHeight: headerHeight,
+                          columnHeight: columnHeight,
+                          cardScrollHeight: cardScrollHeight,
+                          tokens: tokens,
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class NorthYearColumn extends StatelessWidget {
+  const NorthYearColumn({
+    required this.year,
+    required this.cards,
+    required this.currentYear,
+    required this.headerHeight,
+    required this.columnHeight,
+    required this.cardScrollHeight,
+    required this.tokens,
+    super.key,
+  });
+
+  final int year;
+  final List<TableCard> cards;
+  final int currentYear;
+  final double headerHeight;
+  final double columnHeight;
+  final double cardScrollHeight;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = year == currentYear;
+    return Container(
+      height: columnHeight,
+      padding: const EdgeInsets.only(top: 3, left: 3, right: 8, bottom: 8),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: current ? 0.38 : 0.24),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: current
+              ? tokens.colors.redBright
+              : tokens.colors.steel.withValues(alpha: 0.6),
+          width: current ? 2 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 8,
+        children: [
+          SizedBox(
+            height: headerHeight,
+            child: Row(
+              children: [
+                Image.asset(
+                  'ios_resources/Icons/icon-year-$year.png',
+                  width: 32,
+                  height: 32,
+                  filterQuality: FilterQuality.none,
+                ),
+                const Spacer(),
+                PixelText(
+                  '${cards.length}',
+                  size: PixelTextSize.cardRank,
+                  variant: PixelTextVariant.heavy,
+                  color: tokens.colors.creamDim,
+                ),
+              ],
+            ),
+          ),
+          Flexible(
+            child: SizedBox(
+              height: cardScrollHeight,
+              child: ClipRect(
+                child: NorthCardScrollRegion(
+                  scrollable: cards.length > 2,
+                  child: cards.isEmpty
+                      ? NorthEmptyYear(current: current, tokens: tokens)
+                      : NorthCardStack(cards: cards, tokens: tokens),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class NorthCardScrollRegion extends StatelessWidget {
+  const NorthCardScrollRegion({
+    required this.child,
+    required this.scrollable,
+    super.key,
+  });
+
+  final Widget child;
+  final bool scrollable;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      physics: scrollable
+          ? const ClampingScrollPhysics()
+          : const NeverScrollableScrollPhysics(),
+      child: child,
+    );
+  }
+}
+
+class NorthCardStack extends StatelessWidget {
+  const NorthCardStack({required this.cards, required this.tokens, super.key});
+
+  final List<TableCard> cards;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return NegativeSpacingColumn(
+      spacing: northCardStackSpacing,
+      itemHeight: tokens.card.medium.height,
+      bottomPadding: northCardStackBottomPadding,
+      children: [
+        for (final card in cards)
+          GameCard(
+            card: card,
+            tokens: tokens,
+            sizeOverride: tokens.card.medium,
+          ),
+      ],
+    );
+  }
+}
+
+class NorthEmptyYear extends StatelessWidget {
+  const NorthEmptyYear({
+    required this.current,
+    required this.tokens,
+    super.key,
+  });
+
+  final bool current;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: northEmptyYearMinHeight),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          spacing: northEmptyYearSpacing,
+          children: [
+            const SizedBox.shrink(),
+            Image.asset(
+              'ios_resources/Embellishments/art-official-crop-seal.png',
+              width: 64,
+              height: 64,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.none,
+              opacity: AlwaysStoppedAnimation(current ? 0.86 : 0.5),
+              errorBuilder: (_, _, _) => Image.asset(
+                'ios_resources/Icons/icon-crop-seal.png',
+                width: 64,
+                height: 64,
+                filterQuality: FilterQuality.none,
+              ),
+            ),
+            PixelText(
+              '-',
+              size: PixelTextSize.cardRank,
+              variant: PixelTextVariant.heavy,
+              color: tokens.colors.smoke.withValues(alpha: 0.72),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class NegativeSpacingColumn extends StatelessWidget {
+  const NegativeSpacingColumn({
+    required this.children,
+    required this.spacing,
+    required this.itemHeight,
+    this.bottomPadding = 0,
+    super.key,
+  });
+
+  final List<Widget> children;
+  final double spacing;
+  final double itemHeight;
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final step = itemHeight + spacing;
+    final height = itemHeight + step * (children.length - 1) + bottomPadding;
+    return SizedBox(
+      height: height,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          for (final (index, child) in children.indexed)
+            Positioned(top: index * step, left: 0, child: child),
+        ],
+      ),
+    );
+  }
+}
+
+class BrigadePanel extends StatelessWidget {
+  const BrigadePanel({
+    required this.model,
+    required this.tokens,
+    this.onAction,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+  final ValueChanged<LegalAction>? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final seats = model.table.seats;
+    final trick = model.table.phase == phaseAssignment
+        ? model.table.lastTrick
+        : model.table.trick;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final playerOrder = orderedSeats(seats);
+        final columnCount = playerOrder.length.toDouble();
+        final columnWidth = brigadeColumnWidth(
+          maxWidth: constraints.maxWidth,
+          mediumCardWidth: tokens.card.medium.width,
+        );
+        final totalColumnWidth = columnWidth * columnCount;
+        final availableSpacing = (constraints.maxWidth - totalColumnWidth)
+            .clamp(0, double.infinity);
+        final spacing = columnCount <= 1
+            ? 0.0
+            : (availableSpacing / (columnCount - 1)) * brigadeColumnSpacingFill;
+        final rowWidth = totalColumnWidth + spacing * (columnCount - 1);
+        final brigadeRowHeight = clampDouble(
+          constraints.maxHeight - brigadePanelLocalPadding.vertical,
+          0,
+          double.infinity,
+        );
+
+        return Stack(
+          children: [
+            Padding(
+              padding: brigadePanelLocalPadding,
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: math.min(rowWidth, constraints.maxWidth),
+                  height: brigadeRowHeight,
+                  child: ClipRect(
+                    child: OverflowBox(
+                      alignment: Alignment.topLeft,
+                      minWidth: rowWidth,
+                      maxWidth: rowWidth,
+                      minHeight: brigadeRowHeight,
+                      maxHeight: brigadeRowHeight,
+                      child: SizedBox(
+                        width: rowWidth,
+                        height: brigadeRowHeight,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (
+                              var index = 0;
+                              index < playerOrder.length;
+                              index++
+                            )
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  right: index == playerOrder.length - 1
+                                      ? 0
+                                      : spacing,
+                                ),
+                                child: BrigadePlayerColumn(
+                                  seat: playerOrder[index],
+                                  play: trick.playForSeat(
+                                    playerOrder[index].id,
+                                  ),
+                                  columnWidth: columnWidth,
+                                  maxTricks: model.table.maxTricks,
+                                  trump: model.table.trump,
+                                  phase: model.table.phase,
+                                  tokens: tokens,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (model.table.phase == phasePlanning)
+              PhaseOverlayFrame(
+                tokens: tokens,
+                child: PlanningTrumpPanel(
+                  model: model,
+                  tokens: tokens,
+                  onAction: onAction,
+                ),
+              ),
+            if (model.table.phase == phaseGameOver)
+              PhaseOverlayFrame(
+                tokens: tokens,
+                child: GameOverPanel(model: model, tokens: tokens),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  List<Seat> orderedSeats(List<Seat> seats) {
+    final byID = {for (final seat in seats) seat.id: seat};
+    return [
+      1,
+      2,
+      3,
+      0,
+    ].map((id) => byID[id]).whereType<Seat>().toList(growable: false);
+  }
+}
+
+class PhaseOverlayFrame extends StatelessWidget {
+  const PhaseOverlayFrame({
+    required this.tokens,
+    required this.child,
+    super.key,
+  });
+
+  final DesignTokens tokens;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.center,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 500),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(tokens.radius.panelOuter),
+              boxShadow: [
+                BoxShadow(
+                  color: tokens.colors.black.withValues(
+                    alpha: phaseOverlayOuterShadowOpacity,
+                  ),
+                  blurRadius: phaseOverlayOuterShadowRadius,
+                  offset: const Offset(0, phaseOverlayOuterShadowYOffset),
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const phaseOverlayOuterShadowOpacity = 0.5;
+const phaseOverlayOuterShadowRadius = 16.0;
+const phaseOverlayOuterShadowYOffset = 8.0;
+
+extension on Trick {
+  TrickPlay? playForSeat(int seatID) {
+    for (final play in plays) {
+      if (play.seatID == seatID) {
+        return play;
+      }
+    }
+    return null;
+  }
+}
+
+class BrigadePlayerColumn extends StatelessWidget {
+  const BrigadePlayerColumn({
+    required this.seat,
+    required this.play,
+    required this.columnWidth,
+    required this.maxTricks,
+    required this.trump,
+    required this.phase,
+    required this.tokens,
+    super.key,
+  });
+
+  final Seat seat;
+  final TrickPlay? play;
+  final double columnWidth;
+  final int maxTricks;
+  final String? trump;
+  final String phase;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final cardSize = tokens.card.medium;
+    final slotWidth = brigadeSlotWidth(columnWidth);
+    const playAreaScale = brigadePlayAreaScale;
+    final playAreaLeftOffset = brigadePlayAreaLeftOffset(columnWidth);
+    final playAreaTopOffset = brigadePlayAreaTopOffset(columnWidth);
+    final playerPanelWidth = cardSize.width * playAreaScale;
+    const playerPanelHeight = brigadePlayerPanelHeight;
+    final playAreaWidth =
+        (cardSize.width > slotWidth ? cardSize.width : slotWidth) *
+        playAreaScale;
+    final playAreaHeight =
+        (cardSize.height > slotWidth * 1.2
+            ? cardSize.height
+            : slotWidth * 1.2) *
+        playAreaScale;
+    final active = phase == phaseTrick && seat.isCurrentTurn && play == null;
+
+    return SizedBox(
+      width: columnWidth,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: playerPanelWidth,
+            height: playerPanelHeight,
+            child: PlayerBadge(
+              seat: seat,
+              tokens: tokens,
+              active: active,
+              width: playerPanelWidth,
+              height: playerPanelHeight,
+              maxTricks: maxTricks,
+            ),
+          ),
+          Transform.translate(
+            offset: Offset(
+              playAreaLeftOffset,
+              -brigadeColumnOverlap(columnWidth),
+            ),
+            child: Padding(
+              padding: EdgeInsets.only(top: playAreaTopOffset),
+              child: SizedBox(
+                width: playAreaWidth,
+                height: playAreaHeight,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: Transform.scale(
+                    scale: playAreaScale,
+                    alignment: Alignment.topCenter,
+                    child: play == null
+                        ? CardSlot(
+                            active: active,
+                            human: seat.isViewer,
+                            width: slotWidth,
+                            height: slotWidth * 1.4,
+                            tokens: tokens,
+                          )
+                        : GameCard(
+                            card: play!.card,
+                            tokens: tokens,
+                            trump: trump,
+                            sizeOverride: cardSize,
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PlotPanel extends StatelessWidget {
+  const PlotPanel({
+    required this.model,
+    required this.tokens,
+    this.onPlotCardTap,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+  final void Function(String cardID, String zone)? onPlotCardTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final viewer = localSeat(model);
+    final opponents = model.table.seats
+        .where((seat) => seat.id != viewer.id)
+        .toList(growable: false);
+    final exiledCardIDs = requisitionExiledCardIDs(model);
+    final hiddenExiledCardIDs = hiddenExiledPlotCardIDs(model);
+    final viewerHiddenCards = visiblePlotCards(
+      viewer.plot.hidden,
+      hiddenExiledCardIDs,
+    );
+    final viewerRevealedCards = visiblePlotCards(
+      viewer.plot.revealed,
+      hiddenExiledCardIDs,
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final metrics = PlotPanelMetrics.fromSize(constraints.biggest, tokens);
+        return CommandPanelSurface(
+          tokens: tokens,
+          padding: EdgeInsets.all(metrics.padding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: model.table.phase == phaseRequisition ? 58 : 54,
+                child: PanelTitleRow(
+                  title: model.table.phase == phaseRequisition
+                      ? 'Requisition'
+                      : 'Private plot',
+                  subtitle: plotHeaderSubtitle(model),
+                  iconPath: model.table.phase == phaseRequisition
+                      ? 'ios_resources/Icons/icon-requisition-north.png'
+                      : 'ios_resources/Icons/icon-plot.png',
+                  urgent: model.table.phase == phaseRequisition,
+                  tokens: tokens,
+                ),
+              ),
+              SizedBox(height: metrics.spacing),
+              SizedBox(
+                height: metrics.opponentHeight,
+                child: Row(
+                  spacing: metrics.spacing,
+                  children: [
+                    for (final seat in opponents)
+                      Expanded(
+                        child: OpponentPlotPanel(
+                          seat: seat,
+                          metrics: metrics,
+                          tokens: tokens,
+                          exiledCardIDs: exiledCardIDs,
+                          hiddenExiledCardIDs: hiddenExiledCardIDs,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              SizedBox(height: metrics.spacing),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: metrics.spacing,
+                  children: [
+                    Expanded(
+                      child: LocalPlotColumn(
+                        title: 'Cellar',
+                        iconPath: 'ios_resources/Icons/icon-cellar.png',
+                        cards: viewerHiddenCards,
+                        hiddenCount: viewerHiddenCards.length,
+                        hidden: false,
+                        selectable: model.table.phase == phaseSwap,
+                        selectedCardID: model.selection.plotCardID,
+                        exiledCardIDs: exiledCardIDs,
+                        metrics: metrics,
+                        tokens: tokens,
+                        onCardTap: onPlotCardTap == null
+                            ? null
+                            : (cardID) =>
+                                  onPlotCardTap!(cardID, plotZoneHidden),
+                      ),
+                    ),
+                    Expanded(
+                      child: LocalPlotColumn(
+                        title: 'Plot',
+                        iconPath: 'ios_resources/Icons/icon-plot.png',
+                        cards: viewerRevealedCards,
+                        hiddenCount: viewerRevealedCards.length,
+                        hidden: false,
+                        selectable: model.table.phase == phaseSwap,
+                        selectedCardID: model.selection.plotCardID,
+                        exiledCardIDs: exiledCardIDs,
+                        metrics: metrics,
+                        tokens: tokens,
+                        onCardTap: onPlotCardTap == null
+                            ? null
+                            : (cardID) =>
+                                  onPlotCardTap!(cardID, plotZoneRevealed),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class PlotPanelMetrics {
+  const PlotPanelMetrics({
+    required this.spacing,
+    required this.padding,
+    required this.opponentHeight,
+    required this.opponentCardScale,
+    required this.opponentCardFrameWidth,
+    required this.opponentCardFrameHeight,
+    required this.opponentVisibleCardCount,
+    required this.portraitSize,
+    required this.panelPadding,
+    required this.headerIconSize,
+    required this.columnCardSpacing,
+    required this.columnTrailingPadding,
+  });
+
+  factory PlotPanelMetrics.fromSize(Size size, DesignTokens tokens) {
+    final shorter = size.shortestSide;
+    final plot = tokens.layout.plot;
+    return PlotPanelMetrics(
+      spacing: clampDouble(shorter * 0.02, 7, 10),
+      padding: clampDouble(shorter * 0.025, 8, 12),
+      opponentHeight: clampDouble(
+        size.height * 0.18,
+        plot.opponentHeightMin,
+        plot.opponentHeightMax,
+      ),
+      opponentCardScale: clampDouble(size.width * 0.001, 0.68, 0.76),
+      opponentCardFrameWidth: clampDouble(size.width * 0.04, 25, 29),
+      opponentCardFrameHeight: clampDouble(size.height * 0.10, 38, 44),
+      opponentVisibleCardCount: clampDouble(
+        size.width / 190,
+        plot.opponentVisibleCardCountMin,
+        plot.opponentVisibleCardCountMax,
+      ).toInt(),
+      portraitSize: clampDouble(
+        size.width * 0.055,
+        plot.portraitSizeMin,
+        plot.portraitSizeMax,
+      ),
+      panelPadding: clampDouble(shorter * 0.018, 7, 8),
+      headerIconSize: clampDouble(size.width * 0.026, 17, 20),
+      columnCardSpacing: clampDouble(-size.width * 0.04, -30, -24),
+      columnTrailingPadding: clampDouble(size.width * 0.035, 20, 28),
+    );
+  }
+
+  final double spacing;
+  final double padding;
+  final double opponentHeight;
+  final double opponentCardScale;
+  final double opponentCardFrameWidth;
+  final double opponentCardFrameHeight;
+  final int opponentVisibleCardCount;
+  final double portraitSize;
+  final double panelPadding;
+  final double headerIconSize;
+  final double columnCardSpacing;
+  final double columnTrailingPadding;
+}
+
+class OpponentPlotPanel extends StatelessWidget {
+  const OpponentPlotPanel({
+    required this.seat,
+    required this.metrics,
+    required this.tokens,
+    required this.exiledCardIDs,
+    required this.hiddenExiledCardIDs,
+    super.key,
+  });
+
+  final Seat seat;
+  final PlotPanelMetrics metrics;
+  final DesignTokens tokens;
+  final Set<String> exiledCardIDs;
+  final Set<String> hiddenExiledCardIDs;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleHiddenCards = visiblePlotCards(
+      seat.plot.hidden,
+      hiddenExiledCardIDs,
+    );
+    final visibleRevealedCards = visiblePlotCards(
+      seat.plot.revealed,
+      hiddenExiledCardIDs,
+    );
+    final vulnerable = hasExiledPlotCard;
+    return Container(
+      padding: EdgeInsets.all(metrics.panelPadding),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(tokens.radius.sm),
+        border: Border.all(color: tokens.colors.steel.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: metrics.spacing * 0.75,
+        children: [
+          SizedBox(
+            width: metrics.portraitSize + 12,
+            child: Column(
+              spacing: 3,
+              children: [
+                SizedBox(
+                  width: metrics.portraitSize,
+                  height: metrics.portraitSize,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      PortraitFrame(
+                        seat: seat,
+                        tokens: tokens,
+                        width: metrics.portraitSize,
+                        height: metrics.portraitSize,
+                      ),
+                      if (vulnerable)
+                        Positioned(
+                          top: -3,
+                          right: -4,
+                          child: Image.asset(
+                            'ios_resources/Icons/icon-status-vulnerable.png',
+                            width: 14,
+                            height: 14,
+                            filterQuality: FilterQuality.none,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                PixelText(
+                  seat.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  size: PixelTextSize.caption2,
+                  variant: PixelTextVariant.heavy,
+                  color: tokens.colors.cream,
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Row(
+              spacing: metrics.spacing * 0.5,
+              children: [
+                Expanded(
+                  child: OpponentPlotMiniSection(
+                    iconPath: 'ios_resources/Icons/icon-cellar.png',
+                    value: '${visibleHiddenCards.length}',
+                    cards: visibleHiddenCards,
+                    hidden: true,
+                    metrics: metrics,
+                    tokens: tokens,
+                    exiledCardIDs: exiledCardIDs,
+                  ),
+                ),
+                Expanded(
+                  child: OpponentPlotMiniSection(
+                    iconPath: 'ios_resources/Icons/icon-plot.png',
+                    value: '${visiblePlotScore(seat, hiddenExiledCardIDs)}',
+                    cards: visibleRevealedCards,
+                    hidden: false,
+                    metrics: metrics,
+                    tokens: tokens,
+                    exiledCardIDs: exiledCardIDs,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool get hasExiledPlotCard {
+    return visiblePlotCards(
+          seat.plot.hidden,
+          hiddenExiledCardIDs,
+        ).any((card) => exiledCardIDs.contains(card.id)) ||
+        visiblePlotCards(
+          seat.plot.revealed,
+          hiddenExiledCardIDs,
+        ).any((card) => exiledCardIDs.contains(card.id));
+  }
+}
+
+class OpponentPlotMiniSection extends StatelessWidget {
+  const OpponentPlotMiniSection({
+    required this.iconPath,
+    required this.value,
+    required this.cards,
+    required this.hidden,
+    required this.metrics,
+    required this.tokens,
+    required this.exiledCardIDs,
+    super.key,
+  });
+
+  final String iconPath;
+  final String value;
+  final List<TableCard> cards;
+  final bool hidden;
+  final PlotPanelMetrics metrics;
+  final DesignTokens tokens;
+  final Set<String> exiledCardIDs;
+
+  @override
+  Widget build(BuildContext context) {
+    const visibleCardLimit = 2;
+    final cardWidgets = <Widget>[
+      for (final card in cards.take(visibleCardLimit))
+        NaturalSizeViewport(
+          width: metrics.opponentCardFrameWidth,
+          height: metrics.opponentCardFrameHeight,
+          naturalWidth: tokens.card.small.width,
+          naturalHeight: tokens.card.small.height,
+          child: Transform.scale(
+            alignment: Alignment.topLeft,
+            scale:
+                metrics.opponentCardScale *
+                (exiledCardIDs.contains(card.id) ? 1.08 : 1),
+            child: PlotCardExileFrame(
+              exiled: exiledCardIDs.contains(card.id),
+              radius: opponentPlotMiniExileRadius,
+              tokens: tokens,
+              child: hidden
+                  ? CardBackMini(tokens: tokens)
+                  : GameCard(card: card, tokens: tokens, small: true),
+            ),
+          ),
+        ),
+      if (cards.isEmpty)
+        SizedBox(
+          width: metrics.opponentCardFrameWidth,
+          height: metrics.opponentCardFrameHeight,
+          child: Center(
+            child: PixelText(
+              '-',
+              size: PixelTextSize.caption,
+              variant: PixelTextVariant.heavy,
+              color: tokens.colors.smoke.withValues(alpha: 0.72),
+            ),
+          ),
+        ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(opponentPlotMiniSectionRadius),
+      ),
+      child: Row(
+        spacing: 3,
+        children: [
+          SizedBox(
+            width: metrics.headerIconSize + 5,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              spacing: 1,
+              children: [
+                Image.asset(
+                  iconPath,
+                  width: metrics.headerIconSize,
+                  height: metrics.headerIconSize,
+                  filterQuality: FilterQuality.none,
+                ),
+                PixelText(
+                  value,
+                  size: PixelTextSize.caption2,
+                  variant: PixelTextVariant.heavy,
+                  color: tokens.colors.gold,
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ClipRect(
+              child: OverlappedCardRow(
+                itemWidth: metrics.opponentCardFrameWidth,
+                itemHeight: metrics.opponentCardFrameHeight,
+                spacing: metrics.columnCardSpacing * 0.56,
+                children: cardWidgets,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const opponentPlotMiniSectionRadius = 4.0;
+const opponentPlotMiniExileRadius = 6.0;
+
+class LocalPlotColumn extends StatelessWidget {
+  const LocalPlotColumn({
+    required this.title,
+    required this.iconPath,
+    required this.cards,
+    required this.hiddenCount,
+    required this.hidden,
+    required this.selectable,
+    required this.selectedCardID,
+    required this.exiledCardIDs,
+    required this.metrics,
+    required this.tokens,
+    this.onCardTap,
+    super.key,
+  });
+
+  final String title;
+  final String iconPath;
+  final List<TableCard> cards;
+  final int hiddenCount;
+  final bool hidden;
+  final bool selectable;
+  final String? selectedCardID;
+  final Set<String> exiledCardIDs;
+  final PlotPanelMetrics metrics;
+  final DesignTokens tokens;
+  final ValueChanged<String>? onCardTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cardWidgets = <Widget>[
+      for (final card in cards)
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: selectable ? () => onCardTap?.call(card.id) : null,
+          child: PlotCardExileFrame(
+            exiled: exiledCardIDs.contains(card.id),
+            tokens: tokens,
+            child: hidden
+                ? HighlightableCardBack(
+                    card: selectedPlotCard(card, selectedCardID),
+                    tokens: tokens,
+                  )
+                : GameCard(
+                    card: selectedPlotCard(card, selectedCardID),
+                    tokens: tokens,
+                    small: true,
+                  ),
+          ),
+        ),
+      if (cards.isEmpty)
+        SizedBox(
+          width: tokens.card.small.width,
+          height: tokens.card.small.height,
+          child: Center(
+            child: PixelText(
+              '-',
+              size: PixelTextSize.title,
+              variant: PixelTextVariant.heavy,
+              color: tokens.colors.smoke.withValues(alpha: 0.72),
+            ),
+          ),
+        ),
+    ];
+
+    return Container(
+      padding: EdgeInsets.all(metrics.padding),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(tokens.radius.sm),
+        border: Border.all(
+          color: selectable
+              ? tokens.colors.gold.withValues(alpha: 0.58)
+              : tokens.colors.steel.withValues(alpha: 0.5),
+          width: selectable ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: metrics.spacing * 0.75,
+        children: [
+          Row(
+            spacing: 5,
+            children: [
+              Image.asset(
+                iconPath,
+                width: metrics.headerIconSize,
+                height: metrics.headerIconSize,
+                filterQuality: FilterQuality.none,
+              ),
+              PixelText(
+                title.toUpperCase(),
+                size: PixelTextSize.caption,
+                variant: PixelTextVariant.heavy,
+                color: tokens.colors.gold,
+              ),
+              const Spacer(),
+              PixelText(
+                '$hiddenCount',
+                size: PixelTextSize.caption2,
+                color: tokens.colors.smoke,
+              ),
+            ],
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  top: 2,
+                  bottom: 2,
+                  right: metrics.columnTrailingPadding,
+                ),
+                child: OverlappedCardRow(
+                  itemWidth: tokens.card.small.width,
+                  itemHeight: tokens.card.small.height,
+                  spacing: metrics.columnCardSpacing,
+                  children: cardWidgets,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PlotCardExileFrame extends StatelessWidget {
+  const PlotCardExileFrame({
+    required this.exiled,
+    required this.tokens,
+    required this.child,
+    this.radius = cardViewCornerRadius,
+    super.key,
+  });
+
+  final bool exiled;
+  final DesignTokens tokens;
+  final Widget child;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!exiled) {
+      return child;
+    }
+    return Container(
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: tokens.colors.redBright, width: 3),
+      ),
+      child: child,
+    );
+  }
+}
+
+class OverlappedCardRow extends StatelessWidget {
+  const OverlappedCardRow({
+    required this.children,
+    required this.itemWidth,
+    required this.itemHeight,
+    required this.spacing,
+    super.key,
+  });
+
+  final List<Widget> children;
+  final double itemWidth;
+  final double itemHeight;
+  final double spacing;
+
+  @override
+  Widget build(BuildContext context) {
+    final step = itemWidth + spacing > 1 ? itemWidth + spacing : 1.0;
+    final width = children.isEmpty
+        ? 0.0
+        : itemWidth + step * (children.length - 1);
+    return SizedBox(
+      width: width,
+      height: itemHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          for (final (index, child) in children.indexed)
+            Positioned(left: index * step, top: 0, child: child),
+        ],
+      ),
+    );
+  }
+}
+
+class NaturalSizeViewport extends StatelessWidget {
+  const NaturalSizeViewport({
+    required this.width,
+    required this.height,
+    required this.naturalWidth,
+    required this.naturalHeight,
+    required this.child,
+    this.clipBehavior = Clip.hardEdge,
+    super.key,
+  });
+
+  final double width;
+  final double height;
+  final double naturalWidth;
+  final double naturalHeight;
+  final Widget child;
+  final Clip clipBehavior;
+
+  @override
+  Widget build(BuildContext context) {
+    final viewportChild = OverflowBox(
+      alignment: Alignment.topLeft,
+      minWidth: naturalWidth,
+      maxWidth: naturalWidth,
+      minHeight: naturalHeight,
+      maxHeight: naturalHeight,
+      child: child,
+    );
+    return SizedBox(
+      width: width,
+      height: height,
+      child: clipBehavior == Clip.none
+          ? viewportChild
+          : ClipRect(clipBehavior: clipBehavior, child: viewportChild),
+    );
+  }
+}
+
+class HighlightableCardBack extends StatelessWidget {
+  const HighlightableCardBack({
+    required this.card,
+    required this.tokens,
+    super.key,
+  });
+
+  final TableCard card;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final border = card.selected
+        ? tokens.colors.green
+        : card.highlighted
+        ? tokens.colors.gold
+        : Colors.transparent;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(cardViewCornerRadius),
+        border: Border.all(
+          color: border,
+          width: card.selected || card.highlighted ? tokens.stroke.active : 0,
+        ),
+      ),
+      child: CardBackMini(tokens: tokens),
+    );
+  }
+}
+
+class CardBackMini extends StatelessWidget {
+  const CardBackMini({required this.tokens, super.key});
+
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(cardViewCornerRadius),
+        boxShadow: [
+          BoxShadow(
+            color: tokens.colors.black.withValues(
+              alpha: tokens.colors.cardStrokeOpacity,
+            ),
+            blurRadius: 5,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Container(
+        width: tokens.card.small.width,
+        height: tokens.card.small.height,
+        foregroundDecoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(cardViewCornerRadius),
+          border: Border.all(
+            color: tokens.colors.black.withValues(
+              alpha: tokens.colors.cardStrokeOpacity,
+            ),
+            width: cardViewStrokeWidth,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(cardViewCornerRadius),
+          child: Image.asset(
+            'ios_resources/Cards/card-back.png',
+            fit: BoxFit.cover,
+            filterQuality: FilterQuality.none,
+            errorBuilder: (_, _, _) => ColoredBox(color: tokens.colors.iron),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const double cardViewCornerRadius = 8;
+const double cardViewStrokeWidth = 0.8;
+const double cardHighlightShadowOpacity = 0.34;
+const double cardHighlightShadowRadius = 9;
+
+class PlayerPortrait extends StatelessWidget {
+  const PlayerPortrait({
+    required this.seat,
+    required this.tokens,
+    required this.width,
+    required this.height,
+    this.badgeVisible,
+    super.key,
+  });
+
+  final Seat seat;
+  final DesignTokens tokens;
+  final double width;
+  final double height;
+  final bool? badgeVisible;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageWidth = width * 32 / 38;
+    final imageHeight = height * 36 / 42;
+    final medalSize = math.max(7.0, math.min(width, height) * 9 / 38);
+    return SizedBox(
+      width: width,
+      height: height,
+      child: Stack(
+        children: [
+          Align(
+            alignment: Alignment.center,
+            child: Container(
+              width: imageWidth,
+              height: imageHeight,
+              foregroundDecoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(
+                  color: tokens.colors.black.withValues(alpha: 0.68),
+                  width: 1,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: Image.asset(
+                  portraitAssetPath(seat),
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.none,
+                  errorBuilder: (_, _, _) => Image.asset(
+                    'ios_resources/worker4.png',
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.none,
+                    errorBuilder: (_, _, _) => ColoredBox(
+                      color: tokens.colors.black.withValues(alpha: 0.42),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (badgeVisible ?? isHumanControlledSeat(seat))
+            Positioned(
+              right: 2,
+              top: 2,
+              child: Image.asset(
+                'ios_resources/Icons/icon-medal-star.png',
+                width: medalSize,
+                height: medalSize,
+                filterQuality: FilterQuality.none,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+const double playerPortraitFrameWidth = 38;
+const double playerPortraitFrameHeight = 42;
+
+class PortraitFrame extends StatelessWidget {
+  const PortraitFrame({
+    required this.seat,
+    required this.tokens,
+    required this.width,
+    required this.height,
+    super.key,
+  });
+
+  final Seat seat;
+  final DesignTokens tokens;
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: height,
+      child: OverflowBox(
+        minWidth: 0,
+        minHeight: 0,
+        maxWidth: math.max(width, playerPortraitFrameWidth),
+        maxHeight: math.max(height, playerPortraitFrameHeight),
+        child: PlayerPortrait(
+          seat: seat,
+          tokens: tokens,
+          width: playerPortraitFrameWidth,
+          height: playerPortraitFrameHeight,
+        ),
+      ),
+    );
+  }
+}
+
+class PlayerBadge extends StatelessWidget {
+  const PlayerBadge({
+    required this.seat,
+    required this.tokens,
+    required this.active,
+    this.width = 178,
+    this.height = 40,
+    this.maxTricks = 4,
+    super.key,
+  });
+
+  final Seat seat;
+  final DesignTokens tokens;
+  final bool active;
+  final double width;
+  final double height;
+  final int maxTricks;
+
+  @override
+  Widget build(BuildContext context) {
+    final human = seat.isViewer;
+    final portraitColumnWidth = playerPanelPortraitColumnWidth(width, height);
+    final portraitSize = playerPanelPortraitSize(width, height);
+    final rowSpacing = playerPanelRowSpacing(width);
+    final stackSpacing = playerPanelStackSpacing(width);
+    final statColumnWidth = playerPanelStatColumnWidth(width);
+    final topPadding = playerPanelTopPadding(height);
+    final cellarCardSpacing = playerPanelCellarCardSpacing(width);
+    final contentNaturalWidth = playerPanelContentNaturalWidth(width);
+    return SizedBox(
+      width: width,
+      height: height,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: active
+                  ? tokens.colors.gold.withValues(
+                      alpha: playerPanelActiveShadowOpacity,
+                    )
+                  : tokens.colors.black.withValues(
+                      alpha: playerPanelInactiveShadowOpacity,
+                    ),
+              blurRadius: playerPanelShadowRadius,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: Image.asset(
+                'ios_resources/ui-player-panel.png',
+                fit: BoxFit.fill,
+                filterQuality: FilterQuality.none,
+              ),
+            ),
+            Positioned.fill(
+              child: Padding(
+                padding: const EdgeInsets.only(left: 10, right: 6),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: portraitColumnWidth,
+                      child: Transform.translate(
+                        offset: const Offset(-2, 2),
+                        child: PortraitFrame(
+                          seat: seat,
+                          tokens: tokens,
+                          width: portraitSize,
+                          height: portraitSize,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Transform.translate(
+                        offset: const Offset(0, -2),
+                        child: ClipRect(
+                          child: OverflowBox(
+                            minWidth: contentNaturalWidth,
+                            maxWidth: contentNaturalWidth,
+                            alignment: Alignment.centerLeft,
+                            child: SizedBox(
+                              width: contentNaturalWidth,
+                              child: Padding(
+                                padding: EdgeInsets.only(top: topPadding),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  spacing: math.max(0, stackSpacing),
+                                  children: [
+                                    Row(
+                                      spacing: rowSpacing,
+                                      children: [
+                                        Expanded(
+                                          child: PixelText(
+                                            displayName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            size: PixelTextSize.caption,
+                                            variant: PixelTextVariant.heavy,
+                                            color: active
+                                                ? tokens.colors.gold
+                                                : tokens.colors.cardInk,
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        PlayerPlotScoreStat(
+                                          score: seat.visibleScore,
+                                          tokens: tokens,
+                                          width: statColumnWidth,
+                                        ),
+                                      ],
+                                    ),
+                                    Transform.translate(
+                                      offset: Offset(
+                                        0,
+                                        math.min(0, stackSpacing),
+                                      ),
+                                      child: Row(
+                                        spacing: rowSpacing,
+                                        children: [
+                                          PlayerMedalStat(
+                                            medals: seat.medals,
+                                            maxTricks: maxTricks,
+                                            tokens: tokens,
+                                            statColumnWidth: statColumnWidth,
+                                          ),
+                                          const Spacer(),
+                                          PlayerCellarStat(
+                                            count: seat.plot.hidden.length,
+                                            tokens: tokens,
+                                            width: statColumnWidth,
+                                            cardSpacing: cellarCardSpacing,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(7),
+                      border: Border.all(
+                        color: active
+                            ? tokens.colors.gold.withValues(alpha: 0.78)
+                            : human
+                            ? tokens.colors.redDark.withValues(alpha: 0.42)
+                            : Colors.transparent,
+                        width: active
+                            ? 1.3
+                            : human
+                            ? 1
+                            : 0,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (statusBadgeAssets.isNotEmpty)
+              Positioned(
+                top: 3,
+                right: 5,
+                child: PlayerStatusBadgeStrip(
+                  assets: statusBadgeAssets,
+                  tokens: tokens,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String get displayName {
+    return seatDisplayName(seat);
+  }
+
+  List<String> get statusBadgeAssets {
+    return [
+      if (active)
+        isHumanControlledSeat(seat)
+            ? 'icon-status-current-turn.png'
+            : 'icon-status-ai-thinking.png',
+      if (seat.isBrigadeLeader) 'icon-status-brigade-leader.png',
+    ];
+  }
+}
+
+class PlayerStatusBadgeStrip extends StatelessWidget {
+  const PlayerStatusBadgeStrip({
+    required this.assets,
+    required this.tokens,
+    super.key,
+  });
+
+  final List<String> assets;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: tokens.colors.gold.withValues(alpha: 0.3)),
+      ),
+      child: SizedBox(
+        width: 14 + (assets.take(3).length - 1) * 11,
+        height: 14,
+        child: Stack(
+          children: [
+            for (final (index, asset) in assets.take(3).indexed)
+              Positioned(
+                left: index * 11,
+                top: 0,
+                child: SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: Center(
+                    child: Image.asset(
+                      'ios_resources/Icons/$asset',
+                      width: 13,
+                      height: 13,
+                      filterQuality: FilterQuality.none,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class PlayerPlotScoreStat extends StatelessWidget {
+  const PlayerPlotScoreStat({
+    required this.score,
+    required this.tokens,
+    required this.width,
+    super.key,
+  });
+
+  final int score;
+  final DesignTokens tokens;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: 18,
+      child: ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.centerLeft,
+          maxWidth: double.infinity,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 2,
+            children: [
+              Image.asset(
+                'ios_resources/Icons/icon-plot.png',
+                width: 16,
+                height: 16,
+                filterQuality: FilterQuality.none,
+              ),
+              PixelText(
+                '$score',
+                size: PixelTextSize.headline,
+                variant: PixelTextVariant.heavy,
+                color: tokens.colors.smoke,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class PlayerMedalStat extends StatelessWidget {
+  const PlayerMedalStat({
+    required this.medals,
+    required this.maxTricks,
+    required this.tokens,
+    required this.statColumnWidth,
+    super.key,
+  });
+
+  final int medals;
+  final int maxTricks;
+  final DesignTokens tokens;
+  final double statColumnWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: statColumnWidth * 0.72,
+      height: 12,
+      child: Stack(
+        children: [
+          for (var index = 0; index < maxTricks; index++)
+            Positioned(
+              left:
+                  index * (playerPanelMedalIconSize + playerPanelMedalSpacing),
+              top: 0,
+              child: Opacity(
+                opacity: index < medals ? 1 : playerPanelUnearnedMedalOpacity,
+                child: index < medals
+                    ? playerMedalIcon()
+                    : ColorFiltered(
+                        colorFilter: const ColorFilter.matrix(
+                          iconMutedSaturationMatrix,
+                        ),
+                        child: Opacity(
+                          opacity: iconMutedOpacity,
+                          child: playerMedalIcon(),
+                        ),
+                      ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget playerMedalIcon() {
+    return Image.asset(
+      'ios_resources/Icons/icon-medal-star.png',
+      width: playerPanelMedalIconSize,
+      height: playerPanelMedalIconSize,
+      filterQuality: FilterQuality.none,
+    );
+  }
+}
+
+const playerPanelMedalIconSize = 12.0;
+const playerPanelMedalSpacing = -4.0;
+const playerPanelUnearnedMedalOpacity = 0.18;
+
+class PlayerCellarStat extends StatelessWidget {
+  const PlayerCellarStat({
+    required this.count,
+    required this.tokens,
+    required this.width,
+    required this.cardSpacing,
+    super.key,
+  });
+
+  final int count;
+  final DesignTokens tokens;
+  final double width;
+  final double cardSpacing;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: 16,
+      child: ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.centerLeft,
+          maxWidth: double.infinity,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 2,
+            children: [
+              Image.asset(
+                'ios_resources/Icons/icon-cellar.png',
+                width: 16,
+                height: 16,
+                filterQuality: FilterQuality.none,
+              ),
+              SizedBox(
+                width: math.max(0, count * 10 + (count - 1) * cardSpacing),
+                height: 15,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    for (var index = 0; index < count; index++)
+                      Positioned(
+                        left: index * (10 + cardSpacing),
+                        top: 0,
+                        child: PlayerCardBackThumbnail(tokens: tokens),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class PlayerCardBackThumbnail extends StatelessWidget {
+  const PlayerCardBackThumbnail({required this.tokens, super.key});
+
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(2),
+      child: Container(
+        width: 10,
+        height: 15,
+        foregroundDecoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(2),
+          border: Border.all(
+            color: tokens.colors.gold.withValues(alpha: 0.62),
+            width: 0.5,
+          ),
+        ),
+        child: Image.asset(
+          'ios_resources/Cards/card-back-icon.png',
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.none,
+        ),
+      ),
+    );
+  }
+}
+
+class CardSlot extends StatelessWidget {
+  const CardSlot({
+    required this.active,
+    required this.human,
+    required this.width,
+    required this.height,
+    required this.tokens,
+    super.key,
+  });
+
+  final bool active;
+  final bool human;
+  final double width;
+  final double height;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final slotColor = active
+        ? human
+              ? tokens.colors.gold
+              : tokens.colors.red
+        : tokens.colors.steel.withValues(alpha: cardSlotInactiveSteelOpacity);
+    final fillColor = active
+        ? human
+              ? tokens.colors.gold.withValues(alpha: cardSlotHumanFillOpacity)
+              : tokens.colors.red.withValues(alpha: cardSlotOpponentFillOpacity)
+        : Colors.transparent;
+    final slot = CustomPaint(
+      painter: CardSlotPainter(
+        color: slotColor,
+        fillColor: fillColor,
+        active: active,
+      ),
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: Center(
+          child: active
+              ? PixelText(
+                  human ? 'PLAY' : 'WAIT',
+                  size: PixelTextSize.caption2,
+                  variant: PixelTextVariant.heavy,
+                  color: human ? tokens.colors.gold : tokens.colors.redBright,
+                )
+              : null,
+        ),
+      ),
+    );
+    if (!active) {
+      return slot;
+    }
+    return PulsingCardSlotFrame(human: human, tokens: tokens, child: slot);
+  }
+}
+
+class PulsingCardSlotFrame extends StatefulWidget {
+  const PulsingCardSlotFrame({
+    required this.human,
+    required this.tokens,
+    required this.child,
+    super.key,
+  });
+
+  final bool human;
+  final DesignTokens tokens;
+  final Widget child;
+
+  @override
+  State<PulsingCardSlotFrame> createState() => _PulsingCardSlotFrameState();
+}
+
+class _PulsingCardSlotFrameState extends State<PulsingCardSlotFrame>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController controller;
+  late final Animation<double> pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    pulse = CurvedAnimation(parent: controller, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final baseColor = widget.human
+        ? widget.tokens.colors.gold
+        : widget.tokens.colors.red;
+    final restOpacity = widget.human
+        ? cardSlotHumanShadowRestOpacity
+        : cardSlotOpponentShadowRestOpacity;
+    final pulseOpacity = widget.human
+        ? cardSlotHumanShadowPulseOpacity
+        : cardSlotOpponentShadowPulseOpacity;
+    return AnimatedBuilder(
+      animation: pulse,
+      builder: (context, child) {
+        final value = pulse.value;
+        return Transform.scale(
+          scale: lerpDouble(1, cardSlotActiveScale, value)!,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(cardSlotCornerRadius),
+              boxShadow: [
+                BoxShadow(
+                  color: baseColor.withValues(
+                    alpha: lerpDouble(restOpacity, pulseOpacity, value)!,
+                  ),
+                  blurRadius: lerpDouble(
+                    cardSlotShadowRestRadius,
+                    cardSlotShadowPulseRadius,
+                    value,
+                  )!,
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
+
+const cardSlotCornerRadius = 8.0;
+const cardSlotStrokeWidth = 2.0;
+const cardSlotDashLength = 6.0;
+const cardSlotDashGap = 6.0;
+const cardSlotActiveScale = 1.035;
+const cardSlotHumanFillOpacity = 0.10;
+const cardSlotOpponentFillOpacity = 0.12;
+const cardSlotInactiveSteelOpacity = 0.35;
+const cardSlotShadowRestRadius = 10.0;
+const cardSlotShadowPulseRadius = 18.0;
+const cardSlotHumanShadowRestOpacity = 0.28;
+const cardSlotHumanShadowPulseOpacity = 0.58;
+const cardSlotOpponentShadowRestOpacity = 0.22;
+const cardSlotOpponentShadowPulseOpacity = 0.48;
+
+class CardSlotPainter extends CustomPainter {
+  const CardSlotPainter({
+    required this.color,
+    required this.fillColor,
+    required this.active,
+  });
+
+  final Color color;
+  final Color fillColor;
+  final bool active;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      const Radius.circular(cardSlotCornerRadius),
+    );
+    if (active) {
+      canvas.drawRRect(
+        rect,
+        Paint()
+          ..color = fillColor
+          ..style = PaintingStyle.fill,
+      );
+    }
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = cardSlotStrokeWidth;
+    final path = Path()..addRRect(rect);
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        canvas.drawPath(
+          metric.extractPath(distance, distance + cardSlotDashLength),
+          paint,
+        );
+        distance += cardSlotDashLength + cardSlotDashGap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(CardSlotPainter oldDelegate) =>
+      oldDelegate.color != color ||
+      oldDelegate.fillColor != fillColor ||
+      oldDelegate.active != active;
+}
+
+class DashedSlot extends StatelessWidget {
+  const DashedSlot({
+    required this.width,
+    required this.height,
+    required this.tokens,
+    required this.label,
+    super.key,
+  });
+
+  final double width;
+  final double height;
+  final DesignTokens tokens;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: DashedSlotPainter(tokens.colors.gold),
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: Center(
+          child: PixelText(
+            label.toUpperCase(),
+            size: PixelTextSize.title,
+            variant: PixelTextVariant.heavy,
+            color: tokens.colors.gold.withValues(alpha: 0.8),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class DashedSlotPainter extends CustomPainter {
+  const DashedSlotPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color.withValues(alpha: 0.78)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    const dash = 9.0;
+    const gap = 7.0;
+    final rect = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      const Radius.circular(12),
+    );
+    final path = Path()..addRRect(rect);
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        canvas.drawPath(metric.extractPath(distance, distance + dash), paint);
+        distance += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(DashedSlotPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+class TrickCards extends StatelessWidget {
+  const TrickCards({required this.trick, required this.tokens, super.key});
+
+  final Trick trick;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    if (trick.plays.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Wrap(
+      spacing: tokens.spacing.sm,
+      runSpacing: tokens.spacing.sm,
+      children: [
+        for (final play in trick.plays)
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GameCard(card: play.card, tokens: tokens, small: true),
+              PixelText(
+                '${play.seatID + 1}',
+                size: PixelTextSize.caption2,
+                color: tokens.colors.creamDim,
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+class InfoPlaque extends StatelessWidget {
+  const InfoPlaque({required this.model, required this.tokens, super.key});
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 260,
+      margin: EdgeInsets.all(tokens.spacing.md),
+      padding: EdgeInsets.all(tokens.spacing.md),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(tokens.radius.md),
+        border: Border.all(color: tokens.colors.gold.withValues(alpha: 0.36)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PixelText(
+            model.table.phasePrompt.title,
+            size: PixelTextSize.title,
+            variant: PixelTextVariant.heavy,
+            color: tokens.colors.gold,
+          ),
+          SizedBox(height: tokens.spacing.xs),
+          PixelText(
+            model.table.phasePrompt.body,
+            size: PixelTextSize.caption,
+            color: tokens.colors.creamDim,
+            softWrap: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PlanningTrumpPanel extends StatelessWidget {
+  const PlanningTrumpPanel({
+    required this.model,
+    required this.tokens,
+    this.onAction,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+  final ValueChanged<LegalAction>? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final legalTrumpActionList = legalTrumpActions(model.legalActions);
+    final isFamine = model.table.isFamine;
+    final trumpOptions = planningTrumpOptions(legalTrumpActionList);
+    final title = isFamine ? 'Famine year' : 'Choose Trump';
+    final subtitle = isFamine
+        ? 'No trump suit is used this year.'
+        : 'Pick the trump suit for this year.';
+    const buttonSize = planningTrumpButtonSize;
+    const gridSpacing = planningTrumpGridSpacing;
+    return PanelStyleSurface(
+      tokens: tokens,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: planningPanelContentSpacing,
+        children: [
+          PanelTitleRow(
+            title: title,
+            subtitle: subtitle,
+            iconPath: isFamine
+                ? 'ios_resources/Icons/icon-famine.png'
+                : 'ios_resources/Icons/icon-jobs.png',
+            urgent: isFamine,
+            tokens: tokens,
+          ),
+          if (isFamine) ...[
+            Center(
+              child: Opacity(
+                opacity: famineBannerOpacity,
+                child: Image.asset(
+                  'ios_resources/Embellishments/art-famine-banner.png',
+                  width: famineBannerWidth,
+                  height: famineBannerHeight,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.none,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+              ),
+            ),
+            Text(
+              subtitle,
+              key: const Key('famine-body-text'),
+              softWrap: true,
+              style: kolkhozFontStyle.copyWith(
+                color: tokens.colors.creamDim,
+                fontSize: famineBodyFontSize,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ] else
+            Center(
+              child: SizedBox(
+                width: buttonSize * 2 + gridSpacing,
+                child: Wrap(
+                  spacing: gridSpacing,
+                  runSpacing: gridSpacing,
+                  children: [
+                    for (final option in trumpOptions)
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: option.action != null && onAction != null
+                            ? () {
+                                onAction!(option.action!);
+                              }
+                            : null,
+                        child: TrumpSelectionButton(
+                          suit: option.suit,
+                          label: option.label,
+                          selected: option.suit == model.table.trump,
+                          tokens: tokens,
+                          size: buttonSize,
+                          iconSize: planningTrumpIconSize,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+const planningTrumpButtonSize = 54.0;
+const planningTrumpIconSize = 34.0;
+const planningTrumpGridSpacing = 8.0;
+const planningPanelContentSpacing = 10.0;
+const famineBannerWidth = 270.0;
+const famineBannerHeight = 68.0;
+const famineBannerOpacity = 0.9;
+const famineBodyFontSize = 15.0;
+
+class TrumpSelectionButton extends StatelessWidget {
+  const TrumpSelectionButton({
+    required this.suit,
+    required this.label,
+    required this.selected,
+    required this.tokens,
+    this.size = 54,
+    this.iconSize = 34,
+    super.key,
+  });
+
+  final String suit;
+  final String label;
+  final bool selected;
+  final DesignTokens tokens;
+  final double size;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final scale = size / 54;
+    return Tooltip(
+      message: label,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            boxShadow: [
+              BoxShadow(
+                color: selected
+                    ? tokens.colors.red.withValues(alpha: 0.38)
+                    : tokens.colors.gold.withValues(alpha: 0.16),
+                blurRadius: (selected ? 8 : 4) * scale,
+                offset: Offset(0, 3 * scale),
+              ),
+            ],
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned.fill(
+                child: Image.asset(
+                  selected
+                      ? 'ios_resources/ui-nav-button-active-current.png'
+                      : 'ios_resources/ui-nav-button-inactive-current.png',
+                  fit: BoxFit.fill,
+                  filterQuality: FilterQuality.none,
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.only(top: selected ? 2 * scale : 0),
+                child: Image.asset(
+                  'ios_resources/Icons/icon-trump-$suit.png',
+                  width: iconSize,
+                  height: iconSize,
+                  filterQuality: FilterQuality.none,
+                  errorBuilder: (_, _, _) =>
+                      SuitMark(suit: suit, tokens: tokens, size: 28 * scale),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class GameOverPanel extends StatelessWidget {
+  const GameOverPanel({required this.model, required this.tokens, super.key});
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final scores = model.table.gameResult?.scores ?? model.table.scoreboard;
+    final winnerID =
+        model.table.gameResult?.winnerSeatID ?? inferredWinnerID(scores);
+    return PanelStyleSurface(
+      tokens: tokens,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: gameOverPanelRowSpacing,
+        children: [
+          PanelTitleRow(
+            title: 'Game Over!',
+            subtitle: 'Final cellar and medal scores.',
+            iconPath: 'ios_resources/Icons/icon-medal-star.png',
+            tokens: tokens,
+          ),
+          for (final seat in model.table.seats)
+            GameOverScoreRow(
+              seat: seat,
+              score: finalScoreForSeat(scores, seat.id),
+              winner: seat.id == winnerID,
+              tokens: tokens,
+            ),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.only(top: gameOverNewGameTopPadding),
+              child: ActionSurfaceButton(
+                label: 'NEW GAME',
+                iconPath: null,
+                prominent: true,
+                tokens: tokens,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class GameOverScoreRow extends StatelessWidget {
+  const GameOverScoreRow({
+    required this.seat,
+    required this.score,
+    required this.winner,
+    required this.tokens,
+    super.key,
+  });
+
+  final Seat seat;
+  final int score;
+  final bool winner;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: gameOverRowVerticalPadding),
+      child: Row(
+        spacing: gameOverRowSpacing,
+        children: [
+          PlayerPortrait(
+            seat: seat,
+            tokens: tokens,
+            width: gameOverPortraitWidth,
+            height: gameOverPortraitHeight,
+          ),
+          Expanded(
+            child: Row(
+              spacing: gameOverNameIconSpacing,
+              children: [
+                Flexible(
+                  child: PixelText(
+                    seat.name,
+                    size: PixelTextSize.title,
+                    variant: winner
+                        ? PixelTextVariant.heavy
+                        : PixelTextVariant.regular,
+                    color: winner ? tokens.colors.gold : tokens.colors.cream,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (winner)
+                  Image.asset(
+                    'ios_resources/Icons/icon-medal-star.png',
+                    width: gameOverWinnerIconSize,
+                    height: gameOverWinnerIconSize,
+                    filterQuality: FilterQuality.none,
+                  ),
+              ],
+            ),
+          ),
+          ConstrainedBox(
+            constraints: BoxConstraints(minWidth: gameOverScoreMinWidth),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: PixelText(
+                '$score',
+                size: PixelTextSize.title,
+                variant: PixelTextVariant.heavy,
+                color: winner ? tokens.colors.gold : tokens.colors.cream,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const gameOverPanelRowSpacing = 1.0;
+const gameOverNewGameTopPadding = 0.0;
+const gameOverRowVerticalPadding = 1.0;
+const gameOverRowSpacing = 10.0;
+const gameOverNameIconSpacing = 2.0;
+const gameOverPortraitWidth = 38.0;
+const gameOverPortraitHeight = 42.0;
+const gameOverWinnerIconSize = 32.0;
+const gameOverScoreMinWidth = 28.0;
+
+class JobsPanel extends StatelessWidget {
+  const JobsPanel({
+    required this.model,
+    required this.tokens,
+    this.onAction,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+  final ValueChanged<LegalAction>? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final assignmentPhase = model.table.phase == phaseAssignment;
+    final jobs = jobsInDisplayOrder(model.table.jobs);
+    return Padding(
+      padding: jobsPanelLocalPadding,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final spacing = jobsTileSpacing(constraints.maxWidth);
+          final tileHeight = jobsTileHeight(
+            availableHeight: constraints.maxHeight,
+            assignmentPhase: assignmentPhase,
+            tokens: tokens.layout.jobs,
+          );
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: tileHeight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var index = 0; index < jobs.length; index++)
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            right: index == jobs.length - 1 ? 0 : spacing,
+                          ),
+                          child: Builder(
+                            builder: (context) {
+                              final assignmentAction = assignmentActionForJob(
+                                model,
+                                jobs[index],
+                              );
+                              return JobTile(
+                                job: jobs[index],
+                                assignmentPhase: assignmentPhase,
+                                trump: model.table.trump,
+                                tokens: tokens,
+                                onAssign:
+                                    assignmentAction == null || onAction == null
+                                    ? null
+                                    : () => onAction!(assignmentAction),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+const jobsPanelLocalPadding = EdgeInsets.only(top: 8);
+
+class JobTile extends StatefulWidget {
+  const JobTile({
+    required this.job,
+    required this.assignmentPhase,
+    required this.trump,
+    required this.tokens,
+    this.onAssign,
+    super.key,
+  });
+
+  final Job job;
+  final bool assignmentPhase;
+  final String? trump;
+  final DesignTokens tokens;
+  final VoidCallback? onAssign;
+
+  @override
+  State<JobTile> createState() => _JobTileState();
+}
+
+class _JobTileState extends State<JobTile> {
+  bool hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final job = widget.job;
+    final assignmentPhase = widget.assignmentPhase;
+    final trump = widget.trump;
+    final tokens = widget.tokens;
+    final onAssign = widget.onAssign;
+    final progress = (job.hours / jobRequiredHours).clamp(0.0, 1.0);
+    final validTarget = assignmentPhase && job.validAssignmentTarget;
+    final actionableTarget = validTarget && onAssign != null;
+    final highlighted = trump == job.suit;
+    final showHover = hovered && actionableTarget;
+    final showAssignPrompt = actionableTarget && job.assignedCards.isEmpty;
+    return MouseRegion(
+      cursor: actionableTarget
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
+      onEnter: (_) => setState(() => hovered = true),
+      onExit: (_) => setState(() => hovered = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: actionableTarget ? onAssign : null,
+        child: Opacity(
+          opacity: job.claimed ? 0.68 : 1,
+          child: Container(
+            padding: const EdgeInsets.all(jobsTilePadding),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: showHover
+                    ? [
+                        tokens.colors.green.withValues(alpha: 0.24),
+                        tokens.colors.panel,
+                      ]
+                    : highlighted
+                    ? [
+                        tokens.colors.gold.withValues(alpha: 0.18),
+                        tokens.colors.panel,
+                      ]
+                    : [tokens.colors.panel, tokens.colors.iron],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: BorderRadius.circular(tokens.radius.md),
+              boxShadow: [
+                BoxShadow(
+                  color: showHover
+                      ? tokens.colors.green.withValues(alpha: 0.42)
+                      : actionableTarget
+                      ? tokens.colors.gold.withValues(alpha: 0.16)
+                      : tokens.colors.black.withValues(alpha: 0.25),
+                  blurRadius: showHover ? 14 : 5,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      painter: JobTileBorderPainter(
+                        color: showHover
+                            ? tokens.colors.green
+                            : actionableTarget
+                            ? tokens.colors.gold
+                            : tokens.colors.steel.withValues(alpha: 0.55),
+                        width: showHover ? 3 : 1.5,
+                        dashed: actionableTarget && !showHover,
+                        radius: tokens.radius.md,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: tokens.spacing.sm,
+                  bottom: tokens.spacing.sm,
+                  child: Opacity(
+                    opacity: 0.08,
+                    child: SuitMark(suit: job.suit, tokens: tokens, size: 54),
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      spacing: jobsTileHeaderSpacing,
+                      children: [
+                        job.reward == null
+                            ? EmptyRewardMarker(size: 34, tokens: tokens)
+                            : MiniRewardCard(
+                                card: job.reward!,
+                                claimed: job.claimed,
+                                height: 34,
+                                tokens: tokens,
+                              ),
+                        Expanded(
+                          child: ProgressBar(
+                            value: progress,
+                            complete: job.claimed,
+                            tokens: tokens,
+                          ),
+                        ),
+                        PixelText(
+                          job.claimed
+                              ? 'DONE'
+                              : '${job.hours}/$jobRequiredHours',
+                          size: PixelTextSize.headline,
+                          variant: PixelTextVariant.heavy,
+                          color: job.claimed
+                              ? tokens.colors.green
+                              : tokens.colors.gold,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: jobsTileContentGap),
+                    Expanded(
+                      child: ClipRect(
+                        child: job.assignedCards.isEmpty
+                            ? Align(
+                                alignment: Alignment.topCenter,
+                                child: SizedBox(
+                                  key: const Key(
+                                    'job-tile-empty-assignment-prompt',
+                                  ),
+                                  width: double.infinity,
+                                  height: jobsTileEmptyPromptMinHeight,
+                                  child: Center(
+                                    child: PixelText(
+                                      showAssignPrompt ? 'TAP TO ASSIGN' : '',
+                                      textAlign: TextAlign.center,
+                                      size: PixelTextSize.caption2,
+                                      variant: PixelTextVariant.heavy,
+                                      color: showAssignPrompt
+                                          ? tokens.colors.gold
+                                          : Colors.transparent,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : AssignedJobCardStack(
+                                cards: job.assignedCards,
+                                tokens: tokens,
+                                trump: trump,
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AssignedJobCardStack extends StatelessWidget {
+  const AssignedJobCardStack({
+    required this.cards,
+    required this.tokens,
+    required this.trump,
+    super.key,
+  });
+
+  final List<TableCard> cards;
+  final DesignTokens tokens;
+  final String? trump;
+
+  @override
+  Widget build(BuildContext context) {
+    final stack = Align(
+      alignment: Alignment.topCenter,
+      child: NegativeSpacingColumn(
+        spacing: -34,
+        itemHeight: tokens.card.small.height,
+        children: [
+          for (final card in cards)
+            JobBucketCard(card: card, tokens: tokens, trump: trump),
+        ],
+      ),
+    );
+    if (cards.length <= 2) {
+      return stack;
+    }
+    return SingleChildScrollView(child: stack);
+  }
+}
+
+class JobBucketCard extends StatelessWidget {
+  const JobBucketCard({
+    required this.card,
+    required this.tokens,
+    required this.trump,
+    super.key,
+  });
+
+  final TableCard card;
+  final DesignTokens tokens;
+  final String? trump;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = card.pending
+        ? tokens.colors.green.withValues(alpha: 0.85)
+        : tokens.colors.gold.withValues(alpha: 0.8);
+    return Stack(
+      children: [
+        GameCard(
+          card: card,
+          tokens: tokens,
+          trump: trump,
+          sizeOverride: tokens.card.small,
+        ),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: color, width: card.pending ? 2 : 1),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class JobTileBorderPainter extends CustomPainter {
+  const JobTileBorderPainter({
+    required this.color,
+    required this.width,
+    required this.dashed,
+    required this.radius,
+  });
+
+  final Color color;
+  final double width;
+  final bool dashed;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width;
+    final rect = Rect.fromLTWH(
+      width / 2,
+      width / 2,
+      size.width - width,
+      size.height - width,
+    );
+    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(radius));
+    final path = Path()..addRRect(rrect);
+    if (!dashed) {
+      canvas.drawPath(path, paint);
+      return;
+    }
+
+    const dash = 6.0;
+    const gap = 6.0;
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        canvas.drawPath(metric.extractPath(distance, distance + dash), paint);
+        distance += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(JobTileBorderPainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.width != width ||
+        oldDelegate.dashed != dashed ||
+        oldDelegate.radius != radius;
+  }
+}
+
+class PhasePromptLine extends StatelessWidget {
+  const PhasePromptLine({required this.model, required this.tokens, super.key});
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return PixelText(
+      model.table.phasePrompt.title,
+      size: PixelTextSize.title,
+      variant: PixelTextVariant.heavy,
+      color: tokens.colors.gold,
+    );
+  }
+}
+
+class HandTray extends StatelessWidget {
+  const HandTray({
+    required this.model,
+    required this.tokens,
+    required this.metrics,
+    this.onAction,
+    this.onSwapHandCardTap,
+    this.onAssignmentCardTap,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+  final ResponsiveBoardMetrics metrics;
+  final ValueChanged<LegalAction>? onAction;
+  final ValueChanged<String>? onSwapHandCardTap;
+  final ValueChanged<String>? onAssignmentCardTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final localPlayer = localSeat(model);
+    final hand = localPlayer.hand.toList(growable: false)
+      ..sort(compareCardsForHand);
+    final assignmentCards = assignmentControlCards(model);
+    final lowerBarActions = model.legalActions
+        .where((action) => lowerBarActionKinds.contains(action.kind))
+        .toList(growable: false);
+    final visibleTrayHeight = metrics.handTrayVisibleHeight;
+    final largeCardSize = tokens.card.large;
+    return Padding(
+      padding: handTrayOuterPadding(
+        leading: tokens.spacing.handTrayHorizontalLeading,
+        trailing: tokens.spacing.handTrayHorizontalTrailing,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: handTrayOuterSpacing,
+        children: [
+          Expanded(
+            child: Container(
+              height: visibleTrayHeight,
+              padding: const EdgeInsets.symmetric(
+                horizontal: handTrayZoneHorizontalPadding,
+              ),
+              decoration: BoxDecoration(
+                color: tokens.colors.black.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(tokens.radius.sm),
+                border: Border.all(
+                  color: tokens.colors.steel.withValues(alpha: 0.32),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: handTrayZoneSpacing,
+                children: [
+                  SizedBox(
+                    width: handTrayIconFrameWidth,
+                    height: visibleTrayHeight,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Image.asset(
+                        'ios_resources/Icons/icon-hand.png',
+                        width: handTrayIconSize,
+                        filterQuality: FilterQuality.none,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      clipBehavior: Clip.none,
+                      child: SizedBox(
+                        height: visibleTrayHeight,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          spacing: handTrayCardSpacing,
+                          children: [
+                            for (final card in hand)
+                              Builder(
+                                builder: (context) {
+                                  final playAction = handCardPlayAction(
+                                    model,
+                                    card,
+                                  );
+                                  final onTap = switch (model.table.phase) {
+                                    phaseTrick =>
+                                      playAction == null || onAction == null
+                                          ? null
+                                          : () => onAction!(playAction),
+                                    phaseSwap =>
+                                      onSwapHandCardTap == null
+                                          ? null
+                                          : () => onSwapHandCardTap!(card.id),
+                                    _ => null,
+                                  };
+                                  return NaturalSizeViewport(
+                                    width: largeCardSize.width,
+                                    height: visibleTrayHeight,
+                                    naturalWidth: largeCardSize.width,
+                                    naturalHeight: largeCardSize.height,
+                                    clipBehavior: Clip.none,
+                                    child: Transform.translate(
+                                      offset: const Offset(
+                                        0,
+                                        handTrayCardYOffset,
+                                      ),
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap:
+                                            handCardCanReceiveTap(model, card)
+                                            ? onTap
+                                            : null,
+                                        child: GameCard(
+                                          card: handTrayCard(model, card),
+                                          tokens: tokens,
+                                          trump: model.table.trump,
+                                          sizeOverride: largeCardSize,
+                                          highlightColorOverride:
+                                              handTrayHighlightColor(
+                                                model,
+                                                card,
+                                                swapHighlightColor:
+                                                    tokens.colors.red,
+                                              ),
+                                          highlightGlowEnabled:
+                                              model.table.phase != phaseSwap,
+                                          highlightedStrokeWidthOverride:
+                                              model.table.phase == phaseSwap
+                                              ? handTraySwapHighlightStrokeWidth
+                                              : null,
+                                          highlightedBorderRadiusOverride:
+                                              model.table.phase == phaseSwap
+                                              ? handTraySwapHighlightCornerRadius
+                                              : null,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (assignmentCards.isNotEmpty)
+            AssignmentCommandBar(
+              cards: assignmentCards,
+              selectedCardID: model.selection.assignmentCardID,
+              trump: model.table.trump,
+              tokens: tokens,
+              visibleTrayHeight: visibleTrayHeight,
+              onCardTap: onAssignmentCardTap,
+            )
+          else if (lowerBarActions.isNotEmpty)
+            ActionCommandBar(
+              actions: lowerBarActions,
+              tableYear: model.table.year,
+              tokens: tokens,
+              visibleTrayHeight: visibleTrayHeight,
+              onAction: onAction,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class ActionCommandBar extends StatelessWidget {
+  const ActionCommandBar({
+    required this.actions,
+    required this.tableYear,
+    required this.tokens,
+    required this.visibleTrayHeight,
+    this.onAction,
+    super.key,
+  });
+
+  final List<LegalAction> actions;
+  final int tableYear;
+  final DesignTokens tokens;
+  final double visibleTrayHeight;
+  final ValueChanged<LegalAction>? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final orderedActions = actions.toList(growable: false)
+      ..sort(compareLowerBarActions);
+    return SizedBox(
+      width: actionBarWidth,
+      height: visibleTrayHeight,
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            spacing: 8,
+            children: [
+              for (final action in orderedActions)
+                ActionPill(
+                  action: action,
+                  tableYear: tableYear,
+                  tokens: tokens,
+                  prominent: isProminentLowerBarAction(action),
+                  onPressed: onAction == null ? null : () => onAction!(action),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  double get actionBarWidth {
+    if (actions.length <= 1) {
+      return handTrayActionSingleWidth;
+    }
+    return handTrayActionDoubleWidth;
+  }
+}
+
+class AssignmentCommandBar extends StatelessWidget {
+  const AssignmentCommandBar({
+    required this.cards,
+    required this.selectedCardID,
+    required this.trump,
+    required this.tokens,
+    required this.visibleTrayHeight,
+    this.onCardTap,
+    super.key,
+  });
+
+  final List<TableCard> cards;
+  final String? selectedCardID;
+  final String? trump;
+  final DesignTokens tokens;
+  final double visibleTrayHeight;
+  final ValueChanged<String>? onCardTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final mediumCardSize = tokens.card.medium;
+    return SizedBox(
+      width: handTrayAssignmentWidth,
+      height: visibleTrayHeight,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 10,
+        children: [
+          Container(
+            width: handTrayAssignmentDividerWidth,
+            height: visibleTrayHeight - 10,
+            margin: const EdgeInsets.only(
+              top: handTrayAssignmentDividerTopMargin,
+            ),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  tokens.colors.gold.withValues(alpha: 0.8),
+                  Colors.transparent,
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Transform.translate(
+              offset: const Offset(0, handTrayAssignmentCardsYOffset),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 8,
+                children: [
+                  for (final card in cards)
+                    NaturalSizeViewport(
+                      width: mediumCardSize.width,
+                      height: visibleTrayHeight,
+                      naturalWidth: mediumCardSize.width,
+                      naturalHeight: mediumCardSize.height,
+                      clipBehavior: Clip.none,
+                      child: AssignmentCommandCard(
+                        card: card,
+                        tokens: tokens,
+                        trump: trump,
+                        selected: card.id == selectedCardID,
+                        sizeOverride: mediumCardSize,
+                        onTap: () => onCardTap?.call(card.id),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class AssignmentCommandCard extends StatelessWidget {
+  const AssignmentCommandCard({
+    required this.card,
+    required this.tokens,
+    required this.trump,
+    required this.selected,
+    required this.sizeOverride,
+    this.onTap,
+    super.key,
+  });
+
+  final TableCard card;
+  final DesignTokens tokens;
+  final String? trump;
+  final bool selected;
+  final TokenCardSize sizeOverride;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: tokens.colors.gold.withValues(
+                      alpha: assignmentCommandSelectedShadowOpacity,
+                    ),
+                    blurRadius: assignmentCommandSelectedShadowRadius,
+                    offset: const Offset(
+                      0,
+                      assignmentCommandSelectedShadowYOffset,
+                    ),
+                  ),
+                ]
+              : const [],
+        ),
+        child: Stack(
+          children: [
+            GameCard(
+              card: cardWithSelection(card, highlighted: false),
+              tokens: tokens,
+              trump: trump,
+              sizeOverride: sizeOverride,
+            ),
+            if (selected)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(
+                        assignmentCommandSelectedRadius,
+                      ),
+                      border: Border.all(
+                        color: tokens.colors.gold,
+                        width: assignmentCommandSelectedStrokeWidth,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+const assignmentCommandSelectedRadius = 7.0;
+const assignmentCommandSelectedStrokeWidth = 3.0;
+const assignmentCommandSelectedShadowOpacity = 0.38;
+const assignmentCommandSelectedShadowRadius = 9.0;
+const assignmentCommandSelectedShadowYOffset = 2.0;
+
+class GameCard extends StatelessWidget {
+  const GameCard({
+    required this.card,
+    required this.tokens,
+    this.trump,
+    this.small = false,
+    this.highlightColorOverride,
+    this.highlightGlowEnabled = true,
+    this.highlightedStrokeWidthOverride,
+    this.highlightedBorderRadiusOverride,
+    this.sizeOverride,
+    super.key,
+  });
+
+  final TableCard card;
+  final DesignTokens tokens;
+  final String? trump;
+  final bool small;
+  final Color? highlightColorOverride;
+  final bool highlightGlowEnabled;
+  final double? highlightedStrokeWidthOverride;
+  final double? highlightedBorderRadiusOverride;
+  final TokenCardSize? sizeOverride;
+
+  @override
+  Widget build(BuildContext context) {
+    final size =
+        sizeOverride ?? (small ? tokens.card.small : tokens.card.large);
+    final highlightColor = card.highlighted
+        ? highlightColorOverride ??
+              cardHighlightColor(card: card, trump: trump, tokens: tokens)
+        : null;
+    final highlightGlow = highlightGlowEnabled ? highlightColor : null;
+    final highlightBorder = card.selected
+        ? tokens.colors.green
+        : card.highlighted
+        ? highlightColor
+        : null;
+    final highlightBorderWidth = card.selected
+        ? tokens.stroke.active
+        : card.highlighted
+        ? highlightedStrokeWidthOverride ?? tokens.stroke.active
+        : 0.0;
+    return Container(
+      width: size.width,
+      height: size.height,
+      decoration: BoxDecoration(
+        color: tokens.colors.panel,
+        borderRadius: BorderRadius.circular(cardViewCornerRadius),
+        boxShadow: highlightGlow == null
+            ? null
+            : [
+                BoxShadow(
+                  color: highlightGlow.withValues(
+                    alpha: cardHighlightShadowOpacity,
+                  ),
+                  blurRadius: cardHighlightShadowRadius,
+                ),
+              ],
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(cardViewCornerRadius),
+              child: Image.asset(
+                cardTemplateAssetPath(dark: true),
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.none,
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.all(size.faceInset),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: CardCenterFace(
+                    card: card,
+                    size: size,
+                    tokens: tokens,
+                    trump: trump,
+                  ),
+                ),
+                Positioned(
+                  left: size.width * 0.03,
+                  top: size.height * 0.03,
+                  child: CardCornerIndex(
+                    card: card,
+                    size: size,
+                    tokens: tokens,
+                    placement: CardCornerPlacement.top,
+                    trump: trump,
+                  ),
+                ),
+                Positioned(
+                  right: size.width * 0.02,
+                  bottom: -(size.height * 0.03),
+                  child: CardCornerIndex(
+                    card: card,
+                    size: size,
+                    tokens: tokens,
+                    placement: CardCornerPlacement.bottom,
+                    trump: trump,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(cardViewCornerRadius),
+                  border: Border.all(
+                    color: tokens.colors.black.withValues(
+                      alpha: tokens.colors.cardStrokeOpacity,
+                    ),
+                    width: cardViewStrokeWidth,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (highlightBorder != null)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(
+                      highlightedBorderRadiusOverride ?? cardViewCornerRadius,
+                    ),
+                    border: Border.all(
+                      color: highlightBorder,
+                      width: highlightBorderWidth,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+enum CardCornerPlacement { top, bottom }
+
+class CardCornerIndex extends StatelessWidget {
+  const CardCornerIndex({
+    required this.card,
+    required this.size,
+    required this.tokens,
+    required this.placement,
+    this.trump,
+    super.key,
+  });
+
+  final TableCard card;
+  final TokenCardSize size;
+  final DesignTokens tokens;
+  final CardCornerPlacement placement;
+  final String? trump;
+
+  @override
+  Widget build(BuildContext context) {
+    final top = placement == CardCornerPlacement.top;
+    final spacing = top
+        ? size.topCornerRankSuitSpacing
+        : size.bottomCornerRankSuitSpacing;
+    final frameHeight = size.cornerHeight + size.cornerSuitSize + 2;
+    final contentHeight = size.cornerHeight + size.cornerSuitSize + spacing;
+    final bottomContentTop = frameHeight - contentHeight;
+    final rank = SizedBox(
+      width: size.cornerWidth,
+      height: size.cornerHeight,
+      child: Align(
+        alignment: top ? Alignment.centerLeft : Alignment.centerRight,
+        child: PixelText(
+          card.rank,
+          size: pixelTextSizeForCardRank(size),
+          variant: PixelTextVariant.heavy,
+          color: card.suit == trump ? tokens.colors.red : tokens.colors.cream,
+          textAlign: top ? TextAlign.start : TextAlign.end,
+        ),
+      ),
+    );
+    final suit = Transform.translate(
+      offset: Offset(
+        top ? size.topCornerSuitXOffset : size.bottomCornerSuitXOffset,
+        0,
+      ),
+      child: SuitMark(
+        suit: card.suit,
+        tokens: tokens,
+        size: size.cornerSuitSize,
+      ),
+    );
+
+    return SizedBox(
+      width: size.cornerWidth,
+      height: frameHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: top
+            ? [
+                Positioned(left: 0, top: 0, child: rank),
+                Positioned(
+                  left: 0,
+                  top: size.cornerHeight + spacing,
+                  child: SizedBox(
+                    width: size.cornerSuitSize,
+                    height: size.cornerSuitSize,
+                    child: suit,
+                  ),
+                ),
+              ]
+            : [
+                Positioned(
+                  right: 0,
+                  top: bottomContentTop,
+                  child: SizedBox(
+                    width: size.cornerSuitSize,
+                    height: size.cornerSuitSize,
+                    child: suit,
+                  ),
+                ),
+                Positioned(
+                  right: 0,
+                  top: bottomContentTop + size.cornerSuitSize + spacing,
+                  child: rank,
+                ),
+              ],
+      ),
+    );
+  }
+}
+
+class CardCenterFace extends StatelessWidget {
+  const CardCenterFace({
+    required this.card,
+    required this.size,
+    required this.tokens,
+    this.trump,
+    super.key,
+  });
+
+  final TableCard card;
+  final TokenCardSize size;
+  final DesignTokens tokens;
+  final String? trump;
+
+  @override
+  Widget build(BuildContext context) {
+    if (size.width <= tokens.card.small.width + 0.1) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          spacing: 2,
+          children: [
+            SuitMark(suit: card.suit, tokens: tokens, size: 14),
+            PixelText(
+              card.rank,
+              size: PixelTextSize.caption2,
+              variant: PixelTextVariant.heavy,
+              color: card.suit == trump
+                  ? tokens.colors.red
+                  : tokens.colors.cream,
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (card.value >= 11) {
+      return Center(
+        child: SizedBox(
+          width: faceArtWidth(size),
+          height: faceArtWidth(size) * 1.5,
+          child: Image.asset(
+            faceAssetPath(card),
+            fit: BoxFit.cover,
+            filterQuality: FilterQuality.none,
+            errorBuilder: (_, _, _) => Image.asset(
+              genericFaceAssetPath(card),
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.none,
+              errorBuilder: (_, _, _) => SuitMark(
+                suit: card.suit,
+                tokens: tokens,
+                size: size.width * 0.34,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: size.width * 0.16,
+        vertical: size.height * 0.02,
+      ),
+      child: PipPattern(card: card, size: size, tokens: tokens),
+    );
+  }
+}
+
+class PipPattern extends StatelessWidget {
+  const PipPattern({
+    required this.card,
+    required this.size,
+    required this.tokens,
+    super.key,
+  });
+
+  final TableCard card;
+  final TokenCardSize size;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final positions = pipPositions(card.value);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Stack(
+          children: [
+            for (final point in positions)
+              Positioned(
+                left: constraints.maxWidth * point.dx - size.pipSize / 2,
+                top: constraints.maxHeight * point.dy - size.pipSize / 2,
+                child: SuitMark(
+                  suit: card.suit,
+                  tokens: tokens,
+                  size: size.pipSize,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class MiniRewardCard extends StatelessWidget {
+  const MiniRewardCard({
+    required this.card,
+    required this.claimed,
+    required this.height,
+    required this.tokens,
+    super.key,
+  });
+
+  final TableCard card;
+  final bool claimed;
+  final double height;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: height * 24 / 34,
+      height: height,
+      child: FittedBox(
+        fit: BoxFit.contain,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: tokens.colors.cardFill,
+            borderRadius: BorderRadius.circular(tokens.radius.xs),
+            border: Border.all(
+              color: claimed
+                  ? tokens.colors.green
+                  : tokens.colors.black.withValues(
+                      alpha: tokens.colors.cardStrokeOpacity,
+                    ),
+              width: claimed ? 2 : 1,
+            ),
+          ),
+          child: SizedBox(
+            width: 24,
+            height: 34,
+            child: Stack(
+              alignment: Alignment.topCenter,
+              children: [
+                Positioned(
+                  top: miniRewardRankTop,
+                  child: SizedBox(
+                    width: 24,
+                    child: Center(
+                      child: PixelText(
+                        card.rank,
+                        size: PixelTextSize.caption,
+                        variant: PixelTextVariant.heavy,
+                        color: tokens.colors.cardInk,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: miniRewardSuitTop,
+                  child: SuitMark(suit: card.suit, tokens: tokens, size: 18),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const miniRewardRankTop = -1.0;
+const miniRewardSuitTop = 13.0;
+const topInfoEmptyRewardCheckSize = 17.0;
+const jobTileEmptyRewardCheckSize = 18.0;
+
+class EmptyRewardMarker extends StatelessWidget {
+  const EmptyRewardMarker({
+    required this.size,
+    required this.tokens,
+    this.checkSize = jobTileEmptyRewardCheckSize,
+    super.key,
+  });
+
+  final double size;
+  final DesignTokens tokens;
+  final double checkSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size * 24 / 34,
+      height: size,
+      child: FittedBox(
+        fit: BoxFit.contain,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(tokens.radius.xs),
+            border: Border.all(
+              color: tokens.colors.green.withValues(alpha: 0.7),
+            ),
+          ),
+          child: SizedBox(
+            width: 24,
+            height: 34,
+            child: Center(
+              child: Image.asset(
+                'ios_resources/Icons/icon-check.png',
+                width: checkSize,
+                height: checkSize,
+                filterQuality: FilterQuality.none,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ProgressBar extends StatelessWidget {
+  const ProgressBar({
+    required this.value,
+    required this.complete,
+    required this.tokens,
+    super.key,
+  });
+
+  final double value;
+  final bool complete;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 8,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final clampedValue = clampDouble(value, 0, 1);
+          final fillWidth = clampDouble(
+            constraints.maxWidth * clampedValue / 2,
+            4.0,
+            constraints.maxWidth,
+          );
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              color: tokens.colors.black,
+              borderRadius: BorderRadius.circular(tokens.radius.xs),
+              border: Border.all(
+                color: tokens.colors.steel.withValues(alpha: 0.8),
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(tokens.radius.xs),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: SizedBox(
+                  width: fillWidth,
+                  height: double.infinity,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: complete
+                            ? [tokens.colors.green, tokens.colors.gold]
+                            : [
+                                const Color.fromRGBO(138, 105, 20, 1),
+                                tokens.colors.gold,
+                              ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class MiniCard extends StatelessWidget {
+  const MiniCard({
+    required this.card,
+    required this.tokens,
+    this.emptySuit,
+    super.key,
+  });
+
+  final TableCard? card;
+  final DesignTokens tokens;
+  final String? emptySuit;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleCard = card;
+    if (visibleCard != null) {
+      return GameCard(
+        card: visibleCard,
+        tokens: tokens,
+        sizeOverride: tokens.card.small,
+      );
+    }
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage(cardTemplateAssetPath(dark: true)),
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.none,
+        ),
+        borderRadius: BorderRadius.circular(cardViewCornerRadius),
+        border: Border.all(color: tokens.colors.green.withValues(alpha: 0.7)),
+      ),
+      child: SizedBox(
+        width: tokens.card.small.width,
+        height: tokens.card.small.height,
+        child: Center(
+          child: SuitMark(
+            suit: emptySuit ?? 'wheat',
+            tokens: tokens,
+            size: tokens.card.small.cornerSuitSize * 2,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class SuitDot extends StatelessWidget {
+  const SuitDot({
+    required this.suit,
+    required this.tokens,
+    this.size = 12,
+    super.key,
+  });
+
+  final String suit;
+  final DesignTokens tokens;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: suitColor(tokens, suit),
+        shape: BoxShape.circle,
+      ),
+    );
+  }
+}
+
+class SuitMark extends StatelessWidget {
+  const SuitMark({
+    required this.suit,
+    required this.tokens,
+    required this.size,
+    super.key,
+  });
+
+  final String suit;
+  final DesignTokens tokens;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final shadowColor = suitMarkDisplayColor(
+      suit,
+      tokens,
+    ).withValues(alpha: size > suitMarkShadowSizeThreshold ? 0.34 : 0);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: shadowColor,
+            blurRadius: size > suitMarkShadowSizeThreshold ? 3 : 0,
+          ),
+        ],
+      ),
+      child: Image.asset(
+        'ios_resources/Icons/icon-$suit.png',
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.none,
+        errorBuilder: (_, _, _) =>
+            SuitDot(suit: suit, tokens: tokens, size: size),
+      ),
+    );
+  }
+}
+
+const suitMarkShadowSizeThreshold = 17.0;
+
+class ActionPill extends StatelessWidget {
+  const ActionPill({
+    required this.action,
+    required this.tableYear,
+    required this.tokens,
+    required this.prominent,
+    this.scale = 1,
+    this.onPressed,
+    super.key,
+  });
+
+  final LegalAction action;
+  final int tableYear;
+  final DesignTokens tokens;
+  final bool prominent;
+  final double scale;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onPressed,
+      child: Container(
+        width:
+            (prominent
+                ? handTrayProminentActionWidth
+                : handTraySecondaryActionWidth) *
+            scale,
+        height:
+            (prominent
+                ? handTrayProminentActionHeight
+                : handTraySecondaryActionHeight) *
+            scale,
+        padding: EdgeInsets.only(
+          left: (prominent ? 20 : 16) * scale,
+          right: (prominent ? 20 : 16) * scale,
+          top: (prominent ? 8 : 7) * scale,
+          bottom: (prominent ? 6 : 5) * scale,
+        ),
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage(
+              prominent
+                  ? 'ios_resources/ui-button-primary.png'
+                  : 'ios_resources/ui-button-secondary.png',
+            ),
+            fit: BoxFit.fill,
+            filterQuality: FilterQuality.none,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: tokens.colors.black.withValues(
+                alpha: prominent ? 0.28 : 0.18,
+              ),
+              blurRadius: (prominent ? 5 : 3) * scale,
+              offset: Offset(0, 2 * scale),
+            ),
+          ],
+        ),
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: HandTrayActionPillLabel(
+              lowerBarActionLabel(action, tableYear: tableYear).toUpperCase(),
+              prominent: prominent,
+              tokens: tokens,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class HandTrayActionPillLabel extends StatelessWidget {
+  const HandTrayActionPillLabel(
+    this.label, {
+    required this.prominent,
+    required this.tokens,
+    super.key,
+  });
+
+  final String label;
+  final bool prominent;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label.toUpperCase(),
+      maxLines: 1,
+      overflow: TextOverflow.clip,
+      style: kolkhozFontStyle.copyWith(
+        color: prominent ? tokens.colors.onAccent : tokens.colors.cream,
+        fontSize: handTrayActionFontSize,
+        fontWeight: FontWeight.w900,
+      ),
+    );
+  }
+}
