@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' show FontVariation, clampDouble, lerpDouble;
+import 'dart:ui' show clampDouble, lerpDouble;
 
 import 'package:flutter/material.dart';
 
+import 'animation_speed.dart';
+import 'app_settings.dart';
 import 'assignment_display.dart';
 import 'brigade_display.dart';
 import 'card_art_display.dart';
@@ -31,31 +34,95 @@ export 'board/board_chrome.dart';
 export 'board/board_metrics.dart';
 export 'board/board_rail.dart';
 
-const kolkhozFontStyle = TextStyle(
-  fontFamily: 'Handjet',
-  fontVariations: [FontVariation('ELGR', 1), FontVariation('ELSH', 0)],
-);
+const kolkhozFontStyle = TextStyle(fontFamily: 'Handjet');
+
+class ChromePixelLabel extends StatelessWidget {
+  const ChromePixelLabel(
+    this.text, {
+    required this.size,
+    required this.color,
+    this.variant = PixelTextVariant.heavy,
+    this.textAlign = TextAlign.start,
+    this.maxLines = 1,
+    this.softWrap = false,
+    this.uppercase = true,
+    super.key,
+  });
+
+  final String text;
+  final PixelTextSize size;
+  final PixelTextVariant variant;
+  final Color color;
+  final TextAlign textAlign;
+  final int? maxLines;
+  final bool softWrap;
+  final bool uppercase;
+
+  @override
+  Widget build(BuildContext context) {
+    return PixelText(
+      uppercase ? text.toUpperCase() : text,
+      size: size,
+      variant: variant,
+      color: color,
+      textAlign: textAlign,
+      maxLines: maxLines,
+      overflow: TextOverflow.clip,
+      softWrap: softWrap,
+    );
+  }
+}
+
+BoxDecoration boardBackdropDecoration(DesignTokens tokens) {
+  return BoxDecoration(color: tokens.colors.table);
+}
+
+BoxDecoration playAreaBackdropDecoration(DesignTokens tokens) {
+  return BoxDecoration(
+    color: tokens.colors.table,
+    borderRadius: BorderRadius.circular(playAreaPanelCornerRadius),
+  );
+}
 
 class KolkhozBoard extends StatelessWidget {
   const KolkhozBoard({
     required this.model,
     required this.tokens,
+    required this.language,
+    required this.appearance,
     this.onAction,
     this.onPanelSelected,
+    this.onLanguageToggle,
+    this.onAppearanceToggle,
     this.onSwapHandCardTap,
     this.onPlotCardTap,
     this.onAssignmentCardTap,
+    this.onHotSeatReady,
+    this.onNewGame,
+    this.onReturnToLobby,
+    this.onTutorial,
+    this.animationSpeed = defaultGameAnimationSpeed,
+    this.onAnimationSpeedChanged,
     super.key,
   });
 
   final TableViewModel model;
   final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final KolkhozAppearance appearance;
   final ValueChanged<LegalAction>? onAction;
   final ValueChanged<String>? onPanelSelected;
+  final VoidCallback? onLanguageToggle;
+  final VoidCallback? onAppearanceToggle;
   final ValueChanged<String>? onSwapHandCardTap;
   final void Function(String cardID, String zone)? onPlotCardTap;
   final ValueChanged<String>? onAssignmentCardTap;
-
+  final VoidCallback? onHotSeatReady;
+  final VoidCallback? onNewGame;
+  final VoidCallback? onReturnToLobby;
+  final VoidCallback? onTutorial;
+  final GameAnimationSpeed animationSpeed;
+  final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
   @override
   Widget build(BuildContext context) {
     return DefaultTextStyle.merge(
@@ -75,82 +142,98 @@ class KolkhozBoard extends StatelessWidget {
           final safePadding = MediaQuery.paddingOf(context);
 
           return DecoratedBox(
-            decoration: BoxDecoration(
-              color: tokens.colors.table,
-              gradient: RadialGradient(
-                colors: [
-                  tokens.colors.gold.withValues(alpha: 0.16),
-                  tokens.colors.table.withValues(alpha: 0),
-                ],
-                radius: 0.72,
-              ),
-            ),
-            child: Stack(
-              clipBehavior: Clip.none,
-              fit: StackFit.expand,
-              children: [
-                if (safePadding.left > 0)
-                  Positioned(
-                    left: boardLeftGutterOffset(safePadding.left),
-                    top: 0,
-                    bottom: 0,
-                    child: BoardGutterInfill(
-                      side: BoardGutterInfillSide.left,
-                      width: boardLeftGutterWidth(safePadding.left),
-                    ),
-                  ),
-                if (safePadding.right > 0)
-                  Positioned(
-                    right: boardRightGutterOffset(safePadding.right),
-                    top: 0,
-                    bottom: 0,
-                    child: BoardGutterInfill(
-                      side: BoardGutterInfillSide.right,
-                      width: boardRightGutterWidth(safePadding.right),
-                    ),
-                  ),
-                Padding(
-                  padding: EdgeInsets.all(margin),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SizedBox(
-                        width: railWidth,
-                        child: BoardRail(
-                          activePanel: model.panels.active,
-                          actionPanel: actionPanelFor(model.table.phase),
-                          tokens: tokens,
-                          metrics: metrics,
-                          onPanelSelected: onPanelSelected,
-                        ),
+            decoration: boardBackdropDecoration(tokens),
+            child: CardMotionLayer(
+              model: model,
+              tokens: tokens,
+              speed: animationSpeed,
+              child: Stack(
+                clipBehavior: Clip.none,
+                fit: StackFit.expand,
+                children: [
+                  if (safePadding.left > 0)
+                    Positioned(
+                      left: boardLeftGutterOffset(safePadding.left),
+                      top: 0,
+                      bottom: 0,
+                      child: BoardGutterInfill(
+                        side: BoardGutterInfillSide.left,
+                        width: boardLeftGutterWidth(safePadding.left),
+                        light: appearance == KolkhozAppearance.light,
                       ),
-                      BoardSeparator(
+                    ),
+                  if (safePadding.right > 0)
+                    Positioned(
+                      right: boardRightGutterOffset(safePadding.right),
+                      top: 0,
+                      bottom: 0,
+                      child: BoardGutterInfill(
+                        side: BoardGutterInfillSide.right,
+                        width: boardRightGutterWidth(safePadding.right),
+                        light: appearance == KolkhozAppearance.light,
+                      ),
+                    ),
+                  Padding(
+                    padding: EdgeInsets.all(margin),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          width: railWidth,
+                          child: BoardRail(
+                            activePanel: model.panels.active,
+                            actionPanel: actionPanelFor(model.table.phase),
+                            tokens: tokens,
+                            metrics: metrics,
+                            language: language,
+                            appearance: appearance,
+                            onPanelSelected: onPanelSelected,
+                            onLanguageToggle: onLanguageToggle,
+                            onAppearanceToggle: onAppearanceToggle,
+                          ),
+                        ),
+                        BoardSeparator(
+                          tokens: tokens,
+                          vertical: true,
+                          thickness: separatorWidth,
+                        ),
+                        SizedBox(
+                          width: gameWidth,
+                          height: contentHeight,
+                          child: BoardPlayArea(
+                            model: model,
+                            tokens: tokens,
+                            metrics: metrics,
+                            onAction: onAction,
+                            onPanelSelected: onPanelSelected,
+                            onSwapHandCardTap: onSwapHandCardTap,
+                            onPlotCardTap: onPlotCardTap,
+                            onAssignmentCardTap: onAssignmentCardTap,
+                            onNewGame: onNewGame,
+                            onReturnToLobby: onReturnToLobby,
+                            onTutorial: onTutorial,
+                            animationSpeed: animationSpeed,
+                            onAnimationSpeedChanged: onAnimationSpeedChanged,
+                            language: language,
+                            appearance: appearance,
+                            onLanguageToggle: onLanguageToggle,
+                            onAppearanceToggle: onAppearanceToggle,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (model.viewer.privacyMode == viewerPrivacyHotSeatHidden)
+                    Positioned.fill(
+                      child: HotSeatPrivacyOverlay(
+                        model: model,
                         tokens: tokens,
-                        vertical: true,
-                        thickness: separatorWidth,
+                        language: language,
+                        onReady: onHotSeatReady,
                       ),
-                      SizedBox(
-                        width: gameWidth,
-                        height: contentHeight,
-                        child: BoardPlayArea(
-                          model: model,
-                          tokens: tokens,
-                          metrics: metrics,
-                          onAction: onAction,
-                          onPanelSelected: onPanelSelected,
-                          onSwapHandCardTap: onSwapHandCardTap,
-                          onPlotCardTap: onPlotCardTap,
-                          onAssignmentCardTap: onAssignmentCardTap,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (model.viewer.privacyMode == viewerPrivacyHotSeatHidden)
-                  Positioned.fill(
-                    child: HotSeatPrivacyOverlay(model: model, tokens: tokens),
-                  ),
-              ],
+                    ),
+                ],
+              ),
             ),
           );
         },
@@ -159,15 +242,415 @@ class KolkhozBoard extends StatelessWidget {
   }
 }
 
-class HotSeatPrivacyOverlay extends StatelessWidget {
-  const HotSeatPrivacyOverlay({
+class CardMotionLayer extends StatefulWidget {
+  const CardMotionLayer({
     required this.model,
     required this.tokens,
+    required this.speed,
+    required this.child,
     super.key,
   });
 
   final TableViewModel model;
   final DesignTokens tokens;
+  final GameAnimationSpeed speed;
+  final Widget child;
+
+  @override
+  State<CardMotionLayer> createState() => _CardMotionLayerState();
+}
+
+class _CardMotionLayerState extends State<CardMotionLayer> {
+  final GlobalKey _rootKey = GlobalKey();
+  final CardMotionController _controller = CardMotionController();
+  final List<CardFlight> _flights = [];
+  int _nextFlightID = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _afterCardLayout(() {
+      _controller.commitFrame();
+    });
+  }
+
+  @override
+  void didUpdateWidget(CardMotionLayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.model == widget.model) {
+      return;
+    }
+    final previousZones = cardMotionZones(oldWidget.model);
+    final nextZones = cardMotionZones(widget.model);
+    final previousCards = cardMotionCards(oldWidget.model);
+    final nextCards = cardMotionCards(widget.model);
+    _afterCardLayout(() {
+      _startFlights(previousZones, nextZones, previousCards, nextCards);
+      _controller.commitFrame();
+    });
+  }
+
+  void _afterCardLayout(VoidCallback action) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      scheduleMicrotask(() {
+        if (mounted) {
+          action();
+        }
+      });
+    });
+  }
+
+  void _startFlights(
+    Map<String, String> previousZones,
+    Map<String, String> nextZones,
+    Map<String, TableCard> previousCards,
+    Map<String, TableCard> nextCards,
+  ) {
+    if (widget.speed.cardFlightDuration == Duration.zero) {
+      return;
+    }
+    final previousRects = _controller.previousRects;
+    final currentRects = _controller.currentRects;
+    final newFlights = <CardFlight>[];
+    for (final entry in nextZones.entries) {
+      final cardID = entry.key;
+      final previousZone = previousZones[cardID];
+      if (previousZone == null || previousZone == entry.value) {
+        continue;
+      }
+      final from = previousRects[cardID];
+      final to = currentRects[cardID];
+      if (from == null || to == null) {
+        continue;
+      }
+      if ((from.center - to.center).distance < cardMotionMinimumDistance) {
+        continue;
+      }
+      final card = nextCards[cardID] ?? previousCards[cardID];
+      if (card == null) {
+        continue;
+      }
+      newFlights.add(
+        CardFlight(id: _nextFlightID++, card: card, from: from, to: to),
+      );
+    }
+    if (newFlights.isEmpty) {
+      return;
+    }
+    setState(() {
+      _flights.addAll(newFlights);
+    });
+  }
+
+  void _removeFlight(int id) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _flights.removeWhere((flight) => flight.id == id);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final frame = _controller.beginFrame();
+    final activeCardIDs = {for (final flight in _flights) flight.card.id};
+    return CardMotionScope(
+      controller: _controller,
+      frame: frame,
+      rootKey: _rootKey,
+      activeCardIDs: activeCardIDs,
+      child: Stack(
+        key: _rootKey,
+        fit: StackFit.expand,
+        clipBehavior: Clip.none,
+        children: [
+          widget.child,
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  for (final flight in _flights)
+                    FlyingCard(
+                      key: ValueKey(flight.id),
+                      flight: flight,
+                      tokens: widget.tokens,
+                      trump: widget.model.table.trump,
+                      duration: widget.speed.cardFlightDuration,
+                      onDone: () => _removeFlight(flight.id),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CardMotionScope extends InheritedWidget {
+  const CardMotionScope({
+    required this.controller,
+    required this.frame,
+    required this.rootKey,
+    required this.activeCardIDs,
+    required super.child,
+    super.key,
+  });
+
+  final CardMotionController controller;
+  final int frame;
+  final GlobalKey rootKey;
+  final Set<String> activeCardIDs;
+
+  static CardMotionScope? maybeOf(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<CardMotionScope>();
+  }
+
+  @override
+  bool updateShouldNotify(CardMotionScope oldWidget) {
+    return oldWidget.frame != frame ||
+        oldWidget.activeCardIDs.length != activeCardIDs.length ||
+        !oldWidget.activeCardIDs.containsAll(activeCardIDs);
+  }
+}
+
+class CardMotionController {
+  int _frame = 0;
+  Map<String, Rect> _previousRects = {};
+  final Map<String, CardMotionRect> _currentRects = {};
+
+  Map<String, Rect> get previousRects => _previousRects;
+
+  Map<String, Rect> get currentRects {
+    return {
+      for (final entry in _currentRects.entries)
+        if (entry.value.frame == _frame) entry.key: entry.value.rect,
+    };
+  }
+
+  int beginFrame() {
+    _frame += 1;
+    return _frame;
+  }
+
+  void record({
+    required int frame,
+    required String cardID,
+    required Rect rect,
+  }) {
+    if (frame == _frame) {
+      _currentRects[cardID] = CardMotionRect(frame: frame, rect: rect);
+    }
+  }
+
+  void commitFrame() {
+    _previousRects = currentRects;
+  }
+}
+
+class CardMotionRect {
+  const CardMotionRect({required this.frame, required this.rect});
+
+  final int frame;
+  final Rect rect;
+}
+
+class MotionTrackedCard extends StatefulWidget {
+  const MotionTrackedCard({required this.card, required this.child, super.key});
+
+  final TableCard card;
+  final Widget child;
+
+  @override
+  State<MotionTrackedCard> createState() => _MotionTrackedCardState();
+}
+
+class _MotionTrackedCardState extends State<MotionTrackedCard> {
+  final GlobalKey _key = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = CardMotionScope.maybeOf(context);
+    if (scope != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        final box = _key.currentContext?.findRenderObject() as RenderBox?;
+        final root =
+            scope.rootKey.currentContext?.findRenderObject() as RenderBox?;
+        if (box == null || root == null || !box.attached || !root.attached) {
+          return;
+        }
+        final topLeft = box.localToGlobal(Offset.zero, ancestor: root);
+        scope.controller.record(
+          frame: scope.frame,
+          cardID: widget.card.id,
+          rect: topLeft & box.size,
+        );
+      });
+    }
+    final hidden = scope?.activeCardIDs.contains(widget.card.id) ?? false;
+    return Opacity(key: _key, opacity: hidden ? 0 : 1, child: widget.child);
+  }
+}
+
+class CardFlight {
+  const CardFlight({
+    required this.id,
+    required this.card,
+    required this.from,
+    required this.to,
+  });
+
+  final int id;
+  final TableCard card;
+  final Rect from;
+  final Rect to;
+}
+
+class FlyingCard extends StatelessWidget {
+  const FlyingCard({
+    required this.flight,
+    required this.tokens,
+    required this.duration,
+    required this.onDone,
+    this.trump,
+    super.key,
+  });
+
+  final CardFlight flight;
+  final DesignTokens tokens;
+  final Duration duration;
+  final VoidCallback onDone;
+  final String? trump;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: duration,
+      curve: Curves.easeInOutCubic,
+      onEnd: onDone,
+      builder: (context, value, child) {
+        final rect = Rect.lerp(flight.from, flight.to, value)!;
+        return Positioned.fromRect(
+          rect: rect,
+          child: Transform.scale(
+            scale: lerpDouble(1.04, 1, value)!,
+            child: child,
+          ),
+        );
+      },
+      child: FittedBox(
+        fit: BoxFit.fill,
+        child: GameCard(
+          card: flight.card,
+          tokens: tokens,
+          trump: trump,
+          sizeOverride: cardFlightRenderSize(flight.from, flight.to, tokens),
+          motionTracked: false,
+        ),
+      ),
+    );
+  }
+}
+
+TokenCardSize cardFlightRenderSize(Rect from, Rect to, DesignTokens tokens) {
+  final height = math.max(from.height, to.height);
+  if (height <= tokens.card.small.height + 8) {
+    return tokens.card.small;
+  }
+  if (height <= tokens.card.medium.height + 8) {
+    return tokens.card.medium;
+  }
+  return tokens.card.large;
+}
+
+Map<String, String> cardMotionZones(TableViewModel model) {
+  final zones = <String, String>{};
+  for (final seat in model.table.seats) {
+    for (final card in seat.hand) {
+      zones[card.id] = 'hand:${seat.id}';
+    }
+    for (final card in seat.plot.hidden) {
+      zones[card.id] = 'plot:${seat.id}:hidden';
+    }
+    for (final card in seat.plot.revealed) {
+      zones[card.id] = 'plot:${seat.id}:revealed';
+    }
+    for (final (stackIndex, stack) in seat.plot.stacks.indexed) {
+      for (final card in stack.revealed) {
+        zones[card.id] = 'plot:${seat.id}:stack:$stackIndex:revealed';
+      }
+    }
+  }
+  for (final play in model.table.trick.plays) {
+    zones[play.card.id] = 'trick:${play.seatID}';
+  }
+  for (final play in model.table.lastTrick.plays) {
+    zones[play.card.id] = 'trick:${play.seatID}';
+  }
+  for (final job in model.table.jobs) {
+    for (final card in job.assignedCards) {
+      zones[card.id] = 'job:${job.suit}';
+    }
+  }
+  for (final entry in model.table.exiledByYear.entries) {
+    for (final card in entry.value) {
+      zones[card.id] = 'exiled:${entry.key}';
+    }
+  }
+  return zones;
+}
+
+Map<String, TableCard> cardMotionCards(TableViewModel model) {
+  final cards = <String, TableCard>{};
+  void add(TableCard card) {
+    cards[card.id] = card;
+  }
+
+  for (final seat in model.table.seats) {
+    seat.hand.forEach(add);
+    seat.plot.hidden.forEach(add);
+    seat.plot.revealed.forEach(add);
+    for (final stack in seat.plot.stacks) {
+      stack.revealed.forEach(add);
+    }
+  }
+  for (final play in model.table.trick.plays) {
+    add(play.card);
+  }
+  for (final play in model.table.lastTrick.plays) {
+    add(play.card);
+  }
+  for (final job in model.table.jobs) {
+    job.assignedCards.forEach(add);
+  }
+  for (final cardsForYear in model.table.exiledByYear.values) {
+    cardsForYear.forEach(add);
+  }
+  return cards;
+}
+
+const cardMotionMinimumDistance = 8.0;
+
+class HotSeatPrivacyOverlay extends StatelessWidget {
+  const HotSeatPrivacyOverlay({
+    required this.model,
+    required this.tokens,
+    required this.language,
+    this.onReady,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final VoidCallback? onReady;
 
   @override
   Widget build(BuildContext context) {
@@ -196,8 +679,14 @@ class HotSeatPrivacyOverlay extends StatelessWidget {
                     SizedBox(
                       height: hotSeatTitleRowHeight,
                       child: PanelTitleRow(
-                        title: 'Pass Device',
-                        subtitle: 'Seat ${player.id + 1} is up.',
+                        title: language.text(
+                          en: 'Pass Device',
+                          ru: 'Передайте устройство',
+                        ),
+                        subtitle: language.text(
+                          en: 'Seat ${player.id + 1} is up.',
+                          ru: 'Ходит место ${player.id + 1}.',
+                        ),
                         iconPath: 'ios_resources/Icons/icon-pass-device.png',
                         tokens: tokens,
                       ),
@@ -259,7 +748,10 @@ class HotSeatPrivacyOverlay extends StatelessWidget {
                           color: tokens.colors.gold,
                         ),
                         Text(
-                          hotSeatPhaseLine(model).toUpperCase(),
+                          hotSeatPhaseLine(
+                            model,
+                            language: language,
+                          ).toUpperCase(),
                           maxLines: 1,
                           overflow: TextOverflow.clip,
                           style: kolkhozFontStyle.copyWith(
@@ -272,7 +764,11 @@ class HotSeatPrivacyOverlay extends StatelessWidget {
                     ),
                     SizedBox(
                       width: hotSeatReadyButtonMaxWidth,
-                      child: HotSeatReadyButton(tokens: tokens),
+                      child: HotSeatReadyButton(
+                        tokens: tokens,
+                        label: language.text(en: 'Ready', ru: 'Готов'),
+                        onPressed: onReady,
+                      ),
                     ),
                   ],
                 ),
@@ -286,41 +782,52 @@ class HotSeatPrivacyOverlay extends StatelessWidget {
 }
 
 class HotSeatReadyButton extends StatelessWidget {
-  const HotSeatReadyButton({required this.tokens, super.key});
+  const HotSeatReadyButton({
+    required this.tokens,
+    required this.label,
+    this.onPressed,
+    super.key,
+  });
 
   final DesignTokens tokens;
+  final String label;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      key: const Key('hot-seat-ready-button'),
-      height: commandButtonProminentMinHeight,
-      padding: const EdgeInsets.only(
-        left: commandButtonProminentHorizontalPadding,
-        right: commandButtonProminentHorizontalPadding,
-        top: commandButtonProminentTopPadding,
-        bottom: commandButtonProminentBottomPadding,
-      ),
-      decoration: BoxDecoration(
-        image: const DecorationImage(
-          image: AssetImage('ios_resources/ui-button-primary.png'),
-          fit: BoxFit.fill,
-          filterQuality: FilterQuality.none,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onPressed,
+      child: Container(
+        key: const Key('hot-seat-ready-button'),
+        height: commandButtonProminentMinHeight,
+        padding: const EdgeInsets.only(
+          left: commandButtonProminentHorizontalPadding,
+          right: commandButtonProminentHorizontalPadding,
+          top: commandButtonProminentTopPadding,
+          bottom: commandButtonProminentBottomPadding,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: tokens.colors.black.withValues(
-              alpha: commandButtonProminentOuterShadowOpacity,
-            ),
-            blurRadius: commandButtonProminentOuterShadowRadius,
-            offset: const Offset(0, commandButtonProminentOuterShadowYOffset),
+        decoration: BoxDecoration(
+          image: const DecorationImage(
+            image: AssetImage('ios_resources/ui-button-primary.png'),
+            fit: BoxFit.fill,
+            filterQuality: FilterQuality.none,
           ),
-        ],
-      ),
-      child: Center(
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: CommandSurfaceButtonLabel('READY', tokens: tokens),
+          boxShadow: [
+            BoxShadow(
+              color: tokens.colors.black.withValues(
+                alpha: commandButtonProminentOuterShadowOpacity,
+              ),
+              blurRadius: commandButtonProminentOuterShadowRadius,
+              offset: const Offset(0, commandButtonProminentOuterShadowYOffset),
+            ),
+          ],
+        ),
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: CommandSurfaceButtonLabel(label, tokens: tokens),
+          ),
         ),
       ),
     );
@@ -339,6 +846,15 @@ class BoardPlayArea extends StatelessWidget {
     this.onSwapHandCardTap,
     this.onPlotCardTap,
     this.onAssignmentCardTap,
+    this.onNewGame,
+    this.onReturnToLobby,
+    this.onTutorial,
+    this.animationSpeed = defaultGameAnimationSpeed,
+    this.onAnimationSpeedChanged,
+    required this.language,
+    required this.appearance,
+    this.onLanguageToggle,
+    this.onAppearanceToggle,
     super.key,
   });
 
@@ -350,6 +866,15 @@ class BoardPlayArea extends StatelessWidget {
   final ValueChanged<String>? onSwapHandCardTap;
   final void Function(String cardID, String zone)? onPlotCardTap;
   final ValueChanged<String>? onAssignmentCardTap;
+  final VoidCallback? onNewGame;
+  final VoidCallback? onReturnToLobby;
+  final VoidCallback? onTutorial;
+  final GameAnimationSpeed animationSpeed;
+  final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
+  final KolkhozLanguage language;
+  final KolkhozAppearance appearance;
+  final VoidCallback? onLanguageToggle;
+  final VoidCallback? onAppearanceToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -365,21 +890,7 @@ class BoardPlayArea extends StatelessWidget {
               children: [
                 Positioned.fill(
                   child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: tokens.colors.table,
-                      gradient: LinearGradient(
-                        colors: [
-                          tokens.colors.gold.withValues(alpha: 0.04),
-                          tokens.colors.table,
-                          tokens.colors.red.withValues(alpha: 0.08),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(
-                        playAreaPanelCornerRadius,
-                      ),
-                    ),
+                    decoration: playAreaBackdropDecoration(tokens),
                   ),
                 ),
                 Positioned.fill(
@@ -392,6 +903,15 @@ class BoardPlayArea extends StatelessWidget {
                       tokens: tokens,
                       onAction: onAction,
                       onPlotCardTap: onPlotCardTap,
+                      onNewGame: onNewGame,
+                      onReturnToLobby: onReturnToLobby,
+                      onTutorial: onTutorial,
+                      animationSpeed: animationSpeed,
+                      onAnimationSpeedChanged: onAnimationSpeedChanged,
+                      language: language,
+                      appearance: appearance,
+                      onLanguageToggle: onLanguageToggle,
+                      onAppearanceToggle: onAppearanceToggle,
                     ),
                   ),
                 ),
@@ -426,6 +946,7 @@ class BoardPlayArea extends StatelessWidget {
                 model: model,
                 tokens: tokens,
                 metrics: metrics,
+                language: language,
                 onAction: onAction,
                 onSwapHandCardTap: onSwapHandCardTap,
                 onAssignmentCardTap: onAssignmentCardTap,
@@ -784,6 +1305,15 @@ class ActivePanelView extends StatelessWidget {
     required this.tokens,
     this.onAction,
     this.onPlotCardTap,
+    this.onNewGame,
+    this.onReturnToLobby,
+    this.onTutorial,
+    this.animationSpeed = defaultGameAnimationSpeed,
+    this.onAnimationSpeedChanged,
+    required this.language,
+    required this.appearance,
+    this.onLanguageToggle,
+    this.onAppearanceToggle,
     super.key,
   });
 
@@ -791,24 +1321,57 @@ class ActivePanelView extends StatelessWidget {
   final DesignTokens tokens;
   final ValueChanged<LegalAction>? onAction;
   final void Function(String cardID, String zone)? onPlotCardTap;
+  final VoidCallback? onNewGame;
+  final VoidCallback? onReturnToLobby;
+  final VoidCallback? onTutorial;
+  final GameAnimationSpeed animationSpeed;
+  final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
+  final KolkhozLanguage language;
+  final KolkhozAppearance appearance;
+  final VoidCallback? onLanguageToggle;
+  final VoidCallback? onAppearanceToggle;
 
   @override
   Widget build(BuildContext context) {
     switch (model.panels.active) {
       case panelJobs:
-        return JobsPanel(model: model, tokens: tokens, onAction: onAction);
+        return JobsPanel(
+          model: model,
+          tokens: tokens,
+          language: language,
+          onAction: onAction,
+        );
       case panelPlot:
         return PlotPanel(
           model: model,
           tokens: tokens,
+          language: language,
           onPlotCardTap: onPlotCardTap,
         );
       case panelNorth:
-        return NorthPanel(model: model, tokens: tokens);
+        return NorthPanel(model: model, tokens: tokens, language: language);
       case panelOptions:
-        return OptionsPanel(model: model, tokens: tokens);
+        return OptionsPanel(
+          model: model,
+          tokens: tokens,
+          onNewGame: onNewGame,
+          onReturnToLobby: onReturnToLobby,
+          onTutorial: onTutorial,
+          animationSpeed: animationSpeed,
+          onAnimationSpeedChanged: onAnimationSpeedChanged,
+          language: language,
+          appearance: appearance,
+          onLanguageToggle: onLanguageToggle,
+          onAppearanceToggle: onAppearanceToggle,
+        );
       default:
-        return BrigadePanel(model: model, tokens: tokens, onAction: onAction);
+        return BrigadePanel(
+          model: model,
+          tokens: tokens,
+          language: language,
+          onAction: onAction,
+          onNewGame: onNewGame,
+        );
     }
   }
 }
@@ -1091,10 +1654,32 @@ class PanelTitleRow extends StatelessWidget {
 }
 
 class OptionsPanel extends StatelessWidget {
-  const OptionsPanel({required this.model, required this.tokens, super.key});
+  const OptionsPanel({
+    required this.model,
+    required this.tokens,
+    this.onNewGame,
+    this.onReturnToLobby,
+    this.onTutorial,
+    this.animationSpeed = defaultGameAnimationSpeed,
+    this.onAnimationSpeedChanged,
+    required this.language,
+    required this.appearance,
+    this.onLanguageToggle,
+    this.onAppearanceToggle,
+    super.key,
+  });
 
   final TableViewModel model;
   final DesignTokens tokens;
+  final VoidCallback? onNewGame;
+  final VoidCallback? onReturnToLobby;
+  final VoidCallback? onTutorial;
+  final GameAnimationSpeed animationSpeed;
+  final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
+  final KolkhozLanguage language;
+  final KolkhozAppearance appearance;
+  final VoidCallback? onLanguageToggle;
+  final VoidCallback? onAppearanceToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -1121,10 +1706,21 @@ class OptionsPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   spacing: sectionSpacing,
                   children: [
-                    OptionsMenuHeader(tokens: tokens),
-                    OptionsMenuActions(tokens: tokens),
+                    OptionsMenuHeader(tokens: tokens, language: language),
+                    OptionsMenuActions(
+                      tokens: tokens,
+                      onNewGame: onNewGame,
+                      onReturnToLobby: onReturnToLobby,
+                      onTutorial: onTutorial,
+                      animationSpeed: animationSpeed,
+                      onAnimationSpeedChanged: onAnimationSpeedChanged,
+                      language: language,
+                      appearance: appearance,
+                      onLanguageToggle: onLanguageToggle,
+                      onAppearanceToggle: onAppearanceToggle,
+                    ),
                     Divider(color: tokens.colors.gold.withValues(alpha: 0.35)),
-                    OptionsMenuRules(tokens: tokens),
+                    OptionsMenuRules(tokens: tokens, language: language),
                   ],
                 ),
               ),
@@ -1178,9 +1774,14 @@ class OptionsPanelFrame extends StatelessWidget {
 }
 
 class OptionsMenuHeader extends StatelessWidget {
-  const OptionsMenuHeader({required this.tokens, super.key});
+  const OptionsMenuHeader({
+    required this.tokens,
+    required this.language,
+    super.key,
+  });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
 
   @override
   Widget build(BuildContext context) {
@@ -1193,15 +1794,10 @@ class OptionsMenuHeader extends StatelessWidget {
           height: optionsMenuHeaderIconSize,
           filterQuality: FilterQuality.none,
         ),
-        Text(
-          'MENU',
-          maxLines: 1,
-          overflow: TextOverflow.clip,
-          style: kolkhozFontStyle.copyWith(
-            color: tokens.colors.gold,
-            fontSize: optionsMenuHeaderFontSize,
-            fontWeight: FontWeight.w900,
-          ),
+        ChromePixelLabel(
+          language.text(en: 'Menu', ru: 'Меню'),
+          size: PixelTextSize.title,
+          color: tokens.colors.gold,
         ),
       ],
     );
@@ -1209,9 +1805,30 @@ class OptionsMenuHeader extends StatelessWidget {
 }
 
 class OptionsMenuActions extends StatelessWidget {
-  const OptionsMenuActions({required this.tokens, super.key});
+  const OptionsMenuActions({
+    required this.tokens,
+    required this.language,
+    required this.appearance,
+    this.animationSpeed = defaultGameAnimationSpeed,
+    this.onNewGame,
+    this.onReturnToLobby,
+    this.onTutorial,
+    this.onAnimationSpeedChanged,
+    this.onLanguageToggle,
+    this.onAppearanceToggle,
+    super.key,
+  });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final KolkhozAppearance appearance;
+  final GameAnimationSpeed animationSpeed;
+  final VoidCallback? onNewGame;
+  final VoidCallback? onReturnToLobby;
+  final VoidCallback? onTutorial;
+  final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
+  final VoidCallback? onLanguageToggle;
+  final VoidCallback? onAppearanceToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -1219,15 +1836,11 @@ class OptionsMenuActions extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: optionsMenuActionsSpacing,
       children: [
-        Text(
-          'GAME CONTROLS',
-          maxLines: 1,
-          overflow: TextOverflow.clip,
-          style: kolkhozFontStyle.copyWith(
-            color: tokens.colors.smoke,
-            fontSize: optionsMenuSectionLabelFontSize,
-            fontWeight: FontWeight.w700,
-          ),
+        ChromePixelLabel(
+          language.text(en: 'Game controls', ru: 'Управление игрой'),
+          size: PixelTextSize.caption,
+          variant: PixelTextVariant.regular,
+          color: tokens.colors.smoke,
         ),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1235,27 +1848,30 @@ class OptionsMenuActions extends StatelessWidget {
           children: [
             Center(
               child: ActionSurfaceButton(
-                label: 'NEW GAME',
+                label: language.text(en: 'New game', ru: 'Новая игра'),
                 iconPath: null,
                 prominent: true,
                 tokens: tokens,
+                onPressed: onNewGame,
               ),
             ),
             Center(
               child: ActionSurfaceButton(
-                label: 'HOW TO PLAY',
+                label: language.text(en: 'How to play', ru: 'Как играть'),
                 iconPath: 'ios_resources/Icons/icon-tutorial.png',
                 prominent: false,
                 tokens: tokens,
+                onPressed: onTutorial,
               ),
             ),
             Center(
               child: ActionSurfaceButton(
-                label: 'MAIN MENU',
+                label: language.text(en: 'Main menu', ru: 'Главное меню'),
                 iconPath: 'ios_resources/Icons/icon-menu.png',
                 prominent: false,
                 mutedBorder: true,
                 tokens: tokens,
+                onPressed: onReturnToLobby,
               ),
             ),
             Center(
@@ -1264,19 +1880,34 @@ class OptionsMenuActions extends StatelessWidget {
                 spacing: optionsMenuChromeToggleSpacing,
                 children: [
                   OptionsChromeToggle(
-                    iconPath: 'ios_resources/Icons/icon-language-ru.png',
-                    label: 'Language',
+                    iconPath: 'ios_resources/Icons/${language.toggleIconAsset}',
+                    label: language.toggleTitle,
                     tokens: tokens,
+                    onPressed: onLanguageToggle,
                   ),
                   OptionsChromeToggle(
                     iconPath: 'ios_resources/Icons/icon-appearance.png',
-                    label: 'Appearance',
+                    label: appearance.toggleTitle(language),
                     tokens: tokens,
+                    onPressed: onAppearanceToggle,
                   ),
                 ],
               ),
             ),
-            Center(child: ReadabilitySurfaceButton(tokens: tokens)),
+            Center(
+              child: AnimationSpeedControl(
+                selected: animationSpeed,
+                tokens: tokens,
+                language: language,
+                onChanged: onAnimationSpeedChanged,
+              ),
+            ),
+            Center(
+              child: ReadabilitySurfaceButton(
+                tokens: tokens,
+                language: language,
+              ),
+            ),
           ],
         ),
       ],
@@ -1285,9 +1916,14 @@ class OptionsMenuActions extends StatelessWidget {
 }
 
 class OptionsMenuRules extends StatelessWidget {
-  const OptionsMenuRules({required this.tokens, super.key});
+  const OptionsMenuRules({
+    required this.tokens,
+    required this.language,
+    super.key,
+  });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
 
   @override
   Widget build(BuildContext context) {
@@ -1295,32 +1931,36 @@ class OptionsMenuRules extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: optionsMenuRulesSpacing,
       children: [
-        Text(
-          'RULES',
-          maxLines: 1,
-          overflow: TextOverflow.clip,
-          style: kolkhozFontStyle.copyWith(
-            color: tokens.colors.gold,
-            fontSize: optionsMenuRulesHeaderFontSize,
-            fontWeight: FontWeight.w900,
-          ),
+        ChromePixelLabel(
+          language.text(en: 'Rules', ru: 'Правила'),
+          size: PixelTextSize.headline,
+          color: tokens.colors.gold,
         ),
         MenuRuleRow(
           iconPath: 'ios_resources/Icons/icon-jobs.png',
-          title: 'Work',
-          body: 'Win tricks, then assign captured cards to matching jobs.',
+          title: language.text(en: 'Work', ru: 'Работы'),
+          body: language.text(
+            en: 'Win tricks, then assign captured cards to matching jobs.',
+            ru: 'Выигрывайте взятки и назначайте карты на подходящие работы.',
+          ),
           tokens: tokens,
         ),
         MenuRuleRow(
           iconPath: 'ios_resources/Icons/icon-plot.png',
-          title: 'Protect',
-          body: 'Keep plot cards safe from failed-job requisition.',
+          title: language.text(en: 'Protect', ru: 'Защита'),
+          body: language.text(
+            en: 'Keep plot cards safe from failed-job requisition.',
+            ru: 'Берегите карты участка от реквизиции за проваленные работы.',
+          ),
           tokens: tokens,
         ),
         MenuRuleRow(
           iconPath: 'ios_resources/Icons/icon-warning.png',
-          title: 'Trump faces',
-          body: 'Jack goes north, Queen exposes, King doubles exile.',
+          title: language.text(en: 'Trump faces', ru: 'Козырные карты'),
+          body: language.text(
+            en: 'Jack goes north, Queen exposes, King doubles exile.',
+            ru: 'Валет уходит на Север, Дама раскрывает, Король удваивает ссылку.',
+          ),
           tokens: tokens,
         ),
       ],
@@ -1333,47 +1973,176 @@ class OptionsChromeToggle extends StatelessWidget {
     required this.iconPath,
     required this.label,
     required this.tokens,
+    this.onPressed,
     super.key,
   });
 
   final String iconPath;
   final String label;
   final DesignTokens tokens;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
       message: label,
-      child: SizedBox(
-        width: optionsChromeToggleSize,
-        height: optionsChromeToggleSize,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Positioned.fill(
-              child: Image.asset(
-                'ios_resources/ui-nav-button-inactive.png',
-                fit: BoxFit.fill,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onPressed,
+        child: SizedBox(
+          width: optionsChromeToggleSize,
+          height: optionsChromeToggleSize,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned.fill(
+                child: Image.asset(
+                  'ios_resources/ui-nav-button-inactive.png',
+                  fit: BoxFit.fill,
+                  filterQuality: FilterQuality.none,
+                ),
+              ),
+              Image.asset(
+                iconPath,
+                width: optionsChromeToggleIconSize,
+                height: optionsChromeToggleIconSize,
                 filterQuality: FilterQuality.none,
               ),
-            ),
-            Image.asset(
-              iconPath,
-              width: optionsChromeToggleIconSize,
-              height: optionsChromeToggleIconSize,
-              filterQuality: FilterQuality.none,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
+class AnimationSpeedControl extends StatelessWidget {
+  const AnimationSpeedControl({
+    required this.selected,
+    required this.tokens,
+    required this.language,
+    this.onChanged,
+    super.key,
+  });
+
+  final GameAnimationSpeed selected;
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final ValueChanged<GameAnimationSpeed>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: optionsAnimationSpeedControlWidth,
+      padding: const EdgeInsets.all(optionsAnimationSpeedPadding),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: tokens.colors.gold.withValues(alpha: 0.42)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: optionsAnimationSpeedSpacing,
+        children: [
+          ChromePixelLabel(
+            language.text(en: 'Animation speed', ru: 'Скорость анимации'),
+            size: PixelTextSize.caption,
+            color: tokens.colors.smoke,
+          ),
+          Row(
+            children: [
+              for (final speed in GameAnimationSpeed.values)
+                Expanded(
+                  child: AnimationSpeedSegment(
+                    speed: speed,
+                    selected: speed == selected,
+                    tokens: tokens,
+                    language: language,
+                    onTap: onChanged == null ? null : () => onChanged!(speed),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class AnimationSpeedSegment extends StatelessWidget {
+  const AnimationSpeedSegment({
+    required this.speed,
+    required this.selected,
+    required this.tokens,
+    required this.language,
+    this.onTap,
+    super.key,
+  });
+
+  final GameAnimationSpeed speed;
+  final bool selected;
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? tokens.colors.gold : tokens.colors.creamDim;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: optionsAnimationSpeedSegmentHeight,
+        decoration: BoxDecoration(
+          color: selected
+              ? tokens.colors.gold.withValues(alpha: 0.18)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: selected
+                ? tokens.colors.gold
+                : tokens.colors.steel.withValues(alpha: 0.5),
+          ),
+        ),
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: ChromePixelLabel(
+              animationSpeedLabel(speed, language),
+              size: PixelTextSize.caption2,
+              color: color,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String animationSpeedLabel(GameAnimationSpeed speed, KolkhozLanguage language) {
+  return switch (speed) {
+    GameAnimationSpeed.instant => language.text(en: 'Instant', ru: 'Мигом'),
+    GameAnimationSpeed.fast => language.text(en: 'Fast', ru: 'Быстро'),
+    GameAnimationSpeed.normal => language.text(en: 'Normal', ru: 'Норма'),
+    GameAnimationSpeed.slow => language.text(en: 'Slow', ru: 'Медленно'),
+  };
+}
+
+const optionsAnimationSpeedControlWidth = 246.0;
+const optionsAnimationSpeedPadding = 6.0;
+const optionsAnimationSpeedSpacing = 5.0;
+const optionsAnimationSpeedSegmentHeight = 28.0;
+
 class ReadabilitySurfaceButton extends StatelessWidget {
-  const ReadabilitySurfaceButton({required this.tokens, super.key});
+  const ReadabilitySurfaceButton({
+    required this.tokens,
+    required this.language,
+    super.key,
+  });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
 
   @override
   Widget build(BuildContext context) {
@@ -1395,28 +2164,19 @@ class ReadabilitySurfaceButton extends StatelessWidget {
           SizedBox(
             width: optionsReadabilityGlyphBoxWidth,
             child: Center(
-              child: Text(
+              child: ChromePixelLabel(
                 'Aa',
-                maxLines: 1,
-                overflow: TextOverflow.clip,
-                style: kolkhozFontStyle.copyWith(
-                  color: tokens.colors.creamDim,
-                  fontSize: optionsReadabilityFontSize,
-                  fontWeight: FontWeight.w900,
-                ),
+                size: PixelTextSize.caption,
+                color: tokens.colors.creamDim,
+                uppercase: false,
               ),
             ),
           ),
           Flexible(
-            child: Text(
-              'CLEAR TEXT',
-              maxLines: 1,
-              overflow: TextOverflow.clip,
-              style: kolkhozFontStyle.copyWith(
-                color: tokens.colors.creamDim,
-                fontSize: optionsReadabilityFontSize,
-                fontWeight: FontWeight.w900,
-              ),
+            child: ChromePixelLabel(
+              language.text(en: 'Clear text', ru: 'Четкий текст'),
+              size: PixelTextSize.caption,
+              color: tokens.colors.creamDim,
             ),
           ),
         ],
@@ -1432,6 +2192,7 @@ class ActionSurfaceButton extends StatelessWidget {
     required this.prominent,
     required this.tokens,
     this.mutedBorder = false,
+    this.onPressed,
     super.key,
   });
 
@@ -1440,9 +2201,22 @@ class ActionSurfaceButton extends StatelessWidget {
   final bool prominent;
   final bool mutedBorder;
   final DesignTokens tokens;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
+    final child = _buttonSurface();
+    if (onPressed == null) {
+      return child;
+    }
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onPressed,
+      child: child,
+    );
+  }
+
+  Widget _buttonSurface() {
     if (prominent) {
       return CommandSurfaceButton(label: label, tokens: tokens);
     }
@@ -1480,15 +2254,10 @@ class ActionSurfaceButton extends StatelessWidget {
               ),
             ),
           Flexible(
-            child: Text(
+            child: ChromePixelLabel(
               label.toUpperCase(),
-              maxLines: 1,
-              overflow: TextOverflow.clip,
-              style: kolkhozFontStyle.copyWith(
-                color: tokens.colors.creamDim,
-                fontSize: optionsMenuActionFontSize,
-                fontWeight: FontWeight.w900,
-              ),
+              size: PixelTextSize.caption,
+              color: tokens.colors.creamDim,
             ),
           ),
         ],
@@ -1560,37 +2329,19 @@ class CommandSurfaceButtonLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
+    return ChromePixelLabel(
       label.toUpperCase(),
-      maxLines: 1,
-      overflow: TextOverflow.clip,
-      style: kolkhozFontStyle.copyWith(
-        color: tokens.colors.onAccent,
-        fontSize: commandButtonProminentFontSize,
-        fontWeight: FontWeight.w900,
-        shadows: [
-          Shadow(
-            color: tokens.colors.black.withValues(
-              alpha: commandButtonProminentLabelShadowOpacity,
-            ),
-            blurRadius: commandButtonProminentLabelShadowRadius,
-            offset: const Offset(0, commandButtonProminentLabelShadowYOffset),
-          ),
-        ],
-      ),
+      size: PixelTextSize.headline,
+      color: tokens.colors.onAccent,
     );
   }
 }
 
 const commandButtonProminentWidth = commandButtonProminentMinHeight * 4;
 const commandButtonProminentMinHeight = 58.0;
-const commandButtonProminentFontSize = 15.0;
 const commandButtonProminentHorizontalPadding = 42.0;
 const commandButtonProminentTopPadding = 14.0;
 const commandButtonProminentBottomPadding = 10.0;
-const commandButtonProminentLabelShadowOpacity = 0.8;
-const commandButtonProminentLabelShadowRadius = 2.0;
-const commandButtonProminentLabelShadowYOffset = 1.0;
 const commandButtonProminentOuterShadowOpacity = 0.34;
 const commandButtonProminentOuterShadowRadius = 8.0;
 const commandButtonProminentOuterShadowYOffset = 3.0;
@@ -1647,15 +2398,10 @@ class MenuRuleRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               spacing: 2,
               children: [
-                Text(
+                ChromePixelLabel(
                   title.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.clip,
-                  style: kolkhozFontStyle.copyWith(
-                    color: tokens.colors.gold,
-                    fontSize: menuRuleTitleFontSize,
-                    fontWeight: FontWeight.w900,
-                  ),
+                  size: PixelTextSize.caption,
+                  color: tokens.colors.gold,
                 ),
                 Text(
                   body,
@@ -1675,14 +2421,19 @@ class MenuRuleRow extends StatelessWidget {
   }
 }
 
-const menuRuleTitleFontSize = 13.0;
 const menuRuleBodyFontSize = 13.0;
 
 class NorthPanel extends StatelessWidget {
-  const NorthPanel({required this.model, required this.tokens, super.key});
+  const NorthPanel({
+    required this.model,
+    required this.tokens,
+    required this.language,
+    super.key,
+  });
 
   final TableViewModel model;
   final DesignTokens tokens;
+  final KolkhozLanguage language;
 
   @override
   Widget build(BuildContext context) {
@@ -1963,13 +2714,17 @@ class BrigadePanel extends StatelessWidget {
   const BrigadePanel({
     required this.model,
     required this.tokens,
+    required this.language,
     this.onAction,
+    this.onNewGame,
     super.key,
   });
 
   final TableViewModel model;
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final ValueChanged<LegalAction>? onAction;
+  final VoidCallback? onNewGame;
 
   @override
   Widget build(BuildContext context) {
@@ -2041,6 +2796,7 @@ class BrigadePanel extends StatelessWidget {
                                   trump: model.table.trump,
                                   phase: model.table.phase,
                                   tokens: tokens,
+                                  language: language,
                                 ),
                               ),
                           ],
@@ -2057,13 +2813,19 @@ class BrigadePanel extends StatelessWidget {
                 child: PlanningTrumpPanel(
                   model: model,
                   tokens: tokens,
+                  language: language,
                   onAction: onAction,
                 ),
               ),
             if (model.table.phase == phaseGameOver)
               PhaseOverlayFrame(
                 tokens: tokens,
-                child: GameOverPanel(model: model, tokens: tokens),
+                child: GameOverPanel(
+                  model: model,
+                  tokens: tokens,
+                  language: language,
+                  onNewGame: onNewGame,
+                ),
               ),
           ],
         );
@@ -2145,6 +2907,7 @@ class BrigadePlayerColumn extends StatelessWidget {
     required this.trump,
     required this.phase,
     required this.tokens,
+    required this.language,
     super.key,
   });
 
@@ -2155,19 +2918,23 @@ class BrigadePlayerColumn extends StatelessWidget {
   final String? trump;
   final String phase;
   final DesignTokens tokens;
+  final KolkhozLanguage language;
 
   @override
   Widget build(BuildContext context) {
     final cardSize = tokens.card.medium;
     final slotWidth = brigadeSlotWidth(columnWidth);
     const playAreaScale = brigadePlayAreaScale;
-    final playAreaLeftOffset = brigadePlayAreaLeftOffset(columnWidth);
     final playAreaTopOffset = brigadePlayAreaTopOffset(columnWidth);
     final playerPanelWidth = cardSize.width * playAreaScale;
     const playerPanelHeight = brigadePlayerPanelHeight;
     final playAreaWidth =
         (cardSize.width > slotWidth ? cardSize.width : slotWidth) *
         playAreaScale;
+    final playAreaLeftOffset = brigadePlayAreaLeftOffset(
+      playerPanelWidth: playerPanelWidth,
+      playAreaWidth: playAreaWidth,
+    );
     final playAreaHeight =
         (cardSize.height > slotWidth * 1.2
             ? cardSize.height
@@ -2190,6 +2957,7 @@ class BrigadePlayerColumn extends StatelessWidget {
               width: playerPanelWidth,
               height: playerPanelHeight,
               maxTricks: maxTricks,
+              language: language,
             ),
           ),
           Transform.translate(
@@ -2214,6 +2982,7 @@ class BrigadePlayerColumn extends StatelessWidget {
                             width: slotWidth,
                             height: slotWidth * 1.4,
                             tokens: tokens,
+                            language: language,
                           )
                         : GameCard(
                             card: play!.card,
@@ -2236,12 +3005,14 @@ class PlotPanel extends StatelessWidget {
   const PlotPanel({
     required this.model,
     required this.tokens,
+    required this.language,
     this.onPlotCardTap,
     super.key,
   });
 
   final TableViewModel model;
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final void Function(String cardID, String zone)? onPlotCardTap;
 
   @override
@@ -2273,9 +3044,9 @@ class PlotPanel extends StatelessWidget {
                 height: model.table.phase == phaseRequisition ? 58 : 54,
                 child: PanelTitleRow(
                   title: model.table.phase == phaseRequisition
-                      ? 'Requisition'
-                      : 'Private plot',
-                  subtitle: plotHeaderSubtitle(model),
+                      ? language.text(en: 'Requisition', ru: 'Реквизиция')
+                      : language.text(en: 'Private plot', ru: 'Личный участок'),
+                  subtitle: plotHeaderSubtitle(model, language),
                   iconPath: model.table.phase == phaseRequisition
                       ? 'ios_resources/Icons/icon-requisition-north.png'
                       : 'ios_resources/Icons/icon-plot.png',
@@ -2310,7 +3081,7 @@ class PlotPanel extends StatelessWidget {
                   children: [
                     Expanded(
                       child: LocalPlotColumn(
-                        title: 'Cellar',
+                        title: language.text(en: 'Cellar', ru: 'Подвал'),
                         iconPath: 'ios_resources/Icons/icon-cellar.png',
                         cards: viewerHiddenCards,
                         hiddenCount: viewerHiddenCards.length,
@@ -2328,9 +3099,10 @@ class PlotPanel extends StatelessWidget {
                     ),
                     Expanded(
                       child: LocalPlotColumn(
-                        title: 'Plot',
+                        title: language.text(en: 'Plot', ru: 'Участок'),
                         iconPath: 'ios_resources/Icons/icon-plot.png',
                         cards: viewerRevealedCards,
+                        stacks: viewer.plot.stacks,
                         hiddenCount: viewerRevealedCards.length,
                         hidden: false,
                         selectable: model.table.phase == phaseSwap,
@@ -2657,6 +3429,7 @@ class LocalPlotColumn extends StatelessWidget {
     required this.title,
     required this.iconPath,
     required this.cards,
+    this.stacks = const [],
     required this.hiddenCount,
     required this.hidden,
     required this.selectable,
@@ -2671,6 +3444,7 @@ class LocalPlotColumn extends StatelessWidget {
   final String title;
   final String iconPath;
   final List<TableCard> cards;
+  final List<PlotStackState> stacks;
   final int hiddenCount;
   final bool hidden;
   final bool selectable;
@@ -2716,6 +3490,22 @@ class LocalPlotColumn extends StatelessWidget {
           ),
         ),
     ];
+    final contentWidgets = <Widget>[
+      OverlappedCardRow(
+        itemWidth: tokens.card.small.width,
+        itemHeight: tokens.card.small.height,
+        spacing: metrics.columnCardSpacing,
+        children: cardWidgets,
+      ),
+      for (final (index, stack) in stacks.indexed)
+        PlotStackMini(
+          key: ValueKey('plot-stack-$index'),
+          stack: stack,
+          index: index,
+          metrics: metrics,
+          tokens: tokens,
+        ),
+    ];
 
     return Container(
       padding: EdgeInsets.all(metrics.padding),
@@ -2750,7 +3540,9 @@ class LocalPlotColumn extends StatelessWidget {
               ),
               const Spacer(),
               PixelText(
-                '$hiddenCount',
+                stacks.isEmpty
+                    ? '$hiddenCount'
+                    : '$hiddenCount+${stacks.length}',
                 size: PixelTextSize.caption2,
                 color: tokens.colors.smoke,
               ),
@@ -2765,15 +3557,73 @@ class LocalPlotColumn extends StatelessWidget {
                   bottom: 2,
                   right: metrics.columnTrailingPadding,
                 ),
-                child: OverlappedCardRow(
-                  itemWidth: tokens.card.small.width,
-                  itemHeight: tokens.card.small.height,
-                  spacing: metrics.columnCardSpacing,
-                  children: cardWidgets,
+                child: Row(
+                  spacing: metrics.spacing * 0.7,
+                  children: contentWidgets,
                 ),
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class PlotStackMini extends StatelessWidget {
+  const PlotStackMini({
+    required this.stack,
+    required this.index,
+    required this.metrics,
+    required this.tokens,
+    super.key,
+  });
+
+  final PlotStackState stack;
+  final int index;
+  final PlotPanelMetrics metrics;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final revealed = stack.revealed;
+    final hidden = stack.hidden;
+    return Container(
+      key: ValueKey('plot-stack-mini-$index'),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+      decoration: BoxDecoration(
+        color: tokens.colors.gold.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(tokens.radius.sm),
+        border: Border.all(color: tokens.colors.gold.withValues(alpha: 0.32)),
+      ),
+      child: Row(
+        spacing: 4,
+        children: [
+          for (final card in revealed.take(2))
+            GameCard(card: card, tokens: tokens, small: true),
+          if (hidden.isNotEmpty)
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                CardBackMini(tokens: tokens),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: tokens.colors.black.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(tokens.radius.xs),
+                  ),
+                  child: PixelText(
+                    '${hidden.length}',
+                    size: PixelTextSize.caption2,
+                    variant: PixelTextVariant.heavy,
+                    color: tokens.colors.gold,
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -3078,6 +3928,7 @@ class PlayerBadge extends StatelessWidget {
     required this.seat,
     required this.tokens,
     required this.active,
+    required this.language,
     this.width = 178,
     this.height = 40,
     this.maxTricks = 4,
@@ -3087,6 +3938,7 @@ class PlayerBadge extends StatelessWidget {
   final Seat seat;
   final DesignTokens tokens;
   final bool active;
+  final KolkhozLanguage language;
   final double width;
   final double height;
   final int maxTricks;
@@ -3265,7 +4117,7 @@ class PlayerBadge extends StatelessWidget {
   }
 
   String get displayName {
-    return seatDisplayName(seat);
+    return seatDisplayName(seat, language: language);
   }
 
   List<String> get statusBadgeAssets {
@@ -3524,6 +4376,7 @@ class CardSlot extends StatelessWidget {
     required this.width,
     required this.height,
     required this.tokens,
+    required this.language,
     super.key,
   });
 
@@ -3532,6 +4385,7 @@ class CardSlot extends StatelessWidget {
   final double width;
   final double height;
   final DesignTokens tokens;
+  final KolkhozLanguage language;
 
   @override
   Widget build(BuildContext context) {
@@ -3557,7 +4411,9 @@ class CardSlot extends StatelessWidget {
         child: Center(
           child: active
               ? PixelText(
-                  human ? 'PLAY' : 'WAIT',
+                  human
+                      ? language.text(en: 'PLAY', ru: 'ХОД')
+                      : language.text(en: 'WAIT', ru: 'ЖДИТЕ'),
                   size: PixelTextSize.caption2,
                   variant: PixelTextVariant.heavy,
                   color: human ? tokens.colors.gold : tokens.colors.redBright,
@@ -3859,23 +4715,36 @@ class PlanningTrumpPanel extends StatelessWidget {
   const PlanningTrumpPanel({
     required this.model,
     required this.tokens,
+    required this.language,
     this.onAction,
     super.key,
   });
 
   final TableViewModel model;
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final ValueChanged<LegalAction>? onAction;
 
   @override
   Widget build(BuildContext context) {
     final legalTrumpActionList = legalTrumpActions(model.legalActions);
     final isFamine = model.table.isFamine;
-    final trumpOptions = planningTrumpOptions(legalTrumpActionList);
-    final title = isFamine ? 'Famine year' : 'Choose Trump';
+    final trumpOptions = planningTrumpOptions(
+      legalTrumpActionList,
+      language: language,
+    );
+    final title = isFamine
+        ? language.text(en: 'Famine year', ru: 'Год неурожая')
+        : language.text(en: 'Choose Trump', ru: 'Выберите козырь');
     final subtitle = isFamine
-        ? 'No trump suit is used this year.'
-        : 'Pick the trump suit for this year.';
+        ? language.text(
+            en: 'No trump suit is used this year.',
+            ru: 'В этом году козырь не используется.',
+          )
+        : language.text(
+            en: 'Pick the trump suit for this year.',
+            ru: 'Выберите козырную масть на этот год.',
+          );
     const buttonSize = planningTrumpButtonSize;
     const gridSpacing = planningTrumpGridSpacing;
     return PanelStyleSurface(
@@ -4032,10 +4901,18 @@ class TrumpSelectionButton extends StatelessWidget {
 }
 
 class GameOverPanel extends StatelessWidget {
-  const GameOverPanel({required this.model, required this.tokens, super.key});
+  const GameOverPanel({
+    required this.model,
+    required this.tokens,
+    required this.language,
+    this.onNewGame,
+    super.key,
+  });
 
   final TableViewModel model;
   final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final VoidCallback? onNewGame;
 
   @override
   Widget build(BuildContext context) {
@@ -4050,8 +4927,11 @@ class GameOverPanel extends StatelessWidget {
         spacing: gameOverPanelRowSpacing,
         children: [
           PanelTitleRow(
-            title: 'Game Over!',
-            subtitle: 'Final cellar and medal scores.',
+            title: language.text(en: 'Game Over!', ru: 'Игра окончена!'),
+            subtitle: language.text(
+              en: 'Final cellar and medal scores.',
+              ru: 'Итоговые очки участка и медалей.',
+            ),
             iconPath: 'ios_resources/Icons/icon-medal-star.png',
             tokens: tokens,
           ),
@@ -4066,10 +4946,11 @@ class GameOverPanel extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.only(top: gameOverNewGameTopPadding),
               child: ActionSurfaceButton(
-                label: 'NEW GAME',
+                label: language.text(en: 'New game', ru: 'Новая игра'),
                 iconPath: null,
                 prominent: true,
                 tokens: tokens,
+                onPressed: onNewGame,
               ),
             ),
           ),
@@ -4164,12 +5045,14 @@ class JobsPanel extends StatelessWidget {
   const JobsPanel({
     required this.model,
     required this.tokens,
+    required this.language,
     this.onAction,
     super.key,
   });
 
   final TableViewModel model;
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final ValueChanged<LegalAction>? onAction;
 
   @override
@@ -4211,6 +5094,7 @@ class JobsPanel extends StatelessWidget {
                                 assignmentPhase: assignmentPhase,
                                 trump: model.table.trump,
                                 tokens: tokens,
+                                language: language,
                                 onAssign:
                                     assignmentAction == null || onAction == null
                                     ? null
@@ -4239,6 +5123,7 @@ class JobTile extends StatefulWidget {
     required this.assignmentPhase,
     required this.trump,
     required this.tokens,
+    required this.language,
     this.onAssign,
     super.key,
   });
@@ -4247,6 +5132,7 @@ class JobTile extends StatefulWidget {
   final bool assignmentPhase;
   final String? trump;
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final VoidCallback? onAssign;
 
   @override
@@ -4360,7 +5246,7 @@ class _JobTileState extends State<JobTile> {
                         ),
                         PixelText(
                           job.claimed
-                              ? 'DONE'
+                              ? widget.language.text(en: 'DONE', ru: 'ГОТОВО')
                               : '${job.hours}/$jobRequiredHours',
                           size: PixelTextSize.headline,
                           variant: PixelTextVariant.heavy,
@@ -4384,7 +5270,12 @@ class _JobTileState extends State<JobTile> {
                                   height: jobsTileEmptyPromptMinHeight,
                                   child: Center(
                                     child: PixelText(
-                                      showAssignPrompt ? 'TAP TO ASSIGN' : '',
+                                      showAssignPrompt
+                                          ? widget.language.text(
+                                              en: 'TAP TO ASSIGN',
+                                              ru: 'НАЗНАЧИТЬ',
+                                            )
+                                          : '',
                                       textAlign: TextAlign.center,
                                       size: PixelTextSize.caption2,
                                       variant: PixelTextVariant.heavy,
@@ -4559,6 +5450,7 @@ class HandTray extends StatelessWidget {
     required this.model,
     required this.tokens,
     required this.metrics,
+    required this.language,
     this.onAction,
     this.onSwapHandCardTap,
     this.onAssignmentCardTap,
@@ -4568,6 +5460,7 @@ class HandTray extends StatelessWidget {
   final TableViewModel model;
   final DesignTokens tokens;
   final ResponsiveBoardMetrics metrics;
+  final KolkhozLanguage language;
   final ValueChanged<LegalAction>? onAction;
   final ValueChanged<String>? onSwapHandCardTap;
   final ValueChanged<String>? onAssignmentCardTap;
@@ -4717,6 +5610,7 @@ class HandTray extends StatelessWidget {
               actions: lowerBarActions,
               tableYear: model.table.year,
               tokens: tokens,
+              language: language,
               visibleTrayHeight: visibleTrayHeight,
               onAction: onAction,
             ),
@@ -4731,6 +5625,7 @@ class ActionCommandBar extends StatelessWidget {
     required this.actions,
     required this.tableYear,
     required this.tokens,
+    required this.language,
     required this.visibleTrayHeight,
     this.onAction,
     super.key,
@@ -4739,6 +5634,7 @@ class ActionCommandBar extends StatelessWidget {
   final List<LegalAction> actions;
   final int tableYear;
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final double visibleTrayHeight;
   final ValueChanged<LegalAction>? onAction;
 
@@ -4762,6 +5658,7 @@ class ActionCommandBar extends StatelessWidget {
                   action: action,
                   tableYear: tableYear,
                   tokens: tokens,
+                  language: language,
                   prominent: isProminentLowerBarAction(action),
                   onPressed: onAction == null ? null : () => onAction!(action),
                 ),
@@ -4947,6 +5844,7 @@ class GameCard extends StatelessWidget {
     this.highlightedStrokeWidthOverride,
     this.highlightedBorderRadiusOverride,
     this.sizeOverride,
+    this.motionTracked = true,
     super.key,
   });
 
@@ -4959,6 +5857,7 @@ class GameCard extends StatelessWidget {
   final double? highlightedStrokeWidthOverride;
   final double? highlightedBorderRadiusOverride;
   final TokenCardSize? sizeOverride;
+  final bool motionTracked;
 
   @override
   Widget build(BuildContext context) {
@@ -4979,7 +5878,7 @@ class GameCard extends StatelessWidget {
         : card.highlighted
         ? highlightedStrokeWidthOverride ?? tokens.stroke.active
         : 0.0;
-    return Container(
+    final cardSurface = Container(
       width: size.width,
       height: size.height,
       decoration: BoxDecoration(
@@ -5002,7 +5901,7 @@ class GameCard extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(cardViewCornerRadius),
               child: Image.asset(
-                cardTemplateAssetPath(dark: true),
+                cardTemplateAssetPathForTokens(tokens),
                 fit: BoxFit.cover,
                 filterQuality: FilterQuality.none,
                 errorBuilder: (_, _, _) => const SizedBox.shrink(),
@@ -5080,6 +5979,10 @@ class GameCard extends StatelessWidget {
         ],
       ),
     );
+    if (!motionTracked) {
+      return cardSurface;
+    }
+    return MotionTrackedCard(card: card, child: cardSurface);
   }
 }
 
@@ -5485,7 +6388,7 @@ class MiniCard extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         image: DecorationImage(
-          image: AssetImage(cardTemplateAssetPath(dark: true)),
+          image: AssetImage(cardTemplateAssetPathForTokens(tokens)),
           fit: BoxFit.cover,
           filterQuality: FilterQuality.none,
         ),
@@ -5579,6 +6482,7 @@ class ActionPill extends StatelessWidget {
     required this.action,
     required this.tableYear,
     required this.tokens,
+    required this.language,
     required this.prominent,
     this.scale = 1,
     this.onPressed,
@@ -5588,6 +6492,7 @@ class ActionPill extends StatelessWidget {
   final LegalAction action;
   final int tableYear;
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final bool prominent;
   final double scale;
   final VoidCallback? onPressed;
@@ -5638,7 +6543,11 @@ class ActionPill extends StatelessWidget {
           child: FittedBox(
             fit: BoxFit.scaleDown,
             child: HandTrayActionPillLabel(
-              lowerBarActionLabel(action, tableYear: tableYear).toUpperCase(),
+              lowerBarActionLabel(
+                action,
+                tableYear: tableYear,
+                language: language,
+              ).toUpperCase(),
               prominent: prominent,
               tokens: tokens,
             ),
@@ -5663,15 +6572,10 @@ class HandTrayActionPillLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
+    return ChromePixelLabel(
       label.toUpperCase(),
-      maxLines: 1,
-      overflow: TextOverflow.clip,
-      style: kolkhozFontStyle.copyWith(
-        color: prominent ? tokens.colors.onAccent : tokens.colors.cream,
-        fontSize: handTrayActionFontSize,
-        fontWeight: FontWeight.w900,
-      ),
+      size: PixelTextSize.caption,
+      color: prominent ? tokens.colors.onAccent : tokens.colors.cream,
     );
   }
 }

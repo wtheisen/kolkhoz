@@ -22,8 +22,12 @@ double brigadeColumnWidth({
 double brigadeSlotWidth(double columnWidth) =>
     clampDouble(columnWidth * 0.52, 44, 76);
 
-double brigadePlayAreaLeftOffset(double columnWidth) =>
-    clampDouble(columnWidth * 0.06, 30, 54);
+double brigadePlayAreaLeftOffset({
+  required double playerPanelWidth,
+  required double playAreaWidth,
+}) {
+  return (playerPanelWidth - playAreaWidth) / 2;
+}
 
 double brigadePlayAreaTopOffset(double columnWidth) =>
     clampDouble(columnWidth * 0.15, 18, 24);

@@ -13,12 +13,14 @@ class TableViewProjection {
     required this.engine,
     this.controllers = KolkhozPlayerController.defaultControllers,
     this.uiState = const GameUiState(),
+    this.revealedPlayerID,
   });
 
   final KolkhozCEngineBridge bridge;
   final Pointer<KCEngine> engine;
   final List<KolkhozPlayerController> controllers;
   final GameUiState uiState;
+  final int? revealedPlayerID;
 
   TableViewModel project() {
     final phase = phaseName(bridge.phase(engine));
@@ -26,10 +28,21 @@ class TableViewProjection {
     final normalizedControllers = KolkhozPlayerController.normalized(
       controllers,
     );
-    final viewerSeatID = viewerSeatIDForControllers(normalizedControllers);
+    final viewerSeatID = activeViewerSeatIDForState(
+      controllers: normalizedControllers,
+      phase: phase,
+      currentPlayerID: bridge.currentPlayer(engine),
+      assignmentWinnerID: nullablePlayerID(bridge.lastWinner(engine)),
+    );
+    final privacyMode =
+        phase != phaseGameOver &&
+            hasMultipleHumanControllers(normalizedControllers) &&
+            revealedPlayerID != viewerSeatID
+        ? viewerPrivacyHotSeatHidden
+        : viewerPrivacyNone;
     final legalActions = projectedLegalActions(engineActions, viewerSeatID);
     return TableViewModel(
-      viewer: Viewer(seatID: viewerSeatID, privacyMode: viewerPrivacyNone),
+      viewer: Viewer(seatID: viewerSeatID, privacyMode: privacyMode),
       table: TableState(
         year: bridge.year(engine),
         phase: phase,
@@ -109,9 +122,40 @@ class TableViewProjection {
                     )
                   : const {},
             ),
+            stacks: plotStacks(playerID),
           ),
           medals: bridge.playerMedals(engine, playerID),
           visibleScore: bridge.visibleScore(engine, playerID),
+        ),
+    ];
+  }
+
+  List<PlotStackState> plotStacks(int playerID) {
+    return [
+      for (
+        var stackIndex = 0;
+        stackIndex < bridge.plotStackCount(engine, playerID);
+        stackIndex += 1
+      )
+        PlotStackState(
+          revealed: cards(
+            bridge.plotStackRevealedCount(engine, playerID, stackIndex),
+            (cardIndex) => bridge.plotStackRevealedCard(
+              engine,
+              playerID,
+              stackIndex,
+              cardIndex,
+            ),
+          ),
+          hidden: cards(
+            bridge.plotStackHiddenCount(engine, playerID, stackIndex),
+            (cardIndex) => bridge.plotStackHiddenCard(
+              engine,
+              playerID,
+              stackIndex,
+              cardIndex,
+            ),
+          ),
         ),
     ];
   }

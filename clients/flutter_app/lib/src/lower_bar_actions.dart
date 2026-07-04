@@ -1,3 +1,4 @@
+import 'app_settings.dart';
 import 'game_constants.dart';
 import 'render_model.dart';
 
@@ -54,11 +55,30 @@ int lowerBarActionRank(String kind) {
   };
 }
 
-String lowerBarActionLabel(LegalAction action, {required int tableYear}) {
+String lowerBarActionLabel(
+  LegalAction action, {
+  required int tableYear,
+  KolkhozLanguage? language,
+}) {
+  final resolvedLanguage = language ?? KolkhozLanguage.en;
   return switch (action.kind) {
-    actionSubmitAssignments => 'Confirm',
+    actionSwap => resolvedLanguage.text(en: 'Swap', ru: 'Обмен'),
+    actionUndoSwap => resolvedLanguage.text(en: 'Undo', ru: 'Отменить'),
+    actionConfirmSwap => resolvedLanguage.text(
+      en: 'Confirm',
+      ru: 'Подтвердить',
+    ),
+    actionSubmitAssignments => resolvedLanguage.text(
+      en: 'Confirm',
+      ru: 'Подтвердить',
+    ),
     actionContinueAfterRequisition =>
-      tableYear >= finalGameYear ? 'Finish' : 'Year ${tableYear + 1}',
+      tableYear >= finalGameYear
+          ? resolvedLanguage.text(en: 'Finish', ru: 'Завершить')
+          : resolvedLanguage.text(
+              en: 'Year ${tableYear + 1}',
+              ru: 'Год ${tableYear + 1}',
+            ),
     _ => action.label,
   };
 }

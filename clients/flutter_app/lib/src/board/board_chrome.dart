@@ -13,10 +13,16 @@ double boardRightGutterOffset(double safeTrailing) => -safeTrailing;
 double boardRightGutterWidth(double safeTrailing) => safeTrailing * 2;
 
 class BoardGutterInfill extends StatelessWidget {
-  const BoardGutterInfill({required this.side, required this.width, super.key});
+  const BoardGutterInfill({
+    required this.side,
+    required this.width,
+    this.light = false,
+    super.key,
+  });
 
   final BoardGutterInfillSide side;
   final double width;
+  final bool light;
 
   @override
   Widget build(BuildContext context) {
@@ -34,9 +40,13 @@ class BoardGutterInfill extends StatelessWidget {
   String get assetName {
     return switch (side) {
       BoardGutterInfillSide.left =>
-        'iphone17promax-left-gutter-infill-dark.png',
+        light
+            ? 'iphone17promax-left-gutter-infill-light.png'
+            : 'iphone17promax-left-gutter-infill-dark.png',
       BoardGutterInfillSide.right =>
-        'iphone17promax-right-gutter-infill-dark.png',
+        light
+            ? 'iphone17promax-right-gutter-infill-light.png'
+            : 'iphone17promax-right-gutter-infill-dark.png',
     };
   }
 }

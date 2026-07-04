@@ -97,7 +97,19 @@ class Seat {
 }
 
 class PlotState {
-  const PlotState({required this.revealed, required this.hidden});
+  const PlotState({
+    required this.revealed,
+    required this.hidden,
+    required this.stacks,
+  });
+
+  final List<TableCard> revealed;
+  final List<TableCard> hidden;
+  final List<PlotStackState> stacks;
+}
+
+class PlotStackState {
+  const PlotStackState({required this.revealed, required this.hidden});
 
   final List<TableCard> revealed;
   final List<TableCard> hidden;

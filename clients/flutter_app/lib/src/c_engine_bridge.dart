@@ -174,6 +174,13 @@ class KolkhozCEngineBridge {
   _plotRevealedCard;
   late final int Function(Pointer<KCEngine>, int) _plotHiddenCount;
   late final KCCardNative Function(Pointer<KCEngine>, int, int) _plotHiddenCard;
+  late final int Function(Pointer<KCEngine>, int) _plotStackCount;
+  late final int Function(Pointer<KCEngine>, int, int) _plotStackRevealedCount;
+  late final KCCardNative Function(Pointer<KCEngine>, int, int, int)
+  _plotStackRevealedCard;
+  late final int Function(Pointer<KCEngine>, int, int) _plotStackHiddenCount;
+  late final KCCardNative Function(Pointer<KCEngine>, int, int, int)
+  _plotStackHiddenCard;
   late final bool Function(Pointer<KCEngine>, int) _hasRevealedJob;
   late final KCCardNative Function(Pointer<KCEngine>, int) _revealedJobCard;
   late final bool Function(Pointer<KCEngine>, int) _claimedJob;
@@ -212,6 +219,15 @@ class KolkhozCEngineBridge {
   _applySwap;
   late final int Function(Pointer<KCEngine>, int, int, int, int) _applyAssign;
   late final int Function(Pointer<KCEngine>, int, int) _applySimple;
+  late final int Function(Pointer<KCEngine>) _stepAutomatic;
+  late final int Function(Pointer<KCEngine>, int, int) _applySetTrumpManual;
+  late final int Function(Pointer<KCEngine>, int, int, int)
+  _applyPlayCardManual;
+  late final int Function(Pointer<KCEngine>, int, int, int, int, int, int)
+  _applySwapManual;
+  late final int Function(Pointer<KCEngine>, int, int, int, int)
+  _applyAssignManual;
+  late final int Function(Pointer<KCEngine>, int, int) _applySimpleManual;
 
   Pointer<KCEngine> newEngine({
     int? seed,
@@ -309,6 +325,33 @@ class KolkhozCEngineBridge {
     int playerID,
     int index,
   ) => _cardValue(_plotHiddenCard(engine, playerID, index));
+  int plotStackCount(Pointer<KCEngine> engine, int playerID) =>
+      _plotStackCount(engine, playerID);
+  int plotStackRevealedCount(
+    Pointer<KCEngine> engine,
+    int playerID,
+    int stackIndex,
+  ) => _plotStackRevealedCount(engine, playerID, stackIndex);
+  EngineCardValue plotStackRevealedCard(
+    Pointer<KCEngine> engine,
+    int playerID,
+    int stackIndex,
+    int cardIndex,
+  ) => _cardValue(
+    _plotStackRevealedCard(engine, playerID, stackIndex, cardIndex),
+  );
+  int plotStackHiddenCount(
+    Pointer<KCEngine> engine,
+    int playerID,
+    int stackIndex,
+  ) => _plotStackHiddenCount(engine, playerID, stackIndex);
+  EngineCardValue plotStackHiddenCard(
+    Pointer<KCEngine> engine,
+    int playerID,
+    int stackIndex,
+    int cardIndex,
+  ) =>
+      _cardValue(_plotStackHiddenCard(engine, playerID, stackIndex, cardIndex));
   bool hasRevealedJob(Pointer<KCEngine> engine, int suit) =>
       _hasRevealedJob(engine, suit);
   EngineCardValue revealedJobCard(Pointer<KCEngine> engine, int suit) =>
@@ -400,6 +443,41 @@ class KolkhozCEngineBridge {
     };
   }
 
+  int applyManual(Pointer<KCEngine> engine, CEngineActionValue action) {
+    return switch (action.kind) {
+      kcActionSetTrump => _applySetTrumpManual(
+        engine,
+        action.playerID,
+        action.suit,
+      ),
+      kcActionPlayCard => _applyPlayCardManual(
+        engine,
+        action.playerID,
+        action.card.suit,
+        action.card.value,
+      ),
+      kcActionSwap => _applySwapManual(
+        engine,
+        action.playerID,
+        action.handCard.suit,
+        action.handCard.value,
+        action.plotCard.suit,
+        action.plotCard.value,
+        action.plotZone,
+      ),
+      kcActionAssign => _applyAssignManual(
+        engine,
+        action.playerID,
+        action.card.suit,
+        action.card.value,
+        action.targetSuit,
+      ),
+      _ => _applySimpleManual(engine, action.kind, action.playerID),
+    };
+  }
+
+  int stepAutomatic(Pointer<KCEngine> engine) => _stepAutomatic(engine);
+
   void _bind() {
     _engineAlloc = _lib
         .lookupFunction<
@@ -456,6 +534,11 @@ class KolkhozCEngineBridge {
     _plotRevealedCard = _card2('kc_player_plot_revealed_card');
     _plotHiddenCount = _int1('kc_player_plot_hidden_count');
     _plotHiddenCard = _card2('kc_player_plot_hidden_card');
+    _plotStackCount = _int1('kc_player_plot_stack_count');
+    _plotStackRevealedCount = _int2('kc_player_plot_stack_revealed_count');
+    _plotStackRevealedCard = _card3('kc_player_plot_stack_revealed_card');
+    _plotStackHiddenCount = _int2('kc_player_plot_stack_hidden_count');
+    _plotStackHiddenCard = _card3('kc_player_plot_stack_hidden_card');
     _hasRevealedJob = _bool1('kc_has_revealed_job');
     _revealedJobCard = _card1('kc_revealed_job_card');
     _claimedJob = _bool1('kc_claimed_job');
@@ -520,6 +603,40 @@ class KolkhozCEngineBridge {
           Int32 Function(Pointer<KCEngine>, Int32, Int32),
           int Function(Pointer<KCEngine>, int, int)
         >('kc_engine_apply_simple');
+    _stepAutomatic = _int0('kc_engine_step_automatic');
+    _applySetTrumpManual = _lib
+        .lookupFunction<
+          Int32 Function(Pointer<KCEngine>, Int32, Int32),
+          int Function(Pointer<KCEngine>, int, int)
+        >('kc_engine_apply_set_trump_manual');
+    _applyPlayCardManual = _lib
+        .lookupFunction<
+          Int32 Function(Pointer<KCEngine>, Int32, Int32, Int32),
+          int Function(Pointer<KCEngine>, int, int, int)
+        >('kc_engine_apply_play_card_manual');
+    _applySwapManual = _lib
+        .lookupFunction<
+          Int32 Function(
+            Pointer<KCEngine>,
+            Int32,
+            Int32,
+            Int32,
+            Int32,
+            Int32,
+            Int32,
+          ),
+          int Function(Pointer<KCEngine>, int, int, int, int, int, int)
+        >('kc_engine_apply_swap_manual');
+    _applyAssignManual = _lib
+        .lookupFunction<
+          Int32 Function(Pointer<KCEngine>, Int32, Int32, Int32, Int32),
+          int Function(Pointer<KCEngine>, int, int, int, int)
+        >('kc_engine_apply_assign_manual');
+    _applySimpleManual = _lib
+        .lookupFunction<
+          Int32 Function(Pointer<KCEngine>, Int32, Int32),
+          int Function(Pointer<KCEngine>, int, int)
+        >('kc_engine_apply_simple_manual');
   }
 
   int Function(Pointer<KCEngine>) _int0(String name) {
@@ -533,6 +650,13 @@ class KolkhozCEngineBridge {
     return _lib.lookupFunction<
       Int32 Function(Pointer<KCEngine>, Int32),
       int Function(Pointer<KCEngine>, int)
+    >(name);
+  }
+
+  int Function(Pointer<KCEngine>, int, int) _int2(String name) {
+    return _lib.lookupFunction<
+      Int32 Function(Pointer<KCEngine>, Int32, Int32),
+      int Function(Pointer<KCEngine>, int, int)
     >(name);
   }
 
@@ -561,6 +685,13 @@ class KolkhozCEngineBridge {
     return _lib.lookupFunction<
       KCCardNative Function(Pointer<KCEngine>, Int32, Int32),
       KCCardNative Function(Pointer<KCEngine>, int, int)
+    >(name);
+  }
+
+  KCCardNative Function(Pointer<KCEngine>, int, int, int) _card3(String name) {
+    return _lib.lookupFunction<
+      KCCardNative Function(Pointer<KCEngine>, Int32, Int32, Int32),
+      KCCardNative Function(Pointer<KCEngine>, int, int, int)
     >(name);
   }
 

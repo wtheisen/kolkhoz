@@ -114,6 +114,10 @@ String cardTemplateAssetPath({required bool dark}) {
       : 'ios_resources/Cards/card-template-light.png';
 }
 
+String cardTemplateAssetPathForTokens(DesignTokens tokens) {
+  return cardTemplateAssetPath(dark: !tokens.usesLightAppearance);
+}
+
 double faceArtWidth(TokenCardSize size) {
   if (size.width <= 42.1) {
     return 20;

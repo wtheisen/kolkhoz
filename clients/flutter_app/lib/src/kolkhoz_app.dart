@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import 'app_settings.dart';
 import 'c_engine_bridge.dart';
 import 'design_tokens.dart';
 import 'game_constants.dart';
 import 'board_view.dart';
 import 'live_game_store.dart';
 import 'pixel_text.dart';
+import 'tutorial_display.dart';
 
 class KolkhozApp extends StatefulWidget {
   const KolkhozApp({super.key});
@@ -16,9 +18,12 @@ class KolkhozApp extends StatefulWidget {
 
 class _KolkhozAppState extends State<KolkhozApp> {
   late final LiveGameStore store;
+  late final KolkhozAppSettingsStore settingsStore;
+  KolkhozAppSettings settings = const KolkhozAppSettings();
   bool showingLobby = true;
   bool showingRules = false;
   bool showingOnline = false;
+  bool showingTutorial = false;
   KolkhozGamePreset selectedPreset = KolkhozGamePreset.kolkhoz;
   KolkhozGameVariants customVariants = KolkhozGameVariants.kolkhoz;
   List<KolkhozPlayerController> playerControllers = List.of(
@@ -32,7 +37,13 @@ class _KolkhozAppState extends State<KolkhozApp> {
   @override
   void initState() {
     super.initState();
+    settingsStore = KolkhozAppSettingsStore.defaultStore();
+    settings = settingsStore.load();
     store = LiveGameStore();
+    showingLobby = !store.restoredSavedGame;
+    playerControllers = List.of(store.controllers);
+    customVariants = store.currentVariants;
+    selectedPreset = presetForVariants(store.currentVariants);
   }
 
   @override
@@ -57,20 +68,25 @@ class _KolkhozAppState extends State<KolkhozApp> {
       home: AnimatedBuilder(
         animation: store,
         builder: (context, _) {
-          final tokens = store.tokens;
+          final language = settings.language;
+          final appearance = settings.appearance;
+          final tokens = appearance.tokens;
+          late final Widget content;
           if (store.error != null && store.model == null) {
-            return StandaloneErrorView(error: store.error!, tokens: tokens);
-          }
-          final model = store.model;
-          if (model == null || showingLobby) {
-            return StandaloneLobby(
+            content = StandaloneErrorView(error: store.error!, tokens: tokens);
+          } else if (store.model == null || showingLobby) {
+            content = StandaloneLobby(
               tokens: tokens,
+              language: language,
+              appearance: appearance,
               error: store.error,
               selectedPreset: selectedPreset,
               customVariants: customVariants,
               playerControllers: playerControllers,
               showingRules: showingRules,
               showingOnline: showingOnline,
+              onHostOnline: hostOnlineGame,
+              onJoinOnline: joinOnlineGame,
               onStart: () {
                 store.newGame(
                   variants: activeVariants,
@@ -117,44 +133,61 @@ class _KolkhozAppState extends State<KolkhozApp> {
                 });
               },
               onTutorialPressed: () {
-                setState(() {
-                  showingRules = true;
-                  showingOnline = false;
-                });
+                showTutorial();
               },
             );
+          } else {
+            final model = store.model!;
+            content = Stack(
+              children: [
+                KolkhozBoard(
+                  model: model,
+                  tokens: tokens,
+                  language: language,
+                  appearance: appearance,
+                  onAction: store.applyLegalAction,
+                  onPanelSelected: store.setActivePanel,
+                  onLanguageToggle: toggleLanguage,
+                  onAppearanceToggle: toggleAppearance,
+                  onSwapHandCardTap: store.selectSwapHandCard,
+                  onPlotCardTap: store.selectPlotCard,
+                  onAssignmentCardTap: store.selectAssignmentCard,
+                  onHotSeatReady: store.revealLocalPlayer,
+                  onNewGame: () {
+                    store.newGame(
+                      variants: store.currentVariants,
+                      controllers: store.controllers,
+                    );
+                  },
+                  onReturnToLobby: returnToLobby,
+                  onTutorial: showTutorial,
+                  animationSpeed: store.animationSpeed,
+                  onAnimationSpeedChanged: store.setAnimationSpeed,
+                ),
+                if (store.error != null)
+                  Positioned(
+                    left: 76,
+                    right: 12,
+                    bottom: 12,
+                    child: SafeArea(
+                      child: StandaloneErrorBanner(
+                        error: store.error!,
+                        tokens: tokens,
+                      ),
+                    ),
+                  ),
+              ],
+            );
           }
+
           return Stack(
             children: [
-              KolkhozBoard(
-                model: model,
-                tokens: tokens,
-                onAction: store.applyLegalAction,
-                onPanelSelected: store.setActivePanel,
-                onSwapHandCardTap: store.selectSwapHandCard,
-                onPlotCardTap: store.selectPlotCard,
-                onAssignmentCardTap: store.selectAssignmentCard,
-              ),
-              Positioned(
-                left: 10,
-                top: 10,
-                child: SafeArea(
-                  child: StandaloneMenuButton(
+              Positioned.fill(child: content),
+              if (showingTutorial)
+                Positioned.fill(
+                  child: TutorialWalkthroughOverlay(
                     tokens: tokens,
-                    onPressed: () => setState(() => showingLobby = true),
-                  ),
-                ),
-              ),
-              if (store.error != null)
-                Positioned(
-                  left: 76,
-                  right: 12,
-                  bottom: 12,
-                  child: SafeArea(
-                    child: StandaloneErrorBanner(
-                      error: store.error!,
-                      tokens: tokens,
-                    ),
+                    onClose: () => setState(() => showingTutorial = false),
                   ),
                 ),
             ],
@@ -163,6 +196,92 @@ class _KolkhozAppState extends State<KolkhozApp> {
       ),
     );
   }
+
+  void returnToLobby() {
+    store.leaveOnlineGame();
+    setState(() {
+      showingRules = false;
+      showingOnline = false;
+      showingLobby = true;
+    });
+  }
+
+  void showTutorial() {
+    setState(() => showingTutorial = true);
+  }
+
+  void toggleLanguage() {
+    setState(() {
+      settings = settings.copyWith(language: settings.language.next);
+      settingsStore.save(settings);
+    });
+  }
+
+  void toggleAppearance() {
+    setState(() {
+      settings = settings.copyWith(appearance: settings.appearance.next);
+      settingsStore.save(settings);
+    });
+  }
+
+  Future<String> hostOnlineGame(
+    Uri baseURL,
+    List<KolkhozPlayerController> controllers,
+  ) async {
+    final sessionID = await store.hostOnlineGame(
+      baseURL: baseURL,
+      variants: activeVariants,
+      controllers: controllers,
+    );
+    setState(() {
+      showingRules = false;
+      showingOnline = false;
+      showingLobby = false;
+    });
+    return sessionID;
+  }
+
+  Future<void> joinOnlineGame(
+    Uri baseURL,
+    String inviteCode,
+    int? preferredPlayerID,
+  ) async {
+    await store.joinOnlineGame(
+      baseURL: baseURL,
+      inviteCode: inviteCode,
+      preferredPlayerID: preferredPlayerID,
+    );
+    setState(() {
+      showingRules = false;
+      showingOnline = false;
+      showingLobby = false;
+    });
+  }
+}
+
+KolkhozGamePreset presetForVariants(KolkhozGameVariants variants) {
+  if (sameVariants(variants, KolkhozGameVariants.kolkhoz)) {
+    return KolkhozGamePreset.kolkhoz;
+  }
+  if (sameVariants(variants, KolkhozGameVariants.littleKolkhoz)) {
+    return KolkhozGamePreset.littleKolkhoz;
+  }
+  if (sameVariants(variants, KolkhozGameVariants.campStyle)) {
+    return KolkhozGamePreset.campStyle;
+  }
+  return KolkhozGamePreset.custom;
+}
+
+bool sameVariants(KolkhozGameVariants left, KolkhozGameVariants right) {
+  return left.deckType == right.deckType &&
+      left.nomenclature == right.nomenclature &&
+      left.allowSwap == right.allowSwap &&
+      left.northernStyle == right.northernStyle &&
+      left.miceVariant == right.miceVariant &&
+      left.ordenNachalniku == right.ordenNachalniku &&
+      left.medalsCount == right.medalsCount &&
+      left.accumulateJobs == right.accumulateJobs &&
+      left.heroOfSovietUnion == right.heroOfSovietUnion;
 }
 
 enum KolkhozGamePreset {
@@ -193,12 +312,16 @@ enum KolkhozGamePreset {
 class StandaloneLobby extends StatelessWidget {
   const StandaloneLobby({
     required this.tokens,
+    required this.language,
+    required this.appearance,
     required this.onStart,
     required this.selectedPreset,
     required this.customVariants,
     required this.playerControllers,
     required this.showingRules,
     required this.showingOnline,
+    required this.onHostOnline,
+    required this.onJoinOnline,
     required this.onPresetChanged,
     required this.onCustomVariantsChanged,
     required this.onPlayerControllersChanged,
@@ -210,12 +333,25 @@ class StandaloneLobby extends StatelessWidget {
   });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final KolkhozAppearance appearance;
   final VoidCallback onStart;
   final KolkhozGamePreset selectedPreset;
   final KolkhozGameVariants customVariants;
   final List<KolkhozPlayerController> playerControllers;
   final bool showingRules;
   final bool showingOnline;
+  final Future<String> Function(
+    Uri baseURL,
+    List<KolkhozPlayerController> controllers,
+  )
+  onHostOnline;
+  final Future<void> Function(
+    Uri baseURL,
+    String inviteCode,
+    int? preferredPlayerID,
+  )
+  onJoinOnline;
   final ValueChanged<KolkhozGamePreset> onPresetChanged;
   final ValueChanged<KolkhozGameVariants> onCustomVariantsChanged;
   final ValueChanged<List<KolkhozPlayerController>> onPlayerControllersChanged;
@@ -286,6 +422,8 @@ class StandaloneLobby extends StatelessWidget {
                 height: titleHeight,
                 child: _LobbyTitleColumn(
                   tokens: tokens,
+                  language: language,
+                  appearance: appearance,
                   showingPanel: showingRules || showingOnline,
                   onStart: onStart,
                   onOnlinePressed: onOnlinePressed,
@@ -298,12 +436,15 @@ class StandaloneLobby extends StatelessWidget {
                 height: panelHeight,
                 child: _LobbyPanel(
                   tokens: tokens,
+                  language: language,
                   selectedPreset: selectedPreset,
                   customVariants: customVariants,
                   playerControllers: playerControllers,
                   variants: activeVariants,
                   showingRules: showingRules,
                   showingOnline: showingOnline,
+                  onHostOnline: onHostOnline,
+                  onJoinOnline: onJoinOnline,
                   onPresetChanged: onPresetChanged,
                   onCustomVariantsChanged: onCustomVariantsChanged,
                   onPlayerControllersChanged: onPlayerControllersChanged,
@@ -360,6 +501,8 @@ class StandaloneLobby extends StatelessWidget {
 class _LobbyTitleColumn extends StatelessWidget {
   const _LobbyTitleColumn({
     required this.tokens,
+    required this.language,
+    required this.appearance,
     required this.showingPanel,
     required this.onStart,
     required this.onOnlinePressed,
@@ -368,6 +511,8 @@ class _LobbyTitleColumn extends StatelessWidget {
   });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final KolkhozAppearance appearance;
   final bool showingPanel;
   final VoidCallback onStart;
   final VoidCallback onOnlinePressed;
@@ -408,6 +553,7 @@ class _LobbyTitleColumn extends StatelessWidget {
             ),
             _LobbyButtonStack(
               tokens: tokens,
+              language: language,
               showingPanel: showingPanel,
               onStart: onStart,
               onOnlinePressed: onOnlinePressed,
@@ -422,7 +568,11 @@ class _LobbyTitleColumn extends StatelessWidget {
               filterQuality: FilterQuality.none,
             ),
             const Spacer(),
-            _LobbyFooter(tokens: tokens),
+            _LobbyFooter(
+              tokens: tokens,
+              language: language,
+              appearance: appearance,
+            ),
           ],
         );
       },
@@ -433,6 +583,7 @@ class _LobbyTitleColumn extends StatelessWidget {
 class _LobbyButtonStack extends StatelessWidget {
   const _LobbyButtonStack({
     required this.tokens,
+    required this.language,
     required this.showingPanel,
     required this.onStart,
     required this.onOnlinePressed,
@@ -441,6 +592,7 @@ class _LobbyButtonStack extends StatelessWidget {
   });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final bool showingPanel;
   final VoidCallback onStart;
   final VoidCallback onOnlinePressed;
@@ -456,7 +608,7 @@ class _LobbyButtonStack extends StatelessWidget {
           width: double.infinity,
           height: 44,
           child: StandaloneCommandButton(
-            label: 'Start Game',
+            label: language.text(en: 'Start Game', ru: 'Начать игру'),
             prominent: true,
             tokens: tokens,
             onPressed: onStart,
@@ -466,7 +618,7 @@ class _LobbyButtonStack extends StatelessWidget {
           width: double.infinity,
           height: 44,
           child: StandaloneCommandButton(
-            label: 'Online Play',
+            label: language.text(en: 'Online Play', ru: 'Онлайн игра'),
             prominent: false,
             tokens: tokens,
             onPressed: onOnlinePressed,
@@ -477,7 +629,7 @@ class _LobbyButtonStack extends StatelessWidget {
           width: double.infinity,
           height: 44,
           child: StandaloneCommandButton(
-            label: 'How to Play',
+            label: language.text(en: 'How to Play', ru: 'Как играть'),
             prominent: false,
             tokens: tokens,
             onPressed: onTutorialPressed,
@@ -488,7 +640,9 @@ class _LobbyButtonStack extends StatelessWidget {
           width: double.infinity,
           height: 44,
           child: StandaloneCommandButton(
-            label: showingPanel ? 'Options' : 'Rules',
+            label: showingPanel
+                ? language.text(en: 'Options', ru: 'Настройки')
+                : language.text(en: 'Rules', ru: 'Правила'),
             prominent: false,
             tokens: tokens,
             onPressed: onRulesPressed,
@@ -500,9 +654,15 @@ class _LobbyButtonStack extends StatelessWidget {
 }
 
 class _LobbyFooter extends StatelessWidget {
-  const _LobbyFooter({required this.tokens});
+  const _LobbyFooter({
+    required this.tokens,
+    required this.language,
+    required this.appearance,
+  });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final KolkhozAppearance appearance;
 
   @override
   Widget build(BuildContext context) {
@@ -515,19 +675,19 @@ class _LobbyFooter extends StatelessWidget {
           children: [
             _SmallChromeButton(
               tokens: tokens,
-              label: 'EN',
-              iconAsset: 'ios_resources/Icons/icon-language-en.png',
+              label: language.footerLabel,
+              iconAsset: 'ios_resources/Icons/${language.toggleIconAsset}',
             ),
             _SmallChromeButton(
               tokens: tokens,
-              label: 'DARK',
+              label: appearance.label(language),
               iconAsset: 'ios_resources/Icons/icon-appearance.png',
             ),
           ],
         ),
         _SmallChromeButton(
           tokens: tokens,
-          label: 'STANDARD',
+          label: language.text(en: 'STANDARD', ru: 'СТАНДАРТ'),
           iconAsset: 'ios_resources/Icons/icon-gears.png',
           wide: true,
         ),
@@ -535,7 +695,7 @@ class _LobbyFooter extends StatelessWidget {
           spacing: 2,
           children: [
             Text(
-              'GAME BY',
+              language.text(en: 'GAME BY', ru: 'АВТОР ИГРЫ'),
               style: kolkhozFontStyle.copyWith(
                 color: tokens.colors.gold,
                 fontSize: 11,
@@ -543,7 +703,7 @@ class _LobbyFooter extends StatelessWidget {
               ),
             ),
             Text(
-              'WILLIAM THEISEN',
+              language.text(en: 'WILLIAM THEISEN', ru: 'УИЛЬЯМ ТАЙСОН'),
               style: kolkhozFontStyle.copyWith(
                 color: tokens.colors.gold,
                 fontSize: 11,
@@ -612,24 +772,39 @@ class _SmallChromeButton extends StatelessWidget {
 class _LobbyPanel extends StatelessWidget {
   const _LobbyPanel({
     required this.tokens,
+    required this.language,
     required this.selectedPreset,
     required this.customVariants,
     required this.playerControllers,
     required this.variants,
     required this.showingRules,
     required this.showingOnline,
+    required this.onHostOnline,
+    required this.onJoinOnline,
     required this.onPresetChanged,
     required this.onCustomVariantsChanged,
     required this.onPlayerControllersChanged,
   });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final KolkhozGamePreset selectedPreset;
   final KolkhozGameVariants customVariants;
   final List<KolkhozPlayerController> playerControllers;
   final KolkhozGameVariants variants;
   final bool showingRules;
   final bool showingOnline;
+  final Future<String> Function(
+    Uri baseURL,
+    List<KolkhozPlayerController> controllers,
+  )
+  onHostOnline;
+  final Future<void> Function(
+    Uri baseURL,
+    String inviteCode,
+    int? preferredPlayerID,
+  )
+  onJoinOnline;
   final ValueChanged<KolkhozGamePreset> onPresetChanged;
   final ValueChanged<KolkhozGameVariants> onCustomVariantsChanged;
   final ValueChanged<List<KolkhozPlayerController>> onPlayerControllersChanged;
@@ -639,11 +814,17 @@ class _LobbyPanel extends StatelessWidget {
     return _PanelSurface(
       tokens: tokens,
       child: showingOnline
-          ? _OnlinePanel(tokens: tokens)
+          ? _OnlinePanel(
+              tokens: tokens,
+              language: language,
+              onHostOnline: onHostOnline,
+              onJoinOnline: onJoinOnline,
+            )
           : showingRules
-          ? _RulesPanel(tokens: tokens)
+          ? _RulesPanel(tokens: tokens, language: language)
           : _VariantPanel(
               tokens: tokens,
+              language: language,
               selectedPreset: selectedPreset,
               customVariants: customVariants,
               playerControllers: playerControllers,
@@ -686,6 +867,7 @@ class _PanelSurface extends StatelessWidget {
 class _VariantPanel extends StatelessWidget {
   const _VariantPanel({
     required this.tokens,
+    required this.language,
     required this.selectedPreset,
     required this.customVariants,
     required this.playerControllers,
@@ -696,6 +878,7 @@ class _VariantPanel extends StatelessWidget {
   });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final KolkhozGamePreset selectedPreset;
   final KolkhozGameVariants customVariants;
   final List<KolkhozPlayerController> playerControllers;
@@ -712,6 +895,7 @@ class _VariantPanel extends StatelessWidget {
       children: [
         _PresetSelector(
           tokens: tokens,
+          language: language,
           selectedPreset: selectedPreset,
           onPresetChanged: onPresetChanged,
         ),
@@ -724,6 +908,7 @@ class _VariantPanel extends StatelessWidget {
               children: [
                 _SeatControllerOptions(
                   tokens: tokens,
+                  language: language,
                   controllers: playerControllers,
                   onChanged: onPlayerControllersChanged,
                 ),
@@ -731,11 +916,16 @@ class _VariantPanel extends StatelessWidget {
                 if (selectedPreset == KolkhozGamePreset.custom)
                   _CustomVariantOptions(
                     tokens: tokens,
+                    language: language,
                     variants: customVariants,
                     onChanged: onCustomVariantsChanged,
                   )
                 else
-                  _PresetSummary(tokens: tokens, variants: variants),
+                  _PresetSummary(
+                    tokens: tokens,
+                    language: language,
+                    variants: variants,
+                  ),
               ],
             ),
           ),
@@ -748,11 +938,13 @@ class _VariantPanel extends StatelessWidget {
 class _PresetSelector extends StatelessWidget {
   const _PresetSelector({
     required this.tokens,
+    required this.language,
     required this.selectedPreset,
     required this.onPresetChanged,
   });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final KolkhozGamePreset selectedPreset;
   final ValueChanged<KolkhozGamePreset> onPresetChanged;
 
@@ -765,7 +957,7 @@ class _PresetSelector extends StatelessWidget {
           Expanded(
             child: _ImageTabButton(
               tokens: tokens,
-              label: preset.title,
+              label: presetTitle(preset, language),
               selected: selectedPreset == preset,
               onPressed: () => onPresetChanged(preset),
             ),
@@ -778,11 +970,13 @@ class _PresetSelector extends StatelessWidget {
 class _SeatControllerOptions extends StatelessWidget {
   const _SeatControllerOptions({
     required this.tokens,
+    required this.language,
     required this.controllers,
     required this.onChanged,
   });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final List<KolkhozPlayerController> controllers;
   final ValueChanged<List<KolkhozPlayerController>> onChanged;
 
@@ -807,7 +1001,7 @@ class _SeatControllerOptions extends StatelessWidget {
             children: [
               _AssetIcon('ios_resources/Icons/icon-brigade.png'),
               Text(
-                'SEATS',
+                language.text(en: 'SEATS', ru: 'МЕСТА'),
                 style: kolkhozFontStyle.copyWith(
                   color: tokens.colors.gold,
                   fontSize: 13,
@@ -818,7 +1012,7 @@ class _SeatControllerOptions extends StatelessWidget {
               _AssetIcon('ios_resources/Icons/icon-neural-badge.png'),
               Flexible(
                 child: Text(
-                  'LOCAL / AI',
+                  language.text(en: 'LOCAL / AI', ru: 'ИГРОК / ИИ'),
                   textAlign: TextAlign.right,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -835,6 +1029,7 @@ class _SeatControllerOptions extends StatelessWidget {
         for (var playerID = 0; playerID < kolkhozPlayerCount; playerID += 1)
           _SeatControllerRow(
             tokens: tokens,
+            language: language,
             playerID: playerID,
             controller: normalized[playerID],
             onChanged: (controller) {
@@ -851,12 +1046,14 @@ class _SeatControllerOptions extends StatelessWidget {
 class _SeatControllerRow extends StatelessWidget {
   const _SeatControllerRow({
     required this.tokens,
+    required this.language,
     required this.playerID,
     required this.controller,
     required this.onChanged,
   });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final int playerID;
   final KolkhozPlayerController controller;
   final ValueChanged<KolkhozPlayerController> onChanged;
@@ -888,7 +1085,12 @@ class _SeatControllerRow extends StatelessWidget {
       child: Row(
         spacing: 9,
         children: [
-          _SeatBadge(tokens: tokens, playerID: playerID, active: active),
+          _SeatBadge(
+            tokens: tokens,
+            language: language,
+            playerID: playerID,
+            active: active,
+          ),
           Expanded(
             child: Row(
               spacing: 5,
@@ -897,7 +1099,7 @@ class _SeatControllerRow extends StatelessWidget {
                   Expanded(
                     child: _ImageTabButton(
                       tokens: tokens,
-                      label: option.shortTitle,
+                      label: option.shortTitle(language),
                       iconAsset: option.iconAsset,
                       selected: controller == option,
                       onPressed: () => onChanged(option),
@@ -916,11 +1118,13 @@ class _SeatControllerRow extends StatelessWidget {
 class _SeatBadge extends StatelessWidget {
   const _SeatBadge({
     required this.tokens,
+    required this.language,
     required this.playerID,
     required this.active,
   });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final int playerID;
   final bool active;
 
@@ -945,7 +1149,7 @@ class _SeatBadge extends StatelessWidget {
         spacing: 1,
         children: [
           Text(
-            'P${playerID + 1}',
+            language.text(en: 'P${playerID + 1}', ru: 'И${playerID + 1}'),
             style: kolkhozFontStyle.copyWith(
               color: active ? tokens.colors.goldBright : tokens.colors.creamDim,
               fontSize: 13,
@@ -1036,9 +1240,14 @@ class _ImageTabButton extends StatelessWidget {
 }
 
 class _PresetSummary extends StatelessWidget {
-  const _PresetSummary({required this.tokens, required this.variants});
+  const _PresetSummary({
+    required this.tokens,
+    required this.language,
+    required this.variants,
+  });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final KolkhozGameVariants variants;
 
   @override
@@ -1048,8 +1257,13 @@ class _PresetSummary extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 10,
       children: [
-        _DeckSummary(tokens: tokens, deckType: variants.deckType),
-        for (final row in rows) _VariantReadOnlyRow(tokens: tokens, row: row),
+        _DeckSummary(
+          tokens: tokens,
+          language: language,
+          deckType: variants.deckType,
+        ),
+        for (final row in rows)
+          _VariantReadOnlyRow(tokens: tokens, language: language, row: row),
       ],
     );
   }
@@ -1058,11 +1272,13 @@ class _PresetSummary extends StatelessWidget {
 class _CustomVariantOptions extends StatelessWidget {
   const _CustomVariantOptions({
     required this.tokens,
+    required this.language,
     required this.variants,
     required this.onChanged,
   });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final KolkhozGameVariants variants;
   final ValueChanged<KolkhozGameVariants> onChanged;
 
@@ -1078,7 +1294,7 @@ class _CustomVariantOptions extends StatelessWidget {
             Expanded(
               child: _ImageTabButton(
                 tokens: tokens,
-                label: '52 cards',
+                label: language.text(en: '52 cards', ru: '52 карты'),
                 selected: variants.deckType == 52,
                 onPressed: () => onChanged(
                   variants.copyWith(deckType: 52, ordenNachalniku: false),
@@ -1088,7 +1304,7 @@ class _CustomVariantOptions extends StatelessWidget {
             Expanded(
               child: _ImageTabButton(
                 tokens: tokens,
-                label: '36 cards',
+                label: language.text(en: '36 cards', ru: '36 карт'),
                 selected: variants.deckType == 36,
                 onPressed: () => onChanged(
                   variants.copyWith(deckType: 36, accumulateJobs: false),
@@ -1099,6 +1315,7 @@ class _CustomVariantOptions extends StatelessWidget {
         ),
         _VariantToggleRow(
           tokens: tokens,
+          language: language,
           row: _VariantRowData.nomenclature,
           value: variants.nomenclature,
           onChanged: (value) =>
@@ -1106,12 +1323,14 @@ class _CustomVariantOptions extends StatelessWidget {
         ),
         _VariantToggleRow(
           tokens: tokens,
+          language: language,
           row: _VariantRowData.allowSwap,
           value: variants.allowSwap,
           onChanged: (value) => onChanged(variants.copyWith(allowSwap: value)),
         ),
         _VariantToggleRow(
           tokens: tokens,
+          language: language,
           row: _VariantRowData.northernStyle,
           value: variants.northernStyle,
           onChanged: (value) =>
@@ -1119,6 +1338,7 @@ class _CustomVariantOptions extends StatelessWidget {
         ),
         _VariantToggleRow(
           tokens: tokens,
+          language: language,
           row: _VariantRowData.miceVariant,
           value: variants.miceVariant,
           onChanged: (value) =>
@@ -1127,6 +1347,7 @@ class _CustomVariantOptions extends StatelessWidget {
         if (variants.deckType == 36)
           _VariantToggleRow(
             tokens: tokens,
+            language: language,
             row: _VariantRowData.ordenNachalniku,
             value: variants.ordenNachalniku,
             onChanged: (value) =>
@@ -1134,6 +1355,7 @@ class _CustomVariantOptions extends StatelessWidget {
           ),
         _VariantToggleRow(
           tokens: tokens,
+          language: language,
           row: _VariantRowData.medalsCount,
           value: variants.medalsCount,
           onChanged: (value) =>
@@ -1141,6 +1363,7 @@ class _CustomVariantOptions extends StatelessWidget {
         ),
         _VariantToggleRow(
           tokens: tokens,
+          language: language,
           row: _VariantRowData.heroOfSovietUnion,
           value: variants.heroOfSovietUnion,
           onChanged: (value) =>
@@ -1149,6 +1372,7 @@ class _CustomVariantOptions extends StatelessWidget {
         if (variants.deckType != 36)
           _VariantToggleRow(
             tokens: tokens,
+            language: language,
             row: _VariantRowData.accumulateJobs,
             value: variants.accumulateJobs,
             onChanged: (value) =>
@@ -1160,9 +1384,14 @@ class _CustomVariantOptions extends StatelessWidget {
 }
 
 class _DeckSummary extends StatelessWidget {
-  const _DeckSummary({required this.tokens, required this.deckType});
+  const _DeckSummary({
+    required this.tokens,
+    required this.language,
+    required this.deckType,
+  });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final int deckType;
 
   @override
@@ -1178,7 +1407,7 @@ class _DeckSummary extends StatelessWidget {
         spacing: 8,
         children: [
           Text(
-            'DECK',
+            language.text(en: 'DECK', ru: 'КОЛОДА'),
             style: kolkhozFontStyle.copyWith(
               color: tokens.colors.creamDim,
               fontSize: 12,
@@ -1186,7 +1415,7 @@ class _DeckSummary extends StatelessWidget {
             ),
           ),
           Text(
-            '$deckType CARDS',
+            language.text(en: '$deckType CARDS', ru: '$deckType КАРТ'),
             style: kolkhozFontStyle.copyWith(
               color: tokens.colors.gold,
               fontSize: 13,
@@ -1200,9 +1429,14 @@ class _DeckSummary extends StatelessWidget {
 }
 
 class _VariantReadOnlyRow extends StatelessWidget {
-  const _VariantReadOnlyRow({required this.tokens, required this.row});
+  const _VariantReadOnlyRow({
+    required this.tokens,
+    required this.language,
+    required this.row,
+  });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final _VariantRowData row;
 
   @override
@@ -1216,7 +1450,7 @@ class _VariantReadOnlyRow extends StatelessWidget {
         children: [
           const _AssetIcon('ios_resources/Icons/icon-check.png', size: 16),
           Expanded(
-            child: _VariantText(tokens: tokens, row: row),
+            child: _VariantText(tokens: tokens, language: language, row: row),
           ),
         ],
       ),
@@ -1227,12 +1461,14 @@ class _VariantReadOnlyRow extends StatelessWidget {
 class _VariantToggleRow extends StatelessWidget {
   const _VariantToggleRow({
     required this.tokens,
+    required this.language,
     required this.row,
     required this.value,
     required this.onChanged,
   });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final _VariantRowData row;
   final bool value;
   final ValueChanged<bool> onChanged;
@@ -1247,7 +1483,7 @@ class _VariantToggleRow extends StatelessWidget {
         spacing: 9,
         children: [
           Expanded(
-            child: _VariantText(tokens: tokens, row: row),
+            child: _VariantText(tokens: tokens, language: language, row: row),
           ),
           Switch(value: value, onChanged: onChanged),
         ],
@@ -1289,9 +1525,14 @@ class _VariantRowBackground extends StatelessWidget {
 }
 
 class _VariantText extends StatelessWidget {
-  const _VariantText({required this.tokens, required this.row});
+  const _VariantText({
+    required this.tokens,
+    required this.language,
+    required this.row,
+  });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
   final _VariantRowData row;
 
   @override
@@ -1301,7 +1542,7 @@ class _VariantText extends StatelessWidget {
       spacing: 2,
       children: [
         Text(
-          row.title,
+          row.localizedTitle(language),
           style: kolkhozFontStyle.copyWith(
             color: tokens.colors.gold,
             fontSize: 13,
@@ -1309,7 +1550,7 @@ class _VariantText extends StatelessWidget {
           ),
         ),
         Text(
-          row.description,
+          row.localizedDescription(language),
           style: kolkhozFontStyle.copyWith(
             color: tokens.colors.smoke,
             fontSize: 11,
@@ -1322,9 +1563,10 @@ class _VariantText extends StatelessWidget {
 }
 
 class _RulesPanel extends StatelessWidget {
-  const _RulesPanel({required this.tokens});
+  const _RulesPanel({required this.tokens, required this.language});
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
 
   @override
   Widget build(BuildContext context) {
@@ -1341,7 +1583,7 @@ class _RulesPanel extends StatelessWidget {
                 size: 26,
               ),
               Text(
-                'RULES',
+                language.text(en: 'RULES', ru: 'ПРАВИЛА'),
                 style: kolkhozFontStyle.copyWith(
                   color: tokens.colors.gold,
                   fontSize: 19,
@@ -1360,30 +1602,43 @@ class _RulesPanel extends StatelessWidget {
           ),
           _RuleBlock(
             tokens: tokens,
-            title: 'Objective',
-            body:
-                'Complete collective farm jobs while protecting your private plot. Highest score wins!',
+            title: language.text(en: 'Objective', ru: 'Цель'),
+            body: language.text(
+              en: 'Complete collective farm jobs while protecting your private plot. Highest score wins!',
+              ru: 'Выполняйте работы колхоза, защищая свой участок. Побеждает наибольший счёт!',
+            ),
           ),
           _RuleBlock(
             tokens: tokens,
-            title: 'Gameplay',
-            body: 'Play cards to tricks - must follow lead suit if able.',
+            title: language.text(en: 'Gameplay', ru: 'Игра'),
+            body: language.text(
+              en: 'Play cards to tricks - must follow lead suit if able.',
+              ru: 'Играйте карты во взятки - следуйте масти если возможно.',
+            ),
           ),
           _RuleBlock(
             tokens: tokens,
-            title: 'Jobs',
-            body: 'Jobs need 40 work hours to complete.',
+            title: language.text(en: 'Jobs', ru: 'Работы'),
+            body: language.text(
+              en: 'Jobs need 40 work hours to complete.',
+              ru: 'Работы требуют 40 часов для завершения.',
+            ),
           ),
           _RuleBlock(
             tokens: tokens,
-            title: 'Trump Face Cards',
-            body:
-                'Jack, Queen, and King have special powers in nomenclature games.',
+            title: language.text(en: 'Trump Face Cards', ru: 'Козырные карты'),
+            body: language.text(
+              en: 'Jack, Queen, and King have special powers in nomenclature games.',
+              ru: 'Валет, Дама и Король имеют особые силы в игре с номенклатурой.',
+            ),
           ),
           _RuleBlock(
             tokens: tokens,
-            title: 'Scoring',
-            body: 'Cards in your plot equal your score. Highest score wins.',
+            title: language.text(en: 'Scoring', ru: 'Подсчёт очков'),
+            body: language.text(
+              en: 'Cards in your plot equal your score. Highest score wins.',
+              ru: 'Карты на вашем участке дают очки. Побеждает тот, у кого больше.',
+            ),
           ),
         ],
       ),
@@ -1391,10 +1646,124 @@ class _RulesPanel extends StatelessWidget {
   }
 }
 
-class _OnlinePanel extends StatelessWidget {
-  const _OnlinePanel({required this.tokens});
+class _OnlinePanel extends StatefulWidget {
+  const _OnlinePanel({
+    required this.tokens,
+    required this.language,
+    required this.onHostOnline,
+    required this.onJoinOnline,
+  });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final Future<String> Function(
+    Uri baseURL,
+    List<KolkhozPlayerController> controllers,
+  )
+  onHostOnline;
+  final Future<void> Function(
+    Uri baseURL,
+    String inviteCode,
+    int? preferredPlayerID,
+  )
+  onJoinOnline;
+
+  @override
+  State<_OnlinePanel> createState() => _OnlinePanelState();
+}
+
+class _OnlinePanelState extends State<_OnlinePanel> {
+  late final TextEditingController serverController;
+  late final TextEditingController inviteController;
+  _OnlineMode mode = _OnlineMode.host;
+  List<_OnlineSeatChoice> seatChoices = const [
+    _OnlineSeatChoice.local,
+    _OnlineSeatChoice.ai,
+    _OnlineSeatChoice.ai,
+    _OnlineSeatChoice.ai,
+  ];
+  int preferredSeat = -1;
+  bool busy = false;
+  String? status;
+
+  @override
+  void initState() {
+    super.initState();
+    serverController = TextEditingController(text: 'http://127.0.0.1:8787');
+    inviteController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    serverController.dispose();
+    inviteController.dispose();
+    super.dispose();
+  }
+
+  Future<void> host() async {
+    await runOnlineAction(() async {
+      final sessionID = await widget.onHostOnline(
+        parseServerURL(),
+        hostControllers,
+      );
+      status = widget.language.text(
+        en: 'Hosted $sessionID',
+        ru: 'Создано $sessionID',
+      );
+    });
+  }
+
+  Future<void> join() async {
+    await runOnlineAction(() async {
+      await widget.onJoinOnline(
+        parseServerURL(),
+        inviteController.text.trim(),
+        preferredSeat >= 0 ? preferredSeat : null,
+      );
+      status = widget.language.text(
+        en: 'Joined ${inviteController.text.trim()}',
+        ru: 'Вошли ${inviteController.text.trim()}',
+      );
+    });
+  }
+
+  Future<void> runOnlineAction(Future<void> Function() action) async {
+    if (busy) {
+      return;
+    }
+    setState(() {
+      busy = true;
+      status = null;
+    });
+    try {
+      await action();
+    } catch (exception) {
+      if (mounted) {
+        setState(() => status = '$exception');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => busy = false);
+      }
+    }
+  }
+
+  Uri parseServerURL() {
+    final uri = Uri.parse(serverController.text.trim());
+    if (!uri.hasScheme || uri.host.isEmpty) {
+      throw const FormatException('Enter a full server URL.');
+    }
+    return uri;
+  }
+
+  List<KolkhozPlayerController> get hostControllers {
+    return [
+      for (var index = 0; index < kolkhozPlayerCount; index += 1)
+        index == 0 || seatChoices[index] == _OnlineSeatChoice.open
+            ? KolkhozPlayerController.human
+            : KolkhozPlayerController.heuristicAI,
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1411,9 +1780,9 @@ class _OnlinePanel extends StatelessWidget {
                 size: 26,
               ),
               Text(
-                'ONLINE PLAY',
+                widget.language.text(en: 'ONLINE PLAY', ru: 'ОНЛАЙН ИГРА'),
                 style: kolkhozFontStyle.copyWith(
-                  color: tokens.colors.gold,
+                  color: widget.tokens.colors.gold,
                   fontSize: 19,
                   fontWeight: FontWeight.w900,
                 ),
@@ -1421,74 +1790,342 @@ class _OnlinePanel extends StatelessWidget {
             ],
           ),
           _VariantRowBackground(
-            tokens: tokens,
+            tokens: widget.tokens,
             active: false,
             child: Text(
-              'Host with AI seats or join by invite code.',
+              widget.language.text(
+                en: 'Host with AI seats or join by invite code.',
+                ru: 'Создайте стол с ИИ или войдите по коду.',
+              ),
               style: kolkhozFontStyle.copyWith(
-                color: tokens.colors.creamDim,
+                color: widget.tokens.colors.creamDim,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
             ),
           ),
-          _DisabledOnlineField(tokens: tokens, label: 'SERVER URL'),
-          _DisabledOnlineField(tokens: tokens, label: 'INVITE CODE'),
+          _OnlineModeSelector(
+            tokens: widget.tokens,
+            language: widget.language,
+            mode: mode,
+            onChanged: busy ? null : (value) => setState(() => mode = value),
+          ),
+          _OnlineTextField(
+            tokens: widget.tokens,
+            controller: serverController,
+            label: widget.language.text(en: 'SERVER URL', ru: 'АДРЕС СЕРВЕРА'),
+          ),
+          if (mode == _OnlineMode.host)
+            _OnlineSeatOptions(
+              tokens: widget.tokens,
+              language: widget.language,
+              choices: seatChoices,
+              onChanged: busy
+                  ? null
+                  : (index, value) {
+                      setState(() {
+                        final next = [...seatChoices];
+                        next[index] = index == 0
+                            ? _OnlineSeatChoice.local
+                            : value;
+                        seatChoices = next;
+                      });
+                    },
+            )
+          else ...[
+            _OnlineTextField(
+              tokens: widget.tokens,
+              controller: inviteController,
+              label: widget.language.text(
+                en: 'INVITE CODE',
+                ru: 'КОД ПРИГЛАШЕНИЯ',
+              ),
+            ),
+            _PreferredSeatSelector(
+              tokens: widget.tokens,
+              language: widget.language,
+              selected: preferredSeat,
+              onChanged: busy
+                  ? null
+                  : (value) => setState(() => preferredSeat = value),
+            ),
+          ],
           SizedBox(
             width: double.infinity,
             height: 44,
             child: Opacity(
-              opacity: 0.45,
+              opacity: busy ? 0.55 : 1,
               child: StandaloneCommandButton(
-                label: 'Host & Play',
+                label: busy
+                    ? widget.language.text(en: 'Working...', ru: 'Идёт...')
+                    : mode == _OnlineMode.host
+                    ? widget.language.text(
+                        en: 'Host & Play',
+                        ru: 'Создать и играть',
+                      )
+                    : widget.language.text(
+                        en: 'Join & Play',
+                        ru: 'Войти и играть',
+                      ),
                 prominent: true,
-                tokens: tokens,
-                onPressed: null,
+                tokens: widget.tokens,
+                onPressed: busy
+                    ? null
+                    : mode == _OnlineMode.host
+                    ? host
+                    : join,
               ),
             ),
           ),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: Opacity(
-              opacity: 0.45,
-              child: StandaloneCommandButton(
-                label: 'Join & Play',
-                prominent: false,
-                tokens: tokens,
-                onPressed: null,
+          if (status != null)
+            Text(
+              status!,
+              style: kolkhozFontStyle.copyWith(
+                color: widget.tokens.colors.creamDim,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
               ),
             ),
-          ),
         ],
       ),
     );
   }
 }
 
-class _DisabledOnlineField extends StatelessWidget {
-  const _DisabledOnlineField({required this.tokens, required this.label});
+enum _OnlineMode { host, join }
+
+enum _OnlineSeatChoice { local, open, ai }
+
+class _OnlineModeSelector extends StatelessWidget {
+  const _OnlineModeSelector({
+    required this.tokens,
+    required this.language,
+    required this.mode,
+    required this.onChanged,
+  });
 
   final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final _OnlineMode mode;
+  final ValueChanged<_OnlineMode>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      spacing: 6,
+      children: [
+        for (final option in _OnlineMode.values)
+          Expanded(
+            child: _OnlineChoiceButton(
+              tokens: tokens,
+              label: option == _OnlineMode.host
+                  ? language.text(en: 'Host', ru: 'Создать')
+                  : language.text(en: 'Join', ru: 'Войти'),
+              selected: mode == option,
+              onPressed: onChanged == null ? null : () => onChanged!(option),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _OnlineSeatOptions extends StatelessWidget {
+  const _OnlineSeatOptions({
+    required this.tokens,
+    required this.language,
+    required this.choices,
+    required this.onChanged,
+  });
+
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final List<_OnlineSeatChoice> choices;
+  final void Function(int index, _OnlineSeatChoice value)? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 7,
+      children: [
+        Text(
+          language.text(en: 'SEATS', ru: 'МЕСТА'),
+          style: kolkhozFontStyle.copyWith(
+            color: tokens.colors.gold,
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        for (var index = 0; index < kolkhozPlayerCount; index += 1)
+          Row(
+            spacing: 6,
+            children: [
+              SizedBox(
+                width: 58,
+                child: Text(
+                  language.text(en: 'P${index + 1}', ru: 'И${index + 1}'),
+                  style: kolkhozFontStyle.copyWith(
+                    color: tokens.colors.creamDim,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (index == 0)
+                Expanded(
+                  child: _OnlineChoiceButton(
+                    tokens: tokens,
+                    label: language.text(en: 'Local', ru: 'Здесь'),
+                    selected: true,
+                    onPressed: null,
+                  ),
+                )
+              else
+                for (final option in [
+                  _OnlineSeatChoice.open,
+                  _OnlineSeatChoice.ai,
+                ])
+                  Expanded(
+                    child: _OnlineChoiceButton(
+                      tokens: tokens,
+                      label: option == _OnlineSeatChoice.open
+                          ? language.text(en: 'Open', ru: 'Открыто')
+                          : language.text(en: 'AI', ru: 'ИИ'),
+                      selected: choices[index] == option,
+                      onPressed: onChanged == null
+                          ? null
+                          : () => onChanged!(index, option),
+                    ),
+                  ),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+class _PreferredSeatSelector extends StatelessWidget {
+  const _PreferredSeatSelector({
+    required this.tokens,
+    required this.language,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final int selected;
+  final ValueChanged<int>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      spacing: 6,
+      children: [
+        for (final value in [-1, 0, 1, 2, 3])
+          Expanded(
+            child: _OnlineChoiceButton(
+              tokens: tokens,
+              label: value < 0
+                  ? language.text(en: 'Any', ru: 'Любое')
+                  : language.text(en: 'P${value + 1}', ru: 'И${value + 1}'),
+              selected: selected == value,
+              onPressed: onChanged == null ? null : () => onChanged!(value),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _OnlineChoiceButton extends StatelessWidget {
+  const _OnlineChoiceButton({
+    required this.tokens,
+    required this.label,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final DesignTokens tokens;
+  final String label;
+  final bool selected;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onPressed,
+      child: Container(
+        height: 34,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected
+              ? tokens.colors.gold.withValues(alpha: 0.72)
+              : tokens.colors.black.withValues(alpha: 0.22),
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(
+            color: selected
+                ? tokens.colors.gold
+                : tokens.colors.steel.withValues(alpha: 0.44),
+          ),
+        ),
+        child: Text(
+          label.toUpperCase(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: kolkhozFontStyle.copyWith(
+            color: selected ? tokens.colors.onAccent : tokens.colors.creamDim,
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OnlineTextField extends StatelessWidget {
+  const _OnlineTextField({
+    required this.tokens,
+    required this.controller,
+    required this.label,
+  });
+
+  final DesignTokens tokens;
+  final TextEditingController controller;
   final String label;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 42,
-      alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: tokens.colors.black.withValues(alpha: 0.30),
         borderRadius: BorderRadius.circular(5),
         border: Border.all(color: tokens.colors.steel.withValues(alpha: 0.34)),
       ),
-      child: Text(
-        label,
+      child: TextField(
+        controller: controller,
+        minLines: 1,
+        maxLines: 1,
         style: kolkhozFontStyle.copyWith(
-          color: tokens.colors.creamDim.withValues(alpha: 0.62),
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
+          color: tokens.colors.cream,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+        ),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: kolkhozFontStyle.copyWith(
+            color: tokens.colors.creamDim.withValues(alpha: 0.72),
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 6,
+          ),
         ),
       ),
     );
@@ -1636,14 +2273,78 @@ class _VariantRowData {
       if (variants.accumulateJobs) accumulateJobs,
     ];
   }
+
+  String localizedTitle(KolkhozLanguage language) {
+    return switch (key) {
+      'nomenclature' => language.text(en: 'NOMENCLATURE', ru: 'НОМЕНКЛАТУРА'),
+      'allowSwap' => language.text(en: 'SWAP', ru: 'ОБМЕН'),
+      'northernStyle' => language.text(
+        en: 'NORTHERN STYLE',
+        ru: 'СЕВЕРНЫЙ СТИЛЬ',
+      ),
+      'miceVariant' => language.text(en: 'MICE', ru: 'МЫШИ'),
+      'ordenNachalniku' => language.text(
+        en: 'ORDER TO THE BOSS',
+        ru: 'ОРДЕН НАЧАЛЬНИКУ',
+      ),
+      'medalsCount' => language.text(en: 'MEDALS', ru: 'МЕДАЛИ'),
+      'heroOfSovietUnion' => language.text(en: 'HERO', ru: 'ГЕРОЙ'),
+      'accumulateJobs' => language.text(en: 'ACCUMULATION', ru: 'НАКОПЛЕНИЕ'),
+      _ => title,
+    };
+  }
+
+  String localizedDescription(KolkhozLanguage language) {
+    return switch (key) {
+      'nomenclature' => language.text(
+        en: 'Trump face cards have special powers: Jack gets exiled, Queen exposes everyone, King doubles exile.',
+        ru: 'Козырные фигуры имеют особые силы: Валет ссылается, Дама раскрывает всех, Король удваивает ссылку.',
+      ),
+      'allowSwap' => language.text(
+        en: 'Swap cards between your hand and plot at the start of each year.',
+        ru: 'Обменивайте карты между рукой и участком в начале каждого года.',
+      ),
+      'northernStyle' => language.text(
+        en: 'No rewards for completing jobs - everyone stays vulnerable.',
+        ru: 'Нет наград за работы - все остаются уязвимы.',
+      ),
+      'miceVariant' => language.text(
+        en: 'All players reveal their entire plot during requisition.',
+        ru: 'Все игроки раскрывают весь участок при реквизиции.',
+      ),
+      'ordenNachalniku' => language.text(
+        en: 'Cards assigned to completed jobs stack as bonus rewards.',
+        ru: 'Карты, назначенные на выполненные работы, копятся как награды.',
+      ),
+      'medalsCount' => language.text(
+        en: 'Trick victories count toward your final score.',
+        ru: 'Победы во взятках идут в итоговый счёт.',
+      ),
+      'heroOfSovietUnion' => language.text(
+        en: 'Win all 4 tricks in a year to become immune from requisition.',
+        ru: 'Выиграйте все 4 взятки за год, чтобы получить иммунитет.',
+      ),
+      'accumulateJobs' => language.text(
+        en: 'Unclaimed job rewards carry over to the next year.',
+        ru: 'Невостребованные награды за работы переносятся на следующий год.',
+      ),
+      _ => description,
+    };
+  }
 }
 
 extension _ControllerLobbyLabels on KolkhozPlayerController {
-  String get shortTitle {
+  String shortTitle(KolkhozLanguage language) {
     return switch (this) {
-      KolkhozPlayerController.human => 'Human',
-      KolkhozPlayerController.heuristicAI => 'Basic',
-      KolkhozPlayerController.neuralAI => 'Neural',
+      KolkhozPlayerController.human => language.text(en: 'Human', ru: 'Игрок'),
+      KolkhozPlayerController.heuristicAI => language.text(
+        en: 'Basic',
+        ru: 'Базовый',
+      ),
+      KolkhozPlayerController.neuralAI => language.text(
+        en: 'Neural',
+        ru: 'Нейро',
+      ),
     };
   }
 
@@ -1659,36 +2360,19 @@ extension _ControllerLobbyLabels on KolkhozPlayerController {
   }
 }
 
-class StandaloneMenuButton extends StatelessWidget {
-  const StandaloneMenuButton({
-    required this.tokens,
-    required this.onPressed,
-    super.key,
-  });
-
-  final DesignTokens tokens;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: 'Menu',
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Image.asset(
-          'ios_resources/Icons/icon-menu.png',
-          width: 26,
-          height: 26,
-          filterQuality: FilterQuality.none,
-        ),
-        style: IconButton.styleFrom(
-          backgroundColor: tokens.colors.black.withValues(alpha: 0.62),
-          foregroundColor: tokens.colors.gold,
-          side: BorderSide(color: tokens.colors.gold.withValues(alpha: 0.5)),
-        ),
-      ),
-    );
-  }
+String presetTitle(KolkhozGamePreset preset, KolkhozLanguage language) {
+  return switch (preset) {
+    KolkhozGamePreset.kolkhoz => language.text(en: 'Kolkhoz', ru: 'Колхоз'),
+    KolkhozGamePreset.littleKolkhoz => language.text(
+      en: 'Little Kolkhoz',
+      ru: 'Колхозик',
+    ),
+    KolkhozGamePreset.campStyle => language.text(
+      en: 'Camp Style',
+      ru: 'Лагерный',
+    ),
+    KolkhozGamePreset.custom => language.text(en: 'Custom', ru: 'Свой'),
+  };
 }
 
 class StandaloneCommandButton extends StatelessWidget {

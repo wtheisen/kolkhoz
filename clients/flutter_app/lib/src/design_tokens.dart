@@ -165,6 +165,42 @@ const defaultDesignTokens = DesignTokens(
   ),
 );
 
+final lightDesignTokens = DesignTokens(
+  colors: TokenColors(
+    background: Color(0xffe6dbc2),
+    black: Color(0xfff5ebd1),
+    table: Color(0xffc9b899),
+    panel: Color(0xffe8dbbd),
+    iron: Color(0xffd6c7a8),
+    steel: Color(0xff7d684a),
+    gold: Color(0xff96611a),
+    goldBright: Color(0xffb87814),
+    red: Color(0xffb01229),
+    redDark: Color(0xffc72e29),
+    redBright: Color(0xffa30821),
+    green: Color(0xff297833),
+    onAccent: Color(0xfff5e8cc),
+    cream: Color(0xff261f17),
+    creamDim: Color(0xff594730),
+    smoke: Color(0xff6e5c45),
+    cardFill: Color(0xfffaf5e3),
+    cardInk: Color(0xff0f0d0a),
+    cardStrokeOpacity: 0.38,
+    suits: {
+      'wheat': Color(0xff96611a),
+      'sunflower': Color(0xffb87814),
+      'potato': Color(0xff6e5c45),
+      'beet': Color(0xffb01229),
+    },
+  ),
+  spacing: defaultDesignTokens.spacing,
+  radius: defaultDesignTokens.radius,
+  stroke: defaultDesignTokens.stroke,
+  typography: defaultDesignTokens.typography,
+  card: defaultDesignTokens.card,
+  layout: defaultDesignTokens.layout,
+);
+
 class DesignTokens {
   const DesignTokens({
     required this.colors,
@@ -183,6 +219,10 @@ class DesignTokens {
   final TokenTypography typography;
   final TokenCard card;
   final TokenLayout layout;
+
+  bool get usesLightAppearance =>
+      colors.background == lightDesignTokens.colors.background &&
+      colors.table == lightDesignTokens.colors.table;
 }
 
 class TokenColors {

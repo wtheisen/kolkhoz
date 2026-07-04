@@ -3,11 +3,24 @@ import FlutterMacOS
 
 @main
 class AppDelegate: FlutterAppDelegate {
+  override func applicationDidFinishLaunching(_ notification: Notification) {
+    NSApp.setActivationPolicy(.regular)
+    NSApp.unhide(nil)
+    NSRunningApplication.current.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+
+    DispatchQueue.main.async {
+      NSApp.windows.forEach { window in
+        guard let mainWindow = window as? MainFlutterWindow else { return }
+        mainWindow.placeForInitialLaunch()
+      }
+    }
+  }
+
   override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     return true
   }
 
   override func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
-    return true
+    return false
   }
 }

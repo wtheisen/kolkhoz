@@ -1,3 +1,4 @@
+import 'app_settings.dart';
 import 'game_constants.dart';
 import 'render_model.dart';
 
@@ -32,30 +33,32 @@ List<LegalAction> orderedTrumpActions(List<LegalAction> actions) {
       .toList(growable: false);
 }
 
-List<TrumpActionOption> planningTrumpOptions(List<LegalAction> actions) {
+List<TrumpActionOption> planningTrumpOptions(
+  List<LegalAction> actions, {
+  KolkhozLanguage? language,
+}) {
   final bySuit = {
     for (final action in actions)
       if (action.engineAction.suit != null) action.engineAction.suit!: action,
   };
   return displaySuitOrder
-      .map((suit) => trumpActionOption(suit, bySuit[suit]))
+      .map((suit) => trumpActionOption(suit, bySuit[suit], language: language))
       .toList(growable: false);
 }
 
-TrumpActionOption trumpActionOption(String suit, LegalAction? action) {
+TrumpActionOption trumpActionOption(
+  String suit,
+  LegalAction? action, {
+  KolkhozLanguage? language,
+}) {
+  final resolvedLanguage = language ?? KolkhozLanguage.en;
   return TrumpActionOption(
     suit: suit,
-    label: action?.label ?? trumpActionLabel(suit),
+    label: resolvedLanguage.suitName(suit),
     action: action,
   );
 }
 
 String trumpActionLabel(String suit) {
-  return switch (suit) {
-    'wheat' => 'Wheat',
-    'sunflower' => 'Sunflower',
-    'potato' => 'Potato',
-    'beet' => 'Beet',
-    _ => suit,
-  };
+  return KolkhozLanguage.en.suitName(suit);
 }

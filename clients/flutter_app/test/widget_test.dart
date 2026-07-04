@@ -1,5 +1,11 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kolkhoz_app/src/animation_speed.dart';
+import 'package:kolkhoz_app/src/app_settings.dart';
 import 'package:kolkhoz_app/src/assignment_display.dart';
 import 'package:kolkhoz_app/src/board_view.dart';
 import 'package:kolkhoz_app/src/brigade_display.dart';
@@ -15,16 +21,22 @@ import 'package:kolkhoz_app/src/game_ui_state.dart';
 import 'package:kolkhoz_app/src/hand_display.dart';
 import 'package:kolkhoz_app/src/hot_seat_display.dart';
 import 'package:kolkhoz_app/src/job_display.dart';
+import 'package:kolkhoz_app/src/kolkhoz_app.dart';
 import 'package:kolkhoz_app/src/lower_bar_actions.dart';
 import 'package:kolkhoz_app/src/north_display.dart';
+import 'package:kolkhoz_app/src/online_game_models.dart';
+import 'package:kolkhoz_app/src/online_table_projection.dart';
 import 'package:kolkhoz_app/src/options_display.dart';
 import 'package:kolkhoz_app/src/panel_title_display.dart';
 import 'package:kolkhoz_app/src/phase_display.dart';
+import 'package:kolkhoz_app/src/pixel_text.dart';
 import 'package:kolkhoz_app/src/player_panel_display.dart';
 import 'package:kolkhoz_app/src/plot_display.dart';
 import 'package:kolkhoz_app/src/render_model.dart';
+import 'package:kolkhoz_app/src/saved_game_store.dart';
 import 'package:kolkhoz_app/src/table_display.dart';
 import 'package:kolkhoz_app/src/trump_actions.dart';
+import 'package:kolkhoz_app/src/tutorial_display.dart';
 
 void main() {
   testWidgets('left rail uses generic icon assets', (tester) async {
@@ -44,6 +56,8 @@ void main() {
             actionPanel: panelJobs,
             tokens: tokens,
             metrics: metrics,
+            language: KolkhozLanguage.ru,
+            appearance: KolkhozAppearance.dark,
           ),
         ),
       ),
@@ -70,6 +84,7 @@ void main() {
       tokens,
     );
     String? selectedPanel;
+    final utilityCalls = <String>[];
 
     await tester.pumpWidget(
       MaterialApp(
@@ -81,14 +96,21 @@ void main() {
             actionPanel: panelJobs,
             tokens: tokens,
             metrics: metrics,
+            language: KolkhozLanguage.en,
+            appearance: KolkhozAppearance.dark,
             onPanelSelected: (panel) => selectedPanel = panel,
+            onLanguageToggle: () => utilityCalls.add('language'),
+            onAppearanceToggle: () => utilityCalls.add('appearance'),
           ),
         ),
       ),
     );
 
     await tester.tap(find.byTooltip('Cellar'));
+    await tester.tap(find.byTooltip('Switch to Russian'));
+    await tester.tap(find.byTooltip('Switch to light mode'));
     expect(selectedPanel, panelPlot);
+    expect(utilityCalls, ['language', 'appearance']);
   });
 
   testWidgets('jobs require a selected assignment card before assigning', (
@@ -105,6 +127,7 @@ void main() {
           child: JobsPanel(
             model: assignmentModel(selectedCardID: null),
             tokens: tokens,
+            language: KolkhozLanguage.en,
             onAction: (action) => assignedAction = action,
           ),
         ),
@@ -122,6 +145,7 @@ void main() {
           child: JobsPanel(
             model: assignmentModel(selectedCardID: 'wheat-9'),
             tokens: tokens,
+            language: KolkhozLanguage.en,
             onAction: (action) => assignedAction = action,
           ),
         ),
@@ -208,6 +232,65 @@ void main() {
       );
     },
   );
+
+  test('active viewer follows current or assignment human seat', () {
+    final controllers = KolkhozPlayerController.normalized([
+      KolkhozPlayerController.heuristicAI,
+      KolkhozPlayerController.human,
+      KolkhozPlayerController.human,
+      KolkhozPlayerController.neuralAI,
+    ]);
+
+    expect(hasMultipleHumanControllers(controllers), isTrue);
+    expect(
+      activeViewerSeatIDForState(
+        controllers: controllers,
+        phase: phaseTrick,
+        currentPlayerID: 2,
+        assignmentWinnerID: null,
+      ),
+      2,
+    );
+    expect(
+      activeViewerSeatIDForState(
+        controllers: controllers,
+        phase: phaseAssignment,
+        currentPlayerID: 0,
+        assignmentWinnerID: 1,
+      ),
+      1,
+    );
+    expect(
+      activeViewerSeatIDForState(
+        controllers: controllers,
+        phase: phaseTrick,
+        currentPlayerID: 0,
+        assignmentWinnerID: null,
+      ),
+      1,
+    );
+  });
+
+  testWidgets('hot seat ready button reports reveal intent', (tester) async {
+    var ready = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 240,
+          height: 80,
+          child: HotSeatReadyButton(
+            tokens: defaultDesignTokens,
+            label: 'Ready',
+            onPressed: () => ready = true,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('hot-seat-ready-button')));
+    expect(ready, isTrue);
+  });
 
   test('trump actions are filtered and filled in display suit order', () {
     final actions = [
@@ -309,6 +392,151 @@ void main() {
     expect(
       cEngineAction(const EngineAction(kind: actionUnknown, playerID: 0)),
       isNull,
+    );
+  });
+
+  test('saved game payload round trips variants controllers and actions', () {
+    const payload = KolkhozSavedGamePayload(
+      seed: 20260703,
+      variants: KolkhozGameVariants.littleKolkhoz,
+      controllers: [
+        KolkhozPlayerController.human,
+        KolkhozPlayerController.heuristicAI,
+        KolkhozPlayerController.neuralAI,
+        KolkhozPlayerController.human,
+      ],
+      actions: [
+        EngineAction(kind: actionSetTrump, playerID: 0, suit: 'wheat'),
+        EngineAction(
+          kind: actionSwap,
+          playerID: 0,
+          handCard: EngineCard(suit: 'wheat', value: 7),
+          plotCard: EngineCard(suit: 'beet', value: 10),
+          plotZone: plotZoneHidden,
+        ),
+        EngineAction(
+          kind: actionAssign,
+          playerID: 3,
+          card: EngineCard(suit: 'sunflower', value: 12),
+          targetSuit: 'potato',
+        ),
+      ],
+    );
+
+    final decoded = KolkhozSavedGamePayload.fromJson(payload.toJson());
+
+    expect(decoded.version, 1);
+    expect(decoded.seed, 20260703);
+    expect(decoded.variants.deckType, 36);
+    expect(decoded.variants.ordenNachalniku, isTrue);
+    expect(decoded.variants.heroOfSovietUnion, isFalse);
+    expect(decoded.controllers, payload.controllers);
+    expect(decoded.actions, hasLength(3));
+    expect(decoded.actions[1].handCard?.id, 'wheat-7');
+    expect(decoded.actions[1].plotCard?.id, 'beet-10');
+    expect(decoded.actions[1].plotZone, plotZoneHidden);
+    expect(decoded.actions[2].targetSuit, 'potato');
+  });
+
+  test('autosave store saves payloads and ignores corrupt files', () {
+    final directory = Directory.systemTemp.createTempSync('kolkhoz-save-test-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final file = File('${directory.path}/autosave.json');
+    final store = KolkhozAutosaveStore(file);
+
+    store.save(
+      const KolkhozSavedGamePayload(
+        seed: 42,
+        variants: KolkhozGameVariants.kolkhoz,
+        controllers: KolkhozPlayerController.defaultControllers,
+        actions: [
+          EngineAction(kind: actionSetTrump, playerID: 0, suit: 'beet'),
+        ],
+      ),
+    );
+
+    expect(store.load()?.seed, 42);
+    expect(store.load()?.actions.single.suit, 'beet');
+
+    file.writeAsStringSync('{not-json');
+    expect(store.load(), isNull);
+  });
+
+  test('online update json projects to the table model', () {
+    final update = OnlineSessionUpdate.fromJson(onlineUpdateJson());
+    const legalActions = [
+      OnlineEngineAction(kind: kcActionSetTrump, playerID: 0, suit: 0),
+    ];
+
+    final model = OnlineTableProjection(
+      update: update,
+      playerID: 0,
+      legalActions: legalActions,
+    ).project();
+
+    expect(update.sessionID, '11111111-1111-1111-1111-111111111111');
+    expect(model.viewer.seatID, 0);
+    expect(model.table.phase, phasePlanning);
+    expect(model.table.seats[0].hand.map((card) => card.id), ['wheat-13']);
+    expect(model.table.seats[1].controller, controllerRemoteHuman);
+    expect(model.table.seats[1].hiddenHandCount, 0);
+    expect(model.table.jobs.first.reward?.id, 'wheat-9');
+    expect(model.legalActions.single.engineAction.suit, 'wheat');
+  });
+
+  test('online engine actions convert from and to portable actions', () {
+    final onlineAction = OnlineEngineAction.fromEngineAction(
+      const EngineAction(
+        kind: actionSwap,
+        playerID: 0,
+        handCard: EngineCard(suit: 'wheat', value: 7),
+        plotCard: EngineCard(suit: 'beet', value: 10),
+        plotZone: plotZoneHidden,
+      ),
+    );
+
+    expect(onlineAction.kind, kcActionSwap);
+    expect(onlineAction.handCard.suit, 0);
+    expect(onlineAction.plotCard.suit, 3);
+    expect(onlineAction.plotZone, 0);
+    expect(onlineAction.engineAction.handCard?.id, 'wheat-7');
+    expect(onlineAction.engineAction.plotCard?.id, 'beet-10');
+  });
+
+  test('online client uses Swift router compatible paths', () async {
+    final httpClient = FakeOnlineHttpClient();
+
+    final client = KolkhozOnlineClient(
+      Uri.parse('http://127.0.0.1:8080'),
+      httpClient: httpClient,
+    );
+    final created = await client.createSession(
+      variants: KolkhozGameVariants.kolkhoz,
+      controllers: KolkhozPlayerController.defaultControllers,
+    );
+    final actions = await client.fetchLegalActions(
+      sessionID: created.sessionID,
+      playerID: created.playerID,
+    );
+    final submitted = await client.submitAction(
+      sessionID: created.sessionID,
+      playerID: created.playerID,
+      action: actions.single.engineAction,
+    );
+
+    expect(submitted.sessionID, created.sessionID);
+    expect(httpClient.requests.map((request) => request.route), [
+      'POST /sessions',
+      'GET /sessions/11111111-1111-1111-1111-111111111111/players/0/actions',
+      'POST /sessions/11111111-1111-1111-1111-111111111111/actions',
+    ]);
+    expect(
+      jsonDecode(httpClient.requests.first.body)['variants']['deckType'],
+      52,
+    );
+    expect(
+      jsonDecode(httpClient.requests.last.body)['action']['kind'],
+      kcActionSetTrump,
     );
   });
 
@@ -581,6 +809,35 @@ void main() {
     expect(visiblePlotCards([wheat9, beet10], {'wheat-9'}), [beet10]);
   });
 
+  testWidgets('plot stack mini exposes revealed and hidden stack cards', (
+    tester,
+  ) async {
+    final metrics = PlotPanelMetrics.fromSize(
+      const Size(640, 360),
+      defaultDesignTokens,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlotStackMini(
+          stack: PlotStackState(
+            revealed: [testCard(id: 'wheat-7', suit: 'wheat', value: 7)],
+            hidden: [
+              testCard(id: 'beet-8', suit: 'beet', value: 8),
+              testCard(id: 'potato-9', suit: 'potato', value: 9),
+            ],
+          ),
+          index: 0,
+          metrics: metrics,
+          tokens: defaultDesignTokens,
+        ),
+      ),
+    );
+
+    expect(find.byKey(const ValueKey('plot-stack-mini-0')), findsOneWidget);
+    expect(find.byType(CardBackMini), findsOneWidget);
+  });
+
   test('table display helpers centralize score and local seat policy', () {
     const scores = [
       Score(seatID: 0, visibleScore: 3, finalScore: null),
@@ -658,6 +915,208 @@ void main() {
     expect(optionsPanelSurfaceMaxHeight, 384);
     expect(optionsMenuSectionSpacing(100), optionsMenuSectionSpacingMin);
     expect(optionsMenuSectionSpacing(1000), optionsMenuSectionSpacingMax);
+    expect(defaultGameAnimationSpeed, GameAnimationSpeed.normal);
+    expect(GameAnimationSpeed.instant.automaticStepDelay, Duration.zero);
+    expect(
+      GameAnimationSpeed.fast.automaticStepDelay,
+      const Duration(milliseconds: 170),
+    );
+    expect(
+      GameAnimationSpeed.slow.cardFlightDuration,
+      const Duration(milliseconds: 520),
+    );
+  });
+
+  test('board backgrounds avoid mode-specific gradients', () {
+    expect(boardBackdropDecoration(defaultDesignTokens).gradient, isNull);
+    expect(boardBackdropDecoration(lightDesignTokens).gradient, isNull);
+    expect(playAreaBackdropDecoration(defaultDesignTokens).gradient, isNull);
+    expect(playAreaBackdropDecoration(lightDesignTokens).gradient, isNull);
+  });
+
+  test('chrome text style avoids collapsed variable font axes', () {
+    expect(kolkhozFontStyle.fontFamily, 'Handjet');
+    expect(kolkhozFontStyle.fontVariations, isNull);
+  });
+
+  testWidgets('chrome command labels use bitmap pixel text', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SizedBox(
+          width: 260,
+          height: 80,
+          child: CommandSurfaceButton(
+            label: 'NEW GAME',
+            tokens: defaultDesignTokens,
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is ChromePixelLabel &&
+            widget.text == 'NEW GAME' &&
+            widget.size == PixelTextSize.headline,
+      ),
+      findsOneWidget,
+    );
+  });
+
+  test('card motion helpers report primary card zones', () {
+    final model = runtimeModel();
+    final zones = cardMotionZones(model);
+    final cards = cardMotionCards(model);
+
+    expect(zones['wheat-11'], 'hand:0');
+    expect(cards['wheat-11']?.rank, 'J');
+  });
+
+  testWidgets('options menu controls report game-level actions', (
+    tester,
+  ) async {
+    final calls = <String>[];
+    GameAnimationSpeed? selectedSpeed;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 260,
+          height: 270,
+          child: OptionsMenuActions(
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.ru,
+            appearance: KolkhozAppearance.dark,
+            animationSpeed: GameAnimationSpeed.normal,
+            onNewGame: () => calls.add('new'),
+            onTutorial: () => calls.add('tutorial'),
+            onReturnToLobby: () => calls.add('menu'),
+            onLanguageToggle: () => calls.add('language'),
+            onAppearanceToggle: () => calls.add('appearance'),
+            onAnimationSpeedChanged: (speed) => selectedSpeed = speed,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.bySemanticsLabel('НОВАЯ ИГРА'));
+    await tester.tap(find.bySemanticsLabel('КАК ИГРАТЬ'));
+    await tester.tap(find.bySemanticsLabel('ГЛАВНОЕ МЕНЮ'));
+    await tester.tap(find.byTooltip('Switch to English'));
+    await tester.tap(find.byTooltip('Включить светлую тему'));
+    await tester.tap(find.bySemanticsLabel('МЕДЛЕННО'));
+
+    expect(calls, ['new', 'tutorial', 'menu', 'language', 'appearance']);
+    expect(selectedSpeed, GameAnimationSpeed.slow);
+  });
+
+  testWidgets('online lobby host sends open seats as human controllers', (
+    tester,
+  ) async {
+    List<KolkhozPlayerController>? hostedControllers;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 844,
+          height: 390,
+          child: StandaloneLobby(
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.ru,
+            appearance: KolkhozAppearance.dark,
+            onStart: () {},
+            selectedPreset: KolkhozGamePreset.kolkhoz,
+            customVariants: KolkhozGameVariants.kolkhoz,
+            playerControllers: KolkhozPlayerController.defaultControllers,
+            showingRules: false,
+            showingOnline: true,
+            onHostOnline: (_, controllers) async {
+              hostedControllers = controllers;
+              return 'session';
+            },
+            onJoinOnline: (_, _, _) async {},
+            onPresetChanged: (_) {},
+            onCustomVariantsChanged: (_) {},
+            onPlayerControllersChanged: (_) {},
+            onRulesPressed: () {},
+            onOnlinePressed: () {},
+            onTutorialPressed: () {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('ОТКРЫТО').first);
+    await tester.tap(find.text('СОЗДАТЬ И ИГРАТЬ'));
+    await tester.pump();
+
+    expect(hostedControllers, isNotNull);
+    expect(hostedControllers![0], KolkhozPlayerController.human);
+    expect(hostedControllers![1], KolkhozPlayerController.human);
+    expect(hostedControllers![2], KolkhozPlayerController.heuristicAI);
+  });
+
+  testWidgets('tutorial walkthrough advances, backs up, and closes', (
+    tester,
+  ) async {
+    var closed = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 844,
+          height: 390,
+          child: TutorialWalkthroughOverlay(
+            tokens: defaultDesignTokens,
+            onClose: () => closed = true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('FIRST, READ THE TABLE'), findsOneWidget);
+    expect(find.byKey(const ValueKey('tutorial-dot-0')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('tutorial-next')));
+    await tester.pump();
+    expect(find.text('PICK THE TRUMP CROP'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('tutorial-back')));
+    await tester.pump();
+    expect(find.text('FIRST, READ THE TABLE'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('tutorial-close')));
+    expect(closed, isTrue);
+  });
+
+  testWidgets('tutorial walkthrough done closes on final step', (tester) async {
+    var closed = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 844,
+          height: 390,
+          child: TutorialWalkthroughOverlay(
+            tokens: defaultDesignTokens,
+            onClose: () => closed = true,
+            steps: const [
+              TutorialStepContent(
+                title: 'Only step',
+                body: 'Body',
+                tip: 'Tip',
+                callout: 'Callout',
+                iconPath: 'ios_resources/Icons/icon-tutorial.png',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('tutorial-next')));
+    expect(closed, isTrue);
   });
 
   test('brigade display helpers project column geometry', () {
@@ -666,7 +1125,14 @@ void main() {
       closeTo(96, 0.0001),
     );
     expect(brigadeSlotWidth(100), 52);
-    expect(brigadePlayAreaLeftOffset(100), 30);
+    expect(
+      brigadePlayAreaLeftOffset(playerPanelWidth: 104.4, playAreaWidth: 104.4),
+      0,
+    );
+    expect(
+      brigadePlayAreaLeftOffset(playerPanelWidth: 104.4, playAreaWidth: 112.32),
+      closeTo(-3.96, 0.0001),
+    );
     expect(brigadePlayAreaTopOffset(100), 18);
     expect(brigadeColumnOverlap(100), 5.5);
   });
@@ -675,6 +1141,14 @@ void main() {
     expect(phaseDisplayName(phaseRequisition), 'Requisition');
     expect(phaseDisplayName('custom'), 'custom');
     expect(yearPhaseLine(year: 3, phase: phaseGameOver), 'Year 3 - Game Over');
+    expect(
+      yearPhaseLine(
+        year: 3,
+        phase: phaseGameOver,
+        language: KolkhozLanguage.ru,
+      ),
+      'Год 3 - Итог',
+    );
   });
 
   test('card art display helpers project asset paths and pip positions', () {
@@ -687,6 +1161,14 @@ void main() {
     expect(genericFaceAssetPath(queen), 'ios_resources/Cards/face-queen.png');
     expect(portraitAssetPath(seat), 'ios_resources/worker1.png');
     expect(cardTemplateAssetPath(dark: true), contains('dark'));
+    expect(
+      cardTemplateAssetPathForTokens(defaultDesignTokens),
+      contains('dark'),
+    );
+    expect(
+      cardTemplateAssetPathForTokens(lightDesignTokens),
+      contains('light'),
+    );
     expect(pipPositions(12), hasLength(10));
   });
 
@@ -1090,7 +1572,7 @@ Seat testSeat({
           ]
         : const [],
     hiddenHandCount: id == 0 ? 0 : 1,
-    plot: const PlotState(revealed: [], hidden: []),
+    plot: const PlotState(revealed: [], hidden: [], stacks: []),
     medals: 0,
     visibleScore: 0,
   );
@@ -1131,4 +1613,239 @@ Finder findAssetImage(String assetName) {
         widget.image is AssetImage &&
         (widget.image as AssetImage).assetName == assetName,
   );
+}
+
+Map<String, Object?> onlineUpdateJson() {
+  return {
+    'sessionID': '11111111-1111-1111-1111-111111111111',
+    'viewerID': 0,
+    'actionLogCount': 0,
+    'variants': variantsToJson(KolkhozGameVariants.kolkhoz),
+    'controllers': ['human', 'human', 'heuristicAI', 'neuralAI'],
+    'snapshot': {
+      'year': 1,
+      'phase': kcPhasePlanning,
+      'currentPlayer': 0,
+      'waitingPlayer': 0,
+      'waitingForExternalAction': true,
+      'lead': 0,
+      'trumpSelector': 0,
+      'trump': -1,
+      'trickCount': 0,
+      'isFamine': false,
+      'players': [
+        onlinePlayerJson(
+          id: 0,
+          hand: [onlineCardJson(0, 13)],
+          hiddenPlot: [onlineCardJson(1, 7)],
+        ),
+        onlinePlayerJson(id: 1),
+        onlinePlayerJson(id: 2),
+        onlinePlayerJson(id: 3),
+      ],
+      'jobPiles': onlineSuitCardsJson(),
+      'revealedJobs': onlineSuitCardsJson(
+        cardsBySuit: {
+          0: [onlineCardJson(0, 9)],
+        },
+      ),
+      'claimedJobs': <int>[],
+      'workHours': [
+        for (var suit = 0; suit < 4; suit++) {'suit': suit, 'value': 0},
+      ],
+      'jobBuckets': onlineSuitCardsJson(),
+      'accumulatedJobCards': onlineSuitCardsJson(),
+      'currentTrick': <Object?>[],
+      'lastTrick': <Object?>[],
+      'lastWinner': -1,
+      'exiled': onlineSuitCardsJson(count: 6),
+      'pendingAssignments': <Object?>[],
+      'requisitionEvents': <Object?>[],
+      'scores': [
+        for (var playerID = 0; playerID < kolkhozPlayerCount; playerID++)
+          {
+            'playerID': playerID,
+            'visibleScore': playerID,
+            'finalScore': playerID,
+          },
+      ],
+      'winnerID': -1,
+      'swapConfirmed': <int>[],
+      'swapCount': <int>[],
+    },
+  };
+}
+
+Map<String, Object?> onlinePlayerJson({
+  required int id,
+  List<Map<String, Object?>> hand = const [],
+  List<Map<String, Object?>> revealedPlot = const [],
+  List<Map<String, Object?>> hiddenPlot = const [],
+}) {
+  return {
+    'id': id,
+    'hand': hand,
+    'revealedPlot': revealedPlot,
+    'hiddenPlot': hiddenPlot,
+    'medals': 0,
+    'bankedMedals': 0,
+    'brigadeLeader': id == 0,
+    'wonTrickThisYear': false,
+    'stacks': <Object?>[],
+  };
+}
+
+List<Map<String, Object?>> onlineSuitCardsJson({
+  int count = 4,
+  Map<int, List<Map<String, Object?>>> cardsBySuit = const {},
+}) {
+  return [
+    for (var suit = 0; suit < count; suit++)
+      {'suit': suit, 'cards': cardsBySuit[suit] ?? <Object?>[]},
+  ];
+}
+
+Map<String, Object?> onlineCardJson(int suit, int value) {
+  return {'suit': suit, 'value': value};
+}
+
+class FakeOnlineRequestRecord {
+  FakeOnlineRequestRecord({
+    required this.method,
+    required this.uri,
+    required this.body,
+  });
+
+  final String method;
+  final Uri uri;
+  final String body;
+
+  String get route => '$method ${uri.path}';
+}
+
+class FakeOnlineHttpClient implements HttpClient {
+  final requests = <FakeOnlineRequestRecord>[];
+
+  @override
+  Future<HttpClientRequest> openUrl(String method, Uri url) async {
+    return FakeOnlineHttpClientRequest(this, method, url);
+  }
+
+  FakeOnlineHttpClientResponse route(String method, Uri uri, String body) {
+    requests.add(FakeOnlineRequestRecord(method: method, uri: uri, body: body));
+    if (method == 'POST' && uri.path == '/sessions') {
+      return FakeOnlineHttpClientResponse.json({
+        'sessionID': '11111111-1111-1111-1111-111111111111',
+        'playerID': 0,
+        'update': onlineUpdateJson(),
+      });
+    }
+    if (method == 'GET' &&
+        uri.path ==
+            '/sessions/11111111-1111-1111-1111-111111111111/players/0/actions') {
+      return FakeOnlineHttpClientResponse.json([
+        const OnlineEngineAction(
+          kind: kcActionSetTrump,
+          playerID: 0,
+          suit: 0,
+        ).toJson(),
+      ]);
+    }
+    if (method == 'POST' &&
+        uri.path == '/sessions/11111111-1111-1111-1111-111111111111/actions') {
+      return FakeOnlineHttpClientResponse.json(onlineUpdateJson());
+    }
+    return FakeOnlineHttpClientResponse.json({'error': 'missing'}, status: 404);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class FakeOnlineHttpClientRequest implements HttpClientRequest {
+  FakeOnlineHttpClientRequest(this.client, this.method, this.uri);
+
+  final FakeOnlineHttpClient client;
+  @override
+  final String method;
+  @override
+  final Uri uri;
+  final buffer = StringBuffer();
+  int _contentLength = -1;
+
+  @override
+  final HttpHeaders headers = FakeOnlineHttpHeaders();
+
+  @override
+  int get contentLength => _contentLength;
+
+  @override
+  set contentLength(int value) {
+    _contentLength = value;
+  }
+
+  @override
+  void add(List<int> data) {
+    buffer.write(utf8.decode(data));
+  }
+
+  @override
+  void write(Object? object) {
+    buffer.write(object);
+  }
+
+  @override
+  Future<HttpClientResponse> close() async {
+    return client.route(method, uri, buffer.toString());
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class FakeOnlineHttpHeaders implements HttpHeaders {
+  final values = <String, List<Object>>{};
+
+  @override
+  void set(String name, Object value, {bool preserveHeaderCase = false}) {
+    values[name] = [value];
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class FakeOnlineHttpClientResponse extends Stream<List<int>>
+    implements HttpClientResponse {
+  FakeOnlineHttpClientResponse(this.body, {required this.statusCode});
+
+  factory FakeOnlineHttpClientResponse.json(Object? json, {int status = 200}) {
+    return FakeOnlineHttpClientResponse(
+      utf8.encode(jsonEncode(json)),
+      statusCode: status,
+    );
+  }
+
+  final List<int> body;
+
+  @override
+  final int statusCode;
+
+  @override
+  StreamSubscription<List<int>> listen(
+    void Function(List<int> event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) {
+    return Stream<List<int>>.fromIterable([body]).listen(
+      onData,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: cancelOnError,
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

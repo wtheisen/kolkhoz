@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../app_settings.dart';
 import '../design_tokens.dart';
 import '../game_constants.dart';
 import 'board_metrics.dart';
@@ -10,7 +11,11 @@ class BoardRail extends StatelessWidget {
     required this.actionPanel,
     required this.tokens,
     required this.metrics,
+    required this.language,
+    required this.appearance,
     this.onPanelSelected,
+    this.onLanguageToggle,
+    this.onAppearanceToggle,
     super.key,
   });
 
@@ -18,7 +23,11 @@ class BoardRail extends StatelessWidget {
   final String actionPanel;
   final DesignTokens tokens;
   final ResponsiveBoardMetrics metrics;
+  final KolkhozLanguage language;
+  final KolkhozAppearance appearance;
   final ValueChanged<String>? onPanelSelected;
+  final VoidCallback? onLanguageToggle;
+  final VoidCallback? onAppearanceToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +44,7 @@ class BoardRail extends StatelessWidget {
             asset: 'icon-menu.png',
             active: activePanel == panelOptions,
             action: false,
-            label: 'Menu',
+            label: language.text(en: 'Menu', ru: 'Меню'),
             muted: activePanel != panelOptions,
             tokens: tokens,
             metrics: metrics,
@@ -45,7 +54,7 @@ class BoardRail extends StatelessWidget {
             asset: 'icon-brigade.png',
             active: activePanel == panelBrigade,
             action: actionPanel == panelBrigade,
-            label: 'Brigade',
+            label: language.text(en: 'Brigade', ru: 'Бригада'),
             muted: activePanel != panelBrigade,
             tokens: tokens,
             metrics: metrics,
@@ -55,7 +64,7 @@ class BoardRail extends StatelessWidget {
             asset: 'icon-jobs.png',
             active: activePanel == panelJobs,
             action: actionPanel == panelJobs,
-            label: 'Jobs',
+            label: language.text(en: 'Jobs', ru: 'Работы'),
             muted: activePanel != panelJobs,
             tokens: tokens,
             metrics: metrics,
@@ -65,7 +74,7 @@ class BoardRail extends StatelessWidget {
             asset: 'icon-north.png',
             active: activePanel == panelNorth,
             action: actionPanel == panelNorth,
-            label: 'The North',
+            label: language.text(en: 'The North', ru: 'Север'),
             muted: activePanel != panelNorth,
             tokens: tokens,
             metrics: metrics,
@@ -75,27 +84,29 @@ class BoardRail extends StatelessWidget {
             asset: 'icon-plot.png',
             active: activePanel == panelPlot,
             action: actionPanel == panelPlot,
-            label: 'Cellar',
+            label: language.text(en: 'Cellar', ru: 'Подвал'),
             muted: activePanel != panelPlot,
             tokens: tokens,
             metrics: metrics,
             onTap: () => onPanelSelected?.call(panelPlot),
           ),
           RailButton(
-            asset: 'icon-language-ru.png',
+            asset: language.toggleIconAsset,
             active: false,
             action: false,
-            label: 'Language',
+            label: language.toggleTitle,
             tokens: tokens,
             metrics: metrics,
+            onTap: onLanguageToggle,
           ),
           RailButton(
             asset: 'icon-appearance.png',
             active: false,
             action: false,
-            label: 'Appearance',
+            label: appearance.toggleTitle(language),
             tokens: tokens,
             metrics: metrics,
+            onTap: onAppearanceToggle,
           ),
         ],
       ),
