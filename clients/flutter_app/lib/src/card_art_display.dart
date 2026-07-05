@@ -108,14 +108,10 @@ String portraitAssetPath(Seat seat) {
   return 'ios_resources/${seat.portraitAsset}.png';
 }
 
-String cardTemplateAssetPath({required bool dark}) {
-  return dark
+String cardTemplateAssetPathForTokens(DesignTokens tokens) {
+  return !tokens.usesLightAppearance
       ? 'ios_resources/Cards/card-template-dark.png'
       : 'ios_resources/Cards/card-template-light.png';
-}
-
-String cardTemplateAssetPathForTokens(DesignTokens tokens) {
-  return cardTemplateAssetPath(dark: !tokens.usesLightAppearance);
 }
 
 double faceArtWidth(TokenCardSize size) {

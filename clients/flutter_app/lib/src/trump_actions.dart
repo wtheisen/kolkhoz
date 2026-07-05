@@ -16,49 +16,22 @@ class TrumpActionOption {
   bool get enabled => action != null;
 }
 
-List<LegalAction> legalTrumpActions(List<LegalAction> actions) {
-  return actions
-      .where((action) => action.kind == actionSetTrump)
-      .toList(growable: false);
-}
-
-List<LegalAction> orderedTrumpActions(List<LegalAction> actions) {
-  final bySuit = {
-    for (final action in actions)
-      if (action.engineAction.suit != null) action.engineAction.suit!: action,
-  };
-  return displaySuitOrder
-      .map((suit) => bySuit[suit])
-      .whereType<LegalAction>()
-      .toList(growable: false);
-}
-
 List<TrumpActionOption> planningTrumpOptions(
   List<LegalAction> actions, {
   KolkhozLanguage? language,
 }) {
   final bySuit = {
     for (final action in actions)
-      if (action.engineAction.suit != null) action.engineAction.suit!: action,
+      if (action.kind == actionSetTrump && action.engineAction.suit != null)
+        action.engineAction.suit!: action,
   };
   return displaySuitOrder
-      .map((suit) => trumpActionOption(suit, bySuit[suit], language: language))
+      .map(
+        (suit) => TrumpActionOption(
+          suit: suit,
+          label: (language ?? KolkhozLanguage.en).suitName(suit),
+          action: bySuit[suit],
+        ),
+      )
       .toList(growable: false);
-}
-
-TrumpActionOption trumpActionOption(
-  String suit,
-  LegalAction? action, {
-  KolkhozLanguage? language,
-}) {
-  final resolvedLanguage = language ?? KolkhozLanguage.en;
-  return TrumpActionOption(
-    suit: suit,
-    label: resolvedLanguage.suitName(suit),
-    action: action,
-  );
-}
-
-String trumpActionLabel(String suit) {
-  return KolkhozLanguage.en.suitName(suit);
 }

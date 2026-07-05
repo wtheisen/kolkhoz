@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'c_engine_action_codec.dart';
 import 'c_engine_bridge.dart';
-import 'engine_action_projection.dart';
 import 'render_model.dart';
 import 'saved_game_store.dart';
 
@@ -62,16 +61,7 @@ class OnlineEngineAction {
   }
 
   EngineAction get engineAction {
-    return EngineAction(
-      kind: actionKindName(kind),
-      playerID: playerID,
-      suit: suitName(suit),
-      card: _engineCard(card),
-      handCard: _engineCard(handCard),
-      plotCard: _engineCard(plotCard),
-      plotZone: plotZoneName(plotZone),
-      targetSuit: suitName(targetSuit),
-    );
+    return engineActionFromCValue(cValue);
   }
 
   Map<String, Object?> toJson() {
@@ -125,13 +115,6 @@ class OnlineEngineAction {
       targetSuit: cAction.targetSuit,
     );
   }
-}
-
-EngineCard? _engineCard(OnlineEngineCard card) {
-  if (!card.isValid) {
-    return null;
-  }
-  return EngineCard(suit: suitName(card.suit) ?? 'wheat', value: card.value);
 }
 
 class OnlinePlayerSnapshot {

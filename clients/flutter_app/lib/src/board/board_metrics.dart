@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'dart:ui' show Size, clampDouble;
 
 import '../design_tokens.dart';
-import '../game_constants.dart';
 
 class ResponsiveBoardMetrics {
   const ResponsiveBoardMetrics({
@@ -62,18 +61,6 @@ class ResponsiveBoardMetrics {
 
   double scaledClamp(double value, double min, double max) {
     return clampDouble(value, min * scale, max * scale);
-  }
-}
-
-String actionPanelFor(String phase) {
-  switch (phase) {
-    case phaseAssignment:
-      return panelJobs;
-    case phaseSwap:
-    case phaseRequisition:
-      return panelPlot;
-    default:
-      return panelBrigade;
   }
 }
 

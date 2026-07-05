@@ -18,15 +18,11 @@ import 'package:kolkhoz_app/src/design_tokens.dart';
 import 'package:kolkhoz_app/src/engine_action_projection.dart';
 import 'package:kolkhoz_app/src/game_constants.dart';
 import 'package:kolkhoz_app/src/game_ui_state.dart';
-import 'package:kolkhoz_app/src/hand_display.dart';
 import 'package:kolkhoz_app/src/hot_seat_display.dart';
-import 'package:kolkhoz_app/src/job_display.dart';
 import 'package:kolkhoz_app/src/kolkhoz_app.dart';
 import 'package:kolkhoz_app/src/lower_bar_actions.dart';
-import 'package:kolkhoz_app/src/north_display.dart';
 import 'package:kolkhoz_app/src/online_game_models.dart';
 import 'package:kolkhoz_app/src/online_table_projection.dart';
-import 'package:kolkhoz_app/src/options_display.dart';
 import 'package:kolkhoz_app/src/panel_title_display.dart';
 import 'package:kolkhoz_app/src/phase_display.dart';
 import 'package:kolkhoz_app/src/pixel_text.dart';
@@ -323,13 +319,7 @@ void main() {
       ),
     ];
 
-    final legalActions = legalTrumpActions(actions);
-    expect(legalActions.map((action) => action.engineAction.suit), [
-      'beet',
-      'wheat',
-    ]);
-
-    final planningOptions = planningTrumpOptions(legalActions);
+    final planningOptions = planningTrumpOptions(actions);
     expect(planningOptions.map((option) => option.suit), [
       'wheat',
       'sunflower',
@@ -342,12 +332,6 @@ void main() {
       false,
       true,
     ]);
-    expect(
-      orderedTrumpActions(
-        legalActions,
-      ).map((action) => action.engineAction.suit),
-      ['wheat', 'beet'],
-    );
   });
 
   test('c engine action codec encodes portable engine actions', () {
@@ -1138,16 +1122,11 @@ void main() {
   });
 
   test('phase display helpers provide UI labels without engine projection', () {
-    expect(phaseDisplayName(phaseRequisition), 'Requisition');
-    expect(phaseDisplayName('custom'), 'custom');
-    expect(yearPhaseLine(year: 3, phase: phaseGameOver), 'Year 3 - Game Over');
+    final model = runtimeModel();
+    expect(hotSeatPhaseLine(model), 'Year 1 - Trick');
     expect(
-      yearPhaseLine(
-        year: 3,
-        phase: phaseGameOver,
-        language: KolkhozLanguage.ru,
-      ),
-      'Год 3 - Итог',
+      hotSeatPhaseLine(model, language: KolkhozLanguage.ru),
+      'Год 1 - Взятка',
     );
   });
 
@@ -1160,7 +1139,6 @@ void main() {
     expect(faceAssetPath(jack), 'ios_resources/Cards/face-jack-wheat.png');
     expect(genericFaceAssetPath(queen), 'ios_resources/Cards/face-queen.png');
     expect(portraitAssetPath(seat), 'ios_resources/worker1.png');
-    expect(cardTemplateAssetPath(dark: true), contains('dark'));
     expect(
       cardTemplateAssetPathForTokens(defaultDesignTokens),
       contains('dark'),

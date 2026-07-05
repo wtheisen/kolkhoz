@@ -1,11 +1,13 @@
 import 'dart:ffi';
 
+import 'c_engine_action_codec.dart';
 import 'c_engine_bridge.dart';
 import 'controller_display.dart';
 import 'engine_action_projection.dart';
 import 'game_constants.dart';
 import 'game_ui_state.dart';
 import 'render_model.dart';
+import 'table_projection_helpers.dart';
 
 class TableViewProjection {
   const TableViewProjection({
@@ -46,7 +48,10 @@ class TableViewProjection {
       table: TableState(
         year: bridge.year(engine),
         phase: phase,
-        phasePrompt: phasePrompt(phase),
+        phasePrompt: phasePromptForPhase(
+          phase,
+          isFamine: bridge.isFamine(engine),
+        ),
         currentPlayerID: bridge.currentPlayer(engine),
         trump: suitName(bridge.trump(engine)),
         isFamine: bridge.isFamine(engine),
@@ -64,10 +69,7 @@ class TableViewProjection {
         scoreboard: scoreboard(finalScores: phase == phaseGameOver),
         gameResult: gameResult(phase),
       ),
-      panels: Panels(
-        active: uiState.activePanel ?? actionPanelForPhase(phase),
-        available: availableGamePanels,
-      ),
+      panels: panelsForPhase(uiState, phase),
       selection: uiState.selection,
       legalActions: legalActions,
     );
@@ -161,12 +163,7 @@ class TableViewProjection {
   }
 
   List<Job> jobs(List<LegalAction> legalActions) {
-    final assignmentTargets = {
-      for (final action in legalActions)
-        if (action.kind == actionAssign &&
-            action.engineAction.targetSuit != null)
-          action.engineAction.targetSuit!,
-    };
+    final assignmentTargets = assignmentTargetSuits(legalActions);
     return [
       for (var suit = 0; suit < displaySuitOrder.length; suit++)
         Job(
@@ -267,10 +264,8 @@ class TableViewProjection {
   }
 
   GameResult? gameResult(String phase) {
-    if (phase != phaseGameOver) {
-      return null;
-    }
-    return GameResult(
+    return gameResultForPhase(
+      phase,
       winnerSeatID: bridge.winnerID(engine),
       scores: scoreboard(finalScores: true),
     );
@@ -290,50 +285,9 @@ class TableViewProjection {
           LegalAction(
             kind: actionKindName(action.kind),
             label: actionLabel(action.kind),
-            engineAction: engineAction(action),
+            engineAction: engineActionFromCValue(action),
           ),
     ];
-  }
-
-  EngineAction engineAction(CEngineActionValue action) {
-    return EngineAction(
-      kind: actionKindName(action.kind),
-      playerID: action.playerID,
-      suit: suitName(action.suit),
-      card: engineCard(action.card),
-      handCard: engineCard(action.handCard),
-      plotCard: engineCard(action.plotCard),
-      plotZone: plotZoneName(action.plotZone),
-      targetSuit: suitName(action.targetSuit),
-    );
-  }
-
-  Prompt phasePrompt(String phase) {
-    return switch (phase) {
-      phasePlanning => Prompt(
-        title: bridge.isFamine(engine) ? 'Famine year' : 'Choose Trump',
-        body: bridge.isFamine(engine)
-            ? 'No trump suit is used this year.'
-            : 'Pick the trump suit for this year.',
-      ),
-      phaseSwap => const Prompt(
-        title: 'Swap',
-        body: 'Confirm to keep your hand.',
-      ),
-      phaseAssignment => const Prompt(
-        title: 'Assign work',
-        body: 'Assign the captured cards to valid jobs.',
-      ),
-      phaseRequisition => const Prompt(
-        title: 'Requisition',
-        body: 'Review the audit and continue.',
-      ),
-      phaseGameOver => const Prompt(
-        title: 'Game Over!',
-        body: 'Final cellar and medal scores.',
-      ),
-      _ => const Prompt(title: 'Play cards', body: 'Follow suit if able.'),
-    };
   }
 
   List<TableCard> cards(
@@ -365,19 +319,4 @@ TableCard projectCard(
     highlighted: highlighted,
     pending: pending,
   );
-}
-
-EngineCard? engineCard(EngineCardValue card) {
-  if (!card.isValid) {
-    return null;
-  }
-  return EngineCard(suit: suitName(card.suit) ?? 'wheat', value: card.value);
-}
-
-String actionPanelForPhase(String phase) {
-  return switch (phase) {
-    phaseAssignment => panelJobs,
-    phaseSwap || phaseRequisition => panelPlot,
-    _ => panelBrigade,
-  };
 }

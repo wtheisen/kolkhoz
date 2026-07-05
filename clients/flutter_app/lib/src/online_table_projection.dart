@@ -6,6 +6,7 @@ import 'game_ui_state.dart';
 import 'online_game_models.dart';
 import 'render_model.dart';
 import 'table_view_projection.dart';
+import 'table_projection_helpers.dart';
 
 class OnlineTableProjection {
   const OnlineTableProjection({
@@ -30,7 +31,7 @@ class OnlineTableProjection {
       table: TableState(
         year: snapshot.year,
         phase: phase,
-        phasePrompt: phasePrompt(phase),
+        phasePrompt: phasePromptForPhase(phase, isFamine: snapshot.isFamine),
         currentPlayerID: snapshot.currentPlayer,
         trump: suitName(snapshot.trump),
         isFamine: snapshot.isFamine,
@@ -44,10 +45,7 @@ class OnlineTableProjection {
         scoreboard: scoreboard(finalScores: phase == phaseGameOver),
         gameResult: gameResult(phase),
       ),
-      panels: Panels(
-        active: uiState.activePanel ?? actionPanelForPhase(phase),
-        available: availableGamePanels,
-      ),
+      panels: panelsForPhase(uiState, phase),
       selection: uiState.selection,
       legalActions: projectedActions,
     );
@@ -132,12 +130,7 @@ class OnlineTableProjection {
   }
 
   List<Job> jobs(List<LegalAction> actions) {
-    final assignmentTargets = {
-      for (final action in actions)
-        if (action.kind == actionAssign &&
-            action.engineAction.targetSuit != null)
-          action.engineAction.targetSuit!,
-    };
+    final assignmentTargets = assignmentTargetSuits(actions);
     return [
       for (var suit = 0; suit < displaySuitOrder.length; suit += 1)
         Job(
@@ -209,10 +202,8 @@ class OnlineTableProjection {
   }
 
   GameResult? gameResult(String phase) {
-    if (phase != phaseGameOver) {
-      return null;
-    }
-    return GameResult(
+    return gameResultForPhase(
+      phase,
       winnerSeatID: snapshot.winnerID,
       scores: scoreboard(finalScores: true),
     );
@@ -277,33 +268,5 @@ class OnlineTableProjection {
       visibleScore: 0,
       finalScore: 0,
     );
-  }
-
-  Prompt phasePrompt(String phase) {
-    return switch (phase) {
-      phasePlanning => Prompt(
-        title: snapshot.isFamine ? 'Famine year' : 'Choose Trump',
-        body: snapshot.isFamine
-            ? 'No trump suit is used this year.'
-            : 'Pick the trump suit for this year.',
-      ),
-      phaseSwap => const Prompt(
-        title: 'Swap',
-        body: 'Confirm to keep your hand.',
-      ),
-      phaseAssignment => const Prompt(
-        title: 'Assign work',
-        body: 'Assign the captured cards to valid jobs.',
-      ),
-      phaseRequisition => const Prompt(
-        title: 'Requisition',
-        body: 'Review the audit and continue.',
-      ),
-      phaseGameOver => const Prompt(
-        title: 'Game Over!',
-        body: 'Final cellar and medal scores.',
-      ),
-      _ => const Prompt(title: 'Play cards', body: 'Follow suit if able.'),
-    };
   }
 }
