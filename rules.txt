@@ -2,6 +2,7 @@
 1. Игровой Набор (Igrovoy Nabor - Game Setup):
 Remove the Ace, 2, 3, 4, and 5 cards of each suit from a standard 52-card deck. Set these aside in piles according to their работы (raboty - job). Then shuffle each pile individually and reveal the top card of each pile, marking the first year of the Пятилетка (Pyatiletka - Five-Year Plan).
 Shuffle the remaining 32 cards (6 - King of each suit) to form the Колода Рабочих (Koloda Rabochikh - Workers Deck).
+In the current default app rules, add one Вредитель (Saboteur) worker card to the Колода Рабочих. In engine state this is `wrecker-14`: a dedicated worker card that matches every crop suit.
 Choose a player to be the first Центральный Плановик (Tsentral'nyy Planovik - Central Planner) (dealer). This can be done randomly or by agreement. That player deals 5 cards face-down to each player.
 Each player has a designated area for their hidden cards of the Личный Участок (Lichnyy Uchastok - Personal Plot).
 2. Ход Игры (Khod Igry - Round Flow / Season):
@@ -12,9 +13,11 @@ The Центральный Плановик then declares the trump suit for the
 b. Фаза Взяток (Faza Vzyatok - Trick-Taking Phase) (Четыре Взятки - Chetyre Vzyatki - Four Tricks):
 Starting with the player to the left of the Центральный Плановик, players lead one card.
 Players follow suit if able; otherwise, they may play any card.
+The Вредитель (Saboteur) counts as every crop suit for following suit. If it is led, there is no ordinary lead suit.
 Trump beats the lead suit. If no trump is played, the highest-ranking card of the lead suit wins the взятка (vzyatka - trick). If trump is played, the highest trump wins.
 The winner becomes the Бригадир (Brigadir - Brigade Leader) of the взятка and collects the four played cards.
 The Бригадир then assigns each of the four cards from the взятка to jobs. In the app implementation, legal target jobs are the suits present in the completed взятка, and any card from that взятка may be assigned to any of those target jobs. If the assigned workers pass the 40 Work-Hours threshold for the job, the Бригадир immediately adds the Карты Плановых Заданий for that работа to their Личный Участок face-up.
+The Вредитель (Saboteur) matches every crop suit for assignment target legality and contributes 14 work hours when assigned. A job containing the Вредитель can still claim its reward at 40 hours, but it is treated as failed during requisition.
 The face cards of the trump suit have special effects:
 Jack “Пьяница (P'yanitsa)” - Contributes 0 work hours. If this job is requisitioned, the Jack is sent north instead of a player's card.
 Queen “Информатор (Informator)” - If this job fails, all players must reveal their Personal Plots, not just the Brigade Leaders.
@@ -25,10 +28,12 @@ c. Выбор Личного Участка (Vybor Lichnogo Uchastka - Personal 
 After the fourth взятка, each player keeps one card from their remaining hand for their Личный Участок, adding it face-down.
 d. Фаза Реквизиции (Faza Rekvizitsii - Requisition Phase):
 For each работа that did not reach the 40 work-hour threshold:
+Also process any работа that contains the Вредитель (Saboteur), even if it reached 40 work hours and paid its reward.
 If the Пьяница (P'yanitsa) is amongst the workers for that job, the Пьяница (P'yanitsa) is отправить на Север.
 Players are vulnerable if they won a взятка during the year, or if a variant such as Northern Style, Mice, or the Информатор (Informator) makes them vulnerable.
 Vulnerable players reveal matching hidden Личный Участок cards for the failed работа. Normally only the highest matching hidden card is revealed; with Mice or the Информатор, all matching hidden cards are revealed.
 Each vulnerable player with revealed cards matching the failed работа must отправить на Север (otpravit' na Sever - send to the north) their highest matching revealed card. If the партийец (Partiynyy chinovnik) was amongst the workers for the failed job, that player sends up to two matching revealed cards instead of one.
+A Вредитель (Saboteur) in a player's Личный Участок matches any failed работа for requisition, but the same Saboteur card is sent north at most once during that year's requisition.
 f. Конец Раунда (Konets Raundа - End of Round):
 All played worker cards are reshuffled.
 The role of Центральный Плановик passes to the player to the left.

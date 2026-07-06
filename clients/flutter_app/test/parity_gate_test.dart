@@ -40,7 +40,7 @@ actions=playCard:0:wheat-12|playCard:0:wheat-6
     });
   });
 
-  test('wrecker variant deals a 14-value all-suit worker card', () {
+  test('saboteur variant deals a 14-value all-suit worker card', () {
     final bridge = KolkhozCEngineBridge();
     for (var seed = 1; seed < 5000; seed += 1) {
       final engine = bridge.newEngine(
@@ -73,10 +73,10 @@ actions=playCard:0:wheat-12|playCard:0:wheat-6
         bridge.freeEngine(engine);
       }
     }
-    fail('No seed dealt a playable wrecker under a normal lead suit.');
+    fail('No seed dealt a playable Saboteur under a normal lead suit.');
   });
 
-  test('wrecker job can pay reward but still fails during requisition', () {
+  test('saboteur job can pay reward but still fails during requisition', () {
     withEngine(seed: 1, variants: KolkhozGameVariants.wrecker, (
       bridge,
       engine,
@@ -126,11 +126,11 @@ actions=playCard:0:wheat-12|playCard:0:wheat-6
         model = project(bridge, engine);
       }
 
-      fail('Seed did not reach a Wrecker job requisition.');
+      fail('Seed did not reach a Saboteur job requisition.');
     });
   });
 
-  test('wrecker plot card is exiled once during requisition', () {
+  test('saboteur plot card is exiled once during requisition', () {
     withEngine(seed: 3, variants: KolkhozGameVariants.wrecker, (
       bridge,
       engine,
@@ -156,7 +156,7 @@ actions=playCard:0:wheat-12|playCard:0:wheat-6
         model = project(bridge, engine);
       }
 
-      fail('Seed did not reach a Wrecker plot requisition.');
+      fail('Seed did not reach a Saboteur plot requisition.');
     });
   });
 

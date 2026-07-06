@@ -15,7 +15,8 @@ The current boundary is:
 
 Historical model artifacts under `training/rl/runs/` are kept only as model inputs or
 benchmarks. Old epoch snapshots are disposable; keep final `candidate.json`,
-`candidate_best.json`, and explicitly referenced promoted baselines.
+`candidate_best.json`, and explicitly referenced promoted baselines. Do not add new
+training code or new experiment launchers under `training/`; use `research/`.
 
 ## Smoke
 
@@ -83,6 +84,12 @@ win, rank, or margin despite positive utility.
 
 ## Cleanup
 
+Check what the cleanup tool would remove:
+
+```bash
+python3 -m research.kolkhoz_research.cli cleanup-artifacts --include-files
+```
+
 Remove stale local training snapshots without deleting final candidates:
 
 ```bash
@@ -98,3 +105,8 @@ python3 -m research.kolkhoz_research.cli cleanup-artifacts \
   --keep-latest-runs-per-experiment 0 \
   --delete
 ```
+
+Do not manually wipe `research/runs/`, `training/rl/runs/`, or
+`research/history/current_experiment.json` as generic repo cleanup. Those paths are
+ignored, but they can contain active run state, recent benchmark outputs, or baseline
+models referenced by configs and history.

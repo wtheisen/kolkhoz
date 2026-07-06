@@ -1,13 +1,14 @@
 # Kolkhoz
 
-Kolkhoz is a Soviet-themed trick-taking card game. The runtime split is now simple:
-rules live in the portable C engine, and the playable app lives in Flutter.
+Kolkhoz is a Soviet-themed trick-taking card game. The repo has three active owners:
+the portable C engine, the Flutter app, and the Python/Torch research harness.
 
 ## Current Status
 
 - `engine/KolkhozCEngine/` is the source of truth for rules, legal actions, phase flow,
   AI, scoring, policy features, and deterministic simulation.
-- `clients/flutter_app/` is the standalone client for desktop/mobile work.
+- `clients/flutter_app/` is the standalone client for desktop/mobile work, including
+  app state, C-engine projection, animation, controls, and assets.
 - `clients/flutter_app/ios_resources/` owns the app's pixel-art cards, icons, UI chrome,
   fonts, and tutorial art.
 - `research/` owns model training, benchmarking, promotion records, seed mining, and
@@ -16,6 +17,12 @@ rules live in the portable C engine, and the playable app lives in Flutter.
 The legacy React app and the transitional native Apple app have been removed. Do not
 recreate retired adapters, platform-specific rule layers, package targets, or
 compatibility layers for retired clients.
+
+Generated output and local caches are not part of the source layout. It is safe to
+regenerate Flutter build products, Dart tool state, Python caches, `research/.build/`,
+and the local macOS C-engine dylib. Research run directories and legacy promoted model
+artifacts may still be benchmark inputs, so clean them through the research CLI instead
+of deleting them by hand.
 
 ## Quick Start
 
@@ -67,6 +74,23 @@ Special cards apply only when `nomenclature` is enabled and the card is in the t
 
 Famine has no trump, so trump special-card effects do not apply in year 5.
 
+## Saboteur Variant
+
+Default Kolkhoz includes the Saboteur card. In engine state it is the dedicated
+`wrecker-14` worker card, not a fifth crop suit or a job reward.
+
+- It is shuffled into the worker deck when the `wrecker` variant flag is enabled.
+- It counts as matching every crop suit for follow-suit, trump checks, assignment target
+  legality, plot reveal, and requisition.
+- If Saboteur is led to a trick, there is no ordinary lead suit; the highest played card
+  wins unless trump is present.
+- Saboteur has value `14`, so it can win tricks and contributes 14 work hours when
+  assigned to a job.
+- A job bucket containing Saboteur can still claim its reward after reaching 40 hours, but
+  it is treated as failed during requisition.
+- If Saboteur is in a player's plot, it can match any failed job for requisition, but the
+  same Saboteur card is exiled at most once in that year's requisition report.
+
 ## Layout
 
 ```text
@@ -84,6 +108,9 @@ research/
   kolkhoz_research/
   configs/
   dashboard/
+  runs/                         # ignored local experiments and model outputs
+training/
+  rl/runs/                      # ignored legacy promoted/baseline JSON models
 agent-docs/
 ```
 

@@ -69,7 +69,7 @@ String rankName(int value) {
     11 => 'J',
     12 => 'Q',
     13 => 'K',
-    14 => 'W',
+    14 => 'S',
     _ => '$value',
   };
 }

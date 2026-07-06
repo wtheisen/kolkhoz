@@ -3,6 +3,7 @@
 The authoritative gameplay implementation is the C engine in `engine/KolkhozCEngine/`.
 The primary standalone app surface is the Flutter client in `clients/flutter_app/`.
 The research harness in `research/` talks to the same C engine through `ctypes`.
+Those are the three active repo owners: engine, app, and research.
 
 The old React/boardgame.io/Vite web app and the transitional native Apple app have been
 removed. Do not revive either one, and do not add compatibility layers for retired
@@ -51,8 +52,17 @@ research/
   kolkhoz_research/              # Python C-engine wrapper, training, benchmarks
   configs/
   dashboard/
+  runs/                          # ignored local runs and candidate outputs
+training/
+  rl/runs/                       # ignored legacy promoted/baseline JSON models
 agent-docs/
 ```
+
+Ignored generated output is not source. Rebuild Flutter/Xcode products, Dart tool state,
+Python caches, `research/.build/`, and the local macOS C-engine dylib when needed. Do
+not delete `research/runs/`, `training/rl/runs/`, or `research/history/current_experiment.json`
+as generic cleanup; use `python3 -m research.kolkhoz_research.cli cleanup-artifacts`
+so promoted baselines and active/recent research state stay protected.
 
 ## Game Flow
 
@@ -63,6 +73,11 @@ agent-docs/
 5. **Year end** - After the final trick, remaining hand cards move to hidden plots.
 6. **Requisition** - Failed jobs may reveal and exile matching plot cards.
 7. Repeat for 5 years. **Highest final plot score wins**.
+
+Default Kolkhoz includes the Saboteur variant. Saboteur is a dedicated `wrecker-14` worker
+card that matches every crop suit. It can follow any suit, can make any crop assignment
+target legal, adds 14 work hours, and still causes any job bucket containing it to be
+processed as failed during requisition.
 
 ## Key Files To Read First
 
@@ -95,6 +110,16 @@ agent-docs/
 1. Keep rules and legal actions in the C engine.
 2. Keep orchestration, records, dashboards, and model-backend selection in `research/`.
 3. Validate with `python3 -m research.kolkhoz_research.cli engine-smoke --games 8` plus a targeted benchmark/training smoke.
+
+### Cleaning Local Output
+
+1. It is fine to remove ignored build/cache output such as Flutter `build/`,
+   `.dart_tool/`, Python `__pycache__/`, `.ruff_cache/`, `node_modules/`, and
+   `research/.build/`.
+2. Treat model/run directories as research artifacts, not generic caches.
+3. Prefer the research cleanup command for run artifacts:
+   `python3 -m research.kolkhoz_research.cli cleanup-artifacts --include-files`
+   first, then rerun with `--delete` only if the selected files are expected.
 
 ### Modifying Phase Transitions
 

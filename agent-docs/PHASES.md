@@ -115,10 +115,18 @@ Famine is year 5. It means:
 Legal assignment targets are only the suits present in the completed trick. Do not
 reintroduce older assignment rules.
 
+Saboteur counts as matching every crop suit for this check. A completed trick containing
+Saboteur makes every crop suit a legal assignment target even though Saboteur is not a fifth
+job suit.
+
 ### Requisition Timing
 
 The engine records exiled cards and events immediately, but plot cards remain visible for
 the requisition screen until the user continues.
+
+A job containing Saboteur is requisitioned as failed even if it reached 40 work hours and
+claimed its reward. A plot Saboteur matches any failed job, but a specific Saboteur card is
+exiled only once in a year's requisition report.
 
 ### Swap Is Sequential
 

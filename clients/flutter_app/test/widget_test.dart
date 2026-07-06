@@ -36,22 +36,27 @@ import 'package:kolkhoz_app/src/trump_actions.dart';
 import 'package:kolkhoz_app/src/tutorial_display.dart';
 
 void main() {
-  test('kolkhoz default includes wrecker and preset labels stay localized', () {
-    expect(KolkhozGameVariants.kolkhoz.wreckerCard, isTrue);
-    expect(
-      presetTitle(KolkhozGamePreset.wrecker, KolkhozLanguage.en),
-      'Wrecker',
-    );
-    expect(
-      presetTitle(KolkhozGamePreset.wrecker, KolkhozLanguage.ru),
-      'Вредитель',
-    );
-    expect(KolkhozGamePreset.wrecker.variants, KolkhozGameVariants.wrecker);
-    expect(
-      variantsFromJson(variantsToJson(KolkhozGameVariants.wrecker)).wreckerCard,
-      isTrue,
-    );
-  });
+  test(
+    'kolkhoz default includes saboteur and preset labels stay localized',
+    () {
+      expect(KolkhozGameVariants.kolkhoz.wreckerCard, isTrue);
+      expect(
+        presetTitle(KolkhozGamePreset.wrecker, KolkhozLanguage.en),
+        'Saboteur',
+      );
+      expect(
+        presetTitle(KolkhozGamePreset.wrecker, KolkhozLanguage.ru),
+        'Вредитель',
+      );
+      expect(KolkhozGamePreset.wrecker.variants, KolkhozGameVariants.wrecker);
+      expect(
+        variantsFromJson(
+          variantsToJson(KolkhozGameVariants.wrecker),
+        ).wreckerCard,
+        isTrue,
+      );
+    },
+  );
 
   testWidgets('left rail uses generic icon assets', (tester) async {
     const tokens = defaultDesignTokens;
@@ -1418,7 +1423,7 @@ void main() {
       'ios_resources/Cards/face-queen-beet-nomenklatura.png',
     );
     expect(genericFaceAssetPath(queen), 'ios_resources/Cards/face-queen.png');
-    expect(faceRankName(wrecker), 'wrecker');
+    expect(faceRankName(wrecker), 'saboteur');
     expect(faceAssetPath(wrecker), 'ios_resources/Cards/face-wrecker.png');
     expect(
       genericFaceAssetPath(wrecker),

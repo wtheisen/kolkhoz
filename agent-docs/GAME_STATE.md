@@ -31,9 +31,21 @@ The C engine uses numeric suit codes:
 ```
 
 Cards use a suit plus value. Values `1...5` are job rewards; values `6...13` are normal
-worker cards. Face cards are `11` jack, `12` queen, and `13` king. The wrecker variant
-adds a special `wrecker-14` worker card that counts as matching every crop suit, but it
-does not add a fifth job suit.
+worker cards. Face cards are `11` jack, `12` queen, and `13` king. The Saboteur variant
+adds a special `wrecker-14` worker card. It counts as matching every crop suit, but it
+does not add a fifth job suit or a fifth job pile.
+
+Saboteur-specific behavior:
+
+- default Kolkhoz enables `wrecker`;
+- Saboteur is shuffled into the worker deck when no already-used Saboteur exists;
+- Saboteur satisfies follow-suit for every crop suit;
+- when Saboteur is the lead card, the trick has no ordinary lead suit;
+- Saboteur has value `14` for trick ranking, work hours, and score if it reaches a plot;
+- Saboteur can make any crop suit a legal assignment target because it matches every suit;
+- a job containing Saboteur can claim its reward at 40 hours, but requisition still treats
+  that job as failed;
+- a plot Saboteur matches any failed job, but the same card is exiled only once per year.
 
 ## Phases
 
@@ -62,6 +74,7 @@ The C `KCVariants` struct owns:
 - `medals_count`
 - `accumulate_jobs`
 - `hero_of_soviet_union`
+- `wrecker`
 
 ## Key State Mutations
 
@@ -77,6 +90,10 @@ Card play is submitted as a C action. The engine validates follow-suit, mutates 
 current trick, determines the winner when the trick completes, awards a medal, sets the
 next lead, and enters assignment.
 
+Saboteur counts as every crop suit for follow-suit and trump matching. A player with
+Saboteur is considered able to follow any ordinary lead suit. If Saboteur itself leads, the
+trick has no lead suit, so the highest card wins unless trump is present.
+
 ### Assigning Work
 
 Assignments are stored by last-trick index in `pending_assignment_targets`. Legal target
@@ -85,6 +102,9 @@ any legal target suit.
 
 Submitting assignments moves cards into job buckets, adds work hours, claims completed
 jobs, grants rewards, and advances to either the next trick or year-end requisition.
+
+Saboteur can be assigned to any legal target job because it matches every crop suit. It
+adds 14 work hours when assigned.
 
 ### Year End
 
@@ -106,6 +126,10 @@ For each failed job (`work_hours[suit] < 40`):
 - a trump king assigned to the failed job is the Party Official and can exile two matching revealed cards;
 - vulnerable players reveal/exile matching plot cards according to the active variants.
 
+A job containing Saboteur is processed as failed even when its work hours reached 40 and
+its reward was already claimed. Saboteur plot cards match every failed job, but the engine
+does not exile the same Saboteur card more than once in the same year.
+
 Exiled cards are recorded immediately, then removed from plots when requisition continues.
 
 ### Scoring
@@ -120,10 +144,16 @@ hidden plot cards. Medals are included when `medals_count` is enabled.
 If a lead suit exists and the player has that suit, the played card must match the lead
 suit. Otherwise any card in hand is legal.
 
+Saboteur matches every lead suit. If Saboteur is the first card in the trick, there is no
+lead suit to follow.
+
 ### Valid Assignment
 
 The target suit must be present in the completed trick, and the card must be one of the
 currently unassigned `last_trick` cards.
+
+Because Saboteur matches every crop suit, a completed trick containing Saboteur makes every
+crop suit a legal assignment target.
 
 ### Game Over
 

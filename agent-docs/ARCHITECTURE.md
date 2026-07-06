@@ -4,7 +4,7 @@ The C engine under `engine/KolkhozCEngine/` is the source of truth for rules, le
 actions, phase flow, AI, scoring, policy features, and deterministic simulation. The
 Flutter app in `clients/flutter_app/` is the primary app surface and binds to the engine
 through Dart FFI. The research harness in `research/` binds to the same engine through
-Python `ctypes`.
+Python `ctypes`. Keep the architecture organized around those three owners.
 
 The legacy web app and transitional native Apple app have been removed. Current and future
 clients should not derive architecture from those retired implementations.
@@ -29,7 +29,10 @@ kolkhoz/
 ├── research/
 │   ├── kolkhoz_research/
 │   ├── configs/
-│   └── dashboard/
+│   ├── dashboard/
+│   └── runs/                  # ignored local experiments and candidate outputs
+├── training/
+│   └── rl/runs/               # ignored legacy promoted/baseline JSON models
 ├── agent-docs/
 └── README.md
 ```
@@ -74,6 +77,18 @@ Important files:
 | `kolkhoz_research/benchmark.py` | Paired candidate-vs-baseline and tournament logic |
 | `kolkhoz_research/training.py` | C MLP training path |
 | `kolkhoz_research/torch_policy.py` | Torch/MPS training and benchmark path |
+
+### Generated And Historical Artifacts
+
+Generated tool output is intentionally outside the active architecture. Flutter build
+directories, Dart tool state, Xcode ephemeral files, Python caches, `research/.build/`,
+and the local `clients/flutter_app/native/macos/libkolkhoz_c_engine.dylib` are
+regenerable.
+
+`research/runs/` and `training/rl/runs/` are ignored, but they are not arbitrary caches.
+Research history, configs, and scripts may reference specific model files there as
+baselines or opponents. Use the research artifact cleanup CLI before deleting run or
+model files.
 
 ## App Data Flow
 
@@ -155,6 +170,10 @@ motion targets, or view timing.
 Runtime heuristic AI is deterministic for a given seed and implemented in the C engine.
 Research models train and evaluate against C-engine simulations. Do not add a parallel
 Dart or Python rules implementation.
+
+Historical JSON policies under `training/rl/runs/` exist only as model inputs for the
+current research harness. New training code, benchmark logic, dashboards, and promotion
+records belong under `research/`.
 
 ## Verification
 

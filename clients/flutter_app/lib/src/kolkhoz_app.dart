@@ -355,7 +355,7 @@ enum KolkhozGamePreset {
   String get title {
     return switch (this) {
       KolkhozGamePreset.kolkhoz => 'Kolkhoz',
-      KolkhozGamePreset.wrecker => 'Wrecker',
+      KolkhozGamePreset.wrecker => 'Saboteur',
       KolkhozGamePreset.littleKolkhoz => 'Little Kolkhoz',
       KolkhozGamePreset.campStyle => 'Camp Style',
       KolkhozGamePreset.custom => 'Custom',
@@ -2231,10 +2231,10 @@ class _VariantRowData {
     visibleInCustom: (variants) => variants.deckType != 36,
   );
   static final wrecker = _VariantRowData(
-    title: 'WRECKER',
+    title: 'SABOTEUR',
     ruTitle: 'ВРЕДИТЕЛЬ',
     description:
-        'Add a 14-value all-suit face card that wrecks its job at requisition.',
+        'Add a 14-value all-suit face card that sabotages its job at requisition.',
     ruDescription:
         'Добавляет фигуру со значением 14: она считается всеми мастями и проваливает свою работу при реквизиции.',
     valueOf: (variants) => variants.wreckerCard,
@@ -2303,7 +2303,7 @@ extension _ControllerLobbyLabels on KolkhozPlayerController {
 String presetTitle(KolkhozGamePreset preset, KolkhozLanguage language) {
   return switch (preset) {
     KolkhozGamePreset.kolkhoz => language.text(en: 'Kolkhoz', ru: 'Колхоз'),
-    KolkhozGamePreset.wrecker => language.text(en: 'Wrecker', ru: 'Вредитель'),
+    KolkhozGamePreset.wrecker => language.text(en: 'Saboteur', ru: 'Вредитель'),
     KolkhozGamePreset.littleKolkhoz => language.text(
       en: 'Little Kolkhoz',
       ru: 'Колхозик',

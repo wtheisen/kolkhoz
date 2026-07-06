@@ -108,7 +108,7 @@ String faceRankName(TableCard card) {
     11 => 'jack',
     12 => 'queen',
     13 => 'king',
-    14 => 'wrecker',
+    14 => 'saboteur',
     _ => 'king',
   };
 }
