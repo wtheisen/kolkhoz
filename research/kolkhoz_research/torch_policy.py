@@ -32,7 +32,7 @@ from .c_engine import (
     OBJECT_SCALAR_COUNT,
 )
 from .history import append_history
-from .model import HEAD_COUNT, INPUT_SIZE, PolicyArtifact
+from .model import FEATURE_VERSION, HEAD_COUNT, INPUT_SIZE, PolicyArtifact
 
 OBJECT_TYPE_EMBEDDINGS = 8
 OBJECT_OWNER_EMBEDDINGS = 6
@@ -697,6 +697,7 @@ class TorchPolicy(nn.Module):
             {
                 "format": "kolkhoz-torch-policy-v1",
                 "architecture": self.architecture,
+                "feature_version": FEATURE_VERSION,
                 "layer_sizes": self.layer_sizes,
                 "input_size": self.input_size,
                 "head_count": self.head_count,
@@ -3973,6 +3974,9 @@ def torch_benchmark_candidate(
         utility_win_weight=promotion_utility_win_weight,
         utility_rank_weight=promotion_utility_rank_weight,
         utility_margin_weight=promotion_utility_margin_weight,
+        min_win_delta=min_win_delta,
+        min_rank_delta=min_rank_delta,
+        min_margin_delta=min_margin_delta,
         min_utility_delta=min_utility_delta,
         candidate_pool_min_utility_delta=candidate_pool_min_utility_delta,
         risk_min_win_delta_mean=risk_min_win_delta_mean,

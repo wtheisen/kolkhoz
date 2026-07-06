@@ -201,6 +201,9 @@ def _promotion_decision(
     utility_win_weight: float,
     utility_rank_weight: float,
     utility_margin_weight: float,
+    min_win_delta: float,
+    min_rank_delta: float,
+    min_margin_delta: float,
     min_utility_delta: float,
     candidate_pool_min_utility_delta: float,
     risk_min_win_delta_mean: float | None,
@@ -237,13 +240,35 @@ def _promotion_decision(
         or means["margin_delta"] >= risk_min_margin_delta_mean,
     }
     risk_pass = all(risk_checks.values())
+    threshold_budgets = {
+        "min_win_delta": min_win_delta,
+        "min_rank_delta": min_rank_delta,
+        "min_margin_delta": min_margin_delta,
+    }
+    threshold_checks = {
+        "win_delta_low": intervals["win_delta"]["low"] >= min_win_delta,
+        "rank_delta_low": intervals["rank_delta"]["low"] >= min_rank_delta,
+        "margin_delta_low": intervals["margin_delta"]["low"] >= min_margin_delta,
+    }
+    threshold_pass = all(threshold_checks.values())
+    candidate_pool_threshold_checks = {
+        "win_delta_mean": means["win_delta"] >= min_win_delta,
+        "rank_delta_mean": means["rank_delta"] >= min_rank_delta,
+        "margin_delta_mean": means["margin_delta"] >= min_margin_delta,
+    }
+    candidate_pool_threshold_pass = all(candidate_pool_threshold_checks.values())
 
     if objective != "utility":
         raise ValueError(f"unknown promotion objective {objective!r}")
-    pass_gate = utility_interval["low"] >= min_utility_delta and risk_pass
+    pass_gate = (
+        utility_interval["low"] >= min_utility_delta
+        and threshold_pass
+        and risk_pass
+    )
     candidate_pool = (
         not pass_gate
         and utility_interval["mean"] > candidate_pool_min_utility_delta
+        and candidate_pool_threshold_pass
         and risk_pass
     )
     primary_objective = "paired_utility_delta"
@@ -273,6 +298,11 @@ def _promotion_decision(
             },
             "min_utility_delta": min_utility_delta,
             "candidate_pool_min_utility_delta": candidate_pool_min_utility_delta,
+            "threshold_budgets": threshold_budgets,
+            "threshold_checks": threshold_checks,
+            "threshold_pass": threshold_pass,
+            "candidate_pool_threshold_checks": candidate_pool_threshold_checks,
+            "candidate_pool_threshold_pass": candidate_pool_threshold_pass,
             "risk_budgets": risk_budgets,
             "risk_checks": risk_checks,
             "risk_pass": risk_pass,
@@ -427,6 +457,9 @@ def benchmark_candidate(
         utility_win_weight=promotion_utility_win_weight,
         utility_rank_weight=promotion_utility_rank_weight,
         utility_margin_weight=promotion_utility_margin_weight,
+        min_win_delta=min_win_delta,
+        min_rank_delta=min_rank_delta,
+        min_margin_delta=min_margin_delta,
         min_utility_delta=min_utility_delta,
         candidate_pool_min_utility_delta=candidate_pool_min_utility_delta,
         risk_min_win_delta_mean=risk_min_win_delta_mean,

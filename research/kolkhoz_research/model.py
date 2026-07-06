@@ -10,7 +10,7 @@ from typing import Any
 from .c_engine import KCPolicyModelBuffer
 
 
-FEATURE_VERSION = 5
+FEATURE_VERSION = 6
 INPUT_SIZE = 200
 VALUE_INPUT_SIZE = 64
 HEAD_COUNT = 16

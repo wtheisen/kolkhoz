@@ -56,6 +56,8 @@ if [[ -n "$EXTRA_OPPONENT_MODELS" ]]; then
     fi
   done
 fi
+ARENA_OPPONENT_COUNT="${#arena_opponents[@]}"
+export ARENA_OPPONENT_COUNT
 
 benchmark_common_args=(
   --bootstrap-samples "$BOOTSTRAP_SAMPLES"
@@ -150,6 +152,7 @@ def compact_benchmark(path: Path) -> dict | None:
         "win_delta": interval_mean(record, "win_delta"),
         "rank_delta": interval_mean(record, "rank_delta"),
         "margin_delta": interval_mean(record, "margin_delta"),
+        "utility_delta": interval_mean(record, "utility_delta"),
     }
 
 generations = []
@@ -163,6 +166,8 @@ for index in range(1, pool_size + 1):
             child = child_generations[0]
     selection = compact_benchmark(seed_dir / "generation_001" / "benchmark.json")
     win_delta = selection.get("win_delta") if selection else None
+    utility_delta = selection.get("utility_delta") if selection else None
+    selection_score = utility_delta if isinstance(utility_delta, (int, float)) else win_delta
     generations.append(
         {
             "generation": index,
@@ -178,18 +183,21 @@ for index in range(1, pool_size + 1):
             "summary": selection.get("summary") if selection else child.get("summary"),
             "intervals": selection.get("intervals") if selection else child.get("intervals"),
             "win_delta": win_delta,
+            "utility_delta": utility_delta,
+            "selection_score": selection_score,
             "promoted": False,
         }
     )
 
 ranked = sorted(
-    [item for item in generations if isinstance(item.get("win_delta"), (int, float))],
-    key=lambda item: float(item["win_delta"]),
+    [item for item in generations if isinstance(item.get("selection_score"), (int, float))],
+    key=lambda item: float(item["selection_score"]),
     reverse=True,
 )
 finalists = ranked[:finalists_requested]
 
 promotion_records = []
+expected_arena_records = int(os.environ["ARENA_OPPONENT_COUNT"])
 for finalist in finalists:
     promotion_dir = run_dir / f"finalist_{int(finalist['generation']):03d}"
     current_record = compact_benchmark(promotion_dir / "promotion_current_best.json")
@@ -203,17 +211,41 @@ for finalist in finalists:
         for record in arena_records
         if isinstance(record.get("win_delta"), (int, float))
     ]
+    arena_scores = [
+        record["utility_delta"] if isinstance(record.get("utility_delta"), (int, float)) else record["win_delta"]
+        for record in arena_records
+        if isinstance(record.get("win_delta"), (int, float))
+    ]
+    current_score = (
+        current_record["utility_delta"]
+        if current_record and isinstance(current_record.get("utility_delta"), (int, float))
+        else (current_record["win_delta"] if current_record and isinstance(current_record.get("win_delta"), (int, float)) else None)
+    )
     arena_score = (
+        mean([current_score, *arena_scores])
+        if isinstance(current_score, (int, float)) and len(arena_scores) == expected_arena_records
+        else None
+    )
+    arena_mean_win_delta = (
         mean([current_record["win_delta"], *arena_win_deltas])
-        if current_record and isinstance(current_record.get("win_delta"), (int, float))
+        if current_record and isinstance(current_record.get("win_delta"), (int, float)) and len(arena_win_deltas) == expected_arena_records
         else None
     )
     worst_arena = min(arena_win_deltas) if arena_win_deltas else None
+    complete_arena = (
+        len(arena_records) == expected_arena_records
+        and len(arena_win_deltas) == expected_arena_records
+        and len(arena_scores) == expected_arena_records
+    )
     eligible = bool(
         current_record
         and current_record.get("promotion_eligible")
-        and (arena_score is None or arena_score >= float(os.environ["ARENA_MIN_MEAN_WIN_DELTA"]))
-        and (worst_arena is None or worst_arena >= float(os.environ["ARENA_MIN_WORST_MEAN_WIN_DELTA"]))
+        and isinstance(arena_score, (int, float))
+        and complete_arena
+        and isinstance(arena_mean_win_delta, (int, float))
+        and arena_mean_win_delta >= float(os.environ["ARENA_MIN_MEAN_WIN_DELTA"])
+        and isinstance(worst_arena, (int, float))
+        and worst_arena >= float(os.environ["ARENA_MIN_WORST_MEAN_WIN_DELTA"])
     )
     promotion_records.append(
         {
@@ -221,22 +253,30 @@ for finalist in finalists:
             "promotion_current_best": current_record,
             "arena_records": arena_records,
             "arena_score": arena_score,
+            "arena_mean_win_delta": arena_mean_win_delta,
             "worst_arena_win_delta": worst_arena,
+            "complete_arena": complete_arena,
+            "expected_arena_records": expected_arena_records,
             "promotion_eligible": eligible,
             "promoted": eligible,
         }
     )
 
-promoted = [item for item in promotion_records if item.get("promoted")]
+promoted = sorted(
+    [item for item in promotion_records if item.get("promoted")],
+    key=lambda item: item.get("arena_score") if isinstance(item.get("arena_score"), (int, float)) else -999.0,
+    reverse=True,
+)
 best_finalist = max(
     promotion_records,
     key=lambda item: item.get("arena_score") if isinstance(item.get("arena_score"), (int, float)) else -999.0,
     default=(finalists[0] if finalists else None),
 )
-best_model = promoted[0]["candidate_model"] if promoted else os.environ["START_MODEL"]
+selected_promotion = promoted[0] if promoted else None
+best_model = selected_promotion["candidate_model"] if selected_promotion else os.environ["START_MODEL"]
 if promoted:
     promoted_path = run_dir / "promoted_best.pt"
-    shutil.copyfile(promoted[0]["candidate_model"], promoted_path)
+    shutil.copyfile(selected_promotion["candidate_model"], promoted_path)
     best_model = str(promoted_path)
 
 record = {
@@ -256,6 +296,7 @@ record = {
     "finalists": finalists,
     "promotion_records": promotion_records,
     "best_candidate": best_finalist,
+    "selected_promotion": selected_promotion,
     "best_model": best_model,
     "training": {
         "episodes_per_generation": int(os.environ["EPISODES_PER_GENERATION"]),
@@ -301,14 +342,20 @@ pool_size = int(os.environ["POOL_SIZE"])
 finalists = int(os.environ["FINALISTS"])
 
 items = []
+def interval_mean(record: dict, key: str) -> float | None:
+    item = ((record.get("intervals") or {}).get(key) or {}).get("mean")
+    return float(item) if isinstance(item, (int, float)) else None
+
 for index in range(1, pool_size + 1):
     path = run_dir / f"seed_{index:03d}" / "generation_001" / "benchmark.json"
     if not path.exists():
         continue
     data = json.loads(path.read_text(encoding="utf-8"))
-    win = ((data.get("intervals") or {}).get("win_delta") or {}).get("mean")
-    if isinstance(win, (int, float)):
-        items.append((float(win), index))
+    utility = interval_mean(data, "utility_delta")
+    win = interval_mean(data, "win_delta")
+    score = utility if isinstance(utility, (int, float)) else win
+    if isinstance(score, (int, float)):
+        items.append((float(score), index))
 
 for _, index in sorted(items, reverse=True)[:finalists]:
     print(index)
