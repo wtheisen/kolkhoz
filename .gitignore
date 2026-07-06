@@ -11,6 +11,7 @@ xcuserdata/
 tmp/
 training/rl/runs/
 research/runs/
+research/logs/
 research/.build/
 research/.venv/
 research/__pycache__/

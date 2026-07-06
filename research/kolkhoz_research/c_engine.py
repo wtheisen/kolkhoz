@@ -10,11 +10,12 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ENGINE_DIR = REPO_ROOT / "ios/KolkhozSwiftUI/Sources/KolkhozCEngine"
+ENGINE_DIR = REPO_ROOT / "engine/KolkhozCEngine"
 ENGINE_C = ENGINE_DIR / "KolkhozCEngine.c"
 ENGINE_H = ENGINE_DIR / "include/KolkhozCEngine.h"
 BUILD_DIR = REPO_ROOT / "research/.build"
 OBJECT_SCALAR_COUNT = 8
+ACTION_SCALAR_COUNT = 32
 MAX_OBJECT_TOKENS = 256
 
 
@@ -29,6 +30,7 @@ class KCVariants(ctypes.Structure):
         ("medals_count", ctypes.c_bool),
         ("accumulate_jobs", ctypes.c_bool),
         ("hero_of_soviet_union", ctypes.c_bool),
+        ("wrecker", ctypes.c_bool),
     ]
 
 
@@ -60,6 +62,8 @@ class KCGameRunResult(ctypes.Structure):
 
 
 DoublePointer = ctypes.POINTER(ctypes.c_double)
+FloatPointer = ctypes.POINTER(ctypes.c_float)
+IntPointer = ctypes.POINTER(ctypes.c_int32)
 LayerPointerArray = DoublePointer * 4
 
 
@@ -189,6 +193,85 @@ class KCObjectToken(ctypes.Structure):
     ]
 
 
+class KCDensePolicyActionFeatures(ctypes.Structure):
+    _fields_ = [
+        ("actions", ctypes.POINTER(KCAction)),
+        ("action_heads", IntPointer),
+        ("kind_ids", IntPointer),
+        ("player_ids", IntPointer),
+        ("suit_ids", IntPointer),
+        ("target_suit_ids", IntPointer),
+        ("card_suit_ids", IntPointer),
+        ("card_value_ids", IntPointer),
+        ("hand_suit_ids", IntPointer),
+        ("hand_value_ids", IntPointer),
+        ("plot_suit_ids", IntPointer),
+        ("plot_value_ids", IntPointer),
+        ("plot_zone_ids", IntPointer),
+        ("action_scalars", FloatPointer),
+        ("action_scalar_count", ctypes.c_int32),
+        ("features", FloatPointer),
+        ("max_actions", ctypes.c_int32),
+        ("input_size", ctypes.c_int32),
+    ]
+
+
+class KCDenseObjectTokens(ctypes.Structure):
+    _fields_ = [
+        ("type_ids", IntPointer),
+        ("owner_ids", IntPointer),
+        ("zone_ids", IntPointer),
+        ("suit_ids", IntPointer),
+        ("value_ids", IntPointer),
+        ("index_ids", IntPointer),
+        ("scalars", FloatPointer),
+        ("max_tokens", ctypes.c_int32),
+    ]
+
+
+@dataclass(frozen=True)
+class DensePolicyActionFeatures:
+    count: int
+    input_size: int
+    actions: object
+    action_heads: object
+    kind_ids: object
+    player_ids: object
+    suit_ids: object
+    target_suit_ids: object
+    card_suit_ids: object
+    card_value_ids: object
+    hand_suit_ids: object
+    hand_value_ids: object
+    plot_suit_ids: object
+    plot_value_ids: object
+    plot_zone_ids: object
+    action_scalars: object
+    action_scalar_count: int
+    features: object
+
+    def __len__(self) -> int:
+        return self.count
+
+    def action_at(self, index: int) -> KCAction:
+        return self.actions[index]
+
+
+@dataclass(frozen=True)
+class DenseObjectTokens:
+    count: int
+    type_ids: object
+    owner_ids: object
+    zone_ids: object
+    suit_ids: object
+    value_ids: object
+    index_ids: object
+    scalars: object
+
+    def __len__(self) -> int:
+        return self.count
+
+
 @dataclass(frozen=True)
 class EngineProvenance:
     git_sha: str
@@ -274,6 +357,15 @@ class CEngine:
         self.lib.kc_engine_alloc.restype = ctypes.c_void_p
         self.lib.kc_engine_free.argtypes = [ctypes.c_void_p]
         self.lib.kc_engine_free.restype = None
+        self.lib.kc_engine_clone.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        self.lib.kc_engine_clone.restype = None
+        self.lib.kc_engine_sample_determinization.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_int32,
+            ctypes.c_uint64,
+            ctypes.c_void_p,
+        ]
+        self.lib.kc_engine_sample_determinization.restype = ctypes.c_bool
         self.lib.kc_engine_init.argtypes = [ctypes.c_void_p, ctypes.c_uint64, KCVariants]
         self.lib.kc_engine_init.restype = None
         self.lib.kc_engine_init_curriculum.argtypes = [
@@ -284,6 +376,15 @@ class CEngine:
             ctypes.c_double,
         ]
         self.lib.kc_engine_init_curriculum.restype = None
+        self.lib.kc_engine_init_curriculum_rounds.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_uint64,
+            KCVariants,
+            ctypes.c_int32,
+            ctypes.c_double,
+            ctypes.c_int32,
+        ]
+        self.lib.kc_engine_init_curriculum_rounds.restype = None
         self.lib.kc_engine_apply_policy_action.argtypes = [ctypes.c_void_p, KCAction]
         self.lib.kc_engine_apply_policy_action.restype = ctypes.c_int32
         self.lib.kc_engine_policy_action_features.argtypes = [
@@ -294,6 +395,12 @@ class CEngine:
             ctypes.c_int32,
         ]
         self.lib.kc_engine_policy_action_features.restype = ctypes.c_int32
+        self.lib.kc_engine_policy_action_dense_features.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_int32,
+            KCDensePolicyActionFeatures,
+        ]
+        self.lib.kc_engine_policy_action_dense_features.restype = ctypes.c_int32
         self.lib.kc_engine_object_tokens.argtypes = [
             ctypes.c_void_p,
             ctypes.c_int32,
@@ -301,10 +408,18 @@ class CEngine:
             ctypes.c_int32,
         ]
         self.lib.kc_engine_object_tokens.restype = ctypes.c_int32
+        self.lib.kc_engine_object_token_dense_features.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_int32,
+            KCDenseObjectTokens,
+        ]
+        self.lib.kc_engine_object_token_dense_features.restype = ctypes.c_int32
         self.lib.kc_engine_heuristic_policy_action.argtypes = [ctypes.c_void_p, ctypes.POINTER(KCAction)]
         self.lib.kc_engine_heuristic_policy_action.restype = ctypes.c_bool
         self.lib.kc_engine_waiting_player.argtypes = [ctypes.c_void_p]
         self.lib.kc_engine_waiting_player.restype = ctypes.c_int32
+        self.lib.kc_engine_phase.argtypes = [ctypes.c_void_p]
+        self.lib.kc_engine_phase.restype = ctypes.c_int32
         self.lib.kc_engine_year.argtypes = [ctypes.c_void_p]
         self.lib.kc_engine_year.restype = ctypes.c_int32
         self.lib.kc_final_score.argtypes = [ctypes.c_void_p, ctypes.c_int32]
@@ -346,17 +461,19 @@ class CEngine:
         round_curriculum: bool = False,
         round_plot_cards: int = 0,
         round_famine_rate: float = 0.0,
+        curriculum_rounds: int = 2,
     ) -> ctypes.c_void_p:
         pointer = self.lib.kc_engine_alloc()
         if not pointer:
             raise MemoryError("kc_engine_alloc failed")
         if round_curriculum:
-            self.lib.kc_engine_init_curriculum(
+            self.lib.kc_engine_init_curriculum_rounds(
                 pointer,
                 ctypes.c_uint64(seed),
                 self.kolkhoz_variants(),
                 ctypes.c_int32(round_plot_cards),
                 ctypes.c_double(round_famine_rate),
+                ctypes.c_int32(curriculum_rounds),
             )
         else:
             self.lib.kc_engine_init(pointer, ctypes.c_uint64(seed), self.kolkhoz_variants())
@@ -365,8 +482,39 @@ class CEngine:
     def free_engine(self, pointer: ctypes.c_void_p) -> None:
         self.lib.kc_engine_free(pointer)
 
+    def clone_engine(self, pointer: ctypes.c_void_p) -> ctypes.c_void_p:
+        clone = self.lib.kc_engine_alloc()
+        if not clone:
+            raise MemoryError("kc_engine_alloc failed")
+        self.lib.kc_engine_clone(pointer, clone)
+        return ctypes.c_void_p(clone)
+
+    def sample_determinization(
+        self,
+        pointer: ctypes.c_void_p,
+        *,
+        perspective_player: int,
+        sample_seed: int,
+    ) -> ctypes.c_void_p:
+        sampled = self.lib.kc_engine_alloc()
+        if not sampled:
+            raise MemoryError("kc_engine_alloc failed")
+        ok = self.lib.kc_engine_sample_determinization(
+            pointer,
+            ctypes.c_int32(perspective_player),
+            ctypes.c_uint64(sample_seed),
+            sampled,
+        )
+        if not ok:
+            self.lib.kc_engine_free(sampled)
+            raise RuntimeError("C engine could not sample hidden-state determinization")
+        return ctypes.c_void_p(sampled)
+
     def waiting_player(self, pointer: ctypes.c_void_p) -> int:
         return int(self.lib.kc_engine_waiting_player(pointer))
+
+    def phase(self, pointer: ctypes.c_void_p) -> int:
+        return int(self.lib.kc_engine_phase(pointer))
 
     def year(self, pointer: ctypes.c_void_p) -> int:
         return int(self.lib.kc_engine_year(pointer))
@@ -389,6 +537,75 @@ class CEngine:
         )
         return [items[index] for index in range(int(count))]
 
+    def dense_policy_action_features(
+        self,
+        pointer: ctypes.c_void_p,
+        *,
+        player_id: int,
+        input_size: int,
+        max_features: int = 256,
+    ) -> DensePolicyActionFeatures:
+        actions = (KCAction * max_features)()
+        action_heads = (ctypes.c_int32 * max_features)()
+        kind_ids = (ctypes.c_int32 * max_features)()
+        player_ids = (ctypes.c_int32 * max_features)()
+        suit_ids = (ctypes.c_int32 * max_features)()
+        target_suit_ids = (ctypes.c_int32 * max_features)()
+        card_suit_ids = (ctypes.c_int32 * max_features)()
+        card_value_ids = (ctypes.c_int32 * max_features)()
+        hand_suit_ids = (ctypes.c_int32 * max_features)()
+        hand_value_ids = (ctypes.c_int32 * max_features)()
+        plot_suit_ids = (ctypes.c_int32 * max_features)()
+        plot_value_ids = (ctypes.c_int32 * max_features)()
+        plot_zone_ids = (ctypes.c_int32 * max_features)()
+        action_scalars = (ctypes.c_float * (max_features * ACTION_SCALAR_COUNT))()
+        features = (ctypes.c_float * (max_features * input_size))()
+        output = KCDensePolicyActionFeatures(
+            actions,
+            action_heads,
+            kind_ids,
+            player_ids,
+            suit_ids,
+            target_suit_ids,
+            card_suit_ids,
+            card_value_ids,
+            hand_suit_ids,
+            hand_value_ids,
+            plot_suit_ids,
+            plot_value_ids,
+            plot_zone_ids,
+            action_scalars,
+            ACTION_SCALAR_COUNT,
+            features,
+            max_features,
+            input_size,
+        )
+        count = self.lib.kc_engine_policy_action_dense_features(
+            pointer,
+            ctypes.c_int32(player_id),
+            output,
+        )
+        return DensePolicyActionFeatures(
+            count=int(count),
+            input_size=input_size,
+            actions=actions,
+            action_heads=action_heads,
+            kind_ids=kind_ids,
+            player_ids=player_ids,
+            suit_ids=suit_ids,
+            target_suit_ids=target_suit_ids,
+            card_suit_ids=card_suit_ids,
+            card_value_ids=card_value_ids,
+            hand_suit_ids=hand_suit_ids,
+            hand_value_ids=hand_value_ids,
+            plot_suit_ids=plot_suit_ids,
+            plot_value_ids=plot_value_ids,
+            plot_zone_ids=plot_zone_ids,
+            action_scalars=action_scalars,
+            action_scalar_count=ACTION_SCALAR_COUNT,
+            features=features,
+        )
+
     def object_tokens(
         self,
         pointer: ctypes.c_void_p,
@@ -405,11 +622,54 @@ class CEngine:
         )
         return [items[index] for index in range(int(count))]
 
+    def dense_object_tokens(
+        self,
+        pointer: ctypes.c_void_p,
+        *,
+        perspective_player: int,
+        max_tokens: int = MAX_OBJECT_TOKENS,
+    ) -> DenseObjectTokens:
+        type_ids = (ctypes.c_int32 * max_tokens)()
+        owner_ids = (ctypes.c_int32 * max_tokens)()
+        zone_ids = (ctypes.c_int32 * max_tokens)()
+        suit_ids = (ctypes.c_int32 * max_tokens)()
+        value_ids = (ctypes.c_int32 * max_tokens)()
+        index_ids = (ctypes.c_int32 * max_tokens)()
+        scalars = (ctypes.c_float * (max_tokens * OBJECT_SCALAR_COUNT))()
+        output = KCDenseObjectTokens(
+            type_ids,
+            owner_ids,
+            zone_ids,
+            suit_ids,
+            value_ids,
+            index_ids,
+            scalars,
+            max_tokens,
+        )
+        count = self.lib.kc_engine_object_token_dense_features(
+            pointer,
+            ctypes.c_int32(perspective_player),
+            output,
+        )
+        return DenseObjectTokens(
+            count=int(count),
+            type_ids=type_ids,
+            owner_ids=owner_ids,
+            zone_ids=zone_ids,
+            suit_ids=suit_ids,
+            value_ids=value_ids,
+            index_ids=index_ids,
+            scalars=scalars,
+        )
+
     def heuristic_action(self, pointer: ctypes.c_void_p) -> KCAction:
         action = KCAction()
         ok = self.lib.kc_engine_heuristic_policy_action(pointer, ctypes.byref(action))
         if not ok:
-            raise RuntimeError("C heuristic could not choose an action")
+            raise RuntimeError(
+                "C heuristic could not choose an action "
+                f"(phase={self.phase(pointer)}, year={self.year(pointer)}, waiting_player={self.waiting_player(pointer)})"
+            )
         return action
 
     def apply_policy_action(self, pointer: ctypes.c_void_p, action: KCAction) -> None:

@@ -1,0 +1,33 @@
+{
+  "experiment": "torch_mlp_vs_strongest_stage2_v1",
+  "description": "Stage 2 Torch MLP experiment: warm start from the successful heuristic-trained MLP, train directly against the strongest non-heuristic baseline with paired-baseline-delta PPO on the 2-year curriculum, then benchmark against that baseline.",
+  "launcher": "research/scripts/launch_supervised_warmstart_then_round_delta_ppo_v1.sh",
+  "run_script": "research/scripts/run_torch_mlp_vs_strongest_stage2_v1.sh",
+  "defaults": {
+    "baseline": "training/rl/runs/beat_promoted_wide_seat_heads_v1/20260702T144243Z/candidate.json",
+    "start_model": "research/runs/torch_mlp_rl_sanity_v1/20260705T214957Z/candidate.pt",
+    "architecture": "mlp",
+    "layers": "256,256",
+    "episodes": 32768,
+    "batch_size": 32,
+    "rollout_envs": 32,
+    "opponent_mode": "model-pool",
+    "reward_mode": "paired-baseline-delta",
+    "reward_weights": {
+      "win": 1.0,
+      "rank": 0.05,
+      "margin": 0.001
+    },
+    "reference_kl_weight": 0.005,
+    "curriculum": {
+      "round_curriculum": true,
+      "curriculum_schedule": "constant",
+      "curriculum_rounds": 2
+    },
+    "eval_interval": 2048,
+    "eval_games_per_seat": 32,
+    "benchmark_games_per_seat": 64,
+    "select_best_eval_checkpoint": true
+  },
+  "success_criterion": "The final torch-benchmark should show a positive paired delta against the strongest non-heuristic baseline on the 2-year curriculum benchmark."
+}

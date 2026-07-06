@@ -1,202 +1,100 @@
 # Kolkhoz Research Harness
 
-This directory is the new home for training, benchmarking, promotion, and AutoML
-orchestration. It is intentionally separate from the playable app.
+This directory owns current model training, benchmarking, promotion decisions, run
+history, and the research dashboard. The retired Swift policy tools and native Apple app
+research paths are gone; do not add compatibility wrappers for them.
 
-The app should depend on the C game engine and the smallest runtime policy inference
-surface it needs. Research code can depend on heavier training, tournament, seed mining,
-and experiment-history tools, but those should not be bundled into iOS or Flutter apps.
+The current boundary is:
 
-## Current Boundary
+- C engine: rules, legal actions, phase flow, deterministic simulation, policy features,
+  and final game adjudication.
+- Python research harness: experiment orchestration, durable records, model cleanup,
+  paired benchmarks, promotion decisions, seed pools, and dashboards.
+- Torch backend: current training and evaluation for `.pt` policies and C-compatible MLP
+  JSON artifacts.
 
-The harness talks to the C engine directly. It does not import Swift package targets and
-does not shell out to Swift policy tools.
+Historical model artifacts under `training/rl/runs/` are kept only as model inputs or
+benchmarks. Old epoch snapshots are disposable; keep final `candidate.json`,
+`candidate_best.json`, and explicitly referenced promoted baselines.
 
-Today the C API is sufficient for:
-
-- building/loading the C engine as a local shared library;
-- running deterministic C-engine smoke games;
-- recording engine source/header hashes for provenance;
-- loading and saving C MLP policy artifacts;
-- running paired candidate-vs-baseline rotated-seat benchmarks;
-- running model-pool tournaments;
-- mining hard seed panels;
-- training C-backed MLP policies with the engine's policy-gradient trainer.
-
-The remaining research gap is no longer "call Swift tooling". The bigger gap is model
-backend breadth. The C MLP backend is useful for continuity with the archived Swift-era
-experiments, but deeper or less regular architectures should live in a Torch backend
-where MPS can accelerate batched policy/value updates. The intended boundary is:
-
-- C engine: rules, legal actions, deterministic simulation, final game adjudication.
-- Python harness: experiment orchestration, durable records, promotion gates, tournaments,
-  seed mining, and backend selection.
-- Model backend: `c-mlp` today; future `torch-mps` policy/value models without changing the
-  app runtime or promotion logic.
-
-The Torch/MPS path can already import the current C MLP policy exactly, drive batches of
-C-engine games through shared legal-action features, run short policy-gradient updates on
-MPS, export MLP results back to the C-compatible artifact schema, and save Torch-native
-`.pt` checkpoints for architectures that the app runtime cannot load directly.
-
-## Quick Smoke
+## Smoke
 
 ```bash
 python3 -m research.kolkhoz_research.cli engine-smoke --games 8
 ```
 
-The command compiles `ios/KolkhozSwiftUI/Sources/KolkhozCEngine/KolkhozCEngine.c` into a
-local ignored shared library under `research/.build/`, loads it with `ctypes`, and runs
-deterministic C-engine games.
+## Active Training Path
 
-## Core Commands
-
-Train a small C-backed policy:
+The lead path is the two-round Torch MLP self-play seed pool:
 
 ```bash
-python3 -m research.kolkhoz_research.cli train \
-  --output research/runs/smoke/candidate.json \
-  --layers 128,128 \
-  --round-curriculum \
-  --episodes 512 \
-  --batch-size 128 \
-  --thread-count 4 \
-  --record
+RUN_SCRIPT=research/scripts/run_torch_mlp_self_play_seed_pool_v2.sh \
+EXPERIMENT=torch_mlp_self_play_seed_pool_v2 \
+research/scripts/launch_supervised_warmstart_then_round_delta_ppo_v1.sh
 ```
 
-`--round-curriculum` uses two consecutive curriculum rounds from a randomized prior
-state. The first round is always non-famine; when `--round-famine-rate` samples famine,
-famine can occur only as the second round.
+This starts from the current strongest Torch MLP, trains multiple child seeds, ranks them
+on a shared selection panel, then promotes finalists through a larger current-best panel
+and arena checks.
 
-Policy rollouts use the same assignment shape as the game: the model assigns the next
-unassigned trick card to one legal target suit, then receives another assignment decision
-until the trick is fully assigned.
-
-Benchmark an existing candidate against a policy artifact or the heuristic baseline:
+The bootstrap path for producing or refreshing the current strongest MLP is:
 
 ```bash
-python3 -m research.kolkhoz_research.cli benchmark \
-  --candidate research/runs/smoke/candidate.json \
-  --baseline training/rl/runs/beat_promoted_wide_seat_heads_v1/20260702T144243Z/candidate.json \
-  --games-per-seat 120 \
-  --seed 13500000 \
-  --min-win-delta 0.0 \
-  --min-rank-delta 0.0 \
-  --min-margin-delta 0.0 \
-  --record
+RUN_SCRIPT=research/scripts/run_torch_mlp_vs_strongest_stage2_v1.sh \
+EXPERIMENT=torch_mlp_vs_strongest_stage2_v1 \
+research/scripts/launch_supervised_warmstart_then_round_delta_ppo_v1.sh
 ```
 
-Run a model-pool tournament:
+## Secondary Path
+
+The action-transformer supervised warmstart plus paired round-delta PPO branch is still
+available for follow-up experiments:
 
 ```bash
-python3 -m research.kolkhoz_research.cli tournament \
-  --models research/runs/a/candidate.json research/runs/b/candidate.json \
-  --baseline research/runs/current_baseline.json
+research/scripts/launch_supervised_warmstart_then_round_delta_ppo_v1.sh
 ```
 
-Mine hard seed panels:
+This generates or reuses supervised search labels, pretrains an action transformer, then
+PPO-finetunes against the promoted baseline and runs a fresh holdout benchmark.
 
-```bash
-python3 -m research.kolkhoz_research.cli mine-seeds \
-  --candidate research/runs/smoke/candidate.json \
-  --baseline research/runs/current_baseline.json \
-  --seed-count 32 \
-  --games-per-seed 4
-```
+## Benchmarks And Promotion
 
-Check Torch/MPS parity for an existing C MLP artifact:
-
-```bash
-python3 -m research.kolkhoz_research.cli torch-parity \
-  --model training/rl/runs/beat_promoted_wide_seat_heads_v1/20260702T144243Z/candidate.json \
-  --games-per-seat 4 \
-  --rollout-envs 64
-```
-
-Run a small batched Torch/MPS update and export a C-compatible artifact:
-
-```bash
-python3 -m research.kolkhoz_research.cli torch-train \
-  --start-model training/rl/runs/beat_promoted_wide_seat_heads_v1/20260702T144243Z/candidate.json \
-  --output research/runs/torch_mps_repro/candidate.json \
-  --episodes 64 \
-  --batch-size 8 \
-  --rollout-envs 64 \
-  --learning-rate 0.0001
-```
-
-Use `--unbatched` only for debugging or timing comparisons against the old one-game path.
-Only plain `mlp` policies started from a C JSON artifact can be exported back to JSON.
-Scratch models and residual models should be written as `.pt` checkpoints and evaluated
-with `torch-benchmark`.
-
-Train a deeper Torch-native residual policy from scratch:
-
-```bash
-python3 -m research.kolkhoz_research.cli torch-train \
-  --architecture residual-mlp \
-  --layers 512,512,512,512 \
-  --output research/runs/residual_mlp_4x512/candidate.pt \
-  --episodes 256 \
-  --batch-size 16 \
-  --rollout-envs 64 \
-  --learning-rate 0.0001
-```
-
-Train an action-conditioned transformer policy from scratch:
-
-```bash
-python3 -m research.kolkhoz_research.cli torch-train \
-  --architecture action-transformer \
-  --layers 256,4,4,1024 \
-  --output research/runs/action_transformer_256x4/candidate.pt \
-  --round-curriculum \
-  --episodes 512 \
-  --batch-size 16 \
-  --rollout-envs 64 \
-  --learning-rate 0.0001
-```
-
-For `action-transformer`, `--layers` means `width,depth,attention_heads,feedforward`.
-This architecture prepends visible C-engine object tokens to the legal action candidates,
-then scores the candidates jointly for each decision. Hidden opponent hand/plot/stack cards
-are exported as unknown placeholders, not as leaked suit/value cards. It must be saved as a
-Torch `.pt` checkpoint and evaluated with `torch-benchmark`.
-
-Benchmark a Torch `.pt` candidate against the promoted C baseline with paired seeds:
+Run a paired benchmark:
 
 ```bash
 python3 -m research.kolkhoz_research.cli torch-benchmark \
-  --candidate research/runs/residual_mlp_4x512/candidate.pt \
+  --candidate research/runs/torch_mlp_vs_strongest_stage2_4x_v1/20260705T221143Z/candidate.pt \
   --baseline training/rl/runs/beat_promoted_wide_seat_heads_v1/20260702T144243Z/candidate.json \
-  --games-per-seat 32 \
-  --rollout-envs 64 \
-  --seed 43000000 \
-  --record
+  --round-curriculum \
+  --games-per-seat 256 \
+  --bootstrap-samples 1000 \
+  --promotion-objective utility
 ```
 
-Serve the local experiment dashboard:
-
-```bash
-python3 -m research.kolkhoz_research.cli dashboard --port 8765
-```
-
-The dashboard reads durable records from `research/history/experiments.jsonl` and live
-run state from the ignored `research/history/current_experiment.json` file written by
-training and benchmark commands.
-
-All commands emit structured JSON. Add `--record` to append the record to
-`research/history/experiments.jsonl`.
-
-## Directory Contract
+Promotion uses paired same-seed, rotated-seat C-engine games. The current script defaults
+use utility mode:
 
 ```text
-research/
-  kolkhoz_research/      Python orchestration and C bindings
-  configs/               Experiment configs, once C training API exists
-  history/               Durable experiment records
-  runs/                  Ignored generated logs/artifacts
+utility = win_delta + 0.05 * rank_delta + 0.001 * margin_delta
 ```
 
-Generated candidate models and benchmark logs belong in `research/runs/`, not in app
-source directories.
+Use optional mean-risk budgets when a run should reject models that trade away too much
+win, rank, or margin despite positive utility.
+
+## Cleanup
+
+Remove stale local training snapshots without deleting final candidates:
+
+```bash
+python3 -m research.kolkhoz_research.cli cleanup-artifacts --delete
+```
+
+For an aggressive local cleanup, while still respecting models referenced by history:
+
+```bash
+python3 -m research.kolkhoz_research.cli cleanup-artifacts \
+  --keep-json-checkpoints 0 \
+  --keep-torch-checkpoints 1 \
+  --keep-latest-runs-per-experiment 0 \
+  --delete
+```

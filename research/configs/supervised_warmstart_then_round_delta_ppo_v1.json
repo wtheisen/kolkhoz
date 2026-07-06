@@ -1,0 +1,51 @@
+{
+  "name": "supervised_warmstart_then_round_delta_ppo_v1",
+  "hypothesis": "Supervised shallow-search warm start followed by paired-baseline-round-delta PPO should improve selection-eval win_delta while keeping rank_delta and margin_delta positive against the current best baseline.",
+  "baseline": "training/rl/runs/beat_promoted_wide_seat_heads_v1/20260702T144243Z/candidate.json",
+  "script": "research/scripts/run_supervised_warmstart_then_round_delta_ppo_v1.sh",
+  "stages": [
+    {
+      "name": "generate_trajectories",
+      "command": "supervised-generate",
+      "default_games": 256,
+      "default_seed": 61200000,
+      "target_source": "legal C-engine states, per-action full-game rollouts over sampled hidden-state determinizations continued by the promoted baseline policy",
+      "rollout_model": "training/rl/runs/beat_promoted_wide_seat_heads_v1/20260702T144243Z/candidate.json",
+      "determinize_search": true,
+      "search_horizon": "full-game",
+      "search_target": "paired-baseline",
+      "rollouts_per_action": 1,
+      "target_temperature": 0.25,
+      "reward_weights": {
+        "win": 1.0,
+        "rank": 0.05,
+        "margin": 0.001
+      }
+    },
+    {
+      "name": "supervised_pretrain",
+      "command": "supervised-pretrain",
+      "output": "supervised.pt",
+      "epochs": 8,
+      "batch_size": 64,
+      "learning_rate": 0.0003,
+      "target_temperature": 0.25
+    },
+    {
+      "name": "paired_round_delta_ppo",
+      "command": "torch-train --serious-run",
+      "start_model": "supervised.pt",
+      "reward_mode": "paired-baseline-round-delta",
+      "eval_baseline": "training/rl/runs/beat_promoted_wide_seat_heads_v1/20260702T144243Z/candidate.json",
+      "eval_interval": 1024,
+      "eval_games_per_seat": 128,
+      "eval_seed": 52800000,
+      "select_best_eval_checkpoint": true
+    }
+  ],
+  "falsification_rule": {
+    "selection": "Reject or mark inconclusive if the best selected checkpoint lacks nonnegative win_delta CI low or has negative rank_delta/margin_delta guardrails against current best.",
+    "holdout": "Run expensive holdout or promotion panels only once on the selected checkpoint; do not tune repeatedly against holdouts."
+  },
+  "promotion_readout": "paired full-game win_delta primary, rank_delta and margin_delta guardrails"
+}

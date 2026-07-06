@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Kolkhoz Research Dashboard</title>
     <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="/dashboard.css">
+    <link rel="stylesheet" href="/dashboard.css?v=20260706-margin-shape">
   </head>
   <body>
     <main class="shell">
@@ -39,7 +39,12 @@
               <span id="progressLabel">No progress</span>
               <strong id="progressValue">0%</strong>
             </div>
-            <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+            <div class="progress-track">
+              <div id="progressStages" class="progress-stages"></div>
+              <div id="progressBar" class="progress-bar"></div>
+              <div id="progressEvals" class="progress-evals"></div>
+            </div>
+            <div id="curriculumLegend" class="curriculum-legend"></div>
           </div>
           <dl class="detail-list">
             <div><dt>Output</dt><dd id="outputModel">-</dd></div>
@@ -54,42 +59,206 @@
           <div class="metric-row"><span>Average rank</span><strong id="metricRank">-</strong></div>
           <div class="metric-row"><span>Average margin</span><strong id="metricMargin">-</strong></div>
           <div class="metric-row"><span>Average reward</span><strong id="metricReward">-</strong></div>
+          <div class="metric-row"><span>Reward components</span><strong id="metricComponents">-</strong></div>
+          <div class="metric-row"><span>Policy loss</span><strong id="metricPolicyLoss">-</strong></div>
+          <div class="metric-row"><span>Value loss</span><strong id="metricValueLoss">-</strong></div>
+          <div class="metric-row"><span>Entropy</span><strong id="metricEntropy">-</strong></div>
+          <div class="metric-row"><span>Actions/episode</span><strong id="metricActions">-</strong></div>
         </article>
 
         <article class="metric-panel">
           <p class="label">Latest benchmark</p>
           <div id="benchmarkDeltas" class="delta-list"></div>
+          <div id="trainingEval" class="training-eval"></div>
+          <div id="trainingEvalList" class="training-eval-list"></div>
         </article>
       </section>
 
       <section class="counts" id="counts"></section>
 
+      <section id="distillPanel" class="curve-panel distill-panel">
+        <div class="panel-head">
+          <div>
+            <p class="label">Distillation</p>
+            <h2>Teacher matching</h2>
+          </div>
+          <span id="distillCount" class="curve-count">0 points</span>
+        </div>
+        <div id="distillEmpty" class="curve-empty">No distillation data yet.</div>
+        <div class="curve-grid distill-grid">
+          <div class="curve-card">
+            <div class="curve-title">
+              <span>Loss</span>
+              <div class="curve-stat"><strong id="distillLossLatest">-</strong><small id="distillLossSlope">slope -</small></div>
+            </div>
+            <div class="curve-plot">
+              <div class="curve-y-scale" data-curve-y-scale="distillLossCurve"><span>-</span><span>-</span><span>-</span></div>
+              <div class="curve-scroll"><svg id="distillLossCurve" viewBox="0 0 640 190" role="img" aria-label="Distillation loss curve"></svg></div>
+            </div>
+            <div class="curve-controls" aria-label="Distillation loss zoom controls">
+              <button type="button" data-curve-target="distillLossCurve" data-curve-zoom="out" title="Zoom out">-</button>
+              <span id="distillLossZoom" class="curve-zoom">1x</span>
+              <button type="button" data-curve-target="distillLossCurve" data-curve-zoom="in" title="Zoom in">+</button>
+              <button type="button" data-curve-target="distillLossCurve" data-curve-zoom="reset" title="Reset zoom">Reset</button>
+            </div>
+          </div>
+          <div class="curve-card">
+            <div class="curve-title">
+              <span>Teacher Match</span>
+              <div class="curve-stat"><strong id="distillMatchLatest">-</strong><small id="distillMatchSlope">slope -</small></div>
+            </div>
+            <div class="curve-plot">
+              <div class="curve-y-scale" data-curve-y-scale="distillMatchCurve"><span>-</span><span>-</span><span>-</span></div>
+              <div class="curve-scroll"><svg id="distillMatchCurve" viewBox="0 0 640 190" role="img" aria-label="Teacher match curve"></svg></div>
+            </div>
+            <div class="curve-controls" aria-label="Teacher match zoom controls">
+              <button type="button" data-curve-target="distillMatchCurve" data-curve-zoom="out" title="Zoom out">-</button>
+              <span id="distillMatchZoom" class="curve-zoom">1x</span>
+              <button type="button" data-curve-target="distillMatchCurve" data-curve-zoom="in" title="Zoom in">+</button>
+              <button type="button" data-curve-target="distillMatchCurve" data-curve-zoom="reset" title="Reset zoom">Reset</button>
+            </div>
+          </div>
+          <div class="curve-card">
+            <div class="curve-title">
+              <span>Teacher Entropy</span>
+              <div class="curve-stat"><strong id="distillEntropyLatest">-</strong><small id="distillEntropySlope">slope -</small></div>
+            </div>
+            <div class="curve-plot">
+              <div class="curve-y-scale" data-curve-y-scale="distillEntropyCurve"><span>-</span><span>-</span><span>-</span></div>
+              <div class="curve-scroll"><svg id="distillEntropyCurve" viewBox="0 0 640 190" role="img" aria-label="Teacher entropy curve"></svg></div>
+            </div>
+            <div class="curve-controls" aria-label="Teacher entropy zoom controls">
+              <button type="button" data-curve-target="distillEntropyCurve" data-curve-zoom="out" title="Zoom out">-</button>
+              <span id="distillEntropyZoom" class="curve-zoom">1x</span>
+              <button type="button" data-curve-target="distillEntropyCurve" data-curve-zoom="in" title="Zoom in">+</button>
+              <button type="button" data-curve-target="distillEntropyCurve" data-curve-zoom="reset" title="Reset zoom">Reset</button>
+            </div>
+          </div>
+          <div class="curve-card">
+            <div class="curve-title">
+              <span>Candidate Count</span>
+              <div class="curve-stat"><strong id="distillCandidatesLatest">-</strong><small id="distillCandidatesSlope">slope -</small></div>
+            </div>
+            <div class="curve-plot">
+              <div class="curve-y-scale" data-curve-y-scale="distillCandidatesCurve"><span>-</span><span>-</span><span>-</span></div>
+              <div class="curve-scroll"><svg id="distillCandidatesCurve" viewBox="0 0 640 190" role="img" aria-label="Candidate count curve"></svg></div>
+            </div>
+            <div class="curve-controls" aria-label="Candidate count zoom controls">
+              <button type="button" data-curve-target="distillCandidatesCurve" data-curve-zoom="out" title="Zoom out">-</button>
+              <span id="distillCandidatesZoom" class="curve-zoom">1x</span>
+              <button type="button" data-curve-target="distillCandidatesCurve" data-curve-zoom="in" title="Zoom in">+</button>
+              <button type="button" data-curve-target="distillCandidatesCurve" data-curve-zoom="reset" title="Reset zoom">Reset</button>
+            </div>
+          </div>
+        </div>
+        <div class="distill-diagnostics">
+          <div>
+            <div class="eval-history-head"><span>Action kind match</span><small>recent window</small></div>
+            <div id="distillActionKinds" class="distill-bars"></div>
+          </div>
+          <div>
+            <div class="eval-history-head"><span>Candidate-count match</span><small>recent window</small></div>
+            <div id="distillCandidateCounts" class="distill-bars"></div>
+          </div>
+        </div>
+      </section>
+
       <section class="curve-panel">
         <div class="panel-head">
           <div>
             <p class="label">Training curves</p>
-            <h2>Live episode metrics</h2>
+            <h2 id="curvePanelTitle">Live episode metrics</h2>
           </div>
           <span id="curveCount" class="curve-count">0 points</span>
         </div>
         <div id="curveEmpty" class="curve-empty">No training curve data yet.</div>
-        <div class="curve-grid">
+        <div id="trainingCurveGrid" class="curve-grid">
           <div class="curve-card">
-            <div class="curve-title"><span>Reward</span><strong id="rewardLatest">-</strong></div>
-            <svg id="rewardCurve" viewBox="0 0 640 190" role="img" aria-label="Reward curve"></svg>
+            <div class="curve-title">
+              <span id="rewardCurveLabel">Reward</span>
+              <div class="curve-stat"><strong id="rewardLatest">-</strong><small id="rewardSlope">slope -</small></div>
+            </div>
+            <div class="curve-plot">
+              <div class="curve-y-scale" data-curve-y-scale="rewardCurve"><span>-</span><span>-</span><span>-</span></div>
+              <div class="curve-scroll"><svg id="rewardCurve" viewBox="0 0 640 190" role="img" aria-label="Reward curve"></svg></div>
+            </div>
+            <div class="curve-controls" aria-label="Reward zoom controls">
+              <button type="button" data-curve-target="rewardCurve" data-curve-zoom="out" title="Zoom out">-</button>
+              <span id="rewardZoom" class="curve-zoom">1x</span>
+              <button type="button" data-curve-target="rewardCurve" data-curve-zoom="in" title="Zoom in">+</button>
+              <button type="button" data-curve-target="rewardCurve" data-curve-zoom="reset" title="Reset zoom">Reset</button>
+            </div>
           </div>
           <div class="curve-card">
-            <div class="curve-title"><span>Win Rate</span><strong id="winLatest">-</strong></div>
-            <svg id="winCurve" viewBox="0 0 640 190" role="img" aria-label="Win rate curve"></svg>
+            <div class="curve-title">
+              <span id="winCurveLabel">Win Rate</span>
+              <div class="curve-stat"><strong id="winLatest">-</strong><small id="winSlope">slope -</small></div>
+            </div>
+            <div class="curve-plot">
+              <div class="curve-y-scale" data-curve-y-scale="winCurve"><span>-</span><span>-</span><span>-</span></div>
+              <div class="curve-scroll"><svg id="winCurve" viewBox="0 0 640 190" role="img" aria-label="Win rate curve"></svg></div>
+            </div>
+            <div class="curve-controls" aria-label="Win rate zoom controls">
+              <button type="button" data-curve-target="winCurve" data-curve-zoom="out" title="Zoom out">-</button>
+              <span id="winZoom" class="curve-zoom">1x</span>
+              <button type="button" data-curve-target="winCurve" data-curve-zoom="in" title="Zoom in">+</button>
+              <button type="button" data-curve-target="winCurve" data-curve-zoom="reset" title="Reset zoom">Reset</button>
+            </div>
+            <div id="seedOverlayLegend" class="seed-overlay-legend"></div>
           </div>
           <div class="curve-card">
-            <div class="curve-title"><span>Rank</span><strong id="rankLatest">-</strong></div>
-            <svg id="rankCurve" viewBox="0 0 640 190" role="img" aria-label="Rank curve"></svg>
+            <div class="curve-title">
+              <span id="rankCurveLabel">Rank</span>
+              <div class="curve-stat"><strong id="rankLatest">-</strong><small id="rankSlope">slope -</small></div>
+            </div>
+            <div class="curve-plot">
+              <div class="curve-y-scale" data-curve-y-scale="rankCurve"><span>-</span><span>-</span><span>-</span></div>
+              <div class="curve-scroll"><svg id="rankCurve" viewBox="0 0 640 190" role="img" aria-label="Rank curve"></svg></div>
+            </div>
+            <div class="curve-controls" aria-label="Rank zoom controls">
+              <button type="button" data-curve-target="rankCurve" data-curve-zoom="out" title="Zoom out">-</button>
+              <span id="rankZoom" class="curve-zoom">1x</span>
+              <button type="button" data-curve-target="rankCurve" data-curve-zoom="in" title="Zoom in">+</button>
+              <button type="button" data-curve-target="rankCurve" data-curve-zoom="reset" title="Reset zoom">Reset</button>
+            </div>
           </div>
           <div class="curve-card">
-            <div class="curve-title"><span>Margin</span><strong id="marginLatest">-</strong></div>
-            <svg id="marginCurve" viewBox="0 0 640 190" role="img" aria-label="Margin curve"></svg>
+            <div class="curve-title">
+              <span id="marginCurveLabel">Margin</span>
+              <div class="curve-stat"><strong id="marginLatest">-</strong><small id="marginSlope">slope -</small></div>
+            </div>
+            <div class="curve-plot">
+              <div class="curve-y-scale" data-curve-y-scale="marginCurve"><span>-</span><span>-</span><span>-</span></div>
+              <div class="curve-scroll"><svg id="marginCurve" viewBox="0 0 640 190" role="img" aria-label="Margin curve"></svg></div>
+            </div>
+            <div class="curve-controls" aria-label="Margin zoom controls">
+              <button type="button" data-curve-target="marginCurve" data-curve-zoom="out" title="Zoom out">-</button>
+              <span id="marginZoom" class="curve-zoom">1x</span>
+              <button type="button" data-curve-target="marginCurve" data-curve-zoom="in" title="Zoom in">+</button>
+              <button type="button" data-curve-target="marginCurve" data-curve-zoom="reset" title="Reset zoom">Reset</button>
+            </div>
           </div>
+        </div>
+      </section>
+
+      <section id="marginShapePanel" class="curve-panel margin-shape-panel">
+        <div class="panel-head">
+          <div>
+            <p class="label">Margin shape</p>
+            <h2 id="marginShapeTitle">Win/loss margin distribution</h2>
+          </div>
+          <span id="marginShapeSource" class="curve-count">No distribution</span>
+        </div>
+        <div id="marginShapeEmpty" class="curve-empty">No margin distribution recorded yet.</div>
+        <div id="marginShapeGrid" class="margin-shape-grid">
+          <div class="margin-hist-card">
+            <div class="curve-title">
+              <span>Paired Margin Delta</span>
+              <div class="curve-stat"><strong id="marginPositiveRate">-</strong><small>P(delta > 0)</small></div>
+            </div>
+            <svg id="marginShapeHistogram" viewBox="0 0 760 220" role="img" aria-label="Paired margin delta histogram"></svg>
+          </div>
+          <div class="margin-shape-stats" id="marginShapeStats"></div>
         </div>
       </section>
 
@@ -126,8 +295,18 @@
           </div>
           <div id="benchmarkList" class="record-list"></div>
         </article>
+
+        <article class="table-panel evaluation-panel">
+          <div class="panel-head">
+            <div>
+              <p class="label">Evaluations</p>
+              <h2>Recent eval results</h2>
+            </div>
+          </div>
+          <div id="evaluationList" class="record-list"></div>
+        </article>
       </section>
     </main>
-    <script src="/dashboard.js"></script>
+    <script src="/dashboard.js?v=20260706-margin-shape"></script>
   </body>
 </html>

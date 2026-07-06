@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -23,9 +24,17 @@ def append_history(record: dict[str, Any], path: Path = HISTORY_PATH) -> None:
         handle.write("\n")
 
 
-def write_current_experiment(record: dict[str, Any], path: Path = CURRENT_EXPERIMENT_PATH) -> None:
+def write_current_experiment(
+    record: dict[str, Any], path: Path = CURRENT_EXPERIMENT_PATH
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    enriched = {"updated_at": now_iso(), **record}
+    timestamp = now_iso()
+    enriched = {
+        "updated_at": timestamp,
+        "heartbeat_at": timestamp,
+        "pid": os.getpid(),
+        **record,
+    }
     with path.open("w", encoding="utf-8") as handle:
         json.dump(enriched, handle, indent=2, sort_keys=True)
         handle.write("\n")
