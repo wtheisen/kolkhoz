@@ -194,6 +194,10 @@ static bool kc_controller_is_automatic(int32_t controller) {
     return controller == KC_CONTROLLER_HEURISTIC_AI;
 }
 
+static bool kc_controller_is_policy(int32_t controller) {
+    return controller == KC_CONTROLLER_POLICY_AI;
+}
+
 static void kc_make_players(KCEngine *engine) {
     for (int32_t player_id = 0; player_id < KC_PLAYER_COUNT; player_id++) {
         KCPlayer *player = &engine->players[player_id];
@@ -3550,6 +3554,49 @@ static int32_t kc_apply_policy_action(KCEngine *engine, KCAction action) {
 
 int32_t kc_engine_apply_policy_action(KCEngine *engine, KCAction action) {
     return kc_apply_policy_action(engine, action);
+}
+
+bool kc_engine_policy_action(const KCEngine *engine, KCPolicyModelBuffer model, KCAction *selected) {
+    if (!engine) {
+        return false;
+    }
+    if (engine->phase == KC_PHASE_PLANNING && engine->is_famine) {
+        return false;
+    }
+    int32_t player_id = engine->phase == KC_PHASE_ASSIGNMENT ? engine->last_winner : engine->current_player;
+    if (player_id < 0 ||
+        player_id >= KC_PLAYER_COUNT ||
+        !kc_controller_is_policy(engine->controllers.seats[player_id])) {
+        return false;
+    }
+    int32_t activation_count = kc_policy_activation_count(model);
+    if (activation_count <= 0) {
+        return false;
+    }
+    double *hidden_cache = malloc((size_t)256 * (size_t)activation_count * sizeof(double));
+    if (!hidden_cache) {
+        return false;
+    }
+    bool ok = kc_greedy_policy_action(engine, player_id, model, hidden_cache, selected);
+    free(hidden_cache);
+    return ok;
+}
+
+int32_t kc_engine_step_policy_automatic(KCEngine *engine, KCPolicyModelBuffer model) {
+    if (!engine) {
+        return 0;
+    }
+    if (engine->phase == KC_PHASE_PLANNING && engine->is_famine) {
+        kc_advance_from_planning(engine);
+        return 1;
+    }
+    KCAction selected;
+    bool ok = kc_engine_policy_action(engine, model, &selected);
+    if (!ok) {
+        return 0;
+    }
+    int32_t error = kc_apply_policy_action(engine, selected);
+    return error == 0 ? 1 : -error;
 }
 
 static int32_t kc_run_greedy_model_game(uint64_t seed, KCVariants variants, KCPolicyModelBuffer model, int32_t *scores, int32_t *medals, int32_t *winner_id) {

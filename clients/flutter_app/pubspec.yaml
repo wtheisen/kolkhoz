@@ -61,6 +61,7 @@ flutter:
     - ios_resources/Cards/
     - ios_resources/Embellishments/
     - ios_resources/Fonts/Bitmap/
+    - assets/policies/current_best_policy.json
 
   fonts:
     - family: Handjet

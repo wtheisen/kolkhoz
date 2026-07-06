@@ -49,7 +49,8 @@ enum {
 
 enum {
     KC_CONTROLLER_EXTERNAL = 0,
-    KC_CONTROLLER_HEURISTIC_AI = 1
+    KC_CONTROLLER_HEURISTIC_AI = 1,
+    KC_CONTROLLER_POLICY_AI = 2
 };
 
 enum {
@@ -366,6 +367,8 @@ bool kc_engine_sample_determinization(const KCEngine *source, int32_t perspectiv
 int32_t kc_engine_apply(KCEngine *engine, KCAction action);
 int32_t kc_engine_apply_manual(KCEngine *engine, KCAction action);
 int32_t kc_engine_step_automatic(KCEngine *engine);
+int32_t kc_engine_step_policy_automatic(KCEngine *engine, KCPolicyModelBuffer model);
+bool kc_engine_policy_action(const KCEngine *engine, KCPolicyModelBuffer model, KCAction *selected);
 int32_t kc_engine_apply_policy_action(KCEngine *engine, KCAction action);
 int32_t kc_engine_legal_actions(const KCEngine *engine, KCAction *actions, int32_t max_actions);
 int32_t kc_engine_policy_action_features(const KCEngine *engine, int32_t player_id, int32_t input_size, KCPolicyActionFeatures *features, int32_t max_features);

@@ -11,6 +11,7 @@ import 'game_constants.dart';
 import 'game_ui_state.dart';
 import 'online_game_models.dart';
 import 'online_table_projection.dart';
+import 'policy_model.dart';
 import 'render_model.dart';
 import 'design_tokens.dart';
 import 'saved_game_store.dart';
@@ -20,16 +21,26 @@ class LiveGameStore extends ChangeNotifier {
   LiveGameStore({
     KolkhozCEngineBridge? bridge,
     KolkhozAutosaveStore? autosaveStore,
+    KolkhozNativePolicyModel? neuralPolicy,
+    Future<KolkhozNativePolicyModel>? neuralPolicyLoader,
     this.autosaveEnabled = true,
   }) : bridge = bridge ?? KolkhozCEngineBridge(),
-       _autosaveStore = autosaveStore ?? KolkhozAutosaveStore.defaultStore() {
+       _autosaveStore = autosaveStore ?? KolkhozAutosaveStore.defaultStore(),
+       _neuralPolicy = neuralPolicy,
+       _neuralPolicyLoader = neuralPolicy == null
+           ? neuralPolicyLoader ??
+                 KolkhozNativePolicyModel.loadAsset(defaultNeuralPolicyAsset)
+           : null {
     if (!_restoreAutosave()) {
       newGame(persist: false);
     }
+    _startNeuralPolicyLoad();
   }
 
   final KolkhozCEngineBridge bridge;
   final KolkhozAutosaveStore _autosaveStore;
+  KolkhozNativePolicyModel? _neuralPolicy;
+  Future<KolkhozNativePolicyModel>? _neuralPolicyLoader;
   final bool autosaveEnabled;
 
   DesignTokens tokens = defaultDesignTokens;
@@ -49,6 +60,8 @@ class LiveGameStore extends ChangeNotifier {
   Pointer<KCEngine>? _engine;
   int? revealedPlayerID;
   String? error;
+  bool _neuralPolicyUnavailable = false;
+  bool _disposed = false;
 
   void newGame({
     KolkhozGameVariants variants = KolkhozGameVariants.kolkhoz,
@@ -83,6 +96,7 @@ class LiveGameStore extends ChangeNotifier {
       if (persist) {
         _saveAutosave();
       }
+      _scheduleAutomaticStep();
     } catch (exception) {
       error = '$exception';
       model = null;
@@ -340,7 +354,9 @@ class LiveGameStore extends ChangeNotifier {
     if (engine == null) {
       return;
     }
-    final result = bridge.stepAutomatic(engine);
+    final result = _currentAutomaticSeatUsesNeural(engine)
+        ? _stepNeuralAutomatic(engine)
+        : bridge.stepAutomatic(engine);
     if (result < 0) {
       error = 'Automatic move rejected ($result)';
       notifyListeners();
@@ -353,6 +369,69 @@ class LiveGameStore extends ChangeNotifier {
     _sync();
     _saveAutosave();
     _scheduleAutomaticStep();
+  }
+
+  int _stepNeuralAutomatic(Pointer<KCEngine> engine) {
+    final policy = _neuralPolicy;
+    if (policy != null) {
+      final action = bridge.policyAction(engine, policy.native);
+      if (action == null) {
+        return 0;
+      }
+      final error = bridge.applyPolicyAction(engine, action);
+      if (error == 0) {
+        actionLog = [...actionLog, engineActionFromCValue(action)];
+        return 1;
+      }
+      return -error;
+    }
+    if (!_neuralPolicyUnavailable) {
+      _scheduleAutomaticStep();
+      return 0;
+    }
+    return bridge.stepAutomatic(engine);
+  }
+
+  bool _currentAutomaticSeatUsesNeural(Pointer<KCEngine> engine) {
+    final phase = bridge.phase(engine);
+    if (phase == kcPhasePlanning && bridge.isFamine(engine)) {
+      return false;
+    }
+    final playerID = phase == kcPhaseAssignment
+        ? bridge.lastWinner(engine)
+        : bridge.currentPlayer(engine);
+    return playerID >= 0 &&
+        playerID < controllers.length &&
+        controllers[playerID] == KolkhozPlayerController.neuralAI;
+  }
+
+  void _startNeuralPolicyLoad() {
+    final loader = _neuralPolicyLoader;
+    if (loader == null) {
+      return;
+    }
+    unawaited(
+      loader
+          .then((policy) {
+            _neuralPolicyLoader = null;
+            if (_disposed) {
+              policy.dispose();
+              return;
+            }
+            _neuralPolicy = policy;
+            error = null;
+            _scheduleAutomaticStep();
+          })
+          .catchError((Object exception) {
+            _neuralPolicyLoader = null;
+            _neuralPolicyUnavailable = true;
+            if (_disposed) {
+              return;
+            }
+            error = 'Neural AI unavailable ($exception)';
+            notifyListeners();
+          }),
+    );
   }
 
   void _startOnlinePolling() {
@@ -422,7 +501,11 @@ class LiveGameStore extends ChangeNotifier {
         if (cAction == null) {
           throw const FormatException('Saved action cannot be replayed');
         }
-        final result = bridge.apply(restoredEngine, cAction);
+        final result = _applyRestoredAction(
+          restoredEngine,
+          cAction,
+          payload.controllers,
+        );
         if (result != 0) {
           throw FormatException('Saved action rejected ($result)');
         }
@@ -441,6 +524,7 @@ class LiveGameStore extends ChangeNotifier {
         _autosaveStore.clear();
         return false;
       }
+      _scheduleAutomaticStep();
       return true;
     } catch (_) {
       if (restoredEngine != null) {
@@ -450,6 +534,20 @@ class LiveGameStore extends ChangeNotifier {
       _autosaveStore.clear();
       return false;
     }
+  }
+
+  int _applyRestoredAction(
+    Pointer<KCEngine> engine,
+    CEngineActionValue action,
+    List<KolkhozPlayerController> restoredControllers,
+  ) {
+    if (action.playerID >= 0 &&
+        action.playerID < restoredControllers.length &&
+        restoredControllers[action.playerID] ==
+            KolkhozPlayerController.neuralAI) {
+      return bridge.applyPolicyAction(engine, action);
+    }
+    return bridge.apply(engine, action);
   }
 
   void _saveAutosave() {
@@ -474,12 +572,15 @@ class LiveGameStore extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _clearAutomaticStepTimer();
     final engine = _engine;
     if (engine != null) {
       bridge.freeEngine(engine);
       _engine = null;
     }
+    _neuralPolicy?.dispose();
+    _neuralPolicy = null;
     _onlineRefreshTimer?.cancel();
     _onlineRefreshTimer = null;
     super.dispose();

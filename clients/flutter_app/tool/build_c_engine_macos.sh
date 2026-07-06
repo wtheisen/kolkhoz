@@ -8,6 +8,10 @@ OUT_DIR="$APP_DIR/native/macos"
 
 mkdir -p "$OUT_DIR"
 
+if [[ "${KOLKHOZ_SKIP_POLICY_ASSET_UPDATE:-0}" != "1" ]]; then
+  PYTHONDONTWRITEBYTECODE=1 "${PYTHON:-python3}" "$SCRIPT_DIR/update_neural_policy_asset.py"
+fi
+
 clang \
   -dynamiclib \
   -O2 \

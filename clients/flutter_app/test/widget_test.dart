@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi' hide Size;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -26,6 +27,7 @@ import 'package:kolkhoz_app/src/online_table_projection.dart';
 import 'package:kolkhoz_app/src/panel_title_display.dart';
 import 'package:kolkhoz_app/src/phase_display.dart';
 import 'package:kolkhoz_app/src/pixel_text.dart';
+import 'package:kolkhoz_app/src/policy_model.dart';
 import 'package:kolkhoz_app/src/player_panel_display.dart';
 import 'package:kolkhoz_app/src/plot_display.dart';
 import 'package:kolkhoz_app/src/render_model.dart';
@@ -300,6 +302,51 @@ void main() {
       );
     },
   );
+
+  test('bundled neural policy advances a neural C-engine turn', () async {
+    final policy = await KolkhozNativePolicyModel.loadAsset(
+      defaultNeuralPolicyAsset,
+    );
+    addTearDown(policy.dispose);
+    expect(policy.native.inputSize, 200);
+    expect(policy.native.hiddenSize, 512);
+    expect(policy.native.layerCount, 2);
+    expect(policy.native.headCount, 16);
+
+    final bridge = KolkhozCEngineBridge();
+    Pointer<KCEngine>? selectedEngine;
+    addTearDown(() {
+      final engine = selectedEngine;
+      if (engine != null) {
+        bridge.freeEngine(engine);
+      }
+    });
+    for (var seed = 1; seed < 200 && selectedEngine == null; seed += 1) {
+      final engine = bridge.newEngine(
+        seed: seed,
+        controllers: [
+          KolkhozPlayerController.human,
+          KolkhozPlayerController.neuralAI,
+          KolkhozPlayerController.neuralAI,
+          KolkhozPlayerController.neuralAI,
+        ],
+      );
+      if (bridge.phase(engine) == kcPhasePlanning &&
+          bridge.currentPlayer(engine) != 0) {
+        selectedEngine = engine;
+      } else {
+        bridge.freeEngine(engine);
+      }
+    }
+    expect(selectedEngine, isNotNull);
+    final engine = selectedEngine!;
+    final action = bridge.policyAction(engine, policy.native);
+    if (action == null) {
+      fail('Policy did not select an action for a neural turn.');
+    }
+    final result = bridge.applyPolicyAction(engine, action);
+    expect(result, 0);
+  });
 
   test('active viewer follows current or assignment human seat', () {
     final controllers = KolkhozPlayerController.normalized([

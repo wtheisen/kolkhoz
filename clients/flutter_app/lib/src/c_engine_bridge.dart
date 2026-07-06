@@ -13,6 +13,29 @@ final class KCCardNative extends Struct {
   external int value;
 }
 
+final class KCActionNative extends Struct {
+  @Int32()
+  external int kind;
+
+  @Int32()
+  external int playerID;
+
+  @Int32()
+  external int suit;
+
+  external KCCardNative card;
+
+  external KCCardNative handCard;
+
+  external KCCardNative plotCard;
+
+  @Int32()
+  external int plotZone;
+
+  @Int32()
+  external int targetSuit;
+}
+
 class EngineCardValue {
   const EngineCardValue({required this.suit, required this.value});
 
@@ -233,6 +256,15 @@ class KolkhozCEngineBridge {
   late final int Function(Pointer<KCEngine>, int, int, int, int) _applyAssign;
   late final int Function(Pointer<KCEngine>, int, int) _applySimple;
   late final int Function(Pointer<KCEngine>) _stepAutomatic;
+  late final int Function(Pointer<KCEngine>, KCPolicyModelBufferNative)
+  _stepPolicyAutomatic;
+  late final bool Function(
+    Pointer<KCEngine>,
+    KCPolicyModelBufferNative,
+    Pointer<KCActionNative>,
+  )
+  _policyAction;
+  late final int Function(Pointer<KCEngine>, KCActionNative) _applyPolicyAction;
   late final int Function(Pointer<KCEngine>, int, int) _applySetTrumpManual;
   late final int Function(Pointer<KCEngine>, int, int, int)
   _applyPlayCardManual;
@@ -317,8 +349,8 @@ class KolkhozCEngineBridge {
   int _controllerCode(KolkhozPlayerController controller) {
     return switch (controller) {
       KolkhozPlayerController.human => kcControllerExternal,
-      KolkhozPlayerController.heuristicAI ||
-      KolkhozPlayerController.neuralAI => kcControllerHeuristicAI,
+      KolkhozPlayerController.heuristicAI => kcControllerHeuristicAI,
+      KolkhozPlayerController.neuralAI => kcControllerPolicyAI,
     };
   }
 
@@ -514,6 +546,38 @@ class KolkhozCEngineBridge {
 
   int stepAutomatic(Pointer<KCEngine> engine) => _stepAutomatic(engine);
 
+  int stepPolicyAutomatic(
+    Pointer<KCEngine> engine,
+    KCPolicyModelBufferNative model,
+  ) => _stepPolicyAutomatic(engine, model);
+
+  CEngineActionValue? policyAction(
+    Pointer<KCEngine> engine,
+    KCPolicyModelBufferNative model,
+  ) {
+    final arena = Arena();
+    try {
+      final selected = arena<KCActionNative>();
+      if (!_policyAction(engine, model, selected)) {
+        return null;
+      }
+      return _actionValue(selected.ref);
+    } finally {
+      arena.releaseAll();
+    }
+  }
+
+  int applyPolicyAction(Pointer<KCEngine> engine, CEngineActionValue action) {
+    final arena = Arena();
+    try {
+      final native = arena<KCActionNative>();
+      _writeAction(native.ref, action);
+      return _applyPolicyAction(engine, native.ref);
+    } finally {
+      arena.releaseAll();
+    }
+  }
+
   void _bind() {
     _engineAlloc = _lib
         .lookupFunction<
@@ -645,6 +709,29 @@ class KolkhozCEngineBridge {
           int Function(Pointer<KCEngine>, int, int)
         >('kc_engine_apply_simple');
     _stepAutomatic = _int0('kc_engine_step_automatic');
+    _stepPolicyAutomatic = _lib
+        .lookupFunction<
+          Int32 Function(Pointer<KCEngine>, KCPolicyModelBufferNative),
+          int Function(Pointer<KCEngine>, KCPolicyModelBufferNative)
+        >('kc_engine_step_policy_automatic');
+    _policyAction = _lib
+        .lookupFunction<
+          Bool Function(
+            Pointer<KCEngine>,
+            KCPolicyModelBufferNative,
+            Pointer<KCActionNative>,
+          ),
+          bool Function(
+            Pointer<KCEngine>,
+            KCPolicyModelBufferNative,
+            Pointer<KCActionNative>,
+          )
+        >('kc_engine_policy_action');
+    _applyPolicyAction = _lib
+        .lookupFunction<
+          Int32 Function(Pointer<KCEngine>, KCActionNative),
+          int Function(Pointer<KCEngine>, KCActionNative)
+        >('kc_engine_apply_policy_action');
     _applySetTrumpManual = _lib
         .lookupFunction<
           Int32 Function(Pointer<KCEngine>, Int32, Int32),
@@ -740,6 +827,34 @@ class KolkhozCEngineBridge {
     return EngineCardValue(suit: card.suit, value: card.value);
   }
 
+  CEngineActionValue _actionValue(KCActionNative action) {
+    return CEngineActionValue(
+      kind: action.kind,
+      playerID: action.playerID,
+      suit: action.suit,
+      card: _cardValue(action.card),
+      handCard: _cardValue(action.handCard),
+      plotCard: _cardValue(action.plotCard),
+      plotZone: action.plotZone,
+      targetSuit: action.targetSuit,
+    );
+  }
+
+  void _writeAction(KCActionNative native, CEngineActionValue action) {
+    native
+      ..kind = action.kind
+      ..playerID = action.playerID
+      ..suit = action.suit
+      ..card.suit = action.card.suit
+      ..card.value = action.card.value
+      ..handCard.suit = action.handCard.suit
+      ..handCard.value = action.handCard.value
+      ..plotCard.suit = action.plotCard.suit
+      ..plotCard.value = action.plotCard.value
+      ..plotZone = action.plotZone
+      ..targetSuit = action.targetSuit;
+  }
+
   static DynamicLibrary _openLibrary() {
     final envPath = Platform.environment['KOLKHOZ_C_ENGINE_LIB'];
     if (envPath != null && envPath.isNotEmpty) {
@@ -803,6 +918,41 @@ final class KCControllersNative extends Struct {
   external Array<Int32> seats;
 }
 
+final class KCPolicyModelBufferNative extends Struct {
+  @Int32()
+  external int inputSize;
+
+  @Int32()
+  external int hiddenSize;
+
+  @Int32()
+  external int layerCount;
+
+  @Array(4)
+  external Array<Int32> layerSizes;
+
+  @Int32()
+  external int headCount;
+
+  external Pointer<Double> w1;
+
+  external Pointer<Double> b1;
+
+  @Array(4)
+  external Array<Pointer<Double>> layerWeights;
+
+  @Array(4)
+  external Array<Pointer<Double>> layerBiases;
+
+  external Pointer<Double> w2;
+
+  external Pointer<Double> outputWeights;
+
+  external Pointer<Double> b2;
+
+  external Pointer<Double> b2s;
+}
+
 const kcActionSetTrump = 1;
 const kcActionSwap = 2;
 const kcActionConfirmSwap = 3;
@@ -821,3 +971,4 @@ const kcPhaseGameOver = 5;
 
 const kcControllerExternal = 0;
 const kcControllerHeuristicAI = 1;
+const kcControllerPolicyAI = 2;
