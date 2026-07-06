@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Kolkhoz is an offline trick-taking card game for iPhone."
+    />
+    <title>Kolkhoz - Offline Trick-Taking for iPhone</title>
+    <style>
+      @font-face {
+        font-family: "Handjet";
+        src: url("/assets/Handjet.ttf") format("truetype");
+        font-display: swap;
+      }
+
+      :root {
+        --ink: #100f0c;
+        --coal: #171512;
+        --coal-2: #211e18;
+        --paper: #e3d3aa;
+        --paper-strong: #f2dfb2;
+        --muted: #b7a57d;
+        --red: #9f2f1e;
+        --red-deep: #6f1d17;
+        --gold: #d4aa53;
+        --line: rgba(212, 170, 83, 0.32);
+        --shadow: 0 28px 70px rgba(0, 0, 0, 0.5);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 78% 30%, rgba(159, 47, 30, 0.2), transparent 30rem),
+          linear-gradient(135deg, #0d0c0a 0%, #191611 48%, #0d0c0a 100%);
+        color: var(--paper);
+        font-family: Georgia, "Times New Roman", serif;
+      }
+
+      body::before {
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        content: "";
+        opacity: 0.22;
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        background-size: 18px 18px;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .site-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 24px 24px 20px;
+        border-bottom: 1px solid rgba(159, 47, 30, 0.8);
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 42px;
+        height: 42px;
+        place-items: center;
+        color: var(--gold);
+      }
+
+      .brand-mark svg {
+        width: 42px;
+        height: 42px;
+      }
+
+      .brand-name {
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 38px;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        gap: 34px;
+        color: var(--paper-strong);
+        font-size: 18px;
+      }
+
+      .nav a {
+        text-decoration-color: transparent;
+        text-underline-offset: 6px;
+        transition: color 160ms ease, text-decoration-color 160ms ease;
+      }
+
+      .nav a:hover,
+      .nav a:focus-visible {
+        color: #fff3cf;
+        text-decoration-color: var(--red);
+      }
+
+      main {
+        overflow: hidden;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 0.92fr) minmax(360px, 1.08fr);
+        gap: 42px;
+        align-items: center;
+        max-width: 1180px;
+        min-height: calc(100svh - 91px);
+        margin: 0 auto;
+        padding: 56px 24px 44px;
+      }
+
+      .hero-copy {
+        position: relative;
+        z-index: 2;
+      }
+
+      .star-wheat {
+        width: 92px;
+        height: 72px;
+        margin: 0 0 14px 12px;
+        color: var(--gold);
+      }
+
+      h1 {
+        max-width: 590px;
+        margin: 0;
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: clamp(92px, 13vw, 196px);
+        font-weight: 900;
+        line-height: 0.78;
+        letter-spacing: 0;
+        text-transform: uppercase;
+        text-shadow: 0 5px 0 rgba(0, 0, 0, 0.18);
+      }
+
+      .rule {
+        width: min(100%, 520px);
+        height: 3px;
+        margin: 28px 0 24px;
+        background: linear-gradient(90deg, var(--red), rgba(159, 47, 30, 0));
+      }
+
+      .lead {
+        max-width: 520px;
+        margin: 0;
+        color: #ead8b1;
+        font-size: clamp(31px, 4vw, 44px);
+        line-height: 1.08;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 24px 34px;
+        margin-top: 34px;
+      }
+
+      .store-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 228px;
+        min-height: 72px;
+        padding: 18px 34px;
+        border: 1px solid #c14f36;
+        border-radius: 8px;
+        background: linear-gradient(180deg, #b8422b, #7b2319);
+        box-shadow: 0 16px 30px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+        color: #fff2d1;
+        font-size: 28px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .store-button:hover,
+      .store-button:focus-visible {
+        transform: translateY(-1px);
+        background: linear-gradient(180deg, #c64d34, #81261b);
+      }
+
+      .inline-link {
+        color: var(--paper-strong);
+        font-size: 22px;
+        text-decoration-color: var(--red);
+        text-underline-offset: 8px;
+      }
+
+      .device-scene {
+        position: relative;
+        min-height: 570px;
+      }
+
+      .card-fan {
+        position: absolute;
+        top: 0;
+        right: 8px;
+        width: min(100%, 650px);
+        height: 360px;
+      }
+
+      .crop-card {
+        position: absolute;
+        width: 168px;
+        border-radius: 12px;
+        box-shadow: 0 20px 35px rgba(0, 0, 0, 0.34);
+        transform-origin: 50% 100%;
+      }
+
+      .crop-card:nth-child(1) {
+        left: 74px;
+        top: 62px;
+        transform: rotate(-15deg);
+      }
+
+      .crop-card:nth-child(2) {
+        left: 210px;
+        top: 28px;
+        transform: rotate(-5deg);
+      }
+
+      .crop-card:nth-child(3) {
+        left: 346px;
+        top: 34px;
+        transform: rotate(9deg);
+      }
+
+      .crop-card:nth-child(4) {
+        left: 482px;
+        top: 90px;
+        transform: rotate(20deg);
+      }
+
+      .phone {
+        position: absolute;
+        right: 22px;
+        bottom: 34px;
+        width: min(92%, 560px);
+        aspect-ratio: 1.92;
+        padding: 17px;
+        border: 6px solid #090908;
+        border-radius: 42px;
+        background: #0b0b0a;
+        box-shadow: var(--shadow);
+        transform: rotate(5deg);
+      }
+
+      .phone::before {
+        position: absolute;
+        top: 13px;
+        left: 50%;
+        width: 108px;
+        height: 22px;
+        border-radius: 0 0 18px 18px;
+        background: #060606;
+        content: "";
+        transform: translateX(-50%);
+      }
+
+      .phone-screen {
+        position: relative;
+        height: 100%;
+        overflow: hidden;
+        border: 1px solid rgba(224, 193, 122, 0.28);
+        border-radius: 30px;
+        background:
+          linear-gradient(rgba(13, 23, 15, 0.88), rgba(13, 23, 15, 0.88)),
+          radial-gradient(circle at 50% 50%, #31523a, #152216 64%);
+      }
+
+      .mini-table {
+        position: absolute;
+        inset: 20px 24px;
+        display: grid;
+        grid-template-rows: 1fr auto;
+        gap: 22px;
+      }
+
+      .mini-trick {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding-top: 22px;
+      }
+
+      .mini-card {
+        width: 66px;
+        border-radius: 5px;
+        box-shadow: 0 7px 16px rgba(0, 0, 0, 0.35);
+      }
+
+      .mini-hand {
+        display: flex;
+        justify-content: center;
+        gap: 7px;
+      }
+
+      .mini-hand img {
+        width: 46px;
+        border-radius: 4px;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.32);
+      }
+
+      .features {
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.7);
+        background: rgba(20, 19, 16, 0.86);
+      }
+
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .feature {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        min-height: 126px;
+        padding: 22px 34px;
+        border-right: 1px solid var(--line);
+        color: var(--paper-strong);
+        font-size: 25px;
+      }
+
+      .feature:last-child {
+        border-right: 0;
+      }
+
+      .feature img {
+        width: 58px;
+        height: 58px;
+        object-fit: contain;
+      }
+
+      .paper-section {
+        background:
+          linear-gradient(rgba(236, 219, 177, 0.94), rgba(219, 199, 154, 0.96)),
+          radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.45), transparent 30rem);
+        color: #19140d;
+      }
+
+      .paper-inner {
+        display: grid;
+        grid-template-columns: 0.9fr 1.1fr;
+        gap: 54px;
+        align-items: center;
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 62px 24px 54px;
+      }
+
+      .poster {
+        min-height: 250px;
+        border: 1px solid rgba(72, 46, 22, 0.25);
+        background:
+          linear-gradient(135deg, rgba(111, 29, 23, 0.88), rgba(111, 29, 23, 0.34)),
+          radial-gradient(circle at 72% 38%, rgba(212, 170, 83, 0.58), transparent 13rem),
+          #2c321f;
+        box-shadow: 0 22px 50px rgba(52, 35, 16, 0.24);
+      }
+
+      .poster::after {
+        display: block;
+        width: 62%;
+        height: 100%;
+        margin-left: auto;
+        clip-path: polygon(16% 0, 100% 0, 100% 100%, 0 100%);
+        background:
+          linear-gradient(45deg, rgba(255, 255, 255, 0.08) 25%, transparent 25% 50%, rgba(255, 255, 255, 0.08) 50% 75%, transparent 75%),
+          rgba(13, 12, 10, 0.28);
+        background-size: 24px 24px;
+        content: "";
+      }
+
+      .paper-copy {
+        max-width: 540px;
+      }
+
+      .paper-copy h2 {
+        margin: 0 0 18px;
+        color: #19140d;
+        font-size: clamp(42px, 5vw, 64px);
+        line-height: 0.98;
+      }
+
+      .paper-copy p {
+        margin: 0;
+        color: #392f1f;
+        font-size: 22px;
+        line-height: 1.42;
+      }
+
+      .availability {
+        margin-top: 28px;
+        padding-top: 22px;
+        border-top: 1px solid rgba(57, 47, 31, 0.22);
+        color: #2b2115;
+        font-size: 18px;
+      }
+
+      .site-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 26px 24px 34px;
+        color: var(--muted);
+        font-size: 15px;
+      }
+
+      .site-footer nav {
+        display: flex;
+        gap: 22px;
+      }
+
+      @media (max-width: 900px) {
+        .site-header {
+          padding-inline: 18px;
+        }
+
+        .nav {
+          gap: 18px;
+          font-size: 16px;
+        }
+
+        .hero {
+          grid-template-columns: 1fr;
+          min-height: auto;
+          padding: 44px 18px 34px;
+        }
+
+        .lead {
+          max-width: 470px;
+        }
+
+        .device-scene {
+          min-height: 450px;
+          margin-top: -6px;
+        }
+
+        .card-fan {
+          left: 50%;
+          right: auto;
+          width: 620px;
+          transform: translateX(-50%) scale(0.85);
+          transform-origin: top center;
+        }
+
+        .phone {
+          left: 50%;
+          right: auto;
+          bottom: 12px;
+          width: min(94%, 520px);
+          transform: translateX(-50%) rotate(3deg);
+        }
+
+        .feature-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .feature {
+          min-height: 96px;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .paper-inner {
+          grid-template-columns: 1fr;
+          gap: 34px;
+          padding-inline: 18px;
+        }
+
+        .site-footer {
+          flex-direction: column;
+          padding-inline: 18px;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .brand-name {
+          font-size: 30px;
+        }
+
+        .nav {
+          gap: 14px;
+        }
+
+        .star-wheat {
+          width: 72px;
+          height: 56px;
+          margin-left: 2px;
+        }
+
+        h1 {
+          font-size: clamp(78px, 24vw, 118px);
+        }
+
+        .lead {
+          font-size: 29px;
+        }
+
+        .actions {
+          gap: 18px 24px;
+        }
+
+        .store-button {
+          width: 100%;
+          min-height: 66px;
+        }
+
+        .device-scene {
+          min-height: 372px;
+        }
+
+        .card-fan {
+          transform: translateX(-50%) scale(0.62);
+        }
+
+        .phone {
+          padding: 12px;
+          border-width: 5px;
+          border-radius: 32px;
+        }
+
+        .phone-screen {
+          border-radius: 23px;
+        }
+
+        .mini-table {
+          inset: 15px 18px;
+        }
+
+        .mini-card {
+          width: 52px;
+        }
+
+        .mini-hand img {
+          width: 35px;
+        }
+
+        .feature {
+          padding-inline: 22px;
+          font-size: 23px;
+        }
+
+        .paper-copy h2 {
+          font-size: 42px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Kolkhoz home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 48 48" fill="none" role="img">
+            <path d="M24 3l3.8 11.5h12.1l-9.8 7.1 3.7 11.5-9.8-7.1-9.8 7.1 3.7-11.5-9.8-7.1h12.1L24 3z" fill="#a43123" />
+            <path d="M12 42c2.8-10.1 8.1-18.6 16.2-25.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+            <path d="M8 33c6.7.6 13 3.2 18.8 7.8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+            <path d="M36 42c-2.8-10.1-8.1-18.6-16.2-25.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+            <path d="M40 33c-6.7.6-13 3.2-18.8 7.8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+          </svg>
+        </span>
+        <span class="brand-name">Kolkhoz</span>
+      </a>
+      <nav class="nav" aria-label="Primary navigation">
+        <a href="/support.html">Support</a>
+        <a href="/privacy.html">Privacy</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="page-title">
+        <div class="hero-copy">
+          <svg class="star-wheat" viewBox="0 0 110 82" fill="none" aria-hidden="true">
+            <path d="M55 4l7.1 21.8H85L66.5 39.2l7.1 21.8L55 47.5 36.4 61l7.1-21.8L25 25.8h22.9L55 4z" fill="#a43123" />
+            <path d="M17 76c8.3-19.1 21.7-34.2 40-45.4" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+            <path d="M5 58c16.6 1.4 31.3 7.1 44 17" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+            <path d="M93 76c-8.3-19.1-21.7-34.2-40-45.4" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+            <path d="M105 58c-16.6 1.4-31.3 7.1-44 17" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+          </svg>
+          <h1 id="page-title">Kolkhoz</h1>
+          <div class="rule" aria-hidden="true"></div>
+          <p class="lead">An offline trick-taking card game for iPhone.</p>
+          <div class="actions">
+            <a class="store-button" href="#availability">App Store</a>
+            <a class="inline-link" href="/support.html">Support</a>
+            <a class="inline-link" href="/privacy.html">Privacy</a>
+          </div>
+        </div>
+
+        <div class="device-scene" aria-label="Kolkhoz cards and iPhone preview">
+          <div class="card-fan" aria-hidden="true">
+            <img class="crop-card" src="/assets/cards/face-jack-beet.png" alt="" />
+            <img class="crop-card" src="/assets/cards/face-queen-sunflower.png" alt="" />
+            <img class="crop-card" src="/assets/cards/face-king-wheat.png" alt="" />
+            <img class="crop-card" src="/assets/cards/card-back.png" alt="" />
+          </div>
+          <div class="phone" aria-hidden="true">
+            <div class="phone-screen">
+              <div class="mini-table">
+                <div class="mini-trick">
+                  <img class="mini-card" src="/assets/cards/face-jack-beet.png" alt="" />
+                  <img class="mini-card" src="/assets/cards/face-king-wheat.png" alt="" />
+                  <img class="mini-card" src="/assets/cards/face-queen-sunflower.png" alt="" />
+                </div>
+                <div class="mini-hand">
+                  <img src="/assets/cards/card-back.png" alt="" />
+                  <img src="/assets/cards/face-jack-beet.png" alt="" />
+                  <img src="/assets/cards/card-back.png" alt="" />
+                  <img src="/assets/cards/face-king-wheat.png" alt="" />
+                  <img src="/assets/cards/face-queen-sunflower.png" alt="" />
+                  <img src="/assets/cards/card-back.png" alt="" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="features" aria-label="Game highlights">
+        <div class="feature-grid">
+          <div class="feature">
+            <img src="/assets/icons/icon-wheat.png" alt="" />
+            <span>Five-year campaign</span>
+          </div>
+          <div class="feature">
+            <img src="/assets/icons/icon-human-seat.png" alt="" />
+            <span>Offline local play</span>
+          </div>
+          <div class="feature">
+            <img src="/assets/icons/icon-hand.png" alt="" />
+            <span>Landscape table layout</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="paper-section">
+        <div class="paper-inner">
+          <div class="poster" aria-hidden="true"></div>
+          <div class="paper-copy">
+            <h2>Plan your harvest.</h2>
+            <p>
+              Play through five years of tricks, crop assignments, requisitions, and hidden plots.
+              Kolkhoz is built for local offline play with a table layout tuned for landscape iPhone.
+            </p>
+            <p id="availability" class="availability">
+              The iPhone release is being prepared. For launch questions, bug reports, or accessibility
+              feedback, use the support page.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>Kolkhoz for iPhone</span>
+      <nav aria-label="Footer navigation">
+        <a href="/support.html">Support</a>
+        <a href="/privacy.html">Privacy</a>
+      </nav>
+    </footer>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js").catch(() => {});
+      }
+    </script>
+  </body>
+</html>
