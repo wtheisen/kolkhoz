@@ -602,6 +602,189 @@ void main() {
     ]);
   });
 
+  testWidgets('planning trump chooser renders in selector player column', (
+    tester,
+  ) async {
+    const tokens = defaultDesignTokens;
+    final metrics = ResponsiveBoardMetrics.fromSize(
+      const Size(900, 520),
+      tokens,
+    );
+    LegalAction? selectedAction;
+    final model = runtimeModelWith(
+      phase: phasePlanning,
+      selection: SelectionState.empty,
+      jobs: runtimeModel().table.jobs,
+      legalActions: [
+        for (final suit in displaySuitOrder)
+          testLegalAction(
+            kind: actionSetTrump,
+            label: suit,
+            engineAction: EngineAction(
+              kind: actionSetTrump,
+              playerID: 0,
+              suit: suit,
+            ),
+          ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 900,
+          height: 520,
+          child: BoardPlayArea(
+            model: model,
+            tokens: tokens,
+            metrics: metrics,
+            language: KolkhozLanguage.en,
+            appearance: KolkhozAppearance.dark,
+            onAction: (action) => selectedAction = action,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(PlanningTrumpPanel), findsOneWidget);
+    expect(find.byType(TrumpSelectionButton), findsNWidgets(4));
+
+    await tester.tap(find.byType(TrumpSelectionButton).first);
+    expect(selectedAction?.kind, actionSetTrump);
+    expect(selectedAction?.engineAction.suit, 'wheat');
+  });
+
+  testWidgets('game over panel occupies the hand tray area', (tester) async {
+    const tokens = defaultDesignTokens;
+    final metrics = ResponsiveBoardMetrics.fromSize(
+      const Size(900, 520),
+      tokens,
+    );
+    final model = runtimeModelWith(
+      phase: phaseGameOver,
+      selection: SelectionState.empty,
+      jobs: runtimeModel().table.jobs,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 900,
+          height: 520,
+          child: BoardPlayArea(
+            model: model,
+            tokens: tokens,
+            metrics: metrics,
+            language: KolkhozLanguage.en,
+            appearance: KolkhozAppearance.dark,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(GameOverPlotPanel), findsOneWidget);
+    expect(find.byType(PlotRowsView), findsOneWidget);
+    expect(find.byType(PlotPlayerRow), findsNWidgets(4));
+    expect(find.byType(GameOverFinalScoreStrip), findsOneWidget);
+    expect(find.byType(HandTray), findsNothing);
+    expect(
+      tester.getSize(find.byType(GameOverPlotPanel)).height,
+      greaterThan(520 - metrics.topInfoHeight - metrics.handTrayHeight),
+    );
+    expect(
+      gameOverPlotCardSize(tokens.card.large, const Size(420, 360), 2).width,
+      greaterThan(tokens.card.large.width),
+    );
+    expect(
+      plotRowCardSize(
+        tokens.card.large,
+        const Size(420, 64),
+        2,
+        prominent: false,
+      ).height,
+      lessThanOrEqualTo(64 * plotRowCardHeightFillCompact),
+    );
+    expect(
+      gameOverPlotItemCount(
+        [
+          testCard(id: 'wheat-10', suit: 'wheat', value: 10),
+          testCard(id: 'potato-7', suit: 'potato', value: 7),
+        ],
+        [
+          PlotStackState(
+            revealed: [testCard(id: 'wheat-8', suit: 'wheat', value: 8)],
+            hidden: [testCard(id: 'beet-6', suit: 'beet', value: 6)],
+          ),
+        ],
+      ),
+      4,
+    );
+    expect(gameOverPlotCardOverlap(tokens.card.large.width), lessThan(0));
+  });
+
+  testWidgets('planning trump chooser animates AI selector focus', (
+    tester,
+  ) async {
+    final base = runtimeModel();
+    final legalActions = [
+      for (final suit in displaySuitOrder)
+        testLegalAction(
+          kind: actionSetTrump,
+          label: suit,
+          engineAction: EngineAction(
+            kind: actionSetTrump,
+            playerID: 1,
+            suit: suit,
+          ),
+        ),
+    ];
+    final aiModel = runtimeModelWith(
+      phase: phasePlanning,
+      currentPlayerID: 1,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+      legalActions: legalActions,
+    );
+    final humanModel = runtimeModelWith(
+      phase: phasePlanning,
+      currentPlayerID: 0,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+      legalActions: legalActions,
+    );
+
+    expect(planningTrumpSelectorIsAI(aiModel), isTrue);
+    expect(planningTrumpSelectorIsAI(humanModel), isFalse);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlanningTrumpPanel(
+          model: aiModel,
+          tokens: defaultDesignTokens,
+          language: KolkhozLanguage.en,
+          focusedSuit: 'wheat',
+        ),
+      ),
+    );
+
+    Iterable<TrumpSelectionButton> buttons() => tester
+        .widgetList<TrumpSelectionButton>(find.byType(TrumpSelectionButton));
+
+    expect(buttons().where((button) => button.aiFocused), hasLength(1));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlanningTrumpPanel(
+          model: humanModel,
+          tokens: defaultDesignTokens,
+          language: KolkhozLanguage.en,
+          focusedSuit: null,
+        ),
+      ),
+    );
+    expect(buttons().where((button) => button.aiFocused), isEmpty);
+  });
+
   test('c engine action codec encodes portable engine actions', () {
     final action = cEngineAction(
       const EngineAction(
@@ -688,6 +871,45 @@ void main() {
     expect(decoded.actions[1].plotCard?.id, 'beet-10');
     expect(decoded.actions[1].plotZone, plotZoneHidden);
     expect(decoded.actions[2].targetSuit, 'potato');
+  });
+
+  test('C engine clone preserves an undoable pre-action state', () {
+    final bridge = KolkhozCEngineBridge();
+    final engine = bridge.newEngine(
+      seed: 20260706,
+      controllers: const [
+        KolkhozPlayerController.human,
+        KolkhozPlayerController.human,
+        KolkhozPlayerController.human,
+        KolkhozPlayerController.human,
+      ],
+    );
+    final clone = bridge.cloneEngine(engine);
+    addTearDown(() {
+      bridge.freeEngine(engine);
+      bridge.freeEngine(clone);
+    });
+
+    final playerID = bridge.currentPlayer(engine);
+    expect(bridge.phase(engine), kcPhasePlanning);
+    expect(
+      bridge.applyManual(
+        engine,
+        CEngineActionValue(
+          kind: kcActionSetTrump,
+          playerID: playerID,
+          suit: 0,
+          card: const EngineCardValue(suit: -1, value: 0),
+          handCard: const EngineCardValue(suit: -1, value: 0),
+          plotCard: const EngineCardValue(suit: -1, value: 0),
+          plotZone: -1,
+          targetSuit: -1,
+        ),
+      ),
+      0,
+    );
+    expect(bridge.phase(engine), isNot(kcPhasePlanning));
+    expect(bridge.phase(clone), kcPhasePlanning);
   });
 
   test('autosave store saves payloads and ignores corrupt files', () {
@@ -904,6 +1126,19 @@ void main() {
     expect(afterPhaseChange.activePanel, isNull);
     expect(panelsForPhase(afterPhaseChange, phaseAssignment).active, panelJobs);
     expect(panelsForPhase(afterPhaseChange, phaseTrick).active, panelBrigade);
+    expect(
+      panelsForPhase(
+        const GameUiState(),
+        phaseAssignment,
+        seats: [
+          testSeat(id: 0, name: 'You', isViewer: true),
+          testSeat(id: 1, name: 'Bot 1'),
+        ],
+        lastTrick: const Trick(plays: [], winnerSeatID: 1),
+      ).active,
+      panelBrigade,
+    );
+    expect(actionPanelForPhase(phaseAssignment), panelJobs);
   });
 
   test('plot opponent row metrics reserve enough portrait label height', () {
@@ -967,6 +1202,18 @@ void main() {
     final card = model.table.seats.first.hand.first;
 
     expect(handCardPlayAction(model, card), same(playAction));
+    expect(selectedHandCardPlayAction(model), isNull);
+    expect(
+      selectedHandCardPlayAction(
+        runtimeModelWith(
+          phase: phaseTrick,
+          selection: SelectionState.empty.copyWith(handCardID: 'wheat-11'),
+          jobs: runtimeModel().table.jobs,
+          legalActions: [playAction],
+        ),
+      ),
+      same(playAction),
+    );
     expect(
       handCardPlayAction(
         runtimeModelWith(
@@ -979,6 +1226,80 @@ void main() {
       ),
       isNull,
     );
+  });
+
+  test('game ui state toggles selected trick cards', () {
+    final selected = const GameUiState().selectTrickHandCard('wheat-11');
+    expect(selected.selection.handCardID, 'wheat-11');
+    final cleared = selected.selectTrickHandCard('wheat-11');
+    expect(cleared.selection.handCardID, isNull);
+  });
+
+  testWidgets('trick hand card tap selects before confirmed play', (
+    tester,
+  ) async {
+    String? selectedCardID;
+    LegalAction? confirmedAction;
+    final playAction = testLegalAction(
+      kind: actionPlayCard,
+      label: 'Play',
+      engineAction: const EngineAction(
+        kind: actionPlayCard,
+        playerID: 0,
+        card: EngineCard(suit: 'wheat', value: 11),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 520,
+          height: 180,
+          child: HandTray(
+            model: runtimeModelWith(
+              phase: phaseTrick,
+              selection: SelectionState.empty,
+              jobs: runtimeModel().table.jobs,
+              legalActions: [playAction],
+            ),
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
+            visibleTrayHeight: 150,
+            onTrickHandCardTap: (cardID) => selectedCardID = cardID,
+            onAction: (action) => confirmedAction = action,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(GameCard));
+    expect(selectedCardID, 'wheat-11');
+    expect(confirmedAction, isNull);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 520,
+          height: 180,
+          child: HandTray(
+            model: runtimeModelWith(
+              phase: phaseTrick,
+              selection: SelectionState.empty.copyWith(handCardID: 'wheat-11'),
+              jobs: runtimeModel().table.jobs,
+              legalActions: [playAction],
+            ),
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
+            visibleTrayHeight: 150,
+            onTrickHandCardTap: (cardID) => selectedCardID = cardID,
+            onAction: (action) => confirmedAction = action,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(ActionPill));
+    expect(confirmedAction, same(playAction));
   });
 
   testWidgets('invalid trick hand-card taps can show a Foreman hint', (
@@ -1027,7 +1348,14 @@ void main() {
       selection: SelectionState.empty,
       jobs: base.table.jobs,
     );
+    final planningModel = runtimeModelWith(
+      phase: phasePlanning,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+    );
+    final potatoCard = testCard(id: 'potato-9', suit: 'potato', value: 9);
 
+    expect(lightDesignTokens.colors.green, defaultDesignTokens.colors.green);
     expect(
       handTrayHighlightColor(
         trickModel,
@@ -1054,6 +1382,32 @@ void main() {
         playableHighlightColor: defaultDesignTokens.colors.green,
       ),
       defaultDesignTokens.colors.red,
+    );
+    expect(
+      handTrayCard(
+        planningModel,
+        cardWithSelection(card, highlighted: false),
+        planningTrumpFocusedSuit: 'wheat',
+      ).highlighted,
+      isTrue,
+    );
+    expect(
+      handTrayCard(
+        planningModel,
+        potatoCard,
+        planningTrumpFocusedSuit: 'wheat',
+      ).highlighted,
+      isFalse,
+    );
+    expect(
+      handTrayHighlightColor(
+        planningModel,
+        cardWithSelection(card, highlighted: false),
+        planningTrumpFocusedSuit: 'wheat',
+        swapHighlightColor: defaultDesignTokens.colors.red,
+        playableHighlightColor: defaultDesignTokens.colors.green,
+      ),
+      defaultDesignTokens.colors.green,
     );
   });
 
@@ -1221,6 +1575,32 @@ void main() {
       ),
       isEmpty,
     );
+  });
+
+  test('assignment command bar is only visible for human assignment turns', () {
+    final wheat9 = testCard(id: 'wheat-9', suit: 'wheat', value: 9);
+    final base = runtimeModel();
+    final humanAssignment = runtimeModelWith(
+      phase: phaseAssignment,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+      lastTrick: Trick(
+        plays: [TrickPlay(seatID: 0, card: wheat9)],
+        winnerSeatID: 0,
+      ),
+    );
+    final aiAssignment = runtimeModelWith(
+      phase: phaseAssignment,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+      lastTrick: Trick(
+        plays: [TrickPlay(seatID: 1, card: wheat9)],
+        winnerSeatID: 1,
+      ),
+    );
+
+    expect(assignmentCommandBarVisible(humanAssignment), isTrue);
+    expect(assignmentCommandBarVisible(aiAssignment), isFalse);
   });
 
   test('job display helpers order jobs and size tiles', () {
@@ -1473,6 +1853,10 @@ void main() {
     expect(optionsPanelSurfaceMinHeight, 230);
     expect(optionsMenuSectionSpacing(100), optionsMenuSectionSpacingMin);
     expect(optionsMenuSectionSpacing(1000), optionsMenuSectionSpacingMax);
+    expect(
+      planningTrumpAiSelectorHopDuration,
+      const Duration(milliseconds: 230),
+    );
     expect(defaultGameAnimationSpeed, GameAnimationSpeed.normal);
     expect(GameAnimationSpeed.instant.automaticStepDelay, Duration.zero);
     expect(
@@ -1482,6 +1866,10 @@ void main() {
     expect(
       GameAnimationSpeed.normal.automaticStepDelay,
       const Duration(milliseconds: 600),
+    );
+    expect(
+      GameAnimationSpeed.normal.automaticTrumpSelectionDelay,
+      const Duration(milliseconds: 2200),
     );
     expect(
       GameAnimationSpeed.normal.cardFlightDuration,
@@ -1541,6 +1929,91 @@ void main() {
 
     expect(zones['wheat-11'], 'hand:0');
     expect(cards['wheat-11']?.rank, 'J');
+  });
+
+  testWidgets('top job gauge includes pending assignment hours', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: JobGauge(
+          job: Job(
+            suit: 'wheat',
+            hours: 10,
+            requiredHours: jobRequiredHours,
+            claimed: false,
+            reward: null,
+            assignedCards: [
+              testCard(id: 'wheat-7', suit: 'wheat', value: 7, pending: true),
+            ],
+            validAssignmentTarget: false,
+            highlighted: false,
+          ),
+          highlighted: false,
+          width: 118,
+          height: 38,
+          tokens: defaultDesignTokens,
+        ),
+      ),
+    );
+
+    expect(find.text('17/40'), findsOneWidget);
+  });
+
+  testWidgets('job gauge delta waits for assignment flight to finish', (
+    tester,
+  ) async {
+    Widget gaugeWithHours(int hours, {bool claimed = false}) {
+      return MaterialApp(
+        home: JobGauge(
+          job: Job(
+            suit: 'wheat',
+            hours: hours,
+            requiredHours: jobRequiredHours,
+            claimed: claimed,
+            reward: testCard(id: 'wheat-1', suit: 'wheat', value: 1),
+            assignedCards: const [],
+            validAssignmentTarget: false,
+            highlighted: false,
+          ),
+          highlighted: false,
+          animationSpeed: GameAnimationSpeed.normal,
+          width: 118,
+          height: 38,
+          tokens: defaultDesignTokens,
+        ),
+      );
+    }
+
+    await tester.pumpWidget(gaugeWithHours(10));
+    await tester.pumpWidget(gaugeWithHours(17));
+    await tester.pumpWidget(gaugeWithHours(25));
+
+    expect(find.text('25/40'), findsOneWidget);
+    expect(find.text('+7'), findsNothing);
+    expect(find.text('+8'), findsNothing);
+
+    await tester.pump(
+      jobGaugeDeltaRevealDelay(GameAnimationSpeed.normal) -
+          const Duration(milliseconds: 1),
+    );
+    expect(find.text('+7'), findsNothing);
+    expect(find.text('+8'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(find.text('+7'), findsOneWidget);
+    expect(find.text('+8'), findsNothing);
+
+    await tester.pump(jobGaugeDeltaRevealStagger);
+    expect(find.text('+7'), findsOneWidget);
+    expect(find.text('+8'), findsOneWidget);
+
+    await tester.pump(jobGaugeDeltaDuration + jobGaugeDeltaRevealStagger);
+    expect(find.text('+7'), findsNothing);
+    expect(find.text('+8'), findsNothing);
+
+    await tester.pumpWidget(gaugeWithHours(40, claimed: true));
+    expect(find.text('40/40'), findsOneWidget);
   });
 
   test('AI card flights originate from the player info card', () {
@@ -1640,6 +2113,56 @@ void main() {
         model: runtimeModel(),
       ),
       requisitionCardFlightDurationScale,
+    );
+  });
+
+  test('job assignment flights can target top gauges', () {
+    const gaugeRect = Rect.fromLTWH(220, 12, 112, 38);
+    const assignedCardRect = Rect.fromLTWH(16, 420, 74, 104);
+    const trickCardRect = Rect.fromLTWH(260, 180, 136, 192);
+    final source = cardFlightSourceRect(
+      cardID: 'wheat-9',
+      previousZone: 'trick:1',
+      nextZone: 'job:wheat',
+      previousRects: {
+        'wheat-9': assignedCardRect,
+        trickCardMotionSourceKey('wheat-9'): trickCardRect,
+      },
+      model: runtimeModel(),
+      tokens: defaultDesignTokens,
+    );
+    final destination = cardFlightDestinationRect(
+      cardID: 'wheat-9',
+      previousZone: 'trick:1',
+      nextZone: 'job:wheat',
+      currentRects: {
+        'wheat-9': assignedCardRect,
+        jobGaugeMotionTargetKey('wheat'): gaugeRect,
+      },
+      tokens: defaultDesignTokens,
+    );
+
+    expect(source, trickCardRect);
+    expect(destination, isNotNull);
+    expect(destination!.center, gaugeRect.center);
+    expect(
+      destination.width,
+      closeTo(defaultDesignTokens.card.small.width, 0.001),
+    );
+    expect(
+      cardFlightDurationScale(
+        previousZone: 'trick:1',
+        nextZone: 'job:wheat',
+        model: runtimeModel(),
+      ),
+      jobAssignmentCardFlightDurationScale,
+    );
+    expect(
+      scaledDuration(
+        const Duration(milliseconds: 520),
+        jobAssignmentCardFlightDurationScale,
+      ),
+      const Duration(milliseconds: 1040),
     );
   });
 
@@ -2602,6 +3125,7 @@ TableViewModel runtimeModelWith({
   required String phase,
   required SelectionState selection,
   required List<Job> jobs,
+  int? currentPlayerID,
   Trick? lastTrick,
   List<LegalAction>? legalActions,
 }) {
@@ -2612,7 +3136,7 @@ TableViewModel runtimeModelWith({
       year: base.table.year,
       phase: phase,
       phasePrompt: base.table.phasePrompt,
-      currentPlayerID: base.table.currentPlayerID,
+      currentPlayerID: currentPlayerID ?? base.table.currentPlayerID,
       trump: base.table.trump,
       isFamine: base.table.isFamine,
       maxTricks: base.table.maxTricks,

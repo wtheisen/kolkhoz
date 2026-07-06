@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show clampDouble, lerpDouble;
 
@@ -66,9 +67,12 @@ class KolkhozBoard extends StatelessWidget {
     this.onLanguageToggle,
     this.onAppearanceToggle,
     this.onSwapHandCardTap,
+    this.onTrickHandCardTap,
     this.onPlotCardTap,
     this.onAssignmentCardTap,
     this.onInvalidHandCardTap,
+    this.canUndo = false,
+    this.onUndo,
     this.onHotSeatReady,
     this.onNewGame,
     this.onReturnToLobby,
@@ -93,9 +97,12 @@ class KolkhozBoard extends StatelessWidget {
   final VoidCallback? onLanguageToggle;
   final VoidCallback? onAppearanceToggle;
   final ValueChanged<String>? onSwapHandCardTap;
+  final ValueChanged<String>? onTrickHandCardTap;
   final void Function(String cardID, String zone)? onPlotCardTap;
   final ValueChanged<String>? onAssignmentCardTap;
   final VoidCallback? onInvalidHandCardTap;
+  final bool canUndo;
+  final VoidCallback? onUndo;
   final VoidCallback? onHotSeatReady;
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
@@ -200,9 +207,12 @@ class KolkhozBoard extends StatelessWidget {
                                 onAction: onAction,
                                 onPanelSelected: onPanelSelected,
                                 onSwapHandCardTap: onSwapHandCardTap,
+                                onTrickHandCardTap: onTrickHandCardTap,
                                 onPlotCardTap: onPlotCardTap,
                                 onAssignmentCardTap: onAssignmentCardTap,
                                 onInvalidHandCardTap: onInvalidHandCardTap,
+                                canUndo: canUndo,
+                                onUndo: onUndo,
                                 onNewGame: onNewGame,
                                 onReturnToLobby: onReturnToLobby,
                                 onTutorial: onTutorial,
@@ -442,9 +452,12 @@ class BoardPlayArea extends StatelessWidget {
     this.onAction,
     this.onPanelSelected,
     this.onSwapHandCardTap,
+    this.onTrickHandCardTap,
     this.onPlotCardTap,
     this.onAssignmentCardTap,
     this.onInvalidHandCardTap,
+    this.canUndo = false,
+    this.onUndo,
     this.onNewGame,
     this.onReturnToLobby,
     this.onTutorial,
@@ -469,9 +482,12 @@ class BoardPlayArea extends StatelessWidget {
   final ValueChanged<LegalAction>? onAction;
   final ValueChanged<String>? onPanelSelected;
   final ValueChanged<String>? onSwapHandCardTap;
+  final ValueChanged<String>? onTrickHandCardTap;
   final void Function(String cardID, String zone)? onPlotCardTap;
   final ValueChanged<String>? onAssignmentCardTap;
   final VoidCallback? onInvalidHandCardTap;
+  final bool canUndo;
+  final VoidCallback? onUndo;
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
   final VoidCallback? onTutorial;
@@ -501,11 +517,14 @@ class BoardPlayArea extends StatelessWidget {
             tokens: tokens,
             width: constraints.maxWidth,
           );
+          final gameOver = model.table.phase == phaseGameOver;
           final remainingHeight = math.max(
             0.0,
             constraints.maxHeight - metrics.topInfoHeight,
           );
-          final panelHeight = preferredPanelHeight == null
+          final panelHeight = gameOver
+              ? remainingHeight
+              : preferredPanelHeight == null
               ? null
               : math.max(
                   0.0,
@@ -514,7 +533,9 @@ class BoardPlayArea extends StatelessWidget {
                     preferredPanelHeight + metrics.panelContentBottomPadding,
                   ),
                 );
-          final handTrayHeight = preferredPanelHeight == null
+          final handTrayHeight = gameOver
+              ? 0.0
+              : preferredPanelHeight == null
               ? metrics.handTrayLayoutHeightForBoardHeight(
                   constraints.maxHeight,
                 )
@@ -523,93 +544,199 @@ class BoardPlayArea extends StatelessWidget {
                   metrics.handTrayHeight,
                   handTrayLayoutHeightMax,
                 );
-          final handTrayVisibleHeight = metrics
-              .handTrayVisibleHeightForLayoutHeight(handTrayHeight);
-          final activePanelStack = Stack(
-            children: [
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: playAreaBackdropDecoration(tokens),
-                ),
-              ),
-              Positioned.fill(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: metrics.panelContentBottomPadding,
+          final handTrayVisibleHeight = gameOver
+              ? 0.0
+              : metrics.handTrayVisibleHeightForLayoutHeight(handTrayHeight);
+          return PlanningTrumpFocusHost(
+            model: model,
+            builder: (context, planningTrumpFocusedSuit) {
+              final activePanelWithFocus = Stack(
+                children: [
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: playAreaBackdropDecoration(tokens),
+                    ),
                   ),
-                  child: ActivePanelView(
-                    model: model,
-                    tokens: tokens,
-                    onAction: onAction,
-                    onPlotCardTap: onPlotCardTap,
-                    onNewGame: onNewGame,
-                    onReturnToLobby: onReturnToLobby,
-                    onTutorial: onTutorial,
-                    animationSpeed: animationSpeed,
-                    onAnimationSpeedChanged: onAnimationSpeedChanged,
-                    confirmNewGame: confirmNewGame,
-                    onConfirmNewGameChanged: onConfirmNewGameChanged,
-                    confirmMainMenu: confirmMainMenu,
-                    onConfirmMainMenuChanged: onConfirmMainMenuChanged,
-                    showInvalidTapHints: showInvalidTapHints,
-                    onShowInvalidTapHintsChanged: onShowInvalidTapHintsChanged,
-                    language: language,
-                    appearance: appearance,
-                    onLanguageToggle: onLanguageToggle,
-                    onAppearanceToggle: onAppearanceToggle,
+                  Positioned.fill(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        bottom: metrics.panelContentBottomPadding,
+                      ),
+                      child: ActivePanelView(
+                        model: model,
+                        tokens: tokens,
+                        onAction: onAction,
+                        onPlotCardTap: onPlotCardTap,
+                        onNewGame: onNewGame,
+                        onReturnToLobby: onReturnToLobby,
+                        onTutorial: onTutorial,
+                        animationSpeed: animationSpeed,
+                        onAnimationSpeedChanged: onAnimationSpeedChanged,
+                        confirmNewGame: confirmNewGame,
+                        onConfirmNewGameChanged: onConfirmNewGameChanged,
+                        confirmMainMenu: confirmMainMenu,
+                        onConfirmMainMenuChanged: onConfirmMainMenuChanged,
+                        showInvalidTapHints: showInvalidTapHints,
+                        onShowInvalidTapHintsChanged:
+                            onShowInvalidTapHintsChanged,
+                        language: language,
+                        appearance: appearance,
+                        planningTrumpFocusedSuit: planningTrumpFocusedSuit,
+                        onLanguageToggle: onLanguageToggle,
+                        onAppearanceToggle: onAppearanceToggle,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: BoardSeparator(
-                  tokens: tokens,
-                  thickness: metrics.playAreaSeparatorThickness,
-                ),
-              ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: BoardSeparator(
-                  tokens: tokens,
-                  thickness: metrics.playAreaSeparatorThickness,
-                ),
-              ),
-            ],
-          );
-          return Column(
-            children: [
-              TopInfoStrip(model: model, tokens: tokens, metrics: metrics),
-              if (panelHeight == null)
-                Expanded(child: activePanelStack)
-              else
-                SizedBox(height: panelHeight, child: activePanelStack),
-              SizedBox(
-                height: handTrayHeight,
-                child: OverflowBox(
-                  alignment: Alignment.topCenter,
-                  minHeight: handTrayVisibleHeight,
-                  maxHeight: handTrayVisibleHeight,
-                  child: HandTray(
-                    model: model,
-                    tokens: tokens,
-                    language: language,
-                    visibleTrayHeight: handTrayVisibleHeight,
-                    onAction: onAction,
-                    onSwapHandCardTap: onSwapHandCardTap,
-                    onAssignmentCardTap: onAssignmentCardTap,
-                    onInvalidHandCardTap: onInvalidHandCardTap,
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: BoardSeparator(
+                      tokens: tokens,
+                      thickness: metrics.playAreaSeparatorThickness,
+                    ),
                   ),
-                ),
-              ),
-            ],
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: BoardSeparator(
+                      tokens: tokens,
+                      thickness: metrics.playAreaSeparatorThickness,
+                    ),
+                  ),
+                ],
+              );
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Column(
+                    children: [
+                      SizedBox(height: metrics.topInfoHeight),
+                      if (panelHeight == null)
+                        Expanded(child: activePanelWithFocus)
+                      else
+                        SizedBox(
+                          height: panelHeight,
+                          child: activePanelWithFocus,
+                        ),
+                      if (!gameOver)
+                        SizedBox(
+                          height: handTrayHeight,
+                          child: OverflowBox(
+                            alignment: Alignment.topCenter,
+                            minHeight: handTrayVisibleHeight,
+                            maxHeight: handTrayVisibleHeight,
+                            child: HandTray(
+                              model: model,
+                              tokens: tokens,
+                              language: language,
+                              visibleTrayHeight: handTrayVisibleHeight,
+                              planningTrumpFocusedSuit:
+                                  planningTrumpFocusedSuit,
+                              onAction: onAction,
+                              onSwapHandCardTap: onSwapHandCardTap,
+                              onTrickHandCardTap: onTrickHandCardTap,
+                              onAssignmentCardTap: onAssignmentCardTap,
+                              onInvalidHandCardTap: onInvalidHandCardTap,
+                              canUndo: canUndo,
+                              onUndo: onUndo,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: TopInfoStrip(
+                      model: model,
+                      tokens: tokens,
+                      metrics: metrics,
+                      animationSpeed: animationSpeed,
+                    ),
+                  ),
+                ],
+              );
+            },
           );
         },
       ),
     );
+  }
+}
+
+class PlanningTrumpFocusHost extends StatefulWidget {
+  const PlanningTrumpFocusHost({
+    required this.model,
+    required this.builder,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final Widget Function(BuildContext context, String? focusedSuit) builder;
+
+  @override
+  State<PlanningTrumpFocusHost> createState() => _PlanningTrumpFocusHostState();
+}
+
+class _PlanningTrumpFocusHostState extends State<PlanningTrumpFocusHost> {
+  final math.Random selectorRandom = math.Random();
+  Timer? selectorTimer;
+  int selectorIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    syncSelectorTimer();
+  }
+
+  @override
+  void didUpdateWidget(PlanningTrumpFocusHost oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldAnimating = planningTrumpSelectorIsAI(oldWidget.model);
+    final nextAnimating = planningTrumpSelectorIsAI(widget.model);
+    if (oldAnimating != nextAnimating ||
+        oldWidget.model.table.currentPlayerID !=
+            widget.model.table.currentPlayerID) {
+      syncSelectorTimer();
+    }
+  }
+
+  @override
+  void dispose() {
+    selectorTimer?.cancel();
+    super.dispose();
+  }
+
+  void syncSelectorTimer() {
+    selectorTimer?.cancel();
+    selectorTimer = null;
+    if (!planningTrumpSelectorIsAI(widget.model)) {
+      return;
+    }
+    selectorIndex = selectorRandom.nextInt(displaySuitOrder.length);
+    selectorTimer = Timer.periodic(planningTrumpAiSelectorHopDuration, (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        var nextIndex = selectorRandom.nextInt(displaySuitOrder.length);
+        if (displaySuitOrder.length > 1 && nextIndex == selectorIndex) {
+          nextIndex = (nextIndex + 1) % displaySuitOrder.length;
+        }
+        selectorIndex = nextIndex;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final focusedSuit = planningTrumpSelectorIsAI(widget.model)
+        ? displaySuitOrder[selectorIndex]
+        : null;
+    return widget.builder(context, focusedSuit);
   }
 }
 
@@ -618,12 +745,14 @@ class TopInfoStrip extends StatelessWidget {
     required this.model,
     required this.tokens,
     required this.metrics,
+    required this.animationSpeed,
     super.key,
   });
 
   final TableViewModel model;
   final DesignTokens tokens;
   final ResponsiveBoardMetrics metrics;
+  final GameAnimationSpeed animationSpeed;
 
   @override
   Widget build(BuildContext context) {
@@ -753,14 +882,18 @@ class TopInfoStrip extends StatelessWidget {
                             SizedBox(
                               width: gaugeFrameWidth,
                               child: Center(
-                                child: JobGauge(
-                                  job: job,
-                                  highlighted: model.table.trump == job.suit,
-                                  width:
-                                      gaugeWidth *
-                                      topInfo.gaugeContentWidthMultiplier,
-                                  height: gaugeHeight,
-                                  tokens: tokens,
+                                child: MotionTrackedRegion(
+                                  motionKey: jobGaugeMotionTargetKey(job.suit),
+                                  child: JobGauge(
+                                    job: job,
+                                    highlighted: model.table.trump == job.suit,
+                                    animationSpeed: animationSpeed,
+                                    width:
+                                        gaugeWidth *
+                                        topInfo.gaugeContentWidthMultiplier,
+                                    height: gaugeHeight,
+                                    tokens: tokens,
+                                  ),
                                 ),
                               ),
                             ),
@@ -840,13 +973,14 @@ class TopInfoCell extends StatelessWidget {
   }
 }
 
-class JobGauge extends StatelessWidget {
+class JobGauge extends StatefulWidget {
   const JobGauge({
     required this.job,
     required this.highlighted,
     required this.width,
     required this.height,
     required this.tokens,
+    this.animationSpeed = defaultGameAnimationSpeed,
     super.key,
   });
 
@@ -855,78 +989,245 @@ class JobGauge extends StatelessWidget {
   final double width;
   final double height;
   final DesignTokens tokens;
+  final GameAnimationSpeed animationSpeed;
+
+  @override
+  State<JobGauge> createState() => _JobGaugeState();
+}
+
+class _JobGaugeState extends State<JobGauge> {
+  int? previousDisplayHours;
+  int deltaSerial = 0;
+  int pendingDeltaBadgeCount = 0;
+  final List<Timer> deltaTimers = [];
+  final List<_VisibleJobGaugeDelta> visibleDeltas = [];
+
+  @override
+  void initState() {
+    super.initState();
+    previousDisplayHours = displayedJobHours(widget.job);
+  }
+
+  @override
+  void didUpdateWidget(JobGauge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextHours = displayedJobHours(widget.job);
+    final previous = previousDisplayHours ?? displayedJobHours(oldWidget.job);
+    if (nextHours > previous) {
+      queueDeltaBadge(nextHours - previous);
+    }
+    previousDisplayHours = nextHours;
+  }
+
+  @override
+  void dispose() {
+    for (final timer in deltaTimers) {
+      timer.cancel();
+    }
+    super.dispose();
+  }
+
+  void queueDeltaBadge(int delta) {
+    final delay = jobGaugeDeltaRevealDelay(widget.animationSpeed);
+    final stagger = Duration(
+      milliseconds:
+          jobGaugeDeltaRevealStagger.inMilliseconds * pendingDeltaBadgeCount,
+    );
+    pendingDeltaBadgeCount += 1;
+    late final Timer timer;
+    timer = Timer(delay + stagger, () {
+      deltaTimers.remove(timer);
+      pendingDeltaBadgeCount = math.max(0, pendingDeltaBadgeCount - 1);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        visibleDeltas.add(
+          _VisibleJobGaugeDelta(serial: deltaSerial++, delta: delta),
+        );
+      });
+    });
+    deltaTimers.add(timer);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final job = widget.job;
+    final tokens = widget.tokens;
+    final height = widget.height;
+    final width = widget.width;
     final markerWidth =
         height * tokens.layout.topInfo.rewardMarkerHeightMultiplier;
     const contentSpacing = 4.0;
     final contentWidth = width - markerWidth - contentSpacing;
-    return SizedBox(
-      width: width,
-      height: height,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('ios_resources/ui-header-counter.png'),
-            fit: BoxFit.fill,
-            filterQuality: FilterQuality.none,
-          ),
-        ),
-        child: Row(
-          spacing: contentSpacing,
-          children: [
-            SizedBox(
-              width: markerWidth,
-              height: height,
-              child: Center(
-                child: job.reward == null
-                    ? EmptyRewardMarker(
-                        size: 34,
-                        checkSize: topInfoEmptyRewardCheckSize,
-                        tokens: tokens,
-                      )
-                    : MiniRewardCard(
-                        card: job.reward!,
-                        claimed: job.claimed,
-                        height: height * 0.84,
-                        tokens: tokens,
-                      ),
+    final displayedHours = displayedJobHours(job);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        SizedBox(
+          width: width,
+          height: height,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage('ios_resources/ui-header-counter.png'),
+                fit: BoxFit.fill,
+                filterQuality: FilterQuality.none,
               ),
             ),
-            SizedBox(
-              width: contentWidth,
-              height: height,
-              child: job.claimed
-                  ? Center(
-                      child: Image.asset(
-                        'ios_resources/Icons/icon-check.png',
-                        width:
-                            height *
-                            tokens.layout.topInfo.checkIconHeightMultiplier,
-                        height:
-                            height *
-                            tokens.layout.topInfo.checkIconHeightMultiplier,
-                        filterQuality: FilterQuality.none,
-                      ),
-                    )
-                  : Center(
-                      child: PixelText(
-                        '${job.hours}/$jobRequiredHours',
-                        textAlign: TextAlign.center,
-                        size: PixelTextSize.title,
-                        variant: PixelTextVariant.regular,
-                        color: highlighted
-                            ? tokens.colors.red
-                            : tokens.colors.smoke,
-                      ),
+            child: Row(
+              spacing: contentSpacing,
+              children: [
+                SizedBox(
+                  width: markerWidth,
+                  height: height,
+                  child: Center(
+                    child: job.claimed
+                        ? Image.asset(
+                            'ios_resources/Icons/icon-check.png',
+                            width:
+                                height *
+                                tokens.layout.topInfo.checkIconHeightMultiplier,
+                            height:
+                                height *
+                                tokens.layout.topInfo.checkIconHeightMultiplier,
+                            filterQuality: FilterQuality.none,
+                          )
+                        : job.reward == null
+                        ? EmptyRewardMarker(
+                            size: 34,
+                            checkSize: topInfoEmptyRewardCheckSize,
+                            tokens: tokens,
+                          )
+                        : MiniRewardCard(
+                            card: job.reward!,
+                            claimed: job.claimed,
+                            height: height * 0.84,
+                            tokens: tokens,
+                          ),
+                  ),
+                ),
+                SizedBox(
+                  width: contentWidth,
+                  height: height,
+                  child: Center(
+                    child: PixelText(
+                      '$displayedHours/$jobRequiredHours',
+                      textAlign: TextAlign.center,
+                      size: PixelTextSize.title,
+                      variant: PixelTextVariant.regular,
+                      color: widget.highlighted
+                          ? tokens.colors.red
+                          : tokens.colors.smoke,
                     ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
+        ),
+        for (final (index, delta) in visibleDeltas.indexed)
+          Positioned(
+            key: ValueKey(delta.serial),
+            right: 6,
+            top: index * 8,
+            child: JobGaugeDeltaBadge(
+              delta: delta.delta,
+              tokens: tokens,
+              onDone: () {
+                if (mounted) {
+                  setState(
+                    () => visibleDeltas.removeWhere(
+                      (entry) => entry.serial == delta.serial,
+                    ),
+                  );
+                }
+              },
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _VisibleJobGaugeDelta {
+  const _VisibleJobGaugeDelta({required this.serial, required this.delta});
+
+  final int serial;
+  final int delta;
+}
+
+class JobGaugeDeltaBadge extends StatelessWidget {
+  const JobGaugeDeltaBadge({
+    required this.delta,
+    required this.tokens,
+    required this.onDone,
+    super.key,
+  });
+
+  final int delta;
+  final DesignTokens tokens;
+  final VoidCallback onDone;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: jobGaugeDeltaDuration,
+      curve: Curves.easeOutCubic,
+      onEnd: onDone,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: (1 - value).clamp(0.0, 1.0),
+          child: Transform.translate(
+            offset: Offset(0, jobGaugeDeltaDropDistance * value),
+            child: Transform.scale(
+              scale: lerpDouble(
+                jobGaugeDeltaStartScale,
+                jobGaugeDeltaEndScale,
+                math.min(value * 1.8, 1),
+              )!,
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: tokens.colors.black.withValues(alpha: 0.82),
+          borderRadius: BorderRadius.circular(tokens.radius.sm),
+          border: Border.all(color: tokens.colors.green, width: 1.2),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+          child: PixelText(
+            '+$delta',
+            size: PixelTextSize.caption,
+            variant: PixelTextVariant.heavy,
+            color: tokens.colors.green,
+          ),
         ),
       ),
     );
   }
+}
+
+const jobGaugeDeltaDuration = Duration(milliseconds: 1600);
+const jobGaugeDeltaRevealStagger = Duration(milliseconds: 80);
+const jobGaugeDeltaRevealLead = Duration(milliseconds: 220);
+const jobGaugeDeltaDropDistance = 46.0;
+const jobGaugeDeltaStartScale = 1.64;
+const jobGaugeDeltaEndScale = 2.16;
+
+Duration jobGaugeDeltaRevealDelay(GameAnimationSpeed speed) {
+  final flightDuration = scaledDuration(
+    speed.cardFlightDuration,
+    jobAssignmentCardFlightDurationScale,
+  );
+  if (flightDuration <= jobGaugeDeltaRevealLead) {
+    return Duration.zero;
+  }
+  return flightDuration - jobGaugeDeltaRevealLead;
 }
 
 class ActivePanelView extends StatelessWidget {
@@ -948,6 +1249,7 @@ class ActivePanelView extends StatelessWidget {
     this.onShowInvalidTapHintsChanged,
     required this.language,
     required this.appearance,
+    this.planningTrumpFocusedSuit,
     this.onLanguageToggle,
     this.onAppearanceToggle,
     super.key,
@@ -970,11 +1272,20 @@ class ActivePanelView extends StatelessWidget {
   final ValueChanged<bool>? onShowInvalidTapHintsChanged;
   final KolkhozLanguage language;
   final KolkhozAppearance appearance;
+  final String? planningTrumpFocusedSuit;
   final VoidCallback? onLanguageToggle;
   final VoidCallback? onAppearanceToggle;
 
   @override
   Widget build(BuildContext context) {
+    if (model.table.phase == phaseGameOver) {
+      return GameOverPlotPanel(
+        model: model,
+        tokens: tokens,
+        language: language,
+        onNewGame: onNewGame,
+      );
+    }
     switch (model.panels.active) {
       case panelJobs:
         return JobsPanel(
@@ -1017,8 +1328,8 @@ class ActivePanelView extends StatelessWidget {
           model: model,
           tokens: tokens,
           language: language,
+          planningTrumpFocusedSuit: planningTrumpFocusedSuit,
           onAction: onAction,
-          onNewGame: onNewGame,
         );
     }
   }
@@ -1029,16 +1340,16 @@ class BrigadePanel extends StatelessWidget {
     required this.model,
     required this.tokens,
     required this.language,
+    this.planningTrumpFocusedSuit,
     this.onAction,
-    this.onNewGame,
     super.key,
   });
 
   final TableViewModel model;
   final DesignTokens tokens;
   final KolkhozLanguage language;
+  final String? planningTrumpFocusedSuit;
   final ValueChanged<LegalAction>? onAction;
-  final VoidCallback? onNewGame;
 
   @override
   Widget build(BuildContext context) {
@@ -1086,65 +1397,51 @@ class BrigadePanel extends StatelessWidget {
           tokens.card.aspectRatio,
         );
 
-        return Stack(
-          children: [
-            Padding(
-              padding: brigadePanelLocalPadding,
-              child: SizedBox(
-                height: columnHeight,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (var index = 0; index < playerOrder.length; index++)
-                      Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                            right: index == playerOrder.length - 1
-                                ? 0
-                                : spacing,
-                          ),
-                          child: BrigadePlayerColumn(
-                            seat: playerOrder[index],
-                            play: trick.playForSeat(playerOrder[index].id),
-                            columnWidth: columnWidth,
-                            columnHeight: columnHeight,
-                            playerPanelWidth: playerPanelWidth,
-                            playerPanelHeight: playerPanelHeight,
-                            playObjectWidth: playObjectWidth,
-                            playObjectHeight: playObjectHeight,
-                            maxTricks: model.table.maxTricks,
-                            trump: model.table.trump,
-                            phase: model.table.phase,
-                            tokens: tokens,
-                            language: language,
-                          ),
-                        ),
+        return Padding(
+          padding: brigadePanelLocalPadding,
+          child: SizedBox(
+            height: columnHeight,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var index = 0; index < playerOrder.length; index++)
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        right: index == playerOrder.length - 1 ? 0 : spacing,
                       ),
-                  ],
-                ),
-              ),
+                      child: BrigadePlayerColumn(
+                        seat: playerOrder[index],
+                        play: trick.playForSeat(playerOrder[index].id),
+                        planningTrumpChooser:
+                            model.table.phase == phasePlanning &&
+                                playerOrder[index].id ==
+                                    model.table.currentPlayerID
+                            ? PlanningTrumpPanel(
+                                model: model,
+                                tokens: tokens,
+                                language: language,
+                                focusedSuit: planningTrumpFocusedSuit,
+                                onAction: onAction,
+                              )
+                            : null,
+                        columnWidth: columnWidth,
+                        columnHeight: columnHeight,
+                        playerPanelWidth: playerPanelWidth,
+                        playerPanelHeight: playerPanelHeight,
+                        playObjectWidth: playObjectWidth,
+                        playObjectHeight: playObjectHeight,
+                        maxTricks: model.table.maxTricks,
+                        trump: model.table.trump,
+                        phase: model.table.phase,
+                        tokens: tokens,
+                        language: language,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            if (model.table.phase == phasePlanning)
-              PhaseOverlayFrame(
-                tokens: tokens,
-                child: PlanningTrumpPanel(
-                  model: model,
-                  tokens: tokens,
-                  language: language,
-                  onAction: onAction,
-                ),
-              ),
-            if (model.table.phase == phaseGameOver)
-              PhaseOverlayFrame(
-                tokens: tokens,
-                child: GameOverPanel(
-                  model: model,
-                  tokens: tokens,
-                  language: language,
-                  onNewGame: onNewGame,
-                ),
-              ),
-          ],
+          ),
         );
       },
     );
@@ -1161,49 +1458,6 @@ class BrigadePanel extends StatelessWidget {
   }
 }
 
-class PhaseOverlayFrame extends StatelessWidget {
-  const PhaseOverlayFrame({
-    required this.tokens,
-    required this.child,
-    super.key,
-  });
-
-  final DesignTokens tokens;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.center,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 500),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(tokens.radius.panelOuter),
-              boxShadow: [
-                BoxShadow(
-                  color: tokens.colors.black.withValues(
-                    alpha: phaseOverlayOuterShadowOpacity,
-                  ),
-                  blurRadius: phaseOverlayOuterShadowRadius,
-                  offset: const Offset(0, phaseOverlayOuterShadowYOffset),
-                ),
-              ],
-            ),
-            child: child,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-const phaseOverlayOuterShadowOpacity = 0.5;
-const phaseOverlayOuterShadowRadius = 16.0;
-const phaseOverlayOuterShadowYOffset = 8.0;
-
 extension on Trick {
   TrickPlay? playForSeat(int seatID) {
     for (final play in plays) {
@@ -1219,6 +1473,7 @@ class BrigadePlayerColumn extends StatelessWidget {
   const BrigadePlayerColumn({
     required this.seat,
     required this.play,
+    required this.planningTrumpChooser,
     required this.columnWidth,
     required this.columnHeight,
     required this.playerPanelWidth,
@@ -1235,6 +1490,7 @@ class BrigadePlayerColumn extends StatelessWidget {
 
   final Seat seat;
   final TrickPlay? play;
+  final Widget? planningTrumpChooser;
   final double columnWidth;
   final double columnHeight;
   final double playerPanelWidth;
@@ -1250,8 +1506,36 @@ class BrigadePlayerColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final active = phase == phaseTrick && seat.isCurrentTurn && play == null;
-    final activeColumn = active || (phase == phaseAssignment && play != null);
+    final planningSelector =
+        phase == phasePlanning && planningTrumpChooser != null;
+    final activeColumn =
+        active ||
+        planningSelector ||
+        (phase == phaseAssignment && play != null);
     final human = seat.isViewer;
+    final playAreaChild = planningTrumpChooser != null
+        ? FittedBox(fit: BoxFit.contain, child: planningTrumpChooser)
+        : play == null
+        ? CardSlot(
+            active: active,
+            human: human,
+            width: playObjectWidth,
+            height: playObjectHeight,
+            tokens: tokens,
+            language: language,
+          )
+        : MotionTrackedRegion(
+            motionKey: trickCardMotionSourceKey(play!.card.id),
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: GameCard(
+                card: play!.card,
+                tokens: tokens,
+                trump: trump,
+                sizeOverride: tokens.card.large,
+              ),
+            ),
+          );
 
     return SizedBox(
       width: columnWidth,
@@ -1285,7 +1569,7 @@ class BrigadePlayerColumn extends StatelessWidget {
                 child: PlayerBadge(
                   seat: seat,
                   tokens: tokens,
-                  active: active,
+                  active: active || planningSelector,
                   width: playerPanelWidth,
                   height: playerPanelHeight,
                   maxTricks: maxTricks,
@@ -1299,24 +1583,7 @@ class BrigadePlayerColumn extends StatelessWidget {
                   child: SizedBox(
                     width: playObjectWidth,
                     height: playObjectHeight,
-                    child: play == null
-                        ? CardSlot(
-                            active: active,
-                            human: human,
-                            width: playObjectWidth,
-                            height: playObjectHeight,
-                            tokens: tokens,
-                            language: language,
-                          )
-                        : FittedBox(
-                            fit: BoxFit.contain,
-                            child: GameCard(
-                              card: play!.card,
-                              tokens: tokens,
-                              trump: trump,
-                              sizeOverride: tokens.card.large,
-                            ),
-                          ),
+                    child: playAreaChild,
                   ),
                 ),
               ),
@@ -1663,15 +1930,27 @@ class PlayerMedalStat extends StatelessWidget {
             Positioned(
               left: index * (iconSize + spacing),
               top: 0,
-              child: Opacity(
-                opacity: index < medals ? 1 : playerPanelUnearnedMedalOpacity,
+              child: AnimatedSwitcher(
+                duration: playerPanelMedalAppearDuration,
+                switchInCurve: Curves.easeOutBack,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: ScaleTransition(scale: animation, child: child),
+                  );
+                },
                 child: index < medals
-                    ? playerMedalIcon(iconSize)
-                    : ChromeAssetIcon(
-                        asset: 'ios_resources/Icons/icon-medal-star.png',
-                        width: iconSize,
-                        height: iconSize,
-                        muted: true,
+                    ? playerMedalIcon(iconSize, index)
+                    : Opacity(
+                        key: ValueKey('empty-medal-$index'),
+                        opacity: playerPanelUnearnedMedalOpacity,
+                        child: ChromeAssetIcon(
+                          asset: 'ios_resources/Icons/icon-medal-star.png',
+                          width: iconSize,
+                          height: iconSize,
+                          muted: true,
+                        ),
                       ),
               ),
             ),
@@ -1680,9 +1959,10 @@ class PlayerMedalStat extends StatelessWidget {
     );
   }
 
-  Widget playerMedalIcon(double size) {
+  Widget playerMedalIcon(double size, int index) {
     return Image.asset(
       'ios_resources/Icons/icon-medal-star.png',
+      key: ValueKey('earned-medal-$index'),
       width: size,
       height: size,
       filterQuality: FilterQuality.none,
@@ -1693,6 +1973,7 @@ class PlayerMedalStat extends StatelessWidget {
 const playerPanelMedalIconSize = 12.0;
 const playerPanelMedalSpacing = -4.0;
 const playerPanelUnearnedMedalOpacity = 0.18;
+const playerPanelMedalAppearDuration = Duration(milliseconds: 520);
 const playerPanelCardBackWidth = 10.0;
 const playerPanelCardBackHeight = 15.0;
 
@@ -2009,6 +2290,7 @@ class PlanningTrumpPanel extends StatelessWidget {
     required this.model,
     required this.tokens,
     required this.language,
+    this.focusedSuit,
     this.onAction,
     super.key,
   });
@@ -2016,11 +2298,14 @@ class PlanningTrumpPanel extends StatelessWidget {
   final TableViewModel model;
   final DesignTokens tokens;
   final KolkhozLanguage language;
+  final String? focusedSuit;
   final ValueChanged<LegalAction>? onAction;
 
   @override
   Widget build(BuildContext context) {
     final isFamine = model.table.isFamine;
+    final aiSelecting = planningTrumpSelectorIsAI(model) && focusedSuit != null;
+    final actionHandler = onAction;
     final trumpOptions = planningTrumpOptions(
       model.legalActions,
       language: language,
@@ -2028,84 +2313,59 @@ class PlanningTrumpPanel extends StatelessWidget {
     final title = isFamine
         ? language.text(en: 'Famine year', ru: 'Год неурожая')
         : language.text(en: 'Choose Trump', ru: 'Выберите козырь');
-    final subtitle = isFamine
-        ? language.text(
-            en: 'No trump suit is used this year.',
-            ru: 'В этом году козырь не используется.',
-          )
-        : language.text(
-            en: 'Pick the trump suit for this year.',
-            ru: 'Выберите козырную масть на этот год.',
-          );
-    const buttonSize = planningTrumpButtonSize;
-    const gridSpacing = planningTrumpGridSpacing;
     return PanelStyleSurface(
       tokens: tokens,
+      padding: const EdgeInsets.all(8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: planningPanelContentSpacing,
+        spacing: planningTrumpPanelSpacing,
         children: [
-          PanelTitleRow(
-            title: title,
-            subtitle: subtitle,
-            iconPath: isFamine
-                ? 'ios_resources/Icons/icon-famine.png'
-                : 'ios_resources/Icons/icon-jobs.png',
-            urgent: isFamine,
-            tokens: tokens,
-          ),
-          if (isFamine) ...[
-            Center(
-              child: Opacity(
-                opacity: famineBannerOpacity,
-                child: Image.asset(
-                  'ios_resources/Embellishments/art-famine-banner.png',
-                  width: famineBannerWidth,
-                  height: famineBannerHeight,
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.none,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                ),
-              ),
-            ),
-            Text(
-              subtitle,
-              key: const Key('famine-body-text'),
+          SizedBox(
+            width: planningTrumpPanelWidth,
+            child: PixelText(
+              title,
+              textAlign: TextAlign.center,
+              size: PixelTextSize.caption,
+              variant: PixelTextVariant.heavy,
+              color: isFamine ? tokens.colors.redBright : tokens.colors.gold,
+              maxLines: 2,
+              overflow: TextOverflow.clip,
               softWrap: true,
-              style: kolkhozFontStyle.copyWith(
-                color: tokens.colors.creamDim,
-                fontSize: famineBodyFontSize,
-                fontWeight: FontWeight.w700,
-              ),
             ),
-          ] else
-            Center(
-              child: SizedBox(
-                width: buttonSize * 2 + gridSpacing,
-                child: Wrap(
-                  spacing: gridSpacing,
-                  runSpacing: gridSpacing,
-                  children: [
-                    for (final option in trumpOptions)
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: option.action != null && onAction != null
-                            ? () {
-                                onAction!(option.action!);
-                              }
-                            : null,
-                        child: TrumpSelectionButton(
-                          suit: option.suit,
-                          label: option.label,
-                          selected: option.suit == model.table.trump,
-                          tokens: tokens,
-                          size: buttonSize,
-                          iconSize: planningTrumpIconSize,
-                        ),
+          ),
+          if (isFamine)
+            Image.asset(
+              'ios_resources/Icons/icon-famine.png',
+              width: planningTrumpFamineIconSize,
+              height: planningTrumpFamineIconSize,
+              filterQuality: FilterQuality.none,
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            )
+          else
+            SizedBox(
+              width: planningTrumpPanelWidth,
+              child: Wrap(
+                spacing: planningTrumpGridSpacing,
+                runSpacing: planningTrumpGridSpacing,
+                alignment: WrapAlignment.center,
+                children: [
+                  for (final option in trumpOptions)
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: option.action != null && actionHandler != null
+                          ? () => actionHandler(option.action!)
+                          : null,
+                      child: TrumpSelectionButton(
+                        suit: option.suit,
+                        label: option.label,
+                        selected: option.suit == model.table.trump,
+                        aiFocused: aiSelecting && option.suit == focusedSuit,
+                        tokens: tokens,
+                        size: planningTrumpButtonSize,
+                        iconSize: planningTrumpIconSize,
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
         ],
@@ -2114,14 +2374,26 @@ class PlanningTrumpPanel extends StatelessWidget {
   }
 }
 
-const planningTrumpButtonSize = 54.0;
-const planningTrumpIconSize = 34.0;
-const planningTrumpGridSpacing = 8.0;
-const planningPanelContentSpacing = 10.0;
-const famineBannerWidth = 270.0;
-const famineBannerHeight = 68.0;
-const famineBannerOpacity = 0.9;
-const famineBodyFontSize = 15.0;
+bool planningTrumpSelectorIsAI(TableViewModel model) {
+  if (model.table.phase != phasePlanning || model.table.isFamine) {
+    return false;
+  }
+  for (final seat in model.table.seats) {
+    if (seat.id == model.table.currentPlayerID) {
+      return seat.controller == controllerHeuristicAI ||
+          seat.controller == controllerNeuralAI;
+    }
+  }
+  return false;
+}
+
+const planningTrumpPanelWidth = 112.0;
+const planningTrumpButtonSize = 46.0;
+const planningTrumpIconSize = 29.0;
+const planningTrumpGridSpacing = 6.0;
+const planningTrumpPanelSpacing = 7.0;
+const planningTrumpFamineIconSize = 46.0;
+const planningTrumpAiSelectorHopDuration = Duration(milliseconds: 230);
 
 class TrumpSelectionButton extends StatelessWidget {
   const TrumpSelectionButton({
@@ -2129,6 +2401,7 @@ class TrumpSelectionButton extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.tokens,
+    this.aiFocused = false,
     this.size = 54,
     this.iconSize = 34,
     super.key,
@@ -2138,6 +2411,7 @@ class TrumpSelectionButton extends StatelessWidget {
   final String label;
   final bool selected;
   final DesignTokens tokens;
+  final bool aiFocused;
   final double size;
   final double iconSize;
 
@@ -2184,6 +2458,30 @@ class TrumpSelectionButton extends StatelessWidget {
                       SuitMark(suit: suit, tokens: tokens, size: 28 * scale),
                 ),
               ),
+              if (aiFocused)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: AnimatedContainer(
+                      duration: planningTrumpAiSelectorFrameDuration,
+                      curve: Curves.easeOutBack,
+                      margin: EdgeInsets.all(2 * scale),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(7 * scale),
+                        border: Border.all(
+                          color: tokens.colors.green,
+                          width: 3 * scale,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: tokens.colors.green.withValues(alpha: 0.62),
+                            blurRadius: 10 * scale,
+                            spreadRadius: 1.5 * scale,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -2192,143 +2490,4 @@ class TrumpSelectionButton extends StatelessWidget {
   }
 }
 
-class GameOverPanel extends StatelessWidget {
-  const GameOverPanel({
-    required this.model,
-    required this.tokens,
-    required this.language,
-    this.onNewGame,
-    super.key,
-  });
-
-  final TableViewModel model;
-  final DesignTokens tokens;
-  final KolkhozLanguage language;
-  final VoidCallback? onNewGame;
-
-  @override
-  Widget build(BuildContext context) {
-    final scores = model.table.gameResult?.scores ?? model.table.scoreboard;
-    final winnerID =
-        model.table.gameResult?.winnerSeatID ?? inferredWinnerID(scores);
-    return PanelStyleSurface(
-      tokens: tokens,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: gameOverPanelRowSpacing,
-        children: [
-          PanelTitleRow(
-            title: language.text(en: 'Game Over!', ru: 'Игра окончена!'),
-            subtitle: language.text(
-              en: 'Final cellar and medal scores.',
-              ru: 'Итоговые очки участка и медалей.',
-            ),
-            iconPath: 'ios_resources/Icons/icon-medal-star.png',
-            tokens: tokens,
-          ),
-          for (final seat in model.table.seats)
-            GameOverScoreRow(
-              seat: seat,
-              score: finalScoreForSeat(scores, seat.id),
-              winner: seat.id == winnerID,
-              tokens: tokens,
-            ),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(top: gameOverNewGameTopPadding),
-              child: ChromeAssetButton.command(
-                label: language.text(en: 'New game', ru: 'Новая игра'),
-                prominent: true,
-                tokens: tokens,
-                onPressed: onNewGame,
-                surfaceKey: const Key('command-surface-button'),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class GameOverScoreRow extends StatelessWidget {
-  const GameOverScoreRow({
-    required this.seat,
-    required this.score,
-    required this.winner,
-    required this.tokens,
-    super.key,
-  });
-
-  final Seat seat;
-  final int score;
-  final bool winner;
-  final DesignTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: gameOverRowVerticalPadding),
-      child: Row(
-        spacing: gameOverRowSpacing,
-        children: [
-          PlayerPortrait(
-            seat: seat,
-            tokens: tokens,
-            width: gameOverPortraitWidth,
-            height: gameOverPortraitHeight,
-          ),
-          Expanded(
-            child: Row(
-              spacing: gameOverNameIconSpacing,
-              children: [
-                Flexible(
-                  child: PixelText(
-                    seat.name,
-                    size: PixelTextSize.title,
-                    variant: winner
-                        ? PixelTextVariant.heavy
-                        : PixelTextVariant.regular,
-                    color: winner ? tokens.colors.gold : tokens.colors.cream,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (winner)
-                  Image.asset(
-                    'ios_resources/Icons/icon-medal-star.png',
-                    width: gameOverWinnerIconSize,
-                    height: gameOverWinnerIconSize,
-                    filterQuality: FilterQuality.none,
-                  ),
-              ],
-            ),
-          ),
-          ConstrainedBox(
-            constraints: BoxConstraints(minWidth: gameOverScoreMinWidth),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: PixelText(
-                '$score',
-                size: PixelTextSize.title,
-                variant: PixelTextVariant.heavy,
-                color: winner ? tokens.colors.gold : tokens.colors.cream,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-const gameOverPanelRowSpacing = 1.0;
-const gameOverNewGameTopPadding = 0.0;
-const gameOverRowVerticalPadding = 1.0;
-const gameOverRowSpacing = 10.0;
-const gameOverNameIconSpacing = 2.0;
-const gameOverPortraitWidth = 38.0;
-const gameOverPortraitHeight = 42.0;
-const gameOverWinnerIconSize = 32.0;
-const gameOverScoreMinWidth = 28.0;
+const planningTrumpAiSelectorFrameDuration = Duration(milliseconds: 120);

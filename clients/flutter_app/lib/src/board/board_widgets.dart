@@ -616,6 +616,10 @@ Rect? cardFlightSourceRect({
       tokens: tokens,
     );
   }
+  if (previousZone.startsWith('trick:') && nextZone.startsWith('job:')) {
+    return previousRects[trickCardMotionSourceKey(cardID)] ??
+        previousRects[cardID];
+  }
   return previousRects[cardID];
 }
 
@@ -632,7 +636,40 @@ Rect? cardFlightDestinationRect({
       tokens: tokens,
     );
   }
+  if (nextZone.startsWith('job:')) {
+    final gaugeRect = jobGaugeCardMotionTargetRect(
+      suit: nextZone.substring('job:'.length),
+      currentRects: currentRects,
+      tokens: tokens,
+    );
+    if (previousZone.startsWith('trick:')) {
+      return gaugeRect ?? currentRects[cardID];
+    }
+    return currentRects[cardID] ?? gaugeRect;
+  }
   return currentRects[cardID];
+}
+
+Rect? trickCardMotionSourceRect({
+  required String cardID,
+  required Map<String, Rect> previousRects,
+}) {
+  return previousRects[trickCardMotionSourceKey(cardID)] ??
+      previousRects[cardID];
+}
+
+Rect? jobGaugeCardMotionTargetRect({
+  required String suit,
+  required Map<String, Rect> currentRects,
+  required DesignTokens tokens,
+}) {
+  final gaugeRect = currentRects[jobGaugeMotionTargetKey(suit)];
+  if (gaugeRect == null) {
+    return null;
+  }
+  final size = Size(tokens.card.small.width, tokens.card.small.height);
+  final topLeft = gaugeRect.center - Offset(size.width / 2, size.height / 2);
+  return topLeft & size;
 }
 
 Rect? cardFlightFallbackSourceRect({
@@ -738,6 +775,8 @@ int? plotZoneSeatID(String zone) {
 
 String playerCardMotionSourceKey(int seatID) => 'player-source:$seatID';
 String plotCardMotionSourceKey(int seatID) => 'plot-source:$seatID';
+String trickCardMotionSourceKey(String cardID) => 'trick-source:$cardID';
+String jobGaugeMotionTargetKey(String suit) => 'job-gauge-target:$suit';
 const northCardMotionTargetKey = 'north-exile-target';
 const cardMotionNorthExileZone = 'north-exile';
 
@@ -750,6 +789,9 @@ double cardFlightDurationScale({
       (nextZone.startsWith('exiled:') ||
           nextZone == cardMotionNorthExileZone)) {
     return requisitionCardFlightDurationScale;
+  }
+  if (previousZone.startsWith('trick:') && nextZone.startsWith('job:')) {
+    return jobAssignmentCardFlightDurationScale;
   }
   final seatID = handToTrickFlightSeatID(previousZone, nextZone);
   if (seatID == null || motionSeatIsViewer(model, seatID)) {
@@ -767,6 +809,7 @@ Duration scaledDuration(Duration duration, double scale) {
 
 const playerInfoCardFlightDurationScale = 1.5;
 const requisitionCardFlightDurationScale = 1.35;
+const jobAssignmentCardFlightDurationScale = 2.0;
 const cardMotionMinimumDistance = 8.0;
 
 class CommandPanelSurface extends StatelessWidget {

@@ -2,11 +2,30 @@ import 'game_constants.dart';
 import 'game_ui_state.dart';
 import 'render_model.dart';
 
-Panels panelsForPhase(GameUiState uiState, String phase) {
+Panels panelsForPhase(
+  GameUiState uiState,
+  String phase, {
+  List<Seat> seats = const [],
+  Trick? lastTrick,
+}) {
   return Panels(
-    active: uiState.activePanel ?? actionPanelForPhase(phase),
+    active:
+        uiState.activePanel ??
+        activePanelForPhase(phase, seats: seats, lastTrick: lastTrick),
     available: availableGamePanels,
   );
+}
+
+String activePanelForPhase(
+  String phase, {
+  List<Seat> seats = const [],
+  Trick? lastTrick,
+}) {
+  if (phase == phaseAssignment &&
+      assignmentWinnerIsAutomatic(seats: seats, lastTrick: lastTrick)) {
+    return panelBrigade;
+  }
+  return actionPanelForPhase(phase);
 }
 
 String actionPanelForPhase(String phase) {
@@ -15,6 +34,26 @@ String actionPanelForPhase(String phase) {
     phaseSwap || phaseRequisition => panelPlot,
     _ => panelBrigade,
   };
+}
+
+bool assignmentWinnerIsAutomatic({
+  required List<Seat> seats,
+  required Trick? lastTrick,
+}) {
+  final winnerID = lastTrick?.winnerSeatID;
+  if (winnerID == null) {
+    return false;
+  }
+  for (final seat in seats) {
+    if (seat.id == winnerID) {
+      return !isHumanAssignmentController(seat.controller);
+    }
+  }
+  return false;
+}
+
+bool isHumanAssignmentController(String controller) {
+  return controller == controllerHuman || controller == controllerRemoteHuman;
 }
 
 Prompt phasePromptForPhase(String phase, {required bool isFamine}) {

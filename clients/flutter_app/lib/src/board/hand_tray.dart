@@ -64,9 +64,54 @@ LegalAction? handCardPlayAction(TableViewModel model, TableCard card) {
   return null;
 }
 
-TableCard handTrayCard(TableViewModel model, TableCard card) {
+LegalAction? selectedHandCardPlayAction(TableViewModel model) {
+  final selectedCardID = model.selection.handCardID;
+  if (model.table.phase != phaseTrick || selectedCardID == null) {
+    return null;
+  }
+  for (final action in model.legalActions) {
+    if (action.kind == actionPlayCard &&
+        action.engineAction.card?.id == selectedCardID) {
+      return action;
+    }
+  }
+  return null;
+}
+
+bool assignmentCommandBarVisible(TableViewModel model) {
+  if (model.table.phase != phaseAssignment) {
+    return false;
+  }
+  final winnerID = model.table.lastTrick.winnerSeatID;
+  if (winnerID == null) {
+    return false;
+  }
+  final winner = seatByID(model, winnerID);
+  return winner != null && isHumanControlledSeat(winner);
+}
+
+bool handCardMatchesPlanningTrumpFocus(
+  TableViewModel model,
+  TableCard card,
+  String? focusedSuit,
+) {
+  return model.table.phase == phasePlanning &&
+      focusedSuit != null &&
+      (card.suit == focusedSuit || card.suit == wreckerSuit);
+}
+
+TableCard handTrayCard(
+  TableViewModel model,
+  TableCard card, {
+  String? planningTrumpFocusedSuit,
+}) {
   final showHighlight = switch (model.table.phase) {
     phaseTrick || phaseSwap => card.highlighted,
+    phasePlanning => handCardMatchesPlanningTrumpFocus(
+      model,
+      card,
+      planningTrumpFocusedSuit,
+    ),
     _ => false,
   };
   final selected = card.selected || card.id == model.selection.handCardID;
@@ -83,9 +128,17 @@ TableCard handTrayCard(TableViewModel model, TableCard card) {
 Color? handTrayHighlightColor(
   TableViewModel model,
   TableCard card, {
+  String? planningTrumpFocusedSuit,
   required Color swapHighlightColor,
   required Color playableHighlightColor,
 }) {
+  if (handCardMatchesPlanningTrumpFocus(
+    model,
+    card,
+    planningTrumpFocusedSuit,
+  )) {
+    return playableHighlightColor;
+  }
   if (model.table.phase == phaseSwap && card.highlighted && !card.selected) {
     return swapHighlightColor;
   }
@@ -181,8 +234,12 @@ class HandTray extends StatelessWidget {
     required this.visibleTrayHeight,
     this.onAction,
     this.onSwapHandCardTap,
+    this.onTrickHandCardTap,
     this.onAssignmentCardTap,
     this.onInvalidHandCardTap,
+    this.canUndo = false,
+    this.onUndo,
+    this.planningTrumpFocusedSuit,
     super.key,
   });
 
@@ -192,8 +249,12 @@ class HandTray extends StatelessWidget {
   final double visibleTrayHeight;
   final ValueChanged<LegalAction>? onAction;
   final ValueChanged<String>? onSwapHandCardTap;
+  final ValueChanged<String>? onTrickHandCardTap;
   final ValueChanged<String>? onAssignmentCardTap;
   final VoidCallback? onInvalidHandCardTap;
+  final bool canUndo;
+  final VoidCallback? onUndo;
+  final String? planningTrumpFocusedSuit;
 
   @override
   Widget build(BuildContext context) {
@@ -204,6 +265,9 @@ class HandTray extends StatelessWidget {
     final lowerBarActions = model.legalActions
         .where((action) => lowerBarActionKinds.contains(action.kind))
         .toList(growable: false);
+    final selectedPlayAction = selectedHandCardPlayAction(model);
+    final showAssignmentCommandBar =
+        assignmentCards.isNotEmpty && assignmentCommandBarVisible(model);
     return Padding(
       padding: handTrayOuterPadding(
         trailing: tokens.spacing.handTrayHorizontalTrailing,
@@ -275,8 +339,10 @@ class HandTray extends StatelessWidget {
                                             .phase) {
                                           phaseTrick =>
                                             playAction != null &&
-                                                    onAction != null
-                                                ? () => onAction!(playAction)
+                                                    onTrickHandCardTap != null
+                                                ? () => onTrickHandCardTap!(
+                                                    card.id,
+                                                  )
                                                 : handCardCanShowInvalidHint(
                                                     model,
                                                     card,
@@ -316,7 +382,12 @@ class HandTray extends StatelessWidget {
                                                   ? onTap
                                                   : null,
                                               child: GameCard(
-                                                card: handTrayCard(model, card),
+                                                card: handTrayCard(
+                                                  model,
+                                                  card,
+                                                  planningTrumpFocusedSuit:
+                                                      planningTrumpFocusedSuit,
+                                                ),
                                                 tokens: tokens,
                                                 trump: model.table.trump,
                                                 sizeOverride: largeCardSize,
@@ -324,6 +395,8 @@ class HandTray extends StatelessWidget {
                                                     handTrayHighlightColor(
                                                       model,
                                                       card,
+                                                      planningTrumpFocusedSuit:
+                                                          planningTrumpFocusedSuit,
                                                       swapHighlightColor:
                                                           tokens.colors.red,
                                                       playableHighlightColor:
@@ -360,7 +433,7 @@ class HandTray extends StatelessWidget {
               ),
             ),
           ),
-          if (assignmentCards.isNotEmpty)
+          if (showAssignmentCommandBar)
             AssignmentCommandBar(
               cards: assignmentCards,
               selectedCardID: model.selection.assignmentCardID,
@@ -369,13 +442,29 @@ class HandTray extends StatelessWidget {
               visibleTrayHeight: visibleTrayHeight,
               onCardTap: onAssignmentCardTap,
             )
-          else if (lowerBarActions.isNotEmpty)
+          else if (selectedPlayAction != null ||
+              lowerBarActions.isNotEmpty ||
+              canUndo)
             ActionCommandBar(
               actions: lowerBarActions,
+              selectedPlayAction: selectedPlayAction,
               tableYear: model.table.year,
               tokens: tokens,
               language: language,
               visibleTrayHeight: visibleTrayHeight,
+              onAction: onAction,
+              canUndo: canUndo,
+              onUndo: onUndo,
+            ),
+          if (showAssignmentCommandBar && canUndo)
+            ActionCommandBar(
+              actions: const [],
+              tableYear: model.table.year,
+              tokens: tokens,
+              language: language,
+              visibleTrayHeight: visibleTrayHeight,
+              canUndo: canUndo,
+              onUndo: onUndo,
               onAction: onAction,
             ),
         ],
@@ -387,27 +476,61 @@ class HandTray extends StatelessWidget {
 class ActionCommandBar extends StatelessWidget {
   const ActionCommandBar({
     required this.actions,
+    this.selectedPlayAction,
     required this.tableYear,
     required this.tokens,
     required this.language,
     required this.visibleTrayHeight,
+    this.canUndo = false,
+    this.onUndo,
     this.onAction,
     super.key,
   });
 
   final List<LegalAction> actions;
+  final LegalAction? selectedPlayAction;
   final int tableYear;
   final DesignTokens tokens;
   final KolkhozLanguage language;
   final double visibleTrayHeight;
+  final bool canUndo;
+  final VoidCallback? onUndo;
   final ValueChanged<LegalAction>? onAction;
 
   @override
   Widget build(BuildContext context) {
     final orderedActions = actions.toList(growable: false)
       ..sort(compareLowerBarActions);
+    final selectedPlayAction = this.selectedPlayAction;
+    final commands = [
+      if (canUndo)
+        HandTrayCommand(
+          label: language.text(en: 'Undo', ru: 'Назад'),
+          prominent: false,
+          onPressed: onUndo,
+        ),
+      if (selectedPlayAction != null)
+        HandTrayCommand(
+          label: language.text(en: 'Play', ru: 'Ход'),
+          prominent: true,
+          onPressed: onAction == null
+              ? null
+              : () => onAction!(selectedPlayAction),
+        )
+      else
+        for (final action in orderedActions)
+          HandTrayCommand(
+            label: lowerBarActionLabel(
+              action,
+              tableYear: tableYear,
+              language: language,
+            ),
+            prominent: isProminentLowerBarAction(action),
+            onPressed: onAction == null ? null : () => onAction!(action),
+          ),
+    ];
     return SizedBox(
-      width: actionBarWidth,
+      width: actionBarWidth(commands.length),
       height: visibleTrayHeight,
       child: Padding(
         padding: const EdgeInsets.all(6),
@@ -417,14 +540,12 @@ class ActionCommandBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             spacing: 8,
             children: [
-              for (final action in orderedActions)
+              for (final command in commands)
                 ActionPill(
-                  action: action,
-                  tableYear: tableYear,
+                  label: command.label,
                   tokens: tokens,
-                  language: language,
-                  prominent: isProminentLowerBarAction(action),
-                  onPressed: onAction == null ? null : () => onAction!(action),
+                  prominent: command.prominent,
+                  onPressed: command.onPressed,
                 ),
             ],
           ),
@@ -433,12 +554,27 @@ class ActionCommandBar extends StatelessWidget {
     );
   }
 
-  double get actionBarWidth {
-    if (actions.length <= 1) {
+  double actionBarWidth(int commandCount) {
+    if (commandCount <= 1) {
       return handTrayActionSingleWidth;
     }
-    return handTrayActionDoubleWidth;
+    if (commandCount == 2) {
+      return handTrayActionDoubleWidth;
+    }
+    return handTrayActionDoubleWidth + handTraySecondaryActionWidth + 8;
   }
+}
+
+class HandTrayCommand {
+  const HandTrayCommand({
+    required this.label,
+    required this.prominent,
+    this.onPressed,
+  });
+
+  final String label;
+  final bool prominent;
+  final VoidCallback? onPressed;
 }
 
 class AssignmentCommandBar extends StatelessWidget {
@@ -593,20 +729,16 @@ class AssignmentCommandCard extends StatelessWidget {
 
 class ActionPill extends StatelessWidget {
   const ActionPill({
-    required this.action,
-    required this.tableYear,
+    required this.label,
     required this.tokens,
-    required this.language,
     required this.prominent,
     this.scale = 1,
     this.onPressed,
     super.key,
   });
 
-  final LegalAction action;
-  final int tableYear;
+  final String label;
   final DesignTokens tokens;
-  final KolkhozLanguage language;
   final bool prominent;
   final double scale;
   final VoidCallback? onPressed;
@@ -657,11 +789,7 @@ class ActionPill extends StatelessWidget {
           child: FittedBox(
             fit: BoxFit.scaleDown,
             child: HandTrayActionPillLabel(
-              lowerBarActionLabel(
-                action,
-                tableYear: tableYear,
-                language: language,
-              ).toUpperCase(),
+              label.toUpperCase(),
               prominent: prominent,
               tokens: tokens,
             ),

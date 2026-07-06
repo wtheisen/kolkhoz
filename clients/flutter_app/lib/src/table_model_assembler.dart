@@ -46,7 +46,7 @@ TableViewModel buildTableViewModel({
         scores: finalScoreboard,
       ),
     ),
-    panels: panelsForPhase(uiState, phase),
+    panels: panelsForPhase(uiState, phase, seats: seats, lastTrick: lastTrick),
     selection: uiState.selection,
     legalActions: legalActions,
   );

@@ -173,6 +173,7 @@ class KolkhozCEngineBridge {
 
   late final Pointer<KCEngine> Function() _engineAlloc;
   late final void Function(Pointer<KCEngine>) _engineFree;
+  late final void Function(Pointer<KCEngine>, Pointer<KCEngine>) _engineClone;
   late final void Function(
     Pointer<KCEngine>,
     int,
@@ -352,6 +353,12 @@ class KolkhozCEngineBridge {
   }
 
   void freeEngine(Pointer<KCEngine> engine) => _engineFree(engine);
+
+  Pointer<KCEngine> cloneEngine(Pointer<KCEngine> source) {
+    final clone = _engineAlloc();
+    _engineClone(source, clone);
+    return clone;
+  }
 
   int phase(Pointer<KCEngine> engine) => _phase(engine);
   int year(Pointer<KCEngine> engine) => _year(engine);
@@ -588,6 +595,11 @@ class KolkhozCEngineBridge {
           Void Function(Pointer<KCEngine>),
           void Function(Pointer<KCEngine>)
         >('kc_engine_free');
+    _engineClone = _lib
+        .lookupFunction<
+          Void Function(Pointer<KCEngine>, Pointer<KCEngine>),
+          void Function(Pointer<KCEngine>, Pointer<KCEngine>)
+        >('kc_engine_clone');
     _engineInitWithControllers = _lib
         .lookupFunction<
           Void Function(

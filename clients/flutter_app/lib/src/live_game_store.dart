@@ -58,6 +58,7 @@ class LiveGameStore extends ChangeNotifier {
   Timer? _automaticStepTimer;
   TableViewModel? model;
   Pointer<KCEngine>? _engine;
+  final List<GameUndoSnapshot> _undoStack = [];
   int? revealedPlayerID;
   String? error;
   String? _lastSyncedPhase;
@@ -84,6 +85,7 @@ class LiveGameStore extends ChangeNotifier {
       currentVariants = variants;
       currentSeed = _newSeed();
       actionLog = [];
+      _clearUndoStack();
       restoredSavedGame = false;
       uiState = const GameUiState();
       _lastSyncedPhase = null;
@@ -121,11 +123,14 @@ class LiveGameStore extends ChangeNotifier {
       return;
     }
     _clearAutomaticStepTimer();
+    final undoSnapshot = _snapshotForUndo(engine);
     final result = bridge.applyManual(engine, cAction);
     if (result != 0) {
+      undoSnapshot.dispose(bridge);
       error = 'Move rejected ($result)';
     } else {
       error = null;
+      _undoStack.add(undoSnapshot);
       actionLog = [...actionLog, action.engineAction];
       _clearSelectionAfter(action.kind);
     }
@@ -162,6 +167,27 @@ class LiveGameStore extends ChangeNotifier {
   bool get isOnlineGame => _online != null;
   String? get onlineSessionID => _online?.sessionID;
   int? get onlinePlayerID => _online?.playerID;
+  bool get canUndo => _online == null && _undoStack.isNotEmpty;
+
+  void undoLastAction() {
+    if (_online != null || _undoStack.isEmpty) {
+      return;
+    }
+    _clearAutomaticStepTimer();
+    final snapshot = _undoStack.removeLast();
+    final oldEngine = _engine;
+    if (oldEngine != null) {
+      bridge.freeEngine(oldEngine);
+    }
+    _engine = snapshot.engine;
+    actionLog = snapshot.actionLog;
+    uiState = snapshot.uiState;
+    revealedPlayerID = snapshot.revealedPlayerID;
+    _lastSyncedPhase = snapshot.lastSyncedPhase;
+    error = null;
+    _sync();
+    _saveAutosave();
+  }
 
   Future<String> hostOnlineGame({
     required Uri baseURL,
@@ -269,6 +295,14 @@ class LiveGameStore extends ChangeNotifier {
     _sync();
   }
 
+  void selectTrickHandCard(String cardID) {
+    if (model?.table.phase != phaseTrick) {
+      return;
+    }
+    uiState = uiState.selectTrickHandCard(cardID);
+    _sync();
+  }
+
   void _clearSelectionAfter(String actionKind) {
     uiState = uiState.clearSelectionAfterAction(actionKind);
   }
@@ -340,6 +374,7 @@ class LiveGameStore extends ChangeNotifier {
       _engine = null;
     }
     _autosaveStore.clear();
+    _clearUndoStack();
     _online = OnlineGameRuntime(
       client: client,
       sessionID: sessionID,
@@ -374,9 +409,26 @@ class LiveGameStore extends ChangeNotifier {
       return;
     }
     _automaticStepTimer = Timer(
-      animationSpeed.automaticStepDelay,
+      _automaticStepDelay(_engine!),
       _runAutomaticStep,
     );
+  }
+
+  Duration _automaticStepDelay(Pointer<KCEngine> engine) {
+    if (_currentAutomaticStepIsTrumpSelection(engine)) {
+      return animationSpeed.automaticTrumpSelectionDelay;
+    }
+    return animationSpeed.automaticStepDelay;
+  }
+
+  bool _currentAutomaticStepIsTrumpSelection(Pointer<KCEngine> engine) {
+    if (bridge.phase(engine) != kcPhasePlanning || bridge.isFamine(engine)) {
+      return false;
+    }
+    final playerID = bridge.currentPlayer(engine);
+    return playerID >= 0 &&
+        playerID < controllers.length &&
+        controllers[playerID] != KolkhozPlayerController.human;
   }
 
   void _runAutomaticStep() {
@@ -548,6 +600,7 @@ class LiveGameStore extends ChangeNotifier {
       currentVariants = payload.variants;
       currentSeed = payload.seed;
       actionLog = List.of(payload.actions);
+      _clearUndoStack();
       restoredSavedGame = true;
       uiState = const GameUiState();
       _lastSyncedPhase = null;
@@ -603,12 +656,30 @@ class LiveGameStore extends ChangeNotifier {
     );
   }
 
+  GameUndoSnapshot _snapshotForUndo(Pointer<KCEngine> engine) {
+    return GameUndoSnapshot(
+      engine: bridge.cloneEngine(engine),
+      actionLog: List.of(actionLog),
+      uiState: uiState,
+      revealedPlayerID: revealedPlayerID,
+      lastSyncedPhase: _lastSyncedPhase,
+    );
+  }
+
+  void _clearUndoStack() {
+    for (final snapshot in _undoStack) {
+      snapshot.dispose(bridge);
+    }
+    _undoStack.clear();
+  }
+
   int _newSeed() => DateTime.now().microsecondsSinceEpoch;
 
   @override
   void dispose() {
     _disposed = true;
     _clearAutomaticStepTimer();
+    _clearUndoStack();
     final engine = _engine;
     if (engine != null) {
       bridge.freeEngine(engine);
@@ -619,6 +690,26 @@ class LiveGameStore extends ChangeNotifier {
     _onlineRefreshTimer?.cancel();
     _onlineRefreshTimer = null;
     super.dispose();
+  }
+}
+
+class GameUndoSnapshot {
+  const GameUndoSnapshot({
+    required this.engine,
+    required this.actionLog,
+    required this.uiState,
+    required this.revealedPlayerID,
+    required this.lastSyncedPhase,
+  });
+
+  final Pointer<KCEngine> engine;
+  final List<EngineAction> actionLog;
+  final GameUiState uiState;
+  final int? revealedPlayerID;
+  final String? lastSyncedPhase;
+
+  void dispose(KolkhozCEngineBridge bridge) {
+    bridge.freeEngine(engine);
   }
 }
 

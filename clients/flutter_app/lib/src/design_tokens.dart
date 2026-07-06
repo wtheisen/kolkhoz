@@ -178,7 +178,7 @@ final lightDesignTokens = DesignTokens(
     red: Color(0xffb01229),
     redDark: Color(0xffc72e29),
     redBright: Color(0xffa30821),
-    green: Color(0xff297833),
+    green: Color(0xff4db04f),
     onAccent: Color(0xfff5e8cc),
     cream: Color(0xff261f17),
     creamDim: Color(0xff594730),
