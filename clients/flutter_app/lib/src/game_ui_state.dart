@@ -73,6 +73,20 @@ class GameUiState {
     return copyWith(activePanel: panel);
   }
 
+  GameUiState togglePanel(String panel) {
+    if (!isGamePanel(panel)) {
+      return this;
+    }
+    if (activePanel == panel) {
+      return copyWith(clearActivePanel: true);
+    }
+    return copyWith(activePanel: panel);
+  }
+
+  GameUiState clearActivePanel() {
+    return copyWith(clearActivePanel: true);
+  }
+
   GameUiState selectSwapHandCard(String cardID) {
     return copyWith(selection: selection.copyWith(handCardID: cardID));
   }

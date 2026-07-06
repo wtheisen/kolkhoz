@@ -29,12 +29,30 @@ import 'package:kolkhoz_app/src/pixel_text.dart';
 import 'package:kolkhoz_app/src/player_panel_display.dart';
 import 'package:kolkhoz_app/src/plot_display.dart';
 import 'package:kolkhoz_app/src/render_model.dart';
+import 'package:kolkhoz_app/src/rule_content.dart';
 import 'package:kolkhoz_app/src/saved_game_store.dart';
 import 'package:kolkhoz_app/src/table_display.dart';
 import 'package:kolkhoz_app/src/trump_actions.dart';
 import 'package:kolkhoz_app/src/tutorial_display.dart';
 
 void main() {
+  test('kolkhoz default includes wrecker and preset labels stay localized', () {
+    expect(KolkhozGameVariants.kolkhoz.wreckerCard, isTrue);
+    expect(
+      presetTitle(KolkhozGamePreset.wrecker, KolkhozLanguage.en),
+      'Wrecker',
+    );
+    expect(
+      presetTitle(KolkhozGamePreset.wrecker, KolkhozLanguage.ru),
+      'Вредитель',
+    );
+    expect(KolkhozGamePreset.wrecker.variants, KolkhozGameVariants.wrecker);
+    expect(
+      variantsFromJson(variantsToJson(KolkhozGameVariants.wrecker)).wreckerCard,
+      isTrue,
+    );
+  });
+
   testWidgets('left rail uses generic icon assets', (tester) async {
     const tokens = defaultDesignTokens;
     final metrics = ResponsiveBoardMetrics.fromSize(
@@ -202,6 +220,55 @@ void main() {
       assignmentActionForJob(assignmentModel(selectedCardID: null), wheatJob),
       isNull,
     );
+  });
+
+  test('assignment helper resolves a later selected trick card', () {
+    final wheat9 = testCard(id: 'wheat-9', suit: 'wheat', value: 9);
+    final beet10 = testCard(id: 'beet-10', suit: 'beet', value: 10);
+    final model = runtimeModelWith(
+      phase: phaseAssignment,
+      selection: SelectionState.empty.copyWith(assignmentCardID: 'beet-10'),
+      jobs: [
+        Job(
+          suit: 'wheat',
+          hours: 0,
+          requiredHours: jobRequiredHours,
+          claimed: false,
+          reward: null,
+          assignedCards: [],
+          validAssignmentTarget: true,
+          highlighted: false,
+        ),
+      ],
+      lastTrick: Trick(
+        plays: [
+          TrickPlay(seatID: 0, card: wheat9),
+          TrickPlay(seatID: 1, card: beet10),
+        ],
+        winnerSeatID: 0,
+      ),
+      legalActions: [
+        testLegalAction(
+          kind: actionAssign,
+          label: 'Assign',
+          engineAction: const EngineAction(
+            kind: actionAssign,
+            playerID: 0,
+            card: EngineCard(suit: 'beet', value: 10),
+            targetSuit: 'wheat',
+          ),
+        ),
+      ],
+    );
+
+    final action = assignmentActionForJob(model, model.table.jobs.first);
+
+    expect(assignmentControlCards(model).map((card) => card.id), [
+      'wheat-9',
+      'beet-10',
+    ]);
+    expect(action?.engineAction.card?.id, 'beet-10');
+    expect(action?.engineAction.targetSuit, 'wheat');
   });
 
   test(
@@ -487,7 +554,7 @@ void main() {
     expect(onlineAction.engineAction.plotCard?.id, 'beet-10');
   });
 
-  test('online client uses Swift router compatible paths', () async {
+  test('online client uses online router compatible paths', () async {
     final httpClient = FakeOnlineHttpClient();
 
     final client = KolkhozOnlineClient(
@@ -601,6 +668,31 @@ void main() {
     expect(rejectedPlot.selection.plotZone, plotZoneHidden);
   });
 
+  test('game ui state toggles active panels back to phase default', () {
+    final menuOpen = const GameUiState().togglePanel(panelOptions);
+    expect(menuOpen.activePanel, panelOptions);
+
+    final menuClosed = menuOpen.togglePanel(panelOptions);
+    expect(menuClosed.activePanel, isNull);
+
+    final plotOpen = menuClosed.togglePanel(panelPlot);
+    expect(plotOpen.activePanel, panelPlot);
+    expect(plotOpen.clearActivePanel().activePanel, isNull);
+    expect(plotOpen.togglePanel('invented-panel').activePanel, panelPlot);
+  });
+
+  test('plot opponent row metrics reserve enough portrait label height', () {
+    const tokens = defaultDesignTokens;
+    final metrics = PlotPanelMetrics.fromSize(const Size(1048, 342), tokens);
+    final availablePortraitColumnHeight =
+        metrics.opponentHeight - (metrics.panelPadding * 2);
+
+    expect(
+      metrics.portraitSize + 3 + 20,
+      lessThanOrEqualTo(availablePortraitColumnHeight),
+    );
+  });
+
   test('hand tray only taps engine-highlighted cards in swap', () {
     final swapModel = runtimeModelWith(
       phase: phaseSwap,
@@ -664,6 +756,58 @@ void main() {
     );
   });
 
+  testWidgets('invalid trick hand-card taps can show a Foreman hint', (
+    tester,
+  ) async {
+    var invalidTaps = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 360,
+          height: 170,
+          child: HandTray(
+            model: runtimeModelWith(
+              phase: phaseTrick,
+              selection: SelectionState.empty,
+              jobs: runtimeModel().table.jobs,
+              legalActions: const [],
+            ),
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
+            visibleTrayHeight: 150,
+            onInvalidHandCardTap: () => invalidTaps += 1,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(GameCard));
+    expect(invalidTaps, 1);
+  });
+
+  testWidgets('Foreman hint bubble renders follow-suit reminder', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: ForemanHintBubble(
+          message: 'Remember, you must follow suit if able.',
+          tokens: defaultDesignTokens,
+        ),
+      ),
+    );
+
+    expect(
+      find.text('Remember, you must follow suit if able.'),
+      findsOneWidget,
+    );
+    expect(
+      findAssetImage('ios_resources/Embellishments/art-tutorial-foreman.png'),
+      findsOneWidget,
+    );
+  });
+
   test(
     'hand tray cards reflect selected hand state without mutating model',
     () {
@@ -693,10 +837,39 @@ void main() {
   );
 
   test('hand display helpers own tray layout policy', () {
-    final padding = handTrayOuterPadding(leading: 12, trailing: 20);
+    final padding = handTrayOuterPadding(trailing: 20);
+    final metrics = ResponsiveBoardMetrics(
+      tokens: defaultDesignTokens,
+      scale: 1,
+      margin: 0,
+    );
 
-    expect(padding.left, 28);
+    expect(padding.left, 0);
     expect(padding.right, 36);
+    expect(metrics.handTrayLayoutHeightForBoardHeight(420), 52);
+    expect(metrics.handTrayLayoutHeightForBoardHeight(620), 172);
+    expect(metrics.handTrayLayoutHeightForBoardHeight(970), 390);
+    expect(metrics.handTrayLayoutHeightForBoardHeight(1400), 390);
+    expect(metrics.handTrayVisibleHeightForBoardHeight(420), 66);
+    expect(metrics.handTrayVisibleHeightForBoardHeight(620), 186);
+    expect(metrics.handTrayVisibleHeightForBoardHeight(970), 404);
+    expect(metrics.handTrayVisibleHeightForBoardHeight(1400), 404);
+    expect(metrics.handTrayHeightForVisibleHeight(66), 52);
+    expect(metrics.handTrayHeightForVisibleHeight(186), 172);
+    expect(handTrayCardScale(66, defaultDesignTokens.card.large), 1);
+    expect(
+      handTrayCardScale(128, defaultDesignTokens.card.large),
+      closeTo(1.2072, 0.001),
+    );
+    expect(
+      handTrayCardScale(186, defaultDesignTokens.card.large),
+      closeTo(1.7907, 0.001),
+    );
+    expect(handTrayCardScale(404, defaultDesignTokens.card.large), 3);
+    expect(
+      scaledHandTrayCardSize(defaultDesignTokens.card.large, 404).height,
+      closeTo(298.2, 0.001),
+    );
     expect(handTrayActionSingleWidth, lessThan(handTrayActionDoubleWidth));
     expect(
       handTrayProminentActionHeight,
@@ -875,12 +1048,34 @@ void main() {
   test('player panel display helpers clamp compact layout metrics', () {
     expect(playerPanelOuterInset(100), 5);
     expect(playerPanelOuterInset(1000), 7);
-    expect(playerPanelPortraitSize(160, 48), closeTo(33.2, 0.0001));
+    expect(playerPanelPortraitSize(160, 48), 36);
     expect(playerPanelRowSpacing(100), 3);
     expect(playerPanelRowSpacing(1000), 5);
     expect(playerPanelStatColumnWidth(100), 44);
     expect(playerPanelContentNaturalWidth(100), 99);
     expect(playerPanelCellarCardSpacing(100), -5);
+    expect(playerPanelContentLeft(300), 105);
+    expect(playerPanelContentRight(300), 258);
+    expect(playerPanelPortraitLeft(300, 72), 18);
+    expect(playerPanelPortraitTop(120, 72), 24);
+    expect(playerPanelNameTop(120), 34.8);
+    expect(playerPanelScoreTop(120), 26.4);
+    expect(playerPanelLowerStatsTop(120), 61.2);
+    expect(playerPanelScale(106.6324), closeTo(2.2215, 0.001));
+    expect(playerPanelPortraitSize(273.5, 106.6324), closeTo(78.1971, 0.001));
+    expect(playerPanelRowSpacing(273.5, 106.6324), closeTo(11.1075, 0.001));
+    expect(
+      playerPanelStatColumnWidth(273.5, 106.6324),
+      closeTo(111.0754, 0.001),
+    );
+    expect(
+      playerPanelContentNaturalWidthForSize(273.5, 106.6324),
+      closeTo(241.2583, 0.001),
+    );
+    expect(
+      playerPanelCellarCardSpacing(273.5, 106.6324),
+      closeTo(-13.3291, 0.001),
+    );
   });
 
   test('north display helpers keep requisition scroll height bounded', () {
@@ -925,13 +1120,16 @@ void main() {
 
   testWidgets('chrome command labels use bitmap pixel text', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: SizedBox(
           width: 260,
           height: 80,
-          child: CommandSurfaceButton(
+          child: ChromeAssetButton(
             label: 'NEW GAME',
+            backgroundAsset: 'ios_resources/ui-button-primary.png',
             tokens: defaultDesignTokens,
+            textColor: defaultDesignTokens.colors.onAccent,
+            textSize: PixelTextSize.headline,
           ),
         ),
       ),
@@ -940,7 +1138,7 @@ void main() {
     expect(
       find.byWidgetPredicate(
         (widget) =>
-            widget is ChromePixelLabel &&
+            widget is ChromeScaledLabel &&
             widget.text == 'NEW GAME' &&
             widget.size == PixelTextSize.headline,
       ),
@@ -1053,6 +1251,7 @@ void main() {
           height: 390,
           child: TutorialWalkthroughOverlay(
             tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
             onClose: () => closed = true,
           ),
         ),
@@ -1084,13 +1283,18 @@ void main() {
           height: 390,
           child: TutorialWalkthroughOverlay(
             tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
             onClose: () => closed = true,
             steps: const [
               TutorialStepContent(
-                title: 'Only step',
-                body: 'Body',
-                tip: 'Tip',
-                callout: 'Callout',
+                titleEn: 'Only step',
+                titleRu: 'Один шаг',
+                bodyEn: 'Body',
+                bodyRu: 'Текст',
+                tipEn: 'Tip',
+                tipRu: 'Совет',
+                calloutEn: 'Callout',
+                calloutRu: 'Подсказка',
                 iconPath: 'ios_resources/Icons/icon-tutorial.png',
               ),
             ],
@@ -1103,22 +1307,87 @@ void main() {
     expect(closed, isTrue);
   });
 
+  testWidgets('tutorial walkthrough follows selected language', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 844,
+          height: 390,
+          child: TutorialWalkthroughOverlay(
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.ru,
+            onClose: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('СНАЧАЛА ОСМОТРИТЕ СТОЛ'), findsOneWidget);
+    expect(
+      find.textContaining('Каждый год есть четыре работы'),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is ChromeScaledLabel && widget.text == 'Далее',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  test('board content width caps extra-wide desktop layouts', () {
+    expect(boardPlayableContentWidth(900), 900);
+    expect(boardPlayableContentWidth(1800), boardContentWidthMax);
+  });
+
   test('brigade display helpers project column geometry', () {
+    final spacing = brigadeColumnSpacing(1200);
+    expect(spacing, 14);
     expect(
-      brigadeColumnWidth(maxWidth: 400, mediumCardWidth: 58),
-      closeTo(96, 0.0001),
+      brigadeExpandedColumnWidth(
+        maxWidth: 1200,
+        columnCount: 4,
+        spacing: spacing,
+      ),
+      closeTo(289.5, 0.0001),
     );
-    expect(brigadeSlotWidth(100), 52);
+    expect(brigadeColumnHeight(640), 632);
+    expect(brigadeColumnContentWidth(289.5), 273.5);
+    expect(brigadePlayerPanelWidth(289.5), 273.5);
+    expect(brigadePlayerPanelHeight(273.5), closeTo(106.6324, 0.0001));
     expect(
-      brigadePlayAreaLeftOffset(playerPanelWidth: 104.4, playAreaWidth: 104.4),
-      0,
+      brigadePlayObjectWidth(columnWidth: 289.5, minWidth: 70),
+      closeTo(246.15, 0.0001),
+    );
+    expect(brigadePlayObjectHeight(100, 1.42), 142);
+    expect(
+      brigadeContentColumnHeight(
+        playerPanelHeight: 106.6324,
+        playObjectHeight: 349.533,
+      ),
+      closeTo(494.1654, 0.0001),
     );
     expect(
-      brigadePlayAreaLeftOffset(playerPanelWidth: 104.4, playAreaWidth: 112.32),
-      closeTo(-3.96, 0.0001),
+      brigadePanelHeightForWidth(
+        maxWidth: 1200,
+        columnCount: 4,
+        minCardWidth: 70,
+        cardAspectRatio: 1.42,
+      ),
+      closeTo(502.1654, 0.0001),
     );
-    expect(brigadePlayAreaTopOffset(100), 18);
-    expect(brigadeColumnOverlap(100), 5.5);
+    expect(
+      brigadePlayObjectMaxHeight(360, 106.6324),
+      closeTo(215.3676, 0.0001),
+    );
+    expect(
+      brigadePlayObjectFittingWidth(
+        desiredWidth: 246.15,
+        maxHeight: 215.3676,
+        aspectRatio: 1.42,
+      ),
+      closeTo(151.6673, 0.0001),
+    );
   });
 
   test('phase display helpers provide UI labels without engine projection', () {
@@ -1133,11 +1402,28 @@ void main() {
   test('card art display helpers project asset paths and pip positions', () {
     final jack = testCard(id: 'wheat-11', suit: 'wheat', value: 11);
     final queen = testCard(id: 'beet-12', suit: 'beet', value: 12);
+    final nomenklaturaQueen = testCard(
+      id: 'beet-12',
+      suit: 'beet',
+      value: 12,
+      nomenclature: true,
+    );
+    final wrecker = testCard(id: 'wrecker-14', suit: wreckerSuit, value: 14);
     final seat = testSeat(id: 0, name: 'You');
 
     expect(faceRankName(jack), 'jack');
     expect(faceAssetPath(jack), 'ios_resources/Cards/face-jack-wheat.png');
+    expect(
+      faceAssetPath(nomenklaturaQueen),
+      'ios_resources/Cards/face-queen-beet-nomenklatura.png',
+    );
     expect(genericFaceAssetPath(queen), 'ios_resources/Cards/face-queen.png');
+    expect(faceRankName(wrecker), 'wrecker');
+    expect(faceAssetPath(wrecker), 'ios_resources/Cards/face-wrecker.png');
+    expect(
+      genericFaceAssetPath(wrecker),
+      'ios_resources/Cards/face-wrecker.png',
+    );
     expect(portraitAssetPath(seat), 'ios_resources/worker1.png');
     expect(
       cardTemplateAssetPathForTokens(defaultDesignTokens),
@@ -1148,6 +1434,21 @@ void main() {
       contains('light'),
     );
     expect(pipPositions(12), hasLength(10));
+    expect(
+      pixelTextSizeForCardRank(defaultDesignTokens.card.small),
+      PixelTextSize.xSmall,
+    );
+    expect(
+      pixelTextSizeForCardRank(defaultDesignTokens.card.large),
+      PixelTextSize.cardRank,
+    );
+    expect(pixelTextScaleForCardRank(defaultDesignTokens.card.large), 1);
+    final oversizedCard = scaledHandTrayCardSize(
+      defaultDesignTokens.card.large,
+      404,
+    );
+    expect(pixelTextSizeForCardRank(oversizedCard), PixelTextSize.cardRank);
+    expect(pixelTextScaleForCardRank(oversizedCard), cardRankTextMaxScale);
   });
 
   test('panel title display helpers scale and fade predictably', () {
@@ -1560,6 +1861,7 @@ TableCard testCard({
   required String id,
   required String suit,
   required int value,
+  bool nomenclature = false,
 }) {
   return TableCard(
     id: id,
@@ -1569,6 +1871,7 @@ TableCard testCard({
     selected: false,
     highlighted: false,
     pending: false,
+    nomenclature: nomenclature,
   );
 }
 

@@ -14,6 +14,7 @@ TableCard cardWithSelection(
     selected: selected ?? card.selected,
     highlighted: highlighted ?? card.highlighted,
     pending: card.pending,
+    nomenclature: card.nomenclature,
   );
 }
 

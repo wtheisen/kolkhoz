@@ -19,7 +19,8 @@ class EngineCardValue {
   final int suit;
   final int value;
 
-  bool get isValid => suit >= 0 && value > 0;
+  bool get isValid =>
+      (suit >= 0 && suit < 4 && value > 0) || (suit == 4 && value == 14);
 }
 
 class CEngineActionValue {
@@ -55,6 +56,7 @@ class KolkhozGameVariants {
     this.medalsCount = false,
     this.accumulateJobs = false,
     this.heroOfSovietUnion = true,
+    this.wreckerCard = false,
   });
 
   final int deckType;
@@ -66,6 +68,7 @@ class KolkhozGameVariants {
   final bool medalsCount;
   final bool accumulateJobs;
   final bool heroOfSovietUnion;
+  final bool wreckerCard;
 
   KolkhozGameVariants copyWith({
     int? deckType,
@@ -77,6 +80,7 @@ class KolkhozGameVariants {
     bool? medalsCount,
     bool? accumulateJobs,
     bool? heroOfSovietUnion,
+    bool? wreckerCard,
   }) {
     return KolkhozGameVariants(
       deckType: deckType ?? this.deckType,
@@ -88,10 +92,18 @@ class KolkhozGameVariants {
       medalsCount: medalsCount ?? this.medalsCount,
       accumulateJobs: accumulateJobs ?? this.accumulateJobs,
       heroOfSovietUnion: heroOfSovietUnion ?? this.heroOfSovietUnion,
+      wreckerCard: wreckerCard ?? this.wreckerCard,
     );
   }
 
-  static const kolkhoz = KolkhozGameVariants(nomenclature: false);
+  static const kolkhoz = KolkhozGameVariants(
+    nomenclature: false,
+    wreckerCard: true,
+  );
+  static const wrecker = KolkhozGameVariants(
+    nomenclature: false,
+    wreckerCard: true,
+  );
   static const littleKolkhoz = KolkhozGameVariants(
     deckType: 36,
     nomenclature: true,
@@ -149,6 +161,7 @@ class KolkhozCEngineBridge {
     KCControllersNative,
   )
   _engineInitWithControllers;
+  late final void Function(Pointer<KCVariantsNative>) _variantsKolkhoz;
   late final void Function(Pointer<KCControllersNative>)
   _controllersAllExternal;
   late final void Function(Pointer<KCControllersNative>, int, int)
@@ -254,6 +267,28 @@ class KolkhozCEngineBridge {
     return engine;
   }
 
+  KolkhozGameVariants kolkhozEngineDefaults() {
+    final arena = Arena();
+    try {
+      final nativeVariants = arena<KCVariantsNative>();
+      _variantsKolkhoz(nativeVariants);
+      return KolkhozGameVariants(
+        deckType: nativeVariants.ref.deckType,
+        nomenclature: nativeVariants.ref.nomenclature,
+        allowSwap: nativeVariants.ref.allowSwap,
+        northernStyle: nativeVariants.ref.northernStyle,
+        miceVariant: nativeVariants.ref.miceVariant,
+        ordenNachalniku: nativeVariants.ref.ordenNachalniku,
+        medalsCount: nativeVariants.ref.medalsCount,
+        accumulateJobs: nativeVariants.ref.accumulateJobs,
+        heroOfSovietUnion: nativeVariants.ref.heroOfSovietUnion,
+        wreckerCard: nativeVariants.ref.wrecker,
+      );
+    } finally {
+      arena.releaseAll();
+    }
+  }
+
   void _writeVariants(KCVariantsNative native, KolkhozGameVariants variants) {
     native
       ..deckType = variants.deckType
@@ -264,7 +299,8 @@ class KolkhozCEngineBridge {
       ..ordenNachalniku = variants.ordenNachalniku
       ..medalsCount = variants.medalsCount
       ..accumulateJobs = variants.accumulateJobs
-      ..heroOfSovietUnion = variants.heroOfSovietUnion;
+      ..heroOfSovietUnion = variants.heroOfSovietUnion
+      ..wrecker = variants.wreckerCard;
   }
 
   void _writeControllers(
@@ -504,6 +540,11 @@ class KolkhozCEngineBridge {
             KCControllersNative,
           )
         >('kc_engine_init_with_controllers');
+    _variantsKolkhoz = _lib
+        .lookupFunction<
+          Void Function(Pointer<KCVariantsNative>),
+          void Function(Pointer<KCVariantsNative>)
+        >('kc_variants_kolkhoz');
     _controllersAllExternal = _lib
         .lookupFunction<
           Void Function(Pointer<KCControllersNative>),
@@ -752,6 +793,9 @@ final class KCVariantsNative extends Struct {
 
   @Bool()
   external bool heroOfSovietUnion;
+
+  @Bool()
+  external bool wrecker;
 }
 
 final class KCControllersNative extends Struct {

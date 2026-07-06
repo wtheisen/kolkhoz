@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'design_tokens.dart';
+import 'game_constants.dart';
 import 'pixel_text.dart';
 import 'render_model.dart';
 
@@ -86,11 +87,18 @@ List<Offset> pipPositions(int value) {
 }
 
 String faceAssetPath(TableCard card) {
+  if (card.suit == wreckerSuit || card.value == 14) {
+    return 'ios_resources/Cards/face-wrecker.png';
+  }
   final rank = faceRankName(card);
-  return 'ios_resources/Cards/face-$rank-${card.suit}.png';
+  final variant = card.nomenclature ? '-nomenklatura' : '';
+  return 'ios_resources/Cards/face-$rank-${card.suit}$variant.png';
 }
 
 String genericFaceAssetPath(TableCard card) {
+  if (card.suit == wreckerSuit || card.value == 14) {
+    return 'ios_resources/Cards/face-wrecker.png';
+  }
   final rank = faceRankName(card);
   return 'ios_resources/Cards/face-$rank.png';
 }
@@ -100,6 +108,7 @@ String faceRankName(TableCard card) {
     11 => 'jack',
     12 => 'queen',
     13 => 'king',
+    14 => 'wrecker',
     _ => 'king',
   };
 }
@@ -122,14 +131,40 @@ double faceArtWidth(TokenCardSize size) {
 }
 
 PixelTextSize pixelTextSizeForCardRank(TokenCardSize size) {
-  if (size.width <= 42.1) {
+  return pixelTextBitmapSizeForCardRank(size.cornerRankFontSize);
+}
+
+PixelTextSize pixelTextBitmapSizeForCardRank(double fontSize) {
+  if (fontSize <= 9) {
     return PixelTextSize.xSmall;
   }
-  if (size.width <= 58.1) {
+  if (fontSize <= 10.5) {
+    return PixelTextSize.small;
+  }
+  if (fontSize <= 12) {
     return PixelTextSize.caption2;
   }
-  return PixelTextSize.headline;
+  if (fontSize <= 15) {
+    return PixelTextSize.caption;
+  }
+  if (fontSize <= 18.5) {
+    return PixelTextSize.headline;
+  }
+  if (fontSize <= 22) {
+    return PixelTextSize.title;
+  }
+  return PixelTextSize.cardRank;
 }
+
+double pixelTextScaleForCardRank(TokenCardSize size) {
+  final bitmapSize = pixelTextSizeForCardRank(size);
+  return (size.cornerRankFontSize / bitmapSize.value).clamp(
+    1,
+    cardRankTextMaxScale,
+  );
+}
+
+const cardRankTextMaxScale = 1.45;
 
 Color cardHighlightColor({
   required TableCard card,

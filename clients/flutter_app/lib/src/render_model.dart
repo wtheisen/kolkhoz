@@ -193,6 +193,7 @@ class TableCard {
     required this.selected,
     required this.highlighted,
     required this.pending,
+    this.nomenclature = false,
   });
 
   final String id;
@@ -202,6 +203,7 @@ class TableCard {
   final bool selected;
   final bool highlighted;
   final bool pending;
+  final bool nomenclature;
 }
 
 class Panels {

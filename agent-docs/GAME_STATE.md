@@ -1,222 +1,149 @@
 # Game State Reference
 
-The authoritative state is `KolkhozState` in
-`ios/KolkhozSwiftUI/Sources/KolkhozCore/Models.swift`. Runtime state is produced by the
-C engine through `KolkhozCEngineAdapter` or by online session snapshots, then copied into
-`GameStore.state` for SwiftUI rendering.
+The authoritative state is the `KCEngine` struct in
+`engine/KolkhozCEngine/include/KolkhozCEngine.h`. Runtime state is produced by the C
+engine, then projected into Dart table models for Flutter rendering.
 
-## Complete State Shape
+## Core State Shape
 
-```swift
-public struct KolkhozState {
-    public var players: [PlayerState]
-    public var lead: Int
-    public var year: Int                  // 1...5
-    public var trump: Suit?               // nil in famine
-    public var jobPiles: [Suit: [Card]]
-    public var revealedJobs: [Suit: Card]
-    public var claimedJobs: Set<Suit>
-    public var workHours: [Suit: Int]
-    public var jobBuckets: [Suit: [Card]]
-    public var currentTrick: [TrickPlay]
-    public var lastTrick: [TrickPlay]
-    public var lastWinner: Int?
-    public var trickCount: Int
-    public var exiled: [Int: [Card]]
-    public var isFamine: Bool             // true in year 5
-    public var phase: GamePhase
-    public var currentPlayer: Int
-    public var trumpSelector: Int
-    public var pendingAssignments: [String: Suit]
-    public var requisitionEvents: [RequisitionEvent]
-    public var gameResult: GameResult?
-    public var variants: GameVariants
-    public var accumulatedJobCards: [Suit: [Card]]
-    public var drunkardReplacements: [Card]
-    public var swapConfirmed: Set<Int>
-    public var swapCount: Set<Int>
-    public var lastSwap: SwapRecord?
-}
+The engine tracks:
+
+- players, hands, revealed plots, hidden plots, medals, and stacked rewards;
+- year, famine flag, trump suit, lead player, current player, and trump selector;
+- job piles, revealed jobs, claimed jobs, work hours, and job buckets;
+- current trick, last trick, last winner, trick count, and pending assignments;
+- exiled cards and requisition events;
+- variants, swap confirmations, staged swaps, and game result.
+
+The Flutter projection mirrors only what the app needs to render and act on. Keep hidden
+information redaction at the engine/server boundary when adding online behavior.
+
+## Suits And Cards
+
+The C engine uses numeric suit codes:
+
+```text
+0 wheat
+1 sunflower
+2 potato
+3 beet
+4 wrecker
 ```
 
-## Core Models
+Cards use a suit plus value. Values `1...5` are job rewards; values `6...13` are normal
+worker cards. Face cards are `11` jack, `12` queen, and `13` king. The wrecker variant
+adds a special `wrecker-14` worker card that counts as matching every crop suit, but it
+does not add a fifth job suit.
 
-```swift
-public enum Suit: String, CaseIterable {
-    case wheat = "Wheat"
-    case sunflower = "Sunflower"
-    case potato = "Potato"
-    case beet = "Beet"
-}
+## Phases
 
-public struct Card: Hashable, Identifiable {
-    public let suit: Suit
-    public let value: Int       // 1...5 for job rewards, 6...13 for workers
-    public var id: String { "\(suit.rawValue)-\(value)" }
-}
-
-public enum GamePhase: String {
-    case planning
-    case swap
-    case trick
-    case assignment
-    case requisition
-    case gameOver
-}
+```text
+0 planning
+1 swap
+2 trick
+3 assignment
+4 requisition
+5 gameOver
 ```
 
-There is no Swift `plotSelection` phase. At year end, the engine immediately moves all
+There is no separate plot-selection phase. At year end, the engine immediately moves all
 remaining hand cards into hidden plots before entering requisition.
-
-## Players and Plots
-
-Each `PlayerState` has:
-
-- `id`: player index, with `0` as the human.
-- `name`, `isHuman`.
-- `hand`: cards currently playable or swappable.
-- `plot.revealed`: visible plot cards and job rewards.
-- `plot.hidden`: hidden plot cards.
-- `plot.medals`: medals banked from previous years.
-- `plot.stacks`: 36-card `ordenNachalniku` stacked rewards.
-- `brigadeLeader`: true for the most recent trick winner.
-- `hasWonTrickThisYear`: used for requisition vulnerability.
-- `medals`: current-year trick wins.
 
 ## Variants
 
-```swift
-public struct GameVariants {
-    public var deckType: Int              // 52 or 36
-    public var nomenclature: Bool         // J/Q/K trump effects
-    public var allowSwap: Bool            // years 2-5 swap phase
-    public var northernStyle: Bool        // no job rewards, all vulnerable
-    public var miceVariant: Bool          // reveal all matching hidden cards
-    public var ordenNachalniku: Bool      // 36-card stacked job rewards
-    public var medalsCount: Bool          // medals add to score
-    public var accumulateJobs: Bool       // unclaimed rewards carry over
-    public var heroOfSovietUnion: Bool    // all-trick winner is immune
-}
-```
+The C `KCVariants` struct owns:
 
-Built-in presets are `kolkhoz`, `littleKolkhoz`, `campStyle`, and `custom`.
+- `deck_type`
+- `nomenclature`
+- `allow_swap`
+- `northern_style`
+- `mice_variant`
+- `orden_nachalniku`
+- `medals_count`
+- `accumulate_jobs`
+- `hero_of_soviet_union`
 
 ## Key State Mutations
 
 ### New Game
 
-`KolkhozCEngineAdapter.init` and `newGame`:
+The C engine initializes one human/default external seat plus AI seats depending on the
+caller, randomizes initial lead/trump selector, builds job piles, reveals jobs, sets
+famine for year 5, deals worker cards, and processes automatic AI turns as configured.
 
-- Make one human and three AI players.
-- Randomize initial lead and trump selector.
-- Build job piles.
-- Reveal one job per suit.
-- Set `isFamine` when `year == 5`.
-- Deal 5 cards per player in normal years or 4 in famine.
-- Process any automatic AI planning/trick/assignment actions in the C engine.
+### Playing A Card
 
-### Playing a Card
-
-```swift
-try engine.apply(KolkhozEngineAction(kind: .playCard, playerID: ..., card: ...))
-```
-
-When the trick reaches `state.numPlayers`, the C engine sets `lastWinner`, copies
-`currentTrick` to `lastTrick`, increments `trickCount`, updates `lead`, awards a medal,
-and enters `assignment`.
+Card play is submitted as a C action. The engine validates follow-suit, mutates the
+current trick, determines the winner when the trick completes, awards a medal, sets the
+next lead, and enters assignment.
 
 ### Assigning Work
 
-Assignments are keyed by `card.id`:
+Assignments are stored by last-trick index in `pending_assignment_targets`. Legal target
+suits are the suits present in `last_trick`. Any unassigned trick card may be assigned to
+any legal target suit.
 
-```swift
-state.pendingAssignments[card.id] = targetSuit
-```
-
-Legal assignment targets are the suits present in `lastTrick`. A trick card may be
-assigned to any of those suits. This is intentionally the current C/app behavior; do not use
-the older "trump can go anywhere, non-trump to own suit" rule when working on the app.
-
-Submitting assignments adds each card to `jobBuckets[targetSuit]` and adds work hours.
-Trump Jack contributes 0 work when `nomenclature` is enabled.
-
-### Completing a Job
-
-When `workHours[suit] >= 40`, the suit is added to `claimedJobs`.
-
-- 52-card, non-northern games: the current revealed job reward goes to the trick winner.
-- `accumulateJobs`: accumulated unclaimed rewards plus the current reward go to the winner.
-- 36-card `ordenNachalniku`: the lowest assigned card is revealed in a plot stack and the rest are hidden in that stack.
-- `northernStyle`: no job reward is granted.
+Submitting assignments moves cards into job buckets, adds work hours, claims completed
+jobs, grants rewards, and advances to either the next trick or year-end requisition.
 
 ### Year End
 
 The year is complete when:
 
-- `trickCount >= 4` in normal years.
-- `trickCount >= 3` in famine.
-- Any player hand is empty.
-- Or all players have exactly one hand card left.
+- `trick_count >= 4` in normal years;
+- `trick_count >= 3` in famine;
+- any player hand is empty;
+- or all players have exactly one hand card left.
 
 At year end, remaining hand cards move to hidden plots, then requisition runs.
 
 ### Requisition
 
-For each failed job (`workHours[suit] < 40`):
+For each failed job (`work_hours[suit] < 40`):
 
-- If a trump Jack is assigned to that failed job, the Drunkard is exiled and player cards are spared for that job.
-- Otherwise, vulnerable players reveal matching hidden cards.
-- A player is vulnerable if `northernStyle`, `miceVariant`, an Informant is present, or the player won a trick this year.
-- `miceVariant` and Informant reveal all matching hidden cards; otherwise only the highest matching hidden card is revealed.
-- One revealed matching card is exiled, or two if a trump King is assigned to the failed job.
-- `heroOfSovietUnion` makes a player immune after winning every trick in that year.
+- a trump jack assigned to the failed job is the Drunkard and is exiled instead of player cards;
+- a trump queen assigned to the failed job is the Informant and reveals all matching hidden cards;
+- a trump king assigned to the failed job is the Party Official and can exile two matching revealed cards;
+- vulnerable players reveal/exile matching plot cards according to the active variants.
 
-Exiled cards are recorded immediately in `state.exiled[state.year]`, but removed from
-plots when the player continues after requisition.
+Exiled cards are recorded immediately, then removed from plots when requisition continues.
 
 ### Scoring
 
-`visibleScore` sums revealed plot cards and revealed cards in plot stacks. If
-`medalsCount` is enabled, current and banked medals are added.
-
-`finalScore` adds hidden plot cards to `visibleScore`. At game over, the player with the
-highest final score wins.
+Visible score sums revealed plot cards and visible stacked rewards. Final score includes
+hidden plot cards. Medals are included when `medals_count` is enabled.
 
 ## Validation Checks
 
 ### Valid Card Play
 
-```swift
-guard let leadSuit = state.currentTrick.first?.card.suit else {
-    return true
-}
-let hasLeadSuit = hand.contains { $0.suit == leadSuit }
-return !hasLeadSuit || hand[cardIndex].suit == leadSuit
-```
+If a lead suit exists and the player has that suit, the played card must match the lead
+suit. Otherwise any card in hand is legal.
 
 ### Valid Assignment
 
-```swift
-let legalTargets = Set(state.lastTrick.map(\.card.suit))
-guard legalTargets.contains(suit),
-      state.lastTrick.contains(where: { $0.card == card }) else {
-    throw KolkhozMoveError.invalidAssignment
-}
-```
+The target suit must be present in the completed trick, and the card must be one of the
+currently unassigned `last_trick` cards.
 
 ### Game Over
 
-After requisition in year 5, the engine transitions past year 5, sets
-`phase = .gameOver`, and stores `gameResult`.
+After requisition in year 5, the engine transitions to `gameOver` and stores final
+scores/winner.
 
 ## Debugging Tips
 
-Inspect `KolkhozCEngineAdapter.snapshot`, `KolkhozCEngineAdapter.state`, online session
-updates, or `GameStore.state`:
+Inspect the C engine through:
 
-```swift
-print("Year:", state.year, "Phase:", state.phase)
-print("Trump:", String(describing: state.trump), "Famine:", state.isFamine)
-print("Trick:", state.trickCount, "Current:", state.currentTrick.count)
-print("Lead:", state.lead, "Turn:", state.currentPlayer)
+- `clients/flutter_app/lib/src/c_engine_bridge.dart` accessors for Flutter behavior;
+- `research/kolkhoz_research/c_engine.py` for Python/research behavior;
+- temporary C-side logging only when necessary.
+
+Useful values to print or expose in a test:
+
+```text
+phase, year, trick_count, trump, is_famine
+current_player, lead, last_winner
+current_trick_count, last_trick_count
+pending_assignment_targets
+hand counts and job work hours
 ```

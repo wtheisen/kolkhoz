@@ -1,4 +1,17 @@
-part of '../board_view.dart';
+import 'dart:ui' show clampDouble;
+
+import 'package:flutter/material.dart';
+
+import '../app_settings.dart';
+import '../assignment_display.dart';
+import '../card_display.dart';
+import '../design_tokens.dart';
+import '../game_constants.dart';
+import '../lower_bar_actions.dart';
+import '../pixel_text.dart';
+import '../render_model.dart';
+import '../table_display.dart';
+import 'board_widgets.dart';
 
 const handTrayOuterSpacing = 8.0;
 const handTrayZoneHorizontalPadding = 6.0;
@@ -20,12 +33,20 @@ const handTraySecondaryActionHeight = 32.0;
 const handTraySwapHighlightStrokeWidth = 2.0;
 const handTraySwapHighlightCornerRadius = 7.0;
 const handTrayActionFontSize = 13.0;
+const handTrayCardHeightFillFactor = 1.0;
+const handTrayCardMaxScale = 3.0;
 
 bool handCardCanReceiveTap(TableViewModel model, TableCard card) {
   return switch (model.table.phase) {
     phaseTrick || phaseSwap => card.highlighted,
     _ => false,
   };
+}
+
+bool handCardCanShowInvalidHint(TableViewModel model, TableCard card) {
+  return model.table.phase == phaseTrick &&
+      model.table.currentPlayerID == localSeat(model).id &&
+      !card.highlighted;
 }
 
 LegalAction? handCardPlayAction(TableViewModel model, TableCard card) {
@@ -68,32 +89,61 @@ Color? handTrayHighlightColor(
   return null;
 }
 
-EdgeInsets handTrayOuterPadding({
-  required double leading,
-  required double trailing,
-}) {
-  return EdgeInsets.only(left: leading + 16, right: trailing + 16);
+EdgeInsets handTrayOuterPadding({required double trailing}) {
+  return EdgeInsets.only(right: trailing + 16);
+}
+
+double handTrayCardScale(double visibleTrayHeight, TokenCardSize cardSize) {
+  return clampDouble(
+    (visibleTrayHeight * handTrayCardHeightFillFactor - handTrayCardYOffset) /
+        cardSize.height,
+    1,
+    handTrayCardMaxScale,
+  );
+}
+
+TokenCardSize scaledHandTrayCardSize(
+  TokenCardSize cardSize,
+  double visibleTrayHeight,
+) {
+  final scale = handTrayCardScale(visibleTrayHeight, cardSize);
+  return TokenCardSize(
+    width: cardSize.width * scale,
+    height: cardSize.height * scale,
+    faceInset: cardSize.faceInset * scale,
+    cornerWidth: cardSize.cornerWidth * scale,
+    cornerHeight: cardSize.cornerHeight * scale,
+    cornerRankFontSize: cardSize.cornerRankFontSize * scale,
+    cornerSuitSize: cardSize.cornerSuitSize * scale,
+    topCornerRankSuitSpacing: cardSize.topCornerRankSuitSpacing * scale,
+    bottomCornerRankSuitSpacing: cardSize.bottomCornerRankSuitSpacing * scale,
+    topCornerSuitXOffset: cardSize.topCornerSuitXOffset * scale,
+    bottomCornerSuitXOffset: cardSize.bottomCornerSuitXOffset * scale,
+    pipSize: cardSize.pipSize * scale,
+  );
 }
 
 class HandTray extends StatelessWidget {
   const HandTray({
     required this.model,
     required this.tokens,
-    required this.metrics,
     required this.language,
+    required this.visibleTrayHeight,
     this.onAction,
     this.onSwapHandCardTap,
     this.onAssignmentCardTap,
+    this.onInvalidHandCardTap,
     super.key,
   });
 
   final TableViewModel model;
   final DesignTokens tokens;
-  final ResponsiveBoardMetrics metrics;
   final KolkhozLanguage language;
+  final double visibleTrayHeight;
   final ValueChanged<LegalAction>? onAction;
   final ValueChanged<String>? onSwapHandCardTap;
   final ValueChanged<String>? onAssignmentCardTap;
+  final VoidCallback? onInvalidHandCardTap;
 
   @override
   Widget build(BuildContext context) {
@@ -104,11 +154,12 @@ class HandTray extends StatelessWidget {
     final lowerBarActions = model.legalActions
         .where((action) => lowerBarActionKinds.contains(action.kind))
         .toList(growable: false);
-    final visibleTrayHeight = metrics.handTrayVisibleHeight;
-    final largeCardSize = tokens.card.large;
+    final largeCardSize = scaledHandTrayCardSize(
+      tokens.card.large,
+      visibleTrayHeight,
+    );
     return Padding(
       padding: handTrayOuterPadding(
-        leading: tokens.spacing.handTrayHorizontalLeading,
         trailing: tokens.spacing.handTrayHorizontalTrailing,
       ),
       child: Row(
@@ -163,9 +214,14 @@ class HandTray extends StatelessWidget {
                                   );
                                   final onTap = switch (model.table.phase) {
                                     phaseTrick =>
-                                      playAction == null || onAction == null
-                                          ? null
-                                          : () => onAction!(playAction),
+                                      playAction != null && onAction != null
+                                          ? () => onAction!(playAction)
+                                          : handCardCanShowInvalidHint(
+                                              model,
+                                              card,
+                                            )
+                                          ? onInvalidHandCardTap
+                                          : null,
                                     phaseSwap =>
                                       onSwapHandCardTap == null
                                           ? null
@@ -186,7 +242,14 @@ class HandTray extends StatelessWidget {
                                       child: GestureDetector(
                                         behavior: HitTestBehavior.opaque,
                                         onTap:
-                                            handCardCanReceiveTap(model, card)
+                                            handCardCanReceiveTap(
+                                                  model,
+                                                  card,
+                                                ) ||
+                                                handCardCanShowInvalidHint(
+                                                  model,
+                                                  card,
+                                                )
                                             ? onTap
                                             : null,
                                         child: GameCard(

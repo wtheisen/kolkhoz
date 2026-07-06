@@ -1,4 +1,16 @@
-part of '../board_view.dart';
+import 'dart:math' as math;
+import 'dart:ui' show clampDouble;
+
+import 'package:flutter/material.dart';
+
+import '../app_settings.dart';
+import '../design_tokens.dart';
+import '../game_constants.dart';
+import '../pixel_text.dart';
+import '../plot_display.dart';
+import '../render_model.dart';
+import '../table_display.dart';
+import 'board_widgets.dart';
 
 class PlotPanel extends StatelessWidget {
   const PlotPanel({
@@ -145,14 +157,23 @@ class PlotPanelMetrics {
   factory PlotPanelMetrics.fromSize(Size size, DesignTokens tokens) {
     final shorter = size.shortestSide;
     final plot = tokens.layout.plot;
+    final spacing = clampDouble(shorter * 0.02, 7, 10);
+    final opponentHeight = clampDouble(
+      size.height * 0.18,
+      plot.opponentHeightMin,
+      plot.opponentHeightMax,
+    );
+    final panelPadding = clampDouble(shorter * 0.018, 7, 8);
+    final portraitMaxForRow = opponentHeight - (panelPadding * 2) - 3.0 - 20.0;
+    final portraitMax = math.min(
+      plot.portraitSizeMax,
+      math.max(30.0, portraitMaxForRow),
+    );
+    final portraitMin = math.min(plot.portraitSizeMin, portraitMax);
     return PlotPanelMetrics(
-      spacing: clampDouble(shorter * 0.02, 7, 10),
+      spacing: spacing,
       padding: clampDouble(shorter * 0.025, 8, 12),
-      opponentHeight: clampDouble(
-        size.height * 0.18,
-        plot.opponentHeightMin,
-        plot.opponentHeightMax,
-      ),
+      opponentHeight: opponentHeight,
       opponentCardScale: clampDouble(size.width * 0.001, 0.68, 0.76),
       opponentCardFrameWidth: clampDouble(size.width * 0.04, 25, 29),
       opponentCardFrameHeight: clampDouble(size.height * 0.10, 38, 44),
@@ -161,12 +182,8 @@ class PlotPanelMetrics {
         plot.opponentVisibleCardCountMin,
         plot.opponentVisibleCardCountMax,
       ).toInt(),
-      portraitSize: clampDouble(
-        size.width * 0.055,
-        plot.portraitSizeMin,
-        plot.portraitSizeMax,
-      ),
-      panelPadding: clampDouble(shorter * 0.018, 7, 8),
+      portraitSize: clampDouble(size.width * 0.055, portraitMin, portraitMax),
+      panelPadding: panelPadding,
       headerIconSize: clampDouble(size.width * 0.026, 17, 20),
       columnCardSpacing: clampDouble(-size.width * 0.04, -30, -24),
       columnTrailingPadding: clampDouble(size.width * 0.035, 20, 28),

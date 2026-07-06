@@ -1,6 +1,7 @@
 const kolkhozPlayerCount = 4;
 const finalGameYear = 5;
 const displaySuitOrder = ['wheat', 'sunflower', 'potato', 'beet'];
+const wreckerSuit = 'wrecker';
 const jobRequiredHours = 40;
 
 const controllerHuman = 'human';

@@ -1,4 +1,15 @@
-part of '../board_view.dart';
+import 'dart:ui' show clampDouble;
+
+import 'package:flutter/material.dart';
+
+import '../animation_speed.dart';
+import '../app_settings.dart';
+import '../chrome_button.dart';
+import '../design_tokens.dart';
+import '../pixel_text.dart';
+import '../render_model.dart';
+import '../rule_content.dart';
+import 'board_widgets.dart';
 
 const optionsPanelMaxWidth = 620.0;
 const optionsPanelHorizontalPadding = 20.0;
@@ -58,15 +69,6 @@ const optionsAnimationSpeedControlWidth = 246.0;
 const optionsAnimationSpeedPadding = 6.0;
 const optionsAnimationSpeedSpacing = 5.0;
 const optionsAnimationSpeedSegmentHeight = 28.0;
-
-const commandButtonProminentWidth = commandButtonProminentMinHeight * 4;
-const commandButtonProminentMinHeight = 58.0;
-const commandButtonProminentHorizontalPadding = 42.0;
-const commandButtonProminentTopPadding = 14.0;
-const commandButtonProminentBottomPadding = 10.0;
-const commandButtonProminentOuterShadowOpacity = 0.34;
-const commandButtonProminentOuterShadowRadius = 8.0;
-const commandButtonProminentOuterShadowYOffset = 3.0;
 
 const menuRuleBodyFontSize = 13.0;
 
@@ -264,31 +266,58 @@ class OptionsMenuActions extends StatelessWidget {
           spacing: optionsMenuControlsSpacing,
           children: [
             Center(
-              child: ActionSurfaceButton(
+              child: ChromeAssetButton.command(
                 label: language.text(en: 'New game', ru: 'Новая игра'),
-                iconPath: null,
                 prominent: true,
                 tokens: tokens,
                 onPressed: onNewGame,
+                surfaceKey: const Key('command-surface-button'),
               ),
             ),
             Center(
-              child: ActionSurfaceButton(
+              child: ChromeAssetButton(
                 label: language.text(en: 'How to play', ru: 'Как играть'),
-                iconPath: 'ios_resources/Icons/icon-tutorial.png',
-                prominent: false,
                 tokens: tokens,
+                backgroundColor: tokens.colors.black.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(
+                  color: tokens.colors.gold.withValues(alpha: 0.42),
+                ),
+                textColor: tokens.colors.creamDim,
+                textSize: PixelTextSize.caption,
                 onPressed: onTutorial,
+                iconAsset: 'ios_resources/Icons/icon-tutorial.png',
+                iconMuted: true,
+                iconSize: optionsMenuActionIconSize,
+                width: optionsMenuActionWidth,
+                height: optionsMenuActionHeight,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: optionsMenuActionHorizontalPadding,
+                ),
+                spacing: optionsMenuActionContentSpacing,
               ),
             ),
             Center(
-              child: ActionSurfaceButton(
+              child: ChromeAssetButton(
                 label: language.text(en: 'Main menu', ru: 'Главное меню'),
-                iconPath: 'ios_resources/Icons/icon-menu.png',
-                prominent: false,
-                mutedBorder: true,
                 tokens: tokens,
+                backgroundColor: tokens.colors.black.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(
+                  color: tokens.colors.steel.withValues(alpha: 0.5),
+                ),
+                textColor: tokens.colors.creamDim,
+                textSize: PixelTextSize.caption,
                 onPressed: onReturnToLobby,
+                iconAsset: 'ios_resources/Icons/icon-menu.png',
+                iconMuted: true,
+                iconSize: optionsMenuActionIconSize,
+                width: optionsMenuActionWidth,
+                height: optionsMenuActionHeight,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: optionsMenuActionHorizontalPadding,
+                ),
+                spacing: optionsMenuActionContentSpacing,
               ),
             ),
             Center(
@@ -353,33 +382,13 @@ class OptionsMenuRules extends StatelessWidget {
           size: PixelTextSize.headline,
           color: tokens.colors.gold,
         ),
-        MenuRuleRow(
-          iconPath: 'ios_resources/Icons/icon-jobs.png',
-          title: language.text(en: 'Work', ru: 'Работы'),
-          body: language.text(
-            en: 'Win tricks, then assign captured cards to matching jobs.',
-            ru: 'Выигрывайте взятки и назначайте карты на подходящие работы.',
+        for (final rule in optionsRuleSummaries)
+          MenuRuleRow(
+            iconPath: rule.iconPath,
+            title: rule.title(language),
+            body: rule.body(language),
+            tokens: tokens,
           ),
-          tokens: tokens,
-        ),
-        MenuRuleRow(
-          iconPath: 'ios_resources/Icons/icon-plot.png',
-          title: language.text(en: 'Protect', ru: 'Защита'),
-          body: language.text(
-            en: 'Keep plot cards safe from failed-job requisition.',
-            ru: 'Берегите карты участка от реквизиции за проваленные работы.',
-          ),
-          tokens: tokens,
-        ),
-        MenuRuleRow(
-          iconPath: 'ios_resources/Icons/icon-warning.png',
-          title: language.text(en: 'Trump faces', ru: 'Козырные карты'),
-          body: language.text(
-            en: 'Jack goes north, Queen exposes, King doubles exile.',
-            ru: 'Валет уходит на Север, Дама раскрывает, Король удваивает ссылку.',
-          ),
-          tokens: tokens,
-        ),
       ],
     );
   }
@@ -588,158 +597,6 @@ class ReadabilitySurfaceButton extends StatelessWidget {
   }
 }
 
-class ActionSurfaceButton extends StatelessWidget {
-  const ActionSurfaceButton({
-    required this.label,
-    required this.iconPath,
-    required this.prominent,
-    required this.tokens,
-    this.mutedBorder = false,
-    this.onPressed,
-    super.key,
-  });
-
-  final String label;
-  final String? iconPath;
-  final bool prominent;
-  final bool mutedBorder;
-  final DesignTokens tokens;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final child = _buttonSurface();
-    if (onPressed == null) {
-      return child;
-    }
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onPressed,
-      child: child,
-    );
-  }
-
-  Widget _buttonSurface() {
-    if (prominent) {
-      return CommandSurfaceButton(label: label, tokens: tokens);
-    }
-    return Container(
-      width: optionsMenuActionWidth,
-      height: optionsMenuActionHeight,
-      padding: const EdgeInsets.symmetric(
-        horizontal: optionsMenuActionHorizontalPadding,
-      ),
-      decoration: BoxDecoration(
-        color: tokens.colors.black.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(5),
-        border: Border.all(
-          color: mutedBorder
-              ? tokens.colors.steel.withValues(alpha: 0.5)
-              : tokens.colors.gold.withValues(alpha: 0.42),
-        ),
-      ),
-      child: Row(
-        spacing: optionsMenuActionContentSpacing,
-        children: [
-          if (iconPath != null)
-            Opacity(
-              opacity: iconMutedOpacity,
-              child: ColorFiltered(
-                colorFilter: const ColorFilter.matrix(
-                  iconMutedSaturationMatrix,
-                ),
-                child: Image.asset(
-                  iconPath!,
-                  width: optionsMenuActionIconSize,
-                  height: optionsMenuActionIconSize,
-                  filterQuality: FilterQuality.none,
-                ),
-              ),
-            ),
-          Flexible(
-            child: ChromePixelLabel(
-              label.toUpperCase(),
-              size: PixelTextSize.caption,
-              color: tokens.colors.creamDim,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class CommandSurfaceButton extends StatelessWidget {
-  const CommandSurfaceButton({
-    required this.label,
-    required this.tokens,
-    super.key,
-  });
-
-  final String label;
-  final DesignTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      key: const Key('command-surface-button'),
-      width: commandButtonProminentWidth,
-      height: commandButtonProminentMinHeight,
-      constraints: const BoxConstraints(
-        minHeight: commandButtonProminentMinHeight,
-      ),
-      padding: const EdgeInsets.only(
-        left: commandButtonProminentHorizontalPadding,
-        right: commandButtonProminentHorizontalPadding,
-        top: commandButtonProminentTopPadding,
-        bottom: commandButtonProminentBottomPadding,
-      ),
-      decoration: BoxDecoration(
-        image: const DecorationImage(
-          image: AssetImage('ios_resources/ui-button-primary.png'),
-          fit: BoxFit.fill,
-          filterQuality: FilterQuality.none,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: tokens.colors.black.withValues(
-              alpha: commandButtonProminentOuterShadowOpacity,
-            ),
-            blurRadius: commandButtonProminentOuterShadowRadius,
-            offset: const Offset(0, commandButtonProminentOuterShadowYOffset),
-          ),
-        ],
-      ),
-      child: Center(
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: CommandSurfaceButtonLabel(label.toUpperCase(), tokens: tokens),
-        ),
-      ),
-    );
-  }
-}
-
-class CommandSurfaceButtonLabel extends StatelessWidget {
-  const CommandSurfaceButtonLabel(
-    this.label, {
-    required this.tokens,
-    super.key,
-  });
-
-  final String label;
-  final DesignTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    return ChromePixelLabel(
-      label.toUpperCase(),
-      size: PixelTextSize.headline,
-      color: tokens.colors.onAccent,
-    );
-  }
-}
-
 class MenuRuleRow extends StatelessWidget {
   const MenuRuleRow({
     required this.iconPath,
@@ -771,19 +628,11 @@ class MenuRuleRow extends StatelessWidget {
             width: 22,
             height: 22,
             child: Center(
-              child: Opacity(
-                opacity: 0.82,
-                child: ColorFiltered(
-                  colorFilter: const ColorFilter.matrix(
-                    iconMutedSaturationMatrix,
-                  ),
-                  child: Image.asset(
-                    iconPath,
-                    width: 17,
-                    height: 17,
-                    filterQuality: FilterQuality.none,
-                  ),
-                ),
+              child: ChromeAssetIcon(
+                asset: iconPath,
+                width: 17,
+                height: 17,
+                muted: true,
               ),
             ),
           ),

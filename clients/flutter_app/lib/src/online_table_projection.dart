@@ -5,8 +5,8 @@ import 'game_constants.dart';
 import 'game_ui_state.dart';
 import 'online_game_models.dart';
 import 'render_model.dart';
+import 'table_model_assembler.dart';
 import 'table_view_projection.dart';
-import 'table_projection_helpers.dart';
 
 class OnlineTableProjection {
   const OnlineTableProjection({
@@ -26,27 +26,23 @@ class OnlineTableProjection {
   TableViewModel project() {
     final phase = phaseName(snapshot.phase);
     final projectedActions = projectedLegalActions();
-    return TableViewModel(
+    return buildTableViewModel(
+      uiState: uiState,
       viewer: Viewer(seatID: playerID, privacyMode: viewerPrivacyNone),
-      table: TableState(
-        year: snapshot.year,
-        phase: phase,
-        phasePrompt: phasePromptForPhase(phase, isFamine: snapshot.isFamine),
-        currentPlayerID: snapshot.currentPlayer,
-        trump: suitName(snapshot.trump),
-        isFamine: snapshot.isFamine,
-        maxTricks: snapshot.isFamine ? 3 : 4,
-        seats: seats(),
-        jobs: jobs(projectedActions),
-        trick: trick(current: true),
-        lastTrick: trick(current: false),
-        requisitionEvents: requisitionEvents(),
-        exiledByYear: exiledByYear(),
-        scoreboard: scoreboard(finalScores: phase == phaseGameOver),
-        gameResult: gameResult(phase),
-      ),
-      panels: panelsForPhase(uiState, phase),
-      selection: uiState.selection,
+      year: snapshot.year,
+      phase: phase,
+      currentPlayerID: snapshot.currentPlayer,
+      trump: suitName(snapshot.trump),
+      isFamine: snapshot.isFamine,
+      seats: seats(),
+      jobs: jobs(projectedActions),
+      trick: trick(current: true),
+      lastTrick: trick(current: false),
+      requisitionEvents: requisitionEvents(),
+      exiledByYear: exiledByYear(),
+      scoreboard: scoreboard(finalScores: phase == phaseGameOver),
+      winnerSeatID: snapshot.winnerID,
+      finalScoreboard: scoreboard(finalScores: true),
       legalActions: projectedActions,
     );
   }
@@ -130,30 +126,24 @@ class OnlineTableProjection {
   }
 
   List<Job> jobs(List<LegalAction> actions) {
-    final assignmentTargets = assignmentTargetSuits(actions);
-    return [
-      for (var suit = 0; suit < displaySuitOrder.length; suit += 1)
-        Job(
-          suit: suitName(suit)!,
-          hours: workHours(suit),
-          requiredHours: jobRequiredHours,
-          claimed: snapshot.claimedJobs.contains(suit),
-          reward: firstCardForSuit(snapshot.revealedJobs, suit),
-          assignedCards: [
-            ...cards(cardsForSuit(snapshot.jobBuckets, suit)),
-            ...pendingAssignmentCards(suit),
-          ],
-          validAssignmentTarget: assignmentTargets.contains(suitName(suit)),
-          highlighted: snapshot.trump == suit,
-        ),
-    ];
+    return buildProjectedJobs(
+      legalActions: actions,
+      trump: snapshot.trump,
+      hoursForSuit: workHours,
+      claimedForSuit: (suit) => snapshot.claimedJobs.contains(suit),
+      rewardForSuit: (suit) => firstCardForSuit(snapshot.revealedJobs, suit),
+      assignedCardsForSuit: (suit) => [
+        ...cards(cardsForSuit(snapshot.jobBuckets, suit)),
+        ...pendingAssignmentCards(suit),
+      ],
+    );
   }
 
   List<TableCard> pendingAssignmentCards(int targetSuit) {
     return [
       for (final assignment in snapshot.pendingAssignments)
         if (assignment.targetSuit == targetSuit)
-          projectCard(assignment.card.valueObject, pending: true),
+          projectOnlineCard(assignment.card.valueObject, pending: true),
     ];
   }
 
@@ -164,7 +154,7 @@ class OnlineTableProjection {
         for (final play in plays)
           TrickPlay(
             seatID: play.playerID,
-            card: projectCard(play.card.valueObject),
+            card: projectOnlineCard(play.card.valueObject),
           ),
       ],
       winnerSeatID: current ? null : nullablePlayerID(snapshot.lastWinner),
@@ -177,35 +167,25 @@ class OnlineTableProjection {
         RequisitionEvent(
           seatID: nullablePlayerID(event.playerID),
           suit: suitName(event.suit) ?? 'wheat',
-          card: event.card.isValid ? projectCard(event.card.valueObject) : null,
+          card: event.card.isValid
+              ? projectOnlineCard(event.card.valueObject)
+              : null,
           message: event.message,
         ),
     ];
   }
 
   Map<int, List<TableCard>> exiledByYear() {
-    return {
-      for (var year = 1; year <= finalGameYear; year += 1)
-        year: cards(cardsForSuit(snapshot.exiled, year)),
-    };
+    return buildExiledByYear(
+      (year) => cards(cardsForSuit(snapshot.exiled, year)),
+    );
   }
 
   List<Score> scoreboard({required bool finalScores}) {
-    return [
-      for (var seatID = 0; seatID < kolkhozPlayerCount; seatID += 1)
-        Score(
-          seatID: seatID,
-          visibleScore: scoreFor(seatID).visibleScore,
-          finalScore: finalScores ? scoreFor(seatID).finalScore : null,
-        ),
-    ];
-  }
-
-  GameResult? gameResult(String phase) {
-    return gameResultForPhase(
-      phase,
-      winnerSeatID: snapshot.winnerID,
-      scores: scoreboard(finalScores: true),
+    return buildScoreboard(
+      finalScores: finalScores,
+      visibleScoreForPlayer: (seatID) => scoreFor(seatID).visibleScore,
+      finalScoreForPlayer: (seatID) => scoreFor(seatID).finalScore,
     );
   }
 
@@ -226,7 +206,7 @@ class OnlineTableProjection {
   }) {
     return [
       for (final card in cards)
-        projectCard(
+        projectOnlineCard(
           card.valueObject,
           highlighted: highlightedIDs.contains(cardID(card.valueObject)),
         ),
@@ -245,7 +225,20 @@ class OnlineTableProjection {
 
   TableCard? firstCardForSuit(List<OnlineSuitCardsSnapshot> entries, int suit) {
     final cards = cardsForSuit(entries, suit);
-    return cards.isEmpty ? null : projectCard(cards.first.valueObject);
+    return cards.isEmpty ? null : projectOnlineCard(cards.first.valueObject);
+  }
+
+  TableCard projectOnlineCard(
+    EngineCardValue card, {
+    bool highlighted = false,
+    bool pending = false,
+  }) {
+    return projectCard(
+      card,
+      highlighted: highlighted,
+      pending: pending,
+      nomenclature: isNomenclatureFace(card, update.variants, snapshot.trump),
+    );
   }
 
   int workHours(int suit) {

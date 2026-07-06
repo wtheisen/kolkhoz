@@ -10,12 +10,13 @@ Read the agent documentation in `agent-docs/`:
 
 ## Code Principles
 
-**Keep it simple.** This is a card game, not enterprise software. Prefer straightforward solutions over clever abstractions.
+**Keep it simple.** This is a card game, not enterprise software. Prefer straightforward
+solutions over clever abstractions.
 
-**Follow the frameworks:**
-- **C engine** - Keep rules, legal actions, phase flow, and scoring in `ios/KolkhozSwiftUI/Sources/KolkhozCEngine/`.
-- **SwiftUI** - Keep app state in `GameStore`; views render state and call store actions.
-- **Swift Package Manager/XcodeGen** - Keep package and project wiring in sync.
+**Follow the current owners:**
+- **C engine** - Keep rules, legal actions, phase flow, AI, scoring, policy features, and deterministic simulation in `engine/KolkhozCEngine/`.
+- **Flutter** - Keep app state, layout, animation, controls, and assets in `clients/flutter_app/`.
+- **Research** - Keep training, benchmarking, promotion gates, seed mining, and dashboards in `research/`.
 
 **Write minimal code:**
 - Fix what's broken, don't refactor what works
@@ -25,29 +26,38 @@ Read the agent documentation in `agent-docs/`:
 
 **Test before committing:**
 ```bash
-cd ios/KolkhozSwiftUI
-swift run KolkhozSmokeTests
-swift build --target KolkhozAppFeature
-swift build --target KolkhozSwiftUIApp
+clang -std=c11 -I engine/KolkhozCEngine/include \
+  -fsyntax-only engine/KolkhozCEngine/KolkhozCEngine.c
+cd clients/flutter_app
+flutter analyze
+flutter test
+flutter build macos --debug
+```
+
+For research changes:
+```bash
+python3 -m research.kolkhoz_research.cli engine-smoke --games 8
 ```
 
 ## Frontend Work
 
-Use the iOS/SwiftUI UI skills when changing app screens or layout. The current SwiftUI
-app is the visual reference for future downloadable clients.
+Use Flutter/web UI skills when changing app screens or layout. The Flutter app is the
+visual and behavioral app source of truth.
 
 ## Common Patterns
 
-**Game logic** goes in `ios/KolkhozSwiftUI/Sources/KolkhozCEngine/`.
+**Game logic** goes in `engine/KolkhozCEngine/`.
 
-**Swift models and adapters** go in `ios/KolkhozSwiftUI/Sources/KolkhozCore/`.
+**Flutter models, adapters, and UI** go in `clients/flutter_app/lib/`.
 
-**UI components** go in `ios/KolkhozSwiftUI/Sources/KolkhozAppFeature/`.
+**Flutter assets** go in `clients/flutter_app/ios_resources/`.
 
-**State changes** happen by applying portable engine actions through the C adapter or
-online session. Views should not mutate `KolkhozState` directly.
+**Research and model training** go in `research/`.
+
+**State changes** happen by applying portable engine actions through the Dart FFI bridge.
+Flutter widgets should render projected state and call store actions.
 
 ## When Debugging
 
 Check the phase flow in `agent-docs/PHASES.md`. Most bugs are phase transition issues,
-snapshot/adaptation issues, or UI state that drifted from the C engine.
+C snapshot/projection issues, or Flutter UI state that drifted from the C engine.

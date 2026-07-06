@@ -12,7 +12,8 @@ class OnlineEngineCard {
   final int suit;
   final int value;
 
-  bool get isValid => suit >= 0 && value > 0;
+  bool get isValid =>
+      (suit >= 0 && suit < 4 && value > 0) || (suit == 4 && value == 14);
 
   EngineCardValue get valueObject => EngineCardValue(suit: suit, value: value);
 

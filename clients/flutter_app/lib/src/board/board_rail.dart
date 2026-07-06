@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_settings.dart';
+import '../chrome_button.dart';
 import '../design_tokens.dart';
 import '../game_constants.dart';
 import 'board_metrics.dart';
@@ -171,16 +172,18 @@ class RailButton extends StatelessWidget {
                   padding: EdgeInsets.only(
                     top: action ? _actionIconYOffset : 0,
                   ),
-                  child: Opacity(
-                    opacity: muted ? _iconMutedOpacity : 1,
-                    child: muted
-                        ? ColorFiltered(
-                            colorFilter: const ColorFilter.matrix(
-                              _iconMutedSaturationMatrix,
-                            ),
-                            child: iconImage(),
-                          )
-                        : iconImage(),
+                  child: ChromeAssetIcon(
+                    asset: 'ios_resources/Icons/$asset',
+                    width: metrics.railIconSize,
+                    height: metrics.railIconSize,
+                    muted: muted,
+                    errorBuilder: (_, _, _) => Icon(
+                      Icons.crop_square,
+                      size: metrics.railIconSize,
+                      color: active
+                          ? tokens.colors.cream
+                          : tokens.colors.creamDim,
+                    ),
                   ),
                 ),
               ],
@@ -199,46 +202,8 @@ class RailButton extends StatelessWidget {
       (false, false) => 'ui-nav-button-inactive.png',
     };
   }
-
-  Widget iconImage() {
-    return Image.asset(
-      'ios_resources/Icons/$asset',
-      width: metrics.railIconSize,
-      height: metrics.railIconSize,
-      fit: BoxFit.contain,
-      filterQuality: FilterQuality.none,
-      errorBuilder: (_, _, _) => Icon(
-        Icons.crop_square,
-        size: metrics.railIconSize,
-        color: active ? tokens.colors.cream : tokens.colors.creamDim,
-      ),
-    );
-  }
 }
 
 const _actionIconYOffset = 2.0;
 const _activeShadowRadius = 8.0;
 const _activeShadowYOffset = 3.0;
-const _iconMutedOpacity = 0.82;
-const _iconMutedSaturationMatrix = <double>[
-  0.76378,
-  0.21456,
-  0.02166,
-  0,
-  0,
-  0.06378,
-  0.91456,
-  0.02166,
-  0,
-  0,
-  0.06378,
-  0.21456,
-  0.72166,
-  0,
-  0,
-  0,
-  0,
-  0,
-  1,
-  0,
-];

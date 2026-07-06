@@ -12,6 +12,14 @@ import 'package:kolkhoz_app/src/saved_game_store.dart';
 import 'package:kolkhoz_app/src/table_view_projection.dart';
 
 void main() {
+  test('dart kolkhoz preset matches C engine kolkhoz defaults', () {
+    final bridge = KolkhozCEngineBridge();
+    expect(
+      variantsFingerprint(KolkhozGameVariants.kolkhoz),
+      variantsFingerprint(bridge.kolkhozEngineDefaults()),
+    );
+  });
+
   test('fixed opening seed projects the canonical Flutter table state', () {
     withEngine(seed: 20260703, variants: KolkhozGameVariants.kolkhoz, (
       bridge,
@@ -23,12 +31,132 @@ void main() {
         openingFingerprint(model),
         '''
 year=1 phase=trick current=0 trump=wheat viewer=0 privacy=none
-seats=0:human:hand=beet-8,potato-9,sunflower-10,sunflower-6,wheat-10:hidden=0:score=0|1:heuristicAI:hand=beet-11,beet-12,beet-6,beet-9,sunflower-12:hidden=5:score=0|2:heuristicAI:hand=potato-7,potato-8,sunflower-13,sunflower-8,sunflower-9:hidden=5:score=0|3:heuristicAI:hand=potato-11,wheat-12,wheat-13,wheat-9:hidden=4:score=0
+seats=0:human:hand=beet-10,potato-8,sunflower-8,wheat-12,wheat-6:hidden=0:score=0|1:heuristicAI:hand=beet-13,potato-11,potato-6,sunflower-6,wheat-8:hidden=5:score=0|2:heuristicAI:hand=beet-12,beet-6,beet-9,sunflower-13,wheat-9:hidden=5:score=0|3:heuristicAI:hand=potato-9,sunflower-10,sunflower-11,sunflower-9:hidden=4:score=0
 jobs=beet:beet-2:0:false|potato:potato-2:0:false|sunflower:sunflower-3:0:false|wheat:wheat-1:0:false
-actions=playCard:0:wheat-10
+actions=playCard:0:wheat-12|playCard:0:wheat-6
 '''
             .trim(),
       );
+    });
+  });
+
+  test('wrecker variant deals a 14-value all-suit worker card', () {
+    final bridge = KolkhozCEngineBridge();
+    for (var seed = 1; seed < 5000; seed += 1) {
+      final engine = bridge.newEngine(
+        seed: seed,
+        variants: KolkhozGameVariants.wrecker,
+        controllers: const [...fixtureControllers],
+      );
+      try {
+        final model = project(bridge, engine);
+        final viewerSeat = model.table.seats.firstWhere(
+          (seat) => seat.id == model.viewer.seatID,
+        );
+        final normalLead =
+            model.table.trick.plays.isNotEmpty &&
+            model.table.trick.plays.first.card.suit != wreckerSuit;
+        final hasWrecker = viewerSeat.hand.any(
+          (card) => card.id == 'wrecker-14' && card.value == 14,
+        );
+        final canPlayWrecker = model.legalActions.any(
+          (action) =>
+              action.kind == actionPlayCard &&
+              action.engineAction.card?.id == 'wrecker-14',
+        );
+        if (normalLead && hasWrecker && canPlayWrecker) {
+          expect(model.table.phase, phaseTrick);
+          expect(model.table.currentPlayerID, model.viewer.seatID);
+          return;
+        }
+      } finally {
+        bridge.freeEngine(engine);
+      }
+    }
+    fail('No seed dealt a playable wrecker under a normal lead suit.');
+  });
+
+  test('wrecker job can pay reward but still fails during requisition', () {
+    withEngine(seed: 1, variants: KolkhozGameVariants.wrecker, (
+      bridge,
+      engine,
+    ) {
+      var model = project(bridge, engine);
+      final currentRewardsBySuit = <String, String>{};
+      var appliedActions = 0;
+
+      while (model.table.phase != phaseGameOver && appliedActions < 500) {
+        for (final job in model.table.jobs) {
+          final reward = job.reward;
+          if (reward != null) {
+            currentRewardsBySuit[job.suit] = reward.id;
+          }
+        }
+        final wreckerJobs = model.table.jobs.where(
+          (job) => job.assignedCards.any(
+            (card) => card.suit == wreckerSuit && card.value == 14,
+          ),
+        );
+        if (model.table.phase == phaseRequisition && wreckerJobs.isNotEmpty) {
+          final wreckerJob = wreckerJobs.single;
+          final rewardID = currentRewardsBySuit[wreckerJob.suit];
+
+          expect(wreckerJob.claimed, isTrue);
+          expect(wreckerJob.hours, greaterThanOrEqualTo(40));
+          expect(rewardID, isNotNull);
+          expect(
+            model.table.seats.any(
+              (seat) => seat.plot.revealed.any((card) => card.id == rewardID),
+            ),
+            isTrue,
+          );
+          expect(
+            model.table.requisitionEvents.any(
+              (event) => event.suit == wreckerJob.suit,
+            ),
+            isTrue,
+          );
+          return;
+        }
+        final action = deterministicAction(model);
+        final cAction = cEngineAction(action.engineAction);
+        expect(cAction, isNotNull);
+        expect(bridge.apply(engine, cAction!), 0);
+        appliedActions += 1;
+        model = project(bridge, engine);
+      }
+
+      fail('Seed did not reach a Wrecker job requisition.');
+    });
+  });
+
+  test('wrecker plot card is exiled once during requisition', () {
+    withEngine(seed: 3, variants: KolkhozGameVariants.wrecker, (
+      bridge,
+      engine,
+    ) {
+      var model = project(bridge, engine);
+      var appliedActions = 0;
+
+      while (model.table.phase != phaseGameOver && appliedActions < 500) {
+        if (model.table.phase == phaseRequisition) {
+          final wreckerEvents = model.table.requisitionEvents
+              .where((event) => event.card?.id == 'wrecker-14')
+              .toList();
+          if (wreckerEvents.isNotEmpty) {
+            expect(wreckerEvents, hasLength(1));
+            return;
+          }
+        }
+        final action = deterministicAction(model);
+        final cAction = cEngineAction(action.engineAction);
+        expect(cAction, isNotNull);
+        expect(bridge.apply(engine, cAction!), 0);
+        appliedActions += 1;
+        model = project(bridge, engine);
+      }
+
+      fail('Seed did not reach a Wrecker plot requisition.');
     });
   });
 
@@ -82,9 +210,9 @@ actions=playCard:0:wheat-10
         expect(
           gameOverFingerprint(model, appliedActions),
           '''
-actions=44 winner=1
-scores=0:visible=0:final=41|1:visible=17:final=42|2:visible=4:final=10|3:visible=11:final=19
-exiled=1:beet-3,sunflower-5|2:beet-1,beet-12,potato-1,potato-6,potato-7|3:beet-10,beet-5,beet-6|4:beet-13,beet-4,sunflower-2,sunflower-6,sunflower-7|5:beet-2,beet-8,potato-11,potato-13,potato-5
+actions=34 winner=0
+scores=0:visible=4:final=40|1:visible=0:final=0|2:visible=1:final=7|3:visible=2:final=14
+exiled=1:beet-12,beet-3,beet-7,sunflower-5,sunflower-8,wheat-4|2:beet-1,beet-13,beet-9,potato-1,sunflower-4,sunflower-6,wheat-3|3:beet-11,beet-5,beet-6,sunflower-3,wheat-2|4:beet-4,potato-3,potato-7,potato-8,wheat-5|5:beet-10,beet-2,beet-8,potato-13,potato-5,sunflower-1,sunflower-2,wheat-6
 '''
               .trim(),
         );
@@ -436,6 +564,21 @@ String stackFingerprint(TableViewModel model, int appliedActions) {
     }
   }
   return ['actions=$appliedActions', 'stacks=${stacks.join('|')}'].join('\n');
+}
+
+String variantsFingerprint(KolkhozGameVariants variants) {
+  return [
+    variants.deckType,
+    variants.nomenclature,
+    variants.allowSwap,
+    variants.northernStyle,
+    variants.miceVariant,
+    variants.ordenNachalniku,
+    variants.medalsCount,
+    variants.accumulateJobs,
+    variants.heroOfSovietUnion,
+    variants.wreckerCard,
+  ].join(':');
 }
 
 List<String> cardIDs(List<TableCard> cards) {

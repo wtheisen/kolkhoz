@@ -136,6 +136,7 @@ Map<String, Object?> variantsToJson(KolkhozGameVariants variants) {
     'medalsCount': variants.medalsCount,
     'accumulateJobs': variants.accumulateJobs,
     'heroOfSovietUnion': variants.heroOfSovietUnion,
+    'wrecker': variants.wreckerCard,
   };
 }
 
@@ -150,6 +151,7 @@ KolkhozGameVariants variantsFromJson(Map<String, Object?> json) {
     medalsCount: json['medalsCount'] as bool,
     accumulateJobs: json['accumulateJobs'] as bool,
     heroOfSovietUnion: json['heroOfSovietUnion'] as bool,
+    wreckerCard: json['wrecker'] as bool? ?? false,
   );
 }
 

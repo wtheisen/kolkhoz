@@ -6,14 +6,15 @@ import 'controller_display.dart';
 import 'engine_action_projection.dart';
 import 'game_constants.dart';
 import 'game_ui_state.dart';
+import 'table_model_assembler.dart';
 import 'render_model.dart';
-import 'table_projection_helpers.dart';
 
 class TableViewProjection {
   const TableViewProjection({
     required this.bridge,
     required this.engine,
     this.controllers = KolkhozPlayerController.defaultControllers,
+    this.variants = KolkhozGameVariants.kolkhoz,
     this.uiState = const GameUiState(),
     this.revealedPlayerID,
   });
@@ -21,6 +22,7 @@ class TableViewProjection {
   final KolkhozCEngineBridge bridge;
   final Pointer<KCEngine> engine;
   final List<KolkhozPlayerController> controllers;
+  final KolkhozGameVariants variants;
   final GameUiState uiState;
   final int? revealedPlayerID;
 
@@ -43,34 +45,27 @@ class TableViewProjection {
         ? viewerPrivacyHotSeatHidden
         : viewerPrivacyNone;
     final legalActions = projectedLegalActions(engineActions, viewerSeatID);
-    return TableViewModel(
+    return buildTableViewModel(
+      uiState: uiState,
       viewer: Viewer(seatID: viewerSeatID, privacyMode: privacyMode),
-      table: TableState(
-        year: bridge.year(engine),
-        phase: phase,
-        phasePrompt: phasePromptForPhase(
-          phase,
-          isFamine: bridge.isFamine(engine),
-        ),
-        currentPlayerID: bridge.currentPlayer(engine),
-        trump: suitName(bridge.trump(engine)),
-        isFamine: bridge.isFamine(engine),
-        maxTricks: bridge.isFamine(engine) ? 3 : 4,
-        seats: seats(
-          engineActions: engineActions,
-          controllers: normalizedControllers,
-          viewerSeatID: viewerSeatID,
-        ),
-        jobs: jobs(legalActions),
-        trick: trick(current: true),
-        lastTrick: trick(current: false),
-        requisitionEvents: requisitionEvents(),
-        exiledByYear: exiledByYear(),
-        scoreboard: scoreboard(finalScores: phase == phaseGameOver),
-        gameResult: gameResult(phase),
+      year: bridge.year(engine),
+      phase: phase,
+      currentPlayerID: bridge.currentPlayer(engine),
+      trump: suitName(bridge.trump(engine)),
+      isFamine: bridge.isFamine(engine),
+      seats: seats(
+        engineActions: engineActions,
+        controllers: normalizedControllers,
+        viewerSeatID: viewerSeatID,
       ),
-      panels: panelsForPhase(uiState, phase),
-      selection: uiState.selection,
+      jobs: jobs(legalActions),
+      trick: trick(current: true),
+      lastTrick: trick(current: false),
+      requisitionEvents: requisitionEvents(),
+      exiledByYear: exiledByYear(),
+      scoreboard: scoreboard(finalScores: phase == phaseGameOver),
+      winnerSeatID: bridge.winnerID(engine),
+      finalScoreboard: scoreboard(finalScores: true),
       legalActions: legalActions,
     );
   }
@@ -163,28 +158,22 @@ class TableViewProjection {
   }
 
   List<Job> jobs(List<LegalAction> legalActions) {
-    final assignmentTargets = assignmentTargetSuits(legalActions);
-    return [
-      for (var suit = 0; suit < displaySuitOrder.length; suit++)
-        Job(
-          suit: suitName(suit)!,
-          hours: bridge.workHours(engine, suit),
-          requiredHours: jobRequiredHours,
-          claimed: bridge.claimedJob(engine, suit),
-          reward: bridge.hasRevealedJob(engine, suit)
-              ? projectCard(bridge.revealedJobCard(engine, suit))
-              : null,
-          assignedCards: [
-            ...cards(
-              bridge.jobBucketCount(engine, suit),
-              (index) => bridge.jobBucketCard(engine, suit, index),
-            ),
-            ...pendingAssignmentCards(suit),
-          ],
-          validAssignmentTarget: assignmentTargets.contains(suitName(suit)),
-          highlighted: bridge.trump(engine) == suit,
+    return buildProjectedJobs(
+      legalActions: legalActions,
+      trump: bridge.trump(engine),
+      hoursForSuit: (suit) => bridge.workHours(engine, suit),
+      claimedForSuit: (suit) => bridge.claimedJob(engine, suit),
+      rewardForSuit: (suit) => bridge.hasRevealedJob(engine, suit)
+          ? projectEngineCard(bridge.revealedJobCard(engine, suit))
+          : null,
+      assignedCardsForSuit: (suit) => [
+        ...cards(
+          bridge.jobBucketCount(engine, suit),
+          (index) => bridge.jobBucketCard(engine, suit, index),
         ),
-    ];
+        ...pendingAssignmentCards(suit),
+      ],
+    );
   }
 
   List<TableCard> pendingAssignmentCards(int targetSuit) {
@@ -192,7 +181,7 @@ class TableViewProjection {
     for (var index = 0; index < bridge.lastTrickCount(engine); index++) {
       if (bridge.pendingAssignmentTarget(engine, index) == targetSuit) {
         result.add(
-          projectCard(bridge.lastTrickCard(engine, index), pending: true),
+          projectEngineCard(bridge.lastTrickCard(engine, index), pending: true),
         );
       }
     }
@@ -209,7 +198,7 @@ class TableViewProjection {
           seatID: current
               ? bridge.currentTrickPlayer(engine, index)
               : bridge.lastTrickPlayer(engine, index),
-          card: projectCard(
+          card: projectEngineCard(
             current
                 ? bridge.currentTrickCard(engine, index)
                 : bridge.lastTrickCard(engine, index),
@@ -233,7 +222,7 @@ class TableViewProjection {
           ),
           suit: suitName(bridge.requisitionEventSuit(engine, index)) ?? 'wheat',
           card: bridge.requisitionEventCard(engine, index).isValid
-              ? projectCard(bridge.requisitionEventCard(engine, index))
+              ? projectEngineCard(bridge.requisitionEventCard(engine, index))
               : null,
           message: requisitionMessage(
             bridge.requisitionEventMessageKind(engine, index),
@@ -243,31 +232,20 @@ class TableViewProjection {
   }
 
   Map<int, List<TableCard>> exiledByYear() {
-    return {
-      for (var year = 1; year <= finalGameYear; year++)
-        year: cards(
-          bridge.exiledCount(engine, year),
-          (index) => bridge.exiledCard(engine, year, index),
-        ),
-    };
+    return buildExiledByYear(
+      (year) => cards(
+        bridge.exiledCount(engine, year),
+        (index) => bridge.exiledCard(engine, year, index),
+      ),
+    );
   }
 
   List<Score> scoreboard({required bool finalScores}) {
-    return [
-      for (var playerID = 0; playerID < kolkhozPlayerCount; playerID++)
-        Score(
-          seatID: playerID,
-          visibleScore: bridge.visibleScore(engine, playerID),
-          finalScore: finalScores ? bridge.finalScore(engine, playerID) : null,
-        ),
-    ];
-  }
-
-  GameResult? gameResult(String phase) {
-    return gameResultForPhase(
-      phase,
-      winnerSeatID: bridge.winnerID(engine),
-      scores: scoreboard(finalScores: true),
+    return buildScoreboard(
+      finalScores: finalScores,
+      visibleScoreForPlayer: (playerID) =>
+          bridge.visibleScore(engine, playerID),
+      finalScoreForPlayer: (playerID) => bridge.finalScore(engine, playerID),
     );
   }
 
@@ -297,11 +275,24 @@ class TableViewProjection {
   }) {
     return [
       for (var index = 0; index < count; index++)
-        projectCard(
+        projectEngineCard(
           cardAt(index),
           highlighted: highlightedIDs.contains(cardID(cardAt(index))),
         ),
     ];
+  }
+
+  TableCard projectEngineCard(
+    EngineCardValue card, {
+    bool highlighted = false,
+    bool pending = false,
+  }) {
+    return projectCard(
+      card,
+      highlighted: highlighted,
+      pending: pending,
+      nomenclature: isNomenclatureFace(card, variants, bridge.trump(engine)),
+    );
   }
 }
 
@@ -309,6 +300,7 @@ TableCard projectCard(
   EngineCardValue card, {
   bool highlighted = false,
   bool pending = false,
+  bool nomenclature = false,
 }) {
   return TableCard(
     id: cardID(card),
@@ -318,5 +310,18 @@ TableCard projectCard(
     selected: false,
     highlighted: highlighted,
     pending: pending,
+    nomenclature: nomenclature,
   );
+}
+
+bool isNomenclatureFace(
+  EngineCardValue card,
+  KolkhozGameVariants variants,
+  int trump,
+) {
+  return variants.nomenclature &&
+      trump >= 0 &&
+      card.suit == trump &&
+      card.value >= 11 &&
+      card.value <= 13;
 }

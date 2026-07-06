@@ -1,4 +1,15 @@
-part of '../board_view.dart';
+import 'dart:math' as math;
+import 'dart:ui' show clampDouble;
+
+import 'package:flutter/material.dart';
+
+import '../app_settings.dart';
+import '../assignment_display.dart';
+import '../design_tokens.dart';
+import '../game_constants.dart';
+import '../pixel_text.dart';
+import '../render_model.dart';
+import 'board_widgets.dart';
 
 const jobsPanelLocalPadding = EdgeInsets.only(top: 8);
 const jobsTileSpacingWidthFactor = 0.016;

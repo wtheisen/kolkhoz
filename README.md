@@ -1,62 +1,51 @@
 # Kolkhoz
 
-Kolkhoz is a Soviet-themed trick-taking card game. The current source of truth is the
-portable C engine wrapped by the native SwiftUI app in `ios/KolkhozSwiftUI/`.
+Kolkhoz is a Soviet-themed trick-taking card game. The runtime split is now simple:
+rules live in the portable C engine, and the playable app lives in Flutter.
 
 ## Current Status
 
-The SwiftUI app is playable with:
+- `engine/KolkhozCEngine/` is the source of truth for rules, legal actions, phase flow,
+  AI, scoring, policy features, and deterministic simulation.
+- `clients/flutter_app/` is the standalone client for desktop/mobile work.
+- `clients/flutter_app/ios_resources/` owns the app's pixel-art cards, icons, UI chrome,
+  fonts, and tutorial art.
+- `research/` owns model training, benchmarking, promotion records, seed mining, and
+  dashboard tooling.
 
-- 4-player gameplay: 1 human and 3 AI opponents.
-- Offline play backed by the C engine.
-- Online session/server foundations using portable engine actions and redacted snapshots.
-- Full 5-year campaign.
-- Native SwiftUI lobby, board, card, swap, assignment, plot, requisition, and game-over screens.
-- Pixel-art card, icon, and UI resources.
-- Deterministic engine support through seeded randomness.
-- Plain Swift smoke tests.
-
-The legacy React/boardgame.io/Vite web app was removed. It is preserved only on the
-`archive/legacy-webapp-before-removal` branch for historical reference and should not be
-used as the basis for new app work.
-
-Future downloadable clients should share the C engine gameplay boundary and the shared
-native app contracts in `shared/`. The iOS SwiftUI app remains the visual reference;
-future Android, macOS, Windows, and Linux clients are expected to use Flutter as native
-renderers of those contracts.
+The legacy React app and the transitional native Apple app have been removed. Do not
+recreate retired adapters, platform-specific rule layers, package targets, or
+compatibility layers for retired clients.
 
 ## Quick Start
 
+Check the C engine directly:
+
 ```bash
-cd ios/KolkhozSwiftUI
-swift run KolkhozSmokeTests
-swift run KolkhozContractSmokeTests
-swift build --target KolkhozAppFeature
-swift build --target KolkhozSwiftUIApp
+clang -std=c11 -I engine/KolkhozCEngine/include \
+  -fsyntax-only engine/KolkhozCEngine/KolkhozCEngine.c
 ```
 
-To check the fixture-only Flutter renderer:
+Check the Flutter client:
 
 ```bash
-cd clients/flutter_fixture_renderer
+cd clients/flutter_app
 flutter analyze
 flutter test
 flutter build macos --debug
 ```
 
-To open in Xcode:
+Check the research harness:
 
 ```bash
-cd ios/KolkhozSwiftUI
-xcodegen generate
-open KolkhozSwiftUI.xcodeproj
+python3 -m research.kolkhoz_research.cli engine-smoke --games 8
 ```
 
-Then select the `KolkhozSwiftUIApp` scheme and run on an iPhone simulator or device.
+Run the combined Flutter source gate:
 
-If SwiftPM reports duplicate modules through both `/Users/wtheisen/Dropbox/...` and
-`/Users/wtheisen/Library/CloudStorage/Dropbox/...`, run commands through one canonical
-path or clear the SwiftPM module cache.
+```bash
+scripts/verify_flutter_source_gate.sh
+```
 
 ## Game Flow
 
@@ -78,65 +67,54 @@ Special cards apply only when `nomenclature` is enabled and the card is in the t
 
 Famine has no trump, so trump special-card effects do not apply in year 5.
 
-## Swift Architecture
+## Layout
 
 ```text
-ios/KolkhozSwiftUI/
-  Package.swift
-  project.yml
-  Sources/
-    KolkhozCEngine/
-      KolkhozCEngine.c          # Portable C rules engine
-      include/KolkhozCEngine.h  # Public C API
-    KolkhozCore/
-      Models.swift              # State, cards, variants, phases, errors
-      KolkhozHeadlessEngine.swift # Swift C adapter, snapshots, actions, saved games
-      KolkhozOnlineSession.swift # Authoritative online sessions and client protocols
-      KolkhozOnlineHTTPRouter.swift # HTTP transport routing helpers
-    KolkhozAppFeature/
-      GameStore.swift           # SwiftUI adapter around C/online runtimes
-      KolkhozRootView.swift     # Lobby/game switch
-      Lobby/LobbyView.swift     # Presets, custom variants, rules
-      Lobby/OnlineLobbyView.swift # Host/join online setup
-      Board/                    # Board shell, navigation, phase screens
-      Cards/CardViews.swift     # Card rendering
-      Design/                  # Shared colors, controls, icons
-      Resources/               # Pixel art and UI assets
-    KolkhozSwiftUIApp/
-      KolkhozSwiftUIApp.swift   # App entry point
-    KolkhozSmokeTests/
-      main.swift                # Smoke tests
-    KolkhozContractSmokeTests/
-      main.swift                # Shared contract fixture smoke tests
-shared/
-  app-contracts/                # Platform-neutral table view model schema and fixtures
-  design/tokens.json            # Shared visual constants derived from SwiftUI
+engine/
+  KolkhozCEngine/
+    KolkhozCEngine.c
+    include/KolkhozCEngine.h
 clients/
-  flutter_fixture_renderer/     # Flutter renderer for shared JSON fixtures, no engine FFI
+  flutter_app/
+    lib/
+    ios_resources/
+    native/macos/libkolkhoz_c_engine.dylib
+    tool/build_c_engine_macos.sh
+research/
+  kolkhoz_research/
+  configs/
+  dashboard/
+agent-docs/
 ```
 
 ## Data Flow
 
 ```text
-SwiftUI gesture
-    -> GameStore action
-    -> KolkhozCEngineAdapter applies a portable action
-    -> C engine processes automatic AI turns
-    -> GameStore publishes copied state and animation events
-    -> SwiftUI re-renders
+Flutter gesture
+    -> LiveGameStore
+    -> Dart FFI action
+    -> C engine applies manual action
+    -> C engine advances one automatic step at a time
+    -> Dart projects C state into TableViewModel
+    -> Flutter renders
 ```
 
-Views should call `GameStore`; game rules and state mutations belong in the C engine.
+For research:
+
+```text
+Python CLI
+    -> ctypes C engine wrapper
+    -> C engine simulations/features
+    -> C MLP or Torch/MPS policy backend
+    -> benchmark/tournament/promotion records
+```
 
 ## Key Files
 
-- `ios/KolkhozSwiftUI/Sources/KolkhozCEngine/` - Portable C rules engine.
-- `ios/KolkhozSwiftUI/Sources/KolkhozCore/KolkhozHeadlessEngine.swift` - Swift C adapter, snapshots, actions, saved games.
-- `ios/KolkhozSwiftUI/Sources/KolkhozCore/KolkhozOnlineSession.swift` - Online session state, redaction, and client protocols.
-- `ios/KolkhozSwiftUI/Sources/KolkhozCore/Models.swift` - State and model definitions.
-- `ios/KolkhozSwiftUI/Sources/KolkhozAppFeature/GameStore.swift` - MainActor state bridge.
-- `ios/KolkhozSwiftUI/Sources/KolkhozAppFeature/Board/` - Phase UI and player interactions.
-- `shared/app-contracts/` - JSON contract scaffolding for future native clients.
-- `shared/design/tokens.json` - Shared design-token source for SwiftUI and future Flutter alignment.
-- `clients/flutter_fixture_renderer/` - Fixture-only Flutter app that renders shared contracts and tokens.
-- `agent-docs/` - Agent-oriented architecture, state, and phase references.
+- `engine/KolkhozCEngine/KolkhozCEngine.c` - rules, legal actions, AI, scoring, C policy features.
+- `engine/KolkhozCEngine/include/KolkhozCEngine.h` - public C API used by Flutter and research.
+- `clients/flutter_app/lib/src/c_engine_bridge.dart` - Dart FFI bridge.
+- `clients/flutter_app/lib/src/live_game_store.dart` - Flutter runtime store.
+- `clients/flutter_app/lib/src/table_view_projection.dart` - C snapshot to Flutter table model.
+- `research/kolkhoz_research/c_engine.py` - Python `ctypes` wrapper and local shared-library build.
+- `research/kolkhoz_research/cli.py` - training, benchmark, tournament, seed-mining CLI.

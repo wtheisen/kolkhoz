@@ -121,7 +121,12 @@ class LiveGameStore extends ChangeNotifier {
   }
 
   void setActivePanel(String panel) {
-    uiState = uiState.activatePanel(panel);
+    uiState = uiState.togglePanel(panel);
+    _sync();
+  }
+
+  void clearActivePanel() {
+    uiState = uiState.clearActivePanel();
     _sync();
   }
 
@@ -267,6 +272,7 @@ class LiveGameStore extends ChangeNotifier {
         bridge: bridge,
         engine: engine,
         controllers: controllers,
+        variants: currentVariants,
         uiState: uiState,
         revealedPlayerID: revealedPlayerID,
       ).project();

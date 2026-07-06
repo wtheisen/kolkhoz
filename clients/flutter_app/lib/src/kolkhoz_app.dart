@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'app_settings.dart';
@@ -7,6 +9,8 @@ import 'game_constants.dart';
 import 'board_view.dart';
 import 'live_game_store.dart';
 import 'pixel_text.dart';
+import 'render_model.dart';
+import 'rule_content.dart';
 import 'tutorial_display.dart';
 
 class KolkhozApp extends StatefulWidget {
@@ -17,6 +21,8 @@ class KolkhozApp extends StatefulWidget {
 }
 
 class _KolkhozAppState extends State<KolkhozApp> {
+  static const foremanHintDuration = Duration(seconds: 3);
+
   late final LiveGameStore store;
   late final KolkhozAppSettingsStore settingsStore;
   KolkhozAppSettings settings = const KolkhozAppSettings();
@@ -24,6 +30,8 @@ class _KolkhozAppState extends State<KolkhozApp> {
   bool showingRules = false;
   bool showingOnline = false;
   bool showingTutorial = false;
+  String? foremanHint;
+  Timer? foremanHintTimer;
   KolkhozGamePreset selectedPreset = KolkhozGamePreset.kolkhoz;
   KolkhozGameVariants customVariants = KolkhozGameVariants.kolkhoz;
   List<KolkhozPlayerController> playerControllers = List.of(
@@ -48,6 +56,7 @@ class _KolkhozAppState extends State<KolkhozApp> {
 
   @override
   void dispose() {
+    foremanHintTimer?.cancel();
     store.dispose();
     super.dispose();
   }
@@ -145,15 +154,17 @@ class _KolkhozAppState extends State<KolkhozApp> {
                   tokens: tokens,
                   language: language,
                   appearance: appearance,
-                  onAction: store.applyLegalAction,
+                  onAction: applyBoardAction,
                   onPanelSelected: store.setActivePanel,
                   onLanguageToggle: toggleLanguage,
                   onAppearanceToggle: toggleAppearance,
                   onSwapHandCardTap: store.selectSwapHandCard,
                   onPlotCardTap: store.selectPlotCard,
                   onAssignmentCardTap: store.selectAssignmentCard,
+                  onInvalidHandCardTap: showFollowSuitHint,
                   onHotSeatReady: store.revealLocalPlayer,
                   onNewGame: () {
+                    clearForemanHint();
                     store.newGame(
                       variants: store.currentVariants,
                       controllers: store.controllers,
@@ -183,10 +194,22 @@ class _KolkhozAppState extends State<KolkhozApp> {
           return Stack(
             children: [
               Positioned.fill(child: content),
+              if (foremanHint != null)
+                Positioned(
+                  right: 18,
+                  bottom: 18,
+                  child: IgnorePointer(
+                    child: ForemanHintBubble(
+                      message: foremanHint!,
+                      tokens: tokens,
+                    ),
+                  ),
+                ),
               if (showingTutorial)
                 Positioned.fill(
                   child: TutorialWalkthroughOverlay(
                     tokens: tokens,
+                    language: language,
                     onClose: () => setState(() => showingTutorial = false),
                   ),
                 ),
@@ -198,6 +221,7 @@ class _KolkhozAppState extends State<KolkhozApp> {
   }
 
   void returnToLobby() {
+    clearForemanHint();
     store.leaveOnlineGame();
     setState(() {
       showingRules = false;
@@ -207,7 +231,40 @@ class _KolkhozAppState extends State<KolkhozApp> {
   }
 
   void showTutorial() {
+    clearForemanHint();
+    store.clearActivePanel();
     setState(() => showingTutorial = true);
+  }
+
+  void applyBoardAction(LegalAction action) {
+    clearForemanHint();
+    store.applyLegalAction(action);
+  }
+
+  void showFollowSuitHint() {
+    foremanHintTimer?.cancel();
+    setState(() {
+      foremanHint = settings.language.text(
+        en: 'Remember, you must follow suit if able.',
+        ru: 'Помните: если можете, нужно ходить в масть.',
+      );
+    });
+    foremanHintTimer = Timer(foremanHintDuration, () {
+      if (!mounted) {
+        return;
+      }
+      setState(() => foremanHint = null);
+      foremanHintTimer = null;
+    });
+  }
+
+  void clearForemanHint() {
+    foremanHintTimer?.cancel();
+    foremanHintTimer = null;
+    if (foremanHint == null || !mounted) {
+      return;
+    }
+    setState(() => foremanHint = null);
   }
 
   void toggleLanguage() {
@@ -263,6 +320,9 @@ KolkhozGamePreset presetForVariants(KolkhozGameVariants variants) {
   if (sameVariants(variants, KolkhozGameVariants.kolkhoz)) {
     return KolkhozGamePreset.kolkhoz;
   }
+  if (sameVariants(variants, KolkhozGameVariants.wrecker)) {
+    return KolkhozGamePreset.wrecker;
+  }
   if (sameVariants(variants, KolkhozGameVariants.littleKolkhoz)) {
     return KolkhozGamePreset.littleKolkhoz;
   }
@@ -281,11 +341,13 @@ bool sameVariants(KolkhozGameVariants left, KolkhozGameVariants right) {
       left.ordenNachalniku == right.ordenNachalniku &&
       left.medalsCount == right.medalsCount &&
       left.accumulateJobs == right.accumulateJobs &&
-      left.heroOfSovietUnion == right.heroOfSovietUnion;
+      left.heroOfSovietUnion == right.heroOfSovietUnion &&
+      left.wreckerCard == right.wreckerCard;
 }
 
 enum KolkhozGamePreset {
   kolkhoz,
+  wrecker,
   littleKolkhoz,
   campStyle,
   custom;
@@ -293,6 +355,7 @@ enum KolkhozGamePreset {
   String get title {
     return switch (this) {
       KolkhozGamePreset.kolkhoz => 'Kolkhoz',
+      KolkhozGamePreset.wrecker => 'Wrecker',
       KolkhozGamePreset.littleKolkhoz => 'Little Kolkhoz',
       KolkhozGamePreset.campStyle => 'Camp Style',
       KolkhozGamePreset.custom => 'Custom',
@@ -302,6 +365,7 @@ enum KolkhozGamePreset {
   KolkhozGameVariants? get variants {
     return switch (this) {
       KolkhozGamePreset.kolkhoz => KolkhozGameVariants.kolkhoz,
+      KolkhozGamePreset.wrecker => KolkhozGameVariants.wrecker,
       KolkhozGamePreset.littleKolkhoz => KolkhozGameVariants.littleKolkhoz,
       KolkhozGamePreset.campStyle => KolkhozGameVariants.campStyle,
       KolkhozGamePreset.custom => null,
@@ -607,7 +671,7 @@ class _LobbyButtonStack extends StatelessWidget {
         SizedBox(
           width: double.infinity,
           height: 44,
-          child: StandaloneCommandButton(
+          child: ChromeAssetButton.command(
             label: language.text(en: 'Start Game', ru: 'Начать игру'),
             prominent: true,
             tokens: tokens,
@@ -617,7 +681,7 @@ class _LobbyButtonStack extends StatelessWidget {
         SizedBox(
           width: double.infinity,
           height: 44,
-          child: StandaloneCommandButton(
+          child: ChromeAssetButton.command(
             label: language.text(en: 'Online Play', ru: 'Онлайн игра'),
             prominent: false,
             tokens: tokens,
@@ -628,7 +692,7 @@ class _LobbyButtonStack extends StatelessWidget {
         SizedBox(
           width: double.infinity,
           height: 44,
-          child: StandaloneCommandButton(
+          child: ChromeAssetButton.command(
             label: language.text(en: 'How to Play', ru: 'Как играть'),
             prominent: false,
             tokens: tokens,
@@ -639,7 +703,7 @@ class _LobbyButtonStack extends StatelessWidget {
         SizedBox(
           width: double.infinity,
           height: 44,
-          child: StandaloneCommandButton(
+          child: ChromeAssetButton.command(
             label: showingPanel
                 ? language.text(en: 'Options', ru: 'Настройки')
                 : language.text(en: 'Rules', ru: 'Правила'),
@@ -1188,53 +1252,31 @@ class _ImageTabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onPressed,
-      child: Container(
-        height: height,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage(
-              selected
-                  ? 'ios_resources/ui-tab-selected.png'
-                  : 'ios_resources/ui-tab-unselected.png',
-            ),
-            fit: BoxFit.fill,
-            filterQuality: FilterQuality.none,
-          ),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: tokens.colors.gold.withValues(alpha: 0.18),
-                    blurRadius: 5,
-                    offset: const Offset(0, 1),
-                  ),
-                ]
-              : null,
-        ),
-        padding: const EdgeInsets.fromLTRB(10, 3, 10, 0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          spacing: 5,
-          children: [
-            if (iconAsset != null)
-              _AssetIcon(iconAsset!, size: 15, opacity: selected ? 1 : 0.62),
-            Expanded(
-              child: _PixelChromeLabel(
-                label.toUpperCase(),
-                color: selected
-                    ? tokens.colors.onAccent
-                    : tokens.colors.cardInk,
-                size: iconAsset == null
-                    ? PixelTextSize.caption
-                    : PixelTextSize.caption2,
+    return ChromeAssetButton(
+      label: label,
+      backgroundAsset: selected
+          ? 'ios_resources/ui-tab-selected.png'
+          : 'ios_resources/ui-tab-unselected.png',
+      tokens: tokens,
+      textColor: selected ? tokens.colors.onAccent : tokens.colors.cardInk,
+      textSize: iconAsset == null
+          ? PixelTextSize.caption
+          : PixelTextSize.caption2,
+      onPressed: onPressed,
+      iconAsset: iconAsset,
+      iconSize: 15,
+      iconOpacity: selected ? 1 : 0.62,
+      height: height,
+      padding: const EdgeInsets.fromLTRB(10, 3, 10, 0),
+      boxShadow: selected
+          ? [
+              BoxShadow(
+                color: tokens.colors.gold.withValues(alpha: 0.18),
+                blurRadius: 5,
+                offset: const Offset(0, 1),
               ),
-            ),
-          ],
-        ),
-      ),
+            ]
+          : null,
     );
   }
 }
@@ -1313,70 +1355,13 @@ class _CustomVariantOptions extends StatelessWidget {
             ),
           ],
         ),
-        _VariantToggleRow(
-          tokens: tokens,
-          language: language,
-          row: _VariantRowData.nomenclature,
-          value: variants.nomenclature,
-          onChanged: (value) =>
-              onChanged(variants.copyWith(nomenclature: value)),
-        ),
-        _VariantToggleRow(
-          tokens: tokens,
-          language: language,
-          row: _VariantRowData.allowSwap,
-          value: variants.allowSwap,
-          onChanged: (value) => onChanged(variants.copyWith(allowSwap: value)),
-        ),
-        _VariantToggleRow(
-          tokens: tokens,
-          language: language,
-          row: _VariantRowData.northernStyle,
-          value: variants.northernStyle,
-          onChanged: (value) =>
-              onChanged(variants.copyWith(northernStyle: value)),
-        ),
-        _VariantToggleRow(
-          tokens: tokens,
-          language: language,
-          row: _VariantRowData.miceVariant,
-          value: variants.miceVariant,
-          onChanged: (value) =>
-              onChanged(variants.copyWith(miceVariant: value)),
-        ),
-        if (variants.deckType == 36)
+        for (final row in _VariantRowData.configurableRows(variants))
           _VariantToggleRow(
             tokens: tokens,
             language: language,
-            row: _VariantRowData.ordenNachalniku,
-            value: variants.ordenNachalniku,
-            onChanged: (value) =>
-                onChanged(variants.copyWith(ordenNachalniku: value)),
-          ),
-        _VariantToggleRow(
-          tokens: tokens,
-          language: language,
-          row: _VariantRowData.medalsCount,
-          value: variants.medalsCount,
-          onChanged: (value) =>
-              onChanged(variants.copyWith(medalsCount: value)),
-        ),
-        _VariantToggleRow(
-          tokens: tokens,
-          language: language,
-          row: _VariantRowData.heroOfSovietUnion,
-          value: variants.heroOfSovietUnion,
-          onChanged: (value) =>
-              onChanged(variants.copyWith(heroOfSovietUnion: value)),
-        ),
-        if (variants.deckType != 36)
-          _VariantToggleRow(
-            tokens: tokens,
-            language: language,
-            row: _VariantRowData.accumulateJobs,
-            value: variants.accumulateJobs,
-            onChanged: (value) =>
-                onChanged(variants.copyWith(accumulateJobs: value)),
+            row: row,
+            value: row.valueOf(variants),
+            onChanged: (value) => onChanged(row.withValue(variants, value)),
           ),
       ],
     );
@@ -1570,78 +1555,61 @@ class _RulesPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: 10,
-        children: [
-          Row(
-            spacing: 8,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final contentWidth = constraints.maxWidth;
+        final twoColumn = contentWidth >= 560;
+        final ruleWidth = twoColumn ? (contentWidth - 12) / 2 : contentWidth;
+
+        return SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 14,
             children: [
-              const _AssetIcon(
-                'ios_resources/Icons/icon-rules-scroll.png',
-                size: 26,
+              Row(
+                spacing: 8,
+                children: [
+                  const _AssetIcon(
+                    'ios_resources/Icons/icon-rules-scroll.png',
+                    size: 30,
+                  ),
+                  Text(
+                    language.text(en: 'RULES', ru: 'ПРАВИЛА'),
+                    style: kolkhozFontStyle.copyWith(
+                      color: tokens.colors.gold,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
               ),
-              Text(
-                language.text(en: 'RULES', ru: 'ПРАВИЛА'),
-                style: kolkhozFontStyle.copyWith(
-                  color: tokens.colors.gold,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w900,
+              Center(
+                child: Image.asset(
+                  'ios_resources/Embellishments/art-rules-divider.png',
+                  height: 48,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.none,
                 ),
+              ),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final rule in lobbyRuleSummaries)
+                    SizedBox(
+                      width: ruleWidth,
+                      child: _RuleBlock(
+                        tokens: tokens,
+                        title: rule.title(language),
+                        body: rule.body(language),
+                      ),
+                    ),
+                ],
               ),
             ],
           ),
-          Center(
-            child: Image.asset(
-              'ios_resources/Embellishments/art-rules-divider.png',
-              height: 44,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.none,
-            ),
-          ),
-          _RuleBlock(
-            tokens: tokens,
-            title: language.text(en: 'Objective', ru: 'Цель'),
-            body: language.text(
-              en: 'Complete collective farm jobs while protecting your private plot. Highest score wins!',
-              ru: 'Выполняйте работы колхоза, защищая свой участок. Побеждает наибольший счёт!',
-            ),
-          ),
-          _RuleBlock(
-            tokens: tokens,
-            title: language.text(en: 'Gameplay', ru: 'Игра'),
-            body: language.text(
-              en: 'Play cards to tricks - must follow lead suit if able.',
-              ru: 'Играйте карты во взятки - следуйте масти если возможно.',
-            ),
-          ),
-          _RuleBlock(
-            tokens: tokens,
-            title: language.text(en: 'Jobs', ru: 'Работы'),
-            body: language.text(
-              en: 'Jobs need 40 work hours to complete.',
-              ru: 'Работы требуют 40 часов для завершения.',
-            ),
-          ),
-          _RuleBlock(
-            tokens: tokens,
-            title: language.text(en: 'Trump Face Cards', ru: 'Козырные карты'),
-            body: language.text(
-              en: 'Jack, Queen, and King have special powers in nomenclature games.',
-              ru: 'Валет, Дама и Король имеют особые силы в игре с номенклатурой.',
-            ),
-          ),
-          _RuleBlock(
-            tokens: tokens,
-            title: language.text(en: 'Scoring', ru: 'Подсчёт очков'),
-            body: language.text(
-              en: 'Cards in your plot equal your score. Highest score wins.',
-              ru: 'Карты на вашем участке дают очки. Побеждает тот, у кого больше.',
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -1855,7 +1823,7 @@ class _OnlinePanelState extends State<_OnlinePanel> {
             height: 44,
             child: Opacity(
               opacity: busy ? 0.55 : 1,
-              child: StandaloneCommandButton(
+              child: ChromeAssetButton.command(
                 label: busy
                     ? widget.language.text(en: 'Working...', ru: 'Идёт...')
                     : mode == _OnlineMode.host
@@ -1916,7 +1884,7 @@ class _OnlineModeSelector extends StatelessWidget {
       children: [
         for (final option in _OnlineMode.values)
           Expanded(
-            child: _OnlineChoiceButton(
+            child: ChromeChoiceButton(
               tokens: tokens,
               label: option == _OnlineMode.host
                   ? language.text(en: 'Host', ru: 'Создать')
@@ -1974,7 +1942,7 @@ class _OnlineSeatOptions extends StatelessWidget {
               ),
               if (index == 0)
                 Expanded(
-                  child: _OnlineChoiceButton(
+                  child: ChromeChoiceButton(
                     tokens: tokens,
                     label: language.text(en: 'Local', ru: 'Здесь'),
                     selected: true,
@@ -1987,7 +1955,7 @@ class _OnlineSeatOptions extends StatelessWidget {
                   _OnlineSeatChoice.ai,
                 ])
                   Expanded(
-                    child: _OnlineChoiceButton(
+                    child: ChromeChoiceButton(
                       tokens: tokens,
                       label: option == _OnlineSeatChoice.open
                           ? language.text(en: 'Open', ru: 'Открыто')
@@ -2025,7 +1993,7 @@ class _PreferredSeatSelector extends StatelessWidget {
       children: [
         for (final value in [-1, 0, 1, 2, 3])
           Expanded(
-            child: _OnlineChoiceButton(
+            child: ChromeChoiceButton(
               tokens: tokens,
               label: value < 0
                   ? language.text(en: 'Any', ru: 'Любое')
@@ -2035,53 +2003,6 @@ class _PreferredSeatSelector extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-}
-
-class _OnlineChoiceButton extends StatelessWidget {
-  const _OnlineChoiceButton({
-    required this.tokens,
-    required this.label,
-    required this.selected,
-    required this.onPressed,
-  });
-
-  final DesignTokens tokens;
-  final String label;
-  final bool selected;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onPressed,
-      child: Container(
-        height: 34,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected
-              ? tokens.colors.gold.withValues(alpha: 0.72)
-              : tokens.colors.black.withValues(alpha: 0.22),
-          borderRadius: BorderRadius.circular(5),
-          border: Border.all(
-            color: selected
-                ? tokens.colors.gold
-                : tokens.colors.steel.withValues(alpha: 0.44),
-          ),
-        ),
-        child: Text(
-          label.toUpperCase(),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: kolkhozFontStyle.copyWith(
-            color: selected ? tokens.colors.onAccent : tokens.colors.creamDim,
-            fontSize: 12,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ),
     );
   }
 }
@@ -2145,27 +2066,37 @@ class _RuleBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: 4,
-      children: [
-        Text(
-          title.toUpperCase(),
-          style: kolkhozFontStyle.copyWith(
-            color: tokens.colors.gold,
-            fontSize: 13,
-            fontWeight: FontWeight.w900,
+    return Container(
+      constraints: const BoxConstraints(minHeight: 98),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: 0.20),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: tokens.colors.steel.withValues(alpha: 0.45)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 6,
+        children: [
+          Text(
+            title.toUpperCase(),
+            style: kolkhozFontStyle.copyWith(
+              color: tokens.colors.gold,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+            ),
           ),
-        ),
-        Text(
-          body,
-          style: kolkhozFontStyle.copyWith(
-            color: tokens.colors.creamDim,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
+          Text(
+            body,
+            style: kolkhozFontStyle.copyWith(
+              color: tokens.colors.creamDim,
+              fontSize: 15,
+              height: 1.12,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -2207,131 +2138,140 @@ class _AssetIcon extends StatelessWidget {
 }
 
 class _VariantRowData {
-  const _VariantRowData({
-    required this.key,
+  _VariantRowData({
     required this.title,
+    required this.ruTitle,
     required this.description,
+    required this.ruDescription,
+    required this.valueOf,
+    required this.withValue,
+    this.visibleInCustom = _alwaysVisible,
   });
 
-  final String key;
   final String title;
+  final String ruTitle;
   final String description;
+  final String ruDescription;
+  final bool Function(KolkhozGameVariants variants) valueOf;
+  final KolkhozGameVariants Function(KolkhozGameVariants variants, bool value)
+  withValue;
+  final bool Function(KolkhozGameVariants variants) visibleInCustom;
 
-  static const nomenclature = _VariantRowData(
-    key: 'nomenclature',
+  static final nomenclature = _VariantRowData(
     title: 'NOMENCLATURE',
+    ruTitle: 'НОМЕНКЛАТУРА',
     description:
         'Trump face cards have special powers: Jack gets exiled, Queen exposes everyone, King doubles exile.',
+    ruDescription:
+        'Козырные фигуры имеют особые силы: Валет ссылается, Дама раскрывает всех, Король удваивает ссылку.',
+    valueOf: (variants) => variants.nomenclature,
+    withValue: (variants, value) => variants.copyWith(nomenclature: value),
   );
-  static const allowSwap = _VariantRowData(
-    key: 'allowSwap',
+  static final allowSwap = _VariantRowData(
     title: 'SWAP',
+    ruTitle: 'ОБМЕН',
     description:
         'Swap cards between your hand and plot at the start of each year.',
+    ruDescription:
+        'Обменивайте карты между рукой и участком в начале каждого года.',
+    valueOf: (variants) => variants.allowSwap,
+    withValue: (variants, value) => variants.copyWith(allowSwap: value),
   );
-  static const northernStyle = _VariantRowData(
-    key: 'northernStyle',
+  static final northernStyle = _VariantRowData(
     title: 'NORTHERN STYLE',
+    ruTitle: 'СЕВЕРНЫЙ СТИЛЬ',
     description: 'No rewards for completing jobs - everyone stays vulnerable.',
+    ruDescription: 'Нет наград за работы - все остаются уязвимы.',
+    valueOf: (variants) => variants.northernStyle,
+    withValue: (variants, value) => variants.copyWith(northernStyle: value),
   );
-  static const miceVariant = _VariantRowData(
-    key: 'miceVariant',
+  static final miceVariant = _VariantRowData(
     title: 'MICE',
+    ruTitle: 'МЫШИ',
     description: 'All players reveal their entire plot during requisition.',
+    ruDescription: 'Все игроки раскрывают весь участок при реквизиции.',
+    valueOf: (variants) => variants.miceVariant,
+    withValue: (variants, value) => variants.copyWith(miceVariant: value),
   );
-  static const ordenNachalniku = _VariantRowData(
-    key: 'ordenNachalniku',
+  static final ordenNachalniku = _VariantRowData(
     title: 'ORDER TO THE BOSS',
+    ruTitle: 'ОРДЕН НАЧАЛЬНИКУ',
     description: 'Cards assigned to completed jobs stack as bonus rewards.',
+    ruDescription:
+        'Карты, назначенные на выполненные работы, копятся как награды.',
+    valueOf: (variants) => variants.ordenNachalniku,
+    withValue: (variants, value) => variants.copyWith(ordenNachalniku: value),
+    visibleInCustom: (variants) => variants.deckType == 36,
   );
-  static const medalsCount = _VariantRowData(
-    key: 'medalsCount',
+  static final medalsCount = _VariantRowData(
     title: 'MEDALS',
+    ruTitle: 'МЕДАЛИ',
     description: 'Trick victories count toward your final score.',
+    ruDescription: 'Победы во взятках идут в итоговый счёт.',
+    valueOf: (variants) => variants.medalsCount,
+    withValue: (variants, value) => variants.copyWith(medalsCount: value),
   );
-  static const heroOfSovietUnion = _VariantRowData(
-    key: 'heroOfSovietUnion',
+  static final heroOfSovietUnion = _VariantRowData(
     title: 'HERO',
+    ruTitle: 'ГЕРОЙ',
     description:
         'Win all 4 tricks in a year to become immune from requisition.',
+    ruDescription: 'Выиграйте все 4 взятки за год, чтобы получить иммунитет.',
+    valueOf: (variants) => variants.heroOfSovietUnion,
+    withValue: (variants, value) => variants.copyWith(heroOfSovietUnion: value),
   );
-  static const accumulateJobs = _VariantRowData(
-    key: 'accumulateJobs',
+  static final accumulateJobs = _VariantRowData(
     title: 'ACCUMULATION',
+    ruTitle: 'НАКОПЛЕНИЕ',
     description: 'Unclaimed job rewards carry over to the next year.',
+    ruDescription:
+        'Невостребованные награды за работы переносятся на следующий год.',
+    valueOf: (variants) => variants.accumulateJobs,
+    withValue: (variants, value) => variants.copyWith(accumulateJobs: value),
+    visibleInCustom: (variants) => variants.deckType != 36,
+  );
+  static final wrecker = _VariantRowData(
+    title: 'WRECKER',
+    ruTitle: 'ВРЕДИТЕЛЬ',
+    description:
+        'Add a 14-value all-suit face card that wrecks its job at requisition.',
+    ruDescription:
+        'Добавляет фигуру со значением 14: она считается всеми мастями и проваливает свою работу при реквизиции.',
+    valueOf: (variants) => variants.wreckerCard,
+    withValue: (variants, value) => variants.copyWith(wreckerCard: value),
   );
 
-  static List<_VariantRowData> enabledRows(KolkhozGameVariants variants) {
-    return [
-      if (variants.nomenclature) nomenclature,
-      if (variants.allowSwap) allowSwap,
-      if (variants.northernStyle) northernStyle,
-      if (variants.miceVariant) miceVariant,
-      if (variants.ordenNachalniku) ordenNachalniku,
-      if (variants.medalsCount) medalsCount,
-      if (variants.heroOfSovietUnion) heroOfSovietUnion,
-      if (variants.accumulateJobs) accumulateJobs,
-    ];
-  }
+  static final all = [
+    nomenclature,
+    allowSwap,
+    northernStyle,
+    miceVariant,
+    ordenNachalniku,
+    medalsCount,
+    heroOfSovietUnion,
+    accumulateJobs,
+    wrecker,
+  ];
 
-  String localizedTitle(KolkhozLanguage language) {
-    return switch (key) {
-      'nomenclature' => language.text(en: 'NOMENCLATURE', ru: 'НОМЕНКЛАТУРА'),
-      'allowSwap' => language.text(en: 'SWAP', ru: 'ОБМЕН'),
-      'northernStyle' => language.text(
-        en: 'NORTHERN STYLE',
-        ru: 'СЕВЕРНЫЙ СТИЛЬ',
-      ),
-      'miceVariant' => language.text(en: 'MICE', ru: 'МЫШИ'),
-      'ordenNachalniku' => language.text(
-        en: 'ORDER TO THE BOSS',
-        ru: 'ОРДЕН НАЧАЛЬНИКУ',
-      ),
-      'medalsCount' => language.text(en: 'MEDALS', ru: 'МЕДАЛИ'),
-      'heroOfSovietUnion' => language.text(en: 'HERO', ru: 'ГЕРОЙ'),
-      'accumulateJobs' => language.text(en: 'ACCUMULATION', ru: 'НАКОПЛЕНИЕ'),
-      _ => title,
-    };
-  }
+  static List<_VariantRowData> enabledRows(KolkhozGameVariants variants) => [
+    for (final row in all)
+      if (row.valueOf(variants)) row,
+  ];
 
-  String localizedDescription(KolkhozLanguage language) {
-    return switch (key) {
-      'nomenclature' => language.text(
-        en: 'Trump face cards have special powers: Jack gets exiled, Queen exposes everyone, King doubles exile.',
-        ru: 'Козырные фигуры имеют особые силы: Валет ссылается, Дама раскрывает всех, Король удваивает ссылку.',
-      ),
-      'allowSwap' => language.text(
-        en: 'Swap cards between your hand and plot at the start of each year.',
-        ru: 'Обменивайте карты между рукой и участком в начале каждого года.',
-      ),
-      'northernStyle' => language.text(
-        en: 'No rewards for completing jobs - everyone stays vulnerable.',
-        ru: 'Нет наград за работы - все остаются уязвимы.',
-      ),
-      'miceVariant' => language.text(
-        en: 'All players reveal their entire plot during requisition.',
-        ru: 'Все игроки раскрывают весь участок при реквизиции.',
-      ),
-      'ordenNachalniku' => language.text(
-        en: 'Cards assigned to completed jobs stack as bonus rewards.',
-        ru: 'Карты, назначенные на выполненные работы, копятся как награды.',
-      ),
-      'medalsCount' => language.text(
-        en: 'Trick victories count toward your final score.',
-        ru: 'Победы во взятках идут в итоговый счёт.',
-      ),
-      'heroOfSovietUnion' => language.text(
-        en: 'Win all 4 tricks in a year to become immune from requisition.',
-        ru: 'Выиграйте все 4 взятки за год, чтобы получить иммунитет.',
-      ),
-      'accumulateJobs' => language.text(
-        en: 'Unclaimed job rewards carry over to the next year.',
-        ru: 'Невостребованные награды за работы переносятся на следующий год.',
-      ),
-      _ => description,
-    };
-  }
+  static List<_VariantRowData> configurableRows(KolkhozGameVariants variants) =>
+      [
+        for (final row in all)
+          if (row.visibleInCustom(variants)) row,
+      ];
+
+  String localizedTitle(KolkhozLanguage language) =>
+      language.text(en: title, ru: ruTitle);
+
+  String localizedDescription(KolkhozLanguage language) =>
+      language.text(en: description, ru: ruDescription);
 }
+
+bool _alwaysVisible(KolkhozGameVariants variants) => true;
 
 extension _ControllerLobbyLabels on KolkhozPlayerController {
   String shortTitle(KolkhozLanguage language) {
@@ -2363,6 +2303,7 @@ extension _ControllerLobbyLabels on KolkhozPlayerController {
 String presetTitle(KolkhozGamePreset preset, KolkhozLanguage language) {
   return switch (preset) {
     KolkhozGamePreset.kolkhoz => language.text(en: 'Kolkhoz', ru: 'Колхоз'),
+    KolkhozGamePreset.wrecker => language.text(en: 'Wrecker', ru: 'Вредитель'),
     KolkhozGamePreset.littleKolkhoz => language.text(
       en: 'Little Kolkhoz',
       ru: 'Колхозик',
@@ -2373,89 +2314,6 @@ String presetTitle(KolkhozGamePreset preset, KolkhozLanguage language) {
     ),
     KolkhozGamePreset.custom => language.text(en: 'Custom', ru: 'Свой'),
   };
-}
-
-class StandaloneCommandButton extends StatelessWidget {
-  const StandaloneCommandButton({
-    required this.label,
-    required this.prominent,
-    required this.tokens,
-    required this.onPressed,
-    this.iconAsset,
-    super.key,
-  });
-
-  final String label;
-  final bool prominent;
-  final DesignTokens tokens;
-  final VoidCallback? onPressed;
-  final String? iconAsset;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onPressed,
-      child: Container(
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage(
-              prominent
-                  ? 'ios_resources/ui-button-primary.png'
-                  : 'ios_resources/ui-button-secondary.png',
-            ),
-            fit: BoxFit.fill,
-            filterQuality: FilterQuality.none,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          spacing: 8,
-          children: [
-            if (iconAsset != null)
-              Image.asset(
-                iconAsset!,
-                width: 20,
-                height: 20,
-                filterQuality: FilterQuality.none,
-              ),
-            Expanded(
-              child: _PixelChromeLabel(
-                label.toUpperCase(),
-                color: prominent
-                    ? tokens.colors.onAccent
-                    : tokens.colors.cardInk,
-                size: PixelTextSize.headline,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PixelChromeLabel extends StatelessWidget {
-  const _PixelChromeLabel(this.text, {required this.color, required this.size});
-
-  final String text;
-  final Color color;
-  final PixelTextSize size;
-
-  @override
-  Widget build(BuildContext context) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: PixelText(
-        text,
-        size: size,
-        variant: PixelTextVariant.heavy,
-        color: color,
-        textAlign: TextAlign.center,
-      ),
-    );
-  }
 }
 
 class StandaloneErrorBanner extends StatelessWidget {

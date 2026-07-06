@@ -69,6 +69,7 @@ String rankName(int value) {
     11 => 'J',
     12 => 'Q',
     13 => 'K',
+    14 => 'W',
     _ => '$value',
   };
 }
@@ -79,6 +80,7 @@ String? suitName(int suit) {
     1 => 'sunflower',
     2 => 'potato',
     3 => 'beet',
+    4 => wreckerSuit,
     _ => null,
   };
 }
@@ -89,6 +91,7 @@ int? suitCode(String? suit) {
     'sunflower' => 1,
     'potato' => 2,
     'beet' => 3,
+    wreckerSuit => 4,
     _ => null,
   };
 }

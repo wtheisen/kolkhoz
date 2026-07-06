@@ -12,8 +12,8 @@ clang \
   -dynamiclib \
   -O2 \
   -std=c11 \
-  -I"$REPO_ROOT/ios/KolkhozSwiftUI/Sources/KolkhozCEngine/include" \
-  "$REPO_ROOT/ios/KolkhozSwiftUI/Sources/KolkhozCEngine/KolkhozCEngine.c" \
+  -I"$REPO_ROOT/engine/KolkhozCEngine/include" \
+  "$REPO_ROOT/engine/KolkhozCEngine/KolkhozCEngine.c" \
   -o "$OUT_DIR/libkolkhoz_c_engine.dylib"
 
 echo "$OUT_DIR/libkolkhoz_c_engine.dylib"

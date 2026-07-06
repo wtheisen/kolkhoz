@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show clampDouble, lerpDouble;
 
@@ -6,75 +5,38 @@ import 'package:flutter/material.dart';
 
 import 'animation_speed.dart';
 import 'app_settings.dart';
-import 'assignment_display.dart';
 import 'brigade_display.dart';
-import 'card_art_display.dart';
-import 'card_display.dart';
+import 'chrome_button.dart';
 import 'render_model.dart';
 import 'design_tokens.dart';
 import 'game_constants.dart';
 import 'hot_seat_display.dart';
-import 'lower_bar_actions.dart';
-import 'panel_title_display.dart';
 import 'phase_display.dart';
 import 'pixel_text.dart';
 import 'player_panel_display.dart';
-import 'plot_display.dart';
 import 'trump_actions.dart';
 import 'table_display.dart';
 import 'table_projection_helpers.dart';
 import 'board/board_chrome.dart';
 import 'board/board_metrics.dart';
 import 'board/board_rail.dart';
+import 'board/board_widgets.dart';
+import 'board/hand_tray.dart';
+import 'board/jobs_panel.dart';
+import 'board/north_panel.dart';
+import 'board/options_panel.dart';
+import 'board/plot_panel.dart';
 
 export 'board/board_chrome.dart';
 export 'board/board_metrics.dart';
 export 'board/board_rail.dart';
-
-part 'board/options_panel.dart';
-part 'board/north_panel.dart';
-part 'board/plot_panel.dart';
-part 'board/jobs_panel.dart';
-part 'board/hand_tray.dart';
-
-const kolkhozFontStyle = TextStyle(fontFamily: 'Handjet');
-
-class ChromePixelLabel extends StatelessWidget {
-  const ChromePixelLabel(
-    this.text, {
-    required this.size,
-    required this.color,
-    this.variant = PixelTextVariant.heavy,
-    this.textAlign = TextAlign.start,
-    this.maxLines = 1,
-    this.softWrap = false,
-    this.uppercase = true,
-    super.key,
-  });
-
-  final String text;
-  final PixelTextSize size;
-  final PixelTextVariant variant;
-  final Color color;
-  final TextAlign textAlign;
-  final int? maxLines;
-  final bool softWrap;
-  final bool uppercase;
-
-  @override
-  Widget build(BuildContext context) {
-    return PixelText(
-      uppercase ? text.toUpperCase() : text,
-      size: size,
-      variant: variant,
-      color: color,
-      textAlign: textAlign,
-      maxLines: maxLines,
-      overflow: TextOverflow.clip,
-      softWrap: softWrap,
-    );
-  }
-}
+export 'board/board_widgets.dart';
+export 'board/hand_tray.dart';
+export 'board/jobs_panel.dart';
+export 'board/north_panel.dart';
+export 'board/options_panel.dart';
+export 'board/plot_panel.dart';
+export 'chrome_button.dart';
 
 BoxDecoration boardBackdropDecoration(DesignTokens tokens) {
   return BoxDecoration(color: tokens.colors.table);
@@ -85,6 +47,12 @@ BoxDecoration playAreaBackdropDecoration(DesignTokens tokens) {
     color: tokens.colors.table,
     borderRadius: BorderRadius.circular(playAreaPanelCornerRadius),
   );
+}
+
+const double boardContentWidthMax = 1320;
+
+double boardPlayableContentWidth(double contentWidth) {
+  return math.min(contentWidth, boardContentWidthMax).toDouble();
 }
 
 class KolkhozBoard extends StatelessWidget {
@@ -100,6 +68,7 @@ class KolkhozBoard extends StatelessWidget {
     this.onSwapHandCardTap,
     this.onPlotCardTap,
     this.onAssignmentCardTap,
+    this.onInvalidHandCardTap,
     this.onHotSeatReady,
     this.onNewGame,
     this.onReturnToLobby,
@@ -120,6 +89,7 @@ class KolkhozBoard extends StatelessWidget {
   final ValueChanged<String>? onSwapHandCardTap;
   final void Function(String cardID, String zone)? onPlotCardTap;
   final ValueChanged<String>? onAssignmentCardTap;
+  final VoidCallback? onInvalidHandCardTap;
   final VoidCallback? onHotSeatReady;
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
@@ -139,9 +109,10 @@ class KolkhozBoard extends StatelessWidget {
           final margin = metrics.margin;
           final contentWidth = constraints.maxWidth - margin * 2;
           final contentHeight = constraints.maxHeight - margin * 2;
-          final railWidth = metrics.railWidth(contentWidth);
+          final boardWidth = boardPlayableContentWidth(contentWidth);
+          final railWidth = metrics.railWidth(boardWidth);
           final separatorWidth = metrics.separatorWidth;
-          final gameWidth = contentWidth - railWidth - separatorWidth;
+          final gameWidth = boardWidth - railWidth - separatorWidth;
           final safePadding = MediaQuery.paddingOf(context);
 
           return DecoratedBox(
@@ -178,52 +149,63 @@ class KolkhozBoard extends StatelessWidget {
                     ),
                   Padding(
                     padding: EdgeInsets.all(margin),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(
-                          width: railWidth,
-                          child: BoardRail(
-                            activePanel: model.panels.active,
-                            actionPanel: actionPanelForPhase(model.table.phase),
-                            tokens: tokens,
-                            metrics: metrics,
-                            language: language,
-                            appearance: appearance,
-                            onPanelSelected: onPanelSelected,
-                            onLanguageToggle: onLanguageToggle,
-                            onAppearanceToggle: onAppearanceToggle,
-                          ),
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: SizedBox(
+                        width: boardWidth,
+                        height: contentHeight,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              width: railWidth,
+                              child: BoardRail(
+                                activePanel: model.panels.active,
+                                actionPanel: actionPanelForPhase(
+                                  model.table.phase,
+                                ),
+                                tokens: tokens,
+                                metrics: metrics,
+                                language: language,
+                                appearance: appearance,
+                                onPanelSelected: onPanelSelected,
+                                onLanguageToggle: onLanguageToggle,
+                                onAppearanceToggle: onAppearanceToggle,
+                              ),
+                            ),
+                            BoardSeparator(
+                              tokens: tokens,
+                              vertical: true,
+                              thickness: separatorWidth,
+                            ),
+                            SizedBox(
+                              width: gameWidth,
+                              height: contentHeight,
+                              child: BoardPlayArea(
+                                model: model,
+                                tokens: tokens,
+                                metrics: metrics,
+                                onAction: onAction,
+                                onPanelSelected: onPanelSelected,
+                                onSwapHandCardTap: onSwapHandCardTap,
+                                onPlotCardTap: onPlotCardTap,
+                                onAssignmentCardTap: onAssignmentCardTap,
+                                onInvalidHandCardTap: onInvalidHandCardTap,
+                                onNewGame: onNewGame,
+                                onReturnToLobby: onReturnToLobby,
+                                onTutorial: onTutorial,
+                                animationSpeed: animationSpeed,
+                                onAnimationSpeedChanged:
+                                    onAnimationSpeedChanged,
+                                language: language,
+                                appearance: appearance,
+                                onLanguageToggle: onLanguageToggle,
+                                onAppearanceToggle: onAppearanceToggle,
+                              ),
+                            ),
+                          ],
                         ),
-                        BoardSeparator(
-                          tokens: tokens,
-                          vertical: true,
-                          thickness: separatorWidth,
-                        ),
-                        SizedBox(
-                          width: gameWidth,
-                          height: contentHeight,
-                          child: BoardPlayArea(
-                            model: model,
-                            tokens: tokens,
-                            metrics: metrics,
-                            onAction: onAction,
-                            onPanelSelected: onPanelSelected,
-                            onSwapHandCardTap: onSwapHandCardTap,
-                            onPlotCardTap: onPlotCardTap,
-                            onAssignmentCardTap: onAssignmentCardTap,
-                            onNewGame: onNewGame,
-                            onReturnToLobby: onReturnToLobby,
-                            onTutorial: onTutorial,
-                            animationSpeed: animationSpeed,
-                            onAnimationSpeedChanged: onAnimationSpeedChanged,
-                            language: language,
-                            appearance: appearance,
-                            onLanguageToggle: onLanguageToggle,
-                            onAppearanceToggle: onAppearanceToggle,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                   if (model.viewer.privacyMode == viewerPrivacyHotSeatHidden)
@@ -244,402 +226,6 @@ class KolkhozBoard extends StatelessWidget {
     );
   }
 }
-
-class CardMotionLayer extends StatefulWidget {
-  const CardMotionLayer({
-    required this.model,
-    required this.tokens,
-    required this.speed,
-    required this.child,
-    super.key,
-  });
-
-  final TableViewModel model;
-  final DesignTokens tokens;
-  final GameAnimationSpeed speed;
-  final Widget child;
-
-  @override
-  State<CardMotionLayer> createState() => _CardMotionLayerState();
-}
-
-class _CardMotionLayerState extends State<CardMotionLayer> {
-  final GlobalKey _rootKey = GlobalKey();
-  final CardMotionController _controller = CardMotionController();
-  final List<CardFlight> _flights = [];
-  int _nextFlightID = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _afterCardLayout(() {
-      _controller.commitFrame();
-    });
-  }
-
-  @override
-  void didUpdateWidget(CardMotionLayer oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.model == widget.model) {
-      return;
-    }
-    final previousZones = cardMotionZones(oldWidget.model);
-    final nextZones = cardMotionZones(widget.model);
-    final previousCards = cardMotionCards(oldWidget.model);
-    final nextCards = cardMotionCards(widget.model);
-    _afterCardLayout(() {
-      _startFlights(previousZones, nextZones, previousCards, nextCards);
-      _controller.commitFrame();
-    });
-  }
-
-  void _afterCardLayout(VoidCallback action) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      scheduleMicrotask(() {
-        if (mounted) {
-          action();
-        }
-      });
-    });
-  }
-
-  void _startFlights(
-    Map<String, String> previousZones,
-    Map<String, String> nextZones,
-    Map<String, TableCard> previousCards,
-    Map<String, TableCard> nextCards,
-  ) {
-    if (widget.speed.cardFlightDuration == Duration.zero) {
-      return;
-    }
-    final previousRects = _controller.previousRects;
-    final currentRects = _controller.currentRects;
-    final newFlights = <CardFlight>[];
-    for (final entry in nextZones.entries) {
-      final cardID = entry.key;
-      final previousZone = previousZones[cardID];
-      if (previousZone == null || previousZone == entry.value) {
-        continue;
-      }
-      final from = previousRects[cardID];
-      final to = currentRects[cardID];
-      if (from == null || to == null) {
-        continue;
-      }
-      if ((from.center - to.center).distance < cardMotionMinimumDistance) {
-        continue;
-      }
-      final card = nextCards[cardID] ?? previousCards[cardID];
-      if (card == null) {
-        continue;
-      }
-      newFlights.add(
-        CardFlight(id: _nextFlightID++, card: card, from: from, to: to),
-      );
-    }
-    if (newFlights.isEmpty) {
-      return;
-    }
-    setState(() {
-      _flights.addAll(newFlights);
-    });
-  }
-
-  void _removeFlight(int id) {
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _flights.removeWhere((flight) => flight.id == id);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final frame = _controller.beginFrame();
-    final activeCardIDs = {for (final flight in _flights) flight.card.id};
-    return CardMotionScope(
-      controller: _controller,
-      frame: frame,
-      rootKey: _rootKey,
-      activeCardIDs: activeCardIDs,
-      child: Stack(
-        key: _rootKey,
-        fit: StackFit.expand,
-        clipBehavior: Clip.none,
-        children: [
-          widget.child,
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  for (final flight in _flights)
-                    FlyingCard(
-                      key: ValueKey(flight.id),
-                      flight: flight,
-                      tokens: widget.tokens,
-                      trump: widget.model.table.trump,
-                      duration: widget.speed.cardFlightDuration,
-                      onDone: () => _removeFlight(flight.id),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class CardMotionScope extends InheritedWidget {
-  const CardMotionScope({
-    required this.controller,
-    required this.frame,
-    required this.rootKey,
-    required this.activeCardIDs,
-    required super.child,
-    super.key,
-  });
-
-  final CardMotionController controller;
-  final int frame;
-  final GlobalKey rootKey;
-  final Set<String> activeCardIDs;
-
-  static CardMotionScope? maybeOf(BuildContext context) {
-    return context.dependOnInheritedWidgetOfExactType<CardMotionScope>();
-  }
-
-  @override
-  bool updateShouldNotify(CardMotionScope oldWidget) {
-    return oldWidget.frame != frame ||
-        oldWidget.activeCardIDs.length != activeCardIDs.length ||
-        !oldWidget.activeCardIDs.containsAll(activeCardIDs);
-  }
-}
-
-class CardMotionController {
-  int _frame = 0;
-  Map<String, Rect> _previousRects = {};
-  final Map<String, CardMotionRect> _currentRects = {};
-
-  Map<String, Rect> get previousRects => _previousRects;
-
-  Map<String, Rect> get currentRects {
-    return {
-      for (final entry in _currentRects.entries)
-        if (entry.value.frame == _frame) entry.key: entry.value.rect,
-    };
-  }
-
-  int beginFrame() {
-    _frame += 1;
-    return _frame;
-  }
-
-  void record({
-    required int frame,
-    required String cardID,
-    required Rect rect,
-  }) {
-    if (frame == _frame) {
-      _currentRects[cardID] = CardMotionRect(frame: frame, rect: rect);
-    }
-  }
-
-  void commitFrame() {
-    _previousRects = currentRects;
-  }
-}
-
-class CardMotionRect {
-  const CardMotionRect({required this.frame, required this.rect});
-
-  final int frame;
-  final Rect rect;
-}
-
-class MotionTrackedCard extends StatefulWidget {
-  const MotionTrackedCard({required this.card, required this.child, super.key});
-
-  final TableCard card;
-  final Widget child;
-
-  @override
-  State<MotionTrackedCard> createState() => _MotionTrackedCardState();
-}
-
-class _MotionTrackedCardState extends State<MotionTrackedCard> {
-  final GlobalKey _key = GlobalKey();
-
-  @override
-  Widget build(BuildContext context) {
-    final scope = CardMotionScope.maybeOf(context);
-    if (scope != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) {
-          return;
-        }
-        final box = _key.currentContext?.findRenderObject() as RenderBox?;
-        final root =
-            scope.rootKey.currentContext?.findRenderObject() as RenderBox?;
-        if (box == null || root == null || !box.attached || !root.attached) {
-          return;
-        }
-        final topLeft = box.localToGlobal(Offset.zero, ancestor: root);
-        scope.controller.record(
-          frame: scope.frame,
-          cardID: widget.card.id,
-          rect: topLeft & box.size,
-        );
-      });
-    }
-    final hidden = scope?.activeCardIDs.contains(widget.card.id) ?? false;
-    return Opacity(key: _key, opacity: hidden ? 0 : 1, child: widget.child);
-  }
-}
-
-class CardFlight {
-  const CardFlight({
-    required this.id,
-    required this.card,
-    required this.from,
-    required this.to,
-  });
-
-  final int id;
-  final TableCard card;
-  final Rect from;
-  final Rect to;
-}
-
-class FlyingCard extends StatelessWidget {
-  const FlyingCard({
-    required this.flight,
-    required this.tokens,
-    required this.duration,
-    required this.onDone,
-    this.trump,
-    super.key,
-  });
-
-  final CardFlight flight;
-  final DesignTokens tokens;
-  final Duration duration;
-  final VoidCallback onDone;
-  final String? trump;
-
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: duration,
-      curve: Curves.easeInOutCubic,
-      onEnd: onDone,
-      builder: (context, value, child) {
-        final rect = Rect.lerp(flight.from, flight.to, value)!;
-        return Positioned.fromRect(
-          rect: rect,
-          child: Transform.scale(
-            scale: lerpDouble(1.04, 1, value)!,
-            child: child,
-          ),
-        );
-      },
-      child: FittedBox(
-        fit: BoxFit.fill,
-        child: GameCard(
-          card: flight.card,
-          tokens: tokens,
-          trump: trump,
-          sizeOverride: cardFlightRenderSize(flight.from, flight.to, tokens),
-          motionTracked: false,
-        ),
-      ),
-    );
-  }
-}
-
-TokenCardSize cardFlightRenderSize(Rect from, Rect to, DesignTokens tokens) {
-  final height = math.max(from.height, to.height);
-  if (height <= tokens.card.small.height + 8) {
-    return tokens.card.small;
-  }
-  if (height <= tokens.card.medium.height + 8) {
-    return tokens.card.medium;
-  }
-  return tokens.card.large;
-}
-
-Map<String, String> cardMotionZones(TableViewModel model) {
-  final zones = <String, String>{};
-  for (final seat in model.table.seats) {
-    for (final card in seat.hand) {
-      zones[card.id] = 'hand:${seat.id}';
-    }
-    for (final card in seat.plot.hidden) {
-      zones[card.id] = 'plot:${seat.id}:hidden';
-    }
-    for (final card in seat.plot.revealed) {
-      zones[card.id] = 'plot:${seat.id}:revealed';
-    }
-    for (final (stackIndex, stack) in seat.plot.stacks.indexed) {
-      for (final card in stack.revealed) {
-        zones[card.id] = 'plot:${seat.id}:stack:$stackIndex:revealed';
-      }
-    }
-  }
-  for (final play in model.table.trick.plays) {
-    zones[play.card.id] = 'trick:${play.seatID}';
-  }
-  for (final play in model.table.lastTrick.plays) {
-    zones[play.card.id] = 'trick:${play.seatID}';
-  }
-  for (final job in model.table.jobs) {
-    for (final card in job.assignedCards) {
-      zones[card.id] = 'job:${job.suit}';
-    }
-  }
-  for (final entry in model.table.exiledByYear.entries) {
-    for (final card in entry.value) {
-      zones[card.id] = 'exiled:${entry.key}';
-    }
-  }
-  return zones;
-}
-
-Map<String, TableCard> cardMotionCards(TableViewModel model) {
-  final cards = <String, TableCard>{};
-  void add(TableCard card) {
-    cards[card.id] = card;
-  }
-
-  for (final seat in model.table.seats) {
-    seat.hand.forEach(add);
-    seat.plot.hidden.forEach(add);
-    seat.plot.revealed.forEach(add);
-    for (final stack in seat.plot.stacks) {
-      stack.revealed.forEach(add);
-    }
-  }
-  for (final play in model.table.trick.plays) {
-    add(play.card);
-  }
-  for (final play in model.table.lastTrick.plays) {
-    add(play.card);
-  }
-  for (final job in model.table.jobs) {
-    job.assignedCards.forEach(add);
-  }
-  for (final cardsForYear in model.table.exiledByYear.values) {
-    cardsForYear.forEach(add);
-  }
-  return cards;
-}
-
-const cardMotionMinimumDistance = 8.0;
 
 class HotSeatPrivacyOverlay extends StatelessWidget {
   const HotSeatPrivacyOverlay({
@@ -798,46 +384,34 @@ class HotSeatReadyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onPressed,
-      child: Container(
-        key: const Key('hot-seat-ready-button'),
-        height: commandButtonProminentMinHeight,
-        padding: const EdgeInsets.only(
-          left: commandButtonProminentHorizontalPadding,
-          right: commandButtonProminentHorizontalPadding,
-          top: commandButtonProminentTopPadding,
-          bottom: commandButtonProminentBottomPadding,
-        ),
-        decoration: BoxDecoration(
-          image: const DecorationImage(
-            image: AssetImage('ios_resources/ui-button-primary.png'),
-            fit: BoxFit.fill,
-            filterQuality: FilterQuality.none,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: tokens.colors.black.withValues(
-                alpha: commandButtonProminentOuterShadowOpacity,
-              ),
-              blurRadius: commandButtonProminentOuterShadowRadius,
-              offset: const Offset(0, commandButtonProminentOuterShadowYOffset),
-            ),
-          ],
-        ),
-        child: Center(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: CommandSurfaceButtonLabel(label, tokens: tokens),
-          ),
-        ),
-      ),
+    return ChromeAssetButton.command(
+      label: label,
+      prominent: true,
+      tokens: tokens,
+      onPressed: onPressed,
+      width: double.infinity,
+      surfaceKey: const Key('hot-seat-ready-button'),
     );
   }
 }
 
 const playAreaPanelCornerRadius = 10.0;
+
+double? activePanelPreferredHeight({
+  required TableViewModel model,
+  required DesignTokens tokens,
+  required double width,
+}) {
+  if (model.panels.active != panelBrigade) {
+    return null;
+  }
+  return brigadePanelHeightForWidth(
+    maxWidth: width,
+    columnCount: model.table.seats.length,
+    minCardWidth: tokens.card.large.width,
+    cardAspectRatio: tokens.card.aspectRatio,
+  );
+}
 
 class BoardPlayArea extends StatelessWidget {
   const BoardPlayArea({
@@ -849,6 +423,7 @@ class BoardPlayArea extends StatelessWidget {
     this.onSwapHandCardTap,
     this.onPlotCardTap,
     this.onAssignmentCardTap,
+    this.onInvalidHandCardTap,
     this.onNewGame,
     this.onReturnToLobby,
     this.onTutorial,
@@ -869,6 +444,7 @@ class BoardPlayArea extends StatelessWidget {
   final ValueChanged<String>? onSwapHandCardTap;
   final void Function(String cardID, String zone)? onPlotCardTap;
   final ValueChanged<String>? onAssignmentCardTap;
+  final VoidCallback? onInvalidHandCardTap;
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
   final VoidCallback? onTutorial;
@@ -885,106 +461,118 @@ class BoardPlayArea extends StatelessWidget {
       padding: EdgeInsets.symmetric(
         horizontal: metrics.playAreaHorizontalPadding,
       ),
-      child: Column(
-        children: [
-          TopInfoStrip(model: model, tokens: tokens, metrics: metrics),
-          Expanded(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: playAreaBackdropDecoration(tokens),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final preferredPanelHeight = activePanelPreferredHeight(
+            model: model,
+            tokens: tokens,
+            width: constraints.maxWidth,
+          );
+          final remainingHeight = math.max(
+            0.0,
+            constraints.maxHeight - metrics.topInfoHeight,
+          );
+          final panelHeight = preferredPanelHeight == null
+              ? null
+              : math.max(
+                  0.0,
+                  math.min(
+                    remainingHeight - metrics.handTrayHeight,
+                    preferredPanelHeight + metrics.panelContentBottomPadding,
                   ),
+                );
+          final handTrayHeight = preferredPanelHeight == null
+              ? metrics.handTrayLayoutHeightForBoardHeight(
+                  constraints.maxHeight,
+                )
+              : clampDouble(
+                  remainingHeight - panelHeight!,
+                  metrics.handTrayHeight,
+                  handTrayLayoutHeightMax,
+                );
+          final handTrayVisibleHeight = metrics
+              .handTrayVisibleHeightForLayoutHeight(handTrayHeight);
+          final activePanelStack = Stack(
+            children: [
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: playAreaBackdropDecoration(tokens),
                 ),
-                Positioned.fill(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      bottom: metrics.panelContentBottomPadding,
-                    ),
-                    child: ActivePanelView(
-                      model: model,
-                      tokens: tokens,
-                      onAction: onAction,
-                      onPlotCardTap: onPlotCardTap,
-                      onNewGame: onNewGame,
-                      onReturnToLobby: onReturnToLobby,
-                      onTutorial: onTutorial,
-                      animationSpeed: animationSpeed,
-                      onAnimationSpeedChanged: onAnimationSpeedChanged,
-                      language: language,
-                      appearance: appearance,
-                      onLanguageToggle: onLanguageToggle,
-                      onAppearanceToggle: onAppearanceToggle,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: BoardSeparator(
-                    tokens: tokens,
-                    thickness: metrics.playAreaSeparatorThickness,
-                  ),
-                ),
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: BoardSeparator(
-                    tokens: tokens,
-                    thickness: metrics.playAreaSeparatorThickness,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(
-            height: metrics.handTrayHeight,
-            child: OverflowBox(
-              alignment: Alignment.topCenter,
-              minHeight: metrics.handTrayVisibleHeight,
-              maxHeight: metrics.handTrayVisibleHeight,
-              child: HandTray(
-                model: model,
-                tokens: tokens,
-                metrics: metrics,
-                language: language,
-                onAction: onAction,
-                onSwapHandCardTap: onSwapHandCardTap,
-                onAssignmentCardTap: onAssignmentCardTap,
               ),
-            ),
-          ),
-        ],
+              Positioned.fill(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: metrics.panelContentBottomPadding,
+                  ),
+                  child: ActivePanelView(
+                    model: model,
+                    tokens: tokens,
+                    onAction: onAction,
+                    onPlotCardTap: onPlotCardTap,
+                    onNewGame: onNewGame,
+                    onReturnToLobby: onReturnToLobby,
+                    onTutorial: onTutorial,
+                    animationSpeed: animationSpeed,
+                    onAnimationSpeedChanged: onAnimationSpeedChanged,
+                    language: language,
+                    appearance: appearance,
+                    onLanguageToggle: onLanguageToggle,
+                    onAppearanceToggle: onAppearanceToggle,
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: BoardSeparator(
+                  tokens: tokens,
+                  thickness: metrics.playAreaSeparatorThickness,
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: BoardSeparator(
+                  tokens: tokens,
+                  thickness: metrics.playAreaSeparatorThickness,
+                ),
+              ),
+            ],
+          );
+          return Column(
+            children: [
+              TopInfoStrip(model: model, tokens: tokens, metrics: metrics),
+              if (panelHeight == null)
+                Expanded(child: activePanelStack)
+              else
+                SizedBox(height: panelHeight, child: activePanelStack),
+              SizedBox(
+                height: handTrayHeight,
+                child: OverflowBox(
+                  alignment: Alignment.topCenter,
+                  minHeight: handTrayVisibleHeight,
+                  maxHeight: handTrayVisibleHeight,
+                  child: HandTray(
+                    model: model,
+                    tokens: tokens,
+                    language: language,
+                    visibleTrayHeight: handTrayVisibleHeight,
+                    onAction: onAction,
+                    onSwapHandCardTap: onSwapHandCardTap,
+                    onAssignmentCardTap: onAssignmentCardTap,
+                    onInvalidHandCardTap: onInvalidHandCardTap,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 }
-
-const iconMutedSaturationMatrix = <double>[
-  0.76378,
-  0.21456,
-  0.02166,
-  0,
-  0,
-  0.06378,
-  0.91456,
-  0.02166,
-  0,
-  0,
-  0.06378,
-  0.21456,
-  0.72166,
-  0,
-  0,
-  0,
-  0,
-  0,
-  1,
-  0,
-];
-const iconMutedOpacity = 0.82;
 
 class TopInfoStrip extends StatelessWidget {
   const TopInfoStrip({
@@ -1379,283 +967,6 @@ class ActivePanelView extends StatelessWidget {
   }
 }
 
-class CommandPanelSurface extends StatelessWidget {
-  const CommandPanelSurface({
-    required this.tokens,
-    required this.child,
-    this.padding = EdgeInsets.zero,
-    super.key,
-  });
-
-  final DesignTokens tokens;
-  final EdgeInsetsGeometry padding;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(tokens.radius.md),
-        border: Border.all(color: tokens.colors.gold.withValues(alpha: 0.26)),
-        gradient: LinearGradient(
-          colors: [
-            tokens.colors.panel,
-            tokens.colors.iron,
-            tokens.colors.black,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(tokens.radius.md),
-          gradient: LinearGradient(
-            colors: [
-              tokens.colors.gold.withValues(alpha: 0.14),
-              Colors.transparent,
-              tokens.colors.redDark.withValues(alpha: 0.14),
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: Padding(padding: padding, child: child),
-      ),
-    );
-  }
-}
-
-class PanelStyleSurface extends StatelessWidget {
-  const PanelStyleSurface({
-    required this.tokens,
-    required this.child,
-    this.padding = const EdgeInsets.all(12),
-    this.constraints,
-    super.key,
-  });
-
-  final DesignTokens tokens;
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-  final BoxConstraints? constraints;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: constraints,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            tokens.colors.panel,
-            tokens.colors.iron.withValues(alpha: 0.96),
-            tokens.colors.black.withValues(alpha: 0.94),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(tokens.radius.panelOuter),
-        border: Border.all(
-          color: tokens.colors.gold.withValues(alpha: 0.72),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: tokens.colors.black.withValues(alpha: 0.35),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(tokens.radius.panelOuter),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      tokens.colors.gold.withValues(alpha: 0.16),
-                      Colors.transparent,
-                      tokens.colors.redDark.withValues(alpha: 0.18),
-                    ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Padding(padding: padding, child: child),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Padding(
-                padding: const EdgeInsets.all(5),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(
-                      tokens.radius.panelInner,
-                    ),
-                    border: Border.all(
-                      color: tokens.colors.redDark.withValues(alpha: 0.62),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class PanelTitleRow extends StatelessWidget {
-  const PanelTitleRow({
-    required this.title,
-    required this.iconPath,
-    required this.tokens,
-    this.subtitle,
-    this.urgent = false,
-    super.key,
-  });
-
-  final String title;
-  final String? subtitle;
-  final String iconPath;
-  final bool urgent;
-  final DesignTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final iconBox = panelTitleIconBox(constraints.maxWidth);
-        final iconSize = panelTitleIconSize(constraints.maxWidth);
-        final horizontalPadding = panelTitleHorizontalPadding(
-          constraints.maxWidth,
-        );
-        final verticalPadding = panelTitleVerticalPadding(constraints.maxWidth);
-        final spacing = panelTitleSpacing(constraints.maxWidth);
-        final ornamentOpacity = panelTitleEffectiveOrnamentOpacity(
-          constraints.maxWidth,
-          urgent: urgent,
-        );
-        final titleColumn = Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: 2,
-          children: [
-            PixelText(
-              title.toUpperCase(),
-              size: PixelTextSize.caption,
-              variant: PixelTextVariant.heavy,
-              color: urgent ? tokens.colors.redBright : tokens.colors.gold,
-            ),
-            if (subtitle != null)
-              PixelText(
-                subtitle!,
-                size: PixelTextSize.caption,
-                color: tokens.colors.creamDim,
-              ),
-          ],
-        );
-        final titleContent = constraints.hasBoundedHeight
-            ? SizedBox(
-                height: math.max(
-                  0,
-                  constraints.maxHeight - verticalPadding * 2,
-                ),
-                child: ClipRect(
-                  child: OverflowBox(
-                    maxHeight: double.infinity,
-                    alignment: Alignment.centerLeft,
-                    child: titleColumn,
-                  ),
-                ),
-              )
-            : titleColumn;
-
-        return Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: horizontalPadding,
-            vertical: verticalPadding,
-          ),
-          decoration: BoxDecoration(
-            color: tokens.colors.black.withValues(alpha: 0.28),
-            borderRadius: BorderRadius.circular(tokens.radius.md),
-            border: Border.all(
-              color: tokens.colors.gold.withValues(alpha: 0.28),
-            ),
-          ),
-          child: Stack(
-            alignment: Alignment.centerLeft,
-            children: [
-              Positioned(
-                right: panelTitleOrnamentTrailingPadding,
-                child: IgnorePointer(
-                  child: Opacity(
-                    opacity: ornamentOpacity,
-                    child: Image.asset(
-                      'ios_resources/Embellishments/panel-divider-pixel.png',
-                      width: panelTitleOrnamentWidth,
-                      height: panelTitleOrnamentHeight,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.none,
-                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                    ),
-                  ),
-                ),
-              ),
-              Row(
-                spacing: spacing,
-                children: [
-                  Container(
-                    width: iconBox,
-                    height: iconBox,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: urgent
-                            ? [
-                                tokens.colors.redDark,
-                                tokens.colors.red.withValues(alpha: 0.82),
-                              ]
-                            : [
-                                tokens.colors.black.withValues(alpha: 0.58),
-                                tokens.colors.steel.withValues(alpha: 0.36),
-                              ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(5),
-                      border: Border.all(
-                        color: urgent
-                            ? tokens.colors.redBright
-                            : tokens.colors.gold.withValues(alpha: 0.8),
-                        width: 1.5,
-                      ),
-                    ),
-                    child: Center(
-                      child: Image.asset(
-                        iconPath,
-                        width: iconSize,
-                        height: iconSize,
-                        filterQuality: FilterQuality.none,
-                      ),
-                    ),
-                  ),
-                  Expanded(child: titleContent),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
 class BrigadePanel extends StatelessWidget {
   const BrigadePanel({
     required this.model,
@@ -1681,75 +992,78 @@ class BrigadePanel extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final playerOrder = orderedSeats(seats);
-        final columnCount = playerOrder.length.toDouble();
-        final columnWidth = brigadeColumnWidth(
+        final spacing = brigadeColumnSpacing(constraints.maxWidth);
+        final columnWidth = brigadeExpandedColumnWidth(
           maxWidth: constraints.maxWidth,
-          mediumCardWidth: tokens.card.medium.width,
+          columnCount: playerOrder.length,
+          spacing: spacing,
         );
-        final totalColumnWidth = columnWidth * columnCount;
-        final availableSpacing = (constraints.maxWidth - totalColumnWidth)
-            .clamp(0, double.infinity);
-        final spacing = columnCount <= 1
-            ? 0.0
-            : (availableSpacing / (columnCount - 1)) * brigadeColumnSpacingFill;
-        final rowWidth = totalColumnWidth + spacing * (columnCount - 1);
-        final brigadeRowHeight = clampDouble(
-          constraints.maxHeight - brigadePanelLocalPadding.vertical,
-          0,
-          double.infinity,
+        final playerPanelWidth = brigadePlayerPanelWidth(columnWidth);
+        final playerPanelHeight = brigadePlayerPanelHeight(playerPanelWidth);
+        final desiredPlayObjectWidth = brigadePlayObjectWidth(
+          columnWidth: columnWidth,
+          minWidth: tokens.card.large.width,
+        );
+        final desiredPlayObjectHeight = brigadePlayObjectHeight(
+          desiredPlayObjectWidth,
+          tokens.card.aspectRatio,
+        );
+        final columnHeight = math.min(
+          brigadeColumnHeight(constraints.maxHeight),
+          brigadeContentColumnHeight(
+            playerPanelHeight: playerPanelHeight,
+            playObjectHeight: desiredPlayObjectHeight,
+          ),
+        );
+        final playObjectMaxHeight = brigadePlayObjectMaxHeight(
+          columnHeight,
+          playerPanelHeight,
+        );
+        final playObjectWidth = brigadePlayObjectFittingWidth(
+          desiredWidth: desiredPlayObjectWidth,
+          maxHeight: playObjectMaxHeight,
+          aspectRatio: tokens.card.aspectRatio,
+        );
+        final playObjectHeight = brigadePlayObjectHeight(
+          playObjectWidth,
+          tokens.card.aspectRatio,
         );
 
         return Stack(
           children: [
             Padding(
               padding: brigadePanelLocalPadding,
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: SizedBox(
-                  width: math.min(rowWidth, constraints.maxWidth),
-                  height: brigadeRowHeight,
-                  child: ClipRect(
-                    child: OverflowBox(
-                      alignment: Alignment.topLeft,
-                      minWidth: rowWidth,
-                      maxWidth: rowWidth,
-                      minHeight: brigadeRowHeight,
-                      maxHeight: brigadeRowHeight,
-                      child: SizedBox(
-                        width: rowWidth,
-                        height: brigadeRowHeight,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            for (
-                              var index = 0;
-                              index < playerOrder.length;
-                              index++
-                            )
-                              Padding(
-                                padding: EdgeInsets.only(
-                                  right: index == playerOrder.length - 1
-                                      ? 0
-                                      : spacing,
-                                ),
-                                child: BrigadePlayerColumn(
-                                  seat: playerOrder[index],
-                                  play: trick.playForSeat(
-                                    playerOrder[index].id,
-                                  ),
-                                  columnWidth: columnWidth,
-                                  maxTricks: model.table.maxTricks,
-                                  trump: model.table.trump,
-                                  phase: model.table.phase,
-                                  tokens: tokens,
-                                  language: language,
-                                ),
-                              ),
-                          ],
+              child: SizedBox(
+                height: columnHeight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var index = 0; index < playerOrder.length; index++)
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            right: index == playerOrder.length - 1
+                                ? 0
+                                : spacing,
+                          ),
+                          child: BrigadePlayerColumn(
+                            seat: playerOrder[index],
+                            play: trick.playForSeat(playerOrder[index].id),
+                            columnWidth: columnWidth,
+                            columnHeight: columnHeight,
+                            playerPanelWidth: playerPanelWidth,
+                            playerPanelHeight: playerPanelHeight,
+                            playObjectWidth: playObjectWidth,
+                            playObjectHeight: playObjectHeight,
+                            maxTricks: model.table.maxTricks,
+                            trump: model.table.trump,
+                            phase: model.table.phase,
+                            tokens: tokens,
+                            language: language,
+                          ),
                         ),
                       ),
-                    ),
-                  ),
+                  ],
                 ),
               ),
             ),
@@ -1849,6 +1163,11 @@ class BrigadePlayerColumn extends StatelessWidget {
     required this.seat,
     required this.play,
     required this.columnWidth,
+    required this.columnHeight,
+    required this.playerPanelWidth,
+    required this.playerPanelHeight,
+    required this.playObjectWidth,
+    required this.playObjectHeight,
     required this.maxTricks,
     required this.trump,
     required this.phase,
@@ -1860,6 +1179,11 @@ class BrigadePlayerColumn extends StatelessWidget {
   final Seat seat;
   final TrickPlay? play;
   final double columnWidth;
+  final double columnHeight;
+  final double playerPanelWidth;
+  final double playerPanelHeight;
+  final double playObjectWidth;
+  final double playObjectHeight;
   final int maxTricks;
   final String? trump;
   final String phase;
@@ -1868,236 +1192,79 @@ class BrigadePlayerColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cardSize = tokens.card.medium;
-    final slotWidth = brigadeSlotWidth(columnWidth);
-    const playAreaScale = brigadePlayAreaScale;
-    final playAreaTopOffset = brigadePlayAreaTopOffset(columnWidth);
-    final playerPanelWidth = cardSize.width * playAreaScale;
-    const playerPanelHeight = brigadePlayerPanelHeight;
-    final playAreaWidth =
-        (cardSize.width > slotWidth ? cardSize.width : slotWidth) *
-        playAreaScale;
-    final playAreaLeftOffset = brigadePlayAreaLeftOffset(
-      playerPanelWidth: playerPanelWidth,
-      playAreaWidth: playAreaWidth,
-    );
-    final playAreaHeight =
-        (cardSize.height > slotWidth * 1.2
-            ? cardSize.height
-            : slotWidth * 1.2) *
-        playAreaScale;
     final active = phase == phaseTrick && seat.isCurrentTurn && play == null;
+    final activeColumn = active || (phase == phaseAssignment && play != null);
+    final human = seat.isViewer;
 
     return SizedBox(
       width: columnWidth,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: playerPanelWidth,
-            height: playerPanelHeight,
-            child: PlayerBadge(
-              seat: seat,
-              tokens: tokens,
-              active: active,
-              width: playerPanelWidth,
-              height: playerPanelHeight,
-              maxTricks: maxTricks,
-              language: language,
-            ),
+      height: columnHeight,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: tokens.colors.black.withValues(alpha: human ? 0.28 : 0.22),
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(
+            color: activeColumn
+                ? (human ? tokens.colors.gold : tokens.colors.redBright)
+                : tokens.colors.steel.withValues(alpha: 0.48),
+            width: activeColumn ? 2 : 1,
           ),
-          Transform.translate(
-            offset: Offset(
-              playAreaLeftOffset,
-              -brigadeColumnOverlap(columnWidth),
+          boxShadow: [
+            BoxShadow(
+              color: tokens.colors.black.withValues(alpha: 0.24),
+              blurRadius: 6,
+              offset: const Offset(0, 3),
             ),
-            child: Padding(
-              padding: EdgeInsets.only(top: playAreaTopOffset),
-              child: SizedBox(
-                width: playAreaWidth,
-                height: playAreaHeight,
+          ],
+        ),
+        child: Padding(
+          padding: brigadeColumnPadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: playerPanelWidth,
+                height: playerPanelHeight,
+                child: PlayerBadge(
+                  seat: seat,
+                  tokens: tokens,
+                  active: active,
+                  width: playerPanelWidth,
+                  height: playerPanelHeight,
+                  maxTricks: maxTricks,
+                  language: language,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: brigadePlayAreaTopInset),
                 child: Align(
                   alignment: Alignment.topCenter,
-                  child: Transform.scale(
-                    scale: playAreaScale,
-                    alignment: Alignment.topCenter,
+                  child: SizedBox(
+                    width: playObjectWidth,
+                    height: playObjectHeight,
                     child: play == null
                         ? CardSlot(
                             active: active,
-                            human: seat.isViewer,
-                            width: slotWidth,
-                            height: slotWidth * 1.4,
+                            human: human,
+                            width: playObjectWidth,
+                            height: playObjectHeight,
                             tokens: tokens,
                             language: language,
                           )
-                        : GameCard(
-                            card: play!.card,
-                            tokens: tokens,
-                            trump: trump,
-                            sizeOverride: cardSize,
+                        : FittedBox(
+                            fit: BoxFit.contain,
+                            child: GameCard(
+                              card: play!.card,
+                              tokens: tokens,
+                              trump: trump,
+                              sizeOverride: tokens.card.large,
+                            ),
                           ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-const opponentPlotMiniSectionRadius = 4.0;
-const opponentPlotMiniExileRadius = 6.0;
-
-class NaturalSizeViewport extends StatelessWidget {
-  const NaturalSizeViewport({
-    required this.width,
-    required this.height,
-    required this.naturalWidth,
-    required this.naturalHeight,
-    required this.child,
-    this.clipBehavior = Clip.hardEdge,
-    super.key,
-  });
-
-  final double width;
-  final double height;
-  final double naturalWidth;
-  final double naturalHeight;
-  final Widget child;
-  final Clip clipBehavior;
-
-  @override
-  Widget build(BuildContext context) {
-    final viewportChild = OverflowBox(
-      alignment: Alignment.topLeft,
-      minWidth: naturalWidth,
-      maxWidth: naturalWidth,
-      minHeight: naturalHeight,
-      maxHeight: naturalHeight,
-      child: child,
-    );
-    return SizedBox(
-      width: width,
-      height: height,
-      child: clipBehavior == Clip.none
-          ? viewportChild
-          : ClipRect(clipBehavior: clipBehavior, child: viewportChild),
-    );
-  }
-}
-
-const double cardViewCornerRadius = 8;
-const double cardViewStrokeWidth = 0.8;
-const double cardHighlightShadowOpacity = 0.34;
-const double cardHighlightShadowRadius = 9;
-
-class PlayerPortrait extends StatelessWidget {
-  const PlayerPortrait({
-    required this.seat,
-    required this.tokens,
-    required this.width,
-    required this.height,
-    this.badgeVisible,
-    super.key,
-  });
-
-  final Seat seat;
-  final DesignTokens tokens;
-  final double width;
-  final double height;
-  final bool? badgeVisible;
-
-  @override
-  Widget build(BuildContext context) {
-    final imageWidth = width * 32 / 38;
-    final imageHeight = height * 36 / 42;
-    final medalSize = math.max(7.0, math.min(width, height) * 9 / 38);
-    return SizedBox(
-      width: width,
-      height: height,
-      child: Stack(
-        children: [
-          Align(
-            alignment: Alignment.center,
-            child: Container(
-              width: imageWidth,
-              height: imageHeight,
-              foregroundDecoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(3),
-                border: Border.all(
-                  color: tokens.colors.black.withValues(alpha: 0.68),
-                  width: 1,
-                ),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(3),
-                child: Image.asset(
-                  portraitAssetPath(seat),
-                  fit: BoxFit.cover,
-                  filterQuality: FilterQuality.none,
-                  errorBuilder: (_, _, _) => Image.asset(
-                    'ios_resources/worker4.png',
-                    fit: BoxFit.cover,
-                    filterQuality: FilterQuality.none,
-                    errorBuilder: (_, _, _) => ColoredBox(
-                      color: tokens.colors.black.withValues(alpha: 0.42),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          if (badgeVisible ?? isHumanControlledSeat(seat))
-            Positioned(
-              right: 2,
-              top: 2,
-              child: Image.asset(
-                'ios_resources/Icons/icon-medal-star.png',
-                width: medalSize,
-                height: medalSize,
-                filterQuality: FilterQuality.none,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-const double playerPortraitFrameWidth = 38;
-const double playerPortraitFrameHeight = 42;
-
-class PortraitFrame extends StatelessWidget {
-  const PortraitFrame({
-    required this.seat,
-    required this.tokens,
-    required this.width,
-    required this.height,
-    super.key,
-  });
-
-  final Seat seat;
-  final DesignTokens tokens;
-  final double width;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      height: height,
-      child: OverflowBox(
-        minWidth: 0,
-        minHeight: 0,
-        maxWidth: math.max(width, playerPortraitFrameWidth),
-        maxHeight: math.max(height, playerPortraitFrameHeight),
-        child: PlayerPortrait(
-          seat: seat,
-          tokens: tokens,
-          width: playerPortraitFrameWidth,
-          height: playerPortraitFrameHeight,
         ),
       ),
     );
@@ -2127,14 +1294,22 @@ class PlayerBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final human = seat.isViewer;
-    final portraitColumnWidth = playerPanelPortraitColumnWidth(width, height);
+    final scale = playerPanelScale(height);
     final portraitSize = playerPanelPortraitSize(width, height);
-    final rowSpacing = playerPanelRowSpacing(width);
-    final stackSpacing = playerPanelStackSpacing(width);
-    final statColumnWidth = playerPanelStatColumnWidth(width);
-    final topPadding = playerPanelTopPadding(height);
-    final cellarCardSpacing = playerPanelCellarCardSpacing(width);
-    final contentNaturalWidth = playerPanelContentNaturalWidth(width);
+    final statColumnWidth = playerPanelStatColumnWidth(width, height);
+    final cellarCardSpacing = playerPanelCellarCardSpacing(width, height);
+    final contentLeft = playerPanelContentLeft(width);
+    final contentRight = playerPanelContentRight(width);
+    final contentWidth = math.max(0, contentRight - contentLeft);
+    final portraitLeft = playerPanelPortraitLeft(width, portraitSize);
+    final portraitTop = playerPanelPortraitTop(height, portraitSize);
+    final nameTop = playerPanelNameTop(height);
+    final scoreTop = playerPanelScoreTop(height);
+    final lowerTop = playerPanelLowerStatsTop(height);
+    final scoreWidth = math.min(statColumnWidth, contentWidth * 0.36);
+    final statusWidth = math.min(contentWidth * 0.22, 34 * scale);
+    final medalsWidth = contentWidth * 0.48;
+    final cellarWidth = contentWidth * 0.48;
     return SizedBox(
       width: width,
       height: height,
@@ -2165,103 +1340,94 @@ class PlayerBadge extends StatelessWidget {
               ),
             ),
             Positioned.fill(
-              child: Padding(
-                padding: const EdgeInsets.only(left: 10, right: 6),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: portraitColumnWidth,
-                      child: Transform.translate(
-                        offset: const Offset(-2, 2),
-                        child: PortraitFrame(
-                          seat: seat,
-                          tokens: tokens,
-                          width: portraitSize,
-                          height: portraitSize,
+              child: Stack(
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  Positioned(
+                    left: portraitLeft,
+                    top: portraitTop,
+                    child: PortraitFrame(
+                      seat: seat,
+                      tokens: tokens,
+                      width: portraitSize,
+                      height: portraitSize,
+                    ),
+                  ),
+                  Positioned(
+                    left: contentLeft,
+                    top: nameTop,
+                    width: contentWidth - scoreWidth - 4 * scale,
+                    height: 24 * scale,
+                    child: ClipRect(
+                      child: Transform.scale(
+                        scale: scale,
+                        alignment: Alignment.topLeft,
+                        child: PixelText(
+                          displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          size: PixelTextSize.caption,
+                          variant: PixelTextVariant.heavy,
+                          color: active
+                              ? tokens.colors.gold
+                              : tokens.colors.cardInk,
                         ),
                       ),
                     ),
-                    Expanded(
-                      child: Transform.translate(
-                        offset: const Offset(0, -2),
-                        child: ClipRect(
-                          child: OverflowBox(
-                            minWidth: contentNaturalWidth,
-                            maxWidth: contentNaturalWidth,
-                            alignment: Alignment.centerLeft,
-                            child: SizedBox(
-                              width: contentNaturalWidth,
-                              child: Padding(
-                                padding: EdgeInsets.only(top: topPadding),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  spacing: math.max(0, stackSpacing),
-                                  children: [
-                                    Row(
-                                      spacing: rowSpacing,
-                                      children: [
-                                        Expanded(
-                                          child: PixelText(
-                                            displayName,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            size: PixelTextSize.caption,
-                                            variant: PixelTextVariant.heavy,
-                                            color: active
-                                                ? tokens.colors.gold
-                                                : tokens.colors.cardInk,
-                                          ),
-                                        ),
-                                        const Spacer(),
-                                        PlayerPlotScoreStat(
-                                          score: seat.visibleScore,
-                                          tokens: tokens,
-                                          width: statColumnWidth,
-                                        ),
-                                      ],
-                                    ),
-                                    Transform.translate(
-                                      offset: Offset(
-                                        0,
-                                        math.min(0, stackSpacing),
-                                      ),
-                                      child: Row(
-                                        spacing: rowSpacing,
-                                        children: [
-                                          PlayerMedalStat(
-                                            medals: seat.medals,
-                                            maxTricks: maxTricks,
-                                            tokens: tokens,
-                                            statColumnWidth: statColumnWidth,
-                                          ),
-                                          const Spacer(),
-                                          PlayerCellarStat(
-                                            count: seat.plot.hidden.length,
-                                            tokens: tokens,
-                                            width: statColumnWidth,
-                                            cardSpacing: cellarCardSpacing,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+                  ),
+                  Positioned(
+                    left: contentRight - scoreWidth,
+                    top: scoreTop,
+                    width: scoreWidth,
+                    child: PlayerPlotScoreStat(
+                      score: seat.visibleScore,
+                      tokens: tokens,
+                      width: scoreWidth,
+                      scale: scale,
+                    ),
+                  ),
+                  if (statusBadgeAssets.isNotEmpty)
+                    Positioned(
+                      left: contentRight - statusWidth,
+                      top: height * 0.42,
+                      width: statusWidth,
+                      child: PlayerStatusBadgeStrip(
+                        assets: statusBadgeAssets,
+                        tokens: tokens,
+                        scale: scale,
                       ),
                     ),
-                  ],
-                ),
+                  Positioned(
+                    left: contentLeft,
+                    top: lowerTop,
+                    width: medalsWidth,
+                    child: PlayerMedalStat(
+                      medals: seat.medals,
+                      maxTricks: maxTricks,
+                      tokens: tokens,
+                      statColumnWidth: medalsWidth,
+                      scale: scale,
+                    ),
+                  ),
+                  Positioned(
+                    left: contentRight - cellarWidth,
+                    top: lowerTop,
+                    width: cellarWidth,
+                    child: PlayerCellarStat(
+                      count: seat.plot.hidden.length,
+                      tokens: tokens,
+                      width: cellarWidth,
+                      cardSpacing: cellarCardSpacing,
+                      scale: scale,
+                    ),
+                  ),
+                ],
               ),
             ),
             Positioned.fill(
               child: IgnorePointer(
                 child: Padding(
-                  padding: const EdgeInsets.all(2),
+                  padding: EdgeInsets.all(2 * scale),
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(7),
@@ -2272,9 +1438,9 @@ class PlayerBadge extends StatelessWidget {
                             ? tokens.colors.redDark.withValues(alpha: 0.42)
                             : Colors.transparent,
                         width: active
-                            ? 1.3
+                            ? 1.3 * scale
                             : human
-                            ? 1
+                            ? scale
                             : 0,
                       ),
                     ),
@@ -2282,15 +1448,6 @@ class PlayerBadge extends StatelessWidget {
                 ),
               ),
             ),
-            if (statusBadgeAssets.isNotEmpty)
-              Positioned(
-                top: 3,
-                right: 5,
-                child: PlayerStatusBadgeStrip(
-                  assets: statusBadgeAssets,
-                  tokens: tokens,
-                ),
-              ),
           ],
         ),
       ),
@@ -2316,38 +1473,40 @@ class PlayerStatusBadgeStrip extends StatelessWidget {
   const PlayerStatusBadgeStrip({
     required this.assets,
     required this.tokens,
+    required this.scale,
     super.key,
   });
 
   final List<String> assets;
   final DesignTokens tokens;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+      padding: EdgeInsets.symmetric(horizontal: 2 * scale, vertical: scale),
       decoration: BoxDecoration(
         color: tokens.colors.black.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(3),
+        borderRadius: BorderRadius.circular(3 * scale),
         border: Border.all(color: tokens.colors.gold.withValues(alpha: 0.3)),
       ),
       child: SizedBox(
-        width: 14 + (assets.take(3).length - 1) * 11,
-        height: 14,
+        width: (14 + (assets.take(3).length - 1) * 11) * scale,
+        height: 14 * scale,
         child: Stack(
           children: [
             for (final (index, asset) in assets.take(3).indexed)
               Positioned(
-                left: index * 11,
+                left: index * 11 * scale,
                 top: 0,
                 child: SizedBox(
-                  width: 14,
-                  height: 14,
+                  width: 14 * scale,
+                  height: 14 * scale,
                   child: Center(
                     child: Image.asset(
                       'ios_resources/Icons/$asset',
-                      width: 13,
-                      height: 13,
+                      width: 13 * scale,
+                      height: 13 * scale,
                       filterQuality: FilterQuality.none,
                     ),
                   ),
@@ -2365,41 +1524,51 @@ class PlayerPlotScoreStat extends StatelessWidget {
     required this.score,
     required this.tokens,
     required this.width,
+    required this.scale,
     super.key,
   });
 
   final int score;
   final DesignTokens tokens;
   final double width;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
+    final iconSize = 16 * scale;
+    final textWidth = math.max(0.0, width - iconSize - 2 * scale);
     return SizedBox(
       width: width,
-      height: 18,
-      child: ClipRect(
-        child: OverflowBox(
-          alignment: Alignment.centerLeft,
-          maxWidth: double.infinity,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            spacing: 2,
-            children: [
-              Image.asset(
-                'ios_resources/Icons/icon-plot.png',
-                width: 16,
-                height: 16,
-                filterQuality: FilterQuality.none,
-              ),
-              PixelText(
+      height: 18 * scale,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        spacing: 2 * scale,
+        children: [
+          SizedBox(
+            width: iconSize,
+            height: iconSize,
+            child: Image.asset(
+              'ios_resources/Icons/icon-plot.png',
+              width: iconSize,
+              height: iconSize,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.none,
+            ),
+          ),
+          SizedBox(
+            width: textWidth,
+            child: Transform.scale(
+              scale: scale,
+              alignment: Alignment.centerLeft,
+              child: PixelText(
                 '$score',
                 size: PixelTextSize.headline,
                 variant: PixelTextVariant.heavy,
                 color: tokens.colors.smoke,
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -2411,6 +1580,7 @@ class PlayerMedalStat extends StatelessWidget {
     required this.maxTricks,
     required this.tokens,
     required this.statColumnWidth,
+    required this.scale,
     super.key,
   });
 
@@ -2418,31 +1588,30 @@ class PlayerMedalStat extends StatelessWidget {
   final int maxTricks;
   final DesignTokens tokens;
   final double statColumnWidth;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
+    final iconSize = playerPanelMedalIconSize * scale;
+    final spacing = playerPanelMedalSpacing * scale;
     return SizedBox(
       width: statColumnWidth * 0.72,
-      height: 12,
+      height: iconSize,
       child: Stack(
         children: [
           for (var index = 0; index < maxTricks; index++)
             Positioned(
-              left:
-                  index * (playerPanelMedalIconSize + playerPanelMedalSpacing),
+              left: index * (iconSize + spacing),
               top: 0,
               child: Opacity(
                 opacity: index < medals ? 1 : playerPanelUnearnedMedalOpacity,
                 child: index < medals
-                    ? playerMedalIcon()
-                    : ColorFiltered(
-                        colorFilter: const ColorFilter.matrix(
-                          iconMutedSaturationMatrix,
-                        ),
-                        child: Opacity(
-                          opacity: iconMutedOpacity,
-                          child: playerMedalIcon(),
-                        ),
+                    ? playerMedalIcon(iconSize)
+                    : ChromeAssetIcon(
+                        asset: 'ios_resources/Icons/icon-medal-star.png',
+                        width: iconSize,
+                        height: iconSize,
+                        muted: true,
                       ),
               ),
             ),
@@ -2451,11 +1620,11 @@ class PlayerMedalStat extends StatelessWidget {
     );
   }
 
-  Widget playerMedalIcon() {
+  Widget playerMedalIcon(double size) {
     return Image.asset(
       'ios_resources/Icons/icon-medal-star.png',
-      width: playerPanelMedalIconSize,
-      height: playerPanelMedalIconSize,
+      width: size,
+      height: size,
       filterQuality: FilterQuality.none,
     );
   }
@@ -2464,6 +1633,8 @@ class PlayerMedalStat extends StatelessWidget {
 const playerPanelMedalIconSize = 12.0;
 const playerPanelMedalSpacing = -4.0;
 const playerPanelUnearnedMedalOpacity = 0.18;
+const playerPanelCardBackWidth = 10.0;
+const playerPanelCardBackHeight = 15.0;
 
 class PlayerCellarStat extends StatelessWidget {
   const PlayerCellarStat({
@@ -2471,6 +1642,7 @@ class PlayerCellarStat extends StatelessWidget {
     required this.tokens,
     required this.width,
     required this.cardSpacing,
+    required this.scale,
     super.key,
   });
 
@@ -2478,66 +1650,80 @@ class PlayerCellarStat extends StatelessWidget {
   final DesignTokens tokens;
   final double width;
   final double cardSpacing;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
+    final iconSize = 16 * scale;
+    final cardWidth = playerPanelCardBackWidth * scale;
+    final cardHeight = playerPanelCardBackHeight * scale;
+    final cardsWidth = math.max(0.0, width - iconSize - 2 * scale);
     return SizedBox(
       width: width,
-      height: 16,
-      child: ClipRect(
-        child: OverflowBox(
-          alignment: Alignment.centerLeft,
-          maxWidth: double.infinity,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            spacing: 2,
-            children: [
-              Image.asset(
-                'ios_resources/Icons/icon-cellar.png',
-                width: 16,
-                height: 16,
-                filterQuality: FilterQuality.none,
-              ),
-              SizedBox(
-                width: math.max(0, count * 10 + (count - 1) * cardSpacing),
-                height: 15,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    for (var index = 0; index < count; index++)
-                      Positioned(
-                        left: index * (10 + cardSpacing),
-                        top: 0,
-                        child: PlayerCardBackThumbnail(tokens: tokens),
-                      ),
-                  ],
-                ),
-              ),
-            ],
+      height: 16 * scale,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        spacing: 2 * scale,
+        children: [
+          SizedBox(
+            width: iconSize,
+            height: iconSize,
+            child: Image.asset(
+              'ios_resources/Icons/icon-cellar.png',
+              width: iconSize,
+              height: iconSize,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.none,
+            ),
           ),
-        ),
+          SizedBox(
+            width: cardsWidth,
+            height: cardHeight,
+            child: ClipRect(
+              child: Stack(
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  for (var index = 0; index < count; index++)
+                    Positioned(
+                      left: index * (cardWidth + cardSpacing),
+                      top: 0,
+                      child: PlayerCardBackThumbnail(
+                        tokens: tokens,
+                        scale: scale,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
 class PlayerCardBackThumbnail extends StatelessWidget {
-  const PlayerCardBackThumbnail({required this.tokens, super.key});
+  const PlayerCardBackThumbnail({
+    required this.tokens,
+    required this.scale,
+    super.key,
+  });
 
   final DesignTokens tokens;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(2),
+      borderRadius: BorderRadius.circular(2 * scale),
       child: Container(
-        width: 10,
-        height: 15,
+        width: playerPanelCardBackWidth * scale,
+        height: playerPanelCardBackHeight * scale,
         foregroundDecoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(2),
+          borderRadius: BorderRadius.circular(2 * scale),
           border: Border.all(
             color: tokens.colors.gold.withValues(alpha: 0.62),
-            width: 0.5,
+            width: 0.5 * scale,
           ),
         ),
         child: Image.asset(
@@ -2752,144 +1938,6 @@ class CardSlotPainter extends CustomPainter {
       oldDelegate.color != color ||
       oldDelegate.fillColor != fillColor ||
       oldDelegate.active != active;
-}
-
-class DashedSlot extends StatelessWidget {
-  const DashedSlot({
-    required this.width,
-    required this.height,
-    required this.tokens,
-    required this.label,
-    super.key,
-  });
-
-  final double width;
-  final double height;
-  final DesignTokens tokens;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: DashedSlotPainter(tokens.colors.gold),
-      child: SizedBox(
-        width: width,
-        height: height,
-        child: Center(
-          child: PixelText(
-            label.toUpperCase(),
-            size: PixelTextSize.title,
-            variant: PixelTextVariant.heavy,
-            color: tokens.colors.gold.withValues(alpha: 0.8),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class DashedSlotPainter extends CustomPainter {
-  const DashedSlotPainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color.withValues(alpha: 0.78)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    const dash = 9.0;
-    const gap = 7.0;
-    final rect = RRect.fromRectAndRadius(
-      Offset.zero & size,
-      const Radius.circular(12),
-    );
-    final path = Path()..addRRect(rect);
-    for (final metric in path.computeMetrics()) {
-      var distance = 0.0;
-      while (distance < metric.length) {
-        canvas.drawPath(metric.extractPath(distance, distance + dash), paint);
-        distance += dash + gap;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(DashedSlotPainter oldDelegate) =>
-      oldDelegate.color != color;
-}
-
-class TrickCards extends StatelessWidget {
-  const TrickCards({required this.trick, required this.tokens, super.key});
-
-  final Trick trick;
-  final DesignTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    if (trick.plays.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Wrap(
-      spacing: tokens.spacing.sm,
-      runSpacing: tokens.spacing.sm,
-      children: [
-        for (final play in trick.plays)
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GameCard(card: play.card, tokens: tokens, small: true),
-              PixelText(
-                '${play.seatID + 1}',
-                size: PixelTextSize.caption2,
-                color: tokens.colors.creamDim,
-              ),
-            ],
-          ),
-      ],
-    );
-  }
-}
-
-class InfoPlaque extends StatelessWidget {
-  const InfoPlaque({required this.model, required this.tokens, super.key});
-
-  final TableViewModel model;
-  final DesignTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 260,
-      margin: EdgeInsets.all(tokens.spacing.md),
-      padding: EdgeInsets.all(tokens.spacing.md),
-      decoration: BoxDecoration(
-        color: tokens.colors.black.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(tokens.radius.md),
-        border: Border.all(color: tokens.colors.gold.withValues(alpha: 0.36)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          PixelText(
-            model.table.phasePrompt.title,
-            size: PixelTextSize.title,
-            variant: PixelTextVariant.heavy,
-            color: tokens.colors.gold,
-          ),
-          SizedBox(height: tokens.spacing.xs),
-          PixelText(
-            model.table.phasePrompt.body,
-            size: PixelTextSize.caption,
-            color: tokens.colors.creamDim,
-            softWrap: true,
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class PlanningTrumpPanel extends StatelessWidget {
@@ -3125,12 +2173,12 @@ class GameOverPanel extends StatelessWidget {
           Center(
             child: Padding(
               padding: const EdgeInsets.only(top: gameOverNewGameTopPadding),
-              child: ActionSurfaceButton(
+              child: ChromeAssetButton.command(
                 label: language.text(en: 'New game', ru: 'Новая игра'),
-                iconPath: null,
                 prominent: true,
                 tokens: tokens,
                 onPressed: onNewGame,
+                surfaceKey: const Key('command-surface-button'),
               ),
             ),
           ),
@@ -3220,664 +2268,3 @@ const gameOverPortraitWidth = 38.0;
 const gameOverPortraitHeight = 42.0;
 const gameOverWinnerIconSize = 32.0;
 const gameOverScoreMinWidth = 28.0;
-
-class PhasePromptLine extends StatelessWidget {
-  const PhasePromptLine({required this.model, required this.tokens, super.key});
-
-  final TableViewModel model;
-  final DesignTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    return PixelText(
-      model.table.phasePrompt.title,
-      size: PixelTextSize.title,
-      variant: PixelTextVariant.heavy,
-      color: tokens.colors.gold,
-    );
-  }
-}
-
-class GameCard extends StatelessWidget {
-  const GameCard({
-    required this.card,
-    required this.tokens,
-    this.trump,
-    this.small = false,
-    this.highlightColorOverride,
-    this.highlightGlowEnabled = true,
-    this.highlightedStrokeWidthOverride,
-    this.highlightedBorderRadiusOverride,
-    this.sizeOverride,
-    this.motionTracked = true,
-    super.key,
-  });
-
-  final TableCard card;
-  final DesignTokens tokens;
-  final String? trump;
-  final bool small;
-  final Color? highlightColorOverride;
-  final bool highlightGlowEnabled;
-  final double? highlightedStrokeWidthOverride;
-  final double? highlightedBorderRadiusOverride;
-  final TokenCardSize? sizeOverride;
-  final bool motionTracked;
-
-  @override
-  Widget build(BuildContext context) {
-    final size =
-        sizeOverride ?? (small ? tokens.card.small : tokens.card.large);
-    final highlightColor = card.highlighted
-        ? highlightColorOverride ??
-              cardHighlightColor(card: card, trump: trump, tokens: tokens)
-        : null;
-    final highlightGlow = highlightGlowEnabled ? highlightColor : null;
-    final highlightBorder = card.selected
-        ? tokens.colors.green
-        : card.highlighted
-        ? highlightColor
-        : null;
-    final highlightBorderWidth = card.selected
-        ? tokens.stroke.active
-        : card.highlighted
-        ? highlightedStrokeWidthOverride ?? tokens.stroke.active
-        : 0.0;
-    final cardSurface = Container(
-      width: size.width,
-      height: size.height,
-      decoration: BoxDecoration(
-        color: tokens.colors.panel,
-        borderRadius: BorderRadius.circular(cardViewCornerRadius),
-        boxShadow: highlightGlow == null
-            ? null
-            : [
-                BoxShadow(
-                  color: highlightGlow.withValues(
-                    alpha: cardHighlightShadowOpacity,
-                  ),
-                  blurRadius: cardHighlightShadowRadius,
-                ),
-              ],
-      ),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(cardViewCornerRadius),
-              child: Image.asset(
-                cardTemplateAssetPathForTokens(tokens),
-                fit: BoxFit.cover,
-                filterQuality: FilterQuality.none,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
-              ),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.all(size.faceInset),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: CardCenterFace(
-                    card: card,
-                    size: size,
-                    tokens: tokens,
-                    trump: trump,
-                  ),
-                ),
-                Positioned(
-                  left: size.width * 0.03,
-                  top: size.height * 0.03,
-                  child: CardCornerIndex(
-                    card: card,
-                    size: size,
-                    tokens: tokens,
-                    placement: CardCornerPlacement.top,
-                    trump: trump,
-                  ),
-                ),
-                Positioned(
-                  right: size.width * 0.02,
-                  bottom: -(size.height * 0.03),
-                  child: CardCornerIndex(
-                    card: card,
-                    size: size,
-                    tokens: tokens,
-                    placement: CardCornerPlacement.bottom,
-                    trump: trump,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(cardViewCornerRadius),
-                  border: Border.all(
-                    color: tokens.colors.black.withValues(
-                      alpha: tokens.colors.cardStrokeOpacity,
-                    ),
-                    width: cardViewStrokeWidth,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          if (highlightBorder != null)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(
-                      highlightedBorderRadiusOverride ?? cardViewCornerRadius,
-                    ),
-                    border: Border.all(
-                      color: highlightBorder,
-                      width: highlightBorderWidth,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-    if (!motionTracked) {
-      return cardSurface;
-    }
-    return MotionTrackedCard(card: card, child: cardSurface);
-  }
-}
-
-enum CardCornerPlacement { top, bottom }
-
-class CardCornerIndex extends StatelessWidget {
-  const CardCornerIndex({
-    required this.card,
-    required this.size,
-    required this.tokens,
-    required this.placement,
-    this.trump,
-    super.key,
-  });
-
-  final TableCard card;
-  final TokenCardSize size;
-  final DesignTokens tokens;
-  final CardCornerPlacement placement;
-  final String? trump;
-
-  @override
-  Widget build(BuildContext context) {
-    final top = placement == CardCornerPlacement.top;
-    final spacing = top
-        ? size.topCornerRankSuitSpacing
-        : size.bottomCornerRankSuitSpacing;
-    final frameHeight = size.cornerHeight + size.cornerSuitSize + 2;
-    final contentHeight = size.cornerHeight + size.cornerSuitSize + spacing;
-    final bottomContentTop = frameHeight - contentHeight;
-    final rank = SizedBox(
-      width: size.cornerWidth,
-      height: size.cornerHeight,
-      child: Align(
-        alignment: top ? Alignment.centerLeft : Alignment.centerRight,
-        child: PixelText(
-          card.rank,
-          size: pixelTextSizeForCardRank(size),
-          variant: PixelTextVariant.heavy,
-          color: card.suit == trump ? tokens.colors.red : tokens.colors.cream,
-          textAlign: top ? TextAlign.start : TextAlign.end,
-        ),
-      ),
-    );
-    final suit = Transform.translate(
-      offset: Offset(
-        top ? size.topCornerSuitXOffset : size.bottomCornerSuitXOffset,
-        0,
-      ),
-      child: SuitMark(
-        suit: card.suit,
-        tokens: tokens,
-        size: size.cornerSuitSize,
-      ),
-    );
-
-    return SizedBox(
-      width: size.cornerWidth,
-      height: frameHeight,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: top
-            ? [
-                Positioned(left: 0, top: 0, child: rank),
-                Positioned(
-                  left: 0,
-                  top: size.cornerHeight + spacing,
-                  child: SizedBox(
-                    width: size.cornerSuitSize,
-                    height: size.cornerSuitSize,
-                    child: suit,
-                  ),
-                ),
-              ]
-            : [
-                Positioned(
-                  right: 0,
-                  top: bottomContentTop,
-                  child: SizedBox(
-                    width: size.cornerSuitSize,
-                    height: size.cornerSuitSize,
-                    child: suit,
-                  ),
-                ),
-                Positioned(
-                  right: 0,
-                  top: bottomContentTop + size.cornerSuitSize + spacing,
-                  child: rank,
-                ),
-              ],
-      ),
-    );
-  }
-}
-
-class CardCenterFace extends StatelessWidget {
-  const CardCenterFace({
-    required this.card,
-    required this.size,
-    required this.tokens,
-    this.trump,
-    super.key,
-  });
-
-  final TableCard card;
-  final TokenCardSize size;
-  final DesignTokens tokens;
-  final String? trump;
-
-  @override
-  Widget build(BuildContext context) {
-    if (size.width <= tokens.card.small.width + 0.1) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          spacing: 2,
-          children: [
-            SuitMark(suit: card.suit, tokens: tokens, size: 14),
-            PixelText(
-              card.rank,
-              size: PixelTextSize.caption2,
-              variant: PixelTextVariant.heavy,
-              color: card.suit == trump
-                  ? tokens.colors.red
-                  : tokens.colors.cream,
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (card.value >= 11) {
-      return Center(
-        child: SizedBox(
-          width: faceArtWidth(size),
-          height: faceArtWidth(size) * 1.5,
-          child: Image.asset(
-            faceAssetPath(card),
-            fit: BoxFit.cover,
-            filterQuality: FilterQuality.none,
-            errorBuilder: (_, _, _) => Image.asset(
-              genericFaceAssetPath(card),
-              fit: BoxFit.cover,
-              filterQuality: FilterQuality.none,
-              errorBuilder: (_, _, _) => SuitMark(
-                suit: card.suit,
-                tokens: tokens,
-                size: size.width * 0.34,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: size.width * 0.16,
-        vertical: size.height * 0.02,
-      ),
-      child: PipPattern(card: card, size: size, tokens: tokens),
-    );
-  }
-}
-
-class PipPattern extends StatelessWidget {
-  const PipPattern({
-    required this.card,
-    required this.size,
-    required this.tokens,
-    super.key,
-  });
-
-  final TableCard card;
-  final TokenCardSize size;
-  final DesignTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    final positions = pipPositions(card.value);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Stack(
-          children: [
-            for (final point in positions)
-              Positioned(
-                left: constraints.maxWidth * point.dx - size.pipSize / 2,
-                top: constraints.maxHeight * point.dy - size.pipSize / 2,
-                child: SuitMark(
-                  suit: card.suit,
-                  tokens: tokens,
-                  size: size.pipSize,
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class MiniRewardCard extends StatelessWidget {
-  const MiniRewardCard({
-    required this.card,
-    required this.claimed,
-    required this.height,
-    required this.tokens,
-    super.key,
-  });
-
-  final TableCard card;
-  final bool claimed;
-  final double height;
-  final DesignTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: height * 24 / 34,
-      height: height,
-      child: FittedBox(
-        fit: BoxFit.contain,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: tokens.colors.cardFill,
-            borderRadius: BorderRadius.circular(tokens.radius.xs),
-            border: Border.all(
-              color: claimed
-                  ? tokens.colors.green
-                  : tokens.colors.black.withValues(
-                      alpha: tokens.colors.cardStrokeOpacity,
-                    ),
-              width: claimed ? 2 : 1,
-            ),
-          ),
-          child: SizedBox(
-            width: 24,
-            height: 34,
-            child: Stack(
-              alignment: Alignment.topCenter,
-              children: [
-                Positioned(
-                  top: miniRewardRankTop,
-                  child: SizedBox(
-                    width: 24,
-                    child: Center(
-                      child: PixelText(
-                        card.rank,
-                        size: PixelTextSize.caption,
-                        variant: PixelTextVariant.heavy,
-                        color: tokens.colors.cardInk,
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: miniRewardSuitTop,
-                  child: SuitMark(suit: card.suit, tokens: tokens, size: 18),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-const miniRewardRankTop = -1.0;
-const miniRewardSuitTop = 13.0;
-const topInfoEmptyRewardCheckSize = 17.0;
-const jobTileEmptyRewardCheckSize = 18.0;
-
-class EmptyRewardMarker extends StatelessWidget {
-  const EmptyRewardMarker({
-    required this.size,
-    required this.tokens,
-    this.checkSize = jobTileEmptyRewardCheckSize,
-    super.key,
-  });
-
-  final double size;
-  final DesignTokens tokens;
-  final double checkSize;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: size * 24 / 34,
-      height: size,
-      child: FittedBox(
-        fit: BoxFit.contain,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(tokens.radius.xs),
-            border: Border.all(
-              color: tokens.colors.green.withValues(alpha: 0.7),
-            ),
-          ),
-          child: SizedBox(
-            width: 24,
-            height: 34,
-            child: Center(
-              child: Image.asset(
-                'ios_resources/Icons/icon-check.png',
-                width: checkSize,
-                height: checkSize,
-                filterQuality: FilterQuality.none,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class ProgressBar extends StatelessWidget {
-  const ProgressBar({
-    required this.value,
-    required this.complete,
-    required this.tokens,
-    super.key,
-  });
-
-  final double value;
-  final bool complete;
-  final DesignTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 8,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final clampedValue = clampDouble(value, 0, 1);
-          final fillWidth = clampDouble(
-            constraints.maxWidth * clampedValue / 2,
-            4.0,
-            constraints.maxWidth,
-          );
-          return DecoratedBox(
-            decoration: BoxDecoration(
-              color: tokens.colors.black,
-              borderRadius: BorderRadius.circular(tokens.radius.xs),
-              border: Border.all(
-                color: tokens.colors.steel.withValues(alpha: 0.8),
-              ),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(tokens.radius.xs),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: SizedBox(
-                  width: fillWidth,
-                  height: double.infinity,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: complete
-                            ? [tokens.colors.green, tokens.colors.gold]
-                            : [
-                                const Color.fromRGBO(138, 105, 20, 1),
-                                tokens.colors.gold,
-                              ],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class MiniCard extends StatelessWidget {
-  const MiniCard({
-    required this.card,
-    required this.tokens,
-    this.emptySuit,
-    super.key,
-  });
-
-  final TableCard? card;
-  final DesignTokens tokens;
-  final String? emptySuit;
-
-  @override
-  Widget build(BuildContext context) {
-    final visibleCard = card;
-    if (visibleCard != null) {
-      return GameCard(
-        card: visibleCard,
-        tokens: tokens,
-        sizeOverride: tokens.card.small,
-      );
-    }
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage(cardTemplateAssetPathForTokens(tokens)),
-          fit: BoxFit.cover,
-          filterQuality: FilterQuality.none,
-        ),
-        borderRadius: BorderRadius.circular(cardViewCornerRadius),
-        border: Border.all(color: tokens.colors.green.withValues(alpha: 0.7)),
-      ),
-      child: SizedBox(
-        width: tokens.card.small.width,
-        height: tokens.card.small.height,
-        child: Center(
-          child: SuitMark(
-            suit: emptySuit ?? 'wheat',
-            tokens: tokens,
-            size: tokens.card.small.cornerSuitSize * 2,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class SuitDot extends StatelessWidget {
-  const SuitDot({
-    required this.suit,
-    required this.tokens,
-    this.size = 12,
-    super.key,
-  });
-
-  final String suit;
-  final DesignTokens tokens;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: suitColor(tokens, suit),
-        shape: BoxShape.circle,
-      ),
-    );
-  }
-}
-
-class SuitMark extends StatelessWidget {
-  const SuitMark({
-    required this.suit,
-    required this.tokens,
-    required this.size,
-    super.key,
-  });
-
-  final String suit;
-  final DesignTokens tokens;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final shadowColor = suitMarkDisplayColor(
-      suit,
-      tokens,
-    ).withValues(alpha: size > suitMarkShadowSizeThreshold ? 0.34 : 0);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        boxShadow: [
-          BoxShadow(
-            color: shadowColor,
-            blurRadius: size > suitMarkShadowSizeThreshold ? 3 : 0,
-          ),
-        ],
-      ),
-      child: Image.asset(
-        'ios_resources/Icons/icon-$suit.png',
-        width: size,
-        height: size,
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.none,
-        errorBuilder: (_, _, _) =>
-            SuitDot(suit: suit, tokens: tokens, size: size),
-      ),
-    );
-  }
-}
-
-const suitMarkShadowSizeThreshold = 17.0;

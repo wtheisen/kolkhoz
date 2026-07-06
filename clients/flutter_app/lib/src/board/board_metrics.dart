@@ -57,7 +57,37 @@ class ResponsiveBoardMetrics {
 
   double get handTrayHeight => tokens.layout.board.handTrayHeight;
 
-  double get handTrayVisibleHeight => 66;
+  double get handTrayVisibleHeight => handTrayVisibleHeightMin;
+
+  double handTrayLayoutHeightForBoardHeight(double boardHeight) {
+    final responsiveHeight =
+        handTrayHeight +
+        math.max(0, boardHeight - handTrayResponsiveStartHeight) *
+            handTrayResponsiveGrowthFactor;
+    return clampDouble(
+      responsiveHeight,
+      handTrayHeight,
+      handTrayLayoutHeightMax,
+    );
+  }
+
+  double handTrayVisibleHeightForBoardHeight(double boardHeight) {
+    return handTrayVisibleHeightForLayoutHeight(
+      handTrayLayoutHeightForBoardHeight(boardHeight),
+    );
+  }
+
+  double handTrayVisibleHeightForLayoutHeight(double layoutHeight) {
+    return clampDouble(
+      layoutHeight + handTrayVisibleOverhang,
+      handTrayVisibleHeightMin,
+      handTrayVisibleHeightMax,
+    );
+  }
+
+  double handTrayHeightForVisibleHeight(double visibleHeight) {
+    return math.max(handTrayHeight, visibleHeight - handTrayVisibleOverhang);
+  }
 
   double scaledClamp(double value, double min, double max) {
     return clampDouble(value, min * scale, max * scale);
@@ -69,3 +99,9 @@ const _boardRailPanelIconSize = 28.0;
 const _boardRailButtonSpacing = 6.0;
 const _boardRailHorizontalPadding = 6.0;
 const _boardRailVerticalPadding = 3.0;
+const handTrayVisibleHeightMin = 66.0;
+const handTrayVisibleHeightMax = 404.0;
+const handTrayLayoutHeightMax = 390.0;
+const handTrayVisibleOverhang = 14.0;
+const handTrayResponsiveStartHeight = 500.0;
+const handTrayResponsiveGrowthFactor = 1.0;

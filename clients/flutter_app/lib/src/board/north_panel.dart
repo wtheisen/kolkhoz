@@ -1,4 +1,14 @@
-part of '../board_view.dart';
+import 'dart:math' as math;
+import 'dart:ui' show clampDouble;
+
+import 'package:flutter/material.dart';
+
+import '../app_settings.dart';
+import '../design_tokens.dart';
+import '../game_constants.dart';
+import '../pixel_text.dart';
+import '../render_model.dart';
+import 'board_widgets.dart';
 
 const northColumnVerticalInset = 24.0;
 const northColumnMinHeight = 120.0;
@@ -268,40 +278,6 @@ class NorthEmptyYear extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class NegativeSpacingColumn extends StatelessWidget {
-  const NegativeSpacingColumn({
-    required this.children,
-    required this.spacing,
-    required this.itemHeight,
-    this.bottomPadding = 0,
-    super.key,
-  });
-
-  final List<Widget> children;
-  final double spacing;
-  final double itemHeight;
-  final double bottomPadding;
-
-  @override
-  Widget build(BuildContext context) {
-    if (children.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final step = itemHeight + spacing;
-    final height = itemHeight + step * (children.length - 1) + bottomPadding;
-    return SizedBox(
-      height: height,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          for (final (index, child) in children.indexed)
-            Positioned(top: index * step, left: 0, child: child),
-        ],
       ),
     );
   }
