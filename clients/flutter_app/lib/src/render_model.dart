@@ -193,6 +193,7 @@ class TableCard {
     required this.selected,
     required this.highlighted,
     required this.pending,
+    this.assignmentRound,
     this.nomenclature = false,
   });
 
@@ -203,6 +204,7 @@ class TableCard {
   final bool selected;
   final bool highlighted;
   final bool pending;
+  final int? assignmentRound;
   final bool nomenclature;
 }
 

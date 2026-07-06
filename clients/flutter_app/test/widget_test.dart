@@ -57,6 +57,63 @@ void main() {
     );
   });
 
+  test('app settings persist in-game menu control preferences', () {
+    const settings = KolkhozAppSettings(
+      language: KolkhozLanguage.en,
+      appearance: KolkhozAppearance.light,
+      confirmNewGame: false,
+      confirmMainMenu: false,
+      showInvalidTapHints: false,
+    );
+
+    final restored = KolkhozAppSettings.fromJson(settings.toJson());
+
+    expect(restored.language, KolkhozLanguage.en);
+    expect(restored.appearance, KolkhozAppearance.light);
+    expect(restored.confirmNewGame, isFalse);
+    expect(restored.confirmMainMenu, isFalse);
+    expect(restored.showInvalidTapHints, isFalse);
+    expect(const KolkhozAppSettings().confirmNewGame, isTrue);
+    expect(const KolkhozAppSettings().confirmMainMenu, isTrue);
+    expect(const KolkhozAppSettings().showInvalidTapHints, isTrue);
+  });
+
+  testWidgets('game control confirmation resolves through navigator context', (
+    tester,
+  ) async {
+    bool? confirmed;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return TextButton(
+              onPressed: () async {
+                confirmed = await showGameControlConfirmation(
+                  context: context,
+                  language: KolkhozLanguage.en,
+                  title: 'Main menu?',
+                  message: 'Leave the current game and return to setup.',
+                  confirmLabel: 'Main menu',
+                );
+              },
+              child: const Text('Open confirmation'),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open confirmation'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Main menu?'), findsOneWidget);
+    await tester.tap(find.text('Main menu'));
+    await tester.pumpAndSettle();
+
+    expect(confirmed, isTrue);
+  });
+
   testWidgets('left rail uses generic icon assets', (tester) async {
     const tokens = defaultDesignTokens;
     final metrics = ResponsiveBoardMetrics.fromSize(
@@ -954,6 +1011,52 @@ void main() {
     expect(invalidTaps, 1);
   });
 
+  test('hand tray uses green playable-card highlights in both appearances', () {
+    final base = runtimeModel();
+    final card = cardWithSelection(
+      base.table.seats.first.hand.first,
+      highlighted: true,
+    );
+    final trickModel = runtimeModelWith(
+      phase: phaseTrick,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+    );
+    final swapModel = runtimeModelWith(
+      phase: phaseSwap,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+    );
+
+    expect(
+      handTrayHighlightColor(
+        trickModel,
+        card,
+        swapHighlightColor: defaultDesignTokens.colors.red,
+        playableHighlightColor: defaultDesignTokens.colors.green,
+      ),
+      defaultDesignTokens.colors.green,
+    );
+    expect(
+      handTrayHighlightColor(
+        trickModel,
+        card,
+        swapHighlightColor: lightDesignTokens.colors.red,
+        playableHighlightColor: lightDesignTokens.colors.green,
+      ),
+      lightDesignTokens.colors.green,
+    );
+    expect(
+      handTrayHighlightColor(
+        swapModel,
+        card,
+        swapHighlightColor: defaultDesignTokens.colors.red,
+        playableHighlightColor: defaultDesignTokens.colors.green,
+      ),
+      defaultDesignTokens.colors.red,
+    );
+  });
+
   testWidgets('Foreman hint bubble renders follow-suit reminder', (
     tester,
   ) async {
@@ -1139,6 +1242,96 @@ void main() {
       ),
       defaultDesignTokens.layout.jobs.assignmentMinTileHeight,
     );
+    expect(assignedJobCardRowCount(8), 2);
+    expect(
+      assignedJobCardRowWidth(
+        rowCardCount: 4,
+        cardSize: defaultDesignTokens.card.large,
+      ),
+      lessThan(defaultDesignTokens.card.large.width * 4),
+    );
+    expect(
+      assignedJobCardsContentSize(
+        cardCount: 8,
+        cardSize: defaultDesignTokens.card.large,
+      ).height,
+      lessThan(defaultDesignTokens.card.large.height * 2),
+    );
+    expect(
+      assignedJobTrickRows([
+        for (var index = 0; index < 6; index += 1)
+          testCard(id: 'wheat-$index', suit: 'wheat', value: index + 6),
+      ]).map((row) => row.length),
+      [4, 2],
+    );
+    final splitRoundRows = assignedJobTrickRows([
+      testCard(id: 'wheat-6', suit: 'wheat', value: 6, assignmentRound: 1),
+      testCard(id: 'wheat-7', suit: 'wheat', value: 7, assignmentRound: 2),
+      testCard(id: 'wheat-8', suit: 'wheat', value: 8, assignmentRound: 2),
+    ]);
+    expect(splitRoundRows.map((row) => row.map((card) => card.id).toList()), [
+      ['wheat-6'],
+      ['wheat-7', 'wheat-8'],
+    ]);
+    expect(
+      assignedJobCardRowsContentSize(
+        rows: splitRoundRows,
+        cardSize: defaultDesignTokens.card.large,
+      ).height,
+      greaterThan(defaultDesignTokens.card.large.height),
+    );
+    expect(
+      assignedJobCardSizeForRows(
+        availableSize: const Size(420, 260),
+        rows: splitRoundRows,
+        tokens: defaultDesignTokens,
+      ),
+      defaultDesignTokens.card.large,
+    );
+    final jobWithPendingAssignment = Job(
+      suit: 'wheat',
+      hours: 11,
+      requiredHours: jobRequiredHours,
+      claimed: false,
+      reward: null,
+      assignedCards: [
+        testCard(id: 'wheat-11', suit: 'wheat', value: 11),
+        testCard(id: 'beet-12', suit: 'beet', value: 12, pending: true),
+      ],
+      validAssignmentTarget: true,
+      highlighted: false,
+    );
+    expect(pendingAssignedJobHours(jobWithPendingAssignment), 12);
+    expect(displayedJobHours(jobWithPendingAssignment), 23);
+    final fullWidth = assignedJobCardsContentSize(
+      cardCount: 5,
+      cardSize: defaultDesignTokens.card.large,
+    ).width;
+    expect(
+      assignedJobCardLeft(
+        indexInRow: 0,
+        rowCardCount: 1,
+        fullWidth: fullWidth,
+        cardSize: defaultDesignTokens.card.large,
+      ),
+      closeTo((fullWidth - defaultDesignTokens.card.large.width) / 2, 0.001),
+    );
+    expect(
+      assignedJobCardSize(
+        availableSize: const Size(420, 260),
+        cardCount: 8,
+        tokens: defaultDesignTokens,
+      ),
+      defaultDesignTokens.card.large,
+    );
+    expect(
+      assignedJobCardSize(
+        availableSize: const Size(120, 130),
+        cardCount: 8,
+        tokens: defaultDesignTokens,
+      ),
+      defaultDesignTokens.card.small,
+    );
   });
 
   test('plot display helpers hide exiled cards and project selection', () {
@@ -1276,20 +1469,29 @@ void main() {
   });
 
   test('options display helpers clamp menu spacing', () {
+    expect(optionsPanelLocalPadding.top, 8);
     expect(optionsPanelSurfaceMinHeight, 230);
-    expect(optionsPanelSurfaceMaxHeight, 384);
     expect(optionsMenuSectionSpacing(100), optionsMenuSectionSpacingMin);
     expect(optionsMenuSectionSpacing(1000), optionsMenuSectionSpacingMax);
     expect(defaultGameAnimationSpeed, GameAnimationSpeed.normal);
     expect(GameAnimationSpeed.instant.automaticStepDelay, Duration.zero);
     expect(
       GameAnimationSpeed.fast.automaticStepDelay,
-      const Duration(milliseconds: 170),
+      const Duration(milliseconds: 340),
+    );
+    expect(
+      GameAnimationSpeed.normal.automaticStepDelay,
+      const Duration(milliseconds: 600),
+    );
+    expect(
+      GameAnimationSpeed.normal.cardFlightDuration,
+      const Duration(milliseconds: 520),
     );
     expect(
       GameAnimationSpeed.slow.cardFlightDuration,
-      const Duration(milliseconds: 520),
+      const Duration(milliseconds: 1040),
     );
+    expect(cardSlotPulseDuration, const Duration(milliseconds: 1800));
   });
 
   test('board backgrounds avoid mode-specific gradients', () {
@@ -1341,25 +1543,133 @@ void main() {
     expect(cards['wheat-11']?.rank, 'J');
   });
 
-  testWidgets('options menu controls report game-level actions', (
+  test('AI card flights originate from the player info card', () {
+    const badgeRect = Rect.fromLTWH(100, 40, 220, 88);
+    final model = runtimeModel();
+    final source = cardFlightSourceRect(
+      cardID: 'sunflower-7',
+      previousZone: 'hand:2',
+      nextZone: 'trick:2',
+      previousRects: {
+        'sunflower-7': const Rect.fromLTWH(10, 10, 70, 99),
+        playerCardMotionSourceKey(2): badgeRect,
+      },
+      model: model,
+      tokens: defaultDesignTokens,
+    );
+
+    expect(source, isNotNull);
+    expect(source!.center, badgeRect.center);
+    expect(source.width, defaultDesignTokens.card.small.width);
+    expect(
+      source.height,
+      closeTo(defaultDesignTokens.card.small.height, 0.001),
+    );
+    expect(
+      cardFlightSourceRect(
+        cardID: 'sunflower-7',
+        previousZone: 'hand:2',
+        nextZone: 'trick:1',
+        previousRects: {playerCardMotionSourceKey(2): badgeRect},
+        model: model,
+        tokens: defaultDesignTokens,
+      ),
+      isNull,
+    );
+    expect(
+      cardFlightDurationScale(
+        previousZone: 'hand:2',
+        nextZone: 'trick:2',
+        model: model,
+      ),
+      playerInfoCardFlightDurationScale,
+    );
+    expect(
+      cardFlightDurationScale(
+        previousZone: 'hand:0',
+        nextZone: 'trick:0',
+        model: model,
+      ),
+      1,
+    );
+    expect(
+      scaledDuration(
+        const Duration(milliseconds: 520),
+        playerInfoCardFlightDurationScale,
+      ),
+      const Duration(milliseconds: 780),
+    );
+  });
+
+  test('requisition card flights target the north rail icon', () {
+    const northIconRect = Rect.fromLTWH(8, 128, 42, 42);
+    final destination = cardFlightDestinationRect(
+      cardID: 'wheat-9',
+      previousZone: 'plot:0:revealed',
+      nextZone: 'exiled:1',
+      currentRects: {northCardMotionTargetKey: northIconRect},
+      tokens: defaultDesignTokens,
+    );
+
+    expect(destination, isNotNull);
+    expect(destination!.center, northIconRect.center);
+    expect(
+      destination.width,
+      closeTo(defaultDesignTokens.card.small.width, 0.001),
+    );
+    expect(
+      destination.height,
+      closeTo(defaultDesignTokens.card.small.height, 0.001),
+    );
+    expect(plotZoneSeatID('plot:2:stack:0:revealed'), 2);
+
+    const plotRect = Rect.fromLTWH(120, 240, 320, 180);
+    final fallbackSource = cardFlightFallbackSourceRect(
+      previousZone: 'plot:2:revealed',
+      nextZone: 'exiled:1',
+      currentRects: {plotCardMotionSourceKey(2): plotRect},
+      tokens: defaultDesignTokens,
+    );
+
+    expect(fallbackSource, isNotNull);
+    expect(fallbackSource!.center, plotRect.center);
+    expect(
+      cardFlightDurationScale(
+        previousZone: 'plot:2:revealed',
+        nextZone: 'exiled:1',
+        model: runtimeModel(),
+      ),
+      requisitionCardFlightDurationScale,
+    );
+  });
+
+  testWidgets('options panel tabs expose game controls and settings', (
     tester,
   ) async {
     final calls = <String>[];
     GameAnimationSpeed? selectedSpeed;
+    bool? confirmNewGame;
+    bool? confirmMainMenu;
+    bool? showInvalidTapHints;
 
     await tester.pumpWidget(
       MaterialApp(
         home: SizedBox(
-          width: 260,
-          height: 270,
-          child: OptionsMenuActions(
+          width: 520,
+          height: 430,
+          child: OptionsPanel(
+            model: runtimeModel(),
             tokens: defaultDesignTokens,
-            language: KolkhozLanguage.ru,
+            language: KolkhozLanguage.en,
             appearance: KolkhozAppearance.dark,
             animationSpeed: GameAnimationSpeed.normal,
             onNewGame: () => calls.add('new'),
             onTutorial: () => calls.add('tutorial'),
             onReturnToLobby: () => calls.add('menu'),
+            onConfirmNewGameChanged: (value) => confirmNewGame = value,
+            onConfirmMainMenuChanged: (value) => confirmMainMenu = value,
+            onShowInvalidTapHintsChanged: (value) =>
+                showInvalidTapHints = value,
             onLanguageToggle: () => calls.add('language'),
             onAppearanceToggle: () => calls.add('appearance'),
             onAnimationSpeedChanged: (speed) => selectedSpeed = speed,
@@ -1368,14 +1678,26 @@ void main() {
       ),
     );
 
-    await tester.tap(find.bySemanticsLabel('НОВАЯ ИГРА'));
-    await tester.tap(find.bySemanticsLabel('КАК ИГРАТЬ'));
-    await tester.tap(find.bySemanticsLabel('ГЛАВНОЕ МЕНЮ'));
-    await tester.tap(find.byTooltip('Switch to English'));
-    await tester.tap(find.byTooltip('Включить светлую тему'));
-    await tester.tap(find.bySemanticsLabel('МЕДЛЕННО'));
+    await tester.tap(find.bySemanticsLabel('NEW GAME'));
+    await tester.tap(find.bySemanticsLabel('HOW TO PLAY'));
+    await tester.tap(find.bySemanticsLabel('MAIN MENU'));
+    await tester.tap(find.bySemanticsLabel('Confirm new game'));
+    await tester.tap(find.bySemanticsLabel('Confirm main menu'));
+
+    await tester.tap(find.bySemanticsLabel('Assist'));
+    await tester.pump();
+    await tester.tap(find.bySemanticsLabel('Invalid-tap hints'));
+
+    await tester.tap(find.bySemanticsLabel('Display'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Switch to Russian'));
+    await tester.tap(find.byTooltip('Switch to light mode'));
+    await tester.tap(find.bySemanticsLabel('SLOW'));
 
     expect(calls, ['new', 'tutorial', 'menu', 'language', 'appearance']);
+    expect(confirmNewGame, isFalse);
+    expect(confirmMainMenu, isFalse);
+    expect(showInvalidTapHints, isFalse);
     expect(selectedSpeed, GameAnimationSpeed.slow);
   });
 
@@ -2350,6 +2672,8 @@ TableCard testCard({
   required String suit,
   required int value,
   String? rank,
+  bool pending = false,
+  int? assignmentRound,
   bool nomenclature = false,
 }) {
   return TableCard(
@@ -2359,7 +2683,8 @@ TableCard testCard({
     rank: rank ?? '$value',
     selected: false,
     highlighted: false,
-    pending: false,
+    pending: pending,
+    assignmentRound: assignmentRound,
     nomenclature: nomenclature,
   );
 }

@@ -93,7 +93,13 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
     final previousCards = cardMotionCards(oldWidget.model);
     final nextCards = cardMotionCards(widget.model);
     _afterCardLayout(() {
-      _startFlights(previousZones, nextZones, previousCards, nextCards);
+      _startFlights(
+        previousModel: oldWidget.model,
+        previousZones: previousZones,
+        nextZones: nextZones,
+        previousCards: previousCards,
+        nextCards: nextCards,
+      );
       _controller.commitFrame();
     });
   }
@@ -108,12 +114,13 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
     });
   }
 
-  void _startFlights(
-    Map<String, String> previousZones,
-    Map<String, String> nextZones,
-    Map<String, TableCard> previousCards,
-    Map<String, TableCard> nextCards,
-  ) {
+  void _startFlights({
+    required TableViewModel previousModel,
+    required Map<String, String> previousZones,
+    required Map<String, String> nextZones,
+    required Map<String, TableCard> previousCards,
+    required Map<String, TableCard> nextCards,
+  }) {
     if (widget.speed.cardFlightDuration == Duration.zero) {
       return;
     }
@@ -126,12 +133,35 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
       if (previousZone == null || previousZone == entry.value) {
         continue;
       }
-      final from = previousRects[cardID];
-      final to = currentRects[cardID];
-      if (from == null || to == null) {
+      final to = cardFlightDestinationRect(
+        cardID: cardID,
+        previousZone: previousZone,
+        nextZone: entry.value,
+        currentRects: currentRects,
+        tokens: widget.tokens,
+      );
+      if (to == null) {
         continue;
       }
-      if ((from.center - to.center).distance < cardMotionMinimumDistance) {
+      var sourceRect = cardFlightSourceRect(
+        cardID: cardID,
+        previousZone: previousZone,
+        nextZone: entry.value,
+        previousRects: previousRects,
+        model: previousModel,
+        tokens: widget.tokens,
+      );
+      sourceRect ??= cardFlightFallbackSourceRect(
+        previousZone: previousZone,
+        nextZone: entry.value,
+        currentRects: currentRects,
+        tokens: widget.tokens,
+      );
+      if (sourceRect == null) {
+        continue;
+      }
+      if ((sourceRect.center - to.center).distance <
+          cardMotionMinimumDistance) {
         continue;
       }
       final card = nextCards[cardID] ?? previousCards[cardID];
@@ -139,7 +169,69 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
         continue;
       }
       newFlights.add(
-        CardFlight(id: _nextFlightID++, card: card, from: from, to: to),
+        CardFlight(
+          id: _nextFlightID++,
+          card: card,
+          from: sourceRect,
+          to: to,
+          durationScale: cardFlightDurationScale(
+            previousZone: previousZone,
+            nextZone: entry.value,
+            model: previousModel,
+          ),
+        ),
+      );
+    }
+    final newExiledIDs = newlyExiledCardIDs(
+      previousModel: previousModel,
+      nextModel: widget.model,
+    );
+    for (final cardID in newExiledIDs) {
+      if (newFlights.any((flight) => flight.card.id == cardID)) {
+        continue;
+      }
+      final previousZone = previousZones[cardID];
+      if (previousZone == null || !previousZone.startsWith('plot:')) {
+        continue;
+      }
+      var sourceRect = cardFlightSourceRect(
+        cardID: cardID,
+        previousZone: previousZone,
+        nextZone: cardMotionNorthExileZone,
+        previousRects: previousRects,
+        model: previousModel,
+        tokens: widget.tokens,
+      );
+      sourceRect ??= cardFlightFallbackSourceRect(
+        previousZone: previousZone,
+        nextZone: cardMotionNorthExileZone,
+        currentRects: currentRects,
+        tokens: widget.tokens,
+      );
+      final to = northCardMotionTargetRect(
+        currentRects: currentRects,
+        tokens: widget.tokens,
+      );
+      final card = nextCards[cardID] ?? previousCards[cardID];
+      if (sourceRect == null || to == null || card == null) {
+        continue;
+      }
+      if ((sourceRect.center - to.center).distance <
+          cardMotionMinimumDistance) {
+        continue;
+      }
+      newFlights.add(
+        CardFlight(
+          id: _nextFlightID++,
+          card: card,
+          from: sourceRect,
+          to: to,
+          durationScale: cardFlightDurationScale(
+            previousZone: previousZone,
+            nextZone: cardMotionNorthExileZone,
+            model: previousModel,
+          ),
+        ),
       );
     }
     if (newFlights.isEmpty) {
@@ -276,6 +368,48 @@ class MotionTrackedCard extends StatefulWidget {
   State<MotionTrackedCard> createState() => _MotionTrackedCardState();
 }
 
+class MotionTrackedRegion extends StatefulWidget {
+  const MotionTrackedRegion({
+    required this.motionKey,
+    required this.child,
+    super.key,
+  });
+
+  final String motionKey;
+  final Widget child;
+
+  @override
+  State<MotionTrackedRegion> createState() => _MotionTrackedRegionState();
+}
+
+class _MotionTrackedRegionState extends State<MotionTrackedRegion> {
+  final GlobalKey _key = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = CardMotionScope.maybeOf(context);
+    if (scope != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        final box = _key.currentContext?.findRenderObject() as RenderBox?;
+        final root =
+            scope.rootKey.currentContext?.findRenderObject() as RenderBox?;
+        if (box == null || root == null || !box.attached || !root.attached) {
+          return;
+        }
+        scope.controller.record(
+          frame: scope.frame,
+          cardID: widget.motionKey,
+          rect: transformedPaintRect(box, root),
+        );
+      });
+    }
+    return KeyedSubtree(key: _key, child: widget.child);
+  }
+}
+
 class _MotionTrackedCardState extends State<MotionTrackedCard> {
   final GlobalKey _key = GlobalKey();
 
@@ -293,11 +427,10 @@ class _MotionTrackedCardState extends State<MotionTrackedCard> {
         if (box == null || root == null || !box.attached || !root.attached) {
           return;
         }
-        final topLeft = box.localToGlobal(Offset.zero, ancestor: root);
         scope.controller.record(
           frame: scope.frame,
           cardID: widget.card.id,
-          rect: topLeft & box.size,
+          rect: transformedPaintRect(box, root),
         );
       });
     }
@@ -306,18 +439,50 @@ class _MotionTrackedCardState extends State<MotionTrackedCard> {
   }
 }
 
+Rect transformedPaintRect(RenderBox box, RenderBox root) {
+  final topLeft = box.localToGlobal(Offset.zero, ancestor: root);
+  final topRight = box.localToGlobal(Offset(box.size.width, 0), ancestor: root);
+  final bottomLeft = box.localToGlobal(
+    Offset(0, box.size.height),
+    ancestor: root,
+  );
+  final bottomRight = box.localToGlobal(
+    box.size.bottomRight(Offset.zero),
+    ancestor: root,
+  );
+  final left = math.min(
+    topLeft.dx,
+    math.min(topRight.dx, math.min(bottomLeft.dx, bottomRight.dx)),
+  );
+  final top = math.min(
+    topLeft.dy,
+    math.min(topRight.dy, math.min(bottomLeft.dy, bottomRight.dy)),
+  );
+  final right = math.max(
+    topLeft.dx,
+    math.max(topRight.dx, math.max(bottomLeft.dx, bottomRight.dx)),
+  );
+  final bottom = math.max(
+    topLeft.dy,
+    math.max(topRight.dy, math.max(bottomLeft.dy, bottomRight.dy)),
+  );
+  return Rect.fromLTRB(left, top, right, bottom);
+}
+
 class CardFlight {
   const CardFlight({
     required this.id,
     required this.card,
     required this.from,
     required this.to,
+    this.durationScale = 1,
   });
 
   final int id;
   final TableCard card;
   final Rect from;
   final Rect to;
+  final double durationScale;
 }
 
 class FlyingCard extends StatelessWidget {
@@ -340,7 +505,7 @@ class FlyingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: duration,
+      duration: scaledDuration(duration, flight.durationScale),
       curve: Curves.easeInOutCubic,
       onEnd: onDone,
       builder: (context, value, child) {
@@ -435,6 +600,173 @@ Map<String, TableCard> cardMotionCards(TableViewModel model) {
   };
 }
 
+Rect? cardFlightSourceRect({
+  required String cardID,
+  required String previousZone,
+  required String nextZone,
+  required Map<String, Rect> previousRects,
+  required TableViewModel model,
+  required DesignTokens tokens,
+}) {
+  final seatID = handToTrickFlightSeatID(previousZone, nextZone);
+  if (seatID != null && !motionSeatIsViewer(model, seatID)) {
+    return playerCardMotionSourceRect(
+      seatID: seatID,
+      previousRects: previousRects,
+      tokens: tokens,
+    );
+  }
+  return previousRects[cardID];
+}
+
+Rect? cardFlightDestinationRect({
+  required String cardID,
+  required String previousZone,
+  required String nextZone,
+  required Map<String, Rect> currentRects,
+  required DesignTokens tokens,
+}) {
+  if (previousZone.startsWith('plot:') && nextZone.startsWith('exiled:')) {
+    return northCardMotionTargetRect(
+      currentRects: currentRects,
+      tokens: tokens,
+    );
+  }
+  return currentRects[cardID];
+}
+
+Rect? cardFlightFallbackSourceRect({
+  required String previousZone,
+  required String nextZone,
+  required Map<String, Rect> currentRects,
+  required DesignTokens tokens,
+}) {
+  if (!previousZone.startsWith('plot:') ||
+      !(nextZone.startsWith('exiled:') ||
+          nextZone == cardMotionNorthExileZone)) {
+    return null;
+  }
+  final seatID = plotZoneSeatID(previousZone);
+  if (seatID == null) {
+    return null;
+  }
+  final plotRect = currentRects[plotCardMotionSourceKey(seatID)];
+  if (plotRect == null) {
+    return null;
+  }
+  final size = Size(tokens.card.small.width, tokens.card.small.height);
+  final topLeft = plotRect.center - Offset(size.width / 2, size.height / 2);
+  return topLeft & size;
+}
+
+Rect? northCardMotionTargetRect({
+  required Map<String, Rect> currentRects,
+  required DesignTokens tokens,
+}) {
+  final iconRect = currentRects[northCardMotionTargetKey];
+  if (iconRect == null) {
+    return null;
+  }
+  final size = Size(tokens.card.small.width, tokens.card.small.height);
+  final topLeft = iconRect.center - Offset(size.width / 2, size.height / 2);
+  return topLeft & size;
+}
+
+Set<String> newlyExiledCardIDs({
+  required TableViewModel previousModel,
+  required TableViewModel nextModel,
+}) {
+  final previous = currentYearExiledMotionCardIDs(previousModel);
+  return currentYearExiledMotionCardIDs(nextModel).difference(previous);
+}
+
+Set<String> currentYearExiledMotionCardIDs(TableViewModel model) {
+  return {
+    for (final card in model.table.exiledByYear[model.table.year] ?? const [])
+      card.id,
+  };
+}
+
+Rect? playerCardMotionSourceRect({
+  required int seatID,
+  required Map<String, Rect> previousRects,
+  required DesignTokens tokens,
+}) {
+  final badgeRect = previousRects[playerCardMotionSourceKey(seatID)];
+  if (badgeRect == null) {
+    return null;
+  }
+  final sourceSize = Size(tokens.card.small.width, tokens.card.small.height);
+  final topLeft =
+      badgeRect.center - Offset(sourceSize.width / 2, sourceSize.height / 2);
+  return topLeft & sourceSize;
+}
+
+int? handToTrickFlightSeatID(String previousZone, String nextZone) {
+  final previousSeat = zoneSeatID(previousZone, 'hand');
+  final nextSeat = zoneSeatID(nextZone, 'trick');
+  if (previousSeat == null || previousSeat != nextSeat) {
+    return null;
+  }
+  return previousSeat;
+}
+
+bool motionSeatIsViewer(TableViewModel model, int seatID) {
+  for (final seat in model.table.seats) {
+    if (seat.id == seatID) {
+      return seat.isViewer;
+    }
+  }
+  return false;
+}
+
+int? zoneSeatID(String zone, String prefix) {
+  final marker = '$prefix:';
+  if (!zone.startsWith(marker)) {
+    return null;
+  }
+  return int.tryParse(zone.substring(marker.length));
+}
+
+int? plotZoneSeatID(String zone) {
+  final parts = zone.split(':');
+  if (parts.length < 2 || parts.first != 'plot') {
+    return null;
+  }
+  return int.tryParse(parts[1]);
+}
+
+String playerCardMotionSourceKey(int seatID) => 'player-source:$seatID';
+String plotCardMotionSourceKey(int seatID) => 'plot-source:$seatID';
+const northCardMotionTargetKey = 'north-exile-target';
+const cardMotionNorthExileZone = 'north-exile';
+
+double cardFlightDurationScale({
+  required String previousZone,
+  required String nextZone,
+  required TableViewModel model,
+}) {
+  if (previousZone.startsWith('plot:') &&
+      (nextZone.startsWith('exiled:') ||
+          nextZone == cardMotionNorthExileZone)) {
+    return requisitionCardFlightDurationScale;
+  }
+  final seatID = handToTrickFlightSeatID(previousZone, nextZone);
+  if (seatID == null || motionSeatIsViewer(model, seatID)) {
+    return 1;
+  }
+  return playerInfoCardFlightDurationScale;
+}
+
+Duration scaledDuration(Duration duration, double scale) {
+  if (duration == Duration.zero || scale == 1) {
+    return duration;
+  }
+  return Duration(microseconds: (duration.inMicroseconds * scale).round());
+}
+
+const playerInfoCardFlightDurationScale = 1.5;
+const requisitionCardFlightDurationScale = 1.35;
 const cardMotionMinimumDistance = 8.0;
 
 class CommandPanelSurface extends StatelessWidget {

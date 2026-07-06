@@ -75,6 +75,12 @@ class KolkhozBoard extends StatelessWidget {
     this.onTutorial,
     this.animationSpeed = defaultGameAnimationSpeed,
     this.onAnimationSpeedChanged,
+    this.confirmNewGame = true,
+    this.onConfirmNewGameChanged,
+    this.confirmMainMenu = true,
+    this.onConfirmMainMenuChanged,
+    this.showInvalidTapHints = true,
+    this.onShowInvalidTapHintsChanged,
     super.key,
   });
 
@@ -96,6 +102,12 @@ class KolkhozBoard extends StatelessWidget {
   final VoidCallback? onTutorial;
   final GameAnimationSpeed animationSpeed;
   final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
+  final bool confirmNewGame;
+  final ValueChanged<bool>? onConfirmNewGameChanged;
+  final bool confirmMainMenu;
+  final ValueChanged<bool>? onConfirmMainMenuChanged;
+  final bool showInvalidTapHints;
+  final ValueChanged<bool>? onShowInvalidTapHintsChanged;
   @override
   Widget build(BuildContext context) {
     return DefaultTextStyle.merge(
@@ -197,6 +209,15 @@ class KolkhozBoard extends StatelessWidget {
                                 animationSpeed: animationSpeed,
                                 onAnimationSpeedChanged:
                                     onAnimationSpeedChanged,
+                                confirmNewGame: confirmNewGame,
+                                onConfirmNewGameChanged:
+                                    onConfirmNewGameChanged,
+                                confirmMainMenu: confirmMainMenu,
+                                onConfirmMainMenuChanged:
+                                    onConfirmMainMenuChanged,
+                                showInvalidTapHints: showInvalidTapHints,
+                                onShowInvalidTapHintsChanged:
+                                    onShowInvalidTapHintsChanged,
                                 language: language,
                                 appearance: appearance,
                                 onLanguageToggle: onLanguageToggle,
@@ -429,6 +450,12 @@ class BoardPlayArea extends StatelessWidget {
     this.onTutorial,
     this.animationSpeed = defaultGameAnimationSpeed,
     this.onAnimationSpeedChanged,
+    this.confirmNewGame = true,
+    this.onConfirmNewGameChanged,
+    this.confirmMainMenu = true,
+    this.onConfirmMainMenuChanged,
+    this.showInvalidTapHints = true,
+    this.onShowInvalidTapHintsChanged,
     required this.language,
     required this.appearance,
     this.onLanguageToggle,
@@ -450,6 +477,12 @@ class BoardPlayArea extends StatelessWidget {
   final VoidCallback? onTutorial;
   final GameAnimationSpeed animationSpeed;
   final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
+  final bool confirmNewGame;
+  final ValueChanged<bool>? onConfirmNewGameChanged;
+  final bool confirmMainMenu;
+  final ValueChanged<bool>? onConfirmMainMenuChanged;
+  final bool showInvalidTapHints;
+  final ValueChanged<bool>? onShowInvalidTapHintsChanged;
   final KolkhozLanguage language;
   final KolkhozAppearance appearance;
   final VoidCallback? onLanguageToggle;
@@ -514,6 +547,12 @@ class BoardPlayArea extends StatelessWidget {
                     onTutorial: onTutorial,
                     animationSpeed: animationSpeed,
                     onAnimationSpeedChanged: onAnimationSpeedChanged,
+                    confirmNewGame: confirmNewGame,
+                    onConfirmNewGameChanged: onConfirmNewGameChanged,
+                    confirmMainMenu: confirmMainMenu,
+                    onConfirmMainMenuChanged: onConfirmMainMenuChanged,
+                    showInvalidTapHints: showInvalidTapHints,
+                    onShowInvalidTapHintsChanged: onShowInvalidTapHintsChanged,
                     language: language,
                     appearance: appearance,
                     onLanguageToggle: onLanguageToggle,
@@ -901,6 +940,12 @@ class ActivePanelView extends StatelessWidget {
     this.onTutorial,
     this.animationSpeed = defaultGameAnimationSpeed,
     this.onAnimationSpeedChanged,
+    this.confirmNewGame = true,
+    this.onConfirmNewGameChanged,
+    this.confirmMainMenu = true,
+    this.onConfirmMainMenuChanged,
+    this.showInvalidTapHints = true,
+    this.onShowInvalidTapHintsChanged,
     required this.language,
     required this.appearance,
     this.onLanguageToggle,
@@ -917,6 +962,12 @@ class ActivePanelView extends StatelessWidget {
   final VoidCallback? onTutorial;
   final GameAnimationSpeed animationSpeed;
   final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
+  final bool confirmNewGame;
+  final ValueChanged<bool>? onConfirmNewGameChanged;
+  final bool confirmMainMenu;
+  final ValueChanged<bool>? onConfirmMainMenuChanged;
+  final bool showInvalidTapHints;
+  final ValueChanged<bool>? onShowInvalidTapHintsChanged;
   final KolkhozLanguage language;
   final KolkhozAppearance appearance;
   final VoidCallback? onLanguageToggle;
@@ -950,6 +1001,12 @@ class ActivePanelView extends StatelessWidget {
           onTutorial: onTutorial,
           animationSpeed: animationSpeed,
           onAnimationSpeedChanged: onAnimationSpeedChanged,
+          confirmNewGame: confirmNewGame,
+          onConfirmNewGameChanged: onConfirmNewGameChanged,
+          confirmMainMenu: confirmMainMenu,
+          onConfirmMainMenuChanged: onConfirmMainMenuChanged,
+          showInvalidTapHints: showInvalidTapHints,
+          onShowInvalidTapHintsChanged: onShowInvalidTapHintsChanged,
           language: language,
           appearance: appearance,
           onLanguageToggle: onLanguageToggle,
@@ -1310,145 +1367,148 @@ class PlayerBadge extends StatelessWidget {
     final statusWidth = math.min(contentWidth * 0.22, 34 * scale);
     final medalsWidth = contentWidth * 0.48;
     final cellarWidth = contentWidth * 0.48;
-    return SizedBox(
-      width: width,
-      height: height,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: active
-                  ? tokens.colors.gold.withValues(
-                      alpha: playerPanelActiveShadowOpacity,
-                    )
-                  : tokens.colors.black.withValues(
-                      alpha: playerPanelInactiveShadowOpacity,
-                    ),
-              blurRadius: playerPanelShadowRadius,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned.fill(
-              child: Image.asset(
-                'ios_resources/ui-player-panel.png',
-                fit: BoxFit.fill,
-                filterQuality: FilterQuality.none,
+    return MotionTrackedRegion(
+      motionKey: playerCardMotionSourceKey(seat.id),
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            boxShadow: [
+              BoxShadow(
+                color: active
+                    ? tokens.colors.gold.withValues(
+                        alpha: playerPanelActiveShadowOpacity,
+                      )
+                    : tokens.colors.black.withValues(
+                        alpha: playerPanelInactiveShadowOpacity,
+                      ),
+                blurRadius: playerPanelShadowRadius,
+                offset: const Offset(0, 3),
               ),
-            ),
-            Positioned.fill(
-              child: Stack(
-                clipBehavior: Clip.hardEdge,
-                children: [
-                  Positioned(
-                    left: portraitLeft,
-                    top: portraitTop,
-                    child: PortraitFrame(
-                      seat: seat,
-                      tokens: tokens,
-                      width: portraitSize,
-                      height: portraitSize,
+            ],
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: Image.asset(
+                  'ios_resources/ui-player-panel.png',
+                  fit: BoxFit.fill,
+                  filterQuality: FilterQuality.none,
+                ),
+              ),
+              Positioned.fill(
+                child: Stack(
+                  clipBehavior: Clip.hardEdge,
+                  children: [
+                    Positioned(
+                      left: portraitLeft,
+                      top: portraitTop,
+                      child: PortraitFrame(
+                        seat: seat,
+                        tokens: tokens,
+                        width: portraitSize,
+                        height: portraitSize,
+                      ),
                     ),
-                  ),
-                  Positioned(
-                    left: contentLeft,
-                    top: nameTop,
-                    width: contentWidth - scoreWidth - 4 * scale,
-                    height: 24 * scale,
-                    child: ClipRect(
-                      child: Transform.scale(
-                        scale: scale,
-                        alignment: Alignment.topLeft,
-                        child: PixelText(
-                          displayName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          size: PixelTextSize.caption,
-                          variant: PixelTextVariant.heavy,
-                          color: active
-                              ? tokens.colors.gold
-                              : tokens.colors.cardInk,
+                    Positioned(
+                      left: contentLeft,
+                      top: nameTop,
+                      width: contentWidth - scoreWidth - 4 * scale,
+                      height: 24 * scale,
+                      child: ClipRect(
+                        child: Transform.scale(
+                          scale: scale,
+                          alignment: Alignment.topLeft,
+                          child: PixelText(
+                            displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            size: PixelTextSize.caption,
+                            variant: PixelTextVariant.heavy,
+                            color: active
+                                ? tokens.colors.gold
+                                : tokens.colors.cardInk,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    left: contentRight - scoreWidth,
-                    top: scoreTop,
-                    width: scoreWidth,
-                    child: PlayerPlotScoreStat(
-                      score: seat.visibleScore,
-                      tokens: tokens,
-                      width: scoreWidth,
-                      scale: scale,
-                    ),
-                  ),
-                  if (statusBadgeAssets.isNotEmpty)
                     Positioned(
-                      left: contentRight - statusWidth,
-                      top: height * 0.42,
-                      width: statusWidth,
-                      child: PlayerStatusBadgeStrip(
-                        assets: statusBadgeAssets,
+                      left: contentRight - scoreWidth,
+                      top: scoreTop,
+                      width: scoreWidth,
+                      child: PlayerPlotScoreStat(
+                        score: seat.visibleScore,
                         tokens: tokens,
+                        width: scoreWidth,
                         scale: scale,
                       ),
                     ),
-                  Positioned(
-                    left: contentLeft,
-                    top: lowerTop,
-                    width: medalsWidth,
-                    child: PlayerMedalStat(
-                      medals: seat.medals,
-                      maxTricks: maxTricks,
-                      tokens: tokens,
-                      statColumnWidth: medalsWidth,
-                      scale: scale,
+                    if (statusBadgeAssets.isNotEmpty)
+                      Positioned(
+                        left: contentRight - statusWidth,
+                        top: height * 0.42,
+                        width: statusWidth,
+                        child: PlayerStatusBadgeStrip(
+                          assets: statusBadgeAssets,
+                          tokens: tokens,
+                          scale: scale,
+                        ),
+                      ),
+                    Positioned(
+                      left: contentLeft,
+                      top: lowerTop,
+                      width: medalsWidth,
+                      child: PlayerMedalStat(
+                        medals: seat.medals,
+                        maxTricks: maxTricks,
+                        tokens: tokens,
+                        statColumnWidth: medalsWidth,
+                        scale: scale,
+                      ),
                     ),
-                  ),
-                  Positioned(
-                    left: contentRight - cellarWidth,
-                    top: lowerTop,
-                    width: cellarWidth,
-                    child: PlayerCellarStat(
-                      count: seat.plot.hidden.length,
-                      tokens: tokens,
+                    Positioned(
+                      left: contentRight - cellarWidth,
+                      top: lowerTop,
                       width: cellarWidth,
-                      cardSpacing: cellarCardSpacing,
-                      scale: scale,
+                      child: PlayerCellarStat(
+                        count: seat.plot.hidden.length,
+                        tokens: tokens,
+                        width: cellarWidth,
+                        cardSpacing: cellarCardSpacing,
+                        scale: scale,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            Positioned.fill(
-              child: IgnorePointer(
-                child: Padding(
-                  padding: EdgeInsets.all(2 * scale),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(7),
-                      border: Border.all(
-                        color: active
-                            ? tokens.colors.gold.withValues(alpha: 0.78)
-                            : human
-                            ? tokens.colors.redDark.withValues(alpha: 0.42)
-                            : Colors.transparent,
-                        width: active
-                            ? 1.3 * scale
-                            : human
-                            ? scale
-                            : 0,
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Padding(
+                    padding: EdgeInsets.all(2 * scale),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(
+                          color: active
+                              ? tokens.colors.gold.withValues(alpha: 0.78)
+                              : human
+                              ? tokens.colors.redDark.withValues(alpha: 0.42)
+                              : Colors.transparent,
+                          width: active
+                              ? 1.3 * scale
+                              : human
+                              ? scale
+                              : 0,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1825,7 +1885,7 @@ class _PulsingCardSlotFrameState extends State<PulsingCardSlotFrame>
     super.initState();
     controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: cardSlotPulseDuration,
     )..repeat(reverse: true);
     pulse = CurvedAnimation(parent: controller, curve: Curves.easeInOut);
   }
@@ -1882,6 +1942,7 @@ const cardSlotCornerRadius = 8.0;
 const cardSlotStrokeWidth = 2.0;
 const cardSlotDashLength = 6.0;
 const cardSlotDashGap = 6.0;
+const cardSlotPulseDuration = Duration(milliseconds: 1800);
 const cardSlotActiveScale = 1.035;
 const cardSlotHumanFillOpacity = 0.18;
 const cardSlotOpponentFillOpacity = 0.12;

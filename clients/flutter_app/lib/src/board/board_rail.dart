@@ -5,6 +5,7 @@ import '../chrome_button.dart';
 import '../design_tokens.dart';
 import '../game_constants.dart';
 import 'board_metrics.dart';
+import 'board_widgets.dart';
 
 class BoardRail extends StatelessWidget {
   const BoardRail({
@@ -77,6 +78,7 @@ class BoardRail extends StatelessWidget {
             action: actionPanel == panelNorth,
             label: language.text(en: 'The North', ru: 'Север'),
             muted: activePanel != panelNorth,
+            motionKey: northCardMotionTargetKey,
             tokens: tokens,
             metrics: metrics,
             onTap: () => onPanelSelected?.call(panelNorth),
@@ -124,6 +126,7 @@ class RailButton extends StatelessWidget {
     required this.tokens,
     required this.metrics,
     this.muted = false,
+    this.motionKey,
     this.onTap,
     super.key,
   });
@@ -135,12 +138,13 @@ class RailButton extends StatelessWidget {
   final DesignTokens tokens;
   final ResponsiveBoardMetrics metrics;
   final bool muted;
+  final String? motionKey;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
-    return Tooltip(
+    final button = Tooltip(
       message: label,
       child: Semantics(
         container: true,
@@ -217,6 +221,11 @@ class RailButton extends StatelessWidget {
         ),
       ),
     );
+    final motionKey = this.motionKey;
+    if (motionKey == null) {
+      return button;
+    }
+    return MotionTrackedRegion(motionKey: motionKey, child: button);
   }
 
   String get backgroundAsset {

@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui' show clampDouble;
 
 import 'package:flutter/material.dart';
@@ -12,18 +11,15 @@ import '../render_model.dart';
 import '../rule_content.dart';
 import 'board_widgets.dart';
 
-const optionsPanelMaxWidth = 620.0;
-const optionsPanelHorizontalPadding = 20.0;
-const optionsPanelOuterShadowOpacity = 0.5;
-const optionsPanelOuterShadowRadius = 16.0;
-const optionsPanelOuterShadowYOffset = 8.0;
-const optionsPanelContentMinHeight = 206.0;
-const optionsPanelContentMaxHeight = 360.0;
-const optionsPanelSurfaceVerticalPadding = 24.0;
-const optionsPanelSurfaceMinHeight =
-    optionsPanelContentMinHeight + optionsPanelSurfaceVerticalPadding;
-const optionsPanelSurfaceMaxHeight =
-    optionsPanelContentMaxHeight + optionsPanelSurfaceVerticalPadding;
+const optionsPanelLocalPadding = EdgeInsets.only(top: 8);
+const optionsPanelSurfaceMinHeight = 230.0;
+const optionsMenuTabSpacing = 6.0;
+const optionsMenuTabHeight = 32.0;
+const optionsMenuSettingSpacing = 8.0;
+const optionsMenuSettingPadding = EdgeInsets.symmetric(
+  horizontal: 10,
+  vertical: 7,
+);
 const optionsMenuSectionSpacingFactor = 0.035;
 const optionsMenuSectionSpacingMin = 7.0;
 const optionsMenuSectionSpacingMax = 10.0;
@@ -34,18 +30,11 @@ const optionsMenuChromeToggleSpacing = 8.0;
 const optionsMenuContentBottomPadding = 24.0;
 const optionsMenuHeaderIconSize = 18.0;
 const optionsMenuHeaderSpacing = 8.0;
-const optionsMenuHeaderFontSize = 17.0;
-const optionsMenuSectionLabelFontSize = 11.0;
-const optionsMenuRulesHeaderFontSize = 15.0;
 const optionsMenuActionWidth = 170.0;
-const optionsReadabilityButtonWidth = 190.0;
 const optionsMenuActionHeight = 34.0;
 const optionsMenuActionHorizontalPadding = 12.0;
 const optionsMenuActionContentSpacing = 7.0;
 const optionsMenuActionIconSize = 15.0;
-const optionsMenuActionFontSize = 13.0;
-const optionsReadabilityGlyphBoxWidth = 24.0;
-const optionsReadabilityFontSize = 13.0;
 const optionsChromeToggleSize = 48.0;
 const optionsChromeToggleIconSize = 25.0;
 
@@ -73,7 +62,23 @@ const optionsAnimationSpeedSegmentHeight = 28.0;
 
 const menuRuleBodyFontSize = 13.0;
 
-class OptionsPanel extends StatelessWidget {
+enum OptionsMenuTab {
+  session,
+  assist,
+  display,
+  rules;
+
+  String title(KolkhozLanguage language) {
+    return switch (this) {
+      OptionsMenuTab.session => language.text(en: 'Session', ru: 'Партия'),
+      OptionsMenuTab.assist => language.text(en: 'Assist', ru: 'Помощь'),
+      OptionsMenuTab.display => language.text(en: 'Display', ru: 'Вид'),
+      OptionsMenuTab.rules => language.text(en: 'Rules', ru: 'Правила'),
+    };
+  }
+}
+
+class OptionsPanel extends StatefulWidget {
   const OptionsPanel({
     required this.model,
     required this.tokens,
@@ -82,6 +87,12 @@ class OptionsPanel extends StatelessWidget {
     this.onTutorial,
     this.animationSpeed = defaultGameAnimationSpeed,
     this.onAnimationSpeedChanged,
+    this.confirmNewGame = true,
+    this.onConfirmNewGameChanged,
+    this.confirmMainMenu = true,
+    this.onConfirmMainMenuChanged,
+    this.showInvalidTapHints = true,
+    this.onShowInvalidTapHintsChanged,
     required this.language,
     required this.appearance,
     this.onLanguageToggle,
@@ -96,35 +107,49 @@ class OptionsPanel extends StatelessWidget {
   final VoidCallback? onTutorial;
   final GameAnimationSpeed animationSpeed;
   final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
+  final bool confirmNewGame;
+  final ValueChanged<bool>? onConfirmNewGameChanged;
+  final bool confirmMainMenu;
+  final ValueChanged<bool>? onConfirmMainMenuChanged;
+  final bool showInvalidTapHints;
+  final ValueChanged<bool>? onShowInvalidTapHintsChanged;
   final KolkhozLanguage language;
   final KolkhozAppearance appearance;
   final VoidCallback? onLanguageToggle;
   final VoidCallback? onAppearanceToggle;
 
   @override
+  State<OptionsPanel> createState() => _OptionsPanelState();
+}
+
+class _OptionsPanelState extends State<OptionsPanel> {
+  OptionsMenuTab selectedTab = OptionsMenuTab.session;
+
+  @override
   Widget build(BuildContext context) {
-    return OptionsPanelFrame(
-      tokens: tokens,
+    return Padding(
+      padding: optionsPanelLocalPadding,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final availableHeight = constraints.maxHeight.isFinite
               ? constraints.maxHeight
-              : optionsPanelSurfaceMaxHeight;
-          final maxHeight = math.min(
-            optionsPanelSurfaceMaxHeight,
-            math.max(optionsPanelContentMinHeight, availableHeight - 8),
+              : optionsPanelSurfaceMinHeight;
+          final surfaceHeight = clampDouble(
+            availableHeight,
+            optionsPanelSurfaceMinHeight,
+            double.infinity,
           );
-          final minHeight = math.min(optionsPanelSurfaceMinHeight, maxHeight);
-          final sectionSpacing = optionsMenuSectionSpacing(maxHeight);
+          final sectionSpacing = optionsMenuSectionSpacing(surfaceHeight);
           return PanelStyleSurface(
-            tokens: tokens,
+            tokens: widget.tokens,
             constraints: BoxConstraints(
-              minHeight: minHeight,
-              maxHeight: maxHeight,
+              minWidth: double.infinity,
+              minHeight: surfaceHeight,
+              maxHeight: surfaceHeight,
             ),
             padding: const EdgeInsets.all(12),
             child: KolkhozScrollbar(
-              tokens: tokens,
+              tokens: widget.tokens,
               childBuilder: (context, scrollController) =>
                   SingleChildScrollView(
                     controller: scrollController,
@@ -133,28 +158,29 @@ class OptionsPanel extends StatelessWidget {
                         right: 10,
                         bottom: optionsMenuContentBottomPadding,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        spacing: sectionSpacing,
-                        children: [
-                          OptionsMenuHeader(tokens: tokens, language: language),
-                          OptionsMenuActions(
-                            tokens: tokens,
-                            onNewGame: onNewGame,
-                            onReturnToLobby: onReturnToLobby,
-                            onTutorial: onTutorial,
-                            animationSpeed: animationSpeed,
-                            onAnimationSpeedChanged: onAnimationSpeedChanged,
-                            language: language,
-                            appearance: appearance,
-                            onLanguageToggle: onLanguageToggle,
-                            onAppearanceToggle: onAppearanceToggle,
-                          ),
-                          Divider(
-                            color: tokens.colors.gold.withValues(alpha: 0.35),
-                          ),
-                          OptionsMenuRules(tokens: tokens, language: language),
-                        ],
+                      child: OptionsMenuContent(
+                        tokens: widget.tokens,
+                        language: widget.language,
+                        appearance: widget.appearance,
+                        selectedTab: selectedTab,
+                        onTabSelected: (tab) =>
+                            setState(() => selectedTab = tab),
+                        sectionSpacing: sectionSpacing,
+                        onNewGame: widget.onNewGame,
+                        onReturnToLobby: widget.onReturnToLobby,
+                        onTutorial: widget.onTutorial,
+                        animationSpeed: widget.animationSpeed,
+                        onAnimationSpeedChanged: widget.onAnimationSpeedChanged,
+                        confirmNewGame: widget.confirmNewGame,
+                        onConfirmNewGameChanged: widget.onConfirmNewGameChanged,
+                        confirmMainMenu: widget.confirmMainMenu,
+                        onConfirmMainMenuChanged:
+                            widget.onConfirmMainMenuChanged,
+                        showInvalidTapHints: widget.showInvalidTapHints,
+                        onShowInvalidTapHintsChanged:
+                            widget.onShowInvalidTapHintsChanged,
+                        onLanguageToggle: widget.onLanguageToggle,
+                        onAppearanceToggle: widget.onAppearanceToggle,
                       ),
                     ),
                   ),
@@ -166,44 +192,245 @@ class OptionsPanel extends StatelessWidget {
   }
 }
 
-class OptionsPanelFrame extends StatelessWidget {
-  const OptionsPanelFrame({
+class OptionsMenuContent extends StatelessWidget {
+  const OptionsMenuContent({
     required this.tokens,
-    required this.child,
+    required this.language,
+    required this.appearance,
+    required this.selectedTab,
+    required this.onTabSelected,
+    required this.sectionSpacing,
+    this.onNewGame,
+    this.onReturnToLobby,
+    this.onTutorial,
+    this.animationSpeed = defaultGameAnimationSpeed,
+    this.onAnimationSpeedChanged,
+    this.confirmNewGame = true,
+    this.onConfirmNewGameChanged,
+    this.confirmMainMenu = true,
+    this.onConfirmMainMenuChanged,
+    this.showInvalidTapHints = true,
+    this.onShowInvalidTapHintsChanged,
+    this.onLanguageToggle,
+    this.onAppearanceToggle,
     super.key,
   });
 
   final DesignTokens tokens;
-  final Widget child;
+  final KolkhozLanguage language;
+  final KolkhozAppearance appearance;
+  final OptionsMenuTab selectedTab;
+  final ValueChanged<OptionsMenuTab> onTabSelected;
+  final double sectionSpacing;
+  final VoidCallback? onNewGame;
+  final VoidCallback? onReturnToLobby;
+  final VoidCallback? onTutorial;
+  final GameAnimationSpeed animationSpeed;
+  final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
+  final bool confirmNewGame;
+  final ValueChanged<bool>? onConfirmNewGameChanged;
+  final bool confirmMainMenu;
+  final ValueChanged<bool>? onConfirmMainMenuChanged;
+  final bool showInvalidTapHints;
+  final ValueChanged<bool>? onShowInvalidTapHintsChanged;
+  final VoidCallback? onLanguageToggle;
+  final VoidCallback? onAppearanceToggle;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: optionsPanelHorizontalPadding,
-      ),
-      child: Align(
-        alignment: Alignment.center,
-        child: ConstrainedBox(
-          key: const Key('options-panel-frame'),
-          constraints: const BoxConstraints(maxWidth: optionsPanelMaxWidth),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              boxShadow: [
-                BoxShadow(
-                  color: tokens.colors.black.withValues(
-                    alpha: optionsPanelOuterShadowOpacity,
-                  ),
-                  blurRadius: optionsPanelOuterShadowRadius,
-                  offset: const Offset(0, optionsPanelOuterShadowYOffset),
-                ),
-              ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: sectionSpacing,
+      children: [
+        OptionsMenuHeader(tokens: tokens, language: language),
+        OptionsMenuTabs(
+          tokens: tokens,
+          language: language,
+          selectedTab: selectedTab,
+          onTabSelected: onTabSelected,
+        ),
+        OptionsMenuTabBody(
+          tokens: tokens,
+          language: language,
+          appearance: appearance,
+          selectedTab: selectedTab,
+          onNewGame: onNewGame,
+          onReturnToLobby: onReturnToLobby,
+          onTutorial: onTutorial,
+          animationSpeed: animationSpeed,
+          onAnimationSpeedChanged: onAnimationSpeedChanged,
+          confirmNewGame: confirmNewGame,
+          onConfirmNewGameChanged: onConfirmNewGameChanged,
+          confirmMainMenu: confirmMainMenu,
+          onConfirmMainMenuChanged: onConfirmMainMenuChanged,
+          showInvalidTapHints: showInvalidTapHints,
+          onShowInvalidTapHintsChanged: onShowInvalidTapHintsChanged,
+          onLanguageToggle: onLanguageToggle,
+          onAppearanceToggle: onAppearanceToggle,
+        ),
+      ],
+    );
+  }
+}
+
+class OptionsMenuTabs extends StatelessWidget {
+  const OptionsMenuTabs({
+    required this.tokens,
+    required this.language,
+    required this.selectedTab,
+    required this.onTabSelected,
+    super.key,
+  });
+
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final OptionsMenuTab selectedTab;
+  final ValueChanged<OptionsMenuTab> onTabSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      spacing: optionsMenuTabSpacing,
+      children: [
+        for (final tab in OptionsMenuTab.values)
+          Expanded(
+            child: OptionsMenuTabButton(
+              tokens: tokens,
+              label: tab.title(language),
+              selected: selectedTab == tab,
+              onPressed: () => onTabSelected(tab),
             ),
-            child: child,
+          ),
+      ],
+    );
+  }
+}
+
+class OptionsMenuTabButton extends StatelessWidget {
+  const OptionsMenuTabButton({
+    required this.tokens,
+    required this.label,
+    required this.selected,
+    required this.onPressed,
+    super.key,
+  });
+
+  final DesignTokens tokens;
+  final String label;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      button: true,
+      selected: selected,
+      label: label,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onPressed,
+          child: Container(
+            height: optionsMenuTabHeight,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: selected
+                  ? tokens.colors.gold.withValues(alpha: 0.18)
+                  : tokens.colors.black.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(5),
+              border: Border.all(
+                color: selected
+                    ? tokens.colors.gold
+                    : tokens.colors.steel.withValues(alpha: 0.5),
+              ),
+            ),
+            child: ChromePixelLabel(
+              label,
+              size: PixelTextSize.caption,
+              color: selected ? tokens.colors.gold : tokens.colors.creamDim,
+            ),
           ),
         ),
       ),
     );
+  }
+}
+
+class OptionsMenuTabBody extends StatelessWidget {
+  const OptionsMenuTabBody({
+    required this.tokens,
+    required this.language,
+    required this.appearance,
+    required this.selectedTab,
+    this.onNewGame,
+    this.onReturnToLobby,
+    this.onTutorial,
+    this.animationSpeed = defaultGameAnimationSpeed,
+    this.onAnimationSpeedChanged,
+    this.confirmNewGame = true,
+    this.onConfirmNewGameChanged,
+    this.confirmMainMenu = true,
+    this.onConfirmMainMenuChanged,
+    this.showInvalidTapHints = true,
+    this.onShowInvalidTapHintsChanged,
+    this.onLanguageToggle,
+    this.onAppearanceToggle,
+    super.key,
+  });
+
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final KolkhozAppearance appearance;
+  final OptionsMenuTab selectedTab;
+  final VoidCallback? onNewGame;
+  final VoidCallback? onReturnToLobby;
+  final VoidCallback? onTutorial;
+  final GameAnimationSpeed animationSpeed;
+  final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
+  final bool confirmNewGame;
+  final ValueChanged<bool>? onConfirmNewGameChanged;
+  final bool confirmMainMenu;
+  final ValueChanged<bool>? onConfirmMainMenuChanged;
+  final bool showInvalidTapHints;
+  final ValueChanged<bool>? onShowInvalidTapHintsChanged;
+  final VoidCallback? onLanguageToggle;
+  final VoidCallback? onAppearanceToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (selectedTab) {
+      OptionsMenuTab.session => OptionsSessionControls(
+        tokens: tokens,
+        language: language,
+        onNewGame: onNewGame,
+        onReturnToLobby: onReturnToLobby,
+        onTutorial: onTutorial,
+        confirmNewGame: confirmNewGame,
+        onConfirmNewGameChanged: onConfirmNewGameChanged,
+        confirmMainMenu: confirmMainMenu,
+        onConfirmMainMenuChanged: onConfirmMainMenuChanged,
+      ),
+      OptionsMenuTab.assist => OptionsAssistControls(
+        tokens: tokens,
+        language: language,
+        showInvalidTapHints: showInvalidTapHints,
+        onShowInvalidTapHintsChanged: onShowInvalidTapHintsChanged,
+      ),
+      OptionsMenuTab.display => OptionsDisplayControls(
+        tokens: tokens,
+        language: language,
+        appearance: appearance,
+        animationSpeed: animationSpeed,
+        onAnimationSpeedChanged: onAnimationSpeedChanged,
+        onLanguageToggle: onLanguageToggle,
+        onAppearanceToggle: onAppearanceToggle,
+      ),
+      OptionsMenuTab.rules => OptionsMenuRules(
+        tokens: tokens,
+        language: language,
+      ),
+    };
   }
 }
 
@@ -238,31 +465,29 @@ class OptionsMenuHeader extends StatelessWidget {
   }
 }
 
-class OptionsMenuActions extends StatelessWidget {
-  const OptionsMenuActions({
+class OptionsSessionControls extends StatelessWidget {
+  const OptionsSessionControls({
     required this.tokens,
     required this.language,
-    required this.appearance,
-    this.animationSpeed = defaultGameAnimationSpeed,
     this.onNewGame,
     this.onReturnToLobby,
     this.onTutorial,
-    this.onAnimationSpeedChanged,
-    this.onLanguageToggle,
-    this.onAppearanceToggle,
+    this.confirmNewGame = true,
+    this.onConfirmNewGameChanged,
+    this.confirmMainMenu = true,
+    this.onConfirmMainMenuChanged,
     super.key,
   });
 
   final DesignTokens tokens;
   final KolkhozLanguage language;
-  final KolkhozAppearance appearance;
-  final GameAnimationSpeed animationSpeed;
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
   final VoidCallback? onTutorial;
-  final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
-  final VoidCallback? onLanguageToggle;
-  final VoidCallback? onAppearanceToggle;
+  final bool confirmNewGame;
+  final ValueChanged<bool>? onConfirmNewGameChanged;
+  final bool confirmMainMenu;
+  final ValueChanged<bool>? onConfirmMainMenuChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -335,43 +560,246 @@ class OptionsMenuActions extends StatelessWidget {
                 spacing: optionsMenuActionContentSpacing,
               ),
             ),
-            Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                spacing: optionsMenuChromeToggleSpacing,
-                children: [
-                  OptionsChromeToggle(
-                    iconPath: 'ios_resources/Icons/${language.toggleIconAsset}',
-                    label: language.toggleTitle,
-                    tokens: tokens,
-                    onPressed: onLanguageToggle,
-                  ),
-                  OptionsChromeToggle(
-                    iconPath: 'ios_resources/Icons/icon-appearance.png',
-                    label: appearance.toggleTitle(language),
-                    tokens: tokens,
-                    onPressed: onAppearanceToggle,
-                  ),
-                ],
-              ),
-            ),
-            Center(
-              child: AnimationSpeedControl(
-                selected: animationSpeed,
-                tokens: tokens,
-                language: language,
-                onChanged: onAnimationSpeedChanged,
-              ),
-            ),
-            Center(
-              child: ReadabilitySurfaceButton(
-                tokens: tokens,
-                language: language,
-              ),
-            ),
           ],
         ),
+        Divider(color: tokens.colors.gold.withValues(alpha: 0.28)),
+        ChromePixelLabel(
+          language.text(en: 'Safeguards', ru: 'Защита'),
+          size: PixelTextSize.caption,
+          variant: PixelTextVariant.regular,
+          color: tokens.colors.smoke,
+        ),
+        OptionsSettingToggle(
+          tokens: tokens,
+          label: language.text(
+            en: 'Confirm new game',
+            ru: 'Подтверждать новую игру',
+          ),
+          body: language.text(
+            en: 'Ask before replacing the current game.',
+            ru: 'Спросить перед заменой текущей партии.',
+          ),
+          value: confirmNewGame,
+          onChanged: onConfirmNewGameChanged,
+        ),
+        OptionsSettingToggle(
+          tokens: tokens,
+          label: language.text(
+            en: 'Confirm main menu',
+            ru: 'Подтверждать выход',
+          ),
+          body: language.text(
+            en: 'Ask before leaving the current game.',
+            ru: 'Спросить перед выходом из текущей партии.',
+          ),
+          value: confirmMainMenu,
+          onChanged: onConfirmMainMenuChanged,
+        ),
       ],
+    );
+  }
+}
+
+class OptionsAssistControls extends StatelessWidget {
+  const OptionsAssistControls({
+    required this.tokens,
+    required this.language,
+    this.showInvalidTapHints = true,
+    this.onShowInvalidTapHintsChanged,
+    super.key,
+  });
+
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final bool showInvalidTapHints;
+  final ValueChanged<bool>? onShowInvalidTapHintsChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: optionsMenuSettingSpacing,
+      children: [
+        ChromePixelLabel(
+          language.text(en: 'Move help', ru: 'Помощь хода'),
+          size: PixelTextSize.caption,
+          variant: PixelTextVariant.regular,
+          color: tokens.colors.smoke,
+        ),
+        OptionsSettingToggle(
+          tokens: tokens,
+          label: language.text(en: 'Invalid-tap hints', ru: 'Подсказки ошибок'),
+          body: language.text(
+            en: 'Show the Foreman reminder when you tap an illegal card.',
+            ru: 'Показывать напоминание бригадира при неверной карте.',
+          ),
+          value: showInvalidTapHints,
+          onChanged: onShowInvalidTapHintsChanged,
+        ),
+      ],
+    );
+  }
+}
+
+class OptionsDisplayControls extends StatelessWidget {
+  const OptionsDisplayControls({
+    required this.tokens,
+    required this.language,
+    required this.appearance,
+    this.animationSpeed = defaultGameAnimationSpeed,
+    this.onAnimationSpeedChanged,
+    this.onLanguageToggle,
+    this.onAppearanceToggle,
+    super.key,
+  });
+
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final KolkhozAppearance appearance;
+  final GameAnimationSpeed animationSpeed;
+  final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
+  final VoidCallback? onLanguageToggle;
+  final VoidCallback? onAppearanceToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: optionsMenuActionsSpacing,
+      children: [
+        ChromePixelLabel(
+          language.text(en: 'Display', ru: 'Вид'),
+          size: PixelTextSize.caption,
+          variant: PixelTextVariant.regular,
+          color: tokens.colors.smoke,
+        ),
+        Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: optionsMenuChromeToggleSpacing,
+            children: [
+              OptionsChromeToggle(
+                iconPath: 'ios_resources/Icons/${language.toggleIconAsset}',
+                label: language.toggleTitle,
+                tokens: tokens,
+                onPressed: onLanguageToggle,
+              ),
+              OptionsChromeToggle(
+                iconPath: 'ios_resources/Icons/icon-appearance.png',
+                label: appearance.toggleTitle(language),
+                tokens: tokens,
+                onPressed: onAppearanceToggle,
+              ),
+            ],
+          ),
+        ),
+        Center(
+          child: AnimationSpeedControl(
+            selected: animationSpeed,
+            tokens: tokens,
+            language: language,
+            onChanged: onAnimationSpeedChanged,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class OptionsSettingToggle extends StatelessWidget {
+  const OptionsSettingToggle({
+    required this.tokens,
+    required this.label,
+    required this.body,
+    required this.value,
+    this.onChanged,
+    super.key,
+  });
+
+  final DesignTokens tokens;
+  final String label;
+  final String body;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onChanged != null;
+    final foreground = enabled
+        ? tokens.colors.creamDim
+        : tokens.colors.creamDim.withValues(alpha: 0.5);
+    return Semantics(
+      container: true,
+      button: true,
+      enabled: enabled,
+      toggled: value,
+      label: label,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: enabled ? () => onChanged!(!value) : null,
+          child: Container(
+            padding: optionsMenuSettingPadding,
+            decoration: BoxDecoration(
+              color: tokens.colors.black.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(5),
+              border: Border.all(
+                color: value
+                    ? tokens.colors.gold.withValues(alpha: 0.58)
+                    : tokens.colors.steel.withValues(alpha: 0.45),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 9,
+              children: [
+                Container(
+                  width: 18,
+                  height: 18,
+                  margin: const EdgeInsets.only(top: 2),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: value
+                        ? tokens.colors.gold.withValues(alpha: 0.2)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: value
+                          ? tokens.colors.gold
+                          : tokens.colors.steel.withValues(alpha: 0.72),
+                    ),
+                  ),
+                  child: value
+                      ? Icon(Icons.check, size: 13, color: tokens.colors.gold)
+                      : null,
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 2,
+                    children: [
+                      ChromePixelLabel(
+                        label,
+                        size: PixelTextSize.caption,
+                        color: value ? tokens.colors.gold : foreground,
+                      ),
+                      Text(
+                        body,
+                        softWrap: true,
+                        style: kolkhozFontStyle.copyWith(
+                          color: foreground,
+                          fontSize: menuRuleBodyFontSize,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -556,57 +984,6 @@ class AnimationSpeedSegment extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class ReadabilitySurfaceButton extends StatelessWidget {
-  const ReadabilitySurfaceButton({
-    required this.tokens,
-    required this.language,
-    super.key,
-  });
-
-  final DesignTokens tokens;
-  final KolkhozLanguage language;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: optionsReadabilityButtonWidth,
-      height: optionsMenuActionHeight,
-      padding: const EdgeInsets.symmetric(
-        horizontal: optionsMenuActionHorizontalPadding,
-      ),
-      decoration: BoxDecoration(
-        color: tokens.colors.black.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(5),
-        border: Border.all(color: tokens.colors.gold.withValues(alpha: 0.42)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        spacing: optionsMenuActionContentSpacing,
-        children: [
-          SizedBox(
-            width: optionsReadabilityGlyphBoxWidth,
-            child: Center(
-              child: ChromePixelLabel(
-                'Aa',
-                size: PixelTextSize.caption,
-                color: tokens.colors.creamDim,
-                uppercase: false,
-              ),
-            ),
-          ),
-          Flexible(
-            child: ChromePixelLabel(
-              language.text(en: 'Clear text', ru: 'Четкий текст'),
-              size: PixelTextSize.caption,
-              color: tokens.colors.creamDim,
-            ),
-          ),
-        ],
       ),
     );
   }

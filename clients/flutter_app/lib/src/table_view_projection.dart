@@ -167,13 +167,20 @@ class TableViewProjection {
           ? projectEngineCard(bridge.revealedJobCard(engine, suit))
           : null,
       assignedCardsForSuit: (suit) => [
-        ...cards(
-          bridge.jobBucketCount(engine, suit),
-          (index) => bridge.jobBucketCard(engine, suit, index),
-        ),
+        ...jobBucketCards(suit),
         ...pendingAssignmentCards(suit),
       ],
     );
+  }
+
+  List<TableCard> jobBucketCards(int suit) {
+    return [
+      for (var index = 0; index < bridge.jobBucketCount(engine, suit); index++)
+        projectEngineCard(
+          bridge.jobBucketCard(engine, suit, index),
+          assignmentRound: bridge.jobBucketTrick(engine, suit, index),
+        ),
+    ];
   }
 
   List<TableCard> pendingAssignmentCards(int targetSuit) {
@@ -181,7 +188,11 @@ class TableViewProjection {
     for (var index = 0; index < bridge.lastTrickCount(engine); index++) {
       if (bridge.pendingAssignmentTarget(engine, index) == targetSuit) {
         result.add(
-          projectEngineCard(bridge.lastTrickCard(engine, index), pending: true),
+          projectEngineCard(
+            bridge.lastTrickCard(engine, index),
+            pending: true,
+            assignmentRound: bridge.trickCount(engine),
+          ),
         );
       }
     }
@@ -286,11 +297,13 @@ class TableViewProjection {
     EngineCardValue card, {
     bool highlighted = false,
     bool pending = false,
+    int? assignmentRound,
   }) {
     return projectCard(
       card,
       highlighted: highlighted,
       pending: pending,
+      assignmentRound: assignmentRound,
       nomenclature: isNomenclatureFace(card, variants, bridge.trump(engine)),
     );
   }
@@ -300,6 +313,7 @@ TableCard projectCard(
   EngineCardValue card, {
   bool highlighted = false,
   bool pending = false,
+  int? assignmentRound,
   bool nomenclature = false,
 }) {
   return TableCard(
@@ -310,6 +324,7 @@ TableCard projectCard(
     selected: false,
     highlighted: highlighted,
     pending: pending,
+    assignmentRound: assignmentRound,
     nomenclature: nomenclature,
   );
 }

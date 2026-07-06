@@ -84,9 +84,13 @@ Color? handTrayHighlightColor(
   TableViewModel model,
   TableCard card, {
   required Color swapHighlightColor,
+  required Color playableHighlightColor,
 }) {
   if (model.table.phase == phaseSwap && card.highlighted && !card.selected) {
     return swapHighlightColor;
+  }
+  if (model.table.phase == phaseTrick && card.highlighted) {
+    return playableHighlightColor;
   }
   return null;
 }
@@ -322,6 +326,8 @@ class HandTray extends StatelessWidget {
                                                       card,
                                                       swapHighlightColor:
                                                           tokens.colors.red,
+                                                      playableHighlightColor:
+                                                          tokens.colors.green,
                                                     ),
                                                 highlightGlowEnabled:
                                                     model.table.phase !=

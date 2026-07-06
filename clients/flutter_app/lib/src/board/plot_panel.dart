@@ -86,48 +86,51 @@ class PlotPanel extends StatelessWidget {
               ),
               SizedBox(height: metrics.spacing),
               Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: metrics.spacing,
-                  children: [
-                    Expanded(
-                      child: LocalPlotColumn(
-                        title: language.text(en: 'Cellar', ru: 'Подвал'),
-                        iconPath: 'ios_resources/Icons/icon-cellar.png',
-                        cards: viewerHiddenCards,
-                        hiddenCount: viewerHiddenCards.length,
-                        hidden: false,
-                        selectable: model.table.phase == phaseSwap,
-                        selectedCardID: model.selection.plotCardID,
-                        exiledCardIDs: exiledCardIDs,
-                        metrics: metrics,
-                        tokens: tokens,
-                        onCardTap: onPlotCardTap == null
-                            ? null
-                            : (cardID) =>
-                                  onPlotCardTap!(cardID, plotZoneHidden),
+                child: MotionTrackedRegion(
+                  motionKey: plotCardMotionSourceKey(viewer.id),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: metrics.spacing,
+                    children: [
+                      Expanded(
+                        child: LocalPlotColumn(
+                          title: language.text(en: 'Cellar', ru: 'Подвал'),
+                          iconPath: 'ios_resources/Icons/icon-cellar.png',
+                          cards: viewerHiddenCards,
+                          hiddenCount: viewerHiddenCards.length,
+                          hidden: false,
+                          selectable: model.table.phase == phaseSwap,
+                          selectedCardID: model.selection.plotCardID,
+                          exiledCardIDs: exiledCardIDs,
+                          metrics: metrics,
+                          tokens: tokens,
+                          onCardTap: onPlotCardTap == null
+                              ? null
+                              : (cardID) =>
+                                    onPlotCardTap!(cardID, plotZoneHidden),
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: LocalPlotColumn(
-                        title: language.text(en: 'Plot', ru: 'Участок'),
-                        iconPath: 'ios_resources/Icons/icon-plot.png',
-                        cards: viewerRevealedCards,
-                        stacks: viewer.plot.stacks,
-                        hiddenCount: viewerRevealedCards.length,
-                        hidden: false,
-                        selectable: model.table.phase == phaseSwap,
-                        selectedCardID: model.selection.plotCardID,
-                        exiledCardIDs: exiledCardIDs,
-                        metrics: metrics,
-                        tokens: tokens,
-                        onCardTap: onPlotCardTap == null
-                            ? null
-                            : (cardID) =>
-                                  onPlotCardTap!(cardID, plotZoneRevealed),
+                      Expanded(
+                        child: LocalPlotColumn(
+                          title: language.text(en: 'Plot', ru: 'Участок'),
+                          iconPath: 'ios_resources/Icons/icon-plot.png',
+                          cards: viewerRevealedCards,
+                          stacks: viewer.plot.stacks,
+                          hiddenCount: viewerRevealedCards.length,
+                          hidden: false,
+                          selectable: model.table.phase == phaseSwap,
+                          selectedCardID: model.selection.plotCardID,
+                          exiledCardIDs: exiledCardIDs,
+                          metrics: metrics,
+                          tokens: tokens,
+                          onCardTap: onPlotCardTap == null
+                              ? null
+                              : (cardID) =>
+                                    onPlotCardTap!(cardID, plotZoneRevealed),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -231,90 +234,93 @@ class OpponentPlotPanel extends StatelessWidget {
       hiddenExiledCardIDs,
     );
     final vulnerable = hasExiledPlotCard;
-    return Container(
-      padding: EdgeInsets.all(metrics.panelPadding),
-      decoration: BoxDecoration(
-        color: tokens.colors.black.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(tokens.radius.sm),
-        border: Border.all(color: tokens.colors.steel.withValues(alpha: 0.5)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: metrics.spacing * 0.75,
-        children: [
-          SizedBox(
-            width: metrics.portraitSize + 12,
-            child: Column(
-              spacing: 3,
-              children: [
-                SizedBox(
-                  width: metrics.portraitSize,
-                  height: metrics.portraitSize,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      PortraitFrame(
-                        seat: seat,
-                        tokens: tokens,
-                        width: metrics.portraitSize,
-                        height: metrics.portraitSize,
-                      ),
-                      if (vulnerable)
-                        Positioned(
-                          top: -3,
-                          right: -4,
-                          child: Image.asset(
-                            'ios_resources/Icons/icon-status-vulnerable.png',
-                            width: 14,
-                            height: 14,
-                            filterQuality: FilterQuality.none,
-                          ),
+    return MotionTrackedRegion(
+      motionKey: plotCardMotionSourceKey(seat.id),
+      child: Container(
+        padding: EdgeInsets.all(metrics.panelPadding),
+        decoration: BoxDecoration(
+          color: tokens.colors.black.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(tokens.radius.sm),
+          border: Border.all(color: tokens.colors.steel.withValues(alpha: 0.5)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: metrics.spacing * 0.75,
+          children: [
+            SizedBox(
+              width: metrics.portraitSize + 12,
+              child: Column(
+                spacing: 3,
+                children: [
+                  SizedBox(
+                    width: metrics.portraitSize,
+                    height: metrics.portraitSize,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        PortraitFrame(
+                          seat: seat,
+                          tokens: tokens,
+                          width: metrics.portraitSize,
+                          height: metrics.portraitSize,
                         ),
-                    ],
+                        if (vulnerable)
+                          Positioned(
+                            top: -3,
+                            right: -4,
+                            child: Image.asset(
+                              'ios_resources/Icons/icon-status-vulnerable.png',
+                              width: 14,
+                              height: 14,
+                              filterQuality: FilterQuality.none,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-                PixelText(
-                  seat.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  size: PixelTextSize.caption2,
-                  variant: PixelTextVariant.heavy,
-                  color: tokens.colors.cream,
-                ),
-              ],
+                  PixelText(
+                    seat.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    size: PixelTextSize.caption2,
+                    variant: PixelTextVariant.heavy,
+                    color: tokens.colors.cream,
+                  ),
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            child: Row(
-              spacing: metrics.spacing * 0.5,
-              children: [
-                Expanded(
-                  child: OpponentPlotMiniSection(
-                    iconPath: 'ios_resources/Icons/icon-cellar.png',
-                    value: '${visibleHiddenCards.length}',
-                    cards: visibleHiddenCards,
-                    hidden: true,
-                    metrics: metrics,
-                    tokens: tokens,
-                    exiledCardIDs: exiledCardIDs,
+            Expanded(
+              child: Row(
+                spacing: metrics.spacing * 0.5,
+                children: [
+                  Expanded(
+                    child: OpponentPlotMiniSection(
+                      iconPath: 'ios_resources/Icons/icon-cellar.png',
+                      value: '${visibleHiddenCards.length}',
+                      cards: visibleHiddenCards,
+                      hidden: true,
+                      metrics: metrics,
+                      tokens: tokens,
+                      exiledCardIDs: exiledCardIDs,
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: OpponentPlotMiniSection(
-                    iconPath: 'ios_resources/Icons/icon-plot.png',
-                    value: '${visiblePlotScore(seat, hiddenExiledCardIDs)}',
-                    cards: visibleRevealedCards,
-                    hidden: false,
-                    metrics: metrics,
-                    tokens: tokens,
-                    exiledCardIDs: exiledCardIDs,
+                  Expanded(
+                    child: OpponentPlotMiniSection(
+                      iconPath: 'ios_resources/Icons/icon-plot.png',
+                      value: '${visiblePlotScore(seat, hiddenExiledCardIDs)}',
+                      cards: visibleRevealedCards,
+                      hidden: false,
+                      metrics: metrics,
+                      tokens: tokens,
+                      exiledCardIDs: exiledCardIDs,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -371,7 +377,10 @@ class OpponentPlotMiniSection extends StatelessWidget {
               radius: opponentPlotMiniExileRadius,
               tokens: tokens,
               child: hidden
-                  ? CardBackMini(tokens: tokens)
+                  ? MotionTrackedCard(
+                      card: card,
+                      child: CardBackMini(tokens: tokens),
+                    )
                   : GameCard(card: card, tokens: tokens, small: true),
             ),
           ),
@@ -723,15 +732,18 @@ class HighlightableCardBack extends StatelessWidget {
         : card.highlighted
         ? tokens.colors.gold
         : Colors.transparent;
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(cardViewCornerRadius),
-        border: Border.all(
-          color: border,
-          width: card.selected || card.highlighted ? tokens.stroke.active : 0,
+    return MotionTrackedCard(
+      card: card,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(cardViewCornerRadius),
+          border: Border.all(
+            color: border,
+            width: card.selected || card.highlighted ? tokens.stroke.active : 0,
+          ),
         ),
+        child: CardBackMini(tokens: tokens),
       ),
-      child: CardBackMini(tokens: tokens),
     );
   }
 }

@@ -145,6 +145,9 @@ static void kc_reset_year_work(KCEngine *engine) {
         engine->claimed_jobs[suit] = false;
         engine->work_hours[suit] = 0;
         kc_list_clear(&engine->job_buckets[suit]);
+        for (int32_t i = 0; i < KC_MAX_CARDS; i++) {
+            engine->job_bucket_tricks[suit][i] = 0;
+        }
     }
 }
 
@@ -624,6 +627,13 @@ int32_t kc_job_bucket_count(const KCEngine *engine, int32_t suit) {
 KCCard kc_job_bucket_card(const KCEngine *engine, int32_t suit, int32_t index) {
     if (!engine || !kc_valid_suit(suit)) return kc_no_card();
     return kc_card_at(&engine->job_buckets[suit], index);
+}
+
+int32_t kc_job_bucket_trick(const KCEngine *engine, int32_t suit, int32_t index) {
+    if (!engine || !kc_valid_suit(suit) || index < 0 || index >= engine->job_buckets[suit].count) {
+        return 0;
+    }
+    return engine->job_bucket_tricks[suit][index];
 }
 
 int32_t kc_current_trick_count(const KCEngine *engine) {
@@ -1199,7 +1209,11 @@ static void kc_apply_assignments(KCEngine *engine) {
             continue;
         }
         KCCard card = engine->last_trick[i].card;
+        int32_t bucket_index = engine->job_buckets[target_suit].count;
         kc_list_append(&engine->job_buckets[target_suit], card);
+        if (bucket_index < KC_MAX_CARDS) {
+            engine->job_bucket_tricks[target_suit][bucket_index] = engine->trick_count;
+        }
         engine->work_hours[target_suit] += kc_work_value(engine, card);
     }
     for (int32_t suit = 0; suit < KC_SUIT_COUNT; suit++) {

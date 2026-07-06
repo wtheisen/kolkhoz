@@ -13,6 +13,35 @@ import 'render_model.dart';
 import 'rule_content.dart';
 import 'tutorial_display.dart';
 
+Future<bool> showGameControlConfirmation({
+  required BuildContext context,
+  required KolkhozLanguage language,
+  required String title,
+  required String message,
+  required String confirmLabel,
+}) async {
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(language.text(en: 'Cancel', ru: 'Отмена')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(confirmLabel),
+          ),
+        ],
+      );
+    },
+  );
+  return result ?? false;
+}
+
 class KolkhozApp extends StatefulWidget {
   const KolkhozApp({super.key});
 
@@ -23,6 +52,7 @@ class KolkhozApp extends StatefulWidget {
 class _KolkhozAppState extends State<KolkhozApp> {
   static const foremanHintDuration = Duration(seconds: 3);
 
+  final navigatorKey = GlobalKey<NavigatorState>();
   late final LiveGameStore store;
   late final KolkhozAppSettingsStore settingsStore;
   KolkhozAppSettings settings = const KolkhozAppSettings();
@@ -61,6 +91,7 @@ class _KolkhozAppState extends State<KolkhozApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'Kolkhoz',
       theme: ThemeData(
@@ -168,17 +199,17 @@ class _KolkhozAppState extends State<KolkhozApp> {
                   onAssignmentCardTap: store.selectAssignmentCard,
                   onInvalidHandCardTap: showFollowSuitHint,
                   onHotSeatReady: store.revealLocalPlayer,
-                  onNewGame: () {
-                    clearForemanHint();
-                    store.newGame(
-                      variants: store.currentVariants,
-                      controllers: store.controllers,
-                    );
-                  },
-                  onReturnToLobby: returnToLobby,
+                  onNewGame: requestNewGameFromBoard,
+                  onReturnToLobby: requestReturnToLobby,
                   onTutorial: showTutorial,
                   animationSpeed: store.animationSpeed,
                   onAnimationSpeedChanged: store.setAnimationSpeed,
+                  confirmNewGame: settings.confirmNewGame,
+                  onConfirmNewGameChanged: setConfirmNewGame,
+                  confirmMainMenu: settings.confirmMainMenu,
+                  onConfirmMainMenuChanged: setConfirmMainMenu,
+                  showInvalidTapHints: settings.showInvalidTapHints,
+                  onShowInvalidTapHintsChanged: setShowInvalidTapHints,
                 ),
                 if (store.error != null)
                   Positioned(
@@ -225,6 +256,48 @@ class _KolkhozAppState extends State<KolkhozApp> {
     );
   }
 
+  Future<void> requestNewGameFromBoard() async {
+    clearForemanHint();
+    if (settings.confirmNewGame) {
+      final confirmed = await confirmGameControl(
+        title: settings.language.text(en: 'New game?', ru: 'Новая игра?'),
+        message: settings.language.text(
+          en: 'This will replace the current game.',
+          ru: 'Текущая партия будет заменена.',
+        ),
+        confirmLabel: settings.language.text(en: 'New game', ru: 'Новая игра'),
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+    store.newGame(
+      variants: store.currentVariants,
+      controllers: store.controllers,
+    );
+  }
+
+  Future<void> requestReturnToLobby() async {
+    clearForemanHint();
+    if (settings.confirmMainMenu) {
+      final confirmed = await confirmGameControl(
+        title: settings.language.text(en: 'Main menu?', ru: 'Главное меню?'),
+        message: settings.language.text(
+          en: 'Leave the current game and return to setup.',
+          ru: 'Выйти из текущей партии и вернуться к настройке.',
+        ),
+        confirmLabel: settings.language.text(
+          en: 'Main menu',
+          ru: 'Главное меню',
+        ),
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+    returnToLobby();
+  }
+
   void returnToLobby() {
     clearForemanHint();
     store.leaveOnlineGame();
@@ -255,6 +328,9 @@ class _KolkhozAppState extends State<KolkhozApp> {
   }
 
   void showFollowSuitHint() {
+    if (!settings.showInvalidTapHints) {
+      return;
+    }
     foremanHintTimer?.cancel();
     setState(() {
       foremanHint = settings.language.text(
@@ -292,6 +368,45 @@ class _KolkhozAppState extends State<KolkhozApp> {
       settings = settings.copyWith(appearance: settings.appearance.next);
       settingsStore.save(settings);
     });
+  }
+
+  void setConfirmNewGame(bool value) {
+    setState(() {
+      settings = settings.copyWith(confirmNewGame: value);
+      settingsStore.save(settings);
+    });
+  }
+
+  void setConfirmMainMenu(bool value) {
+    setState(() {
+      settings = settings.copyWith(confirmMainMenu: value);
+      settingsStore.save(settings);
+    });
+  }
+
+  void setShowInvalidTapHints(bool value) {
+    setState(() {
+      settings = settings.copyWith(showInvalidTapHints: value);
+      settingsStore.save(settings);
+    });
+  }
+
+  Future<bool> confirmGameControl({
+    required String title,
+    required String message,
+    required String confirmLabel,
+  }) async {
+    final dialogContext = navigatorKey.currentContext;
+    if (dialogContext == null) {
+      return false;
+    }
+    return showGameControlConfirmation(
+      context: dialogContext,
+      language: settings.language,
+      title: title,
+      message: message,
+      confirmLabel: confirmLabel,
+    );
   }
 
   Future<String> hostOnlineGame(

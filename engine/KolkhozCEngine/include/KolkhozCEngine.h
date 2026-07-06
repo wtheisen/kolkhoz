@@ -324,6 +324,7 @@ typedef struct {
     bool claimed_jobs[KC_SUIT_COUNT];
     int32_t work_hours[KC_SUIT_COUNT];
     KCCardList job_buckets[KC_SUIT_COUNT];
+    int32_t job_bucket_tricks[KC_SUIT_COUNT][KC_MAX_CARDS];
     KCTrickPlay current_trick[KC_PLAYER_COUNT];
     int32_t current_trick_count;
     KCTrickPlay last_trick[KC_PLAYER_COUNT];
@@ -411,6 +412,7 @@ bool kc_claimed_job(const KCEngine *engine, int32_t suit);
 int32_t kc_work_hours(const KCEngine *engine, int32_t suit);
 int32_t kc_job_bucket_count(const KCEngine *engine, int32_t suit);
 KCCard kc_job_bucket_card(const KCEngine *engine, int32_t suit, int32_t index);
+int32_t kc_job_bucket_trick(const KCEngine *engine, int32_t suit, int32_t index);
 int32_t kc_current_trick_count(const KCEngine *engine);
 int32_t kc_current_trick_player(const KCEngine *engine, int32_t index);
 KCCard kc_current_trick_card(const KCEngine *engine, int32_t index);

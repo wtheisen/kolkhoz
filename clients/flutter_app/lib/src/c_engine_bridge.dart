@@ -219,6 +219,7 @@ class KolkhozCEngineBridge {
   late final int Function(Pointer<KCEngine>, int) _workHours;
   late final int Function(Pointer<KCEngine>, int) _jobBucketCount;
   late final KCCardNative Function(Pointer<KCEngine>, int, int) _jobBucketCard;
+  late final int Function(Pointer<KCEngine>, int, int) _jobBucketTrick;
   late final int Function(Pointer<KCEngine>) _currentTrickCount;
   late final int Function(Pointer<KCEngine>, int) _currentTrickPlayer;
   late final KCCardNative Function(Pointer<KCEngine>, int) _currentTrickCard;
@@ -430,6 +431,8 @@ class KolkhozCEngineBridge {
     int suit,
     int index,
   ) => _cardValue(_jobBucketCard(engine, suit, index));
+  int jobBucketTrick(Pointer<KCEngine> engine, int suit, int index) =>
+      _jobBucketTrick(engine, suit, index);
   int currentTrickCount(Pointer<KCEngine> engine) => _currentTrickCount(engine);
   int currentTrickPlayer(Pointer<KCEngine> engine, int index) =>
       _currentTrickPlayer(engine, index);
@@ -646,6 +649,7 @@ class KolkhozCEngineBridge {
     _workHours = _int1('kc_work_hours');
     _jobBucketCount = _int1('kc_job_bucket_count');
     _jobBucketCard = _card2('kc_job_bucket_card');
+    _jobBucketTrick = _int2('kc_job_bucket_trick');
     _currentTrickCount = _int0('kc_current_trick_count');
     _currentTrickPlayer = _int1('kc_current_trick_player');
     _currentTrickCard = _card1('kc_current_trick_card');

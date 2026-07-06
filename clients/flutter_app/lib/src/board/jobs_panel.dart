@@ -20,6 +20,9 @@ const jobsTilePadding = 8.0;
 const jobsTileHeaderSpacing = 8.0;
 const jobsTileContentGap = 7.0;
 const jobsTileEmptyPromptMinHeight = 42.0;
+const jobsAssignedCardsPerRow = 4;
+const jobsAssignedCardHorizontalOverlapFactor = 0.18;
+const jobsAssignedCardVerticalOverlapFactor = 0.14;
 
 List<Job> jobsInDisplayOrder(List<Job> jobs) {
   final jobsBySuit = {for (final job in jobs) job.suit: job};
@@ -60,6 +63,151 @@ double jobsTileHeight({
         : tokens.overviewMinTileHeight,
     availableHeight * jobsTileHeightFactor,
   );
+}
+
+int assignedJobCardRowCount(int cardCount) {
+  if (cardCount <= 0) {
+    return 0;
+  }
+  return (cardCount / jobsAssignedCardsPerRow).ceil();
+}
+
+double assignedJobCardHorizontalStep(TokenCardSize cardSize) {
+  return cardSize.width * (1 - jobsAssignedCardHorizontalOverlapFactor);
+}
+
+double assignedJobCardVerticalStep(TokenCardSize cardSize) {
+  return cardSize.height * (1 - jobsAssignedCardVerticalOverlapFactor);
+}
+
+double assignedJobCardRowWidth({
+  required int rowCardCount,
+  required TokenCardSize cardSize,
+}) {
+  if (rowCardCount <= 0) {
+    return 0;
+  }
+  return cardSize.width +
+      math.max(0, rowCardCount - 1) * assignedJobCardHorizontalStep(cardSize);
+}
+
+Size assignedJobCardsContentSize({
+  required int cardCount,
+  required TokenCardSize cardSize,
+}) {
+  if (cardCount <= 0) {
+    return Size.zero;
+  }
+  final fullRowWidth = assignedJobCardRowWidth(
+    rowCardCount: math.min(cardCount, jobsAssignedCardsPerRow),
+    cardSize: cardSize,
+  );
+  final rows = assignedJobCardRowCount(cardCount);
+  final height =
+      cardSize.height +
+      math.max(0, rows - 1) * assignedJobCardVerticalStep(cardSize);
+  return Size(fullRowWidth, height);
+}
+
+Size assignedJobCardRowsContentSize({
+  required List<List<TableCard>> rows,
+  required TokenCardSize cardSize,
+}) {
+  if (rows.isEmpty) {
+    return Size.zero;
+  }
+  final maxRowCardCount = rows.fold<int>(
+    0,
+    (count, row) => math.max(count, row.length),
+  );
+  final width = assignedJobCardRowWidth(
+    rowCardCount: maxRowCardCount,
+    cardSize: cardSize,
+  );
+  final height =
+      cardSize.height +
+      math.max(0, rows.length - 1) * assignedJobCardVerticalStep(cardSize);
+  return Size(width, height);
+}
+
+int pendingAssignedJobHours(Job job) {
+  return job.assignedCards
+      .where((card) => card.pending)
+      .fold(0, (total, card) => total + card.value);
+}
+
+int displayedJobHours(Job job) {
+  return job.hours + pendingAssignedJobHours(job);
+}
+
+List<List<TableCard>> assignedJobTrickRows(List<TableCard> cards) {
+  final rows = <List<TableCard>>[];
+  var currentRow = <TableCard>[];
+  int? currentRound;
+  for (final card in cards) {
+    final nextRound = card.assignmentRound;
+    final startsNewRound =
+        currentRow.isNotEmpty &&
+        nextRound != currentRound &&
+        (nextRound != null || currentRound != null);
+    final rowIsFull = currentRow.length >= jobsAssignedCardsPerRow;
+    if (startsNewRound || rowIsFull) {
+      rows.add(currentRow);
+      currentRow = <TableCard>[];
+    }
+    currentRound = nextRound;
+    currentRow.add(card);
+  }
+  if (currentRow.isNotEmpty) {
+    rows.add(currentRow);
+  }
+  return rows;
+}
+
+TokenCardSize assignedJobCardSize({
+  required Size availableSize,
+  required int cardCount,
+  required DesignTokens tokens,
+}) {
+  for (final size in [
+    tokens.card.large,
+    tokens.card.medium,
+    tokens.card.small,
+  ]) {
+    final contentSize = assignedJobCardsContentSize(
+      cardCount: cardCount,
+      cardSize: size,
+    );
+    if ((contentSize.width <= availableSize.width &&
+            contentSize.height <= availableSize.height) ||
+        size == tokens.card.small) {
+      return size;
+    }
+  }
+  return tokens.card.small;
+}
+
+TokenCardSize assignedJobCardSizeForRows({
+  required Size availableSize,
+  required List<List<TableCard>> rows,
+  required DesignTokens tokens,
+}) {
+  for (final size in [
+    tokens.card.large,
+    tokens.card.medium,
+    tokens.card.small,
+  ]) {
+    final contentSize = assignedJobCardRowsContentSize(
+      rows: rows,
+      cardSize: size,
+    );
+    if ((contentSize.width <= availableSize.width &&
+            contentSize.height <= availableSize.height) ||
+        size == tokens.card.small) {
+      return size;
+    }
+  }
+  return tokens.card.small;
 }
 
 class JobsPanel extends StatelessWidget {
@@ -168,7 +316,8 @@ class _JobTileState extends State<JobTile> {
     final trump = widget.trump;
     final tokens = widget.tokens;
     final onAssign = widget.onAssign;
-    final progress = (job.hours / jobRequiredHours).clamp(0.0, 1.0);
+    final displayHours = displayedJobHours(job);
+    final progress = (displayHours / job.requiredHours).clamp(0.0, 1.0);
     final validTarget = assignmentPhase && job.validAssignmentTarget;
     final actionableTarget = validTarget && onAssign != null;
     final highlighted = trump == job.suit;
@@ -266,7 +415,7 @@ class _JobTileState extends State<JobTile> {
                         PixelText(
                           job.claimed
                               ? widget.language.text(en: 'DONE', ru: 'ГОТОВО')
-                              : '${job.hours}/$jobRequiredHours',
+                              : '$displayHours/${job.requiredHours}',
                           size: PixelTextSize.headline,
                           variant: PixelTextVariant.heavy,
                           color: job.claimed
@@ -277,39 +426,40 @@ class _JobTileState extends State<JobTile> {
                     ),
                     const SizedBox(height: jobsTileContentGap),
                     Expanded(
-                      child: ClipRect(
-                        child: job.assignedCards.isEmpty
-                            ? Align(
-                                alignment: Alignment.topCenter,
-                                child: SizedBox(
-                                  key: const Key(
-                                    'job-tile-empty-assignment-prompt',
-                                  ),
-                                  width: double.infinity,
-                                  height: jobsTileEmptyPromptMinHeight,
-                                  child: Center(
-                                    child: PixelText(
-                                      showAssignPrompt
-                                          ? widget.language.text(
-                                              en: 'TAP TO ASSIGN',
-                                              ru: 'НАЗНАЧИТЬ',
-                                            )
-                                          : '',
-                                      textAlign: TextAlign.center,
-                                      size: PixelTextSize.caption2,
-                                      variant: PixelTextVariant.heavy,
-                                      color: showAssignPrompt
-                                          ? tokens.colors.gold
-                                          : Colors.transparent,
+                      child: SizedBox.expand(
+                        child: ClipRect(
+                          child: job.assignedCards.isEmpty
+                              ? Center(
+                                  child: SizedBox(
+                                    key: const Key(
+                                      'job-tile-empty-assignment-prompt',
+                                    ),
+                                    width: double.infinity,
+                                    height: jobsTileEmptyPromptMinHeight,
+                                    child: Center(
+                                      child: PixelText(
+                                        showAssignPrompt
+                                            ? widget.language.text(
+                                                en: 'TAP TO ASSIGN',
+                                                ru: 'НАЗНАЧИТЬ',
+                                              )
+                                            : '',
+                                        textAlign: TextAlign.center,
+                                        size: PixelTextSize.caption2,
+                                        variant: PixelTextVariant.heavy,
+                                        color: showAssignPrompt
+                                            ? tokens.colors.gold
+                                            : Colors.transparent,
+                                      ),
                                     ),
                                   ),
+                                )
+                              : AssignedJobCardStack(
+                                  cards: job.assignedCards,
+                                  tokens: tokens,
+                                  trump: trump,
                                 ),
-                              )
-                            : AssignedJobCardStack(
-                                cards: job.assignedCards,
-                                tokens: tokens,
-                                trump: trump,
-                              ),
+                        ),
                       ),
                     ),
                   ],
@@ -337,22 +487,68 @@ class AssignedJobCardStack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final stack = Align(
-      alignment: Alignment.topCenter,
-      child: NegativeSpacingColumn(
-        spacing: -34,
-        itemHeight: tokens.card.small.height,
-        children: [
-          for (final card in cards)
-            JobBucketCard(card: card, tokens: tokens, trump: trump),
-        ],
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final rows = assignedJobTrickRows(cards);
+        final cardSize = assignedJobCardSizeForRows(
+          availableSize: constraints.biggest,
+          rows: rows,
+          tokens: tokens,
+        );
+        final contentSize = assignedJobCardRowsContentSize(
+          rows: rows,
+          cardSize: cardSize,
+        );
+        final stack = SizedBox(
+          width: contentSize.width,
+          height: contentSize.height,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              for (final (rowIndex, row) in rows.indexed) ...[
+                for (final (indexInRow, card) in row.indexed)
+                  Positioned(
+                    left: assignedJobCardLeft(
+                      indexInRow: indexInRow,
+                      rowCardCount: row.length,
+                      fullWidth: contentSize.width,
+                      cardSize: cardSize,
+                    ),
+                    top: rowIndex * assignedJobCardVerticalStep(cardSize),
+                    child: JobBucketCard(
+                      card: card,
+                      tokens: tokens,
+                      trump: trump,
+                      size: cardSize,
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        );
+        if (contentSize.height <= constraints.maxHeight) {
+          return Align(alignment: Alignment.topCenter, child: stack);
+        }
+        return SingleChildScrollView(
+          child: Align(alignment: Alignment.topCenter, child: stack),
+        );
+      },
     );
-    if (cards.length <= 2) {
-      return stack;
-    }
-    return SingleChildScrollView(child: stack);
   }
+}
+
+double assignedJobCardLeft({
+  required int indexInRow,
+  required int rowCardCount,
+  required double fullWidth,
+  required TokenCardSize cardSize,
+}) {
+  final rowWidth = assignedJobCardRowWidth(
+    rowCardCount: rowCardCount,
+    cardSize: cardSize,
+  );
+  return (fullWidth - rowWidth) / 2 +
+      indexInRow * assignedJobCardHorizontalStep(cardSize);
 }
 
 class JobBucketCard extends StatelessWidget {
@@ -360,12 +556,14 @@ class JobBucketCard extends StatelessWidget {
     required this.card,
     required this.tokens,
     required this.trump,
+    required this.size,
     super.key,
   });
 
   final TableCard card;
   final DesignTokens tokens;
   final String? trump;
+  final TokenCardSize size;
 
   @override
   Widget build(BuildContext context) {
@@ -374,12 +572,7 @@ class JobBucketCard extends StatelessWidget {
         : tokens.colors.gold.withValues(alpha: 0.8);
     return Stack(
       children: [
-        GameCard(
-          card: card,
-          tokens: tokens,
-          trump: trump,
-          sizeOverride: tokens.card.small,
-        ),
+        GameCard(card: card, tokens: tokens, trump: trump, sizeOverride: size),
         Positioned.fill(
           child: IgnorePointer(
             child: DecoratedBox(

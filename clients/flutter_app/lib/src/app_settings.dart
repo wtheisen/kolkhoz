@@ -100,18 +100,30 @@ class KolkhozAppSettings {
   const KolkhozAppSettings({
     this.language = KolkhozLanguage.ru,
     this.appearance = KolkhozAppearance.dark,
+    this.confirmNewGame = true,
+    this.confirmMainMenu = true,
+    this.showInvalidTapHints = true,
   });
 
   final KolkhozLanguage language;
   final KolkhozAppearance appearance;
+  final bool confirmNewGame;
+  final bool confirmMainMenu;
+  final bool showInvalidTapHints;
 
   KolkhozAppSettings copyWith({
     KolkhozLanguage? language,
     KolkhozAppearance? appearance,
+    bool? confirmNewGame,
+    bool? confirmMainMenu,
+    bool? showInvalidTapHints,
   }) {
     return KolkhozAppSettings(
       language: language ?? this.language,
       appearance: appearance ?? this.appearance,
+      confirmNewGame: confirmNewGame ?? this.confirmNewGame,
+      confirmMainMenu: confirmMainMenu ?? this.confirmMainMenu,
+      showInvalidTapHints: showInvalidTapHints ?? this.showInvalidTapHints,
     );
   }
 
@@ -119,6 +131,9 @@ class KolkhozAppSettings {
     return {
       'kolkhoz-lang': language.name,
       'kolkhoz-appearance': appearance.name,
+      'confirm-new-game': confirmNewGame,
+      'confirm-main-menu': confirmMainMenu,
+      'show-invalid-tap-hints': showInvalidTapHints,
     };
   }
 
@@ -130,6 +145,9 @@ class KolkhozAppSettings {
       appearance: KolkhozAppearance.fromStoredValue(
         json['kolkhoz-appearance'] as String?,
       ),
+      confirmNewGame: json['confirm-new-game'] as bool? ?? true,
+      confirmMainMenu: json['confirm-main-menu'] as bool? ?? true,
+      showInvalidTapHints: json['show-invalid-tap-hints'] as bool? ?? true,
     );
   }
 }
