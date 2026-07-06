@@ -34,6 +34,7 @@ import 'package:kolkhoz_app/src/render_model.dart';
 import 'package:kolkhoz_app/src/rule_content.dart';
 import 'package:kolkhoz_app/src/saved_game_store.dart';
 import 'package:kolkhoz_app/src/table_display.dart';
+import 'package:kolkhoz_app/src/table_projection_helpers.dart';
 import 'package:kolkhoz_app/src/trump_actions.dart';
 import 'package:kolkhoz_app/src/tutorial_display.dart';
 
@@ -727,6 +728,30 @@ void main() {
     expect(plotOpen.activePanel, panelPlot);
     expect(plotOpen.clearActivePanel().activePanel, isNull);
     expect(plotOpen.togglePanel('invented-panel').activePanel, panelPlot);
+  });
+
+  test('manual panel override clears when the game phase changes', () {
+    final inspectingPlot = const GameUiState().togglePanel(panelPlot);
+
+    expect(panelsForPhase(inspectingPlot, phaseTrick).active, panelPlot);
+    expect(
+      inspectingPlot
+          .clearActivePanelAfterPhaseChange(
+            previousPhase: phaseTrick,
+            nextPhase: phaseTrick,
+          )
+          .activePanel,
+      panelPlot,
+    );
+
+    final afterPhaseChange = inspectingPlot.clearActivePanelAfterPhaseChange(
+      previousPhase: phaseTrick,
+      nextPhase: phaseAssignment,
+    );
+
+    expect(afterPhaseChange.activePanel, isNull);
+    expect(panelsForPhase(afterPhaseChange, phaseAssignment).active, panelJobs);
+    expect(panelsForPhase(afterPhaseChange, phaseTrick).active, panelBrigade);
   });
 
   test('plot opponent row metrics reserve enough portrait label height', () {

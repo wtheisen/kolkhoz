@@ -87,6 +87,19 @@ class GameUiState {
     return copyWith(clearActivePanel: true);
   }
 
+  GameUiState clearActivePanelAfterPhaseChange({
+    required String? previousPhase,
+    required String nextPhase,
+  }) {
+    if (previousPhase == null || previousPhase == nextPhase) {
+      return this;
+    }
+    if (activePanel == null) {
+      return this;
+    }
+    return clearActivePanel();
+  }
+
   GameUiState selectSwapHandCard(String cardID) {
     return copyWith(selection: selection.copyWith(handCardID: cardID));
   }
