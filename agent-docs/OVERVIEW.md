@@ -31,6 +31,14 @@ flutter test
 flutter build macos --debug
 ```
 
+For a physical iPhone install that can launch from the home screen, never use an iOS
+debug build. Use the profile deploy wrapper:
+
+```bash
+cd clients/flutter_app
+./tool/deploy_ios_device_profile.sh
+```
+
 ```bash
 python3 -m research.kolkhoz_research.cli engine-smoke --games 8
 ```
@@ -104,6 +112,8 @@ processed as failed during requisition.
 1. Keep Flutter standalone: bind to the C engine and render Dart runtime models directly.
 2. Keep visual constants and assets in Flutter-owned files.
 3. Run `flutter analyze`, `flutter test`, and `flutter build macos --debug`.
+4. For physical iPhone deploys, run `./tool/deploy_ios_device_profile.sh`; do not use
+   `flutter build ios --debug` or `flutter install --debug` for home-screen installs.
 
 ### Changing Training Or Benchmarking
 

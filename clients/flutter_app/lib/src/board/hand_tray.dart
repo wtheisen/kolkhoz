@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' show clampDouble;
 
 import 'package:flutter/material.dart';
@@ -107,6 +108,36 @@ TokenCardSize scaledHandTrayCardSize(
   double visibleTrayHeight,
 ) {
   final scale = handTrayCardScale(visibleTrayHeight, cardSize);
+  return scaledHandTrayCardSizeForScale(cardSize, scale);
+}
+
+TokenCardSize fittedHandTrayCardSize(
+  TokenCardSize cardSize,
+  double visibleTrayHeight,
+  double availableWidth,
+  int cardCount,
+) {
+  final heightScale = handTrayCardScale(visibleTrayHeight, cardSize);
+  final fitCount = math.min(cardCount, 5);
+  if (fitCount <= 0) {
+    return scaledHandTrayCardSizeForScale(cardSize, heightScale);
+  }
+
+  final gapWidth = handTrayCardSpacing * (fitCount - 1);
+  final availableCardWidth = math.max(0.0, availableWidth - gapWidth);
+  final widthScale = availableCardWidth / (cardSize.width * fitCount);
+  final scale = clampDouble(
+    math.min(heightScale, widthScale),
+    1,
+    handTrayCardMaxScale,
+  );
+  return scaledHandTrayCardSizeForScale(cardSize, scale);
+}
+
+TokenCardSize scaledHandTrayCardSizeForScale(
+  TokenCardSize cardSize,
+  double scale,
+) {
   return TokenCardSize(
     width: cardSize.width * scale,
     height: cardSize.height * scale,
@@ -154,10 +185,6 @@ class HandTray extends StatelessWidget {
     final lowerBarActions = model.legalActions
         .where((action) => lowerBarActionKinds.contains(action.kind))
         .toList(growable: false);
-    final largeCardSize = scaledHandTrayCardSize(
-      tokens.card.large,
-      visibleTrayHeight,
-    );
     return Padding(
       padding: handTrayOuterPadding(
         trailing: tokens.spacing.handTrayHorizontalTrailing,
@@ -196,93 +223,116 @@ class HandTray extends StatelessWidget {
                     ),
                   ),
                   Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      clipBehavior: Clip.none,
-                      child: SizedBox(
-                        height: visibleTrayHeight,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          spacing: handTrayCardSpacing,
-                          children: [
-                            for (final card in hand)
-                              Builder(
-                                builder: (context) {
-                                  final playAction = handCardPlayAction(
-                                    model,
-                                    card,
-                                  );
-                                  final onTap = switch (model.table.phase) {
-                                    phaseTrick =>
-                                      playAction != null && onAction != null
-                                          ? () => onAction!(playAction)
-                                          : handCardCanShowInvalidHint(
-                                              model,
-                                              card,
-                                            )
-                                          ? onInvalidHandCardTap
-                                          : null,
-                                    phaseSwap =>
-                                      onSwapHandCardTap == null
-                                          ? null
-                                          : () => onSwapHandCardTap!(card.id),
-                                    _ => null,
-                                  };
-                                  return NaturalSizeViewport(
-                                    width: largeCardSize.width,
-                                    height: visibleTrayHeight,
-                                    naturalWidth: largeCardSize.width,
-                                    naturalHeight: largeCardSize.height,
-                                    clipBehavior: Clip.none,
-                                    child: Transform.translate(
-                                      offset: const Offset(
-                                        0,
-                                        handTrayCardYOffset,
-                                      ),
-                                      child: GestureDetector(
-                                        behavior: HitTestBehavior.opaque,
-                                        onTap:
-                                            handCardCanReceiveTap(
-                                                  model,
-                                                  card,
-                                                ) ||
-                                                handCardCanShowInvalidHint(
-                                                  model,
-                                                  card,
-                                                )
-                                            ? onTap
-                                            : null,
-                                        child: GameCard(
-                                          card: handTrayCard(model, card),
-                                          tokens: tokens,
-                                          trump: model.table.trump,
-                                          sizeOverride: largeCardSize,
-                                          highlightColorOverride:
-                                              handTrayHighlightColor(
-                                                model,
-                                                card,
-                                                swapHighlightColor:
-                                                    tokens.colors.red,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final largeCardSize = fittedHandTrayCardSize(
+                          tokens.card.large,
+                          visibleTrayHeight,
+                          constraints.maxWidth,
+                          hand.length,
+                        );
+                        return KolkhozScrollbar(
+                          tokens: tokens,
+                          orientation: ScrollbarOrientation.bottom,
+                          childBuilder: (context, scrollController) => SingleChildScrollView(
+                            controller: scrollController,
+                            scrollDirection: Axis.horizontal,
+                            clipBehavior: Clip.none,
+                            child: SizedBox(
+                              height: visibleTrayHeight,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                spacing: handTrayCardSpacing,
+                                children: [
+                                  for (final card in hand)
+                                    Builder(
+                                      builder: (context) {
+                                        final playAction = handCardPlayAction(
+                                          model,
+                                          card,
+                                        );
+                                        final onTap = switch (model
+                                            .table
+                                            .phase) {
+                                          phaseTrick =>
+                                            playAction != null &&
+                                                    onAction != null
+                                                ? () => onAction!(playAction)
+                                                : handCardCanShowInvalidHint(
+                                                    model,
+                                                    card,
+                                                  )
+                                                ? onInvalidHandCardTap
+                                                : null,
+                                          phaseSwap =>
+                                            onSwapHandCardTap == null
+                                                ? null
+                                                : () => onSwapHandCardTap!(
+                                                    card.id,
+                                                  ),
+                                          _ => null,
+                                        };
+                                        return NaturalSizeViewport(
+                                          width: largeCardSize.width,
+                                          height: visibleTrayHeight,
+                                          naturalWidth: largeCardSize.width,
+                                          naturalHeight: largeCardSize.height,
+                                          clipBehavior: Clip.none,
+                                          child: Transform.translate(
+                                            offset: const Offset(
+                                              0,
+                                              handTrayCardYOffset,
+                                            ),
+                                            child: GestureDetector(
+                                              behavior: HitTestBehavior.opaque,
+                                              onTap:
+                                                  handCardCanReceiveTap(
+                                                        model,
+                                                        card,
+                                                      ) ||
+                                                      handCardCanShowInvalidHint(
+                                                        model,
+                                                        card,
+                                                      )
+                                                  ? onTap
+                                                  : null,
+                                              child: GameCard(
+                                                card: handTrayCard(model, card),
+                                                tokens: tokens,
+                                                trump: model.table.trump,
+                                                sizeOverride: largeCardSize,
+                                                highlightColorOverride:
+                                                    handTrayHighlightColor(
+                                                      model,
+                                                      card,
+                                                      swapHighlightColor:
+                                                          tokens.colors.red,
+                                                    ),
+                                                highlightGlowEnabled:
+                                                    model.table.phase !=
+                                                    phaseSwap,
+                                                highlightedStrokeWidthOverride:
+                                                    model.table.phase ==
+                                                        phaseSwap
+                                                    ? handTraySwapHighlightStrokeWidth
+                                                    : null,
+                                                highlightedBorderRadiusOverride:
+                                                    model.table.phase ==
+                                                        phaseSwap
+                                                    ? handTraySwapHighlightCornerRadius
+                                                    : null,
                                               ),
-                                          highlightGlowEnabled:
-                                              model.table.phase != phaseSwap,
-                                          highlightedStrokeWidthOverride:
-                                              model.table.phase == phaseSwap
-                                              ? handTraySwapHighlightStrokeWidth
-                                              : null,
-                                          highlightedBorderRadiusOverride:
-                                              model.table.phase == phaseSwap
-                                              ? handTraySwapHighlightCornerRadius
-                                              : null,
-                                        ),
-                                      ),
+                                            ),
+                                          ),
+                                        );
+                                      },
                                     ),
-                                  );
-                                },
+                                ],
                               ),
-                          ],
-                        ),
-                      ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],

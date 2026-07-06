@@ -113,14 +113,36 @@ String faceRankName(TableCard card) {
   };
 }
 
+bool cardShowsFaceNumericValue(TableCard card) {
+  return card.suit == wreckerSuit || card.value >= 11;
+}
+
+String cardRankDisplayLabel(TableCard card) {
+  if (!cardShowsFaceNumericValue(card)) {
+    return card.rank;
+  }
+  return '${card.rank} ${card.value}';
+}
+
 String portraitAssetPath(Seat seat) {
   return 'ios_resources/${seat.portraitAsset}.png';
 }
 
-String cardTemplateAssetPathForTokens(DesignTokens tokens) {
+String cardTemplateAssetPath({
+  required TableCard card,
+  required DesignTokens tokens,
+  required String? trump,
+}) {
+  final suffix = cardUsesTrumpTemplate(card: card, trump: trump)
+      ? ''
+      : '-no-overlay';
   return !tokens.usesLightAppearance
-      ? 'ios_resources/Cards/card-template-dark.png'
-      : 'ios_resources/Cards/card-template-light.png';
+      ? 'ios_resources/Cards/card-template-dark$suffix.png'
+      : 'ios_resources/Cards/card-template-light$suffix.png';
+}
+
+bool cardUsesTrumpTemplate({required TableCard card, required String? trump}) {
+  return trump != null && (card.suit == trump || card.suit == wreckerSuit);
 }
 
 double faceArtWidth(TokenCardSize size) {
@@ -128,6 +150,14 @@ double faceArtWidth(TokenCardSize size) {
     return 20;
   }
   return size.width * 0.45;
+}
+
+double facePortraitArtWidth(TableCard card, TokenCardSize size) {
+  final width = faceArtWidth(size);
+  if (card.suit == wreckerSuit) {
+    return width * 1.3;
+  }
+  return width * 2;
 }
 
 PixelTextSize pixelTextSizeForCardRank(TokenCardSize size) {
@@ -154,6 +184,16 @@ PixelTextSize pixelTextBitmapSizeForCardRank(double fontSize) {
     return PixelTextSize.title;
   }
   return PixelTextSize.cardRank;
+}
+
+PixelTextSize pixelTextSizeForCardFaceValue(TokenCardSize size) {
+  if (size.cornerRankFontSize <= 10.5) {
+    return PixelTextSize.xSmall;
+  }
+  if (size.cornerRankFontSize <= 15) {
+    return PixelTextSize.small;
+  }
+  return PixelTextSize.caption2;
 }
 
 double pixelTextScaleForCardRank(TokenCardSize size) {

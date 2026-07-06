@@ -40,12 +40,12 @@ actions=playCard:0:wheat-12|playCard:0:wheat-6
     });
   });
 
-  test('saboteur variant deals a 14-value all-suit worker card', () {
+  test('kolkhoz default deals a 14-value all-suit saboteur card', () {
     final bridge = KolkhozCEngineBridge();
     for (var seed = 1; seed < 5000; seed += 1) {
       final engine = bridge.newEngine(
         seed: seed,
-        variants: KolkhozGameVariants.wrecker,
+        variants: KolkhozGameVariants.kolkhoz,
         controllers: const [...fixtureControllers],
       );
       try {
@@ -77,7 +77,7 @@ actions=playCard:0:wheat-12|playCard:0:wheat-6
   });
 
   test('saboteur job can pay reward but still fails during requisition', () {
-    withEngine(seed: 1, variants: KolkhozGameVariants.wrecker, (
+    withEngine(seed: 1, variants: KolkhozGameVariants.kolkhoz, (
       bridge,
       engine,
     ) {
@@ -131,7 +131,7 @@ actions=playCard:0:wheat-12|playCard:0:wheat-6
   });
 
   test('saboteur plot card is exiled once during requisition', () {
-    withEngine(seed: 3, variants: KolkhozGameVariants.wrecker, (
+    withEngine(seed: 3, variants: KolkhozGameVariants.kolkhoz, (
       bridge,
       engine,
     ) {
