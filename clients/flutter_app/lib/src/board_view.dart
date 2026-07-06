@@ -1779,11 +1779,14 @@ class CardSlot extends StatelessWidget {
           child: active
               ? PixelText(
                   human
-                      ? language.text(en: 'PLAY', ru: 'ХОД')
+                      ? language.text(en: 'YOUR TURN', ru: 'ВАШ ХОД')
                       : language.text(en: 'WAIT', ru: 'ЖДИТЕ'),
-                  size: PixelTextSize.caption2,
+                  size: human ? PixelTextSize.headline : PixelTextSize.caption2,
                   variant: PixelTextVariant.heavy,
-                  color: human ? tokens.colors.gold : tokens.colors.redBright,
+                  color: human
+                      ? tokens.colors.goldBright
+                      : tokens.colors.redBright,
+                  textAlign: TextAlign.center,
                 )
               : null,
         ),
@@ -1880,7 +1883,7 @@ const cardSlotStrokeWidth = 2.0;
 const cardSlotDashLength = 6.0;
 const cardSlotDashGap = 6.0;
 const cardSlotActiveScale = 1.035;
-const cardSlotHumanFillOpacity = 0.10;
+const cardSlotHumanFillOpacity = 0.18;
 const cardSlotOpponentFillOpacity = 0.12;
 const cardSlotInactiveSteelOpacity = 0.35;
 const cardSlotShadowRestRadius = 10.0;

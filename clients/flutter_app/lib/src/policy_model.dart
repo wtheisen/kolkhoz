@@ -42,6 +42,11 @@ class KolkhozNativePolicyModel {
     if (hiddenLayers.length > _maxHiddenLayers) {
       throw const FormatException('Policy model has too many hidden layers');
     }
+    if (hiddenLayers.any((size) => size <= 0)) {
+      throw const FormatException(
+        'Policy model hidden layers must be positive',
+      );
+    }
     final hiddenWeights = _nestedDoubleList(
       json['hidden_weights'] ?? json['layerWeights'],
     );
@@ -57,9 +62,24 @@ class KolkhozNativePolicyModel {
     );
     final b2s = _doubleList(json['b2s']);
     final inputSize = _intValue(json['input_size'] ?? json['inputSize'], 200);
+    if (inputSize <= 0) {
+      throw const FormatException('Policy model input size must be positive');
+    }
     final headCount = _intValue(
       json['head_count'] ?? json['headCount'],
       b2s.isNotEmpty ? b2s.length : 1,
+    );
+    if (headCount <= 0) {
+      throw const FormatException('Policy model head count must be positive');
+    }
+    _validateLayerShape(
+      inputSize: inputSize,
+      hiddenLayers: hiddenLayers,
+      hiddenWeights: hiddenWeights,
+      hiddenBiases: hiddenBiases,
+      outputWeights: outputWeights,
+      b2s: b2s,
+      headCount: headCount,
     );
 
     final allocations = <Pointer<Void>>[];
@@ -67,10 +87,7 @@ class KolkhozNativePolicyModel {
     allocations.add(buffer.cast<Void>());
     buffer.ref
       ..inputSize = inputSize
-      ..hiddenSize = _intValue(
-        json['hidden_size'] ?? json['hiddenSize'],
-        hiddenLayers.first,
-      )
+      ..hiddenSize = hiddenLayers.first
       ..layerCount = hiddenLayers.length
       ..headCount = headCount;
     for (var index = 0; index < hiddenLayers.length; index += 1) {
@@ -101,6 +118,43 @@ class KolkhozNativePolicyModel {
       calloc.free(allocation);
     }
     _allocations.clear();
+  }
+}
+
+void _validateLayerShape({
+  required int inputSize,
+  required List<int> hiddenLayers,
+  required List<List<double>> hiddenWeights,
+  required List<List<double>> hiddenBiases,
+  required List<double> outputWeights,
+  required List<double> b2s,
+  required int headCount,
+}) {
+  for (var index = 0; index < hiddenLayers.length; index += 1) {
+    final layerInputSize = index == 0 ? inputSize : hiddenLayers[index - 1];
+    final layerSize = hiddenLayers[index];
+    final expectedWeights = layerInputSize * layerSize;
+    if (hiddenWeights[index].length != expectedWeights) {
+      throw FormatException(
+        'Policy model layer $index has ${hiddenWeights[index].length} weights; expected $expectedWeights',
+      );
+    }
+    if (hiddenBiases[index].length != layerSize) {
+      throw FormatException(
+        'Policy model layer $index has ${hiddenBiases[index].length} biases; expected $layerSize',
+      );
+    }
+  }
+  final expectedOutputWeights = hiddenLayers.last * headCount;
+  if (outputWeights.length != expectedOutputWeights) {
+    throw FormatException(
+      'Policy model output has ${outputWeights.length} weights; expected $expectedOutputWeights',
+    );
+  }
+  if (b2s.isNotEmpty && b2s.length != headCount) {
+    throw FormatException(
+      'Policy model output has ${b2s.length} biases; expected $headCount',
+    );
   }
 }
 

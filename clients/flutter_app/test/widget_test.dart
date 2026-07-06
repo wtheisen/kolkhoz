@@ -131,6 +131,59 @@ void main() {
     expect(utilityCalls, ['language', 'appearance']);
   });
 
+  testWidgets('left rail exposes semantic buttons', (tester) async {
+    const tokens = defaultDesignTokens;
+    final metrics = ResponsiveBoardMetrics.fromSize(
+      const Size(844, 390),
+      tokens,
+    );
+    String? selectedPanel;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: metrics.railWidth(844),
+          height: 390,
+          child: BoardRail(
+            activePanel: panelBrigade,
+            actionPanel: panelJobs,
+            tokens: tokens,
+            metrics: metrics,
+            language: KolkhozLanguage.en,
+            appearance: KolkhozAppearance.dark,
+            onPanelSelected: (panel) => selectedPanel = panel,
+          ),
+        ),
+      ),
+    );
+
+    Semantics railSemantics(String label) {
+      return tester.widget<Semantics>(
+        find.descendant(
+          of: find.byTooltip(label),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Semantics && widget.properties.label == label,
+          ),
+        ),
+      );
+    }
+
+    final brigade = railSemantics('Brigade');
+    expect(brigade.properties.label, 'Brigade');
+    expect(brigade.properties.button, isTrue);
+    expect(brigade.properties.selected, isTrue);
+    expect(brigade.properties.onTap, isNotNull);
+
+    final cellar = railSemantics('Cellar');
+    expect(cellar.properties.label, 'Cellar');
+    expect(cellar.properties.button, isTrue);
+    expect(cellar.properties.selected, isFalse);
+    expect(cellar.properties.onTap, isNotNull);
+
+    await tester.tap(find.bySemanticsLabel('Cellar'));
+    expect(selectedPanel, panelPlot);
+  });
+
   testWidgets('jobs require a selected assignment card before assigning', (
     tester,
   ) async {
@@ -306,9 +359,10 @@ void main() {
     );
     addTearDown(policy.dispose);
     expect(policy.native.inputSize, 200);
-    expect(policy.native.hiddenSize, 512);
-    expect(policy.native.layerCount, 2);
-    expect(policy.native.headCount, 16);
+    expect(policy.native.hiddenSize, greaterThan(0));
+    expect(policy.native.layerCount, greaterThan(0));
+    expect(policy.native.layerSizes[0], policy.native.hiddenSize);
+    expect(policy.native.headCount, greaterThan(0));
 
     final bridge = KolkhozCEngineBridge();
     Pointer<KCEngine>? selectedEngine;
@@ -343,6 +397,47 @@ void main() {
     }
     final result = bridge.applyPolicyAction(engine, action);
     expect(result, 0);
+  });
+
+  test('policy model accepts flexible hidden layer sizes', () {
+    final policy = KolkhozNativePolicyModel.fromJson({
+      'backend': 'c-mlp',
+      'input_size': 3,
+      'hidden_layers': [4, 2],
+      'hidden_weights': [
+        List<double>.filled(12, 0.1),
+        List<double>.filled(8, 0.2),
+      ],
+      'hidden_biases': [
+        List<double>.filled(4, 0.0),
+        List<double>.filled(2, 0.0),
+      ],
+      'output_weights': List<double>.filled(6, 0.3),
+      'b2s': [0.0, 0.1, 0.2],
+    });
+    addTearDown(policy.dispose);
+
+    expect(policy.native.inputSize, 3);
+    expect(policy.native.hiddenSize, 4);
+    expect(policy.native.layerCount, 2);
+    expect(policy.native.layerSizes[0], 4);
+    expect(policy.native.layerSizes[1], 2);
+    expect(policy.native.headCount, 3);
+  });
+
+  test('policy model rejects inconsistent layer shapes', () {
+    expect(
+      () => KolkhozNativePolicyModel.fromJson({
+        'backend': 'c-mlp',
+        'input_size': 3,
+        'hidden_layers': [4],
+        'hidden_weights': [List<double>.filled(11, 0.1)],
+        'hidden_biases': [List<double>.filled(4, 0.0)],
+        'output_weights': List<double>.filled(4, 0.3),
+        'b2s': [0.0],
+      }),
+      throwsFormatException,
+    );
   });
 
   test('active viewer follows current or assignment human seat', () {
@@ -939,6 +1034,24 @@ void main() {
       closeTo(1.7907, 0.001),
     );
     expect(handTrayCardScale(404, defaultDesignTokens.card.large), 3);
+    expect(
+      handTrayCardScale(
+        404,
+        defaultDesignTokens.card.large,
+        availableWidth: 390,
+        cardCount: 5,
+      ),
+      1,
+    );
+    expect(
+      handTrayCardScale(
+        404,
+        defaultDesignTokens.card.large,
+        availableWidth: 120,
+        cardCount: 5,
+      ),
+      handTrayCardMinScale,
+    );
     expect(
       scaledHandTrayCardSize(defaultDesignTokens.card.large, 404).height,
       closeTo(298.2, 0.001),

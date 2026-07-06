@@ -1346,11 +1346,13 @@ class ProgressBar extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final clampedValue = clampDouble(value, 0, 1);
-          final fillWidth = clampDouble(
-            constraints.maxWidth * clampedValue / 2,
-            4.0,
-            constraints.maxWidth,
-          );
+          final fillWidth = clampedValue <= 0
+              ? 0.0
+              : clampDouble(
+                  constraints.maxWidth * clampedValue,
+                  4.0,
+                  constraints.maxWidth,
+                );
           return DecoratedBox(
             decoration: BoxDecoration(
               color: tokens.colors.black,

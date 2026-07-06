@@ -35,6 +35,7 @@ const handTraySwapHighlightStrokeWidth = 2.0;
 const handTraySwapHighlightCornerRadius = 7.0;
 const handTrayActionFontSize = 13.0;
 const handTrayCardHeightFillFactor = 1.0;
+const handTrayCardMinScale = 0.65;
 const handTrayCardMaxScale = 3.0;
 
 bool handCardCanReceiveTap(TableViewModel model, TableCard card) {
@@ -94,20 +95,43 @@ EdgeInsets handTrayOuterPadding({required double trailing}) {
   return EdgeInsets.only(right: trailing + 16);
 }
 
-double handTrayCardScale(double visibleTrayHeight, TokenCardSize cardSize) {
-  return clampDouble(
+double handTrayCardScale(
+  double visibleTrayHeight,
+  TokenCardSize cardSize, {
+  double? availableWidth,
+  int cardCount = 0,
+}) {
+  final heightScale = clampDouble(
     (visibleTrayHeight * handTrayCardHeightFillFactor - handTrayCardYOffset) /
         cardSize.height,
     1,
+    handTrayCardMaxScale,
+  );
+  if (availableWidth == null || cardCount <= 0) {
+    return heightScale;
+  }
+  final spacingWidth = math.max(0, cardCount - 1) * handTrayCardSpacing;
+  final widthScale =
+      (availableWidth - spacingWidth) / (cardSize.width * cardCount);
+  return clampDouble(
+    math.min(heightScale, widthScale),
+    handTrayCardMinScale,
     handTrayCardMaxScale,
   );
 }
 
 TokenCardSize scaledHandTrayCardSize(
   TokenCardSize cardSize,
-  double visibleTrayHeight,
-) {
-  final scale = handTrayCardScale(visibleTrayHeight, cardSize);
+  double visibleTrayHeight, {
+  double? availableWidth,
+  int cardCount = 0,
+}) {
+  final scale = handTrayCardScale(
+    visibleTrayHeight,
+    cardSize,
+    availableWidth: availableWidth,
+    cardCount: cardCount,
+  );
   return scaledHandTrayCardSizeForScale(cardSize, scale);
 }
 
@@ -117,21 +141,12 @@ TokenCardSize fittedHandTrayCardSize(
   double availableWidth,
   int cardCount,
 ) {
-  final heightScale = handTrayCardScale(visibleTrayHeight, cardSize);
-  final fitCount = math.min(cardCount, 5);
-  if (fitCount <= 0) {
-    return scaledHandTrayCardSizeForScale(cardSize, heightScale);
-  }
-
-  final gapWidth = handTrayCardSpacing * (fitCount - 1);
-  final availableCardWidth = math.max(0.0, availableWidth - gapWidth);
-  final widthScale = availableCardWidth / (cardSize.width * fitCount);
-  final scale = clampDouble(
-    math.min(heightScale, widthScale),
-    1,
-    handTrayCardMaxScale,
+  return scaledHandTrayCardSize(
+    cardSize,
+    visibleTrayHeight,
+    availableWidth: availableWidth,
+    cardCount: cardCount,
   );
-  return scaledHandTrayCardSizeForScale(cardSize, scale);
 }
 
 TokenCardSize scaledHandTrayCardSizeForScale(

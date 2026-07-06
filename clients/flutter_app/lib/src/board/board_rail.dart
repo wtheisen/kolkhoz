@@ -139,54 +139,79 @@ class RailButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final enabled = onTap != null;
     return Tooltip(
       message: label,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
+      child: Semantics(
+        container: true,
+        button: true,
+        enabled: enabled,
+        label: label,
+        selected: active,
         onTap: onTap,
-        child: SizedBox(
-          width: metrics.railButtonSize,
-          height: metrics.railButtonSize,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              boxShadow: [
-                if (active)
-                  BoxShadow(
-                    color: tokens.colors.red.withValues(alpha: 0.35),
-                    blurRadius: _activeShadowRadius,
-                    offset: const Offset(0, _activeShadowYOffset),
+        child: ExcludeSemantics(
+          child: FocusableActionDetector(
+            enabled: enabled,
+            mouseCursor: enabled
+                ? SystemMouseCursors.click
+                : SystemMouseCursors.basic,
+            actions: {
+              ActivateIntent: CallbackAction<ActivateIntent>(
+                onInvoke: (_) {
+                  onTap?.call();
+                  return null;
+                },
+              ),
+            },
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onTap,
+              child: SizedBox(
+                width: metrics.railButtonSize,
+                height: metrics.railButtonSize,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    boxShadow: [
+                      if (active)
+                        BoxShadow(
+                          color: tokens.colors.red.withValues(alpha: 0.35),
+                          blurRadius: _activeShadowRadius,
+                          offset: const Offset(0, _activeShadowYOffset),
+                        ),
+                    ],
                   ),
-              ],
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Positioned.fill(
-                  child: Image.asset(
-                    'ios_resources/$backgroundAsset',
-                    fit: BoxFit.fill,
-                    filterQuality: FilterQuality.none,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Positioned.fill(
+                        child: Image.asset(
+                          'ios_resources/$backgroundAsset',
+                          fit: BoxFit.fill,
+                          filterQuality: FilterQuality.none,
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.only(
+                          top: action ? _actionIconYOffset : 0,
+                        ),
+                        child: ChromeAssetIcon(
+                          asset: 'ios_resources/Icons/$asset',
+                          width: metrics.railIconSize,
+                          height: metrics.railIconSize,
+                          muted: muted,
+                          errorBuilder: (_, _, _) => Icon(
+                            Icons.crop_square,
+                            size: metrics.railIconSize,
+                            color: active
+                                ? tokens.colors.cream
+                                : tokens.colors.creamDim,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Padding(
-                  padding: EdgeInsets.only(
-                    top: action ? _actionIconYOffset : 0,
-                  ),
-                  child: ChromeAssetIcon(
-                    asset: 'ios_resources/Icons/$asset',
-                    width: metrics.railIconSize,
-                    height: metrics.railIconSize,
-                    muted: muted,
-                    errorBuilder: (_, _, _) => Icon(
-                      Icons.crop_square,
-                      size: metrics.railIconSize,
-                      color: active
-                          ? tokens.colors.cream
-                          : tokens.colors.creamDim,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),

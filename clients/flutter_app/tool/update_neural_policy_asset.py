@@ -44,8 +44,25 @@ def main() -> int:
         policy = _resolve_current_policy(root)
         _update_asset(policy.path, destination, policy.label)
     except PolicyAssetError as error:
-        print(f"error: {error}", file=sys.stderr)
-        return 1
+        if os.environ.get("KOLKHOZ_APP_POLICY_MODEL"):
+            print(f"error: {error}", file=sys.stderr)
+            return 1
+        try:
+            _validate_deployable_policy(destination)
+        except PolicyAssetError as destination_error:
+            print(f"error: {error}", file=sys.stderr)
+            print(
+                "error: existing bundled policy asset is not deployable: "
+                f"{destination_error}",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"warning: {error}", file=sys.stderr)
+        print(
+            f"warning: keeping existing bundled policy asset at {destination}",
+            file=sys.stderr,
+        )
+        return 0
     finally:
         if policy is not None:
             policy.cleanup()
