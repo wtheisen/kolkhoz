@@ -123,10 +123,6 @@ class KolkhozGameVariants {
     nomenclature: false,
     wreckerCard: true,
   );
-  static const wrecker = KolkhozGameVariants(
-    nomenclature: false,
-    wreckerCard: true,
-  );
   static const littleKolkhoz = KolkhozGameVariants(
     deckType: 36,
     nomenclature: true,

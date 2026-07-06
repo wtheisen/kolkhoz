@@ -60,6 +60,7 @@ class LiveGameStore extends ChangeNotifier {
   Pointer<KCEngine>? _engine;
   int? revealedPlayerID;
   String? error;
+  String? _lastSyncedPhase;
   bool _neuralPolicyUnavailable = false;
   bool _disposed = false;
 
@@ -85,6 +86,7 @@ class LiveGameStore extends ChangeNotifier {
       actionLog = [];
       restoredSavedGame = false;
       uiState = const GameUiState();
+      _lastSyncedPhase = null;
       revealedPlayerID = null;
       _engine = bridge.newEngine(
         seed: currentSeed,
@@ -273,8 +275,9 @@ class LiveGameStore extends ChangeNotifier {
 
   void _sync() {
     final online = _online;
+    TableViewModel? nextModel;
     if (online != null) {
-      model = OnlineTableProjection(
+      nextModel = OnlineTableProjection(
         update: online.update,
         playerID: online.playerID,
         legalActions: online.legalActions,
@@ -282,7 +285,7 @@ class LiveGameStore extends ChangeNotifier {
       ).project();
     } else if (_engine != null) {
       final engine = _engine!;
-      model = TableViewProjection(
+      nextModel = TableViewProjection(
         bridge: bridge,
         engine: engine,
         controllers: controllers,
@@ -290,6 +293,36 @@ class LiveGameStore extends ChangeNotifier {
         uiState: uiState,
         revealedPlayerID: revealedPlayerID,
       ).project();
+    }
+    if (nextModel != null) {
+      final phase = nextModel.table.phase;
+      final nextUiState = uiState.clearActivePanelAfterPhaseChange(
+        previousPhase: _lastSyncedPhase,
+        nextPhase: phase,
+      );
+      if (nextUiState.activePanel != uiState.activePanel) {
+        uiState = nextUiState;
+        if (online != null) {
+          nextModel = OnlineTableProjection(
+            update: online.update,
+            playerID: online.playerID,
+            legalActions: online.legalActions,
+            uiState: uiState,
+          ).project();
+        } else if (_engine != null) {
+          final engine = _engine!;
+          nextModel = TableViewProjection(
+            bridge: bridge,
+            engine: engine,
+            controllers: controllers,
+            variants: currentVariants,
+            uiState: uiState,
+            revealedPlayerID: revealedPlayerID,
+          ).project();
+        }
+      }
+      _lastSyncedPhase = phase;
+      model = nextModel;
     }
     notifyListeners();
   }
@@ -317,6 +350,7 @@ class LiveGameStore extends ChangeNotifier {
     controllers = update.controllers;
     restoredSavedGame = false;
     uiState = const GameUiState();
+    _lastSyncedPhase = null;
     revealedPlayerID = playerID;
     await _refreshOnlineLegalActions(_online!);
     _startOnlinePolling();
@@ -516,6 +550,7 @@ class LiveGameStore extends ChangeNotifier {
       actionLog = List.of(payload.actions);
       restoredSavedGame = true;
       uiState = const GameUiState();
+      _lastSyncedPhase = null;
       revealedPlayerID = null;
       _engine = restoredEngine;
       error = null;

@@ -48,10 +48,7 @@ class _KolkhozAppState extends State<KolkhozApp> {
     settingsStore = KolkhozAppSettingsStore.defaultStore();
     settings = settingsStore.load();
     store = LiveGameStore();
-    showingLobby = !store.restoredSavedGame;
     playerControllers = List.of(store.controllers);
-    customVariants = store.currentVariants;
-    selectedPreset = presetForVariants(store.currentVariants);
   }
 
   @override
@@ -131,7 +128,13 @@ class _KolkhozAppState extends State<KolkhozApp> {
               },
               onRulesPressed: () {
                 setState(() {
-                  showingRules = !(showingRules || showingOnline);
+                  showingRules = true;
+                  showingOnline = false;
+                });
+              },
+              onOfflinePressed: () {
+                setState(() {
+                  showingRules = false;
                   showingOnline = false;
                 });
               },
@@ -144,6 +147,8 @@ class _KolkhozAppState extends State<KolkhozApp> {
               onTutorialPressed: () {
                 showTutorial();
               },
+              onLanguageToggle: toggleLanguage,
+              onAppearanceToggle: toggleAppearance,
             );
           } else {
             final model = store.model!;
@@ -233,7 +238,15 @@ class _KolkhozAppState extends State<KolkhozApp> {
   void showTutorial() {
     clearForemanHint();
     store.clearActivePanel();
-    setState(() => showingTutorial = true);
+    if (showingLobby || store.model == null) {
+      store.newGame(variants: activeVariants, controllers: playerControllers);
+    }
+    setState(() {
+      showingRules = false;
+      showingOnline = false;
+      showingLobby = false;
+      showingTutorial = true;
+    });
   }
 
   void applyBoardAction(LegalAction action) {
@@ -320,9 +333,6 @@ KolkhozGamePreset presetForVariants(KolkhozGameVariants variants) {
   if (sameVariants(variants, KolkhozGameVariants.kolkhoz)) {
     return KolkhozGamePreset.kolkhoz;
   }
-  if (sameVariants(variants, KolkhozGameVariants.wrecker)) {
-    return KolkhozGamePreset.wrecker;
-  }
   if (sameVariants(variants, KolkhozGameVariants.littleKolkhoz)) {
     return KolkhozGamePreset.littleKolkhoz;
   }
@@ -347,7 +357,6 @@ bool sameVariants(KolkhozGameVariants left, KolkhozGameVariants right) {
 
 enum KolkhozGamePreset {
   kolkhoz,
-  wrecker,
   littleKolkhoz,
   campStyle,
   custom;
@@ -355,7 +364,6 @@ enum KolkhozGamePreset {
   String get title {
     return switch (this) {
       KolkhozGamePreset.kolkhoz => 'Kolkhoz',
-      KolkhozGamePreset.wrecker => 'Saboteur',
       KolkhozGamePreset.littleKolkhoz => 'Little Kolkhoz',
       KolkhozGamePreset.campStyle => 'Camp Style',
       KolkhozGamePreset.custom => 'Custom',
@@ -365,7 +373,6 @@ enum KolkhozGamePreset {
   KolkhozGameVariants? get variants {
     return switch (this) {
       KolkhozGamePreset.kolkhoz => KolkhozGameVariants.kolkhoz,
-      KolkhozGamePreset.wrecker => KolkhozGameVariants.wrecker,
       KolkhozGamePreset.littleKolkhoz => KolkhozGameVariants.littleKolkhoz,
       KolkhozGamePreset.campStyle => KolkhozGameVariants.campStyle,
       KolkhozGamePreset.custom => null,
@@ -390,8 +397,11 @@ class StandaloneLobby extends StatelessWidget {
     required this.onCustomVariantsChanged,
     required this.onPlayerControllersChanged,
     required this.onRulesPressed,
+    required this.onOfflinePressed,
     required this.onOnlinePressed,
     required this.onTutorialPressed,
+    required this.onLanguageToggle,
+    required this.onAppearanceToggle,
     this.error,
     super.key,
   });
@@ -420,8 +430,11 @@ class StandaloneLobby extends StatelessWidget {
   final ValueChanged<KolkhozGameVariants> onCustomVariantsChanged;
   final ValueChanged<List<KolkhozPlayerController>> onPlayerControllersChanged;
   final VoidCallback onRulesPressed;
+  final VoidCallback onOfflinePressed;
   final VoidCallback onOnlinePressed;
   final VoidCallback onTutorialPressed;
+  final VoidCallback onLanguageToggle;
+  final VoidCallback onAppearanceToggle;
   final String? error;
 
   KolkhozGameVariants get activeVariants {
@@ -488,11 +501,13 @@ class StandaloneLobby extends StatelessWidget {
                   tokens: tokens,
                   language: language,
                   appearance: appearance,
-                  showingPanel: showingRules || showingOnline,
-                  onStart: onStart,
+                  showingRules: showingRules,
+                  showingOnline: showingOnline,
+                  onOfflinePressed: onOfflinePressed,
                   onOnlinePressed: onOnlinePressed,
-                  onTutorialPressed: onTutorialPressed,
                   onRulesPressed: onRulesPressed,
+                  onLanguageToggle: onLanguageToggle,
+                  onAppearanceToggle: onAppearanceToggle,
                 ),
               );
               final panel = SizedBox(
@@ -507,6 +522,8 @@ class StandaloneLobby extends StatelessWidget {
                   variants: activeVariants,
                   showingRules: showingRules,
                   showingOnline: showingOnline,
+                  onTutorialPressed: onTutorialPressed,
+                  onStart: onStart,
                   onHostOnline: onHostOnline,
                   onJoinOnline: onJoinOnline,
                   onPresetChanged: onPresetChanged,
@@ -567,21 +584,25 @@ class _LobbyTitleColumn extends StatelessWidget {
     required this.tokens,
     required this.language,
     required this.appearance,
-    required this.showingPanel,
-    required this.onStart,
+    required this.showingRules,
+    required this.showingOnline,
+    required this.onOfflinePressed,
     required this.onOnlinePressed,
-    required this.onTutorialPressed,
     required this.onRulesPressed,
+    required this.onLanguageToggle,
+    required this.onAppearanceToggle,
   });
 
   final DesignTokens tokens;
   final KolkhozLanguage language;
   final KolkhozAppearance appearance;
-  final bool showingPanel;
-  final VoidCallback onStart;
+  final bool showingRules;
+  final bool showingOnline;
+  final VoidCallback onOfflinePressed;
   final VoidCallback onOnlinePressed;
-  final VoidCallback onTutorialPressed;
   final VoidCallback onRulesPressed;
+  final VoidCallback onLanguageToggle;
+  final VoidCallback onAppearanceToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -618,10 +639,10 @@ class _LobbyTitleColumn extends StatelessWidget {
             _LobbyButtonStack(
               tokens: tokens,
               language: language,
-              showingPanel: showingPanel,
-              onStart: onStart,
+              showingRules: showingRules,
+              showingOnline: showingOnline,
+              onOfflinePressed: onOfflinePressed,
               onOnlinePressed: onOnlinePressed,
-              onTutorialPressed: onTutorialPressed,
               onRulesPressed: onRulesPressed,
             ),
             Image.asset(
@@ -636,6 +657,8 @@ class _LobbyTitleColumn extends StatelessWidget {
               tokens: tokens,
               language: language,
               appearance: appearance,
+              onLanguageToggle: onLanguageToggle,
+              onAppearanceToggle: onAppearanceToggle,
             ),
           ],
         );
@@ -648,19 +671,19 @@ class _LobbyButtonStack extends StatelessWidget {
   const _LobbyButtonStack({
     required this.tokens,
     required this.language,
-    required this.showingPanel,
-    required this.onStart,
+    required this.showingRules,
+    required this.showingOnline,
+    required this.onOfflinePressed,
     required this.onOnlinePressed,
-    required this.onTutorialPressed,
     required this.onRulesPressed,
   });
 
   final DesignTokens tokens;
   final KolkhozLanguage language;
-  final bool showingPanel;
-  final VoidCallback onStart;
+  final bool showingRules;
+  final bool showingOnline;
+  final VoidCallback onOfflinePressed;
   final VoidCallback onOnlinePressed;
-  final VoidCallback onTutorialPressed;
   final VoidCallback onRulesPressed;
 
   @override
@@ -672,10 +695,11 @@ class _LobbyButtonStack extends StatelessWidget {
           width: double.infinity,
           height: 44,
           child: ChromeAssetButton.command(
-            label: language.text(en: 'Start Game', ru: 'Начать игру'),
-            prominent: true,
+            label: language.text(en: 'Offline Play', ru: 'Игра локально'),
+            prominent: !showingRules && !showingOnline,
             tokens: tokens,
-            onPressed: onStart,
+            onPressed: onOfflinePressed,
+            iconAsset: 'ios_resources/Icons/icon-human-seat.png',
           ),
         ),
         SizedBox(
@@ -683,7 +707,7 @@ class _LobbyButtonStack extends StatelessWidget {
           height: 44,
           child: ChromeAssetButton.command(
             label: language.text(en: 'Online Play', ru: 'Онлайн игра'),
-            prominent: false,
+            prominent: showingOnline,
             tokens: tokens,
             onPressed: onOnlinePressed,
             iconAsset: 'ios_resources/Icons/icon-play-tap.png',
@@ -694,22 +718,10 @@ class _LobbyButtonStack extends StatelessWidget {
           height: 44,
           child: ChromeAssetButton.command(
             label: language.text(en: 'How to Play', ru: 'Как играть'),
-            prominent: false,
-            tokens: tokens,
-            onPressed: onTutorialPressed,
-            iconAsset: 'ios_resources/Icons/icon-tutorial.png',
-          ),
-        ),
-        SizedBox(
-          width: double.infinity,
-          height: 44,
-          child: ChromeAssetButton.command(
-            label: showingPanel
-                ? language.text(en: 'Options', ru: 'Настройки')
-                : language.text(en: 'Rules', ru: 'Правила'),
-            prominent: false,
+            prominent: showingRules,
             tokens: tokens,
             onPressed: onRulesPressed,
+            iconAsset: 'ios_resources/Icons/icon-tutorial.png',
           ),
         ),
       ],
@@ -722,11 +734,15 @@ class _LobbyFooter extends StatelessWidget {
     required this.tokens,
     required this.language,
     required this.appearance,
+    required this.onLanguageToggle,
+    required this.onAppearanceToggle,
   });
 
   final DesignTokens tokens;
   final KolkhozLanguage language;
   final KolkhozAppearance appearance;
+  final VoidCallback onLanguageToggle;
+  final VoidCallback onAppearanceToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -741,19 +757,17 @@ class _LobbyFooter extends StatelessWidget {
               tokens: tokens,
               label: language.footerLabel,
               iconAsset: 'ios_resources/Icons/${language.toggleIconAsset}',
+              tooltip: language.toggleTitle,
+              onPressed: onLanguageToggle,
             ),
             _SmallChromeButton(
               tokens: tokens,
               label: appearance.label(language),
               iconAsset: 'ios_resources/Icons/icon-appearance.png',
+              tooltip: appearance.toggleTitle(language),
+              onPressed: onAppearanceToggle,
             ),
           ],
-        ),
-        _SmallChromeButton(
-          tokens: tokens,
-          label: language.text(en: 'STANDARD', ru: 'СТАНДАРТ'),
-          iconAsset: 'ios_resources/Icons/icon-gears.png',
-          wide: true,
         ),
         Column(
           spacing: 2,
@@ -786,49 +800,68 @@ class _SmallChromeButton extends StatelessWidget {
     required this.tokens,
     required this.label,
     required this.iconAsset,
-    this.wide = false,
+    this.tooltip,
+    this.onPressed,
   });
 
   final DesignTokens tokens;
   final String label;
   final String iconAsset;
-  final bool wide;
+  final String? tooltip;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: wide ? 126 : 60,
-      height: 30,
-      padding: const EdgeInsets.symmetric(horizontal: 7),
-      decoration: BoxDecoration(
-        color: tokens.colors.black.withValues(alpha: 0.34),
-        borderRadius: BorderRadius.circular(5),
-        border: Border.all(color: tokens.colors.steel.withValues(alpha: 0.45)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        spacing: 5,
-        children: [
-          Image.asset(
-            iconAsset,
-            width: 15,
-            height: 15,
-            filterQuality: FilterQuality.none,
-          ),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: kolkhozFontStyle.copyWith(
-                color: tokens.colors.creamDim,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
+    final button = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onPressed,
+      child: SizedBox(
+        width: 68,
+        height: 38,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned.fill(
+              child: Image.asset(
+                'ios_resources/ui-nav-button-inactive.png',
+                fit: BoxFit.fill,
+                filterQuality: FilterQuality.none,
               ),
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                spacing: 6,
+                children: [
+                  Image.asset(
+                    iconAsset,
+                    width: 16,
+                    height: 16,
+                    filterQuality: FilterQuality.none,
+                  ),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: kolkhozFontStyle.copyWith(
+                        color: tokens.colors.creamDim,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+    return Tooltip(
+      message: tooltip ?? label,
+      child: Semantics(button: true, enabled: onPressed != null, child: button),
     );
   }
 }
@@ -843,6 +876,8 @@ class _LobbyPanel extends StatelessWidget {
     required this.variants,
     required this.showingRules,
     required this.showingOnline,
+    required this.onTutorialPressed,
+    required this.onStart,
     required this.onHostOnline,
     required this.onJoinOnline,
     required this.onPresetChanged,
@@ -858,6 +893,8 @@ class _LobbyPanel extends StatelessWidget {
   final KolkhozGameVariants variants;
   final bool showingRules;
   final bool showingOnline;
+  final VoidCallback onTutorialPressed;
+  final VoidCallback onStart;
   final Future<String> Function(
     Uri baseURL,
     List<KolkhozPlayerController> controllers,
@@ -885,7 +922,11 @@ class _LobbyPanel extends StatelessWidget {
               onJoinOnline: onJoinOnline,
             )
           : showingRules
-          ? _RulesPanel(tokens: tokens, language: language)
+          ? _RulesPanel(
+              tokens: tokens,
+              language: language,
+              onTutorialPressed: onTutorialPressed,
+            )
           : _VariantPanel(
               tokens: tokens,
               language: language,
@@ -893,6 +934,7 @@ class _LobbyPanel extends StatelessWidget {
               customVariants: customVariants,
               playerControllers: playerControllers,
               variants: variants,
+              onStart: onStart,
               onPresetChanged: onPresetChanged,
               onCustomVariantsChanged: onCustomVariantsChanged,
               onPlayerControllersChanged: onPlayerControllersChanged,
@@ -936,6 +978,7 @@ class _VariantPanel extends StatelessWidget {
     required this.customVariants,
     required this.playerControllers,
     required this.variants,
+    required this.onStart,
     required this.onPresetChanged,
     required this.onCustomVariantsChanged,
     required this.onPlayerControllersChanged,
@@ -947,6 +990,7 @@ class _VariantPanel extends StatelessWidget {
   final KolkhozGameVariants customVariants;
   final List<KolkhozPlayerController> playerControllers;
   final KolkhozGameVariants variants;
+  final VoidCallback onStart;
   final ValueChanged<KolkhozGamePreset> onPresetChanged;
   final ValueChanged<KolkhozGameVariants> onCustomVariantsChanged;
   final ValueChanged<List<KolkhozPlayerController>> onPlayerControllersChanged;
@@ -965,34 +1009,57 @@ class _VariantPanel extends StatelessWidget {
         ),
         _GoldDivider(tokens: tokens),
         Expanded(
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: 10,
-              children: [
-                _SeatControllerOptions(
-                  tokens: tokens,
-                  language: language,
-                  controllers: playerControllers,
-                  onChanged: onPlayerControllersChanged,
+          child: KolkhozScrollbar(
+            tokens: tokens,
+            childBuilder: (context, scrollController) => SingleChildScrollView(
+              controller: scrollController,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 10, bottom: 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 10,
+                  children: [
+                    if (selectedPreset == KolkhozGamePreset.custom)
+                      _CustomVariantOptions(
+                        tokens: tokens,
+                        language: language,
+                        variants: customVariants,
+                        onChanged: onCustomVariantsChanged,
+                      )
+                    else
+                      _PresetSummary(
+                        tokens: tokens,
+                        language: language,
+                        variants: variants,
+                      ),
+                  ],
                 ),
-                _GoldDivider(tokens: tokens, opacity: 0.28),
-                if (selectedPreset == KolkhozGamePreset.custom)
-                  _CustomVariantOptions(
-                    tokens: tokens,
-                    language: language,
-                    variants: customVariants,
-                    onChanged: onCustomVariantsChanged,
-                  )
-                else
-                  _PresetSummary(
-                    tokens: tokens,
-                    language: language,
-                    variants: variants,
-                  ),
-              ],
+              ),
             ),
           ),
+        ),
+        Row(
+          children: [
+            _SeatQuickControls(
+              tokens: tokens,
+              language: language,
+              controllers: playerControllers,
+              onChanged: onPlayerControllersChanged,
+            ),
+            const Spacer(),
+            SizedBox(
+              width: 220,
+              height: 44,
+              child: ChromeAssetButton.command(
+                label: language.text(en: 'Start Game', ru: 'Начать игру'),
+                prominent: true,
+                tokens: tokens,
+                onPressed: onStart,
+                iconAsset: 'ios_resources/Icons/icon-play-tap.png',
+                iconSize: 22,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -1031,8 +1098,8 @@ class _PresetSelector extends StatelessWidget {
   }
 }
 
-class _SeatControllerOptions extends StatelessWidget {
-  const _SeatControllerOptions({
+class _SeatQuickControls extends StatelessWidget {
+  const _SeatQuickControls({
     required this.tokens,
     required this.language,
     required this.controllers,
@@ -1047,51 +1114,11 @@ class _SeatControllerOptions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final normalized = KolkhozPlayerController.normalized(controllers);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: 7,
+    return Row(
+      spacing: 6,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-          decoration: BoxDecoration(
-            color: tokens.colors.black.withValues(alpha: 0.30),
-            borderRadius: BorderRadius.circular(5),
-            border: Border.all(
-              color: tokens.colors.gold.withValues(alpha: 0.28),
-            ),
-          ),
-          child: Row(
-            spacing: 7,
-            children: [
-              _AssetIcon('ios_resources/Icons/icon-brigade.png'),
-              Text(
-                language.text(en: 'SEATS', ru: 'МЕСТА'),
-                style: kolkhozFontStyle.copyWith(
-                  color: tokens.colors.gold,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const Spacer(),
-              _AssetIcon('ios_resources/Icons/icon-neural-badge.png'),
-              Flexible(
-                child: Text(
-                  language.text(en: 'LOCAL / AI', ru: 'ИГРОК / ИИ'),
-                  textAlign: TextAlign.right,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: kolkhozFontStyle.copyWith(
-                    color: tokens.colors.creamDim,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
         for (var playerID = 0; playerID < kolkhozPlayerCount; playerID += 1)
-          _SeatControllerRow(
+          _SeatQuickButton(
             tokens: tokens,
             language: language,
             playerID: playerID,
@@ -1107,8 +1134,8 @@ class _SeatControllerOptions extends StatelessWidget {
   }
 }
 
-class _SeatControllerRow extends StatelessWidget {
-  const _SeatControllerRow({
+class _SeatQuickButton extends StatelessWidget {
+  const _SeatQuickButton({
     required this.tokens,
     required this.language,
     required this.playerID,
@@ -1125,109 +1152,74 @@ class _SeatControllerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final active = controller == KolkhozPlayerController.human;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: active
-              ? [
-                  tokens.colors.gold.withValues(alpha: 0.10),
-                  tokens.colors.redDark.withValues(alpha: 0.08),
-                ]
-              : [
-                  tokens.colors.black.withValues(alpha: 0.28),
-                  tokens.colors.iron.withValues(alpha: 0.18),
-                ],
-        ),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: active
-              ? tokens.colors.gold.withValues(alpha: 0.36)
-              : tokens.colors.steel.withValues(alpha: 0.42),
-        ),
-      ),
-      child: Row(
-        spacing: 9,
-        children: [
-          _SeatBadge(
-            tokens: tokens,
-            language: language,
-            playerID: playerID,
-            active: active,
-          ),
-          Expanded(
-            child: Row(
-              spacing: 5,
-              children: [
-                for (final option in KolkhozPlayerController.values)
-                  Expanded(
-                    child: _ImageTabButton(
-                      tokens: tokens,
-                      label: option.shortTitle(language),
-                      iconAsset: option.iconAsset,
-                      selected: controller == option,
-                      onPressed: () => onChanged(option),
-                      height: 44,
+    final label = language.text(en: 'P${playerID + 1}', ru: 'И${playerID + 1}');
+    return Tooltip(
+      message: '$label ${controller.shortTitle(language)}',
+      child: PopupMenuButton<KolkhozPlayerController>(
+        tooltip: '$label ${controller.shortTitle(language)}',
+        offset: const Offset(0, -158),
+        color: tokens.colors.panel,
+        surfaceTintColor: Colors.transparent,
+        elevation: 8,
+        onSelected: onChanged,
+        itemBuilder: (context) => [
+          for (final option in KolkhozPlayerController.values)
+            PopupMenuItem(
+              value: option,
+              child: Row(
+                spacing: 8,
+                children: [
+                  _AssetIcon(
+                    option.iconAsset,
+                    size: 24,
+                    opacity: option == controller ? 1 : 0.72,
+                  ),
+                  Text(
+                    option.shortTitle(language).toUpperCase(),
+                    style: kolkhozFontStyle.copyWith(
+                      color: option == controller
+                          ? tokens.colors.goldBright
+                          : tokens.colors.creamDim,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
+                ],
+              ),
+            ),
+        ],
+        child: Semantics(
+          button: true,
+          label: '$label ${controller.shortTitle(language)}',
+          child: Container(
+            width: 48,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: active
+                  ? tokens.colors.redDark.withValues(alpha: 0.86)
+                  : tokens.colors.black.withValues(alpha: 0.32),
+              borderRadius: BorderRadius.circular(5),
+              border: Border.all(
+                color: active
+                    ? tokens.colors.gold.withValues(alpha: 0.70)
+                    : tokens.colors.steel.withValues(alpha: 0.50),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: tokens.colors.black.withValues(alpha: 0.20),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SeatBadge extends StatelessWidget {
-  const _SeatBadge({
-    required this.tokens,
-    required this.language,
-    required this.playerID,
-    required this.active,
-  });
-
-  final DesignTokens tokens;
-  final KolkhozLanguage language;
-  final int playerID;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 48,
-      height: 44,
-      decoration: BoxDecoration(
-        color: active
-            ? tokens.colors.redDark.withValues(alpha: 0.38)
-            : tokens.colors.black.withValues(alpha: 0.34),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: active
-              ? tokens.colors.gold.withValues(alpha: 0.52)
-              : tokens.colors.steel.withValues(alpha: 0.42),
-        ),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        spacing: 1,
-        children: [
-          Text(
-            language.text(en: 'P${playerID + 1}', ru: 'И${playerID + 1}'),
-            style: kolkhozFontStyle.copyWith(
-              color: active ? tokens.colors.goldBright : tokens.colors.creamDim,
-              fontSize: 13,
-              fontWeight: FontWeight.w900,
+            child: _AssetIcon(
+              controller.iconAsset,
+              size: 30,
+              opacity: active ? 1 : 0.82,
             ),
           ),
-          _AssetIcon(
-            active
-                ? 'ios_resources/Icons/icon-human-seat.png'
-                : 'ios_resources/Icons/icon-basic-ai.png',
-            size: 14,
-            opacity: active ? 1 : 0.62,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1239,16 +1231,12 @@ class _ImageTabButton extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onPressed,
-    this.iconAsset,
-    this.height = 48,
   });
 
   final DesignTokens tokens;
   final String label;
   final bool selected;
   final VoidCallback onPressed;
-  final String? iconAsset;
-  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -1259,14 +1247,9 @@ class _ImageTabButton extends StatelessWidget {
           : 'ios_resources/ui-tab-unselected.png',
       tokens: tokens,
       textColor: selected ? tokens.colors.onAccent : tokens.colors.cardInk,
-      textSize: iconAsset == null
-          ? PixelTextSize.caption
-          : PixelTextSize.caption2,
+      textSize: PixelTextSize.caption,
       onPressed: onPressed,
-      iconAsset: iconAsset,
-      iconSize: 15,
-      iconOpacity: selected ? 1 : 0.62,
-      height: height,
+      height: 48,
       padding: const EdgeInsets.fromLTRB(10, 3, 10, 0),
       boxShadow: selected
           ? [
@@ -1548,68 +1531,98 @@ class _VariantText extends StatelessWidget {
 }
 
 class _RulesPanel extends StatelessWidget {
-  const _RulesPanel({required this.tokens, required this.language});
+  const _RulesPanel({
+    required this.tokens,
+    required this.language,
+    required this.onTutorialPressed,
+  });
 
   final DesignTokens tokens;
   final KolkhozLanguage language;
+  final VoidCallback onTutorialPressed;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final contentWidth = constraints.maxWidth;
-        final twoColumn = contentWidth >= 560;
-        final ruleWidth = twoColumn ? (contentWidth - 12) / 2 : contentWidth;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 10,
+      children: [
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final contentWidth = constraints.maxWidth;
+              final twoColumn = contentWidth >= 560;
+              final ruleWidth = twoColumn
+                  ? (contentWidth - 12) / 2
+                  : contentWidth;
 
-        return SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: 14,
-            children: [
-              Row(
-                spacing: 8,
-                children: [
-                  const _AssetIcon(
-                    'ios_resources/Icons/icon-rules-scroll.png',
-                    size: 30,
-                  ),
-                  Text(
-                    language.text(en: 'RULES', ru: 'ПРАВИЛА'),
-                    style: kolkhozFontStyle.copyWith(
-                      color: tokens.colors.gold,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
+              return SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: 14,
+                  children: [
+                    Row(
+                      spacing: 8,
+                      children: [
+                        const _AssetIcon(
+                          'ios_resources/Icons/icon-rules-scroll.png',
+                          size: 30,
+                        ),
+                        Text(
+                          language.text(en: 'HOW TO PLAY', ru: 'КАК ИГРАТЬ'),
+                          style: kolkhozFontStyle.copyWith(
+                            color: tokens.colors.gold,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-              Center(
-                child: Image.asset(
-                  'ios_resources/Embellishments/art-rules-divider.png',
-                  height: 48,
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.none,
-                ),
-              ),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  for (final rule in lobbyRuleSummaries)
-                    SizedBox(
-                      width: ruleWidth,
-                      child: _RuleBlock(
-                        tokens: tokens,
-                        title: rule.title(language),
-                        body: rule.body(language),
+                    Center(
+                      child: Image.asset(
+                        'ios_resources/Embellishments/art-rules-divider.png',
+                        height: 48,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.none,
                       ),
                     ),
-                ],
-              ),
-            ],
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        for (final rule in lobbyRuleSummaries)
+                          SizedBox(
+                            width: ruleWidth,
+                            child: _RuleBlock(
+                              tokens: tokens,
+                              title: rule.title(language),
+                              body: rule.body(language),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
-        );
-      },
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: SizedBox(
+            width: 220,
+            height: 44,
+            child: ChromeAssetButton.command(
+              label: language.text(en: 'Tutorial', ru: 'Обучение'),
+              prominent: true,
+              tokens: tokens,
+              onPressed: onTutorialPressed,
+              iconAsset: 'ios_resources/Icons/icon-tutorial.png',
+              iconSize: 22,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1735,91 +1748,119 @@ class _OnlinePanelState extends State<_OnlinePanel> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: 10,
-        children: [
-          Row(
-            spacing: 8,
-            children: [
-              const _AssetIcon(
-                'ios_resources/Icons/icon-play-tap.png',
-                size: 26,
-              ),
-              Text(
-                widget.language.text(en: 'ONLINE PLAY', ru: 'ОНЛАЙН ИГРА'),
-                style: kolkhozFontStyle.copyWith(
-                  color: widget.tokens.colors.gold,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w900,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 10,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 10,
+              children: [
+                Row(
+                  spacing: 8,
+                  children: [
+                    const _AssetIcon(
+                      'ios_resources/Icons/icon-play-tap.png',
+                      size: 26,
+                    ),
+                    Text(
+                      widget.language.text(
+                        en: 'ONLINE PLAY',
+                        ru: 'ОНЛАЙН ИГРА',
+                      ),
+                      style: kolkhozFontStyle.copyWith(
+                        color: widget.tokens.colors.gold,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          _VariantRowBackground(
-            tokens: widget.tokens,
-            active: false,
-            child: Text(
-              widget.language.text(
-                en: 'Host with AI seats or join by invite code.',
-                ru: 'Создайте стол с ИИ или войдите по коду.',
-              ),
-              style: kolkhozFontStyle.copyWith(
-                color: widget.tokens.colors.creamDim,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
+                _VariantRowBackground(
+                  tokens: widget.tokens,
+                  active: false,
+                  child: Text(
+                    widget.language.text(
+                      en: 'Host with AI seats or join by invite code.',
+                      ru: 'Создайте стол с ИИ или войдите по коду.',
+                    ),
+                    style: kolkhozFontStyle.copyWith(
+                      color: widget.tokens.colors.creamDim,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                _OnlineModeSelector(
+                  tokens: widget.tokens,
+                  language: widget.language,
+                  mode: mode,
+                  onChanged: busy
+                      ? null
+                      : (value) => setState(() => mode = value),
+                ),
+                _OnlineTextField(
+                  tokens: widget.tokens,
+                  controller: serverController,
+                  label: widget.language.text(
+                    en: 'SERVER URL',
+                    ru: 'АДРЕС СЕРВЕРА',
+                  ),
+                ),
+                if (mode == _OnlineMode.host)
+                  _OnlineSeatOptions(
+                    tokens: widget.tokens,
+                    language: widget.language,
+                    choices: seatChoices,
+                    onChanged: busy
+                        ? null
+                        : (index, value) {
+                            setState(() {
+                              final next = [...seatChoices];
+                              next[index] = index == 0
+                                  ? _OnlineSeatChoice.local
+                                  : value;
+                              seatChoices = next;
+                            });
+                          },
+                  )
+                else ...[
+                  _OnlineTextField(
+                    tokens: widget.tokens,
+                    controller: inviteController,
+                    label: widget.language.text(
+                      en: 'INVITE CODE',
+                      ru: 'КОД ПРИГЛАШЕНИЯ',
+                    ),
+                  ),
+                  _PreferredSeatSelector(
+                    tokens: widget.tokens,
+                    language: widget.language,
+                    selected: preferredSeat,
+                    onChanged: busy
+                        ? null
+                        : (value) => setState(() => preferredSeat = value),
+                  ),
+                ],
+                if (status != null)
+                  Text(
+                    status!,
+                    style: kolkhozFontStyle.copyWith(
+                      color: widget.tokens.colors.creamDim,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+              ],
             ),
           ),
-          _OnlineModeSelector(
-            tokens: widget.tokens,
-            language: widget.language,
-            mode: mode,
-            onChanged: busy ? null : (value) => setState(() => mode = value),
-          ),
-          _OnlineTextField(
-            tokens: widget.tokens,
-            controller: serverController,
-            label: widget.language.text(en: 'SERVER URL', ru: 'АДРЕС СЕРВЕРА'),
-          ),
-          if (mode == _OnlineMode.host)
-            _OnlineSeatOptions(
-              tokens: widget.tokens,
-              language: widget.language,
-              choices: seatChoices,
-              onChanged: busy
-                  ? null
-                  : (index, value) {
-                      setState(() {
-                        final next = [...seatChoices];
-                        next[index] = index == 0
-                            ? _OnlineSeatChoice.local
-                            : value;
-                        seatChoices = next;
-                      });
-                    },
-            )
-          else ...[
-            _OnlineTextField(
-              tokens: widget.tokens,
-              controller: inviteController,
-              label: widget.language.text(
-                en: 'INVITE CODE',
-                ru: 'КОД ПРИГЛАШЕНИЯ',
-              ),
-            ),
-            _PreferredSeatSelector(
-              tokens: widget.tokens,
-              language: widget.language,
-              selected: preferredSeat,
-              onChanged: busy
-                  ? null
-                  : (value) => setState(() => preferredSeat = value),
-            ),
-          ],
-          SizedBox(
-            width: double.infinity,
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: SizedBox(
+            width: 220,
             height: 44,
             child: Opacity(
               opacity: busy ? 0.55 : 1,
@@ -1845,17 +1886,8 @@ class _OnlinePanelState extends State<_OnlinePanel> {
               ),
             ),
           ),
-          if (status != null)
-            Text(
-              status!,
-              style: kolkhozFontStyle.copyWith(
-                color: widget.tokens.colors.creamDim,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -2102,16 +2134,15 @@ class _RuleBlock extends StatelessWidget {
 }
 
 class _GoldDivider extends StatelessWidget {
-  const _GoldDivider({required this.tokens, this.opacity = 0.35});
+  const _GoldDivider({required this.tokens});
 
   final DesignTokens tokens;
-  final double opacity;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 1,
-      color: tokens.colors.gold.withValues(alpha: opacity),
+      color: tokens.colors.gold.withValues(alpha: 0.35),
     );
   }
 }
@@ -2303,7 +2334,6 @@ extension _ControllerLobbyLabels on KolkhozPlayerController {
 String presetTitle(KolkhozGamePreset preset, KolkhozLanguage language) {
   return switch (preset) {
     KolkhozGamePreset.kolkhoz => language.text(en: 'Kolkhoz', ru: 'Колхоз'),
-    KolkhozGamePreset.wrecker => language.text(en: 'Saboteur', ru: 'Вредитель'),
     KolkhozGamePreset.littleKolkhoz => language.text(
       en: 'Little Kolkhoz',
       ru: 'Колхозик',

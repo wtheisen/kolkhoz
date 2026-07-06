@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' show clampDouble;
 
 import 'package:flutter/material.dart';
@@ -30,7 +31,7 @@ const optionsMenuActionsSpacing = 10.0;
 const optionsMenuControlsSpacing = 8.0;
 const optionsMenuRulesSpacing = 8.0;
 const optionsMenuChromeToggleSpacing = 8.0;
-const optionsMenuContentBottomPadding = 6.0;
+const optionsMenuContentBottomPadding = 24.0;
 const optionsMenuHeaderIconSize = 18.0;
 const optionsMenuHeaderSpacing = 8.0;
 const optionsMenuHeaderFontSize = 17.0;
@@ -106,43 +107,57 @@ class OptionsPanel extends StatelessWidget {
       tokens: tokens,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final sectionSpacing = optionsMenuSectionSpacing(
-            constraints.maxHeight.isFinite ? constraints.maxHeight : 300,
+          final availableHeight = constraints.maxHeight.isFinite
+              ? constraints.maxHeight
+              : optionsPanelSurfaceMaxHeight;
+          final maxHeight = math.min(
+            optionsPanelSurfaceMaxHeight,
+            math.max(optionsPanelContentMinHeight, availableHeight - 8),
           );
+          final minHeight = math.min(optionsPanelSurfaceMinHeight, maxHeight);
+          final sectionSpacing = optionsMenuSectionSpacing(maxHeight);
           return PanelStyleSurface(
             tokens: tokens,
-            constraints: const BoxConstraints(
-              minHeight: optionsPanelSurfaceMinHeight,
-              maxHeight: optionsPanelSurfaceMaxHeight,
+            constraints: BoxConstraints(
+              minHeight: minHeight,
+              maxHeight: maxHeight,
             ),
             padding: const EdgeInsets.all(12),
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.only(
-                  bottom: optionsMenuContentBottomPadding,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: sectionSpacing,
-                  children: [
-                    OptionsMenuHeader(tokens: tokens, language: language),
-                    OptionsMenuActions(
-                      tokens: tokens,
-                      onNewGame: onNewGame,
-                      onReturnToLobby: onReturnToLobby,
-                      onTutorial: onTutorial,
-                      animationSpeed: animationSpeed,
-                      onAnimationSpeedChanged: onAnimationSpeedChanged,
-                      language: language,
-                      appearance: appearance,
-                      onLanguageToggle: onLanguageToggle,
-                      onAppearanceToggle: onAppearanceToggle,
+            child: KolkhozScrollbar(
+              tokens: tokens,
+              childBuilder: (context, scrollController) =>
+                  SingleChildScrollView(
+                    controller: scrollController,
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                        right: 10,
+                        bottom: optionsMenuContentBottomPadding,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        spacing: sectionSpacing,
+                        children: [
+                          OptionsMenuHeader(tokens: tokens, language: language),
+                          OptionsMenuActions(
+                            tokens: tokens,
+                            onNewGame: onNewGame,
+                            onReturnToLobby: onReturnToLobby,
+                            onTutorial: onTutorial,
+                            animationSpeed: animationSpeed,
+                            onAnimationSpeedChanged: onAnimationSpeedChanged,
+                            language: language,
+                            appearance: appearance,
+                            onLanguageToggle: onLanguageToggle,
+                            onAppearanceToggle: onAppearanceToggle,
+                          ),
+                          Divider(
+                            color: tokens.colors.gold.withValues(alpha: 0.35),
+                          ),
+                          OptionsMenuRules(tokens: tokens, language: language),
+                        ],
+                      ),
                     ),
-                    Divider(color: tokens.colors.gold.withValues(alpha: 0.35)),
-                    OptionsMenuRules(tokens: tokens, language: language),
-                  ],
-                ),
-              ),
+                  ),
             ),
           );
         },

@@ -569,6 +569,67 @@ class PanelStyleSurface extends StatelessWidget {
   }
 }
 
+class KolkhozScrollbar extends StatefulWidget {
+  const KolkhozScrollbar({
+    required this.tokens,
+    required this.childBuilder,
+    this.orientation,
+    super.key,
+  });
+
+  final DesignTokens tokens;
+  final ScrollbarOrientation? orientation;
+  final Widget Function(BuildContext context, ScrollController controller)
+  childBuilder;
+
+  @override
+  State<KolkhozScrollbar> createState() => _KolkhozScrollbarState();
+}
+
+class _KolkhozScrollbarState extends State<KolkhozScrollbar> {
+  late final ScrollController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScrollbarTheme(
+      data: ScrollbarThemeData(
+        thumbVisibility: const WidgetStatePropertyAll(true),
+        trackVisibility: const WidgetStatePropertyAll(true),
+        thickness: const WidgetStatePropertyAll(5),
+        radius: const Radius.circular(3),
+        thumbColor: WidgetStatePropertyAll(
+          widget.tokens.colors.gold.withValues(alpha: 0.68),
+        ),
+        trackColor: WidgetStatePropertyAll(
+          widget.tokens.colors.black.withValues(alpha: 0.12),
+        ),
+        trackBorderColor: WidgetStatePropertyAll(
+          widget.tokens.colors.steel.withValues(alpha: 0.28),
+        ),
+      ),
+      child: Scrollbar(
+        controller: controller,
+        thumbVisibility: true,
+        trackVisibility: true,
+        scrollbarOrientation: widget.orientation,
+        child: widget.childBuilder(context, controller),
+      ),
+    );
+  }
+}
+
 class PanelTitleRow extends StatelessWidget {
   const PanelTitleRow({
     required this.title,
@@ -782,7 +843,7 @@ class GameCard extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(cardViewCornerRadius),
               child: Image.asset(
-                cardTemplateAssetPathForTokens(tokens),
+                cardTemplateAssetPath(card: card, tokens: tokens, trump: trump),
                 fit: BoxFit.cover,
                 filterQuality: FilterQuality.none,
                 errorBuilder: (_, _, _) => const SizedBox.shrink(),
@@ -792,6 +853,7 @@ class GameCard extends StatelessWidget {
           Padding(
             padding: EdgeInsets.all(size.faceInset),
             child: Stack(
+              clipBehavior: Clip.none,
               children: [
                 Positioned.fill(
                   child: CardCenterFace(
@@ -802,8 +864,8 @@ class GameCard extends StatelessWidget {
                   ),
                 ),
                 Positioned(
-                  left: size.width * 0.03,
-                  top: size.height * 0.03,
+                  left: cardCornerHorizontalInset(size),
+                  top: cardTopCornerVerticalInset(size),
                   child: CardCornerIndex(
                     card: card,
                     size: size,
@@ -813,8 +875,8 @@ class GameCard extends StatelessWidget {
                   ),
                 ),
                 Positioned(
-                  right: size.width * 0.02,
-                  bottom: -(size.height * 0.03),
+                  right: cardCornerHorizontalInset(size),
+                  bottom: cardBottomCornerVerticalInset(size),
                   child: CardCornerIndex(
                     card: card,
                     size: size,
@@ -867,6 +929,41 @@ class GameCard extends StatelessWidget {
   }
 }
 
+double cardCornerHorizontalInset(TokenCardSize size) => 0;
+
+double cardTopCornerVerticalInset(TokenCardSize size) => -(size.height * 0.006);
+
+double cardBottomCornerVerticalInset(TokenCardSize size) => 0;
+
+double cardFaceValueRankGap(TokenCardSize size) =>
+    (size.cornerRankFontSize * 0.16).clamp(2, 8).toDouble();
+
+double cardCornerRankSuitGap(TokenCardSize size) =>
+    (size.cornerSuitSize * 0.01).clamp(0, 0.5).toDouble();
+
+double cardBottomCornerRankSuitGap(TokenCardSize size) =>
+    (size.cornerSuitSize * 0.08).clamp(0.5, 2).toDouble();
+
+double cardCornerSuitOutwardOffset(TokenCardSize size) =>
+    (size.cornerSuitSize * 0.12).clamp(0.5, 2.5).toDouble();
+
+double cardCornerSuitVisualSize(TableCard card, TokenCardSize size) {
+  final suitScale = card.suit == wreckerSuit ? 1.5 : 1.0;
+  return size.cornerSuitSize * 1.1 * suitScale;
+}
+
+double cardCornerSuitTowardRankOffset(TokenCardSize size) =>
+    (size.cornerSuitSize * 0.25).clamp(1.5, 5).toDouble();
+
+double cardBottomCornerRankDownOffset(TokenCardSize size) =>
+    (size.cornerSuitSize * 0.2).clamp(1, 4).toDouble();
+
+double cardCornerRankVisualHeight(TokenCardSize size) {
+  final rankSize = pixelTextSizeForCardRank(size);
+  return (rankSize.value + PixelText.opticalYOffset) *
+      pixelTextScaleForCardRank(size);
+}
+
 enum CardCornerPlacement { top, bottom }
 
 class CardCornerIndex extends StatelessWidget {
@@ -891,41 +988,77 @@ class CardCornerIndex extends StatelessWidget {
         trump != null && (card.suit == trump || card.suit == wreckerSuit);
     final top = placement == CardCornerPlacement.top;
     final spacing = top
-        ? size.topCornerRankSuitSpacing
-        : size.bottomCornerRankSuitSpacing;
-    final frameHeight = size.cornerHeight + size.cornerSuitSize + 2;
-    final contentHeight = size.cornerHeight + size.cornerSuitSize + spacing;
-    final bottomContentTop = frameHeight - contentHeight;
+        ? cardCornerRankSuitGap(size)
+        : cardBottomCornerRankSuitGap(size);
     final rankSize = pixelTextSizeForCardRank(size);
     final rankScale = pixelTextScaleForCardRank(size);
-    final rank = SizedBox(
-      width: size.cornerWidth,
-      height: size.cornerHeight,
+    final rankHeight = cardCornerRankVisualHeight(size);
+    final suitSize = cardCornerSuitVisualSize(card, size);
+    final frameHeight = rankHeight + suitSize + spacing;
+    final showFaceValue = cardShowsFaceNumericValue(card);
+    final labelWidth = showFaceValue
+        ? size.cornerWidth + size.cornerRankFontSize * 1.15
+        : size.cornerWidth;
+    final rankColor = countsAsTrump ? tokens.colors.red : tokens.colors.cream;
+    final rankText = SizedBox(
+      height: rankHeight,
       child: Align(
         alignment: top ? Alignment.centerLeft : Alignment.centerRight,
         child: Transform.scale(
           scale: rankScale,
-          alignment: top ? Alignment.topLeft : Alignment.bottomRight,
+          alignment: top ? Alignment.centerLeft : Alignment.centerRight,
           child: PixelText(
             card.rank,
             size: rankSize,
             variant: PixelTextVariant.heavy,
-            color: countsAsTrump ? tokens.colors.red : tokens.colors.cream,
+            color: rankColor,
             textAlign: top ? TextAlign.start : TextAlign.end,
           ),
         ),
       ),
     );
+    final valueText = Padding(
+      padding: EdgeInsets.zero,
+      child: PixelText(
+        '${card.value}',
+        size: pixelTextSizeForCardFaceValue(size),
+        variant: PixelTextVariant.heavy,
+        color: rankColor,
+      ),
+    );
+    final rankContent = showFaceValue
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: top
+                ? [
+                    rankText,
+                    SizedBox(width: cardFaceValueRankGap(size)),
+                    valueText,
+                  ]
+                : [
+                    valueText,
+                    SizedBox(width: cardFaceValueRankGap(size)),
+                    rankText,
+                  ],
+          )
+        : rankText;
+    final rank = SizedBox(
+      width: labelWidth,
+      height: rankHeight,
+      child: Align(
+        alignment: top ? Alignment.centerLeft : Alignment.centerRight,
+        child: rankContent,
+      ),
+    );
     final suit = Transform.translate(
       offset: Offset(
-        top ? size.topCornerSuitXOffset : size.bottomCornerSuitXOffset,
+        top
+            ? size.topCornerSuitXOffset - cardCornerSuitOutwardOffset(size)
+            : size.bottomCornerSuitXOffset + cardCornerSuitOutwardOffset(size),
         0,
       ),
-      child: SuitMark(
-        suit: card.suit,
-        tokens: tokens,
-        size: size.cornerSuitSize,
-      ),
+      child: SuitMark(suit: card.suit, tokens: tokens, size: suitSize),
     );
 
     return SizedBox(
@@ -938,10 +1071,13 @@ class CardCornerIndex extends StatelessWidget {
                 Positioned(left: 0, top: 0, child: rank),
                 Positioned(
                   left: 0,
-                  top: size.cornerHeight + spacing,
+                  top:
+                      rankHeight +
+                      spacing -
+                      cardCornerSuitTowardRankOffset(size),
                   child: SizedBox(
-                    width: size.cornerSuitSize,
-                    height: size.cornerSuitSize,
+                    width: suitSize,
+                    height: suitSize,
                     child: suit,
                   ),
                 ),
@@ -949,16 +1085,17 @@ class CardCornerIndex extends StatelessWidget {
             : [
                 Positioned(
                   right: 0,
-                  top: bottomContentTop,
+                  top: cardCornerSuitTowardRankOffset(size),
                   child: SizedBox(
-                    width: size.cornerSuitSize,
-                    height: size.cornerSuitSize,
+                    width: suitSize,
+                    height: suitSize,
                     child: suit,
                   ),
                 ),
                 Positioned(
                   right: 0,
-                  top: bottomContentTop + size.cornerSuitSize + spacing,
+                  top:
+                      suitSize + spacing + cardBottomCornerRankDownOffset(size),
                   child: rank,
                 ),
               ],
@@ -993,7 +1130,7 @@ class CardCenterFace extends StatelessWidget {
           children: [
             SuitMark(suit: card.suit, tokens: tokens, size: 14),
             PixelText(
-              card.rank,
+              cardRankDisplayLabel(card),
               size: PixelTextSize.caption2,
               variant: PixelTextVariant.heavy,
               color: countsAsTrump ? tokens.colors.red : tokens.colors.cream,
@@ -1004,10 +1141,11 @@ class CardCenterFace extends StatelessWidget {
     }
 
     if (card.suit == wreckerSuit || card.value >= 11) {
+      final portraitWidth = facePortraitArtWidth(card, size);
       return Center(
         child: SizedBox(
-          width: faceArtWidth(size),
-          height: faceArtWidth(size) * 1.5,
+          width: portraitWidth,
+          height: portraitWidth * 1.5,
           child: Image.asset(
             faceAssetPath(card),
             fit: BoxFit.cover,
@@ -1119,7 +1257,7 @@ class MiniRewardCard extends StatelessWidget {
                     width: 24,
                     child: Center(
                       child: PixelText(
-                        card.rank,
+                        cardRankDisplayLabel(card),
                         size: PixelTextSize.caption,
                         variant: PixelTextVariant.heavy,
                         color: tokens.colors.cardInk,

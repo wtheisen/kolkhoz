@@ -44,6 +44,19 @@ python3 -m research.kolkhoz_research.cli engine-smoke --games 8
 Use Flutter/web UI skills when changing app screens or layout. The Flutter app is the
 visual and behavioral app source of truth.
 
+## iPhone Deployment
+
+Never deploy physical iPhones with Flutter debug builds. On iOS 14+, debug-mode Flutter
+apps cannot be launched from the home screen; they only launch from Flutter tooling,
+Flutter IDE plugins, or Xcode. For a device install the user can open normally, use:
+
+```bash
+cd clients/flutter_app
+./tool/deploy_ios_device_profile.sh
+```
+
+Pass a device id as the first argument only when targeting a different iPhone.
+
 ## Common Patterns
 
 **Game logic** goes in `engine/KolkhozCEngine/`.

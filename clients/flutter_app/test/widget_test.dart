@@ -34,31 +34,28 @@ import 'package:kolkhoz_app/src/render_model.dart';
 import 'package:kolkhoz_app/src/rule_content.dart';
 import 'package:kolkhoz_app/src/saved_game_store.dart';
 import 'package:kolkhoz_app/src/table_display.dart';
+import 'package:kolkhoz_app/src/table_projection_helpers.dart';
 import 'package:kolkhoz_app/src/trump_actions.dart';
 import 'package:kolkhoz_app/src/tutorial_display.dart';
 
 void main() {
-  test(
-    'kolkhoz default includes saboteur and preset labels stay localized',
-    () {
-      expect(KolkhozGameVariants.kolkhoz.wreckerCard, isTrue);
-      expect(
-        presetTitle(KolkhozGamePreset.wrecker, KolkhozLanguage.en),
-        'Saboteur',
-      );
-      expect(
-        presetTitle(KolkhozGamePreset.wrecker, KolkhozLanguage.ru),
-        'Вредитель',
-      );
-      expect(KolkhozGamePreset.wrecker.variants, KolkhozGameVariants.wrecker);
-      expect(
-        variantsFromJson(
-          variantsToJson(KolkhozGameVariants.wrecker),
-        ).wreckerCard,
-        isTrue,
-      );
-    },
-  );
+  test('kolkhoz default includes saboteur without a duplicate preset', () {
+    expect(KolkhozGameVariants.kolkhoz.wreckerCard, isTrue);
+    final englishPresetLabels = KolkhozGamePreset.values
+        .map((preset) => presetTitle(preset, KolkhozLanguage.en))
+        .toList();
+    expect(englishPresetLabels, [
+      'Kolkhoz',
+      'Little Kolkhoz',
+      'Camp Style',
+      'Custom',
+    ]);
+    expect(englishPresetLabels, isNot(contains('Saboteur')));
+    expect(
+      variantsFromJson(variantsToJson(KolkhozGameVariants.kolkhoz)).wreckerCard,
+      isTrue,
+    );
+  });
 
   testWidgets('left rail uses generic icon assets', (tester) async {
     const tokens = defaultDesignTokens;
@@ -733,6 +730,30 @@ void main() {
     expect(plotOpen.togglePanel('invented-panel').activePanel, panelPlot);
   });
 
+  test('manual panel override clears when the game phase changes', () {
+    final inspectingPlot = const GameUiState().togglePanel(panelPlot);
+
+    expect(panelsForPhase(inspectingPlot, phaseTrick).active, panelPlot);
+    expect(
+      inspectingPlot
+          .clearActivePanelAfterPhaseChange(
+            previousPhase: phaseTrick,
+            nextPhase: phaseTrick,
+          )
+          .activePanel,
+      panelPlot,
+    );
+
+    final afterPhaseChange = inspectingPlot.clearActivePanelAfterPhaseChange(
+      previousPhase: phaseTrick,
+      nextPhase: phaseAssignment,
+    );
+
+    expect(afterPhaseChange.activePanel, isNull);
+    expect(panelsForPhase(afterPhaseChange, phaseAssignment).active, panelJobs);
+    expect(panelsForPhase(afterPhaseChange, phaseTrick).active, panelBrigade);
+  });
+
   test('plot opponent row metrics reserve enough portrait label height', () {
     const tokens = defaultDesignTokens;
     final metrics = PlotPanelMetrics.fromSize(const Size(1048, 342), tokens);
@@ -1245,6 +1266,214 @@ void main() {
     expect(selectedSpeed, GameAnimationSpeed.slow);
   });
 
+  testWidgets('lobby footer controls are interactive', (tester) async {
+    final calls = <String>[];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 844,
+          height: 390,
+          child: StandaloneLobby(
+            tokens: lightDesignTokens,
+            language: KolkhozLanguage.en,
+            appearance: KolkhozAppearance.light,
+            onStart: () {},
+            selectedPreset: KolkhozGamePreset.custom,
+            customVariants: KolkhozGameVariants.kolkhoz,
+            playerControllers: KolkhozPlayerController.defaultControllers,
+            showingRules: false,
+            showingOnline: false,
+            onHostOnline: (_, controllers) async => 'session',
+            onJoinOnline: (_, _, _) async {},
+            onPresetChanged: (_) {},
+            onCustomVariantsChanged: (_) {},
+            onPlayerControllersChanged: (_) {},
+            onRulesPressed: () {},
+            onOfflinePressed: () {},
+            onOnlinePressed: () {},
+            onTutorialPressed: () {},
+            onLanguageToggle: () => calls.add('language'),
+            onAppearanceToggle: () => calls.add('appearance'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('EN'));
+    await tester.tap(find.text('LIGHT'));
+
+    expect(calls, ['language', 'appearance']);
+    expect(find.text('STANDARD'), findsNothing);
+  });
+
+  testWidgets(
+    'lobby uses left nav and tutorial starts from how-to-play panel',
+    (tester) async {
+      final calls = <String>[];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SizedBox(
+            width: 844,
+            height: 390,
+            child: StandaloneLobby(
+              tokens: lightDesignTokens,
+              language: KolkhozLanguage.en,
+              appearance: KolkhozAppearance.light,
+              onStart: () => calls.add('start'),
+              selectedPreset: KolkhozGamePreset.kolkhoz,
+              customVariants: KolkhozGameVariants.kolkhoz,
+              playerControllers: KolkhozPlayerController.defaultControllers,
+              showingRules: false,
+              showingOnline: true,
+              onHostOnline: (_, controllers) async => 'session',
+              onJoinOnline: (_, _, _) async {},
+              onPresetChanged: (_) {},
+              onCustomVariantsChanged: (_) {},
+              onPlayerControllersChanged: (_) {},
+              onRulesPressed: () => calls.add('rules'),
+              onOfflinePressed: () => calls.add('offline'),
+              onOnlinePressed: () => calls.add('online'),
+              onTutorialPressed: () => calls.add('tutorial'),
+              onLanguageToggle: () {},
+              onAppearanceToggle: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('START GAME'), findsNothing);
+      expect(find.text('HOST & PLAY'), findsOneWidget);
+
+      await tester.tap(find.text('OFFLINE PLAY'));
+      await tester.tap(find.text('ONLINE PLAY').first);
+      await tester.tap(find.text('HOW TO PLAY'));
+
+      expect(calls, ['offline', 'online', 'rules']);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SizedBox(
+            width: 844,
+            height: 390,
+            child: StandaloneLobby(
+              tokens: lightDesignTokens,
+              language: KolkhozLanguage.en,
+              appearance: KolkhozAppearance.light,
+              onStart: () => calls.add('start'),
+              selectedPreset: KolkhozGamePreset.kolkhoz,
+              customVariants: KolkhozGameVariants.kolkhoz,
+              playerControllers: KolkhozPlayerController.defaultControllers,
+              showingRules: false,
+              showingOnline: false,
+              onHostOnline: (_, controllers) async => 'session',
+              onJoinOnline: (_, _, _) async {},
+              onPresetChanged: (_) {},
+              onCustomVariantsChanged: (_) {},
+              onPlayerControllersChanged: (_) {},
+              onRulesPressed: () => calls.add('rules'),
+              onOfflinePressed: () => calls.add('offline'),
+              onOnlinePressed: () => calls.add('online'),
+              onTutorialPressed: () => calls.add('tutorial'),
+              onLanguageToggle: () {},
+              onAppearanceToggle: () {},
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('START GAME'));
+
+      expect(calls, ['offline', 'online', 'rules', 'start']);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SizedBox(
+            width: 844,
+            height: 390,
+            child: StandaloneLobby(
+              tokens: lightDesignTokens,
+              language: KolkhozLanguage.en,
+              appearance: KolkhozAppearance.light,
+              onStart: () => calls.add('start'),
+              selectedPreset: KolkhozGamePreset.kolkhoz,
+              customVariants: KolkhozGameVariants.kolkhoz,
+              playerControllers: KolkhozPlayerController.defaultControllers,
+              showingRules: true,
+              showingOnline: false,
+              onHostOnline: (_, controllers) async => 'session',
+              onJoinOnline: (_, _, _) async {},
+              onPresetChanged: (_) {},
+              onCustomVariantsChanged: (_) {},
+              onPlayerControllersChanged: (_) {},
+              onRulesPressed: () => calls.add('rules'),
+              onOfflinePressed: () => calls.add('offline'),
+              onOnlinePressed: () => calls.add('online'),
+              onTutorialPressed: () => calls.add('tutorial'),
+              onLanguageToggle: () {},
+              onAppearanceToggle: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('RULES'), findsNothing);
+      expect(find.text('HOW TO PLAY'), findsWidgets);
+      await tester.tap(find.text('TUTORIAL'));
+
+      expect(calls, ['offline', 'online', 'rules', 'start', 'tutorial']);
+    },
+  );
+
+  testWidgets('offline lobby seat icons open controller chooser', (
+    tester,
+  ) async {
+    List<KolkhozPlayerController>? changedControllers;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 844,
+          height: 390,
+          child: StandaloneLobby(
+            tokens: lightDesignTokens,
+            language: KolkhozLanguage.en,
+            appearance: KolkhozAppearance.light,
+            onStart: () {},
+            selectedPreset: KolkhozGamePreset.kolkhoz,
+            customVariants: KolkhozGameVariants.kolkhoz,
+            playerControllers: KolkhozPlayerController.defaultControllers,
+            showingRules: false,
+            showingOnline: false,
+            onHostOnline: (_, controllers) async => 'session',
+            onJoinOnline: (_, _, _) async {},
+            onPresetChanged: (_) {},
+            onCustomVariantsChanged: (_) {},
+            onPlayerControllersChanged: (controllers) {
+              changedControllers = controllers;
+            },
+            onRulesPressed: () {},
+            onOfflinePressed: () {},
+            onOnlinePressed: () {},
+            onTutorialPressed: () {},
+            onLanguageToggle: () {},
+            onAppearanceToggle: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('HUMAN'), findsNothing);
+    await tester.tap(find.bySemanticsLabel('P2 Neural'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('BASIC'));
+    await tester.pumpAndSettle();
+
+    expect(changedControllers, isNotNull);
+    expect(changedControllers![1], KolkhozPlayerController.heuristicAI);
+  });
+
   testWidgets('online lobby host sends open seats as human controllers', (
     tester,
   ) async {
@@ -1274,8 +1503,11 @@ void main() {
             onCustomVariantsChanged: (_) {},
             onPlayerControllersChanged: (_) {},
             onRulesPressed: () {},
+            onOfflinePressed: () {},
             onOnlinePressed: () {},
             onTutorialPressed: () {},
+            onLanguageToggle: () {},
+            onAppearanceToggle: () {},
           ),
         ),
       ),
@@ -1452,18 +1684,30 @@ void main() {
   });
 
   test('card art display helpers project asset paths and pip positions', () {
-    final jack = testCard(id: 'wheat-11', suit: 'wheat', value: 11);
-    final queen = testCard(id: 'beet-12', suit: 'beet', value: 12);
+    final jack = testCard(id: 'wheat-11', suit: 'wheat', value: 11, rank: 'J');
+    final queen = testCard(id: 'beet-12', suit: 'beet', value: 12, rank: 'Q');
     final nomenklaturaQueen = testCard(
       id: 'beet-12',
       suit: 'beet',
       value: 12,
+      rank: 'Q',
       nomenclature: true,
     );
-    final wrecker = testCard(id: 'wrecker-14', suit: wreckerSuit, value: 14);
+    final wrecker = testCard(
+      id: 'wrecker-14',
+      suit: wreckerSuit,
+      value: 14,
+      rank: 'S',
+    );
     final seat = testSeat(id: 0, name: 'You');
 
     expect(faceRankName(jack), 'jack');
+    expect(cardRankDisplayLabel(jack), 'J 11');
+    expect(cardRankDisplayLabel(queen), 'Q 12');
+    expect(
+      cardRankDisplayLabel(testCard(id: 'wheat-10', suit: 'wheat', value: 10)),
+      '10',
+    );
     expect(faceAssetPath(jack), 'ios_resources/Cards/face-jack-wheat.png');
     expect(
       faceAssetPath(nomenklaturaQueen),
@@ -1471,6 +1715,13 @@ void main() {
     );
     expect(genericFaceAssetPath(queen), 'ios_resources/Cards/face-queen.png');
     expect(faceRankName(wrecker), 'saboteur');
+    expect(cardRankDisplayLabel(wrecker), 'S 14');
+    expect(faceArtWidth(defaultDesignTokens.card.large), 31.5);
+    expect(facePortraitArtWidth(jack, defaultDesignTokens.card.large), 63);
+    expect(
+      facePortraitArtWidth(wrecker, defaultDesignTokens.card.large),
+      40.95,
+    );
     expect(faceAssetPath(wrecker), 'ios_resources/Cards/face-wrecker.png');
     expect(
       genericFaceAssetPath(wrecker),
@@ -1478,12 +1729,37 @@ void main() {
     );
     expect(portraitAssetPath(seat), 'ios_resources/worker1.png');
     expect(
-      cardTemplateAssetPathForTokens(defaultDesignTokens),
-      contains('dark'),
+      cardTemplateAssetPath(
+        card: jack,
+        tokens: defaultDesignTokens,
+        trump: 'wheat',
+      ),
+      'ios_resources/Cards/card-template-dark.png',
     );
     expect(
-      cardTemplateAssetPathForTokens(lightDesignTokens),
-      contains('light'),
+      cardTemplateAssetPath(
+        card: jack,
+        tokens: lightDesignTokens,
+        trump: 'beet',
+      ),
+      'ios_resources/Cards/card-template-light-no-overlay.png',
+    );
+    expect(
+      cardTemplateAssetPath(
+        card: jack,
+        tokens: defaultDesignTokens,
+        trump: null,
+      ),
+      'ios_resources/Cards/card-template-dark-no-overlay.png',
+    );
+    expect(cardUsesTrumpTemplate(card: wrecker, trump: 'beet'), isTrue);
+    expect(
+      cardTemplateAssetPath(
+        card: wrecker,
+        tokens: lightDesignTokens,
+        trump: null,
+      ),
+      'ios_resources/Cards/card-template-light-no-overlay.png',
     );
     expect(pipPositions(12), hasLength(10));
     expect(
@@ -1495,12 +1771,59 @@ void main() {
       PixelTextSize.cardRank,
     );
     expect(pixelTextScaleForCardRank(defaultDesignTokens.card.large), 1);
+    expect(
+      pixelTextSizeForCardFaceValue(defaultDesignTokens.card.large),
+      PixelTextSize.caption2,
+    );
+    expect(cardCornerHorizontalInset(defaultDesignTokens.card.large), 0);
+    expect(
+      cardTopCornerVerticalInset(defaultDesignTokens.card.large),
+      closeTo(-0.5964, 0.001),
+    );
+    expect(cardBottomCornerVerticalInset(defaultDesignTokens.card.large), 0);
+    expect(
+      cardFaceValueRankGap(defaultDesignTokens.card.large),
+      closeTo(3.84, 0.001),
+    );
+    expect(
+      cardCornerRankSuitGap(defaultDesignTokens.card.large),
+      closeTo(0.1, 0.001),
+    );
+    expect(
+      cardBottomCornerRankSuitGap(defaultDesignTokens.card.large),
+      closeTo(0.8, 0.001),
+    );
+    expect(
+      cardCornerSuitOutwardOffset(defaultDesignTokens.card.large),
+      closeTo(1.2, 0.001),
+    );
+    expect(
+      cardCornerSuitVisualSize(jack, defaultDesignTokens.card.large),
+      closeTo(11, 0.001),
+    );
+    expect(
+      cardCornerSuitVisualSize(wrecker, defaultDesignTokens.card.large),
+      closeTo(16.5, 0.001),
+    );
+    expect(
+      cardCornerSuitTowardRankOffset(defaultDesignTokens.card.large),
+      closeTo(2.5, 0.001),
+    );
+    expect(
+      cardBottomCornerRankDownOffset(defaultDesignTokens.card.large),
+      closeTo(2, 0.001),
+    );
+    expect(
+      cardCornerRankVisualHeight(defaultDesignTokens.card.large),
+      closeTo(28, 0.001),
+    );
     final oversizedCard = scaledHandTrayCardSize(
       defaultDesignTokens.card.large,
       404,
     );
     expect(pixelTextSizeForCardRank(oversizedCard), PixelTextSize.cardRank);
     expect(pixelTextScaleForCardRank(oversizedCard), cardRankTextMaxScale);
+    expect(cardCornerRankVisualHeight(oversizedCard), closeTo(40.6, 0.001));
   });
 
   test('panel title display helpers scale and fade predictably', () {
@@ -1913,13 +2236,14 @@ TableCard testCard({
   required String id,
   required String suit,
   required int value,
+  String? rank,
   bool nomenclature = false,
 }) {
   return TableCard(
     id: id,
     suit: suit,
     value: value,
-    rank: '$value',
+    rank: rank ?? '$value',
     selected: false,
     highlighted: false,
     pending: false,
