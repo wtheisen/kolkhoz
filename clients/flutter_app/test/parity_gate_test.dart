@@ -602,6 +602,8 @@ OnlineSessionUpdate onlineFixtureUpdate() {
     sessionID: 'fixture',
     viewerID: 1,
     actionLogCount: 7,
+    isViewerTurn: true,
+    legalActions: [],
     variants: KolkhozGameVariants.littleKolkhoz,
     controllers: [
       KolkhozPlayerController.human,
@@ -609,6 +611,7 @@ OnlineSessionUpdate onlineFixtureUpdate() {
       KolkhozPlayerController.heuristicAI,
       KolkhozPlayerController.heuristicAI,
     ],
+    playerProfiles: [],
     snapshot: OnlineEngineSnapshot(
       year: 2,
       phase: kcPhaseTrick,

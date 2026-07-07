@@ -31,6 +31,7 @@ dependencies:
   ffi: ^2.1.4
   flutter:
     sdk: flutter
+  supabase_flutter: ^2.16.0
 
 dev_dependencies:
   flutter_test:
@@ -62,6 +63,8 @@ flutter:
     - ios_resources/Embellishments/
     - ios_resources/Fonts/Bitmap/
     - assets/policies/current_best_policy.json
+    - assets/policies/medium_policy.json
+    - assets/policies/hard_policy.json
 
   fonts:
     - family: Handjet

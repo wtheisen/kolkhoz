@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:ffi';
 
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'animation_speed.dart';
 import 'c_engine_action_codec.dart';
 import 'c_engine_bridge.dart';
-import 'engine_action_projection.dart';
 import 'game_constants.dart';
 import 'game_ui_state.dart';
 import 'online_game_models.dart';
@@ -15,17 +15,26 @@ import 'policy_model.dart';
 import 'render_model.dart';
 import 'design_tokens.dart';
 import 'saved_game_store.dart';
+import 'supabase_config.dart';
 import 'table_view_projection.dart';
 
 class LiveGameStore extends ChangeNotifier {
   LiveGameStore({
     KolkhozCEngineBridge? bridge,
     KolkhozAutosaveStore? autosaveStore,
+    KolkhozNativePolicyModel? mediumPolicy,
+    Future<KolkhozNativePolicyModel>? mediumPolicyLoader,
     KolkhozNativePolicyModel? neuralPolicy,
     Future<KolkhozNativePolicyModel>? neuralPolicyLoader,
+    this.onlineAccessTokenProvider,
     this.autosaveEnabled = true,
   }) : bridge = bridge ?? KolkhozCEngineBridge(),
        _autosaveStore = autosaveStore ?? KolkhozAutosaveStore.defaultStore(),
+       _mediumPolicy = mediumPolicy,
+       _mediumPolicyLoader = mediumPolicy == null
+           ? mediumPolicyLoader ??
+                 KolkhozNativePolicyModel.loadAsset(mediumNeuralPolicyAsset)
+           : null,
        _neuralPolicy = neuralPolicy,
        _neuralPolicyLoader = neuralPolicy == null
            ? neuralPolicyLoader ??
@@ -39,8 +48,11 @@ class LiveGameStore extends ChangeNotifier {
 
   final KolkhozCEngineBridge bridge;
   final KolkhozAutosaveStore _autosaveStore;
+  KolkhozNativePolicyModel? _mediumPolicy;
+  Future<KolkhozNativePolicyModel>? _mediumPolicyLoader;
   KolkhozNativePolicyModel? _neuralPolicy;
   Future<KolkhozNativePolicyModel>? _neuralPolicyLoader;
+  final Future<String?> Function()? onlineAccessTokenProvider;
   final bool autosaveEnabled;
 
   DesignTokens tokens = defaultDesignTokens;
@@ -55,6 +67,8 @@ class LiveGameStore extends ChangeNotifier {
   bool restoredSavedGame = false;
   OnlineGameRuntime? _online;
   Timer? _onlineRefreshTimer;
+  RealtimeChannel? _onlineRealtimeChannel;
+  bool _onlineRealtimeRefreshInFlight = false;
   Timer? _automaticStepTimer;
   TableViewModel? model;
   Pointer<KCEngine>? _engine;
@@ -62,6 +76,7 @@ class LiveGameStore extends ChangeNotifier {
   int? revealedPlayerID;
   String? error;
   String? _lastSyncedPhase;
+  bool _mediumPolicyUnavailable = false;
   bool _neuralPolicyUnavailable = false;
   bool _disposed = false;
 
@@ -195,7 +210,10 @@ class LiveGameStore extends ChangeNotifier {
     required List<KolkhozPlayerController> controllers,
   }) async {
     try {
-      final client = KolkhozOnlineClient(baseURL);
+      final client = KolkhozOnlineClient(
+        baseURL,
+        accessTokenProvider: onlineAccessTokenProvider,
+      );
       final normalizedControllers = KolkhozPlayerController.normalized(
         controllers,
       );
@@ -207,6 +225,7 @@ class LiveGameStore extends ChangeNotifier {
         client: client,
         sessionID: response.sessionID,
         playerID: response.playerID,
+        seatToken: response.seatToken,
         update: response.update,
       );
       return response.sessionID;
@@ -223,7 +242,10 @@ class LiveGameStore extends ChangeNotifier {
     int? preferredPlayerID,
   }) async {
     try {
-      final client = KolkhozOnlineClient(baseURL);
+      final client = KolkhozOnlineClient(
+        baseURL,
+        accessTokenProvider: onlineAccessTokenProvider,
+      );
       final response = await client.joinSession(
         sessionID: inviteCode.trim(),
         preferredPlayerID: preferredPlayerID,
@@ -232,6 +254,7 @@ class LiveGameStore extends ChangeNotifier {
         client: client,
         sessionID: response.sessionID,
         playerID: response.playerID,
+        seatToken: response.seatToken,
         update: response.update,
       );
     } catch (exception) {
@@ -242,17 +265,26 @@ class LiveGameStore extends ChangeNotifier {
   }
 
   Future<void> refreshOnlineGame() async {
+    await _refreshOnlineGame();
+  }
+
+  Future<void> _refreshOnlineGame({int? minimumRevision}) async {
     final online = _online;
     if (online == null) {
+      return;
+    }
+    if (minimumRevision != null &&
+        online.update.actionLogCount >= minimumRevision) {
       return;
     }
     try {
       final update = await online.client.fetchUpdate(
         sessionID: online.sessionID,
         playerID: online.playerID,
+        seatToken: online.seatToken,
       );
       online.update = update;
-      await _refreshOnlineLegalActions(online);
+      online.legalActions = update.legalActions;
       error = null;
       _sync();
     } catch (exception) {
@@ -262,6 +294,10 @@ class LiveGameStore extends ChangeNotifier {
   }
 
   void leaveOnlineGame() {
+    final online = _online;
+    if (online != null && model?.table.phase != phaseGameOver) {
+      unawaited(_leaveOnlineGame(online));
+    }
     _clearOnlineSession();
     _sync();
   }
@@ -365,6 +401,7 @@ class LiveGameStore extends ChangeNotifier {
     required KolkhozOnlineClient client,
     required String sessionID,
     required int playerID,
+    required String seatToken,
     required OnlineSessionUpdate update,
   }) async {
     _clearAutomaticStepTimer();
@@ -379,6 +416,7 @@ class LiveGameStore extends ChangeNotifier {
       client: client,
       sessionID: sessionID,
       playerID: playerID,
+      seatToken: seatToken,
       update: update,
     );
     currentVariants = update.variants;
@@ -387,8 +425,8 @@ class LiveGameStore extends ChangeNotifier {
     uiState = const GameUiState();
     _lastSyncedPhase = null;
     revealedPlayerID = playerID;
-    await _refreshOnlineLegalActions(_online!);
     _startOnlinePolling();
+    _startOnlineRealtime();
     error = null;
     _sync();
   }
@@ -396,6 +434,7 @@ class LiveGameStore extends ChangeNotifier {
   void _clearOnlineSession() {
     _onlineRefreshTimer?.cancel();
     _onlineRefreshTimer = null;
+    _clearOnlineRealtime();
     _online = null;
   }
 
@@ -441,7 +480,7 @@ class LiveGameStore extends ChangeNotifier {
       return;
     }
     final result = _currentAutomaticSeatUsesNeural(engine)
-        ? _stepNeuralAutomatic(engine)
+        ? _stepNeuralAutomatic(engine, _currentAutomaticController(engine))
         : bridge.stepAutomatic(engine);
     if (result < 0) {
       error = 'Automatic move rejected ($result)';
@@ -457,8 +496,11 @@ class LiveGameStore extends ChangeNotifier {
     _scheduleAutomaticStep();
   }
 
-  int _stepNeuralAutomatic(Pointer<KCEngine> engine) {
-    final policy = _neuralPolicy;
+  int _stepNeuralAutomatic(
+    Pointer<KCEngine> engine,
+    KolkhozPlayerController? controller,
+  ) {
+    final policy = _policyForController(controller);
     if (policy != null) {
       final action = bridge.policyAction(engine, policy.native);
       if (action == null) {
@@ -471,7 +513,7 @@ class LiveGameStore extends ChangeNotifier {
       }
       return -error;
     }
-    if (!_neuralPolicyUnavailable) {
+    if (!_policyUnavailableForController(controller)) {
       _scheduleAutomaticStep();
       return 0;
     }
@@ -483,15 +525,49 @@ class LiveGameStore extends ChangeNotifier {
     if (phase == kcPhasePlanning && bridge.isFamine(engine)) {
       return false;
     }
-    final playerID = phase == kcPhaseAssignment
-        ? bridge.lastWinner(engine)
-        : bridge.currentPlayer(engine);
+    final playerID = _currentAutomaticPlayerID(engine);
     return playerID >= 0 &&
         playerID < controllers.length &&
-        controllers[playerID] == KolkhozPlayerController.neuralAI;
+        (controllers[playerID] == KolkhozPlayerController.mediumAI ||
+            controllers[playerID] == KolkhozPlayerController.neuralAI);
+  }
+
+  int _currentAutomaticPlayerID(Pointer<KCEngine> engine) {
+    return bridge.phase(engine) == kcPhaseAssignment
+        ? bridge.lastWinner(engine)
+        : bridge.currentPlayer(engine);
+  }
+
+  KolkhozPlayerController? _currentAutomaticController(
+    Pointer<KCEngine> engine,
+  ) {
+    final playerID = _currentAutomaticPlayerID(engine);
+    if (playerID < 0 || playerID >= controllers.length) {
+      return null;
+    }
+    return controllers[playerID];
+  }
+
+  KolkhozNativePolicyModel? _policyForController(
+    KolkhozPlayerController? controller,
+  ) {
+    return switch (controller) {
+      KolkhozPlayerController.mediumAI => _mediumPolicy,
+      KolkhozPlayerController.neuralAI => _neuralPolicy,
+      _ => null,
+    };
+  }
+
+  bool _policyUnavailableForController(KolkhozPlayerController? controller) {
+    return switch (controller) {
+      KolkhozPlayerController.mediumAI => _mediumPolicyUnavailable,
+      KolkhozPlayerController.neuralAI => _neuralPolicyUnavailable,
+      _ => true,
+    };
   }
 
   void _startNeuralPolicyLoad() {
+    _startMediumPolicyLoad();
     final loader = _neuralPolicyLoader;
     if (loader == null) {
       return;
@@ -520,11 +596,106 @@ class LiveGameStore extends ChangeNotifier {
     );
   }
 
+  void _startMediumPolicyLoad() {
+    final loader = _mediumPolicyLoader;
+    if (loader == null) {
+      return;
+    }
+    unawaited(
+      loader
+          .then((policy) {
+            _mediumPolicyLoader = null;
+            if (_disposed) {
+              policy.dispose();
+              return;
+            }
+            _mediumPolicy = policy;
+            error = null;
+            _scheduleAutomaticStep();
+          })
+          .catchError((Object exception) {
+            _mediumPolicyLoader = null;
+            _mediumPolicyUnavailable = true;
+            if (_disposed) {
+              return;
+            }
+            error = 'Medium AI unavailable ($exception)';
+            notifyListeners();
+          }),
+    );
+  }
+
   void _startOnlinePolling() {
     _onlineRefreshTimer?.cancel();
-    _onlineRefreshTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+    _onlineRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       unawaited(refreshOnlineGame());
     });
+  }
+
+  void _startOnlineRealtime() {
+    _clearOnlineRealtime();
+    final online = _online;
+    final client = KolkhozSupabaseRuntime.instance.client;
+    if (online == null || client == null) {
+      return;
+    }
+    final channel = client.channel('kolkhoz-game-updates-${online.sessionID}');
+    channel.onPostgresChanges(
+      event: PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'game_updates',
+      filter: PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'session_id',
+        value: online.sessionID,
+      ),
+      callback: (payload) {
+        final revision = _revisionFromRealtimePayload(payload);
+        unawaited(_refreshOnlineGameFromRealtime(revision));
+      },
+    );
+    channel.subscribe();
+    _onlineRealtimeChannel = channel;
+  }
+
+  Future<void> _refreshOnlineGameFromRealtime(int? revision) async {
+    if (_onlineRealtimeRefreshInFlight) {
+      return;
+    }
+    _onlineRealtimeRefreshInFlight = true;
+    try {
+      await _refreshOnlineGame(minimumRevision: revision);
+    } finally {
+      _onlineRealtimeRefreshInFlight = false;
+    }
+  }
+
+  int? _revisionFromRealtimePayload(PostgresChangePayload payload) {
+    final record = payload.newRecord;
+    final direct = record['revision'];
+    if (direct is int) {
+      return direct;
+    }
+    final nested = record['payload'];
+    if (nested is Map) {
+      final value = nested['revision'];
+      if (value is int) {
+        return value;
+      }
+      if (value is num) {
+        return value.toInt();
+      }
+    }
+    return null;
+  }
+
+  void _clearOnlineRealtime() {
+    final channel = _onlineRealtimeChannel;
+    _onlineRealtimeChannel = null;
+    _onlineRealtimeRefreshInFlight = false;
+    if (channel != null) {
+      unawaited(KolkhozSupabaseRuntime.instance.client?.removeChannel(channel));
+    }
   }
 
   Future<void> _submitOnlineAction(
@@ -535,10 +706,12 @@ class LiveGameStore extends ChangeNotifier {
       final update = await online.client.submitAction(
         sessionID: online.sessionID,
         playerID: online.playerID,
+        seatToken: online.seatToken,
+        actionLogCount: online.update.actionLogCount,
         action: action.engineAction,
       );
       online.update = update;
-      await _refreshOnlineLegalActions(online);
+      online.legalActions = update.legalActions;
       error = null;
       _clearSelectionAfter(action.kind);
       _sync();
@@ -548,23 +721,16 @@ class LiveGameStore extends ChangeNotifier {
     }
   }
 
-  Future<void> _refreshOnlineLegalActions(OnlineGameRuntime online) async {
-    final snapshot = online.update.snapshot;
-    final phase = phaseName(snapshot.phase);
-    final shouldFetch =
-        phase != phaseGameOver &&
-        (snapshot.currentPlayer == online.playerID ||
-            (phase == phaseAssignment &&
-                snapshot.lastWinner == online.playerID) ||
-            phase == phaseRequisition);
-    if (!shouldFetch) {
-      online.legalActions = [];
-      return;
+  Future<void> _leaveOnlineGame(OnlineGameRuntime online) async {
+    try {
+      await online.client.leaveSession(
+        sessionID: online.sessionID,
+        playerID: online.playerID,
+        seatToken: online.seatToken,
+      );
+    } catch (_) {
+      // Leaving should not trap the player in the local client if the server is gone.
     }
-    online.legalActions = await online.client.fetchLegalActions(
-      sessionID: online.sessionID,
-      playerID: online.playerID,
-    );
   }
 
   bool _restoreAutosave() {
@@ -631,8 +797,10 @@ class LiveGameStore extends ChangeNotifier {
   ) {
     if (action.playerID >= 0 &&
         action.playerID < restoredControllers.length &&
-        restoredControllers[action.playerID] ==
-            KolkhozPlayerController.neuralAI) {
+        (restoredControllers[action.playerID] ==
+                KolkhozPlayerController.mediumAI ||
+            restoredControllers[action.playerID] ==
+                KolkhozPlayerController.neuralAI)) {
       return bridge.applyPolicyAction(engine, action);
     }
     return bridge.apply(engine, action);
@@ -685,10 +853,13 @@ class LiveGameStore extends ChangeNotifier {
       bridge.freeEngine(engine);
       _engine = null;
     }
+    _mediumPolicy?.dispose();
+    _mediumPolicy = null;
     _neuralPolicy?.dispose();
     _neuralPolicy = null;
     _onlineRefreshTimer?.cancel();
     _onlineRefreshTimer = null;
+    _clearOnlineRealtime();
     super.dispose();
   }
 }
@@ -718,12 +889,14 @@ class OnlineGameRuntime {
     required this.client,
     required this.sessionID,
     required this.playerID,
+    required this.seatToken,
     required this.update,
-  });
+  }) : legalActions = update.legalActions;
 
   final KolkhozOnlineClient client;
   final String sessionID;
   final int playerID;
+  final String seatToken;
   OnlineSessionUpdate update;
-  List<OnlineEngineAction> legalActions = [];
+  List<OnlineEngineAction> legalActions;
 }

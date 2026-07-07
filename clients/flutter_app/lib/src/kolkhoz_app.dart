@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_settings.dart';
 import 'c_engine_bridge.dart';
@@ -8,9 +10,11 @@ import 'design_tokens.dart';
 import 'game_constants.dart';
 import 'board_view.dart';
 import 'live_game_store.dart';
+import 'online_game_models.dart';
 import 'pixel_text.dart';
 import 'render_model.dart';
 import 'rule_content.dart';
+import 'supabase_config.dart';
 import 'tutorial_display.dart';
 
 Future<bool> showGameControlConfirmation({
@@ -55,10 +59,18 @@ class _KolkhozAppState extends State<KolkhozApp> {
   final navigatorKey = GlobalKey<NavigatorState>();
   late final LiveGameStore store;
   late final KolkhozAppSettingsStore settingsStore;
+  StreamSubscription<AuthState>? supabaseAuthSubscription;
+  Timer? cloudProfileSyncTimer;
   KolkhozAppSettings settings = const KolkhozAppSettings();
+  bool cloudAuthBusy = false;
+  String? cloudAuthMessage;
+  bool cloudAuthIsError = false;
+  bool cloudProfileBusy = false;
+  String? recordedGameStatsKey;
   bool showingLobby = true;
   bool showingRules = false;
   bool showingOnline = false;
+  bool showingProfile = false;
   bool showingTutorial = false;
   String? foremanHint;
   Timer? foremanHintTimer;
@@ -77,13 +89,23 @@ class _KolkhozAppState extends State<KolkhozApp> {
     super.initState();
     settingsStore = KolkhozAppSettingsStore.defaultStore();
     settings = settingsStore.load();
-    store = LiveGameStore();
+    store = LiveGameStore(onlineAccessTokenProvider: supabaseAccessToken);
+    store.addListener(handleStoreChanged);
     playerControllers = List.of(store.controllers);
+    KolkhozSupabaseRuntime.instance.addListener(handleSupabaseRuntimeChanged);
+    KolkhozSupabaseRuntime.instance.start();
+    attachSupabaseAuthSubscription();
   }
 
   @override
   void dispose() {
     foremanHintTimer?.cancel();
+    cloudProfileSyncTimer?.cancel();
+    supabaseAuthSubscription?.cancel();
+    store.removeListener(handleStoreChanged);
+    KolkhozSupabaseRuntime.instance.removeListener(
+      handleSupabaseRuntimeChanged,
+    );
     store.dispose();
     super.dispose();
   }
@@ -122,8 +144,20 @@ class _KolkhozAppState extends State<KolkhozApp> {
               playerControllers: playerControllers,
               showingRules: showingRules,
               showingOnline: showingOnline,
+              showingProfile: showingProfile,
+              displayName: settings.displayName,
+              portraitAsset: settings.portraitAsset,
+              profileStats: settings.profileStats,
+              cloudConfigured: KolkhozSupabaseRuntime.instance.isConfigured,
+              cloudReady: KolkhozSupabaseRuntime.instance.isReady,
+              cloudSignedIn: supabaseCurrentUser != null,
+              cloudEmail: supabaseCurrentUser?.email,
+              cloudAuthBusy: cloudAuthBusy || cloudProfileBusy,
+              cloudAuthMessage: cloudAuthMessage,
+              cloudAuthIsError: cloudAuthIsError,
               onHostOnline: hostOnlineGame,
               onJoinOnline: joinOnlineGame,
+              onEnterOnlineGame: enterOnlineGame,
               onStart: () {
                 store.newGame(
                   variants: activeVariants,
@@ -140,6 +174,7 @@ class _KolkhozAppState extends State<KolkhozApp> {
                   }
                   showingRules = false;
                   showingOnline = false;
+                  showingProfile = false;
                 });
               },
               onCustomVariantsChanged: (variants) {
@@ -148,6 +183,7 @@ class _KolkhozAppState extends State<KolkhozApp> {
                   customVariants = variants;
                   showingRules = false;
                   showingOnline = false;
+                  showingProfile = false;
                 });
               },
               onPlayerControllersChanged: (controllers) {
@@ -161,20 +197,36 @@ class _KolkhozAppState extends State<KolkhozApp> {
                 setState(() {
                   showingRules = true;
                   showingOnline = false;
+                  showingProfile = false;
                 });
               },
               onOfflinePressed: () {
                 setState(() {
                   showingRules = false;
                   showingOnline = false;
+                  showingProfile = false;
                 });
               },
               onOnlinePressed: () {
                 setState(() {
                   showingRules = false;
                   showingOnline = true;
+                  showingProfile = false;
                 });
               },
+              onProfilePressed: () {
+                setState(() {
+                  showingRules = false;
+                  showingOnline = false;
+                  showingProfile = true;
+                });
+              },
+              onDisplayNameChanged: setDisplayName,
+              onPortraitChanged: setPortraitAsset,
+              onCloudSignIn: signInWithSupabase,
+              onCloudSignUp: signUpWithSupabase,
+              onCloudResetPassword: resetSupabasePassword,
+              onCloudSignOut: signOutOfSupabase,
               onTutorialPressed: () {
                 showTutorial();
               },
@@ -259,6 +311,74 @@ class _KolkhozAppState extends State<KolkhozApp> {
     );
   }
 
+  User? get supabaseCurrentUser {
+    return KolkhozSupabaseRuntime.instance.client?.auth.currentUser;
+  }
+
+  Future<String?> supabaseAccessToken() async {
+    return KolkhozSupabaseRuntime
+        .instance
+        .client
+        ?.auth
+        .currentSession
+        ?.accessToken;
+  }
+
+  void handleSupabaseRuntimeChanged() {
+    attachSupabaseAuthSubscription();
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+    unawaited(loadCloudProfile());
+  }
+
+  void attachSupabaseAuthSubscription() {
+    final client = KolkhozSupabaseRuntime.instance.client;
+    if (client == null || supabaseAuthSubscription != null) {
+      return;
+    }
+    supabaseAuthSubscription = client.auth.onAuthStateChange.listen((_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {});
+      unawaited(loadCloudProfile());
+    });
+    unawaited(loadCloudProfile());
+  }
+
+  void handleStoreChanged() {
+    final model = store.model;
+    final result = model?.table.gameResult;
+    if (model == null || result == null) {
+      recordedGameStatsKey = null;
+      return;
+    }
+    final online = store.isOnlineGame;
+    final playerID = online ? store.onlinePlayerID : 0;
+    if (playerID == null) {
+      return;
+    }
+    final key = [
+      online ? 'online' : 'offline',
+      store.onlineSessionID ?? store.currentSeed.toString(),
+      playerID.toString(),
+    ].join(':');
+    if (recordedGameStatsKey == key) {
+      return;
+    }
+    recordedGameStatsKey = key;
+    if (online) {
+      unawaited(loadCloudProfile());
+      return;
+    }
+    recordCompletedGameStats(
+      online: false,
+      won: result.winnerSeatID == playerID,
+    );
+  }
+
   Future<void> requestNewGameFromBoard() async {
     clearForemanHint();
     if (settings.confirmNewGame) {
@@ -307,6 +427,7 @@ class _KolkhozAppState extends State<KolkhozApp> {
     setState(() {
       showingRules = false;
       showingOnline = false;
+      showingProfile = false;
       showingLobby = true;
     });
   }
@@ -320,6 +441,7 @@ class _KolkhozAppState extends State<KolkhozApp> {
     setState(() {
       showingRules = false;
       showingOnline = false;
+      showingProfile = false;
       showingLobby = false;
       showingTutorial = true;
     });
@@ -394,6 +516,285 @@ class _KolkhozAppState extends State<KolkhozApp> {
     });
   }
 
+  void setDisplayName(String value) {
+    final next = settings.copyWith(displayName: value);
+    setState(() => settings = next);
+    settingsStore.save(next);
+    scheduleCloudProfileSync();
+  }
+
+  void setPortraitAsset(String value) {
+    if (!profilePortraitAssets.contains(value)) {
+      return;
+    }
+    final next = settings.copyWith(portraitAsset: value);
+    setState(() => settings = next);
+    settingsStore.save(next);
+    scheduleCloudProfileSync();
+  }
+
+  void scheduleCloudProfileSync() {
+    cloudProfileSyncTimer?.cancel();
+    cloudProfileSyncTimer = Timer(const Duration(milliseconds: 700), () {
+      cloudProfileSyncTimer = null;
+      unawaited(syncCloudProfile());
+    });
+  }
+
+  Future<void> signInWithSupabase(String email, String password) async {
+    await runCloudAuthAction(() async {
+      final client = KolkhozSupabaseRuntime.instance.client!;
+      await client.auth.signInWithPassword(
+        email: email.trim(),
+        password: password,
+      );
+      await loadCloudProfile();
+      cloudAuthMessage = settings.language.text(
+        en: 'Signed in. Profile loaded.',
+        ru: 'Вход выполнен. Профиль загружен.',
+      );
+      cloudAuthIsError = false;
+    });
+  }
+
+  Future<void> signUpWithSupabase(String email, String password) async {
+    await runCloudAuthAction(() async {
+      final client = KolkhozSupabaseRuntime.instance.client!;
+      final displayName = normalizedDisplayName;
+      final response = await client.auth.signUp(
+        email: email.trim(),
+        password: password,
+        emailRedirectTo: KolkhozSupabaseConfig.authRedirectUrl,
+        data: {'display_name': displayName},
+      );
+      if (response.session == null) {
+        cloudAuthMessage = settings.language.text(
+          en: 'Account created. Check your email to confirm it, then sign in.',
+          ru: 'Аккаунт создан. Подтвердите email, затем войдите.',
+        );
+      } else {
+        await syncCloudProfile();
+        cloudAuthMessage = settings.language.text(
+          en: 'Account created.',
+          ru: 'Аккаунт создан.',
+        );
+      }
+      cloudAuthIsError = false;
+    });
+  }
+
+  Future<void> signOutOfSupabase() async {
+    await runCloudAuthAction(() async {
+      final client = KolkhozSupabaseRuntime.instance.client!;
+      await client.auth.signOut();
+      cloudAuthMessage = settings.language.text(
+        en: 'Signed out.',
+        ru: 'Вы вышли.',
+      );
+      cloudAuthIsError = false;
+    });
+  }
+
+  Future<void> resetSupabasePassword(String email) async {
+    await runCloudAuthAction(() async {
+      final trimmed = email.trim();
+      if (trimmed.isEmpty) {
+        throw const FormatException('Enter an email first.');
+      }
+      final client = KolkhozSupabaseRuntime.instance.client!;
+      await client.auth.resetPasswordForEmail(
+        trimmed,
+        redirectTo: KolkhozSupabaseConfig.authRedirectUrl,
+      );
+      cloudAuthMessage = settings.language.text(
+        en: 'Password reset email sent.',
+        ru: 'Письмо для сброса пароля отправлено.',
+      );
+      cloudAuthIsError = false;
+    });
+  }
+
+  Future<void> runCloudAuthAction(Future<void> Function() action) async {
+    if (KolkhozSupabaseRuntime.instance.client == null || cloudAuthBusy) {
+      return;
+    }
+    setState(() {
+      cloudAuthBusy = true;
+      cloudAuthMessage = null;
+      cloudAuthIsError = false;
+    });
+    try {
+      await action();
+    } catch (exception) {
+      cloudAuthMessage = accountErrorMessage(exception);
+      cloudAuthIsError = true;
+    } finally {
+      if (mounted) {
+        setState(() => cloudAuthBusy = false);
+      }
+    }
+  }
+
+  Future<void> syncCloudProfile() async {
+    final client = KolkhozSupabaseRuntime.instance.client;
+    final user = client?.auth.currentUser;
+    if (user == null) {
+      return;
+    }
+    if (mounted) {
+      setState(() {
+        cloudProfileBusy = true;
+        cloudAuthMessage = settings.language.text(
+          en: 'Syncing profile...',
+          ru: 'Синхронизация профиля...',
+        );
+        cloudAuthIsError = false;
+      });
+    }
+    try {
+      await client!.from('profiles').upsert({
+        'user_id': user.id,
+        'display_name': normalizedDisplayName,
+        'avatar_url': settings.portraitAsset,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      });
+      if (mounted) {
+        setState(() {
+          cloudAuthMessage = settings.language.text(
+            en: 'Profile saved.',
+            ru: 'Профиль сохранён.',
+          );
+          cloudAuthIsError = false;
+        });
+      }
+    } catch (exception) {
+      if (mounted) {
+        setState(() {
+          cloudAuthMessage = syncErrorMessage(exception);
+          cloudAuthIsError = true;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => cloudProfileBusy = false);
+      }
+    }
+  }
+
+  Future<void> loadCloudProfile() async {
+    final client = KolkhozSupabaseRuntime.instance.client;
+    final user = client?.auth.currentUser;
+    if (user == null || cloudProfileBusy) {
+      return;
+    }
+    if (mounted) {
+      setState(() => cloudProfileBusy = true);
+    }
+    try {
+      final profile = await client!
+          .from('profiles')
+          .select('display_name, avatar_url')
+          .eq('user_id', user.id)
+          .maybeSingle();
+      final stats = await client
+          .from('profile_stats')
+          .select()
+          .eq('user_id', user.id)
+          .maybeSingle();
+      if (profile == null) {
+        await syncCloudProfile();
+        return;
+      }
+      final displayName = profile['display_name'] as String?;
+      final avatarURL = profile['avatar_url'] as String?;
+      final next = settings.copyWith(
+        displayName: displayName == null || displayName.trim().isEmpty
+            ? settings.displayName
+            : displayName,
+        portraitAsset: profilePortraitAssets.contains(avatarURL)
+            ? avatarURL!
+            : settings.portraitAsset,
+        profileStats: profileStatsFromSupabaseJson(stats),
+      );
+      settings = next;
+      settingsStore.save(next);
+      if (mounted) {
+        setState(() {
+          cloudAuthMessage = settings.language.text(
+            en: 'Profile loaded.',
+            ru: 'Профиль загружен.',
+          );
+          cloudAuthIsError = false;
+        });
+      }
+    } catch (exception) {
+      if (mounted) {
+        setState(() {
+          cloudAuthMessage = syncErrorMessage(exception);
+          cloudAuthIsError = true;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => cloudProfileBusy = false);
+      }
+    }
+  }
+
+  Future<void> recordOfflineResultInCloud(bool won) async {
+    final client = KolkhozSupabaseRuntime.instance.client;
+    final user = client?.auth.currentUser;
+    if (user == null) {
+      return;
+    }
+    try {
+      await client!.rpc('record_offline_result', params: {'won': won});
+      await loadCloudProfile();
+    } catch (exception) {
+      if (mounted) {
+        setState(() {
+          cloudAuthMessage = syncErrorMessage(exception);
+          cloudAuthIsError = true;
+        });
+      }
+    }
+  }
+
+  void recordCompletedGameStats({required bool online, required bool won}) {
+    final nextStats = settings.profileStats.recordResult(
+      online: online,
+      won: won,
+    );
+    final next = settings.copyWith(profileStats: nextStats);
+    setState(() => settings = next);
+    settingsStore.save(next);
+    if (!online) {
+      unawaited(recordOfflineResultInCloud(won));
+    }
+  }
+
+  String get normalizedDisplayName {
+    final trimmed = settings.displayName.trim();
+    return trimmed.isEmpty ? defaultProfileDisplayName : trimmed;
+  }
+
+  String accountErrorMessage(Object exception) {
+    if (exception is FormatException) {
+      return exception.message;
+    }
+    return settings.language.text(
+      en: 'Account request failed.',
+      ru: 'Запрос аккаунта не удался.',
+    );
+  }
+
+  String syncErrorMessage(Object exception) {
+    return settings.language.text(
+      en: 'Profile sync failed.',
+      ru: 'Синхронизация профиля не удалась.',
+    );
+  }
+
   Future<bool> confirmGameControl({
     required String title,
     required String message,
@@ -415,6 +816,7 @@ class _KolkhozAppState extends State<KolkhozApp> {
   Future<String> hostOnlineGame(
     Uri baseURL,
     List<KolkhozPlayerController> controllers,
+    bool enterImmediately,
   ) async {
     final sessionID = await store.hostOnlineGame(
       baseURL: baseURL,
@@ -423,8 +825,9 @@ class _KolkhozAppState extends State<KolkhozApp> {
     );
     setState(() {
       showingRules = false;
-      showingOnline = false;
-      showingLobby = false;
+      showingOnline = !enterImmediately;
+      showingProfile = false;
+      showingLobby = !enterImmediately;
     });
     return sessionID;
   }
@@ -442,6 +845,16 @@ class _KolkhozAppState extends State<KolkhozApp> {
     setState(() {
       showingRules = false;
       showingOnline = false;
+      showingProfile = false;
+      showingLobby = false;
+    });
+  }
+
+  void enterOnlineGame() {
+    setState(() {
+      showingRules = false;
+      showingOnline = false;
+      showingProfile = false;
       showingLobby = false;
     });
   }
@@ -511,6 +924,7 @@ class StandaloneLobby extends StatelessWidget {
     required this.showingOnline,
     required this.onHostOnline,
     required this.onJoinOnline,
+    required this.onEnterOnlineGame,
     required this.onPresetChanged,
     required this.onCustomVariantsChanged,
     required this.onPlayerControllersChanged,
@@ -520,6 +934,24 @@ class StandaloneLobby extends StatelessWidget {
     required this.onTutorialPressed,
     required this.onLanguageToggle,
     required this.onAppearanceToggle,
+    this.showingProfile = false,
+    this.displayName = defaultProfileDisplayName,
+    this.portraitAsset = defaultProfilePortraitAsset,
+    this.profileStats = defaultProfileStats,
+    this.cloudConfigured = false,
+    this.cloudReady = false,
+    this.cloudSignedIn = false,
+    this.cloudEmail,
+    this.cloudAuthBusy = false,
+    this.cloudAuthMessage,
+    this.cloudAuthIsError = false,
+    this.onProfilePressed,
+    this.onDisplayNameChanged,
+    this.onPortraitChanged,
+    this.onCloudSignIn,
+    this.onCloudSignUp,
+    this.onCloudResetPassword,
+    this.onCloudSignOut,
     this.error,
     super.key,
   });
@@ -533,9 +965,21 @@ class StandaloneLobby extends StatelessWidget {
   final List<KolkhozPlayerController> playerControllers;
   final bool showingRules;
   final bool showingOnline;
+  final bool showingProfile;
+  final String displayName;
+  final String portraitAsset;
+  final KolkhozProfileStats profileStats;
+  final bool cloudConfigured;
+  final bool cloudReady;
+  final bool cloudSignedIn;
+  final String? cloudEmail;
+  final bool cloudAuthBusy;
+  final String? cloudAuthMessage;
+  final bool cloudAuthIsError;
   final Future<String> Function(
     Uri baseURL,
     List<KolkhozPlayerController> controllers,
+    bool enterImmediately,
   )
   onHostOnline;
   final Future<void> Function(
@@ -544,6 +988,7 @@ class StandaloneLobby extends StatelessWidget {
     int? preferredPlayerID,
   )
   onJoinOnline;
+  final VoidCallback onEnterOnlineGame;
   final ValueChanged<KolkhozGamePreset> onPresetChanged;
   final ValueChanged<KolkhozGameVariants> onCustomVariantsChanged;
   final ValueChanged<List<KolkhozPlayerController>> onPlayerControllersChanged;
@@ -553,6 +998,13 @@ class StandaloneLobby extends StatelessWidget {
   final VoidCallback onTutorialPressed;
   final VoidCallback onLanguageToggle;
   final VoidCallback onAppearanceToggle;
+  final VoidCallback? onProfilePressed;
+  final ValueChanged<String>? onDisplayNameChanged;
+  final ValueChanged<String>? onPortraitChanged;
+  final Future<void> Function(String email, String password)? onCloudSignIn;
+  final Future<void> Function(String email, String password)? onCloudSignUp;
+  final Future<void> Function(String email)? onCloudResetPassword;
+  final Future<void> Function()? onCloudSignOut;
   final String? error;
 
   KolkhozGameVariants get activeVariants {
@@ -621,8 +1073,10 @@ class StandaloneLobby extends StatelessWidget {
                   appearance: appearance,
                   showingRules: showingRules,
                   showingOnline: showingOnline,
+                  showingProfile: showingProfile,
                   onOfflinePressed: onOfflinePressed,
                   onOnlinePressed: onOnlinePressed,
+                  onProfilePressed: onProfilePressed,
                   onRulesPressed: onRulesPressed,
                   onLanguageToggle: onLanguageToggle,
                   onAppearanceToggle: onAppearanceToggle,
@@ -640,13 +1094,31 @@ class StandaloneLobby extends StatelessWidget {
                   variants: activeVariants,
                   showingRules: showingRules,
                   showingOnline: showingOnline,
+                  showingProfile: showingProfile,
+                  displayName: displayName,
+                  portraitAsset: portraitAsset,
+                  profileStats: profileStats,
+                  cloudConfigured: cloudConfigured,
+                  cloudReady: cloudReady,
+                  cloudSignedIn: cloudSignedIn,
+                  cloudEmail: cloudEmail,
+                  cloudAuthBusy: cloudAuthBusy,
+                  cloudAuthMessage: cloudAuthMessage,
+                  cloudAuthIsError: cloudAuthIsError,
                   onTutorialPressed: onTutorialPressed,
                   onStart: onStart,
                   onHostOnline: onHostOnline,
                   onJoinOnline: onJoinOnline,
+                  onEnterOnlineGame: onEnterOnlineGame,
                   onPresetChanged: onPresetChanged,
                   onCustomVariantsChanged: onCustomVariantsChanged,
                   onPlayerControllersChanged: onPlayerControllersChanged,
+                  onDisplayNameChanged: onDisplayNameChanged,
+                  onPortraitChanged: onPortraitChanged,
+                  onCloudSignIn: onCloudSignIn,
+                  onCloudSignUp: onCloudSignUp,
+                  onCloudResetPassword: onCloudResetPassword,
+                  onCloudSignOut: onCloudSignOut,
                 ),
               );
 
@@ -704,8 +1176,10 @@ class _LobbyTitleColumn extends StatelessWidget {
     required this.appearance,
     required this.showingRules,
     required this.showingOnline,
+    required this.showingProfile,
     required this.onOfflinePressed,
     required this.onOnlinePressed,
+    required this.onProfilePressed,
     required this.onRulesPressed,
     required this.onLanguageToggle,
     required this.onAppearanceToggle,
@@ -716,8 +1190,10 @@ class _LobbyTitleColumn extends StatelessWidget {
   final KolkhozAppearance appearance;
   final bool showingRules;
   final bool showingOnline;
+  final bool showingProfile;
   final VoidCallback onOfflinePressed;
   final VoidCallback onOnlinePressed;
+  final VoidCallback? onProfilePressed;
   final VoidCallback onRulesPressed;
   final VoidCallback onLanguageToggle;
   final VoidCallback onAppearanceToggle;
@@ -759,8 +1235,10 @@ class _LobbyTitleColumn extends StatelessWidget {
               language: language,
               showingRules: showingRules,
               showingOnline: showingOnline,
+              showingProfile: showingProfile,
               onOfflinePressed: onOfflinePressed,
               onOnlinePressed: onOnlinePressed,
+              onProfilePressed: onProfilePressed,
               onRulesPressed: onRulesPressed,
             ),
             Image.asset(
@@ -791,8 +1269,10 @@ class _LobbyButtonStack extends StatelessWidget {
     required this.language,
     required this.showingRules,
     required this.showingOnline,
+    required this.showingProfile,
     required this.onOfflinePressed,
     required this.onOnlinePressed,
+    required this.onProfilePressed,
     required this.onRulesPressed,
   });
 
@@ -800,8 +1280,10 @@ class _LobbyButtonStack extends StatelessWidget {
   final KolkhozLanguage language;
   final bool showingRules;
   final bool showingOnline;
+  final bool showingProfile;
   final VoidCallback onOfflinePressed;
   final VoidCallback onOnlinePressed;
+  final VoidCallback? onProfilePressed;
   final VoidCallback onRulesPressed;
 
   @override
@@ -829,6 +1311,17 @@ class _LobbyButtonStack extends StatelessWidget {
             tokens: tokens,
             onPressed: onOnlinePressed,
             iconAsset: 'ios_resources/Icons/icon-play-tap.png',
+          ),
+        ),
+        SizedBox(
+          width: double.infinity,
+          height: 44,
+          child: ChromeAssetButton.command(
+            label: language.text(en: 'Profile', ru: 'Профиль'),
+            prominent: showingProfile,
+            tokens: tokens,
+            onPressed: onProfilePressed,
+            iconAsset: 'ios_resources/Icons/icon-human-seat.png',
           ),
         ),
         SizedBox(
@@ -994,13 +1487,31 @@ class _LobbyPanel extends StatelessWidget {
     required this.variants,
     required this.showingRules,
     required this.showingOnline,
+    required this.showingProfile,
+    required this.displayName,
+    required this.portraitAsset,
+    required this.profileStats,
+    required this.cloudConfigured,
+    required this.cloudReady,
+    required this.cloudSignedIn,
+    required this.cloudEmail,
+    required this.cloudAuthBusy,
+    required this.cloudAuthMessage,
+    required this.cloudAuthIsError,
     required this.onTutorialPressed,
     required this.onStart,
     required this.onHostOnline,
     required this.onJoinOnline,
+    required this.onEnterOnlineGame,
     required this.onPresetChanged,
     required this.onCustomVariantsChanged,
     required this.onPlayerControllersChanged,
+    required this.onDisplayNameChanged,
+    required this.onPortraitChanged,
+    required this.onCloudSignIn,
+    required this.onCloudSignUp,
+    required this.onCloudResetPassword,
+    required this.onCloudSignOut,
   });
 
   final DesignTokens tokens;
@@ -1011,11 +1522,23 @@ class _LobbyPanel extends StatelessWidget {
   final KolkhozGameVariants variants;
   final bool showingRules;
   final bool showingOnline;
+  final bool showingProfile;
+  final String displayName;
+  final String portraitAsset;
+  final KolkhozProfileStats profileStats;
+  final bool cloudConfigured;
+  final bool cloudReady;
+  final bool cloudSignedIn;
+  final String? cloudEmail;
+  final bool cloudAuthBusy;
+  final String? cloudAuthMessage;
+  final bool cloudAuthIsError;
   final VoidCallback onTutorialPressed;
   final VoidCallback onStart;
   final Future<String> Function(
     Uri baseURL,
     List<KolkhozPlayerController> controllers,
+    bool enterImmediately,
   )
   onHostOnline;
   final Future<void> Function(
@@ -1024,20 +1547,49 @@ class _LobbyPanel extends StatelessWidget {
     int? preferredPlayerID,
   )
   onJoinOnline;
+  final VoidCallback onEnterOnlineGame;
   final ValueChanged<KolkhozGamePreset> onPresetChanged;
   final ValueChanged<KolkhozGameVariants> onCustomVariantsChanged;
   final ValueChanged<List<KolkhozPlayerController>> onPlayerControllersChanged;
+  final ValueChanged<String>? onDisplayNameChanged;
+  final ValueChanged<String>? onPortraitChanged;
+  final Future<void> Function(String email, String password)? onCloudSignIn;
+  final Future<void> Function(String email, String password)? onCloudSignUp;
+  final Future<void> Function(String email)? onCloudResetPassword;
+  final Future<void> Function()? onCloudSignOut;
 
   @override
   Widget build(BuildContext context) {
     return _PanelSurface(
       tokens: tokens,
-      child: showingOnline
+      child: showingProfile
+          ? _ProfilePanel(
+              tokens: tokens,
+              language: language,
+              displayName: displayName,
+              portraitAsset: portraitAsset,
+              profileStats: profileStats,
+              cloudConfigured: cloudConfigured,
+              cloudReady: cloudReady,
+              cloudSignedIn: cloudSignedIn,
+              cloudEmail: cloudEmail,
+              cloudAuthBusy: cloudAuthBusy,
+              cloudAuthMessage: cloudAuthMessage,
+              cloudAuthIsError: cloudAuthIsError,
+              onDisplayNameChanged: onDisplayNameChanged,
+              onPortraitChanged: onPortraitChanged,
+              onCloudSignIn: onCloudSignIn,
+              onCloudSignUp: onCloudSignUp,
+              onCloudResetPassword: onCloudResetPassword,
+              onCloudSignOut: onCloudSignOut,
+            )
+          : showingOnline
           ? _OnlinePanel(
               tokens: tokens,
               language: language,
               onHostOnline: onHostOnline,
               onJoinOnline: onJoinOnline,
+              onEnterOnlineGame: onEnterOnlineGame,
             )
           : showingRules
           ? _RulesPanel(
@@ -1745,12 +2297,783 @@ class _RulesPanel extends StatelessWidget {
   }
 }
 
+class _ProfilePanel extends StatefulWidget {
+  const _ProfilePanel({
+    required this.tokens,
+    required this.language,
+    required this.displayName,
+    required this.portraitAsset,
+    required this.profileStats,
+    required this.cloudConfigured,
+    required this.cloudReady,
+    required this.cloudSignedIn,
+    required this.cloudEmail,
+    required this.cloudAuthBusy,
+    required this.cloudAuthMessage,
+    required this.cloudAuthIsError,
+    required this.onDisplayNameChanged,
+    required this.onPortraitChanged,
+    required this.onCloudSignIn,
+    required this.onCloudSignUp,
+    required this.onCloudResetPassword,
+    required this.onCloudSignOut,
+  });
+
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final String displayName;
+  final String portraitAsset;
+  final KolkhozProfileStats profileStats;
+  final bool cloudConfigured;
+  final bool cloudReady;
+  final bool cloudSignedIn;
+  final String? cloudEmail;
+  final bool cloudAuthBusy;
+  final String? cloudAuthMessage;
+  final bool cloudAuthIsError;
+  final ValueChanged<String>? onDisplayNameChanged;
+  final ValueChanged<String>? onPortraitChanged;
+  final Future<void> Function(String email, String password)? onCloudSignIn;
+  final Future<void> Function(String email, String password)? onCloudSignUp;
+  final Future<void> Function(String email)? onCloudResetPassword;
+  final Future<void> Function()? onCloudSignOut;
+
+  @override
+  State<_ProfilePanel> createState() => _ProfilePanelState();
+}
+
+class _ProfilePanelState extends State<_ProfilePanel> {
+  late final TextEditingController displayNameController;
+  late final TextEditingController emailController;
+  late final TextEditingController passwordController;
+  late final TextEditingController confirmPasswordController;
+  late String lastSubmittedName;
+
+  @override
+  void initState() {
+    super.initState();
+    lastSubmittedName = widget.displayName;
+    displayNameController = TextEditingController(text: widget.displayName);
+    emailController = TextEditingController();
+    passwordController = TextEditingController();
+    confirmPasswordController = TextEditingController();
+    displayNameController.addListener(notifyDisplayNameChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProfilePanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.displayName != lastSubmittedName &&
+        widget.displayName != displayNameController.text) {
+      displayNameController.text = widget.displayName;
+      lastSubmittedName = widget.displayName;
+    }
+  }
+
+  @override
+  void dispose() {
+    displayNameController.removeListener(notifyDisplayNameChanged);
+    displayNameController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  void notifyDisplayNameChanged() {
+    final next = displayNameController.text;
+    if (next == lastSubmittedName) {
+      return;
+    }
+    lastSubmittedName = next;
+    widget.onDisplayNameChanged?.call(next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final previewName = widget.displayName.trim().isEmpty
+        ? defaultProfileDisplayName
+        : widget.displayName.trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 10,
+      children: [
+        Row(
+          spacing: 8,
+          children: [
+            const _AssetIcon(
+              'ios_resources/Icons/icon-human-seat.png',
+              size: 30,
+            ),
+            Text(
+              widget.language.text(en: 'PROFILE', ru: 'ПРОФИЛЬ'),
+              style: kolkhozFontStyle.copyWith(
+                color: widget.tokens.colors.gold,
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        _GoldDivider(tokens: widget.tokens),
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 12,
+              children: [
+                _ProfilePreview(
+                  tokens: widget.tokens,
+                  name: previewName,
+                  portraitAsset: widget.portraitAsset,
+                ),
+                _ProfileStatsGrid(
+                  tokens: widget.tokens,
+                  language: widget.language,
+                  stats: widget.profileStats,
+                ),
+                _CloudAuthPanel(
+                  tokens: widget.tokens,
+                  language: widget.language,
+                  configured: widget.cloudConfigured,
+                  ready: widget.cloudReady,
+                  signedIn: widget.cloudSignedIn,
+                  email: widget.cloudEmail,
+                  busy: widget.cloudAuthBusy,
+                  message: widget.cloudAuthMessage,
+                  messageIsError: widget.cloudAuthIsError,
+                  emailController: emailController,
+                  passwordController: passwordController,
+                  confirmPasswordController: confirmPasswordController,
+                  onSignIn: widget.onCloudSignIn,
+                  onSignUp: widget.onCloudSignUp,
+                  onResetPassword: widget.onCloudResetPassword,
+                  onSignOut: widget.onCloudSignOut,
+                ),
+                _ProfileTextField(
+                  tokens: widget.tokens,
+                  controller: displayNameController,
+                  label: widget.language.text(
+                    en: 'DISPLAY NAME',
+                    ru: 'ИМЯ ИГРОКА',
+                  ),
+                ),
+                Text(
+                  widget.language.text(en: 'PORTRAIT', ru: 'ПОРТРЕТ'),
+                  style: kolkhozFontStyle.copyWith(
+                    color: widget.tokens.colors.gold,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final asset in profilePortraitAssets)
+                      _ProfilePortraitChoice(
+                        tokens: widget.tokens,
+                        asset: asset,
+                        selected: widget.portraitAsset == asset,
+                        onPressed: widget.onPortraitChanged == null
+                            ? null
+                            : () => widget.onPortraitChanged!(asset),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CloudAuthPanel extends StatefulWidget {
+  const _CloudAuthPanel({
+    required this.tokens,
+    required this.language,
+    required this.configured,
+    required this.ready,
+    required this.signedIn,
+    required this.email,
+    required this.busy,
+    required this.message,
+    required this.messageIsError,
+    required this.emailController,
+    required this.passwordController,
+    required this.confirmPasswordController,
+    required this.onSignIn,
+    required this.onSignUp,
+    required this.onResetPassword,
+    required this.onSignOut,
+  });
+
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final bool configured;
+  final bool ready;
+  final bool signedIn;
+  final String? email;
+  final bool busy;
+  final String? message;
+  final bool messageIsError;
+  final TextEditingController emailController;
+  final TextEditingController passwordController;
+  final TextEditingController confirmPasswordController;
+  final Future<void> Function(String email, String password)? onSignIn;
+  final Future<void> Function(String email, String password)? onSignUp;
+  final Future<void> Function(String email)? onResetPassword;
+  final Future<void> Function()? onSignOut;
+
+  @override
+  State<_CloudAuthPanel> createState() => _CloudAuthPanelState();
+}
+
+class _CloudAuthPanelState extends State<_CloudAuthPanel> {
+  String? localMessage;
+
+  void clearLocalMessage() {
+    if (localMessage == null) {
+      return;
+    }
+    setState(() => localMessage = null);
+  }
+
+  void submitSignUp() {
+    final password = widget.passwordController.text;
+    final confirmPassword = widget.confirmPasswordController.text;
+    if (password != confirmPassword) {
+      setState(() {
+        localMessage = widget.language.text(
+          en: 'Passwords do not match.',
+          ru: 'Пароли не совпадают.',
+        );
+      });
+      return;
+    }
+    clearLocalMessage();
+    widget.onSignUp?.call(widget.emailController.text, password);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = !widget.configured
+        ? widget.language.text(
+            en: 'Cloud profiles are not configured for this build.',
+            ru: 'Облачные профили не настроены для этой сборки.',
+          )
+        : !widget.ready
+        ? widget.language.text(
+            en: 'Cloud profiles are starting.',
+            ru: 'Облачные профили запускаются.',
+          )
+        : widget.signedIn
+        ? widget.language.text(
+            en: 'Signed in as ${widget.email ?? 'player'}',
+            ru: 'Вход: ${widget.email ?? 'игрок'}',
+          )
+        : widget.language.text(
+            en: 'Sign in to sync profile and online seats.',
+            ru: 'Войдите, чтобы синхронизировать профиль и места.',
+          );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 8,
+      children: [
+        Text(
+          widget.language.text(en: 'ACCOUNT', ru: 'АККАУНТ'),
+          style: kolkhozFontStyle.copyWith(
+            color: widget.tokens.colors.gold,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        _VariantRowBackground(
+          tokens: widget.tokens,
+          active: widget.signedIn,
+          child: Text(
+            status,
+            style: kolkhozFontStyle.copyWith(
+              color: widget.signedIn
+                  ? widget.tokens.colors.cream
+                  : widget.tokens.colors.creamDim,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        if (widget.message != null)
+          _OnlineStatusBanner(
+            tokens: widget.tokens,
+            message: widget.message!,
+            isError: widget.messageIsError,
+          ),
+        if (widget.configured &&
+            widget.ready &&
+            !widget.signedIn &&
+            localMessage != null)
+          _OnlineStatusBanner(
+            tokens: widget.tokens,
+            message: localMessage!,
+            isError: true,
+          ),
+        if (widget.configured && widget.ready && !widget.signedIn) ...[
+          _ProfileTextField(
+            tokens: widget.tokens,
+            controller: widget.emailController,
+            label: widget.language.text(en: 'EMAIL', ru: 'EMAIL'),
+            maxLength: 72,
+            onChanged: (_) => clearLocalMessage(),
+          ),
+          _ProfileTextField(
+            tokens: widget.tokens,
+            controller: widget.passwordController,
+            label: widget.language.text(en: 'PASSWORD', ru: 'ПАРОЛЬ'),
+            obscureText: true,
+            maxLength: 72,
+            onChanged: (_) => clearLocalMessage(),
+          ),
+          _ProfileTextField(
+            tokens: widget.tokens,
+            controller: widget.confirmPasswordController,
+            label: widget.language.text(
+              en: 'CONFIRM PASSWORD',
+              ru: 'ПОВТОРИТЕ ПАРОЛЬ',
+            ),
+            obscureText: true,
+            maxLength: 72,
+            onChanged: (_) => clearLocalMessage(),
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.end,
+            children: [
+              SizedBox(
+                width: 142,
+                height: 38,
+                child: ChromeAssetButton.command(
+                  label: widget.busy
+                      ? widget.language.text(en: 'Working...', ru: 'Идёт...')
+                      : widget.language.text(en: 'Sign In', ru: 'Войти'),
+                  prominent: false,
+                  tokens: widget.tokens,
+                  onPressed: widget.busy || widget.onSignIn == null
+                      ? null
+                      : () {
+                          clearLocalMessage();
+                          widget.onSignIn!(
+                            widget.emailController.text,
+                            widget.passwordController.text,
+                          );
+                        },
+                ),
+              ),
+              SizedBox(
+                width: 142,
+                height: 38,
+                child: ChromeAssetButton.command(
+                  label: widget.language.text(en: 'Reset', ru: 'Сбросить'),
+                  prominent: false,
+                  tokens: widget.tokens,
+                  onPressed: widget.busy || widget.onResetPassword == null
+                      ? null
+                      : () {
+                          clearLocalMessage();
+                          widget.onResetPassword!(widget.emailController.text);
+                        },
+                ),
+              ),
+              SizedBox(
+                width: 142,
+                height: 38,
+                child: ChromeAssetButton.command(
+                  label: widget.language.text(en: 'Create', ru: 'Создать'),
+                  prominent: true,
+                  tokens: widget.tokens,
+                  onPressed: widget.busy || widget.onSignUp == null
+                      ? null
+                      : submitSignUp,
+                ),
+              ),
+            ],
+          ),
+        ],
+        if (widget.configured && widget.ready && widget.signedIn)
+          Align(
+            alignment: Alignment.centerRight,
+            child: SizedBox(
+              width: 142,
+              height: 38,
+              child: ChromeAssetButton.command(
+                label: widget.busy
+                    ? widget.language.text(en: 'Working...', ru: 'Идёт...')
+                    : widget.language.text(en: 'Sign Out', ru: 'Выйти'),
+                prominent: false,
+                tokens: widget.tokens,
+                onPressed: widget.busy || widget.onSignOut == null
+                    ? null
+                    : widget.onSignOut,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ProfilePreview extends StatelessWidget {
+  const _ProfilePreview({
+    required this.tokens,
+    required this.name,
+    required this.portraitAsset,
+  });
+
+  final DesignTokens tokens;
+  final String name;
+  final String portraitAsset;
+
+  @override
+  Widget build(BuildContext context) {
+    return _VariantRowBackground(
+      tokens: tokens,
+      active: true,
+      child: Row(
+        spacing: 12,
+        children: [
+          _ProfilePortraitImage(
+            tokens: tokens,
+            asset: portraitAsset,
+            size: 74,
+            selected: true,
+          ),
+          Expanded(
+            child: Text(
+              name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: kolkhozFontStyle.copyWith(
+                color: tokens.colors.cream,
+                fontSize: 24,
+                height: 1.0,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileStatsGrid extends StatelessWidget {
+  const _ProfileStatsGrid({
+    required this.tokens,
+    required this.language,
+    required this.stats,
+  });
+
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final KolkhozProfileStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    final totalGames = stats.totalWins + stats.totalLosses;
+    final winRate = totalGames == 0
+        ? '0%'
+        : '${((stats.totalWins / totalGames) * 100).round()}%';
+    final tiles = [
+      _ProfileStatTileData(
+        label: language.text(en: 'OFFLINE', ru: 'ОФЛАЙН'),
+        value: stats.offlinePlays.toString(),
+        detail: language.text(en: 'games', ru: 'игры'),
+      ),
+      _ProfileStatTileData(
+        label: language.text(en: 'OFF WINS', ru: 'ОФЛ ПОБ'),
+        value: stats.offlineWins.toString(),
+        detail: language.text(en: 'wins', ru: 'победы'),
+      ),
+      _ProfileStatTileData(
+        label: language.text(en: 'ONLINE', ru: 'ОНЛАЙН'),
+        value: stats.onlinePlays.toString(),
+        detail: language.text(en: 'games', ru: 'игры'),
+      ),
+      _ProfileStatTileData(
+        label: language.text(en: 'ON WINS', ru: 'ОНЛ ПОБ'),
+        value: stats.onlineWins.toString(),
+        detail: language.text(en: 'wins', ru: 'победы'),
+      ),
+      _ProfileStatTileData(
+        label: language.text(en: 'RATING', ru: 'РЕЙТИНГ'),
+        value: stats.rating.toString(),
+        detail: language.text(en: 'current', ru: 'текущий'),
+      ),
+      _ProfileStatTileData(
+        label: language.text(en: 'WINS', ru: 'ПОБЕДЫ'),
+        value: stats.totalWins.toString(),
+        detail: language.text(en: 'total', ru: 'всего'),
+      ),
+      _ProfileStatTileData(
+        label: language.text(en: 'LOSSES', ru: 'ПОРАЖЕНИЯ'),
+        value: stats.totalLosses.toString(),
+        detail: winRate,
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 8,
+      children: [
+        Text(
+          language.text(en: 'STATS', ru: 'СТАТИСТИКА'),
+          style: kolkhozFontStyle.copyWith(
+            color: tokens.colors.gold,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth >= 700
+                ? 5
+                : constraints.maxWidth >= 480
+                ? 3
+                : 2;
+            const spacing = 8.0;
+            final tileWidth =
+                (constraints.maxWidth - (spacing * (columns - 1))) / columns;
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: [
+                for (final tile in tiles)
+                  SizedBox(
+                    width: tileWidth,
+                    height: 82,
+                    child: _ProfileStatTile(tokens: tokens, data: tile),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileStatTileData {
+  const _ProfileStatTileData({
+    required this.label,
+    required this.value,
+    required this.detail,
+  });
+
+  final String label;
+  final String value;
+  final String detail;
+}
+
+class _ProfileStatTile extends StatelessWidget {
+  const _ProfileStatTile({required this.tokens, required this.data});
+
+  final DesignTokens tokens;
+  final _ProfileStatTileData data;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: 0.30),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: tokens.colors.steel.withValues(alpha: 0.34)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            data.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: kolkhozFontStyle.copyWith(
+              color: tokens.colors.creamDim.withValues(alpha: 0.76),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Text(
+            data.value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: kolkhozFontStyle.copyWith(
+              color: tokens.colors.cream,
+              fontSize: 26,
+              height: 0.95,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Text(
+            data.detail,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: kolkhozFontStyle.copyWith(
+              color: tokens.colors.gold,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileTextField extends StatelessWidget {
+  const _ProfileTextField({
+    required this.tokens,
+    required this.controller,
+    required this.label,
+    this.obscureText = false,
+    this.maxLength = 24,
+    this.onChanged,
+  });
+
+  final DesignTokens tokens;
+  final TextEditingController controller;
+  final String label;
+  final bool obscureText;
+  final int maxLength;
+  final ValueChanged<String>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: 0.30),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: tokens.colors.steel.withValues(alpha: 0.34)),
+      ),
+      child: TextField(
+        controller: controller,
+        obscureText: obscureText,
+        maxLength: maxLength,
+        onChanged: onChanged,
+        minLines: 1,
+        maxLines: 1,
+        style: kolkhozFontStyle.copyWith(
+          color: tokens.colors.cream,
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+        ),
+        decoration: InputDecoration(
+          labelText: label,
+          counterText: '',
+          labelStyle: kolkhozFontStyle.copyWith(
+            color: tokens.colors.creamDim.withValues(alpha: 0.72),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 8,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfilePortraitChoice extends StatelessWidget {
+  const _ProfilePortraitChoice({
+    required this.tokens,
+    required this.asset,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final DesignTokens tokens;
+  final String asset;
+  final bool selected;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onPressed,
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: asset,
+        child: _ProfilePortraitImage(
+          tokens: tokens,
+          asset: asset,
+          size: 58,
+          selected: selected,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfilePortraitImage extends StatelessWidget {
+  const _ProfilePortraitImage({
+    required this.tokens,
+    required this.asset,
+    required this.size,
+    required this.selected,
+  });
+
+  final DesignTokens tokens;
+  final String asset;
+  final double size;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: selected
+            ? tokens.colors.gold.withValues(alpha: 0.26)
+            : tokens.colors.black.withValues(alpha: 0.30),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: selected
+              ? tokens.colors.gold
+              : tokens.colors.steel.withValues(alpha: 0.42),
+          width: selected ? 1.5 : 1,
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: Image.asset(
+          'ios_resources/$asset.png',
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.none,
+          errorBuilder: (_, _, _) =>
+              ColoredBox(color: tokens.colors.black.withValues(alpha: 0.42)),
+        ),
+      ),
+    );
+  }
+}
+
 class _OnlinePanel extends StatefulWidget {
   const _OnlinePanel({
     required this.tokens,
     required this.language,
     required this.onHostOnline,
     required this.onJoinOnline,
+    required this.onEnterOnlineGame,
   });
 
   final DesignTokens tokens;
@@ -1758,6 +3081,7 @@ class _OnlinePanel extends StatefulWidget {
   final Future<String> Function(
     Uri baseURL,
     List<KolkhozPlayerController> controllers,
+    bool enterImmediately,
   )
   onHostOnline;
   final Future<void> Function(
@@ -1766,6 +3090,7 @@ class _OnlinePanel extends StatefulWidget {
     int? preferredPlayerID,
   )
   onJoinOnline;
+  final VoidCallback onEnterOnlineGame;
 
   @override
   State<_OnlinePanel> createState() => _OnlinePanelState();
@@ -1784,6 +3109,12 @@ class _OnlinePanelState extends State<_OnlinePanel> {
   int preferredSeat = -1;
   bool busy = false;
   String? status;
+  bool statusIsError = false;
+  List<OnlineSessionListing> openSessions = const [];
+  Timer? hostedSessionPollTimer;
+  String? hostedSessionID;
+
+  bool get waitingForHostedPlayer => hostedSessionID != null;
 
   @override
   void initState() {
@@ -1794,6 +3125,7 @@ class _OnlinePanelState extends State<_OnlinePanel> {
 
   @override
   void dispose() {
+    hostedSessionPollTimer?.cancel();
     serverController.dispose();
     inviteController.dispose();
     super.dispose();
@@ -1801,14 +3133,115 @@ class _OnlinePanelState extends State<_OnlinePanel> {
 
   Future<void> host() async {
     await runOnlineAction(() async {
+      final controllers = hostControllers;
+      final waitingForRemotePlayer = controllers
+          .skip(1)
+          .contains(KolkhozPlayerController.human);
       final sessionID = await widget.onHostOnline(
         parseServerURL(),
-        hostControllers,
+        controllers,
+        !waitingForRemotePlayer,
       );
+      if (waitingForRemotePlayer) {
+        hostedSessionID = sessionID;
+        status = waitingForPlayersStatus(sessionID);
+        statusIsError = false;
+        startHostedSessionPolling();
+      } else {
+        status = widget.language.text(
+          en: 'Hosted $sessionID',
+          ru: 'Создано $sessionID',
+        );
+        statusIsError = false;
+      }
+    });
+  }
+
+  Future<void> refreshSessions() async {
+    await runOnlineAction(() async {
+      final sessions = await KolkhozOnlineClient(
+        parseServerURL(),
+      ).fetchSessions();
+      openSessions = sessions;
+      status = sessions.isEmpty
+          ? widget.language.text(en: 'No open games', ru: 'Нет открытых игр')
+          : widget.language.text(
+              en: '${sessions.length} open',
+              ru: 'Открыто: ${sessions.length}',
+            );
+      statusIsError = false;
+    });
+  }
+
+  Future<void> refreshHostedSession() async {
+    final sessionID = hostedSessionID;
+    if (sessionID == null) {
+      return;
+    }
+    final hosted = await KolkhozOnlineClient(
+      parseServerURL(),
+    ).fetchSession(sessionID);
+    if (hosted.occupiedSeats.length > 1) {
+      stopHostedSessionPolling();
       status = widget.language.text(
-        en: 'Hosted $sessionID',
-        ru: 'Создано $sessionID',
+        en: 'Player joined. Starting...',
+        ru: 'Игрок вошёл. Начинаем...',
       );
+      statusIsError = false;
+      widget.onEnterOnlineGame();
+      return;
+    }
+    status = waitingForPlayersStatus(sessionID);
+    statusIsError = false;
+  }
+
+  void startHostedSessionPolling() {
+    hostedSessionPollTimer?.cancel();
+    hostedSessionPollTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      unawaited(pollHostedSession());
+    });
+  }
+
+  Future<void> pollHostedSession() async {
+    try {
+      await refreshHostedSession();
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (exception) {
+      if (mounted) {
+        setState(() {
+          status = onlineStatusMessage(exception);
+          statusIsError = true;
+        });
+      }
+    }
+  }
+
+  void stopHostedSessionPolling() {
+    hostedSessionPollTimer?.cancel();
+    hostedSessionPollTimer = null;
+  }
+
+  String waitingForPlayersStatus(String sessionID) {
+    final shortID = sessionID.length <= 8
+        ? sessionID
+        : sessionID.substring(0, 8).toUpperCase();
+    return widget.language.text(
+      en: 'Looking for player... $shortID',
+      ru: 'Ищем игрока... $shortID',
+    );
+  }
+
+  Future<void> joinSession(OnlineSessionListing session) async {
+    await runOnlineAction(() async {
+      final seat = session.openSeats.isEmpty ? null : session.openSeats.first;
+      await widget.onJoinOnline(parseServerURL(), session.sessionID, seat);
+      status = widget.language.text(
+        en: 'Joined ${session.shortID}',
+        ru: 'Вошли ${session.shortID}',
+      );
+      statusIsError = false;
     });
   }
 
@@ -1823,6 +3256,7 @@ class _OnlinePanelState extends State<_OnlinePanel> {
         en: 'Joined ${inviteController.text.trim()}',
         ru: 'Вошли ${inviteController.text.trim()}',
       );
+      statusIsError = false;
     });
   }
 
@@ -1833,12 +3267,16 @@ class _OnlinePanelState extends State<_OnlinePanel> {
     setState(() {
       busy = true;
       status = null;
+      statusIsError = false;
     });
     try {
       await action();
     } catch (exception) {
       if (mounted) {
-        setState(() => status = '$exception');
+        setState(() {
+          status = onlineStatusMessage(exception);
+          statusIsError = true;
+        });
       }
     } finally {
       if (mounted) {
@@ -1853,6 +3291,34 @@ class _OnlinePanelState extends State<_OnlinePanel> {
       throw const FormatException('Enter a full server URL.');
     }
     return uri;
+  }
+
+  String onlineStatusMessage(Object exception) {
+    if (exception is FormatException) {
+      return exception.message;
+    }
+    if (exception is SocketException) {
+      return widget.language.text(
+        en: 'Could not reach the online server. Check the URL and make sure the server is running.',
+        ru: 'Не удалось подключиться к серверу. Проверьте адрес и запустите сервер.',
+      );
+    }
+    if (exception is HttpException) {
+      if (exception.message.contains('sent north')) {
+        return widget.language.text(
+          en: 'Sent north: online play is locked for this account.',
+          ru: 'Сослан на север: онлайн временно закрыт для аккаунта.',
+        );
+      }
+      return widget.language.text(
+        en: 'The online server rejected the request.',
+        ru: 'Сервер отклонил запрос.',
+      );
+    }
+    return widget.language.text(
+      en: 'Online request failed. Try again.',
+      ru: 'Онлайн-запрос не удался. Повторите попытку.',
+    );
   }
 
   List<KolkhozPlayerController> get hostControllers {
@@ -1915,9 +3381,16 @@ class _OnlinePanelState extends State<_OnlinePanel> {
                   tokens: widget.tokens,
                   language: widget.language,
                   mode: mode,
-                  onChanged: busy
+                  onChanged: busy || waitingForHostedPlayer
                       ? null
-                      : (value) => setState(() => mode = value),
+                      : (value) {
+                          stopHostedSessionPolling();
+                          hostedSessionID = null;
+                          setState(() => mode = value);
+                          if (value == _OnlineMode.join) {
+                            unawaited(refreshSessions());
+                          }
+                        },
                 ),
                 _OnlineTextField(
                   tokens: widget.tokens,
@@ -1932,7 +3405,7 @@ class _OnlinePanelState extends State<_OnlinePanel> {
                     tokens: widget.tokens,
                     language: widget.language,
                     choices: seatChoices,
-                    onChanged: busy
+                    onChanged: busy || waitingForHostedPlayer
                         ? null
                         : (index, value) {
                             setState(() {
@@ -1945,6 +3418,14 @@ class _OnlinePanelState extends State<_OnlinePanel> {
                           },
                   )
                 else ...[
+                  _OpenSessionsList(
+                    tokens: widget.tokens,
+                    language: widget.language,
+                    sessions: openSessions,
+                    busy: busy,
+                    onRefresh: refreshSessions,
+                    onJoin: joinSession,
+                  ),
                   _OnlineTextField(
                     tokens: widget.tokens,
                     controller: inviteController,
@@ -1963,13 +3444,10 @@ class _OnlinePanelState extends State<_OnlinePanel> {
                   ),
                 ],
                 if (status != null)
-                  Text(
-                    status!,
-                    style: kolkhozFontStyle.copyWith(
-                      color: widget.tokens.colors.creamDim,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  _OnlineStatusBanner(
+                    tokens: widget.tokens,
+                    message: status!,
+                    isError: statusIsError,
                   ),
               ],
             ),
@@ -1985,18 +3463,20 @@ class _OnlinePanelState extends State<_OnlinePanel> {
               child: ChromeAssetButton.command(
                 label: busy
                     ? widget.language.text(en: 'Working...', ru: 'Идёт...')
+                    : waitingForHostedPlayer
+                    ? widget.language.text(en: 'Waiting...', ru: 'Ждём...')
                     : mode == _OnlineMode.host
                     ? widget.language.text(
-                        en: 'Host & Play',
+                        en: 'Host Game',
                         ru: 'Создать и играть',
                       )
                     : widget.language.text(
-                        en: 'Join & Play',
+                        en: 'Join Game',
                         ru: 'Войти и играть',
                       ),
                 prominent: true,
                 tokens: widget.tokens,
-                onPressed: busy
+                onPressed: busy || waitingForHostedPlayer
                     ? null
                     : mode == _OnlineMode.host
                     ? host
@@ -2013,6 +3493,44 @@ class _OnlinePanelState extends State<_OnlinePanel> {
 enum _OnlineMode { host, join }
 
 enum _OnlineSeatChoice { local, open, ai }
+
+class _OnlineStatusBanner extends StatelessWidget {
+  const _OnlineStatusBanner({
+    required this.tokens,
+    required this.message,
+    required this.isError,
+  });
+
+  final DesignTokens tokens;
+  final String message;
+  final bool isError;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isError ? tokens.colors.redBright : tokens.colors.creamDim;
+    final borderColor = isError
+        ? tokens.colors.redBright.withValues(alpha: 0.62)
+        : tokens.colors.steel.withValues(alpha: 0.44);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: 0.26),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: borderColor),
+      ),
+      child: Text(
+        message,
+        style: kolkhozFontStyle.copyWith(
+          color: color,
+          fontSize: 13,
+          height: 1.12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
 
 class _OnlineModeSelector extends StatelessWidget {
   const _OnlineModeSelector({
@@ -2119,6 +3637,156 @@ class _OnlineSeatOptions extends StatelessWidget {
             ],
           ),
       ],
+    );
+  }
+}
+
+class _OpenSessionsList extends StatelessWidget {
+  const _OpenSessionsList({
+    required this.tokens,
+    required this.language,
+    required this.sessions,
+    required this.busy,
+    required this.onRefresh,
+    required this.onJoin,
+  });
+
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final List<OnlineSessionListing> sessions;
+  final bool busy;
+  final VoidCallback onRefresh;
+  final ValueChanged<OnlineSessionListing> onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 7,
+      children: [
+        Row(
+          spacing: 8,
+          children: [
+            Expanded(
+              child: Text(
+                language.text(en: 'OPEN GAMES', ru: 'ОТКРЫТЫЕ ИГРЫ'),
+                style: kolkhozFontStyle.copyWith(
+                  color: tokens.colors.gold,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 112,
+              height: 34,
+              child: ChromeAssetButton.command(
+                label: language.text(en: 'Refresh', ru: 'Обновить'),
+                prominent: false,
+                tokens: tokens,
+                onPressed: busy ? null : onRefresh,
+              ),
+            ),
+          ],
+        ),
+        if (sessions.isEmpty)
+          _VariantRowBackground(
+            tokens: tokens,
+            active: false,
+            child: Text(
+              language.text(en: 'No open games', ru: 'Нет открытых игр'),
+              style: kolkhozFontStyle.copyWith(
+                color: tokens.colors.creamDim,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          )
+        else
+          for (final session in sessions)
+            _OpenSessionRow(
+              tokens: tokens,
+              language: language,
+              session: session,
+              busy: busy,
+              onJoin: () => onJoin(session),
+            ),
+      ],
+    );
+  }
+}
+
+class _OpenSessionRow extends StatelessWidget {
+  const _OpenSessionRow({
+    required this.tokens,
+    required this.language,
+    required this.session,
+    required this.busy,
+    required this.onJoin,
+  });
+
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final OnlineSessionListing session;
+  final bool busy;
+  final VoidCallback onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    final openSeats = session.openSeats
+        .map((seat) => language.text(en: 'P${seat + 1}', ru: 'И${seat + 1}'))
+        .join(' ');
+    final hostProfile = session.playerProfiles
+        .where((profile) => profile.playerID == 0)
+        .firstOrNull;
+    final hostName = hostProfile?.displayName?.trim();
+    return _VariantRowBackground(
+      tokens: tokens,
+      active: true,
+      child: Row(
+        spacing: 8,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 2,
+              children: [
+                Text(
+                  hostName == null || hostName.isEmpty
+                      ? session.shortID
+                      : '${session.shortID} - $hostName',
+                  style: kolkhozFontStyle.copyWith(
+                    color: tokens.colors.cream,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  language.text(
+                    en: 'Open $openSeats',
+                    ru: 'Открыто $openSeats',
+                  ),
+                  style: kolkhozFontStyle.copyWith(
+                    color: tokens.colors.creamDim,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            width: 82,
+            height: 34,
+            child: ChromeAssetButton.command(
+              label: language.text(en: 'Join', ru: 'Войти'),
+              prominent: true,
+              tokens: tokens,
+              onPressed: busy || session.openSeats.isEmpty ? null : onJoin,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2427,12 +4095,16 @@ extension _ControllerLobbyLabels on KolkhozPlayerController {
     return switch (this) {
       KolkhozPlayerController.human => language.text(en: 'Human', ru: 'Игрок'),
       KolkhozPlayerController.heuristicAI => language.text(
-        en: 'Basic',
-        ru: 'Базовый',
+        en: 'Easy',
+        ru: 'Легко',
+      ),
+      KolkhozPlayerController.mediumAI => language.text(
+        en: 'Medium',
+        ru: 'Средне',
       ),
       KolkhozPlayerController.neuralAI => language.text(
-        en: 'Neural',
-        ru: 'Нейро',
+        en: 'Hard',
+        ru: 'Сложно',
       ),
     };
   }
@@ -2443,6 +4115,8 @@ extension _ControllerLobbyLabels on KolkhozPlayerController {
         'ios_resources/Icons/icon-human-seat.png',
       KolkhozPlayerController.heuristicAI =>
         'ios_resources/Icons/icon-basic-ai.png',
+      KolkhozPlayerController.mediumAI =>
+        'ios_resources/Icons/icon-neural-ai.png',
       KolkhozPlayerController.neuralAI =>
         'ios_resources/Icons/icon-neural-ai.png',
     };

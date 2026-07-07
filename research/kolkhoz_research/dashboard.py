@@ -13,11 +13,46 @@ from typing import Any
 from urllib.parse import parse_qs, quote, urlparse
 from datetime import datetime, timezone
 
-from .history import CURRENT_EXPERIMENT_PATH, HISTORY_PATH, REPO_ROOT, now_iso
+from .history import CURRENT_EXPERIMENT_PATH, HISTORY_PATH, REPO_ROOT, STATE_ROOT, now_iso
 
 
 DASHBOARD_DIR = REPO_ROOT / "research/dashboard"
 RUNNING_STALE_SECONDS = 180
+
+
+def _allowed_data_roots() -> list[Path]:
+    roots = [REPO_ROOT, STATE_ROOT]
+    run_root = os.environ.get("KOLKHOZ_RESEARCH_RUN_ROOT")
+    if run_root:
+        roots.append(Path(run_root).expanduser())
+    resolved: list[Path] = []
+    for root in roots:
+        try:
+            path = root.resolve()
+        except OSError:
+            continue
+        if path not in resolved:
+            resolved.append(path)
+    return resolved
+
+
+def _resolve_data_path(path_value: Any) -> Path | None:
+    if not path_value or not isinstance(path_value, str):
+        return None
+    path = Path(path_value).expanduser()
+    if not path.is_absolute():
+        path = REPO_ROOT / path
+    try:
+        resolved = path.resolve()
+    except OSError:
+        return None
+    for root in _allowed_data_roots():
+        try:
+            resolved.relative_to(root)
+            return resolved
+        except ValueError:
+            continue
+    return None
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -31,14 +66,22 @@ def _read_json(path: Path) -> dict[str, Any] | None:
 
 
 def _read_linked_json(path_value: Any) -> dict[str, Any] | None:
-    if not path_value or not isinstance(path_value, str):
-        return None
-    path = (REPO_ROOT / path_value).resolve()
-    try:
-        path.relative_to(REPO_ROOT)
-    except ValueError:
+    path = _resolve_data_path(path_value)
+    if path is None:
         return None
     return _read_json(path)
+
+
+def _repo_path(path_value: Any) -> Path | None:
+    return _resolve_data_path(path_value)
+
+
+def _repo_relative(path: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(resolved)
 
 
 def _read_history(limit: int = 200) -> list[dict[str, Any]]:
@@ -197,6 +240,222 @@ def _artifact_spec(path_value: Any) -> dict[str, Any]:
     }
 
 
+def _read_launch_values(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return values
+    for line in lines:
+        key, separator, value = line.partition("=")
+        if separator and key:
+            values[key] = value
+    return values
+
+
+def _interval_mean(record: dict[str, Any] | None, key: str) -> float | None:
+    if not record:
+        return None
+    interval = (record.get("intervals") or {}).get(key)
+    if not isinstance(interval, dict):
+        return None
+    value = interval.get("mean")
+    return float(value) if isinstance(value, (int, float)) else None
+
+
+def _compact_pool_benchmark(record: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(record, dict):
+        return None
+    return {
+        "path": record.get("path") or record.get("benchmark_record"),
+        "status": record.get("status") or record.get("benchmark_status"),
+        "baseline_model": record.get("baseline_model"),
+        "games_per_seat": record.get("games_per_seat"),
+        "total_games": record.get("total_games"),
+        "summary": record.get("summary"),
+        "intervals": record.get("intervals"),
+        "win_delta": record.get("win_delta")
+        if isinstance(record.get("win_delta"), (int, float))
+        else _interval_mean(record, "win_delta"),
+        "rank_delta": record.get("rank_delta")
+        if isinstance(record.get("rank_delta"), (int, float))
+        else _interval_mean(record, "rank_delta"),
+        "margin_delta": record.get("margin_delta")
+        if isinstance(record.get("margin_delta"), (int, float))
+        else _interval_mean(record, "margin_delta"),
+        "utility_delta": record.get("utility_delta")
+        if isinstance(record.get("utility_delta"), (int, float))
+        else _interval_mean(record, "utility_delta"),
+        "promotion_eligible": record.get("promotion_eligible"),
+    }
+
+
+def _compact_model_pool(record: dict[str, Any]) -> list[dict[str, Any]]:
+    if record.get("kind") != "self_play_seed_pool":
+        return []
+    generations = record.get("generations")
+    if not isinstance(generations, list):
+        return []
+    promotion_by_generation = {
+        int(item.get("generation")): item
+        for item in record.get("promotion_records", []) or []
+        if isinstance(item, dict) and isinstance(item.get("generation"), (int, float))
+    }
+    pool = []
+    for item in generations:
+        if not isinstance(item, dict):
+            continue
+        generation = item.get("generation")
+        promotion = (
+            promotion_by_generation.get(int(generation))
+            if isinstance(generation, (int, float))
+            else None
+        )
+        selection = _compact_pool_benchmark(
+            _read_linked_json(item.get("selection_record") or item.get("benchmark_record"))
+        ) or _compact_pool_benchmark(item)
+        if selection and not selection.get("path"):
+            selection["path"] = item.get("selection_record") or item.get("benchmark_record")
+        current_best = _compact_pool_benchmark((promotion or {}).get("promotion_current_best"))
+        arena_records = [
+            compact
+            for compact in (
+                _compact_pool_benchmark(arena)
+                for arena in ((promotion or {}).get("arena_records") or [])
+                if isinstance(arena, dict)
+            )
+            if compact
+        ]
+        pool.append(
+            {
+                "generation": generation,
+                "seed": item.get("seed"),
+                "eval_seed": item.get("eval_seed"),
+                "candidate_model": item.get("candidate_model"),
+                "benchmark_status": item.get("benchmark_status"),
+                "selection_record": item.get("selection_record") or item.get("benchmark_record"),
+                "selection_score": item.get("selection_score"),
+                "selection": selection,
+                "finalist": bool(promotion),
+                "promotion_eligible": (promotion or {}).get("promotion_eligible"),
+                "promoted": (promotion or item).get("promoted"),
+                "arena_score": (promotion or {}).get("arena_score"),
+                "arena_mean_win_delta": (promotion or {}).get("arena_mean_win_delta"),
+                "worst_arena_win_delta": (promotion or {}).get("worst_arena_win_delta"),
+                "complete_arena": (promotion or {}).get("complete_arena"),
+                "promotion_current_best": current_best,
+                "arena_records": arena_records,
+            }
+        )
+    return pool
+
+
+def _pool_record_for_child(record: dict[str, Any]) -> dict[str, Any] | None:
+    run_dir = _repo_path(record.get("run_dir"))
+    if not run_dir or not run_dir.name.startswith("seed_"):
+        return None
+    parent = run_dir.parent
+    if not parent.name or not parent.parent.name.startswith("torch_mlp_self_play_seed_pool"):
+        return None
+    launch = _read_launch_values(parent / "launch.txt")
+    seed_dirs = sorted(
+        path
+        for path in parent.glob("seed_[0-9][0-9][0-9]")
+        if path.is_dir()
+    )
+    pool_size = int(launch.get("POOL_SIZE") or len(seed_dirs) or 0)
+    if pool_size <= 0:
+        return None
+
+    generations = []
+    for index in range(1, pool_size + 1):
+        seed_dir = parent / f"seed_{index:03d}"
+        summary = _read_json(seed_dir / "self_play_improvement.json") or {}
+        child_generations = summary.get("generations")
+        child = (
+            child_generations[0]
+            if isinstance(child_generations, list)
+            and child_generations
+            and isinstance(child_generations[0], dict)
+            else {}
+        )
+        selection_path = seed_dir / "generation_001" / "benchmark.json"
+        selection = _read_json(selection_path)
+        eval_seed = None
+        if launch.get("EVAL_SEED") and launch.get("SEED_STRIDE"):
+            eval_seed = int(launch["EVAL_SEED"]) + (index - 1) * int(launch["SEED_STRIDE"])
+        generations.append(
+            {
+                "generation": index,
+                "seed_run_dir": _repo_relative(seed_dir),
+                "seed": child.get("seed"),
+                "eval_seed": eval_seed,
+                "candidate_model": child.get("candidate_model")
+                or (selection or {}).get("candidate_model"),
+                "training_record": child.get("training_record"),
+                "selection_record": _repo_relative(selection_path)
+                if selection_path.exists()
+                else None,
+                "benchmark_record": _repo_relative(selection_path)
+                if selection_path.exists()
+                else None,
+                "benchmark_status": (selection or {}).get("status")
+                or child.get("benchmark_status"),
+                "summary": (selection or {}).get("summary") or child.get("summary"),
+                "intervals": (selection or {}).get("intervals") or child.get("intervals"),
+                "promoted": False,
+            }
+        )
+
+    promotion_records = []
+    for finalist_dir in sorted(parent.glob("finalist_[0-9][0-9][0-9]")):
+        if not finalist_dir.is_dir():
+            continue
+        try:
+            generation = int(finalist_dir.name.split("_", 1)[1])
+        except (IndexError, ValueError):
+            continue
+        source = next(
+            (item for item in generations if item.get("generation") == generation),
+            {},
+        )
+        current_best = _compact_pool_benchmark(
+            _read_json(finalist_dir / "promotion_current_best.json")
+        )
+        arena_records = [
+            compact
+            for compact in (
+                _compact_pool_benchmark(_read_json(path))
+                for path in sorted(finalist_dir.glob("arena_*.json"))
+            )
+            if compact
+        ]
+        promotion_records.append(
+            {
+                **source,
+                "promotion_current_best": current_best,
+                "arena_records": arena_records,
+                "promotion_eligible": bool(
+                    current_best and current_best.get("promotion_eligible")
+                ),
+                "promoted": False,
+            }
+        )
+
+    completed = sum(1 for item in generations if item.get("selection_record"))
+    return {
+        "kind": "self_play_seed_pool",
+        "status": record.get("status"),
+        "phase": record.get("phase"),
+        "run_dir": _repo_relative(parent),
+        "requested_generations": pool_size,
+        "completed_generations": completed,
+        "promoted_count": 0,
+        "generations": generations,
+        "promotion_records": promotion_records,
+    }
+
+
 def _compact(record: dict[str, Any]) -> dict[str, Any]:
     kind = str(record.get("kind", "unknown"))
     generations = record.get("generations") if isinstance(record.get("generations"), list) else []
@@ -206,6 +465,12 @@ def _compact(record: dict[str, Any]) -> dict[str, Any]:
     summary = record.get("summary")
     if summary is None and isinstance(latest_generation, dict):
         summary = latest_generation.get("summary")
+    if summary is None and isinstance(record.get("latest_point"), dict):
+        latest_point = record["latest_point"]
+        summary = {
+            **latest_point,
+            "average_action_count": latest_point.get("actions"),
+        }
     latest_generation_training = None
     latest_generation_benchmark = None
     if kind in {"self_play_improvement_loop", "self_play_seed_pool"} and isinstance(latest_generation, dict):
@@ -261,6 +526,8 @@ def _compact(record: dict[str, Any]) -> dict[str, Any]:
         "training": training,
         "progress": record.get("progress"),
         "curve": record.get("curve"),
+        "points": record.get("points"),
+        "latest_point": record.get("latest_point"),
         "updates": record.get("updates"),
         "evaluations": record.get("evaluations"),
         "latest_evaluation": record.get("latest_evaluation"),
@@ -281,6 +548,7 @@ def _compact(record: dict[str, Any]) -> dict[str, Any]:
         "promoted_count": record.get("promoted_count"),
         "finalists": record.get("finalists"),
         "promotion_records": record.get("promotion_records"),
+        "model_pool": _compact_model_pool(record),
         "best_candidate": record.get("best_candidate"),
         "stopped_reason": record.get("stopped_reason"),
         "run_dir": record.get("run_dir"),
@@ -302,6 +570,15 @@ def dashboard_payload() -> dict[str, Any]:
     current = (
         _compact(current_raw) if current_raw else (history[-1] if history else None)
     )
+    if current_raw and current and not current.get("model_pool"):
+        parent_pool = _pool_record_for_child(current_raw)
+        if parent_pool:
+            current["model_pool"] = _compact_model_pool(parent_pool)
+            current["pool_parent"] = {
+                "run_dir": parent_pool.get("run_dir"),
+                "completed_generations": parent_pool.get("completed_generations"),
+                "requested_generations": parent_pool.get("requested_generations"),
+            }
     trainings = [record for record in history if record["category"] == "training"]
     benchmarks = [record for record in history if record["category"] == "benchmark"]
     evaluations = [record for record in history if record["category"] == "evaluation"]
@@ -319,8 +596,8 @@ def dashboard_payload() -> dict[str, Any]:
             "evaluations": len(evaluations),
         },
         "paths": {
-            "history": str(HISTORY_PATH.relative_to(REPO_ROOT)),
-            "current": str(CURRENT_EXPERIMENT_PATH.relative_to(REPO_ROOT)),
+            "history": _repo_relative(HISTORY_PATH),
+            "current": _repo_relative(CURRENT_EXPERIMENT_PATH),
         },
     }
 

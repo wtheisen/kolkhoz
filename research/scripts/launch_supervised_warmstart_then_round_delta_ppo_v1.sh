@@ -7,8 +7,13 @@ REPO_ROOT="$(pwd)"
 EXPERIMENT="${EXPERIMENT:-supervised_warmstart_then_round_delta_ppo_v1}"
 RUN_SCRIPT="${RUN_SCRIPT:-research/scripts/run_supervised_warmstart_then_round_delta_ppo_v1.sh}"
 RUN_ID="${RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
-RUN_DIR="${RUN_DIR:-research/runs/${EXPERIMENT}/${RUN_ID}}"
-ABS_RUN_DIR="$REPO_ROOT/$RUN_DIR"
+RUN_ROOT="${KOLKHOZ_RESEARCH_RUN_ROOT:-research/runs}"
+RUN_DIR="${RUN_DIR:-${RUN_ROOT}/${EXPERIMENT}/${RUN_ID}}"
+if [[ "$RUN_DIR" = /* ]]; then
+  ABS_RUN_DIR="$RUN_DIR"
+else
+  ABS_RUN_DIR="$REPO_ROOT/$RUN_DIR"
+fi
 
 BASELINE="${BASELINE:-training/rl/runs/beat_promoted_wide_seat_heads_v1/20260702T144243Z/candidate.json}"
 START_MODEL="${START_MODEL:-research/runs/action_transformer_paired_delta_fullgame_v3/20260704T031950Z/checkpoints/candidate_ep4096.pt}"
@@ -35,6 +40,8 @@ EXPORT_NAMES=(
   START_MODEL
   RUN_ID
   RUN_DIR
+  KOLKHOZ_RESEARCH_STATE_DIR
+  KOLKHOZ_RESEARCH_RUN_ROOT
   TRAJECTORIES
   SUPERVISED
   OUTPUT
@@ -84,6 +91,7 @@ EXPORT_NAMES=(
   BATCH_SIZE
   ROLLOUT_ENVS
   ARCHITECTURE
+  REINITIALIZE_ARCHITECTURE
   OPPONENT_MODEL
   OPPONENT_SCHEDULE
   REWARD_MODE

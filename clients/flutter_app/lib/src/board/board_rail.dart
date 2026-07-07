@@ -4,8 +4,12 @@ import '../app_settings.dart';
 import '../chrome_button.dart';
 import '../design_tokens.dart';
 import '../game_constants.dart';
+import '../pixel_text.dart';
 import 'board_metrics.dart';
 import 'board_widgets.dart';
+
+const compactBoardToolbarCollapsedHeight = 56.0;
+const compactBoardToolbarExpandedHeight = 94.0;
 
 class BoardRail extends StatelessWidget {
   const BoardRail({
@@ -33,88 +37,263 @@ class BoardRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final buttons = boardRailButtons(
+      activePanel: activePanel,
+      actionPanel: actionPanel,
+      tokens: tokens,
+      metrics: metrics,
+      language: language,
+      appearance: appearance,
+      onPanelSelected: onPanelSelected,
+      onLanguageToggle: onLanguageToggle,
+      onAppearanceToggle: onAppearanceToggle,
+    );
     return Container(
       color: tokens.colors.table,
       padding: EdgeInsets.symmetric(
         horizontal: metrics.railHorizontalPadding,
         vertical: metrics.railVerticalPadding,
       ),
+      child: Column(spacing: metrics.railSpacing, children: buttons),
+    );
+  }
+}
+
+class CompactBoardToolbar extends StatefulWidget {
+  const CompactBoardToolbar({
+    required this.activePanel,
+    required this.actionPanel,
+    required this.tokens,
+    required this.metrics,
+    required this.language,
+    required this.appearance,
+    this.onPanelSelected,
+    this.onLanguageToggle,
+    this.onAppearanceToggle,
+    super.key,
+  });
+
+  final String activePanel;
+  final String actionPanel;
+  final DesignTokens tokens;
+  final ResponsiveBoardMetrics metrics;
+  final KolkhozLanguage language;
+  final KolkhozAppearance appearance;
+  final ValueChanged<String>? onPanelSelected;
+  final VoidCallback? onLanguageToggle;
+  final VoidCallback? onAppearanceToggle;
+
+  @override
+  State<CompactBoardToolbar> createState() => _CompactBoardToolbarState();
+}
+
+class _CompactBoardToolbarState extends State<CompactBoardToolbar> {
+  bool expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final buttons = boardRailButtons(
+      activePanel: widget.activePanel,
+      actionPanel: widget.actionPanel,
+      tokens: widget.tokens,
+      metrics: widget.metrics,
+      language: widget.language,
+      appearance: widget.appearance,
+      onPanelSelected: widget.onPanelSelected,
+      onLanguageToggle: widget.onLanguageToggle,
+      onAppearanceToggle: widget.onAppearanceToggle,
+    );
+    return Container(
+      height: expanded
+          ? compactBoardToolbarExpandedHeight
+          : compactBoardToolbarCollapsedHeight,
+      color: widget.tokens.colors.table,
+      padding: EdgeInsets.symmetric(
+        horizontal: widget.metrics.railHorizontalPadding,
+        vertical: widget.metrics.railVerticalPadding,
+      ),
       child: Column(
-        spacing: metrics.railSpacing,
+        spacing: 3,
         children: [
-          RailButton(
-            asset: 'icon-menu.png',
-            active: activePanel == panelOptions,
-            action: false,
-            label: language.text(en: 'Menu', ru: 'Меню'),
-            muted: activePanel != panelOptions,
-            tokens: tokens,
-            metrics: metrics,
-            onTap: () => onPanelSelected?.call(panelOptions),
+          GestureDetector(
+            key: const Key('compact-toolbar-resize-handle'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(() => expanded = !expanded),
+            child: SizedBox(
+              height: expanded ? 18 : 8,
+              child: Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: widget.tokens.colors.gold.withValues(alpha: 0.72),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+            ),
           ),
-          RailButton(
-            asset: 'icon-brigade.png',
-            active: activePanel == panelBrigade,
-            action: actionPanel == panelBrigade,
-            label: language.text(en: 'Brigade', ru: 'Бригада'),
-            muted: activePanel != panelBrigade,
-            tokens: tokens,
-            metrics: metrics,
-            onTap: () => onPanelSelected?.call(panelBrigade),
-          ),
-          RailButton(
-            asset: 'icon-jobs.png',
-            active: activePanel == panelJobs,
-            action: actionPanel == panelJobs,
-            label: language.text(en: 'Jobs', ru: 'Работы'),
-            muted: activePanel != panelJobs,
-            tokens: tokens,
-            metrics: metrics,
-            onTap: () => onPanelSelected?.call(panelJobs),
-          ),
-          RailButton(
-            asset: 'icon-north.png',
-            active: activePanel == panelNorth,
-            action: actionPanel == panelNorth,
-            label: language.text(en: 'The North', ru: 'Север'),
-            muted: activePanel != panelNorth,
-            motionKey: northCardMotionTargetKey,
-            tokens: tokens,
-            metrics: metrics,
-            onTap: () => onPanelSelected?.call(panelNorth),
-          ),
-          RailButton(
-            asset: 'icon-plot.png',
-            active: activePanel == panelPlot,
-            action: actionPanel == panelPlot,
-            label: language.text(en: 'Cellar', ru: 'Подвал'),
-            muted: activePanel != panelPlot,
-            tokens: tokens,
-            metrics: metrics,
-            onTap: () => onPanelSelected?.call(panelPlot),
-          ),
-          RailButton(
-            asset: language.toggleIconAsset,
-            active: false,
-            action: false,
-            label: language.toggleTitle,
-            tokens: tokens,
-            metrics: metrics,
-            onTap: onLanguageToggle,
-          ),
-          RailButton(
-            asset: 'icon-appearance.png',
-            active: false,
-            action: false,
-            label: appearance.toggleTitle(language),
-            tokens: tokens,
-            metrics: metrics,
-            onTap: onAppearanceToggle,
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                spacing: widget.metrics.railSpacing,
+                children: [
+                  for (var index = 0; index < buttons.length; index++)
+                    expanded
+                        ? CompactToolbarButtonLabel(
+                            label: compactToolbarLabelForIndex(
+                              index,
+                              widget.language,
+                              widget.appearance,
+                            ),
+                            tokens: widget.tokens,
+                            child: buttons[index],
+                          )
+                        : buttons[index],
+                ],
+              ),
+            ),
           ),
         ],
       ),
     );
   }
+}
+
+class CompactToolbarButtonLabel extends StatelessWidget {
+  const CompactToolbarButtonLabel({
+    required this.label,
+    required this.tokens,
+    required this.child,
+    super.key,
+  });
+
+  final String label;
+  final DesignTokens tokens;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 58,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        spacing: 2,
+        children: [
+          child,
+          Flexible(
+            child: ChromeScaledLabel(
+              label,
+              color: tokens.colors.creamDim,
+              size: PixelTextSize.caption,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String compactToolbarLabelForIndex(
+  int index,
+  KolkhozLanguage language,
+  KolkhozAppearance appearance,
+) {
+  return switch (index) {
+    0 => language.text(en: 'Menu', ru: 'Меню'),
+    1 => language.text(en: 'Board', ru: 'Стол'),
+    2 => language.text(en: 'Jobs', ru: 'Работы'),
+    3 => language.text(en: 'North', ru: 'Север'),
+    4 => language.text(en: 'Cellar', ru: 'Подвал'),
+    5 => language.text(en: 'Lang', ru: 'Язык'),
+    6 => appearance.label(language),
+    _ => '',
+  };
+}
+
+List<Widget> boardRailButtons({
+  required String activePanel,
+  required String actionPanel,
+  required DesignTokens tokens,
+  required ResponsiveBoardMetrics metrics,
+  required KolkhozLanguage language,
+  required KolkhozAppearance appearance,
+  ValueChanged<String>? onPanelSelected,
+  VoidCallback? onLanguageToggle,
+  VoidCallback? onAppearanceToggle,
+}) {
+  return [
+    RailButton(
+      asset: 'icon-menu.png',
+      active: activePanel == panelOptions,
+      action: false,
+      label: language.text(en: 'Menu', ru: 'Меню'),
+      muted: activePanel != panelOptions,
+      tokens: tokens,
+      metrics: metrics,
+      onTap: () => onPanelSelected?.call(panelOptions),
+    ),
+    RailButton(
+      asset: 'icon-brigade.png',
+      active: activePanel == panelBrigade,
+      action: actionPanel == panelBrigade,
+      label: language.text(en: 'Brigade', ru: 'Бригада'),
+      muted: activePanel != panelBrigade,
+      tokens: tokens,
+      metrics: metrics,
+      onTap: () => onPanelSelected?.call(panelBrigade),
+    ),
+    RailButton(
+      asset: 'icon-jobs.png',
+      active: activePanel == panelJobs,
+      action: actionPanel == panelJobs,
+      label: language.text(en: 'Jobs', ru: 'Работы'),
+      muted: activePanel != panelJobs,
+      tokens: tokens,
+      metrics: metrics,
+      onTap: () => onPanelSelected?.call(panelJobs),
+    ),
+    RailButton(
+      asset: 'icon-north.png',
+      active: activePanel == panelNorth,
+      action: actionPanel == panelNorth,
+      label: language.text(en: 'The North', ru: 'Север'),
+      muted: activePanel != panelNorth,
+      motionKey: northCardMotionTargetKey,
+      tokens: tokens,
+      metrics: metrics,
+      onTap: () => onPanelSelected?.call(panelNorth),
+    ),
+    RailButton(
+      asset: 'icon-plot.png',
+      active: activePanel == panelPlot,
+      action: actionPanel == panelPlot,
+      label: language.text(en: 'Cellar', ru: 'Подвал'),
+      muted: activePanel != panelPlot,
+      tokens: tokens,
+      metrics: metrics,
+      onTap: () => onPanelSelected?.call(panelPlot),
+    ),
+    RailButton(
+      asset: language.toggleIconAsset,
+      active: false,
+      action: false,
+      label: language.toggleTitle,
+      tokens: tokens,
+      metrics: metrics,
+      onTap: onLanguageToggle,
+    ),
+    RailButton(
+      asset: 'icon-appearance.png',
+      active: false,
+      action: false,
+      label: appearance.toggleTitle(language),
+      tokens: tokens,
+      metrics: metrics,
+      onTap: onAppearanceToggle,
+    ),
+  ];
 }
 
 class RailButton extends StatelessWidget {

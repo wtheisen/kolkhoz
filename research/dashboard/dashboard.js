@@ -31,6 +31,8 @@ let distillPoints = [];
 let trainingCurveSourceKey = null;
 let liveSupervisedSeriesKey = null;
 let liveSupervisedPoints = [];
+let liveMaskedStateSeriesKey = null;
+let liveMaskedStatePoints = [];
 
 function text(id, value) {
   document.getElementById(id).textContent = value ?? "-";
@@ -216,8 +218,10 @@ function totalEpisodes(record) {
   const curve = record?.curve || {};
   const points = curve.points || [];
   const supervisedPoints = supervisedCurvePoints(record);
+  const maskedPoints = maskedStateCurvePoints(record);
   const lastCurvePoint = points.length ? Number(points[points.length - 1].episode) : 0;
   const lastSupervisedPoint = supervisedPoints.length ? Number(supervisedPoints[supervisedPoints.length - 1].episode) : 0;
+  const lastMaskedPoint = maskedPoints.length ? Number(maskedPoints[maskedPoints.length - 1].episode) : 0;
   return Number(
     progress.total_episodes
     || progress.total_epochs
@@ -226,6 +230,7 @@ function totalEpisodes(record) {
     || curve.source_episodes
     || lastCurvePoint
     || lastSupervisedPoint
+    || lastMaskedPoint
     || 0
   );
 }
@@ -668,6 +673,99 @@ function renderTrainingEvalList(record) {
           </div>
         `;
       }).join("")}
+    </div>
+  `;
+}
+
+function benchmarkDeltaSummary(record) {
+  if (!record?.intervals && !record?.summary) return `<span class="pool-muted">pending</span>`;
+  const win = record.intervals?.win_delta || {};
+  const rank = record.intervals?.rank_delta || {};
+  const margin = record.intervals?.margin_delta || {};
+  const utility = record.intervals?.utility_delta || {};
+  return `
+    <div class="pool-metrics">
+      <span class="${Number(win.mean) < 0 ? "negative" : "positive"}">W ${fmtPercentPoint(win.mean)}</span>
+      <span>R ${fmtNumber(rank.mean, 2)}</span>
+      <span>M ${fmtNumber(margin.mean, 1)}</span>
+      ${utility.mean !== undefined ? `<span>U ${fmtNumber(utility.mean, 3)}</span>` : ""}
+    </div>
+  `;
+}
+
+function poolStatusLabel(item) {
+  const parts = [];
+  if (item.promoted) parts.push("promoted");
+  else if (item.promotion_eligible) parts.push("promotion eligible");
+  else if (item.finalist) parts.push("finalist");
+  if (item.benchmark_status) parts.push(fmtStatus(item.benchmark_status));
+  return parts.join(" / ") || "candidate";
+}
+
+function renderModelPool(record) {
+  const panel = document.getElementById("modelPoolPanel");
+  const empty = document.getElementById("modelPoolEmpty");
+  const table = document.getElementById("modelPoolTable");
+  const count = document.getElementById("modelPoolCount");
+  const pool = Array.isArray(record?.model_pool) ? record.model_pool : [];
+  panel.style.display = pool.length ? "block" : "none";
+  if (!pool.length) {
+    empty.style.display = "block";
+    table.innerHTML = "";
+    count.textContent = "No pool";
+    return;
+  }
+  const promoted = pool.filter((item) => item.promoted).length;
+  const finalists = pool.filter((item) => item.finalist).length;
+  count.textContent = `${pool.length} models / ${finalists} finalists / ${promoted} promoted`;
+  empty.style.display = "none";
+  table.innerHTML = `
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Selection benchmark</th>
+            <th>Current best gate</th>
+            <th>Arena</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${pool.map((item) => {
+            const selection = item.selection || {};
+            const currentBest = item.promotion_current_best || {};
+            const arenaText = item.finalist
+              ? `${fmtNumber(item.arena_score, 3)} score / ${fmtPercentPoint(item.arena_mean_win_delta)} mean win / ${fmtPercentPoint(item.worst_arena_win_delta)} worst`
+              : "not finalist";
+            const statusClass = item.promoted ? "promoted" : item.finalist ? "finalist" : "";
+            return `
+              <tr>
+                <td title="${item.candidate_model || ""}">
+                  <strong>Seed ${item.generation || "-"}</strong>
+                  <span>${shortPath(item.candidate_model)}</span>
+                  <small>train ${item.seed || "-"} / eval ${item.eval_seed || "-"}</small>
+                </td>
+                <td>
+                  ${benchmarkDeltaSummary(selection)}
+                  <small>${selection.total_games || 0} games</small>
+                </td>
+                <td>
+                  ${item.finalist ? benchmarkDeltaSummary(currentBest) : `<span class="pool-muted">not run</span>`}
+                  ${item.finalist ? `<small>${currentBest.total_games || 0} games</small>` : ""}
+                </td>
+                <td>
+                  <span>${arenaText}</span>
+                  ${item.finalist ? `<small>${(item.arena_records || []).length} opponents / ${item.complete_arena ? "complete" : "running"}</small>` : ""}
+                </td>
+                <td>
+                  <span class="pool-state ${statusClass}">${poolStatusLabel(item)}</span>
+                </td>
+              </tr>
+            `;
+          }).join("")}
+        </tbody>
+      </table>
     </div>
   `;
 }
@@ -1289,9 +1387,79 @@ function rememberLiveSupervisedPoint(record) {
   }
 }
 
+function isMaskedStateTraining(record) {
+  return record?.kind === "masked_state_policy_training"
+    || record?.model?.architecture === "masked-state-mlp"
+    || record?.architecture === "masked-state-mlp";
+}
+
+function maskedStateLiveKey(record) {
+  if (!record) return null;
+  return [
+    record.output_model || record.model?.output_model || "unknown-output",
+    record.start_model || "unknown-start",
+    record.training?.seed || record.seed || "unknown-seed",
+    record.training?.episodes || record.progress?.total_episodes || "unknown-total",
+  ].join("|");
+}
+
+function maskedStatePointFromUpdate(update) {
+  const episode = Number(update?.episode || update?.completed_episodes);
+  return {
+    episode,
+    reward: Number(update?.average_reward),
+    loss: Number(update?.loss),
+    policy_loss: Number(update?.policy_loss),
+    value_loss: Number(update?.value_loss),
+    entropy: Number(update?.entropy),
+    actions: Number(update?.actions),
+    eval_win: update?.eval ? Number(update.eval.win_rate) : undefined,
+    eval_margin: update?.eval ? Number(update.eval.average_margin) : undefined,
+  };
+}
+
+function rememberLiveMaskedStatePoint(record) {
+  if (!isMaskedStateTraining(record) || Array.isArray(record?.points)) return;
+  const point = maskedStatePointFromUpdate(record.latest_point);
+  if (!Number.isFinite(point.episode)) return;
+  const key = maskedStateLiveKey(record);
+  if (!key) return;
+  if (key !== liveMaskedStateSeriesKey) {
+    liveMaskedStateSeriesKey = key;
+    liveMaskedStatePoints = [];
+  }
+  const existingIndex = liveMaskedStatePoints.findIndex((item) => item.episode === point.episode);
+  if (existingIndex >= 0) {
+    liveMaskedStatePoints[existingIndex] = point;
+  } else {
+    liveMaskedStatePoints.push(point);
+    liveMaskedStatePoints.sort((a, b) => a.episode - b.episode);
+  }
+  if (liveMaskedStatePoints.length > 1000) {
+    liveMaskedStatePoints = liveMaskedStatePoints.slice(-1000);
+  }
+}
+
+function maskedStateCurvePoints(record) {
+  if (!isMaskedStateTraining(record)) return [];
+  if (Array.isArray(record?.points)) {
+    return record.points.map(maskedStatePointFromUpdate).filter((point) => Number.isFinite(point.episode));
+  }
+  if (Array.isArray(record?.curve?.points)) {
+    return record.curve.points.map(maskedStatePointFromUpdate).filter((point) => Number.isFinite(point.episode));
+  }
+  const key = maskedStateLiveKey(record);
+  if (key && key === liveMaskedStateSeriesKey) return liveMaskedStatePoints;
+  return [];
+}
+
 function trainingCurvePoints(record) {
   const source = trainingDisplaySource(record);
   if (source !== record) return trainingCurvePoints(source);
+  const masked = maskedStateCurvePoints(record);
+  if (masked.length) {
+    return { mode: "masked", points: masked };
+  }
   const supervised = supervisedCurvePoints(record);
   if (supervised.length) {
     return { mode: "supervised", points: supervised };
@@ -1301,11 +1469,12 @@ function trainingCurvePoints(record) {
 
 function setCurveLabels(mode) {
   const supervised = mode === "supervised";
-  text("curvePanelTitle", supervised ? "Live supervised metrics" : "Live episode metrics");
-  text("rewardCurveLabel", supervised ? "Loss" : "Reward");
-  text("winCurveLabel", supervised ? "Target Match" : "Win Rate");
-  text("rankCurveLabel", supervised ? "Policy Loss" : "Rank");
-  text("marginCurveLabel", supervised ? "Value Loss" : "Margin");
+  const masked = mode === "masked";
+  text("curvePanelTitle", supervised ? "Live supervised metrics" : masked ? "Live masked PPO metrics" : "Live episode metrics");
+  text("rewardCurveLabel", supervised || masked ? "Loss" : "Reward");
+  text("winCurveLabel", supervised ? "Target Match" : masked ? "Reward" : "Win Rate");
+  text("rankCurveLabel", supervised || masked ? "Policy Loss" : "Rank");
+  text("marginCurveLabel", supervised || masked ? "Value Loss" : "Margin");
 }
 
 function renderCurves(current, trainings) {
@@ -1326,12 +1495,14 @@ function renderCurves(current, trainings) {
     });
   }
   const points = curveData.points;
-  const stages = mode === "supervised" ? [] : curriculumStages(source);
+  const stages = mode === "supervised" || mode === "masked" ? [] : curriculumStages(source);
   const episodeTotal = totalEpisodes(source);
   setCurveLabels(mode);
   document.getElementById("curveCount").textContent = points.length
     ? mode === "supervised"
       ? `${points.length} epochs`
+      : mode === "masked"
+        ? `${points.length} PPO batches`
       : `${points.length} points${source.curve.sampled ? ` from ${source.curve.source_episodes} episodes` : ""}`
     : "0 points";
   document.getElementById("curveEmpty").style.display = points.length ? "none" : "block";
@@ -1347,6 +1518,11 @@ function renderCurves(current, trainings) {
   if (mode === "supervised") {
     drawCurve("rewardCurve", "rewardLatest", "rewardSlope", points, "loss", { ...options, digits: 4, slopeDigits: 4 });
     drawCurve("winCurve", "winLatest", "winSlope", points, "match", { ...options, domain: [0, 1], percent: true });
+    drawCurve("rankCurve", "rankLatest", "rankSlope", points, "policy_loss", { ...options, digits: 4, slopeDigits: 4 });
+    drawCurve("marginCurve", "marginLatest", "marginSlope", points, "value_loss", { ...options, digits: 4, slopeDigits: 4 });
+  } else if (mode === "masked") {
+    drawCurve("rewardCurve", "rewardLatest", "rewardSlope", points, "loss", { ...options, digits: 4, slopeDigits: 4 });
+    drawCurve("winCurve", "winLatest", "winSlope", points, "reward", { ...options, digits: 3 });
     drawCurve("rankCurve", "rankLatest", "rankSlope", points, "policy_loss", { ...options, digits: 4, slopeDigits: 4 });
     drawCurve("marginCurve", "marginLatest", "marginSlope", points, "value_loss", { ...options, digits: 4, slopeDigits: 4 });
   } else {
@@ -1368,6 +1544,7 @@ async function refresh() {
     const payload = await response.json();
     latestPayload = payload;
     rememberLiveSupervisedPoint(payload.current);
+    rememberLiveMaskedStatePoint(payload.current);
     stateEl.classList.add("live");
     updatedEl.textContent = `Updated ${when(payload.generated_at)}`;
     renderCurrent(payload.current);
@@ -1375,6 +1552,7 @@ async function refresh() {
     renderLatestBenchmark(payload.benchmarks || [], payload.current);
     renderTrainingEval(payload.current);
     renderTrainingEvalList(payload.current);
+    renderModelPool(payload.current);
     renderMarginShape(payload.current, payload.benchmarks || []);
     renderDistillation(payload.current);
     renderCurves(payload.current, payload.trainings || []);

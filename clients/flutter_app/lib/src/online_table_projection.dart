@@ -50,9 +50,21 @@ class OnlineTableProjection {
   List<Seat> seats() {
     final controllers = KolkhozPlayerController.normalized(update.controllers);
     final byID = {for (final player in snapshot.players) player.id: player};
+    final profilesByPlayerID = {
+      for (final profile in update.playerProfiles) profile.playerID: profile,
+    };
+    final presenceByPlayerID = {
+      for (final presence in update.seatPresence) presence.playerID: presence,
+    };
     return [
       for (var seatID = 0; seatID < kolkhozPlayerCount; seatID += 1)
-        _seat(seatID, controllers, byID[seatID]),
+        _seat(
+          seatID,
+          controllers,
+          byID[seatID],
+          profilesByPlayerID[seatID],
+          presenceByPlayerID[seatID],
+        ),
     ];
   }
 
@@ -60,21 +72,26 @@ class OnlineTableProjection {
     int seatID,
     List<KolkhozPlayerController> controllers,
     OnlinePlayerSnapshot? player,
+    OnlinePlayerProfile? profile,
+    OnlineSeatPresence? presence,
   ) {
     final controller = controllers[seatID];
     final remoteHuman =
         controller == KolkhozPlayerController.human && seatID != playerID;
     final hand = player?.hand ?? const <OnlineEngineCard>[];
     final hiddenPlot = player?.hiddenPlot ?? const <OnlineEngineCard>[];
+    final profileName = profile?.displayName?.trim();
     return Seat(
       id: seatID,
-      name: remoteHuman
+      name: profileName != null && profileName.isNotEmpty
+          ? profileName
+          : remoteHuman
           ? 'Remote ${seatID + 1}'
           : seatNameForController(playerID: seatID, controller: controller),
       controller: remoteHuman
           ? controllerRemoteHuman
           : renderControllerName(controller),
-      portraitAsset: 'worker${seatID + 1}',
+      portraitAsset: profile?.portraitAsset ?? 'worker${seatID + 1}',
       isViewer: seatID == playerID,
       isCurrentTurn: snapshot.currentPlayer == seatID,
       isBrigadeLeader: player?.brigadeLeader ?? false,
@@ -122,7 +139,32 @@ class OnlineTableProjection {
       ),
       medals: player?.medals ?? 0,
       visibleScore: scoreFor(seatID).visibleScore,
+      statusText: _seatStatus(seatID, controller, presence),
     );
+  }
+
+  String _seatStatus(
+    int seatID,
+    KolkhozPlayerController controller,
+    OnlineSeatPresence? presence,
+  ) {
+    if (presence?.abandoned ?? false) {
+      return 'LEFT';
+    }
+    if (presence?.autopilot ?? false) {
+      return 'AUTO';
+    }
+    if (controller == KolkhozPlayerController.human &&
+        presence != null &&
+        !presence.connected) {
+      return 'OFF';
+    }
+    if (update.turnPlayerID == seatID && update.turnDeadlineAt != null) {
+      final now = DateTime.now().millisecondsSinceEpoch / 1000.0;
+      final remaining = (update.turnDeadlineAt! - now).ceil().clamp(0, 999);
+      return '${remaining}s';
+    }
+    return '';
   }
 
   List<Job> jobs(List<LegalAction> actions) {
@@ -192,11 +234,16 @@ class OnlineTableProjection {
   List<LegalAction> projectedLegalActions() {
     return [
       for (final action in legalActions)
-        LegalAction(
-          kind: actionKindName(action.kind),
-          label: actionLabel(action.kind),
-          engineAction: action.engineAction,
-        ),
+        if (shouldExposeActionForViewer(
+          action: action.cValue,
+          selection: uiState.selection,
+          viewerSeatID: playerID,
+        ))
+          LegalAction(
+            kind: actionKindName(action.kind),
+            label: actionLabel(action.kind),
+            engineAction: action.engineAction,
+          ),
     ];
   }
 

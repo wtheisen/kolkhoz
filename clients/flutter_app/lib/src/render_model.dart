@@ -80,6 +80,7 @@ class Seat {
     required this.plot,
     required this.medals,
     required this.visibleScore,
+    this.statusText = '',
   });
 
   final int id;
@@ -94,6 +95,7 @@ class Seat {
   final PlotState plot;
   final int medals;
   final int visibleScore;
+  final String statusText;
 }
 
 class PlotState {

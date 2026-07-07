@@ -16,6 +16,7 @@ ENGINE_H = ENGINE_DIR / "include/KolkhozCEngine.h"
 BUILD_DIR = REPO_ROOT / "research/.build"
 OBJECT_SCALAR_COUNT = 8
 ACTION_SCALAR_COUNT = 32
+STATE_INPUT_SIZE = 200
 MAX_OBJECT_TOKENS = 256
 
 
@@ -51,6 +52,12 @@ class KCAction(ctypes.Structure):
         ("plot_card", KCCard),
         ("plot_zone", ctypes.c_int32),
         ("target_suit", ctypes.c_int32),
+    ]
+
+
+class KCControllers(ctypes.Structure):
+    _fields_ = [
+        ("seats", ctypes.c_int32 * 4),
     ]
 
 
@@ -368,6 +375,13 @@ class CEngine:
         self.lib.kc_engine_sample_determinization.restype = ctypes.c_bool
         self.lib.kc_engine_init.argtypes = [ctypes.c_void_p, ctypes.c_uint64, KCVariants]
         self.lib.kc_engine_init.restype = None
+        self.lib.kc_engine_init_with_controllers.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_uint64,
+            KCVariants,
+            KCControllers,
+        ]
+        self.lib.kc_engine_init_with_controllers.restype = None
         self.lib.kc_engine_init_curriculum.argtypes = [
             ctypes.c_void_p,
             ctypes.c_uint64,
@@ -385,8 +399,29 @@ class CEngine:
             ctypes.c_int32,
         ]
         self.lib.kc_engine_init_curriculum_rounds.restype = None
+        self.lib.kc_engine_step_automatic.argtypes = [ctypes.c_void_p]
+        self.lib.kc_engine_step_automatic.restype = ctypes.c_int32
+        self.lib.kc_engine_step_policy_automatic.argtypes = [
+            ctypes.c_void_p,
+            KCPolicyModelBuffer,
+        ]
+        self.lib.kc_engine_step_policy_automatic.restype = ctypes.c_int32
+        self.lib.kc_engine_policy_action.argtypes = [
+            ctypes.c_void_p,
+            KCPolicyModelBuffer,
+            ctypes.POINTER(KCAction),
+        ]
+        self.lib.kc_engine_policy_action.restype = ctypes.c_bool
         self.lib.kc_engine_apply_policy_action.argtypes = [ctypes.c_void_p, KCAction]
         self.lib.kc_engine_apply_policy_action.restype = ctypes.c_int32
+        self.lib.kc_engine_apply.argtypes = [ctypes.c_void_p, KCAction]
+        self.lib.kc_engine_apply.restype = ctypes.c_int32
+        self.lib.kc_engine_legal_actions.argtypes = [
+            ctypes.c_void_p,
+            ctypes.POINTER(KCAction),
+            ctypes.c_int32,
+        ]
+        self.lib.kc_engine_legal_actions.restype = ctypes.c_int32
         self.lib.kc_engine_policy_action_features.argtypes = [
             ctypes.c_void_p,
             ctypes.c_int32,
@@ -401,6 +436,13 @@ class CEngine:
             KCDensePolicyActionFeatures,
         ]
         self.lib.kc_engine_policy_action_dense_features.restype = ctypes.c_int32
+        self.lib.kc_engine_state_features.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_int32,
+            ctypes.POINTER(ctypes.c_float),
+            ctypes.c_int32,
+        ]
+        self.lib.kc_engine_state_features.restype = ctypes.c_int32
         self.lib.kc_engine_object_tokens.argtypes = [
             ctypes.c_void_p,
             ctypes.c_int32,
@@ -416,12 +458,16 @@ class CEngine:
         self.lib.kc_engine_object_token_dense_features.restype = ctypes.c_int32
         self.lib.kc_engine_heuristic_policy_action.argtypes = [ctypes.c_void_p, ctypes.POINTER(KCAction)]
         self.lib.kc_engine_heuristic_policy_action.restype = ctypes.c_bool
+        self.lib.kc_engine_waiting_for_external_action.argtypes = [ctypes.c_void_p]
+        self.lib.kc_engine_waiting_for_external_action.restype = ctypes.c_bool
         self.lib.kc_engine_waiting_player.argtypes = [ctypes.c_void_p]
         self.lib.kc_engine_waiting_player.restype = ctypes.c_int32
         self.lib.kc_engine_phase.argtypes = [ctypes.c_void_p]
         self.lib.kc_engine_phase.restype = ctypes.c_int32
         self.lib.kc_engine_year.argtypes = [ctypes.c_void_p]
         self.lib.kc_engine_year.restype = ctypes.c_int32
+        self.lib.kc_visible_score.argtypes = [ctypes.c_void_p, ctypes.c_int32]
+        self.lib.kc_visible_score.restype = ctypes.c_int32
         self.lib.kc_final_score.argtypes = [ctypes.c_void_p, ctypes.c_int32]
         self.lib.kc_final_score.restype = ctypes.c_int32
         self.lib.kc_total_medals.argtypes = [ctypes.c_void_p, ctypes.c_int32]
@@ -458,6 +504,8 @@ class CEngine:
         self,
         seed: int,
         *,
+        variants: KCVariants | None = None,
+        controllers: KCControllers | None = None,
         round_curriculum: bool = False,
         round_plot_cards: int = 0,
         round_famine_rate: float = 0.0,
@@ -475,8 +523,17 @@ class CEngine:
                 ctypes.c_double(round_famine_rate),
                 ctypes.c_int32(curriculum_rounds),
             )
+        elif controllers is not None:
+            self.lib.kc_engine_init_with_controllers(
+                pointer,
+                ctypes.c_uint64(seed),
+                variants or self.kolkhoz_variants(),
+                controllers,
+            )
         else:
-            self.lib.kc_engine_init(pointer, ctypes.c_uint64(seed), self.kolkhoz_variants())
+            self.lib.kc_engine_init(
+                pointer, ctypes.c_uint64(seed), variants or self.kolkhoz_variants()
+            )
         return ctypes.c_void_p(pointer)
 
     def free_engine(self, pointer: ctypes.c_void_p) -> None:
@@ -513,11 +570,43 @@ class CEngine:
     def waiting_player(self, pointer: ctypes.c_void_p) -> int:
         return int(self.lib.kc_engine_waiting_player(pointer))
 
+    def waiting_for_external_action(self, pointer: ctypes.c_void_p) -> bool:
+        return bool(self.lib.kc_engine_waiting_for_external_action(pointer))
+
     def phase(self, pointer: ctypes.c_void_p) -> int:
         return int(self.lib.kc_engine_phase(pointer))
 
     def year(self, pointer: ctypes.c_void_p) -> int:
         return int(self.lib.kc_engine_year(pointer))
+
+    def legal_actions(self, pointer: ctypes.c_void_p, max_actions: int = 256) -> list[KCAction]:
+        actions = (KCAction * max_actions)()
+        count = self.lib.kc_engine_legal_actions(pointer, actions, ctypes.c_int32(max_actions))
+        return [actions[index] for index in range(int(count))]
+
+    def apply_action(self, pointer: ctypes.c_void_p, action: KCAction) -> None:
+        status = int(self.lib.kc_engine_apply(pointer, action))
+        if status != 0:
+            raise RuntimeError(f"kc_engine_apply failed with status {status}")
+
+    def step_automatic(self, pointer: ctypes.c_void_p) -> int:
+        return int(self.lib.kc_engine_step_automatic(pointer))
+
+    def step_policy_automatic(
+        self,
+        pointer: ctypes.c_void_p,
+        model: KCPolicyModelBuffer,
+    ) -> int:
+        return int(self.lib.kc_engine_step_policy_automatic(pointer, model))
+
+    def policy_action(
+        self,
+        pointer: ctypes.c_void_p,
+        model: KCPolicyModelBuffer,
+    ) -> KCAction | None:
+        action = KCAction()
+        ok = self.lib.kc_engine_policy_action(pointer, model, ctypes.byref(action))
+        return action if ok else None
 
     def policy_action_features(
         self,
@@ -605,6 +694,24 @@ class CEngine:
             action_scalar_count=ACTION_SCALAR_COUNT,
             features=features,
         )
+
+    def state_features(
+        self,
+        pointer: ctypes.c_void_p,
+        *,
+        perspective_player: int,
+        input_size: int = STATE_INPUT_SIZE,
+    ) -> list[float]:
+        features = (ctypes.c_float * input_size)()
+        count = self.lib.kc_engine_state_features(
+            pointer,
+            ctypes.c_int32(perspective_player),
+            features,
+            ctypes.c_int32(input_size),
+        )
+        if int(count) <= 0:
+            return []
+        return [float(features[index]) for index in range(input_size)]
 
     def object_tokens(
         self,

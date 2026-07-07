@@ -143,6 +143,7 @@ class KolkhozGameVariants {
 enum KolkhozPlayerController {
   human,
   heuristicAI,
+  mediumAI,
   neuralAI;
 
   static const defaultControllers = [human, neuralAI, neuralAI, neuralAI];
@@ -348,6 +349,7 @@ class KolkhozCEngineBridge {
     return switch (controller) {
       KolkhozPlayerController.human => kcControllerExternal,
       KolkhozPlayerController.heuristicAI => kcControllerHeuristicAI,
+      KolkhozPlayerController.mediumAI => kcControllerPolicyAI,
       KolkhozPlayerController.neuralAI => kcControllerPolicyAI,
     };
   }

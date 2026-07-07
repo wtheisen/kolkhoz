@@ -6,7 +6,9 @@ import 'package:flutter/services.dart';
 
 import 'c_engine_bridge.dart';
 
-const defaultNeuralPolicyAsset = 'assets/policies/current_best_policy.json';
+const mediumNeuralPolicyAsset = 'assets/policies/medium_policy.json';
+const hardNeuralPolicyAsset = 'assets/policies/hard_policy.json';
+const defaultNeuralPolicyAsset = hardNeuralPolicyAsset;
 const _maxHiddenLayers = 4;
 
 class KolkhozNativePolicyModel {

@@ -8,8 +8,11 @@ from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-HISTORY_PATH = REPO_ROOT / "research/history/experiments.jsonl"
-CURRENT_EXPERIMENT_PATH = REPO_ROOT / "research/history/current_experiment.json"
+STATE_ROOT = Path(
+    os.environ.get("KOLKHOZ_RESEARCH_STATE_DIR", REPO_ROOT / "research")
+).expanduser()
+HISTORY_PATH = STATE_ROOT / "history/experiments.jsonl"
+CURRENT_EXPERIMENT_PATH = STATE_ROOT / "history/current_experiment.json"
 
 
 def now_iso() -> str:

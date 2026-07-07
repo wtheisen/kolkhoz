@@ -64,8 +64,9 @@ static int32_t kc_lead_suit(const KCEngine *engine) {
 
 static void kc_process_automatic_turns(KCEngine *engine);
 static int32_t kc_engine_apply_action(KCEngine *engine, KCAction action);
-static bool kc_choose_benchmark_action(const KCAction *actions, int32_t count, KCAction *selected);
+static bool kc_choose_benchmark_action(const KCEngine *engine, const KCAction *actions, int32_t count, KCAction *selected);
 static bool kc_valid_player_id(int32_t player_id);
+static bool kc_would_currently_win(const KCEngine *engine, KCCard card);
 
 static uint64_t kc_next(KCEngine *engine) {
     if (engine->rng_state == 0) {
@@ -974,7 +975,7 @@ int32_t kc_engine_step_automatic(KCEngine *engine) {
     KCAction actions[256];
     int32_t count = kc_engine_legal_actions(engine, actions, 256);
     KCAction selected;
-    if (!kc_choose_benchmark_action(actions, count, &selected)) {
+    if (!kc_choose_benchmark_action(engine, actions, count, &selected)) {
         return 0;
     }
     int32_t error = kc_engine_apply_action(engine, selected);
@@ -1925,25 +1926,522 @@ static bool kc_action_less(KCAction lhs, KCAction rhs) {
     return false;
 }
 
-static bool kc_choose_benchmark_action(const KCAction *actions, int32_t count, KCAction *selected) {
+static int32_t kc_pending_assignment_work_for_suit(const KCEngine *engine, int32_t suit) {
+    int32_t work = 0;
+    if (!engine || !kc_valid_suit(suit)) {
+        return work;
+    }
+    for (int32_t i = 0; i < engine->last_trick_count; i++) {
+        if (engine->pending_assignment_targets[i] == suit) {
+            work += kc_work_value(engine, engine->last_trick[i].card);
+        }
+    }
+    return work;
+}
+
+static bool kc_pending_assignment_has_wrecker_for_suit(const KCEngine *engine, int32_t suit) {
+    if (!engine || !kc_valid_suit(suit)) {
+        return false;
+    }
+    for (int32_t i = 0; i < engine->last_trick_count; i++) {
+        if (engine->pending_assignment_targets[i] == suit &&
+            kc_card_is_wrecker(engine->last_trick[i].card)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static int32_t kc_benchmark_plot_risk_count(const KCEngine *engine, int32_t player_id, int32_t suit) {
+    if (!engine || !kc_valid_player_id(player_id) || !kc_valid_suit(suit)) {
+        return 0;
+    }
+    const KCPlayer *player = &engine->players[player_id];
+    int32_t count = 0;
+    for (int32_t i = 0; i < player->plot_revealed.count; i++) {
+        if (kc_card_matches_suit(player->plot_revealed.cards[i], suit)) {
+            count++;
+        }
+    }
+    for (int32_t i = 0; i < player->plot_hidden.count; i++) {
+        if (kc_card_matches_suit(player->plot_hidden.cards[i], suit)) {
+            count++;
+        }
+    }
+    return count;
+}
+
+static int32_t kc_benchmark_job_value(const KCEngine *engine, int32_t suit, int32_t player_id) {
+    if (!engine || !kc_valid_suit(suit)) {
+        return 0;
+    }
+    if (engine->claimed_jobs[suit]) {
+        return -10;
+    }
+    int32_t remaining = KC_WORK_THRESHOLD - engine->work_hours[suit];
+    if (remaining < 0) {
+        remaining = 0;
+    }
+    int32_t score = remaining < 20 ? (20 - remaining) * 2 : 0;
+    score += kc_benchmark_plot_risk_count(engine, player_id, suit) * 15;
+    if (engine->has_revealed_job[suit]) {
+        score += engine->revealed_jobs[suit].value * 3;
+    }
+    return score;
+}
+
+static int32_t kc_benchmark_win_desire(const KCEngine *engine, int32_t player_id) {
+    if (!engine || !kc_valid_player_id(player_id)) {
+        return 0;
+    }
+    const KCPlayer *player = &engine->players[player_id];
+    int32_t desire = 0;
+    if (!player->has_won_trick_this_year &&
+        (player->plot_revealed.count + player->plot_hidden.count) > 0) {
+        desire -= 300;
+    }
+    bool seen[KC_SUIT_COUNT] = {0};
+    for (int32_t i = 0; i < engine->current_trick_count; i++) {
+        for (int32_t suit = 0; suit < KC_SUIT_COUNT; suit++) {
+            if (!seen[suit] && kc_card_matches_suit(engine->current_trick[i].card, suit)) {
+                seen[suit] = true;
+                desire += kc_benchmark_job_value(engine, suit, player_id);
+            }
+        }
+    }
+    if (player->brigade_leader) {
+        desire += 50;
+    }
+    if (engine->trick_count >= 2) {
+        desire += 30;
+    }
+    return desire;
+}
+
+static int32_t kc_benchmark_trump_score(const KCEngine *engine, KCAction action) {
+    if (!engine || !kc_valid_suit(action.suit) || !kc_valid_player_id(action.player_id)) {
+        return 0;
+    }
+    const KCPlayer *player = &engine->players[action.player_id];
+    int32_t count = 0;
+    int32_t total = 0;
+    int32_t high_cards = 0;
+    for (int32_t i = 0; i < player->hand.count; i++) {
+        KCCard card = player->hand.cards[i];
+        if (card.suit == action.suit) {
+            count++;
+            total += card.value;
+            if (card.value >= 10) {
+                high_cards++;
+            }
+        }
+    }
+    int32_t risk = kc_benchmark_plot_risk_count(engine, action.player_id, action.suit);
+    int32_t job_bonus = engine->work_hours[action.suit] >= 20 &&
+        engine->work_hours[action.suit] < KC_WORK_THRESHOLD ? 30 : 0;
+    return count * 40 + total * 3 + high_cards * 35 + job_bonus - risk * 24;
+}
+
+static int32_t kc_benchmark_swap_score(const KCEngine *engine, KCAction action) {
+    if (!engine ||
+        action.kind != KC_ACTION_SWAP ||
+        !kc_card_valid(action.hand_card) ||
+        !kc_card_valid(action.plot_card)) {
+        return -100000;
+    }
+    int32_t score = (action.plot_card.value - action.hand_card.value) * 20;
+    bool hand_complete = kc_valid_suit(action.hand_card.suit) &&
+        engine->claimed_jobs[action.hand_card.suit];
+    bool plot_complete = kc_valid_suit(action.plot_card.suit) &&
+        engine->claimed_jobs[action.plot_card.suit];
+    if (hand_complete && !plot_complete) {
+        score += 100;
+    }
+    if (plot_complete && !hand_complete) {
+        score -= 100;
+    }
+    if (kc_valid_suit(action.hand_card.suit) &&
+        engine->work_hours[action.hand_card.suit] >= 30) {
+        score += 50;
+    }
+    if (kc_valid_suit(action.plot_card.suit) &&
+        engine->work_hours[action.plot_card.suit] >= 30) {
+        score -= 50;
+    }
+    if (engine->trump >= 0 && kc_card_matches_suit(action.hand_card, engine->trump)) {
+        score -= 150;
+    }
+    if (engine->trump >= 0 && kc_card_matches_suit(action.plot_card, engine->trump)) {
+        score += 150;
+    }
+    if (action.hand_card.value >= 11) {
+        score -= 80;
+    }
+    if (action.plot_card.value >= 11) {
+        score += 80;
+    }
+    if (action.plot_zone == KC_ZONE_HIDDEN) {
+        score += 20;
+    }
+    if (kc_card_is_wrecker(action.hand_card)) {
+        score -= 250;
+    }
+    if (kc_card_is_wrecker(action.plot_card)) {
+        score += 250;
+    }
+    return score;
+}
+
+static int32_t kc_benchmark_play_score(const KCEngine *engine, KCAction action) {
+    KCCard card = action.card;
+    if (!engine || !kc_card_valid(card)) {
+        return 0;
+    }
+    int32_t value = kc_work_value(engine, card);
+    int32_t score = -value;
+    bool wrecker = kc_card_is_wrecker(card);
+    bool trump = engine->trump >= 0 && kc_card_matches_suit(card, engine->trump);
+    if (engine->current_trick_count <= 0) {
+        int32_t job_value = card.suit >= 0 && card.suit < KC_SUIT_COUNT ?
+            kc_benchmark_job_value(engine, card.suit, action.player_id) : 0;
+        score = job_value * 3 - value * 4;
+        if (value >= 8 && value <= 11) {
+            score += 20;
+        }
+        if (trump) {
+            score -= engine->trick_count < 2 ? 60 : 20;
+        }
+    } else {
+        bool winning = kc_would_currently_win(engine, card);
+        int32_t desire = kc_benchmark_win_desire(engine, action.player_id);
+        int32_t lead_suit = kc_lead_suit(engine);
+        if (winning) {
+            score = desire + (engine->current_trick_count >= KC_PLAYER_COUNT - 1 ? 80 : 20) - value * 3;
+        } else {
+            score = -desire / 2 + 30 - value;
+        }
+        if (lead_suit >= 0 && !kc_card_matches_suit(card, lead_suit)) {
+            for (int32_t suit = 0; suit < KC_SUIT_COUNT; suit++) {
+                if (kc_card_matches_suit(card, suit) && !engine->claimed_jobs[suit]) {
+                    score += kc_benchmark_plot_risk_count(engine, action.player_id, suit) * 12;
+                }
+            }
+        }
+        if (trump && !winning) {
+            score -= 80;
+        }
+    }
+    if (wrecker) {
+        score -= 400;
+    }
+    return score;
+}
+
+static int32_t kc_benchmark_assignment_card_score(
+    const KCEngine *engine,
+    KCCard card,
+    int32_t target,
+    int32_t player_id,
+    const int32_t added_work[KC_SUIT_COUNT],
+    const bool planned_wrecker[KC_SUIT_COUNT]
+) {
+    if (!engine || !kc_valid_suit(target)) {
+        return -100000;
+    }
+    int32_t current_work = engine->work_hours[target] +
+        kc_pending_assignment_work_for_suit(engine, target) +
+        (added_work ? added_work[target] : 0);
+    int32_t card_work = kc_work_value(engine, card);
+    bool has_wrecker = kc_job_contains_wrecker(engine, target) ||
+        kc_pending_assignment_has_wrecker_for_suit(engine, target) ||
+        (planned_wrecker && planned_wrecker[target]);
+    int32_t revealed_value = engine->has_revealed_job[target] ?
+        engine->revealed_jobs[target].value : 0;
+    int32_t risk = kc_benchmark_plot_risk_count(engine, player_id, target);
+
+    if (kc_card_is_wrecker(card)) {
+        int32_t score = 0;
+        score -= current_work * 10;
+        score -= revealed_value * 45;
+        score -= risk * 25;
+        if (engine->claimed_jobs[target]) {
+            score -= 80;
+        }
+        if (has_wrecker) {
+            score += 120;
+        }
+        return score;
+    }
+
+    int32_t next_work = current_work + card_work;
+    int32_t score = card_work;
+    if (engine->claimed_jobs[target]) {
+        score -= 120;
+    }
+    if (has_wrecker) {
+        score -= 240;
+    }
+    score += risk * 20;
+    score += revealed_value * 25;
+    if (current_work < KC_WORK_THRESHOLD && next_work >= KC_WORK_THRESHOLD) {
+        score += 420 - (next_work - KC_WORK_THRESHOLD) * 6;
+        if (card_work >= 10) {
+            score += 40;
+        }
+    } else if (next_work < KC_WORK_THRESHOLD) {
+        score += next_work * 2;
+        if (next_work >= 30) {
+            score += 80;
+        } else if (next_work >= 20) {
+            score += 40;
+        } else if (current_work < 10) {
+            score -= 30;
+        }
+    } else {
+        score += 30;
+    }
+    return score;
+}
+
+static int32_t kc_benchmark_concentrate_score(
+    const KCEngine *engine,
+    int32_t target,
+    int32_t player_id,
+    int32_t remaining_work,
+    bool remaining_has_wrecker
+) {
+    if (!engine || !kc_valid_suit(target)) {
+        return -100000;
+    }
+    int32_t current_work = engine->work_hours[target] +
+        kc_pending_assignment_work_for_suit(engine, target);
+    if (engine->claimed_jobs[target]) {
+        return -200;
+    }
+    int32_t score = 0;
+    int32_t new_work = current_work + remaining_work;
+    if (new_work >= KC_WORK_THRESHOLD) {
+        score += 2000 - (new_work - KC_WORK_THRESHOLD) * 20;
+    } else {
+        score += new_work * 10;
+        if (new_work >= 30) {
+            score += 300;
+        } else if (new_work >= 20) {
+            score += 150;
+        }
+    }
+    score += kc_benchmark_plot_risk_count(engine, player_id, target) * 200;
+    if (engine->has_revealed_job[target]) {
+        score += engine->revealed_jobs[target].value * 80;
+    }
+    if (remaining_has_wrecker || kc_job_contains_wrecker(engine, target) ||
+        kc_pending_assignment_has_wrecker_for_suit(engine, target)) {
+        score -= 1800 + current_work * 20;
+    }
+    return score;
+}
+
+static void kc_benchmark_assignment_plan(const KCEngine *engine, int32_t player_id, int32_t targets[KC_PLAYER_COUNT]) {
+    for (int32_t i = 0; i < KC_PLAYER_COUNT; i++) {
+        targets[i] = KC_NO_SUIT;
+    }
+    if (!engine || !kc_valid_player_id(player_id)) {
+        return;
+    }
+    int32_t legal_suits[KC_SUIT_COUNT];
+    int32_t legal_count = 0;
+    for (int32_t suit = 0; suit < KC_SUIT_COUNT; suit++) {
+        if (kc_assignment_target_legal(engine, suit)) {
+            legal_suits[legal_count++] = suit;
+        }
+    }
+    if (legal_count <= 0) {
+        return;
+    }
+    int32_t remaining_work = 0;
+    bool remaining_has_wrecker = false;
+    int32_t remaining_indices[KC_PLAYER_COUNT];
+    int32_t remaining_count = 0;
+    for (int32_t i = 0; i < engine->last_trick_count; i++) {
+        if (engine->pending_assignment_targets[i] >= 0) {
+            targets[i] = engine->pending_assignment_targets[i];
+            continue;
+        }
+        remaining_indices[remaining_count++] = i;
+        remaining_work += kc_work_value(engine, engine->last_trick[i].card);
+        if (kc_card_is_wrecker(engine->last_trick[i].card)) {
+            remaining_has_wrecker = true;
+        }
+    }
+    if (remaining_count <= 0) {
+        return;
+    }
+
+    int32_t best_concentrate_suit = legal_suits[0];
+    int32_t best_concentrate_score = -1000000;
+    for (int32_t i = 0; i < legal_count; i++) {
+        int32_t suit = legal_suits[i];
+        int32_t score = kc_benchmark_concentrate_score(
+            engine,
+            suit,
+            player_id,
+            remaining_work,
+            remaining_has_wrecker
+        );
+        if (score > best_concentrate_score ||
+            (score == best_concentrate_score && suit < best_concentrate_suit)) {
+            best_concentrate_score = score;
+            best_concentrate_suit = suit;
+        }
+    }
+
+    int32_t split_targets[KC_PLAYER_COUNT];
+    int32_t split_added_work[KC_SUIT_COUNT] = {0};
+    bool split_planned_wrecker[KC_SUIT_COUNT] = {0};
+    for (int32_t i = 0; i < KC_PLAYER_COUNT; i++) {
+        split_targets[i] = KC_NO_SUIT;
+    }
+    for (int32_t i = 0; i < engine->last_trick_count; i++) {
+        int32_t pending = engine->pending_assignment_targets[i];
+        if (pending >= 0 && pending < KC_SUIT_COUNT) {
+            split_added_work[pending] += kc_work_value(engine, engine->last_trick[i].card);
+            if (kc_card_is_wrecker(engine->last_trick[i].card)) {
+                split_planned_wrecker[pending] = true;
+            }
+        }
+    }
+    for (int32_t sorted = 0; sorted < remaining_count; sorted++) {
+        int32_t best_index = -1;
+        for (int32_t i = 0; i < remaining_count; i++) {
+            int32_t index = remaining_indices[i];
+            if (split_targets[index] >= 0) {
+                continue;
+            }
+            if (best_index < 0 ||
+                kc_work_value(engine, engine->last_trick[index].card) >
+                    kc_work_value(engine, engine->last_trick[best_index].card)) {
+                best_index = index;
+            }
+        }
+        if (best_index < 0) {
+            break;
+        }
+        KCCard card = engine->last_trick[best_index].card;
+        int32_t best_suit = legal_suits[0];
+        int32_t best_score = -1000000;
+        for (int32_t i = 0; i < legal_count; i++) {
+            int32_t suit = legal_suits[i];
+            int32_t score = kc_benchmark_assignment_card_score(
+                engine,
+                card,
+                suit,
+                player_id,
+                split_added_work,
+                split_planned_wrecker
+            );
+            if (score > best_score ||
+                (score == best_score && suit < best_suit)) {
+                best_score = score;
+                best_suit = suit;
+            }
+        }
+        split_targets[best_index] = best_suit;
+        split_added_work[best_suit] += kc_work_value(engine, card);
+        if (kc_card_is_wrecker(card)) {
+            split_planned_wrecker[best_suit] = true;
+        }
+    }
+
+    int32_t split_score = 0;
+    for (int32_t i = 0; i < remaining_count; i++) {
+        int32_t index = remaining_indices[i];
+        int32_t suit = split_targets[index];
+        if (suit >= 0) {
+            split_score += kc_benchmark_assignment_card_score(
+                engine,
+                engine->last_trick[index].card,
+                suit,
+                player_id,
+                NULL,
+                NULL
+            );
+        }
+    }
+    if (best_concentrate_score >= split_score) {
+        for (int32_t i = 0; i < remaining_count; i++) {
+            targets[remaining_indices[i]] = best_concentrate_suit;
+        }
+    } else {
+        for (int32_t i = 0; i < remaining_count; i++) {
+            targets[remaining_indices[i]] = split_targets[remaining_indices[i]];
+        }
+    }
+}
+
+static int32_t kc_benchmark_assignment_score(const KCEngine *engine, KCAction action) {
+    if (!engine || !kc_valid_suit(action.target_suit)) {
+        return 0;
+    }
+    int32_t planned_targets[KC_PLAYER_COUNT];
+    kc_benchmark_assignment_plan(engine, action.player_id, planned_targets);
+    int32_t matched_index = -1;
+    for (int32_t i = 0; i < engine->last_trick_count; i++) {
+        if (engine->pending_assignment_targets[i] < 0 &&
+            kc_card_equal(engine->last_trick[i].card, action.card)) {
+            matched_index = i;
+            break;
+        }
+    }
+    int32_t score = kc_benchmark_assignment_card_score(
+        engine,
+        action.card,
+        action.target_suit,
+        action.player_id,
+        NULL,
+        NULL
+    );
+    if (matched_index >= 0 && planned_targets[matched_index] == action.target_suit) {
+        score += 5000;
+    }
+    return score;
+}
+
+static int32_t kc_benchmark_action_score(const KCEngine *engine, KCAction action) {
+    switch (action.kind) {
+    case KC_ACTION_SET_TRUMP:
+        return 1000 + kc_benchmark_trump_score(engine, action);
+    case KC_ACTION_PLAY_CARD:
+        return 1000 + kc_benchmark_play_score(engine, action);
+    case KC_ACTION_ASSIGN:
+        return 1000 + kc_benchmark_assignment_score(engine, action);
+    case KC_ACTION_CONFIRM_SWAP:
+    case KC_ACTION_SUBMIT_ASSIGNMENTS:
+    case KC_ACTION_CONTINUE_AFTER_REQUISITION:
+        return 900;
+    default:
+        return 0;
+    }
+}
+
+static bool kc_choose_benchmark_action(const KCEngine *engine, const KCAction *actions, int32_t count, KCAction *selected) {
     bool has_swap = false;
     KCAction best_swap = {0};
-    int32_t best_delta = 0;
+    int32_t best_swap_score = 0;
     for (int32_t i = 0; i < count; i++) {
         KCAction action = actions[i];
         if (action.kind != KC_ACTION_SWAP) {
             continue;
         }
-        int32_t delta = action.plot_card.value - action.hand_card.value;
+        int32_t score = kc_benchmark_swap_score(engine, action);
         if (!has_swap ||
-            delta > best_delta ||
-            (delta == best_delta && kc_action_less(action, best_swap))) {
+            score > best_swap_score ||
+            (score == best_swap_score && kc_action_less(action, best_swap))) {
             has_swap = true;
             best_swap = action;
-            best_delta = delta;
+            best_swap_score = score;
         }
     }
-    if (has_swap && best_delta > 1) {
+    if (has_swap && best_swap_score > 50) {
         *selected = best_swap;
         return true;
     }
@@ -1970,9 +2468,13 @@ static bool kc_choose_benchmark_action(const KCAction *actions, int32_t count, K
         return false;
     }
     KCAction best = actions[0];
+    int32_t best_score = kc_benchmark_action_score(engine, best);
     for (int32_t i = 1; i < count; i++) {
-        if (kc_action_less(actions[i], best)) {
+        int32_t score = kc_benchmark_action_score(engine, actions[i]);
+        if (score > best_score ||
+            (score == best_score && kc_action_less(actions[i], best))) {
             best = actions[i];
+            best_score = score;
         }
     }
     *selected = best;
@@ -1987,7 +2489,7 @@ KCGameRunResult kc_run_benchmark_game(uint64_t seed, KCVariants variants) {
         KCAction actions[256];
         int32_t count = kc_engine_legal_actions(&engine, actions, 256);
         KCAction selected;
-        if (!kc_choose_benchmark_action(actions, count, &selected)) {
+        if (!kc_choose_benchmark_action(&engine, actions, count, &selected)) {
             result.checksum = -999999;
             return result;
         }
@@ -2730,6 +3232,152 @@ static void kc_add_trick_features(KCPolicyActionCandidate *candidate, int32_t ba
     }
 }
 
+static void kc_state_add_feature(float *features, int32_t feature_count, int32_t index, double value) {
+    if (!features || index < 0 || index >= feature_count) {
+        return;
+    }
+    features[index] = (float)value;
+}
+
+static void kc_state_add_one_hot(float *features, int32_t feature_count, int32_t base, int32_t selected, int32_t count) {
+    if (selected >= 0 && selected < count) {
+        kc_state_add_feature(features, feature_count, base + selected, 1.0);
+    }
+}
+
+static void kc_state_add_trick_features(float *features, int32_t feature_count, int32_t base_index, const KCTrickPlay *plays, int32_t play_count) {
+    for (int32_t slot = 0; slot < KC_PLAYER_COUNT; slot++) {
+        int32_t offset = base_index + slot * 7;
+        if (slot >= play_count) {
+            continue;
+        }
+        KCCard card = plays[slot].card;
+        kc_state_add_feature(features, feature_count, offset, 1.0);
+        kc_state_add_feature(features, feature_count, offset + 1, (double)plays[slot].player_id / 3.0);
+        kc_state_add_one_hot(features, feature_count, offset + 2, card.suit, KC_SUIT_COUNT);
+        kc_state_add_feature(features, feature_count, offset + 6, kc_card_value_feature(card));
+    }
+}
+
+int32_t kc_engine_state_features(const KCEngine *engine, int32_t perspective_player, float *features, int32_t feature_count) {
+    if (!engine || !features || feature_count <= 0 || perspective_player < 0 || perspective_player >= KC_PLAYER_COUNT) {
+        return 0;
+    }
+    memset(features, 0, (size_t)feature_count * sizeof(float));
+    int32_t limit = feature_count < KC_STATE_INPUT_SIZE ? feature_count : KC_STATE_INPUT_SIZE;
+
+    const KCPlayer *player = &engine->players[perspective_player];
+    int32_t own_visible = kc_visible_score(engine, perspective_player);
+    int32_t own_known = kc_known_score_for_player(engine, perspective_player);
+    int32_t best_opponent_visible = -1000000;
+    for (int32_t other = 0; other < KC_PLAYER_COUNT; other++) {
+        if (other == perspective_player) continue;
+        int32_t visible = kc_visible_score(engine, other);
+        if (visible > best_opponent_visible) best_opponent_visible = visible;
+    }
+    if (best_opponent_visible < 0) best_opponent_visible = 0;
+
+    kc_state_add_one_hot(features, limit, 0, engine->phase, 6);
+    kc_state_add_one_hot(features, limit, 6, perspective_player, KC_PLAYER_COUNT);
+    kc_state_add_one_hot(features, limit, 10, engine->trump, KC_SUIT_COUNT);
+    kc_state_add_one_hot(features, limit, 14, engine->lead >= 0 ? (perspective_player - engine->lead + KC_PLAYER_COUNT) % KC_PLAYER_COUNT : -1, KC_PLAYER_COUNT);
+    kc_state_add_one_hot(features, limit, 18, engine->trump_selector >= 0 ? (perspective_player - engine->trump_selector + KC_PLAYER_COUNT) % KC_PLAYER_COUNT : -1, KC_PLAYER_COUNT);
+    kc_state_add_feature(features, limit, 22, (double)engine->year / 5.0);
+    kc_state_add_feature(features, limit, 23, engine->is_famine ? 1.0 : 0.0);
+    kc_state_add_feature(features, limit, 24, (double)engine->trick_count / 4.0);
+    kc_state_add_feature(features, limit, 25, (double)engine->current_trick_count / 4.0);
+    kc_state_add_feature(features, limit, 26, (double)engine->last_trick_count / 4.0);
+    kc_state_add_one_hot(features, limit, 27, engine->last_winner >= 0 ? (perspective_player - engine->last_winner + KC_PLAYER_COUNT) % KC_PLAYER_COUNT : -1, KC_PLAYER_COUNT);
+    kc_state_add_feature(features, limit, 31, (double)player->hand.count / 5.0);
+    kc_state_add_feature(features, limit, 32, (double)kc_revealed_plot_count_for_player(player, -1) / 16.0);
+    kc_state_add_feature(features, limit, 33, (double)kc_hidden_plot_count_for_player(player, -1) / 16.0);
+    kc_state_add_feature(features, limit, 34, (double)kc_total_medals_for_player(engine, perspective_player) / 20.0);
+    kc_state_add_feature(features, limit, 35, (double)own_visible / 100.0);
+    kc_state_add_feature(features, limit, 36, (double)own_known / 100.0);
+    kc_state_add_feature(features, limit, 37, (double)best_opponent_visible / 100.0);
+    kc_state_add_feature(features, limit, 38, (double)(own_known - best_opponent_visible) / 100.0);
+    kc_state_add_feature(features, limit, 39, player->has_won_trick_this_year ? 1.0 : 0.0);
+    kc_state_add_feature(features, limit, 40, player->brigade_leader ? 1.0 : 0.0);
+    kc_state_add_feature(features, limit, 41, engine->variants.nomenclature ? 1.0 : 0.0);
+    kc_state_add_feature(features, limit, 42, engine->variants.allow_swap ? 1.0 : 0.0);
+    kc_state_add_feature(features, limit, 43, engine->variants.northern_style ? 1.0 : 0.0);
+    kc_state_add_feature(features, limit, 44, engine->variants.mice_variant ? 1.0 : 0.0);
+    kc_state_add_feature(features, limit, 45, engine->variants.orden_nachalniku ? 1.0 : 0.0);
+    kc_state_add_feature(features, limit, 46, engine->variants.medals_count ? 1.0 : 0.0);
+    kc_state_add_feature(features, limit, 47, engine->variants.accumulate_jobs ? 1.0 : 0.0);
+    kc_state_add_feature(features, limit, 48, engine->variants.hero_of_soviet_union ? 1.0 : 0.0);
+    kc_state_add_feature(features, limit, 49, engine->variants.wrecker ? 1.0 : 0.0);
+
+    for (int32_t seat = 0; seat < KC_PLAYER_COUNT; seat++) {
+        const KCPlayer *seat_player = &engine->players[seat];
+        int32_t base = 56 + seat * 10;
+        int32_t hand_max = 0;
+        int32_t hand_min = 0;
+        if (seat == perspective_player) {
+            for (int32_t i = 0; i < seat_player->hand.count; i++) {
+                int32_t value = seat_player->hand.cards[i].value;
+                if (value > hand_max) hand_max = value;
+                if (hand_min == 0 || value < hand_min) hand_min = value;
+            }
+        }
+        kc_state_add_feature(features, limit, base, (double)seat_player->hand.count / 5.0);
+        kc_state_add_feature(features, limit, base + 1, (double)kc_revealed_plot_count_for_player(seat_player, -1) / 16.0);
+        kc_state_add_feature(features, limit, base + 2, (double)kc_hidden_plot_count_for_player(seat_player, -1) / 16.0);
+        kc_state_add_feature(features, limit, base + 3, (double)kc_total_medals_for_player(engine, seat) / 20.0);
+        kc_state_add_feature(features, limit, base + 4, seat_player->has_won_trick_this_year ? 1.0 : 0.0);
+        kc_state_add_feature(features, limit, base + 5, seat_player->brigade_leader ? 1.0 : 0.0);
+        kc_state_add_feature(features, limit, base + 6, (double)kc_visible_score(engine, seat) / 100.0);
+        kc_state_add_feature(features, limit, base + 7, (double)(seat == perspective_player ? kc_known_score_for_player(engine, seat) : kc_visible_score(engine, seat)) / 100.0);
+        kc_state_add_feature(features, limit, base + 8, kc_raw_card_value_feature(hand_max));
+        kc_state_add_feature(features, limit, base + 9, kc_raw_card_value_feature(hand_min));
+    }
+
+    int32_t public_hidden_total = 0;
+    for (int32_t seat = 0; seat < KC_PLAYER_COUNT; seat++) {
+        public_hidden_total += kc_hidden_plot_count_for_player(&engine->players[seat], -1);
+    }
+    for (int32_t target = 0; target < KC_SUIT_COUNT; target++) {
+        int32_t base = 96 + target * 12;
+        int32_t own_hand_count = 0;
+        int32_t own_hand_max = 0;
+        int32_t own_hand_min = 0;
+        int32_t all_revealed = 0;
+        int32_t trick_suit_count = 0;
+        for (int32_t i = 0; i < player->hand.count; i++) {
+            if (!kc_card_matches_suit(player->hand.cards[i], target)) continue;
+            int32_t value = player->hand.cards[i].value;
+            own_hand_count++;
+            if (value > own_hand_max) own_hand_max = value;
+            if (own_hand_min == 0 || value < own_hand_min) own_hand_min = value;
+        }
+        for (int32_t seat = 0; seat < KC_PLAYER_COUNT; seat++) {
+            all_revealed += kc_revealed_plot_count_for_player(&engine->players[seat], target);
+        }
+        for (int32_t i = 0; i < engine->current_trick_count; i++) {
+            if (kc_card_matches_suit(engine->current_trick[i].card, target)) trick_suit_count++;
+        }
+        for (int32_t i = 0; i < engine->last_trick_count; i++) {
+            if (kc_card_matches_suit(engine->last_trick[i].card, target)) trick_suit_count++;
+        }
+        kc_state_add_feature(features, limit, base, (double)engine->work_hours[target] / 40.0);
+        kc_state_add_feature(features, limit, base + 1, (double)(engine->work_hours[target] < 40 ? 40 - engine->work_hours[target] : 0) / 40.0);
+        kc_state_add_feature(features, limit, base + 2, engine->has_revealed_job[target] ? (double)engine->revealed_jobs[target].value / 5.0 : 0.0);
+        kc_state_add_feature(features, limit, base + 3, engine->claimed_jobs[target] ? 1.0 : 0.0);
+        kc_state_add_feature(features, limit, base + 4, (double)own_hand_count / 5.0);
+        kc_state_add_feature(features, limit, base + 5, kc_raw_card_value_feature(own_hand_max));
+        kc_state_add_feature(features, limit, base + 6, kc_raw_card_value_feature(own_hand_min));
+        kc_state_add_feature(features, limit, base + 7, (double)kc_revealed_plot_count_for_player(player, target) / 8.0);
+        kc_state_add_feature(features, limit, base + 8, (double)kc_hidden_plot_count_for_player(player, target) / 8.0);
+        kc_state_add_feature(features, limit, base + 9, (double)all_revealed / 32.0);
+        kc_state_add_feature(features, limit, base + 10, (double)public_hidden_total / 32.0);
+        kc_state_add_feature(features, limit, base + 11, (double)trick_suit_count / 8.0);
+    }
+
+    kc_state_add_trick_features(features, limit, 144, engine->current_trick, engine->current_trick_count);
+    kc_state_add_trick_features(features, limit, 172, engine->last_trick, engine->last_trick_count);
+    return limit;
+}
+
 static void kc_policy_features(const KCEngine *engine, int32_t player_id, int32_t action_type, int32_t suit, KCCard card, KCCard hand_card, int32_t zone, double swap_delta, int32_t feature_size, KCPolicyActionCandidate *candidate) {
     const KCPlayer *player = &engine->players[player_id];
     int32_t lead_suit = kc_lead_suit(engine);
@@ -2836,13 +3484,16 @@ static void kc_policy_features(const KCEngine *engine, int32_t player_id, int32_
             kc_add_policy_feature(candidate, base + 9, kc_raw_card_value_feature(hand_min));
         }
 
+        int32_t public_hidden_total = 0;
+        for (int32_t seat = 0; seat < KC_PLAYER_COUNT; seat++) {
+            public_hidden_total += kc_hidden_plot_count_for_player(&engine->players[seat], -1);
+        }
         for (int32_t target = 0; target < KC_SUIT_COUNT; target++) {
             int32_t base = 96 + target * 12;
             int32_t own_hand_count = 0;
             int32_t own_hand_max = 0;
             int32_t own_hand_min = 0;
             int32_t all_revealed = 0;
-            int32_t all_hidden = 0;
             int32_t trick_suit_count = 0;
             for (int32_t i = 0; i < player->hand.count; i++) {
                 if (!kc_card_matches_suit(player->hand.cards[i], target)) continue;
@@ -2853,7 +3504,6 @@ static void kc_policy_features(const KCEngine *engine, int32_t player_id, int32_
             }
             for (int32_t seat = 0; seat < KC_PLAYER_COUNT; seat++) {
                 all_revealed += kc_revealed_plot_count_for_player(&engine->players[seat], target);
-                all_hidden += kc_hidden_plot_count_for_player(&engine->players[seat], target);
             }
             for (int32_t i = 0; i < engine->current_trick_count; i++) {
                 if (kc_card_matches_suit(engine->current_trick[i].card, target)) trick_suit_count++;
@@ -2871,7 +3521,7 @@ static void kc_policy_features(const KCEngine *engine, int32_t player_id, int32_
             kc_add_policy_feature(candidate, base + 7, (double)kc_revealed_plot_count_for_player(player, target) / 8.0);
             kc_add_policy_feature(candidate, base + 8, (double)kc_hidden_plot_count_for_player(player, target) / 8.0);
             kc_add_policy_feature(candidate, base + 9, (double)all_revealed / 32.0);
-            kc_add_policy_feature(candidate, base + 10, (double)all_hidden / 32.0);
+            kc_add_policy_feature(candidate, base + 10, (double)public_hidden_total / 32.0);
             kc_add_policy_feature(candidate, base + 11, (double)trick_suit_count / 8.0);
         }
 
@@ -2957,11 +3607,11 @@ static void kc_policy_features(const KCEngine *engine, int32_t player_id, int32_
     kc_add_policy_feature(candidate, 76, kc_card_matches_suit(card, lead_suit) ? 1.0 : 0.0);
     kc_add_policy_feature(candidate, 77, (double)kc_total_medals_for_player(engine, player_id) / 20.0);
     kc_add_policy_feature(candidate, 78, (double)engine->current_trick_count / 4.0);
-    int32_t own_score = kc_final_score(engine, player_id);
+    int32_t own_score = kc_known_score_for_player(engine, player_id);
     int32_t best_opponent = -1000000;
     for (int32_t other = 0; other < KC_PLAYER_COUNT; other++) {
         if (other == player_id) continue;
-        int32_t opponent_score = kc_final_score(engine, other);
+        int32_t opponent_score = kc_visible_score(engine, other);
         if (opponent_score > best_opponent) best_opponent = opponent_score;
     }
     kc_add_policy_feature(candidate, 79, (double)own_score / 100.0);
@@ -3495,7 +4145,7 @@ static bool kc_greedy_policy_action(const KCEngine *engine, int32_t player_id, K
 static bool kc_heuristic_policy_action(const KCEngine *engine, KCAction *selected) {
     KCAction actions[256];
     int32_t count = kc_engine_legal_actions(engine, actions, 256);
-    return kc_choose_benchmark_action(actions, count, selected);
+    return kc_choose_benchmark_action(engine, actions, count, selected);
 }
 
 bool kc_engine_heuristic_policy_action(const KCEngine *engine, KCAction *selected) {
@@ -3946,11 +4596,11 @@ static void kc_value_features(const KCEngine *engine, int32_t player_id, int32_t
     memset(features, 0, KC_VALUE_INPUT_SIZE * sizeof(double));
     const KCPlayer *player = &engine->players[player_id];
     int32_t lead_suit = kc_lead_suit(engine);
-    int32_t own_score = kc_final_score(engine, player_id);
+    int32_t own_score = kc_known_score_for_player(engine, player_id);
     int32_t best_opponent = -1000000;
     for (int32_t other = 0; other < KC_PLAYER_COUNT; other++) {
         if (other == player_id) continue;
-        int32_t score = kc_final_score(engine, other);
+        int32_t score = kc_visible_score(engine, other);
         if (score > best_opponent) best_opponent = score;
     }
 

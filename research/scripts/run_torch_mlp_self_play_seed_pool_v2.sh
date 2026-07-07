@@ -4,13 +4,17 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 RUN_ID="${RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
-RUN_DIR="${RUN_DIR:-research/runs/torch_mlp_self_play_seed_pool_v2/${RUN_ID}}"
+RUN_ROOT="${KOLKHOZ_RESEARCH_RUN_ROOT:-research/runs}"
+RUN_DIR="${RUN_DIR:-${RUN_ROOT}/torch_mlp_self_play_seed_pool_v2/${RUN_ID}}"
 START_MODEL="${START_MODEL:-research/runs/torch_mlp_vs_strongest_stage2_4x_v1/20260705T221143Z/candidate.pt}"
+REQUESTED_START_MODEL="$START_MODEL"
 OPPONENT_MODEL="${OPPONENT_MODEL:-training/rl/runs/beat_promoted_wide_seat_heads_v1/20260702T144243Z/candidate.json}"
 EXTRA_OPPONENT_MODELS="${EXTRA_OPPONENT_MODELS:-}"
 PYTHON_BIN="${PYTHON_BIN:-/Applications/Xcode.app/Contents/Developer/usr/bin/python3}"
 FORCE_CPU="${FORCE_CPU:-1}"
 TORCH_SITE_PACKAGES="${TORCH_SITE_PACKAGES:-$HOME/Library/Python/3.9/lib/python/site-packages}"
+ARCHITECTURE="${ARCHITECTURE:-mlp}"
+REINITIALIZE_ARCHITECTURE="${REINITIALIZE_ARCHITECTURE:-0}"
 
 POOL_SIZE="${POOL_SIZE:-${GENERATIONS:-8}}"
 FINALISTS="${FINALISTS:-2}"
@@ -30,6 +34,7 @@ ARENA_MIN_MEAN_WIN_DELTA="${ARENA_MIN_MEAN_WIN_DELTA:-0.0}"
 ARENA_MIN_WORST_MEAN_WIN_DELTA="${ARENA_MIN_WORST_MEAN_WIN_DELTA:--0.02}"
 
 export RUN_ID RUN_DIR START_MODEL OPPONENT_MODEL EXTRA_OPPONENT_MODELS FORCE_CPU
+export ARCHITECTURE REINITIALIZE_ARCHITECTURE
 export POOL_SIZE FINALISTS CHILD_GENERATIONS EPISODES_PER_GENERATION
 export TRAIN_SEED EVAL_SEED SELECTION_SEED PROMOTION_SEED SEED_STRIDE
 export STANDARD_EVAL_GAMES_PER_SEAT SELECTION_GAMES_PER_SEAT PROMOTION_GAMES_PER_SEAT ARENA_GAMES_PER_SEAT
@@ -45,8 +50,58 @@ fi
 export PYTHONPYCACHEPREFIX="${PYTHONPYCACHEPREFIX:-/private/tmp/kolkhoz_pycache}"
 export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/mpl}"
 
-opponent_args=(--opponent-model "$OPPONENT_MODEL")
-arena_opponents=("$OPPONENT_MODEL")
+if [[ -z "$START_MODEL" || "$START_MODEL" == "scratch" ]]; then
+  START_MODEL="$RUN_DIR/scratch_start.pt"
+  export START_MODEL
+  SCRATCH_START_MODEL="$START_MODEL" "$PYTHON_BIN" - <<'PY'
+from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+
+repo = Path.cwd()
+sys.path.insert(0, str(repo))
+
+import torch
+
+from research.kolkhoz_research.model import HEAD_COUNT, INPUT_SIZE
+from research.kolkhoz_research.torch_policy import TorchPolicy
+
+layers = [
+    int(item)
+    for item in os.environ.get("LAYERS", "256,256").split(",")
+    if item.strip()
+]
+model = TorchPolicy.scratch(
+    architecture=os.environ.get("ARCHITECTURE", "mlp"),
+    layer_sizes=layers,
+    input_size=INPUT_SIZE,
+    head_count=HEAD_COUNT,
+    seed=int(os.environ.get("SCRATCH_SEED", "1")),
+    scale=float(os.environ.get("SCRATCH_SCALE", "0.02")),
+    device=torch.device("cpu"),
+    transformer_dropout=float(os.environ.get("TRANSFORMER_DROPOUT", "0.05")),
+)
+model.save_checkpoint(
+    Path(os.environ["SCRATCH_START_MODEL"]),
+    training_record={
+        "kind": "scratch_start_model",
+        "architecture": os.environ.get("ARCHITECTURE", "mlp"),
+        "layers": layers,
+        "scratch_seed": int(os.environ.get("SCRATCH_SEED", "1")),
+        "scratch_scale": float(os.environ.get("SCRATCH_SCALE", "0.02")),
+    },
+)
+PY
+fi
+
+opponent_args=()
+arena_opponents=()
+if [[ -n "$OPPONENT_MODEL" && "$OPPONENT_MODEL" != "none" ]]; then
+  opponent_args+=(--opponent-model "$OPPONENT_MODEL")
+  arena_opponents+=("$OPPONENT_MODEL")
+fi
 if [[ -n "$EXTRA_OPPONENT_MODELS" ]]; then
   IFS=':' read -r -a extra_opponents <<< "$EXTRA_OPPONENT_MODELS"
   for opponent in "${extra_opponents[@]}"; do
@@ -394,6 +449,7 @@ run_torch_benchmark() {
 {
   printf 'RUN_ID=%s\n' "$RUN_ID"
   printf 'RUN_DIR=%s\n' "$RUN_DIR"
+  printf 'REQUESTED_START_MODEL=%s\n' "$REQUESTED_START_MODEL"
   printf 'START_MODEL=%s\n' "$START_MODEL"
   printf 'OPPONENT_MODEL=%s\n' "$OPPONENT_MODEL"
   printf 'EXTRA_OPPONENT_MODELS=%s\n' "$EXTRA_OPPONENT_MODELS"
@@ -409,6 +465,8 @@ run_torch_benchmark() {
   printf 'SELECTION_GAMES_PER_SEAT=%s\n' "$SELECTION_GAMES_PER_SEAT"
   printf 'PROMOTION_GAMES_PER_SEAT=%s\n' "$PROMOTION_GAMES_PER_SEAT"
   printf 'ARENA_GAMES_PER_SEAT=%s\n' "$ARENA_GAMES_PER_SEAT"
+  printf 'ARCHITECTURE=%s\n' "$ARCHITECTURE"
+  printf 'REINITIALIZE_ARCHITECTURE=%s\n' "$REINITIALIZE_ARCHITECTURE"
   printf 'FORCE_CPU=%s\n' "$FORCE_CPU"
 } | tee "$RUN_DIR/launch.txt"
 
@@ -431,14 +489,13 @@ for ((index = 1; index <= POOL_SIZE; index += 1)); do
     --episodes-per-generation "$EPISODES_PER_GENERATION"
     --seed "$train_seed"
     --seed-stride "$SEED_STRIDE"
-    --architecture mlp
+    --architecture "$ARCHITECTURE"
     --layers "${LAYERS:-256,256}"
     --batch-size "${BATCH_SIZE:-32}"
     --learning-rate "${LEARNING_RATE:-0.00005}"
     --temperature "${TEMPERATURE:-0.8}"
     --rollout-envs "${ROLLOUT_ENVS:-32}"
     --opponent-schedule "${OPPONENT_SCHEDULE:-constant}"
-    "${opponent_args[@]}"
     --win-weight "${WIN_WEIGHT:-1.0}"
     --rank-weight "${RANK_WEIGHT:-0.05}"
     --margin-weight "${MARGIN_WEIGHT:-0.001}"
@@ -476,9 +533,15 @@ for ((index = 1; index <= POOL_SIZE; index += 1)); do
     --stop-on-rejection
     --overwrite-best
   )
+  if [[ "${#opponent_args[@]}" -gt 0 ]]; then
+    cmd+=("${opponent_args[@]}")
+  fi
 
   if [[ "$FORCE_CPU" == "1" ]]; then
     cmd+=(--cpu)
+  fi
+  if [[ "$REINITIALIZE_ARCHITECTURE" == "1" || "$REINITIALIZE_ARCHITECTURE" == "true" || "$REINITIALIZE_ARCHITECTURE" == "yes" ]]; then
+    cmd+=(--reinitialize-architecture)
   fi
   if [[ "${RECORD:-1}" == "1" ]]; then
     cmd+=(--record)
@@ -518,17 +581,19 @@ for finalist_index in $finalist_indices; do
     1
 
   arena_number=0
-  for opponent in "${arena_opponents[@]}"; do
-    arena_number=$((arena_number + 1))
-    run_torch_benchmark \
-      "$candidate" \
-      "$opponent" \
-      "$ARENA_GAMES_PER_SEAT" \
-      $((PROMOTION_SEED + arena_number * SEED_STRIDE)) \
-      "$finalist_dir/arena_$(printf '%02d' "$arena_number").json" \
-      "$PROMOTION_GAMES_PER_SEAT" \
-      0
-  done
+  if [[ "${#arena_opponents[@]}" -gt 0 ]]; then
+    for opponent in "${arena_opponents[@]}"; do
+      arena_number=$((arena_number + 1))
+      run_torch_benchmark \
+        "$candidate" \
+        "$opponent" \
+        "$ARENA_GAMES_PER_SEAT" \
+        $((PROMOTION_SEED + arena_number * SEED_STRIDE)) \
+        "$finalist_dir/arena_$(printf '%02d' "$arena_number").json" \
+        "$PROMOTION_GAMES_PER_SEAT" \
+        0
+    done
+  fi
   write_pool_status running "finalist_${finalist_index}_complete" "$completed"
 done
 

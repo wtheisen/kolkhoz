@@ -12,6 +12,9 @@ from .benchmark import benchmark_candidate, mine_seed_panel, run_tournament
 from .c_engine import CEngine, build_shared_library
 from .dashboard import serve_dashboard
 from .history import append_history, write_current_experiment
+from .masked_state_policy import train_masked_state_policy
+from .online_server import SupabaseAuthVerifier, serve_online
+from .online_store import PostgresOnlineSessionStore
 from .torch_policy import (
     distill_action_transformer_policy,
     generate_supervised_trajectories,
@@ -419,6 +422,44 @@ def torch_train_command(args: argparse.Namespace) -> int:
     return _emit(record, args.record)
 
 
+def masked_state_train_command(args: argparse.Namespace) -> int:
+    if args.round_curriculum:
+        raise SystemExit(
+            "masked-state-train does not support --round-curriculum yet; use full-game episodes"
+        )
+    engine = CEngine(build_shared_library(force=args.rebuild))
+    record = train_masked_state_policy(
+        engine,
+        output_path=args.output,
+        start_model_path=args.start_model,
+        layer_sizes=args.layers,
+        scratch_seed=args.scratch_seed,
+        scratch_scale=args.scratch_scale,
+        episodes=args.episodes,
+        batch_size=args.batch_size,
+        seed=args.seed,
+        learning_rate=args.learning_rate,
+        temperature=args.temperature,
+        prefer_mps=not args.cpu,
+        ppo_epochs=args.ppo_epochs,
+        ppo_minibatch_size=args.ppo_minibatch_size,
+        ppo_clip=args.ppo_clip,
+        value_loss_weight=args.value_loss_weight,
+        entropy_weight=args.entropy_weight,
+        eval_interval=args.eval_interval,
+        eval_games_per_seat=args.eval_games_per_seat,
+        eval_seed=args.eval_seed,
+        round_curriculum=args.round_curriculum,
+        curriculum_rounds=args.curriculum_rounds,
+        round_plot_cards=args.round_plot_cards,
+        round_famine_rate=args.round_famine_rate,
+        record_history=args.record,
+        progress_callback=_current_experiment_callback(args),
+    )
+    record["engine"] = asdict(engine.provenance())
+    return _emit(record, False)
+
+
 def supervised_generate_command(args: argparse.Namespace) -> int:
     engine = CEngine(build_shared_library(force=args.rebuild))
     record = generate_supervised_trajectories(
@@ -730,6 +771,7 @@ def self_play_improve_command(args: argparse.Namespace) -> int:
             round_famine_rate=args.round_famine_rate,
             unbatched=args.unbatched,
             record_eval_history=args.record,
+            reinitialize_architecture=args.reinitialize_architecture,
             progress_callback=training_progress,
         )
         train_record["engine"] = asdict(engine.provenance())
@@ -995,6 +1037,20 @@ def dashboard_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def serve_online_command(args: argparse.Namespace) -> int:
+    engine = CEngine(build_shared_library(force=args.rebuild))
+    database_url = args.database_url or os.environ.get("KOLKHOZ_ONLINE_DATABASE_URL")
+    store = PostgresOnlineSessionStore(database_url) if database_url else None
+    serve_online(
+        host=args.host,
+        port=args.port,
+        engine=engine,
+        store=store,
+        auth_verifier=SupabaseAuthVerifier.from_environment(),
+    )
+    return 0
+
+
 def cleanup_artifacts_command(args: argparse.Namespace) -> int:
     roots = args.root or DEFAULT_CLEANUP_ROOTS
     record = cleanup_artifacts(
@@ -1145,7 +1201,12 @@ def main() -> int:
     torch_train_parser.add_argument("--output", type=Path, required=True)
     torch_train_parser.add_argument(
         "--architecture",
-        choices=["mlp", "residual-mlp", "action-transformer"],
+        choices=[
+            "mlp",
+            "residual-mlp",
+            "residual-layernorm-mlp",
+            "action-transformer",
+        ],
         default="mlp",
     )
     torch_train_parser.add_argument("--layers", type=_layers, default=[512, 512])
@@ -1314,6 +1375,39 @@ def main() -> int:
     )
     torch_train_parser.set_defaults(func=torch_train_command)
 
+    masked_state_parser = subparsers.add_parser(
+        "masked-state-train",
+        help="train a board-state policy with masked fixed-action PPO",
+    )
+    masked_state_parser.add_argument("--start-model", type=_path, default=None)
+    masked_state_parser.add_argument("--output", type=Path, required=True)
+    masked_state_parser.add_argument("--layers", type=_layers, default=[256, 256])
+    masked_state_parser.add_argument("--scratch-seed", type=int, default=1)
+    masked_state_parser.add_argument("--scratch-scale", type=float, default=0.02)
+    masked_state_parser.add_argument("--episodes", type=int, default=32)
+    masked_state_parser.add_argument("--batch-size", type=int, default=8)
+    masked_state_parser.add_argument("--seed", type=int, default=92_000_000)
+    masked_state_parser.add_argument("--learning-rate", type=float, default=1e-4)
+    masked_state_parser.add_argument("--temperature", type=float, default=1.0)
+    masked_state_parser.add_argument("--ppo-epochs", type=int, default=4)
+    masked_state_parser.add_argument("--ppo-minibatch-size", type=int, default=256)
+    masked_state_parser.add_argument("--ppo-clip", type=float, default=0.2)
+    masked_state_parser.add_argument("--value-loss-weight", type=float, default=0.5)
+    masked_state_parser.add_argument("--entropy-weight", type=float, default=0.01)
+    masked_state_parser.add_argument("--eval-interval", type=int, default=0)
+    masked_state_parser.add_argument("--eval-games-per-seat", type=int, default=4)
+    masked_state_parser.add_argument("--eval-seed", type=int, default=93_000_000)
+    masked_state_parser.add_argument("--round-curriculum", action="store_true")
+    masked_state_parser.add_argument("--curriculum-rounds", type=int, default=2)
+    masked_state_parser.add_argument("--round-plot-cards", type=int, default=6)
+    masked_state_parser.add_argument("--round-famine-rate", type=float, default=0.2)
+    masked_state_parser.add_argument(
+        "--cpu", action="store_true", help="force CPU instead of MPS"
+    )
+    masked_state_parser.add_argument("--record", action="store_true")
+    masked_state_parser.add_argument("--rebuild", action="store_true")
+    masked_state_parser.set_defaults(func=masked_state_train_command)
+
     self_play_parser = subparsers.add_parser(
         "self-play-improve",
         help="run a policy-improvement loop with train, paired benchmark, and promotion",
@@ -1326,8 +1420,18 @@ def main() -> int:
     self_play_parser.add_argument("--seed-stride", type=int, default=100_000)
     self_play_parser.add_argument(
         "--architecture",
-        choices=["mlp", "residual-mlp", "action-transformer"],
+        choices=[
+            "mlp",
+            "residual-mlp",
+            "residual-layernorm-mlp",
+            "action-transformer",
+        ],
         default="action-transformer",
+    )
+    self_play_parser.add_argument(
+        "--reinitialize-architecture",
+        action="store_true",
+        help="build the requested architecture from --start-model instead of resuming its checkpoint architecture",
     )
     self_play_parser.add_argument("--layers", type=_layers, default=[192, 4, 4, 768])
     self_play_parser.add_argument("--scratch-seed", type=int, default=1)
@@ -1537,7 +1641,12 @@ def main() -> int:
     supervised_pretrain_parser.add_argument("--start-model", type=_path, default=None)
     supervised_pretrain_parser.add_argument(
         "--architecture",
-        choices=["mlp", "residual-mlp", "action-transformer"],
+        choices=[
+            "mlp",
+            "residual-mlp",
+            "residual-layernorm-mlp",
+            "action-transformer",
+        ],
         default="action-transformer",
     )
     supervised_pretrain_parser.add_argument(
@@ -1773,6 +1882,22 @@ def main() -> int:
         "--password", default=os.environ.get("KOLKHOZ_DASHBOARD_PASSWORD")
     )
     dashboard_parser.set_defaults(func=dashboard_command)
+
+    online_parser = subparsers.add_parser(
+        "serve-online", help="serve C-engine online sessions for Flutter clients"
+    )
+    online_parser.add_argument("--host", default="0.0.0.0")
+    online_parser.add_argument("--port", type=int, default=8787)
+    online_parser.add_argument("--rebuild", action="store_true")
+    online_parser.add_argument(
+        "--database-url",
+        default=None,
+        help=(
+            "optional Supabase/Postgres connection string; defaults to "
+            "KOLKHOZ_ONLINE_DATABASE_URL"
+        ),
+    )
+    online_parser.set_defaults(func=serve_online_command)
 
     cleanup_parser = subparsers.add_parser(
         "cleanup-artifacts", help="dry-run or delete stale local training checkpoints"

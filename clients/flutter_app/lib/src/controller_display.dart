@@ -44,6 +44,7 @@ String renderControllerName(KolkhozPlayerController controller) {
   return switch (controller) {
     KolkhozPlayerController.human => controllerHuman,
     KolkhozPlayerController.heuristicAI => controllerHeuristicAI,
+    KolkhozPlayerController.mediumAI => controllerMediumAI,
     KolkhozPlayerController.neuralAI => controllerNeuralAI,
   };
 }

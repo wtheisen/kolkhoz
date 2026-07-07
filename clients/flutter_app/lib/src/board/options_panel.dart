@@ -37,6 +37,8 @@ const optionsMenuActionContentSpacing = 7.0;
 const optionsMenuActionIconSize = 15.0;
 const optionsChromeToggleSize = 48.0;
 const optionsChromeToggleIconSize = 25.0;
+const optionsSessionTwoColumnMinWidth = 720.0;
+const optionsSessionColumnSpacing = 16.0;
 
 double optionsMenuSectionSpacing(double height) {
   return clampDouble(
@@ -491,18 +493,52 @@ class OptionsSessionControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final controls = _sessionControls();
+        final safeguards = _sessionSafeguards();
+        if (constraints.maxWidth >= optionsSessionTwoColumnMinWidth) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: controls),
+              SizedBox(width: optionsSessionColumnSpacing),
+              Expanded(child: safeguards),
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: optionsMenuActionsSpacing,
+          children: [
+            controls,
+            Divider(color: tokens.colors.gold.withValues(alpha: 0.28)),
+            safeguards,
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _sectionTitle(String text) {
+    return ChromePixelLabel(
+      text,
+      size: PixelTextSize.caption,
+      variant: PixelTextVariant.regular,
+      color: tokens.colors.smoke,
+    );
+  }
+
+  Widget _sessionControls() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: optionsMenuActionsSpacing,
       children: [
-        ChromePixelLabel(
+        _sectionTitle(
           language.text(en: 'Game controls', ru: 'Управление игрой'),
-          size: PixelTextSize.caption,
-          variant: PixelTextVariant.regular,
-          color: tokens.colors.smoke,
         ),
         Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: optionsMenuControlsSpacing,
           children: [
             Center(
@@ -562,13 +598,16 @@ class OptionsSessionControls extends StatelessWidget {
             ),
           ],
         ),
-        Divider(color: tokens.colors.gold.withValues(alpha: 0.28)),
-        ChromePixelLabel(
-          language.text(en: 'Safeguards', ru: 'Защита'),
-          size: PixelTextSize.caption,
-          variant: PixelTextVariant.regular,
-          color: tokens.colors.smoke,
-        ),
+      ],
+    );
+  }
+
+  Widget _sessionSafeguards() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: optionsMenuActionsSpacing,
+      children: [
+        _sectionTitle(language.text(en: 'Safeguards', ru: 'Защита')),
         OptionsSettingToggle(
           tokens: tokens,
           label: language.text(

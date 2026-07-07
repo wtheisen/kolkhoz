@@ -7,11 +7,17 @@ Panels panelsForPhase(
   String phase, {
   List<Seat> seats = const [],
   Trick? lastTrick,
+  List<LegalAction>? legalActions,
 }) {
   return Panels(
     active:
         uiState.activePanel ??
-        activePanelForPhase(phase, seats: seats, lastTrick: lastTrick),
+        activePanelForPhase(
+          phase,
+          seats: seats,
+          lastTrick: lastTrick,
+          legalActions: legalActions,
+        ),
     available: availableGamePanels,
   );
 }
@@ -20,7 +26,13 @@ String activePanelForPhase(
   String phase, {
   List<Seat> seats = const [],
   Trick? lastTrick,
+  List<LegalAction>? legalActions,
 }) {
+  if (legalActions != null &&
+      phaseRequiresViewerAction(phase) &&
+      !viewerHasPhaseAction(phase, legalActions)) {
+    return panelBrigade;
+  }
   if (phase == phaseAssignment &&
       assignmentWinnerIsAutomatic(seats: seats, lastTrick: lastTrick)) {
     return panelBrigade;
@@ -54,6 +66,27 @@ bool assignmentWinnerIsAutomatic({
 
 bool isHumanAssignmentController(String controller) {
   return controller == controllerHuman || controller == controllerRemoteHuman;
+}
+
+bool phaseRequiresViewerAction(String phase) {
+  return phase == phaseSwap ||
+      phase == phaseAssignment ||
+      phase == phaseRequisition;
+}
+
+bool viewerHasPhaseAction(String phase, List<LegalAction> legalActions) {
+  return legalActions.any((action) {
+    return switch (phase) {
+      phaseSwap =>
+        action.kind == actionSwap ||
+            action.kind == actionUndoSwap ||
+            action.kind == actionConfirmSwap,
+      phaseAssignment =>
+        action.kind == actionAssign || action.kind == actionSubmitAssignments,
+      phaseRequisition => action.kind == actionContinueAfterRequisition,
+      _ => true,
+    };
+  });
 }
 
 Prompt phasePromptForPhase(String phase, {required bool isFamine}) {

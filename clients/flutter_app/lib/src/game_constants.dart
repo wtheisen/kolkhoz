@@ -7,6 +7,7 @@ const jobRequiredHours = 40;
 const controllerHuman = 'human';
 const controllerRemoteHuman = 'remoteHuman';
 const controllerHeuristicAI = 'heuristicAI';
+const controllerMediumAI = 'mediumAI';
 const controllerNeuralAI = 'neuralAI';
 
 const viewerPrivacyNone = 'none';

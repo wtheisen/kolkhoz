@@ -6,6 +6,9 @@ xcuserdata/
 # Local/editor state
 .claude/settings.local*.json
 *conflicted copy*
+.env
+.env.*
+!.env.example
 
 # Generated scratch output
 tmp/

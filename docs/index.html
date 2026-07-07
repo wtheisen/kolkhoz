@@ -5,9 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Kolkhoz is an offline trick-taking card game for iPhone."
+      content="Kolkhoz is an offline trick-taking card game for iPhone. Take tricks, work the fields, hide what you can — the State will take the rest."
     />
-    <title>Kolkhoz - Offline Trick-Taking for iPhone</title>
+    <meta property="og:title" content="Kolkhoz — Offline Trick-Taking for iPhone" />
+    <meta
+      property="og:description"
+      content="Take tricks. Work the fields. Hide what you can. The State will take the rest."
+    />
+    <meta property="og:image" content="https://kolkhoz.williamtheisen.com/assets/title-card-kolkhoz.png" />
+    <meta property="og:url" content="https://kolkhoz.williamtheisen.com/" />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/png" href="/assets/icons/icon-wheat.png" />
+    <title>Kolkhoz — Offline Trick-Taking for iPhone</title>
     <style>
       @font-face {
         font-family: "Handjet";
@@ -21,10 +30,15 @@
         --coal-2: #211e18;
         --paper: #e3d3aa;
         --paper-strong: #f2dfb2;
+        --paper-body: #392f1f;
+        --paper-ink: #19140d;
         --muted: #b7a57d;
         --red: #9f2f1e;
+        --red-bright: #b8422b;
         --red-deep: #6f1d17;
         --gold: #d4aa53;
+        --field: #26301d;
+        --field-2: #2c321f;
         --line: rgba(212, 170, 83, 0.32);
         --shadow: 0 28px 70px rgba(0, 0, 0, 0.5);
       }
@@ -40,10 +54,12 @@
       body {
         margin: 0;
         background:
-          radial-gradient(circle at 78% 30%, rgba(159, 47, 30, 0.2), transparent 30rem),
+          radial-gradient(circle at 78% 12%, rgba(159, 47, 30, 0.18), transparent 34rem),
           linear-gradient(135deg, #0d0c0a 0%, #191611 48%, #0d0c0a 100%);
         color: var(--paper);
         font-family: Georgia, "Times New Roman", serif;
+        font-size: 19px;
+        line-height: 1.5;
       }
 
       body::before {
@@ -62,6 +78,36 @@
       a {
         color: inherit;
       }
+
+      img.pixel {
+        image-rendering: pixelated;
+      }
+
+      .display {
+        font-family: "Handjet", Georgia, serif;
+        font-weight: 800;
+        line-height: 0.9;
+        letter-spacing: 0.01em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow {
+        display: block;
+        margin: 0 0 14px;
+        color: var(--gold);
+        font-size: 14px;
+        font-weight: 400;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+      }
+
+      .wrap {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding-inline: 24px;
+      }
+
+      /* ---------- Header ---------- */
 
       .site-header {
         display: flex;
@@ -99,16 +145,15 @@
         font-size: 38px;
         font-weight: 800;
         line-height: 1;
-        letter-spacing: 0;
         text-transform: uppercase;
       }
 
       .nav {
         display: flex;
         align-items: center;
-        gap: 34px;
+        gap: 30px;
         color: var(--paper-strong);
-        font-size: 18px;
+        font-size: 17px;
       }
 
       .nav a {
@@ -123,67 +168,75 @@
         text-decoration-color: var(--red);
       }
 
-      main {
-        overflow: hidden;
-      }
+      /* ---------- Hero ---------- */
 
       .hero {
-        display: grid;
-        grid-template-columns: minmax(0, 0.92fr) minmax(360px, 1.08fr);
-        gap: 42px;
-        align-items: center;
-        max-width: 1180px;
-        min-height: calc(100svh - 91px);
-        margin: 0 auto;
-        padding: 56px 24px 44px;
-      }
-
-      .hero-copy {
         position: relative;
-        z-index: 2;
+        overflow: hidden;
+        padding: 72px 24px 84px;
+        text-align: center;
       }
 
-      .star-wheat {
-        width: 92px;
-        height: 72px;
-        margin: 0 0 14px 12px;
-        color: var(--gold);
+      .hero-rays {
+        position: absolute;
+        top: -420px;
+        left: 50%;
+        z-index: 0;
+        width: 1600px;
+        height: 1600px;
+        pointer-events: none;
+        background: repeating-conic-gradient(
+          from 0deg,
+          rgba(212, 170, 83, 0.07) 0deg 9deg,
+          transparent 9deg 24deg
+        );
+        -webkit-mask-image: radial-gradient(circle, rgba(0, 0, 0, 0.9), transparent 62%);
+        mask-image: radial-gradient(circle, rgba(0, 0, 0, 0.9), transparent 62%);
+        transform: translateX(-50%);
       }
 
-      h1 {
-        max-width: 590px;
-        margin: 0;
-        color: var(--paper-strong);
-        font-family: "Handjet", Georgia, serif;
-        font-size: clamp(92px, 13vw, 196px);
-        font-weight: 900;
-        line-height: 0.78;
-        letter-spacing: 0;
-        text-transform: uppercase;
-        text-shadow: 0 5px 0 rgba(0, 0, 0, 0.18);
+      .hero-inner {
+        position: relative;
+        z-index: 1;
+        max-width: 940px;
+        margin: 0 auto;
       }
 
-      .rule {
-        width: min(100%, 520px);
-        height: 3px;
-        margin: 28px 0 24px;
-        background: linear-gradient(90deg, var(--red), rgba(159, 47, 30, 0));
+      .hero-eyebrow {
+        margin-bottom: 26px;
+        font-size: 15px;
+      }
+
+      .hero-banner {
+        display: block;
+        width: min(100%, 880px);
+        height: auto;
+        margin: 0 auto;
+        border: 3px solid rgba(212, 170, 83, 0.55);
+        border-radius: 6px;
+        box-shadow: var(--shadow), 0 0 0 8px rgba(16, 15, 12, 0.85);
       }
 
       .lead {
-        max-width: 520px;
-        margin: 0;
+        max-width: 640px;
+        margin: 40px auto 0;
         color: #ead8b1;
-        font-size: clamp(31px, 4vw, 44px);
-        line-height: 1.08;
+        font-size: clamp(26px, 3.4vw, 36px);
+        line-height: 1.18;
+      }
+
+      .lead em {
+        color: var(--paper-strong);
+        font-style: italic;
       }
 
       .actions {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 24px 34px;
-        margin-top: 34px;
+        justify-content: center;
+        gap: 22px 34px;
+        margin-top: 38px;
       }
 
       .store-button {
@@ -191,146 +244,59 @@
         align-items: center;
         justify-content: center;
         min-width: 228px;
-        min-height: 72px;
-        padding: 18px 34px;
+        min-height: 68px;
+        padding: 16px 34px;
         border: 1px solid #c14f36;
         border-radius: 8px;
         background: linear-gradient(180deg, #b8422b, #7b2319);
         box-shadow: 0 16px 30px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.16);
         color: #fff2d1;
-        font-size: 28px;
+        font-family: "Handjet", Georgia, serif;
+        font-size: 30px;
         font-weight: 700;
+        letter-spacing: 0.04em;
         text-decoration: none;
+        text-transform: uppercase;
+        transition: transform 160ms ease, background 160ms ease;
       }
 
       .store-button:hover,
       .store-button:focus-visible {
-        transform: translateY(-1px);
+        transform: translateY(-2px);
         background: linear-gradient(180deg, #c64d34, #81261b);
       }
 
       .inline-link {
         color: var(--paper-strong);
-        font-size: 22px;
+        font-size: 20px;
         text-decoration-color: var(--red);
         text-underline-offset: 8px;
       }
 
-      .device-scene {
-        position: relative;
-        min-height: 570px;
+      /* Hero load sequence */
+      .hero-eyebrow,
+      .hero-banner,
+      .lead,
+      .actions {
+        animation: rise-in 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
       }
 
-      .card-fan {
-        position: absolute;
-        top: 0;
-        right: 8px;
-        width: min(100%, 650px);
-        height: 360px;
+      .hero-banner { animation-delay: 120ms; }
+      .lead { animation-delay: 280ms; }
+      .actions { animation-delay: 420ms; }
+
+      @keyframes rise-in {
+        from {
+          opacity: 0;
+          transform: translateY(18px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
 
-      .crop-card {
-        position: absolute;
-        width: 168px;
-        border-radius: 12px;
-        box-shadow: 0 20px 35px rgba(0, 0, 0, 0.34);
-        transform-origin: 50% 100%;
-      }
-
-      .crop-card:nth-child(1) {
-        left: 74px;
-        top: 62px;
-        transform: rotate(-15deg);
-      }
-
-      .crop-card:nth-child(2) {
-        left: 210px;
-        top: 28px;
-        transform: rotate(-5deg);
-      }
-
-      .crop-card:nth-child(3) {
-        left: 346px;
-        top: 34px;
-        transform: rotate(9deg);
-      }
-
-      .crop-card:nth-child(4) {
-        left: 482px;
-        top: 90px;
-        transform: rotate(20deg);
-      }
-
-      .phone {
-        position: absolute;
-        right: 22px;
-        bottom: 34px;
-        width: min(92%, 560px);
-        aspect-ratio: 1.92;
-        padding: 17px;
-        border: 6px solid #090908;
-        border-radius: 42px;
-        background: #0b0b0a;
-        box-shadow: var(--shadow);
-        transform: rotate(5deg);
-      }
-
-      .phone::before {
-        position: absolute;
-        top: 13px;
-        left: 50%;
-        width: 108px;
-        height: 22px;
-        border-radius: 0 0 18px 18px;
-        background: #060606;
-        content: "";
-        transform: translateX(-50%);
-      }
-
-      .phone-screen {
-        position: relative;
-        height: 100%;
-        overflow: hidden;
-        border: 1px solid rgba(224, 193, 122, 0.28);
-        border-radius: 30px;
-        background:
-          linear-gradient(rgba(13, 23, 15, 0.88), rgba(13, 23, 15, 0.88)),
-          radial-gradient(circle at 50% 50%, #31523a, #152216 64%);
-      }
-
-      .mini-table {
-        position: absolute;
-        inset: 20px 24px;
-        display: grid;
-        grid-template-rows: 1fr auto;
-        gap: 22px;
-      }
-
-      .mini-trick {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        padding-top: 22px;
-      }
-
-      .mini-card {
-        width: 66px;
-        border-radius: 5px;
-        box-shadow: 0 7px 16px rgba(0, 0, 0, 0.35);
-      }
-
-      .mini-hand {
-        display: flex;
-        justify-content: center;
-        gap: 7px;
-      }
-
-      .mini-hand img {
-        width: 46px;
-        border-radius: 4px;
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.32);
-      }
+      /* ---------- Feature band ---------- */
 
       .features {
         border-top: 1px solid var(--line);
@@ -348,12 +314,10 @@
       .feature {
         display: flex;
         align-items: center;
-        gap: 24px;
+        gap: 22px;
         min-height: 126px;
         padding: 22px 34px;
         border-right: 1px solid var(--line);
-        color: var(--paper-strong);
-        font-size: 25px;
       }
 
       .feature:last-child {
@@ -361,76 +325,500 @@
       }
 
       .feature img {
-        width: 58px;
-        height: 58px;
+        flex: none;
+        width: 56px;
+        height: 56px;
         object-fit: contain;
       }
 
-      .paper-section {
-        background:
-          linear-gradient(rgba(236, 219, 177, 0.94), rgba(219, 199, 154, 0.96)),
-          radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.45), transparent 30rem);
-        color: #19140d;
+      .feature-title {
+        display: block;
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 30px;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
       }
 
-      .paper-inner {
+      .feature-note {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 16px;
+      }
+
+      /* ---------- Section scaffolding ---------- */
+
+      .section-head {
+        max-width: 720px;
+        margin: 0 auto 46px;
+        text-align: center;
+      }
+
+      .section-head h2 {
+        margin: 0;
+        color: var(--paper-strong);
+        font-size: clamp(52px, 7vw, 88px);
+      }
+
+      .section-head .sub {
+        max-width: 560px;
+        margin: 16px auto 0;
+        color: var(--muted);
+        font-size: 20px;
+      }
+
+      .head-rule {
+        width: 130px;
+        height: 3px;
+        margin: 22px auto 0;
+        background: linear-gradient(90deg, rgba(159, 47, 30, 0), var(--red), rgba(159, 47, 30, 0));
+      }
+
+      /* ---------- A year on the collective ---------- */
+
+      .year-loop {
+        padding: 88px 24px 96px;
+      }
+
+      .year-loop-inner {
         display: grid;
-        grid-template-columns: 0.9fr 1.1fr;
-        gap: 54px;
+        grid-template-columns: minmax(320px, 1fr) minmax(0, 1.05fr);
+        gap: 64px;
         align-items: center;
         max-width: 1180px;
         margin: 0 auto;
-        padding: 62px 24px 54px;
       }
 
-      .poster {
-        min-height: 250px;
-        border: 1px solid rgba(72, 46, 22, 0.25);
-        background:
-          linear-gradient(135deg, rgba(111, 29, 23, 0.88), rgba(111, 29, 23, 0.34)),
-          radial-gradient(circle at 72% 38%, rgba(212, 170, 83, 0.58), transparent 13rem),
-          #2c321f;
-        box-shadow: 0 22px 50px rgba(52, 35, 16, 0.24);
+      .trick-scene {
+        position: relative;
+        min-height: 420px;
       }
 
-      .poster::after {
-        display: block;
+      .playing-card {
+        position: absolute;
+        width: 172px;
+        aspect-ratio: 5 / 7;
+        overflow: hidden;
+        border-radius: 10px;
+        background: url("/assets/cards/card-template-light.png") center / 100% 100% no-repeat;
+        box-shadow: 0 20px 35px rgba(0, 0, 0, 0.38);
+        image-rendering: pixelated;
+        transition: transform 220ms ease, box-shadow 220ms ease;
+      }
+
+      .playing-card:hover {
+        z-index: 5;
+        box-shadow: 0 30px 46px rgba(0, 0, 0, 0.46);
+      }
+
+      .playing-card .portrait {
+        position: absolute;
+        bottom: 4%;
+        left: 50%;
+        width: 88%;
+        transform: translateX(-50%);
+        image-rendering: pixelated;
+      }
+
+      .playing-card.is-wrecker .portrait {
         width: 62%;
-        height: 100%;
-        margin-left: auto;
-        clip-path: polygon(16% 0, 100% 0, 100% 100%, 0 100%);
-        background:
-          linear-gradient(45deg, rgba(255, 255, 255, 0.08) 25%, transparent 25% 50%, rgba(255, 255, 255, 0.08) 50% 75%, transparent 75%),
-          rgba(13, 12, 10, 0.28);
-        background-size: 24px 24px;
-        content: "";
+        bottom: 7%;
       }
 
-      .paper-copy {
-        max-width: 540px;
+      .playing-card .rank {
+        position: absolute;
+        top: 5.5%;
+        left: 9%;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 30px;
+        font-weight: 800;
+        line-height: 1;
       }
 
-      .paper-copy h2 {
-        margin: 0 0 18px;
-        color: #19140d;
-        font-size: clamp(42px, 5vw, 64px);
-        line-height: 0.98;
+      .playing-card .suit-mark {
+        position: absolute;
+        top: 6%;
+        right: 8.5%;
+        width: 17%;
+        image-rendering: pixelated;
+        filter: drop-shadow(0 1px 0 rgba(255, 244, 214, 0.65));
       }
 
-      .paper-copy p {
+      .trick-scene .playing-card:nth-child(1) {
+        top: 96px;
+        left: 4px;
+        transform: rotate(-11deg);
+      }
+
+      .trick-scene .playing-card:nth-child(2) {
+        top: 34px;
+        left: 128px;
+        transform: rotate(-3deg);
+      }
+
+      .trick-scene .playing-card:nth-child(3) {
+        top: 40px;
+        left: 258px;
+        transform: rotate(6deg);
+      }
+
+      .trick-scene .playing-card:nth-child(4) {
+        top: 110px;
+        left: 382px;
+        transform: rotate(14deg);
+      }
+
+      .trick-scene .playing-card:nth-child(1):hover { transform: rotate(-11deg) translateY(-12px); }
+      .trick-scene .playing-card:nth-child(2):hover { transform: rotate(-3deg) translateY(-12px); }
+      .trick-scene .playing-card:nth-child(3):hover { transform: rotate(6deg) translateY(-12px); }
+      .trick-scene .playing-card:nth-child(4):hover { transform: rotate(14deg) translateY(-12px); }
+
+      .trick-caption {
+        position: absolute;
+        right: 18px;
+        bottom: 0;
+        left: 18px;
+        color: var(--muted);
+        font-size: 15px;
+        font-style: italic;
+        text-align: center;
+      }
+
+      .year-loop .section-head {
+        margin-bottom: 40px;
+        text-align: left;
+      }
+
+      .year-loop .section-head .head-rule {
+        margin-inline: 0;
+        background: linear-gradient(90deg, var(--red), rgba(159, 47, 30, 0));
+      }
+
+      .steps {
+        display: grid;
+        gap: 0;
         margin: 0;
-        color: #392f1f;
-        font-size: 22px;
-        line-height: 1.42;
+        padding: 0;
+        list-style: none;
+        counter-reset: step;
       }
 
-      .availability {
-        margin-top: 28px;
-        padding-top: 22px;
-        border-top: 1px solid rgba(57, 47, 31, 0.22);
-        color: #2b2115;
+      .step {
+        display: flex;
+        gap: 22px;
+        padding: 22px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .step:first-child {
+        border-top: 0;
+        padding-top: 0;
+      }
+
+      .step img {
+        flex: none;
+        width: 54px;
+        height: 54px;
+        margin-top: 4px;
+        object-fit: contain;
+      }
+
+      .step h3 {
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+        margin: 0 0 6px;
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 32px;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .step h3::before {
+        counter-increment: step;
+        content: counter(step) ".";
+        color: var(--red-bright);
+        font-size: 24px;
+      }
+
+      .step p {
+        margin: 0;
+        color: var(--muted);
         font-size: 18px;
       }
+
+      /* ---------- Five-year plan (paper) ---------- */
+
+      .plan {
+        background:
+          linear-gradient(rgba(236, 219, 177, 0.94), rgba(219, 199, 154, 0.96)),
+          radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.45), transparent 30rem);
+        border-top: 4px solid var(--red-deep);
+        border-bottom: 4px solid var(--red-deep);
+        color: var(--paper-ink);
+        padding: 84px 24px 92px;
+      }
+
+      .plan .section-head h2 {
+        color: var(--paper-ink);
+      }
+
+      .plan .section-head .sub {
+        color: var(--paper-body);
+      }
+
+      .plan .eyebrow {
+        color: var(--red-deep);
+      }
+
+      .plan-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        max-width: 1180px;
+        margin: 0 auto;
+        border: 1px solid rgba(72, 46, 22, 0.45);
+        background: rgba(255, 248, 226, 0.35);
+        box-shadow: 0 22px 50px rgba(52, 35, 16, 0.22);
+      }
+
+      .plan-year {
+        position: relative;
+        padding: 30px 22px 28px;
+        border-right: 1px solid rgba(72, 46, 22, 0.3);
+        text-align: center;
+      }
+
+      .plan-year:last-child {
+        border-right: 0;
+      }
+
+      .plan-year img {
+        width: 82px;
+        height: 82px;
+        object-fit: contain;
+      }
+
+      .plan-year h3 {
+        margin: 14px 0 8px;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 30px;
+        font-weight: 800;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .plan-year p {
+        margin: 0;
+        color: var(--paper-body);
+        font-size: 16px;
+        line-height: 1.45;
+      }
+
+      .plan-year.famine {
+        background:
+          repeating-linear-gradient(
+            -45deg,
+            rgba(111, 29, 23, 0.06) 0 14px,
+            transparent 14px 28px
+          ),
+          rgba(159, 47, 30, 0.1);
+      }
+
+      .famine-stamp {
+        display: inline-block;
+        margin-top: 10px;
+        padding: 3px 12px;
+        border: 2px solid var(--red-deep);
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        transform: rotate(-4deg);
+      }
+
+      /* ---------- Suits band (field green) ---------- */
+
+      .suits {
+        border-bottom: 1px solid rgba(0, 0, 0, 0.7);
+        background:
+          radial-gradient(circle at 50% 0%, rgba(212, 170, 83, 0.1), transparent 26rem),
+          linear-gradient(180deg, var(--field-2), var(--field) 70%);
+        padding: 84px 24px 92px;
+      }
+
+      .suit-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0;
+        max-width: 1080px;
+        margin: 0 auto;
+      }
+
+      .suit {
+        padding: 10px 26px 6px;
+        border-right: 1px solid rgba(212, 170, 83, 0.24);
+        text-align: center;
+      }
+
+      .suit:last-child {
+        border-right: 0;
+      }
+
+      .suit img {
+        width: 92px;
+        height: 92px;
+        object-fit: contain;
+        filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.35));
+      }
+
+      .suit h3 {
+        margin: 14px 0 6px;
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 34px;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .suit p {
+        margin: 0;
+        color: rgba(227, 211, 170, 0.75);
+        font-size: 16px;
+        font-style: italic;
+      }
+
+      /* ---------- Wrecker ---------- */
+
+      .wrecker {
+        padding: 92px 24px 100px;
+      }
+
+      .wrecker-inner {
+        display: grid;
+        grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr);
+        gap: 64px;
+        align-items: center;
+        max-width: 1080px;
+        margin: 0 auto;
+      }
+
+      .wanted-poster {
+        position: relative;
+        justify-self: center;
+        width: min(100%, 340px);
+        padding: 26px 26px 22px;
+        border: 1px solid rgba(72, 46, 22, 0.4);
+        background:
+          linear-gradient(rgba(236, 219, 177, 0.97), rgba(214, 192, 146, 0.97));
+        box-shadow: var(--shadow);
+        color: var(--paper-ink);
+        text-align: center;
+        transform: rotate(-2deg);
+      }
+
+      .wanted-poster .wanted-word {
+        margin: 0;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 54px;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .wanted-poster .portrait {
+        display: block;
+        width: 72%;
+        margin: 16px auto 12px;
+        image-rendering: pixelated;
+      }
+
+      .wanted-poster .charge {
+        margin: 0;
+        color: var(--paper-body);
+        font-size: 15px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .wanted-stamp {
+        position: absolute;
+        right: -18px;
+        bottom: 78px;
+        padding: 6px 16px;
+        border: 3px solid var(--red);
+        border-radius: 4px;
+        color: var(--red);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        opacity: 0.85;
+        transform: rotate(-14deg);
+      }
+
+      .wrecker-copy .section-head {
+        margin-bottom: 24px;
+        text-align: left;
+      }
+
+      .wrecker-copy .section-head .head-rule {
+        margin-inline: 0;
+        background: linear-gradient(90deg, var(--red), rgba(159, 47, 30, 0));
+      }
+
+      .wrecker-copy p {
+        max-width: 520px;
+        margin: 0 0 18px;
+        color: var(--muted);
+        font-size: 19px;
+      }
+
+      .wrecker-copy p strong {
+        color: var(--paper-strong);
+        font-weight: 700;
+      }
+
+      /* ---------- Closing ---------- */
+
+      .closing {
+        border-top: 1px solid var(--line);
+        background:
+          radial-gradient(circle at 50% 120%, rgba(159, 47, 30, 0.28), transparent 40rem),
+          rgba(20, 19, 16, 0.86);
+        padding: 96px 24px 104px;
+        text-align: center;
+      }
+
+      .closing h2 {
+        margin: 0;
+        color: var(--paper-strong);
+        font-size: clamp(56px, 8vw, 104px);
+      }
+
+      .closing .sub {
+        max-width: 520px;
+        margin: 20px auto 0;
+        color: var(--muted);
+        font-size: 20px;
+      }
+
+      .closing .actions {
+        margin-top: 40px;
+      }
+
+      /* ---------- Footer ---------- */
 
       .site-footer {
         display: flex;
@@ -448,45 +836,92 @@
         gap: 22px;
       }
 
+      /* ---------- Scroll reveal ---------- */
+
+      .reveal {
+        opacity: 0;
+        transform: translateY(22px);
+        transition: opacity 640ms ease, transform 640ms cubic-bezier(0.2, 0.7, 0.2, 1);
+      }
+
+      .reveal.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+
+        .hero-eyebrow,
+        .hero-banner,
+        .lead,
+        .actions {
+          animation: none;
+        }
+
+        .reveal {
+          opacity: 1;
+          transform: none;
+          transition: none;
+        }
+
+        .playing-card,
+        .store-button {
+          transition: none;
+        }
+      }
+
+      /* ---------- Responsive ---------- */
+
+      @media (max-width: 980px) {
+        .year-loop-inner,
+        .wrecker-inner {
+          grid-template-columns: 1fr;
+          gap: 48px;
+        }
+
+        .trick-scene {
+          justify-self: center;
+          width: 100%;
+          max-width: 580px;
+        }
+
+        .plan-grid {
+          grid-template-columns: repeat(5, minmax(170px, 1fr));
+          overflow-x: auto;
+        }
+
+        .suit-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .suit {
+          padding-block: 22px;
+        }
+
+        .suit:nth-child(2) {
+          border-right: 0;
+        }
+
+        .suit:nth-child(-n + 2) {
+          border-bottom: 1px solid rgba(212, 170, 83, 0.24);
+        }
+      }
+
       @media (max-width: 900px) {
         .site-header {
           padding-inline: 18px;
         }
 
         .nav {
-          gap: 18px;
+          gap: 16px;
           font-size: 16px;
         }
 
         .hero {
-          grid-template-columns: 1fr;
-          min-height: auto;
-          padding: 44px 18px 34px;
-        }
-
-        .lead {
-          max-width: 470px;
-        }
-
-        .device-scene {
-          min-height: 450px;
-          margin-top: -6px;
-        }
-
-        .card-fan {
-          left: 50%;
-          right: auto;
-          width: 620px;
-          transform: translateX(-50%) scale(0.85);
-          transform-origin: top center;
-        }
-
-        .phone {
-          left: 50%;
-          right: auto;
-          bottom: 12px;
-          width: min(94%, 520px);
-          transform: translateX(-50%) rotate(3deg);
+          padding: 52px 18px 64px;
         }
 
         .feature-grid {
@@ -499,87 +934,82 @@
           border-bottom: 1px solid var(--line);
         }
 
-        .paper-inner {
-          grid-template-columns: 1fr;
-          gap: 34px;
-          padding-inline: 18px;
-        }
-
-        .site-footer {
-          flex-direction: column;
-          padding-inline: 18px;
+        .feature:last-child {
+          border-bottom: 0;
         }
       }
 
-      @media (max-width: 560px) {
+      @media (max-width: 620px) {
         .brand-name {
           font-size: 30px;
         }
 
         .nav {
-          gap: 14px;
+          gap: 13px;
+          font-size: 15px;
         }
 
-        .star-wheat {
-          width: 72px;
-          height: 56px;
-          margin-left: 2px;
-        }
-
-        h1 {
-          font-size: clamp(78px, 24vw, 118px);
+        body {
+          font-size: 18px;
         }
 
         .lead {
-          font-size: 29px;
+          font-size: 25px;
         }
 
         .actions {
-          gap: 18px 24px;
+          gap: 16px 22px;
         }
 
         .store-button {
           width: 100%;
-          min-height: 66px;
+          min-height: 62px;
         }
 
-        .device-scene {
-          min-height: 372px;
+        .year-loop,
+        .plan,
+        .suits,
+        .wrecker,
+        .closing {
+          padding-block: 60px 68px;
         }
 
-        .card-fan {
-          transform: translateX(-50%) scale(0.62);
+        .trick-scene {
+          min-height: 0;
+          height: 340px;
+          transform: scale(0.62);
+          transform-origin: top left;
+          margin-bottom: -110px;
         }
 
-        .phone {
-          padding: 12px;
-          border-width: 5px;
-          border-radius: 32px;
+        .trick-caption {
+          display: none;
         }
 
-        .phone-screen {
-          border-radius: 23px;
+        .suit-grid {
+          grid-template-columns: 1fr;
         }
 
-        .mini-table {
-          inset: 15px 18px;
+        .suit {
+          border-right: 0;
+          border-bottom: 1px solid rgba(212, 170, 83, 0.24);
         }
 
-        .mini-card {
-          width: 52px;
+        .suit:last-child {
+          border-bottom: 0;
         }
 
-        .mini-hand img {
-          width: 35px;
+        .suit:nth-child(2) {
+          border-bottom: 1px solid rgba(212, 170, 83, 0.24);
         }
 
-        .feature {
-          padding-inline: 22px;
-          font-size: 23px;
+        .wanted-stamp {
+          right: 4px;
         }
 
-        .paper-copy h2 {
-          font-size: 42px;
+        .site-footer {
+          flex-direction: column;
+          padding-inline: 18px;
         }
       }
     </style>
@@ -599,6 +1029,7 @@
         <span class="brand-name">Kolkhoz</span>
       </a>
       <nav class="nav" aria-label="Primary navigation">
+        <a href="#year-loop">How it plays</a>
         <a href="/support.html">Support</a>
         <a href="/privacy.html">Privacy</a>
       </nav>
@@ -606,49 +1037,26 @@
 
     <main>
       <section class="hero" aria-labelledby="page-title">
-        <div class="hero-copy">
-          <svg class="star-wheat" viewBox="0 0 110 82" fill="none" aria-hidden="true">
-            <path d="M55 4l7.1 21.8H85L66.5 39.2l7.1 21.8L55 47.5 36.4 61l7.1-21.8L25 25.8h22.9L55 4z" fill="#a43123" />
-            <path d="M17 76c8.3-19.1 21.7-34.2 40-45.4" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
-            <path d="M5 58c16.6 1.4 31.3 7.1 44 17" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
-            <path d="M93 76c-8.3-19.1-21.7-34.2-40-45.4" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
-            <path d="M105 58c-16.6 1.4-31.3 7.1-44 17" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
-          </svg>
-          <h1 id="page-title">Kolkhoz</h1>
-          <div class="rule" aria-hidden="true"></div>
-          <p class="lead">An offline trick-taking card game for iPhone.</p>
+        <div class="hero-rays" aria-hidden="true"></div>
+        <div class="hero-inner">
+          <span class="eyebrow hero-eyebrow">An offline trick-taking card game for iPhone</span>
+          <h1 id="page-title" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">
+            Kolkhoz
+          </h1>
+          <img
+            class="hero-banner pixel"
+            src="/assets/title-card-kolkhoz.png"
+            alt="Kolkhoz title art: two farm workers flanking the game's name, framed by wheat, sunflowers, beets, and potatoes"
+            width="1024"
+            height="512"
+          />
+          <p class="lead">
+            Take tricks. Work the fields. Hide what you can.
+            <em>The State will take the rest.</em>
+          </p>
           <div class="actions">
             <a class="store-button" href="#availability">App Store</a>
-            <a class="inline-link" href="/support.html">Support</a>
-            <a class="inline-link" href="/privacy.html">Privacy</a>
-          </div>
-        </div>
-
-        <div class="device-scene" aria-label="Kolkhoz cards and iPhone preview">
-          <div class="card-fan" aria-hidden="true">
-            <img class="crop-card" src="/assets/cards/face-jack-beet.png" alt="" />
-            <img class="crop-card" src="/assets/cards/face-queen-sunflower.png" alt="" />
-            <img class="crop-card" src="/assets/cards/face-king-wheat.png" alt="" />
-            <img class="crop-card" src="/assets/cards/card-back.png" alt="" />
-          </div>
-          <div class="phone" aria-hidden="true">
-            <div class="phone-screen">
-              <div class="mini-table">
-                <div class="mini-trick">
-                  <img class="mini-card" src="/assets/cards/face-jack-beet.png" alt="" />
-                  <img class="mini-card" src="/assets/cards/face-king-wheat.png" alt="" />
-                  <img class="mini-card" src="/assets/cards/face-queen-sunflower.png" alt="" />
-                </div>
-                <div class="mini-hand">
-                  <img src="/assets/cards/card-back.png" alt="" />
-                  <img src="/assets/cards/face-jack-beet.png" alt="" />
-                  <img src="/assets/cards/card-back.png" alt="" />
-                  <img src="/assets/cards/face-king-wheat.png" alt="" />
-                  <img src="/assets/cards/face-queen-sunflower.png" alt="" />
-                  <img src="/assets/cards/card-back.png" alt="" />
-                </div>
-              </div>
-            </div>
+            <a class="inline-link" href="#year-loop">See how a year unfolds</a>
           </div>
         </div>
       </section>
@@ -656,33 +1064,211 @@
       <section class="features" aria-label="Game highlights">
         <div class="feature-grid">
           <div class="feature">
-            <img src="/assets/icons/icon-wheat.png" alt="" />
-            <span>Five-year campaign</span>
+            <img class="pixel" src="/assets/icons/icon-wheat.png" alt="" />
+            <div>
+              <span class="feature-title">A five-year campaign</span>
+              <span class="feature-note">One full plan, from first sowing to famine.</span>
+            </div>
           </div>
           <div class="feature">
-            <img src="/assets/icons/icon-human-seat.png" alt="" />
-            <span>Offline local play</span>
+            <img class="pixel" src="/assets/icons/icon-pass-device.png" alt="" />
+            <div>
+              <span class="feature-title">Offline pass-and-play</span>
+              <span class="feature-note">No account, no ads, no signal required.</span>
+            </div>
           </div>
           <div class="feature">
-            <img src="/assets/icons/icon-hand.png" alt="" />
-            <span>Landscape table layout</span>
+            <img class="pixel" src="/assets/icons/icon-hand.png" alt="" />
+            <div>
+              <span class="feature-title">Made for landscape</span>
+              <span class="feature-note">A full card table in your two hands.</span>
+            </div>
           </div>
         </div>
       </section>
 
-      <section class="paper-section">
-        <div class="paper-inner">
-          <div class="poster" aria-hidden="true"></div>
-          <div class="paper-copy">
-            <h2>Plan your harvest.</h2>
-            <p>
-              Play through five years of tricks, crop assignments, requisitions, and hidden plots.
-              Kolkhoz is built for local offline play with a table layout tuned for landscape iPhone.
+      <section class="year-loop" id="year-loop" aria-labelledby="year-loop-title">
+        <div class="year-loop-inner">
+          <div class="trick-scene reveal" aria-label="A played trick of four Kolkhoz cards">
+            <div class="playing-card">
+              <span class="rank">J·11</span>
+              <img class="suit-mark pixel" src="/assets/icons/icon-beet.png" alt="" />
+              <img class="portrait" src="/assets/cards/face-jack-beet.png" alt="Jack of beets" />
+            </div>
+            <div class="playing-card">
+              <span class="rank">K·13</span>
+              <img class="suit-mark pixel" src="/assets/icons/icon-wheat.png" alt="" />
+              <img class="portrait" src="/assets/cards/face-king-wheat.png" alt="King of wheat" />
+            </div>
+            <div class="playing-card">
+              <span class="rank">Q·12</span>
+              <img class="suit-mark pixel" src="/assets/icons/icon-sunflower.png" alt="" />
+              <img class="portrait" src="/assets/cards/face-queen-sunflower.png" alt="Queen of sunflowers" />
+            </div>
+            <div class="playing-card is-wrecker">
+              <span class="rank">W·14</span>
+              <img class="suit-mark pixel" src="/assets/icons/icon-famine.png" alt="" />
+              <img class="portrait" src="/assets/cards/face-wrecker.png" alt="The Wrecker" />
+            </div>
+            <p class="trick-caption">A trick on the table — and someone has played the Wrecker.</p>
+          </div>
+
+          <div class="wrecker-copy">
+            <div class="section-head reveal">
+              <span class="eyebrow">How it plays</span>
+              <h2 class="display" id="year-loop-title">A year on the collective</h2>
+              <div class="head-rule" aria-hidden="true"></div>
+            </div>
+            <ol class="steps">
+              <li class="step reveal">
+                <img class="pixel" src="/assets/icons/icon-hand.png" alt="" />
+                <div>
+                  <h3>Win the tricks</h3>
+                  <p>
+                    Four tricks a year — three in famine. Follow the lead suit if you can.
+                    Every trick you take is labor, and labor must be assigned.
+                  </p>
+                </div>
+              </li>
+              <li class="step reveal">
+                <img class="pixel" src="/assets/icons/icon-jobs.png" alt="" />
+                <div>
+                  <h3>Assign the harvest</h3>
+                  <p>
+                    The brigade leader assigns each trick's cards to a crop.
+                    Fulfilled jobs pay out. Failures go in the ledger.
+                  </p>
+                </div>
+              </li>
+              <li class="step reveal">
+                <img class="pixel" src="/assets/icons/icon-plot.png" alt="" />
+                <div>
+                  <h3>Bank your plot</h3>
+                  <p>
+                    At year's end, the cards left in your hand slip into hidden plots —
+                    a private harvest the State hasn't counted. Yet.
+                  </p>
+                </div>
+              </li>
+              <li class="step reveal">
+                <img class="pixel" src="/assets/icons/icon-requisition-north.png" alt="" />
+                <div>
+                  <h3>Survive requisition</h3>
+                  <p>
+                    Failed jobs bring inspectors. Matching plot cards are revealed and
+                    exiled. Plan for the knock at the door.
+                  </p>
+                </div>
+              </li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <section class="plan" aria-labelledby="plan-title">
+        <div class="section-head reveal">
+          <span class="eyebrow">The campaign</span>
+          <h2 class="display" id="plan-title">The Five-Year Plan</h2>
+          <p class="sub">Highest plot score after five years wins. Every year, the ledger tightens.</p>
+        </div>
+        <div class="plan-grid reveal">
+          <div class="plan-year">
+            <img class="pixel" src="/assets/icons/icon-year-1.png" alt="Year one" />
+            <h3>First sowing</h3>
+            <p>Jobs are posted, trump is declared, and the fields are new.</p>
+          </div>
+          <div class="plan-year">
+            <img class="pixel" src="/assets/icons/icon-year-2.png" alt="Year two" />
+            <h3>Swaps begin</h3>
+            <p>Trade a hand card for a plot card — hidden or revealed.</p>
+          </div>
+          <div class="plan-year">
+            <img class="pixel" src="/assets/icons/icon-year-3.png" alt="Year three" />
+            <h3>Mid-plan</h3>
+            <p>The plots grow heavy, and everyone at the table is counting.</p>
+          </div>
+          <div class="plan-year">
+            <img class="pixel" src="/assets/icons/icon-year-4.png" alt="Year four" />
+            <h3>Last full harvest</h3>
+            <p>Protect what you've buried. Requisition remembers.</p>
+          </div>
+          <div class="plan-year famine">
+            <img class="pixel" src="/assets/icons/icon-year-5.png" alt="Year five" />
+            <h3>Year of hunger</h3>
+            <p>No trump. Three tricks. Nothing to spare.</p>
+            <span class="famine-stamp">Famine</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="suits" aria-labelledby="suits-title">
+        <div class="section-head reveal">
+          <span class="eyebrow">The deck</span>
+          <h2 class="display" id="suits-title">Four crops. One quota.</h2>
+          <div class="head-rule" aria-hidden="true"></div>
+        </div>
+        <div class="suit-grid reveal">
+          <div class="suit">
+            <img class="pixel" src="/assets/icons/icon-wheat.png" alt="" />
+            <h3>Wheat</h3>
+            <p>The pride of the plan.</p>
+          </div>
+          <div class="suit">
+            <img class="pixel" src="/assets/icons/icon-sunflower.png" alt="" />
+            <h3>Sunflower</h3>
+            <p>Oil for the machine.</p>
+          </div>
+          <div class="suit">
+            <img class="pixel" src="/assets/icons/icon-potato.png" alt="" />
+            <h3>Potato</h3>
+            <p>What actually feeds you.</p>
+          </div>
+          <div class="suit">
+            <img class="pixel" src="/assets/icons/icon-beet.png" alt="" />
+            <h3>Beet</h3>
+            <p>Sugar for the cities.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="wrecker" aria-labelledby="wrecker-title">
+        <div class="wrecker-inner">
+          <div class="wanted-poster reveal" aria-label="Wanted poster for the Wrecker">
+            <p class="wanted-word">Wanted</p>
+            <img class="portrait" src="/assets/cards/face-wrecker.png" alt="The Wrecker: a gaunt man clutching a wrench and stolen crops" />
+            <p class="charge">For crimes against the harvest</p>
+            <span class="wanted-stamp" aria-hidden="true">Sabotage</span>
+          </div>
+          <div class="wrecker-copy">
+            <div class="section-head reveal">
+              <span class="eyebrow">The Saboteur variant</span>
+              <h2 class="display" id="wrecker-title">Beware the Wrecker</h2>
+              <div class="head-rule" aria-hidden="true"></div>
+            </div>
+            <p class="reveal">
+              One card in the deck answers to no crop — and to all of them. The Wrecker
+              <strong>follows any suit</strong>, makes <strong>any assignment legal</strong>,
+              and brings a mighty <strong>14 work hours</strong> to whatever job he joins.
             </p>
-            <p id="availability" class="availability">
-              The iPhone release is being prepared. For launch questions, bug reports, or accessibility
-              feedback, use the support page.
+            <p class="reveal">
+              But any job holding him <strong>fails requisition</strong>, no matter the count.
+              Play him boldly. Receive him bitterly.
             </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="closing" aria-labelledby="closing-title">
+        <div class="reveal">
+          <h2 class="display" id="closing-title">The harvest will be counted.</h2>
+          <p class="sub" id="availability">
+            Kolkhoz is coming to the App Store. For launch questions, bug reports, or
+            accessibility feedback, write to support.
+          </p>
+          <div class="actions">
+            <a class="store-button" href="/support.html">Get launch updates</a>
+            <a class="inline-link" href="/support.html">Support</a>
+            <a class="inline-link" href="/privacy.html">Privacy</a>
           </div>
         </div>
       </section>
@@ -695,9 +1281,29 @@
         <a href="/privacy.html">Privacy</a>
       </nav>
     </footer>
+
     <script>
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker.register("/sw.js").catch(() => {});
+      }
+
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const revealed = document.querySelectorAll(".reveal");
+      if (reduceMotion || !("IntersectionObserver" in window)) {
+        revealed.forEach((el) => el.classList.add("visible"));
+      } else {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                entry.target.classList.add("visible");
+                observer.unobserve(entry.target);
+              }
+            });
+          },
+          { rootMargin: "0px 0px -8% 0px" }
+        );
+        revealed.forEach((el) => observer.observe(el));
       }
     </script>
   </body>

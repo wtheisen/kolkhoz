@@ -14,6 +14,7 @@ extern "C" {
 #define KC_MAX_CARDS 80
 #define KC_MAX_STACKS 16
 #define KC_POLICY_INPUT_SIZE 200
+#define KC_STATE_INPUT_SIZE 200
 #define KC_MAX_POLICY_HIDDEN_LAYERS 4
 #define KC_MAX_OBJECT_TOKENS 256
 #define KC_OBJECT_SCALAR_COUNT 8
@@ -374,6 +375,7 @@ int32_t kc_engine_apply_policy_action(KCEngine *engine, KCAction action);
 int32_t kc_engine_legal_actions(const KCEngine *engine, KCAction *actions, int32_t max_actions);
 int32_t kc_engine_policy_action_features(const KCEngine *engine, int32_t player_id, int32_t input_size, KCPolicyActionFeatures *features, int32_t max_features);
 int32_t kc_engine_policy_action_dense_features(const KCEngine *engine, int32_t player_id, KCDensePolicyActionFeatures output);
+int32_t kc_engine_state_features(const KCEngine *engine, int32_t perspective_player, float *features, int32_t feature_count);
 int32_t kc_engine_object_tokens(const KCEngine *engine, int32_t perspective_player, KCObjectToken *tokens, int32_t max_tokens);
 int32_t kc_engine_object_token_dense_features(const KCEngine *engine, int32_t perspective_player, KCDenseObjectTokens output);
 bool kc_engine_heuristic_policy_action(const KCEngine *engine, KCAction *selected);

@@ -43,6 +43,12 @@ cd clients/flutter_app
 python3 -m research.kolkhoz_research.cli engine-smoke --games 8
 ```
 
+For a local-network online play server that the Flutter app can join by URL:
+
+```bash
+python3 -m research.kolkhoz_research.cli serve-online --host 0.0.0.0 --port 8787
+```
+
 ## Project Layout
 
 ```text
@@ -58,6 +64,7 @@ clients/
     tool/build_c_engine_macos.sh
 research/
   kolkhoz_research/              # Python C-engine wrapper, training, benchmarks
+  kolkhoz_research/online_server.py # Local HTTP online session server for Flutter
   configs/
   dashboard/
   runs/                          # ignored local runs and candidate outputs

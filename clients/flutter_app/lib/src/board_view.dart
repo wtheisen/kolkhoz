@@ -51,9 +51,18 @@ BoxDecoration playAreaBackdropDecoration(DesignTokens tokens) {
 }
 
 const double boardContentWidthMax = 1320;
+const double compactBoardWidthBreakpoint = 720;
 
 double boardPlayableContentWidth(double contentWidth) {
   return math.min(contentWidth, boardContentWidthMax).toDouble();
+}
+
+bool shouldUseCompactBoardShell({
+  required double contentWidth,
+  required double contentHeight,
+}) {
+  return contentWidth < compactBoardWidthBreakpoint &&
+      contentHeight >= contentWidth;
 }
 
 class KolkhozBoard extends StatelessWidget {
@@ -133,6 +142,10 @@ class KolkhozBoard extends StatelessWidget {
           final separatorWidth = metrics.separatorWidth;
           final gameWidth = boardWidth - railWidth - separatorWidth;
           final safePadding = MediaQuery.paddingOf(context);
+          final compact = shouldUseCompactBoardShell(
+            contentWidth: contentWidth,
+            contentHeight: contentHeight,
+          );
 
           return DecoratedBox(
             decoration: boardBackdropDecoration(tokens),
@@ -173,37 +186,13 @@ class KolkhozBoard extends StatelessWidget {
                       child: SizedBox(
                         width: boardWidth,
                         height: contentHeight,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            SizedBox(
-                              width: railWidth,
-                              child: BoardRail(
-                                activePanel: model.panels.active,
-                                actionPanel: actionPanelForPhase(
-                                  model.table.phase,
-                                ),
+                        child: compact
+                            ? CompactBoardShell(
+                                model: model,
                                 tokens: tokens,
                                 metrics: metrics,
                                 language: language,
                                 appearance: appearance,
-                                onPanelSelected: onPanelSelected,
-                                onLanguageToggle: onLanguageToggle,
-                                onAppearanceToggle: onAppearanceToggle,
-                              ),
-                            ),
-                            BoardSeparator(
-                              tokens: tokens,
-                              vertical: true,
-                              thickness: separatorWidth,
-                            ),
-                            SizedBox(
-                              width: gameWidth,
-                              height: contentHeight,
-                              child: BoardPlayArea(
-                                model: model,
-                                tokens: tokens,
-                                metrics: metrics,
                                 onAction: onAction,
                                 onPanelSelected: onPanelSelected,
                                 onSwapHandCardTap: onSwapHandCardTap,
@@ -228,14 +217,73 @@ class KolkhozBoard extends StatelessWidget {
                                 showInvalidTapHints: showInvalidTapHints,
                                 onShowInvalidTapHintsChanged:
                                     onShowInvalidTapHintsChanged,
-                                language: language,
-                                appearance: appearance,
                                 onLanguageToggle: onLanguageToggle,
                                 onAppearanceToggle: onAppearanceToggle,
+                              )
+                            : Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  SizedBox(
+                                    width: railWidth,
+                                    child: BoardRail(
+                                      activePanel: model.panels.active,
+                                      actionPanel: actionPanelForPhase(
+                                        model.table.phase,
+                                      ),
+                                      tokens: tokens,
+                                      metrics: metrics,
+                                      language: language,
+                                      appearance: appearance,
+                                      onPanelSelected: onPanelSelected,
+                                      onLanguageToggle: onLanguageToggle,
+                                      onAppearanceToggle: onAppearanceToggle,
+                                    ),
+                                  ),
+                                  BoardSeparator(
+                                    tokens: tokens,
+                                    vertical: true,
+                                    thickness: separatorWidth,
+                                  ),
+                                  SizedBox(
+                                    width: gameWidth,
+                                    height: contentHeight,
+                                    child: BoardPlayArea(
+                                      model: model,
+                                      tokens: tokens,
+                                      metrics: metrics,
+                                      onAction: onAction,
+                                      onPanelSelected: onPanelSelected,
+                                      onSwapHandCardTap: onSwapHandCardTap,
+                                      onTrickHandCardTap: onTrickHandCardTap,
+                                      onPlotCardTap: onPlotCardTap,
+                                      onAssignmentCardTap: onAssignmentCardTap,
+                                      onInvalidHandCardTap:
+                                          onInvalidHandCardTap,
+                                      canUndo: canUndo,
+                                      onUndo: onUndo,
+                                      onNewGame: onNewGame,
+                                      onReturnToLobby: onReturnToLobby,
+                                      onTutorial: onTutorial,
+                                      animationSpeed: animationSpeed,
+                                      onAnimationSpeedChanged:
+                                          onAnimationSpeedChanged,
+                                      confirmNewGame: confirmNewGame,
+                                      onConfirmNewGameChanged:
+                                          onConfirmNewGameChanged,
+                                      confirmMainMenu: confirmMainMenu,
+                                      onConfirmMainMenuChanged:
+                                          onConfirmMainMenuChanged,
+                                      showInvalidTapHints: showInvalidTapHints,
+                                      onShowInvalidTapHintsChanged:
+                                          onShowInvalidTapHintsChanged,
+                                      language: language,
+                                      appearance: appearance,
+                                      onLanguageToggle: onLanguageToggle,
+                                      onAppearanceToggle: onAppearanceToggle,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
                       ),
                     ),
                   ),
@@ -254,6 +302,119 @@ class KolkhozBoard extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class CompactBoardShell extends StatelessWidget {
+  const CompactBoardShell({
+    required this.model,
+    required this.tokens,
+    required this.metrics,
+    required this.language,
+    required this.appearance,
+    this.onAction,
+    this.onPanelSelected,
+    this.onSwapHandCardTap,
+    this.onTrickHandCardTap,
+    this.onPlotCardTap,
+    this.onAssignmentCardTap,
+    this.onInvalidHandCardTap,
+    this.canUndo = false,
+    this.onUndo,
+    this.onNewGame,
+    this.onReturnToLobby,
+    this.onTutorial,
+    this.animationSpeed = defaultGameAnimationSpeed,
+    this.onAnimationSpeedChanged,
+    this.confirmNewGame = true,
+    this.onConfirmNewGameChanged,
+    this.confirmMainMenu = true,
+    this.onConfirmMainMenuChanged,
+    this.showInvalidTapHints = true,
+    this.onShowInvalidTapHintsChanged,
+    this.onLanguageToggle,
+    this.onAppearanceToggle,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+  final ResponsiveBoardMetrics metrics;
+  final KolkhozLanguage language;
+  final KolkhozAppearance appearance;
+  final ValueChanged<LegalAction>? onAction;
+  final ValueChanged<String>? onPanelSelected;
+  final ValueChanged<String>? onSwapHandCardTap;
+  final ValueChanged<String>? onTrickHandCardTap;
+  final void Function(String cardID, String zone)? onPlotCardTap;
+  final ValueChanged<String>? onAssignmentCardTap;
+  final VoidCallback? onInvalidHandCardTap;
+  final bool canUndo;
+  final VoidCallback? onUndo;
+  final VoidCallback? onNewGame;
+  final VoidCallback? onReturnToLobby;
+  final VoidCallback? onTutorial;
+  final GameAnimationSpeed animationSpeed;
+  final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
+  final bool confirmNewGame;
+  final ValueChanged<bool>? onConfirmNewGameChanged;
+  final bool confirmMainMenu;
+  final ValueChanged<bool>? onConfirmMainMenuChanged;
+  final bool showInvalidTapHints;
+  final ValueChanged<bool>? onShowInvalidTapHintsChanged;
+  final VoidCallback? onLanguageToggle;
+  final VoidCallback? onAppearanceToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(
+          child: BoardPlayArea(
+            model: model,
+            tokens: tokens,
+            metrics: metrics,
+            compact: true,
+            onAction: onAction,
+            onPanelSelected: onPanelSelected,
+            onSwapHandCardTap: onSwapHandCardTap,
+            onTrickHandCardTap: onTrickHandCardTap,
+            onPlotCardTap: onPlotCardTap,
+            onAssignmentCardTap: onAssignmentCardTap,
+            onInvalidHandCardTap: onInvalidHandCardTap,
+            canUndo: canUndo,
+            onUndo: onUndo,
+            onNewGame: onNewGame,
+            onReturnToLobby: onReturnToLobby,
+            onTutorial: onTutorial,
+            animationSpeed: animationSpeed,
+            onAnimationSpeedChanged: onAnimationSpeedChanged,
+            confirmNewGame: confirmNewGame,
+            onConfirmNewGameChanged: onConfirmNewGameChanged,
+            confirmMainMenu: confirmMainMenu,
+            onConfirmMainMenuChanged: onConfirmMainMenuChanged,
+            showInvalidTapHints: showInvalidTapHints,
+            onShowInvalidTapHintsChanged: onShowInvalidTapHintsChanged,
+            language: language,
+            appearance: appearance,
+            onLanguageToggle: onLanguageToggle,
+            onAppearanceToggle: onAppearanceToggle,
+          ),
+        ),
+        BoardSeparator(tokens: tokens, thickness: metrics.separatorWidth),
+        CompactBoardToolbar(
+          activePanel: model.panels.active,
+          actionPanel: actionPanelForPhase(model.table.phase),
+          tokens: tokens,
+          metrics: metrics,
+          language: language,
+          appearance: appearance,
+          onPanelSelected: onPanelSelected,
+          onLanguageToggle: onLanguageToggle,
+          onAppearanceToggle: onAppearanceToggle,
+        ),
+      ],
     );
   }
 }
@@ -469,6 +630,7 @@ class BoardPlayArea extends StatelessWidget {
     this.onConfirmMainMenuChanged,
     this.showInvalidTapHints = true,
     this.onShowInvalidTapHintsChanged,
+    this.compact = false,
     required this.language,
     required this.appearance,
     this.onLanguageToggle,
@@ -499,6 +661,7 @@ class BoardPlayArea extends StatelessWidget {
   final ValueChanged<bool>? onConfirmMainMenuChanged;
   final bool showInvalidTapHints;
   final ValueChanged<bool>? onShowInvalidTapHintsChanged;
+  final bool compact;
   final KolkhozLanguage language;
   final KolkhozAppearance appearance;
   final VoidCallback? onLanguageToggle;
@@ -512,11 +675,13 @@ class BoardPlayArea extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final preferredPanelHeight = activePanelPreferredHeight(
-            model: model,
-            tokens: tokens,
-            width: constraints.maxWidth,
-          );
+          final preferredPanelHeight = compact
+              ? null
+              : activePanelPreferredHeight(
+                  model: model,
+                  tokens: tokens,
+                  width: constraints.maxWidth,
+                );
           final gameOver = model.table.phase == phaseGameOver;
           final remainingHeight = math.max(
             0.0,
@@ -581,6 +746,7 @@ class BoardPlayArea extends StatelessWidget {
                             onShowInvalidTapHintsChanged,
                         language: language,
                         appearance: appearance,
+                        compact: compact,
                         planningTrumpFocusedSuit: planningTrumpFocusedSuit,
                         onLanguageToggle: onLanguageToggle,
                         onAppearanceToggle: onAppearanceToggle,
@@ -650,12 +816,25 @@ class BoardPlayArea extends StatelessWidget {
                     top: 0,
                     left: 0,
                     right: 0,
-                    child: TopInfoStrip(
-                      model: model,
-                      tokens: tokens,
-                      metrics: metrics,
-                      animationSpeed: animationSpeed,
-                    ),
+                    child: compact
+                        ? SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: SizedBox(
+                              width: math.max(640, constraints.maxWidth),
+                              child: TopInfoStrip(
+                                model: model,
+                                tokens: tokens,
+                                metrics: metrics,
+                                animationSpeed: animationSpeed,
+                              ),
+                            ),
+                          )
+                        : TopInfoStrip(
+                            model: model,
+                            tokens: tokens,
+                            metrics: metrics,
+                            animationSpeed: animationSpeed,
+                          ),
                   ),
                 ],
               );
@@ -1249,6 +1428,7 @@ class ActivePanelView extends StatelessWidget {
     this.onShowInvalidTapHintsChanged,
     required this.language,
     required this.appearance,
+    this.compact = false,
     this.planningTrumpFocusedSuit,
     this.onLanguageToggle,
     this.onAppearanceToggle,
@@ -1272,6 +1452,7 @@ class ActivePanelView extends StatelessWidget {
   final ValueChanged<bool>? onShowInvalidTapHintsChanged;
   final KolkhozLanguage language;
   final KolkhozAppearance appearance;
+  final bool compact;
   final String? planningTrumpFocusedSuit;
   final VoidCallback? onLanguageToggle;
   final VoidCallback? onAppearanceToggle;
@@ -1328,6 +1509,7 @@ class ActivePanelView extends StatelessWidget {
           model: model,
           tokens: tokens,
           language: language,
+          compact: compact,
           planningTrumpFocusedSuit: planningTrumpFocusedSuit,
           onAction: onAction,
         );
@@ -1340,6 +1522,7 @@ class BrigadePanel extends StatelessWidget {
     required this.model,
     required this.tokens,
     required this.language,
+    this.compact = false,
     this.planningTrumpFocusedSuit,
     this.onAction,
     super.key,
@@ -1348,6 +1531,7 @@ class BrigadePanel extends StatelessWidget {
   final TableViewModel model;
   final DesignTokens tokens;
   final KolkhozLanguage language;
+  final bool compact;
   final String? planningTrumpFocusedSuit;
   final ValueChanged<LegalAction>? onAction;
 
@@ -1397,6 +1581,18 @@ class BrigadePanel extends StatelessWidget {
           tokens.card.aspectRatio,
         );
 
+        if (compact) {
+          return CompactBrigadeGrid(
+            playerOrder: playerOrder,
+            trick: trick,
+            model: model,
+            tokens: tokens,
+            language: language,
+            planningTrumpFocusedSuit: planningTrumpFocusedSuit,
+            onAction: onAction,
+          );
+        }
+
         return Padding(
           padding: brigadePanelLocalPadding,
           child: SizedBox(
@@ -1413,6 +1609,11 @@ class BrigadePanel extends StatelessWidget {
                       child: BrigadePlayerColumn(
                         seat: playerOrder[index],
                         play: trick.playForSeat(playerOrder[index].id),
+                        pendingPlayCard: selectedTrickPreviewCard(
+                          model,
+                          playerOrder[index],
+                          trick.playForSeat(playerOrder[index].id),
+                        ),
                         planningTrumpChooser:
                             model.table.phase == phasePlanning &&
                                 playerOrder[index].id ==
@@ -1458,6 +1659,147 @@ class BrigadePanel extends StatelessWidget {
   }
 }
 
+class CompactBrigadeGrid extends StatelessWidget {
+  const CompactBrigadeGrid({
+    required this.playerOrder,
+    required this.trick,
+    required this.model,
+    required this.tokens,
+    required this.language,
+    this.planningTrumpFocusedSuit,
+    this.onAction,
+    super.key,
+  });
+
+  final List<Seat> playerOrder;
+  final Trick trick;
+  final TableViewModel model;
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final String? planningTrumpFocusedSuit;
+  final ValueChanged<LegalAction>? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gridSpacing = 8.0;
+        final gridHeight = math.max(
+          brigadeColumnMinHeight * 2 + gridSpacing,
+          constraints.maxHeight - brigadePanelLocalPadding.vertical,
+        );
+        final cellWidth = math.max(
+          0.0,
+          (constraints.maxWidth - gridSpacing) / 2,
+        );
+        final cellHeight = math.max(
+          brigadeColumnMinHeight,
+          (gridHeight - gridSpacing) / 2,
+        );
+        final playerPanelWidth = brigadePlayerPanelWidth(cellWidth);
+        final naturalPlayerPanelHeight = brigadePlayerPanelHeight(
+          playerPanelWidth,
+        );
+        final playerPanelHeight = math.min(
+          naturalPlayerPanelHeight,
+          cellHeight * 0.34,
+        );
+        final desiredPlayObjectWidth = brigadePlayObjectWidth(
+          columnWidth: cellWidth,
+          minWidth: tokens.card.medium.width,
+        );
+        final playObjectMaxHeight = brigadePlayObjectMaxHeight(
+          cellHeight,
+          playerPanelHeight,
+        );
+        final playObjectWidth = brigadePlayObjectFittingWidth(
+          desiredWidth: desiredPlayObjectWidth,
+          maxHeight: playObjectMaxHeight,
+          aspectRatio: tokens.card.aspectRatio,
+        );
+        final playObjectHeight = brigadePlayObjectHeight(
+          playObjectWidth,
+          tokens.card.aspectRatio,
+        );
+
+        return Padding(
+          padding: brigadePanelLocalPadding,
+          child: SizedBox(
+            height: gridHeight,
+            child: Column(
+              spacing: gridSpacing,
+              children: [
+                for (var row = 0; row < 2; row++)
+                  Expanded(
+                    child: Row(
+                      spacing: gridSpacing,
+                      children: [
+                        for (var column = 0; column < 2; column++)
+                          Expanded(
+                            child: compactGridColumn(
+                              playerOrder[row * 2 + column],
+                              cellWidth,
+                              cellHeight,
+                              playerPanelWidth,
+                              playerPanelHeight,
+                              playObjectWidth,
+                              playObjectHeight,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget compactGridColumn(
+    Seat seat,
+    double columnWidth,
+    double columnHeight,
+    double playerPanelWidth,
+    double playerPanelHeight,
+    double playObjectWidth,
+    double playObjectHeight,
+  ) {
+    return BrigadePlayerColumn(
+      seat: seat,
+      play: trick.playForSeat(seat.id),
+      pendingPlayCard: selectedTrickPreviewCard(
+        model,
+        seat,
+        trick.playForSeat(seat.id),
+      ),
+      planningTrumpChooser:
+          model.table.phase == phasePlanning &&
+              seat.id == model.table.currentPlayerID
+          ? PlanningTrumpPanel(
+              model: model,
+              tokens: tokens,
+              language: language,
+              focusedSuit: planningTrumpFocusedSuit,
+              onAction: onAction,
+            )
+          : null,
+      columnWidth: columnWidth,
+      columnHeight: columnHeight,
+      playerPanelWidth: playerPanelWidth,
+      playerPanelHeight: playerPanelHeight,
+      playObjectWidth: playObjectWidth,
+      playObjectHeight: playObjectHeight,
+      maxTricks: model.table.maxTricks,
+      trump: model.table.trump,
+      phase: model.table.phase,
+      tokens: tokens,
+      language: language,
+    );
+  }
+}
+
 extension on Trick {
   TrickPlay? playForSeat(int seatID) {
     for (final play in plays) {
@@ -1469,10 +1811,31 @@ extension on Trick {
   }
 }
 
+TableCard? selectedTrickPreviewCard(
+  TableViewModel model,
+  Seat seat,
+  TrickPlay? play,
+) {
+  final selectedCardID = model.selection.handCardID;
+  if (model.table.phase != phaseTrick ||
+      selectedCardID == null ||
+      seat.id != model.table.currentPlayerID ||
+      play != null) {
+    return null;
+  }
+  for (final card in seat.hand) {
+    if (card.id == selectedCardID) {
+      return card;
+    }
+  }
+  return null;
+}
+
 class BrigadePlayerColumn extends StatelessWidget {
   const BrigadePlayerColumn({
     required this.seat,
     required this.play,
+    required this.pendingPlayCard,
     required this.planningTrumpChooser,
     required this.columnWidth,
     required this.columnHeight,
@@ -1490,6 +1853,7 @@ class BrigadePlayerColumn extends StatelessWidget {
 
   final Seat seat;
   final TrickPlay? play;
+  final TableCard? pendingPlayCard;
   final Widget? planningTrumpChooser;
   final double columnWidth;
   final double columnHeight;
@@ -1516,14 +1880,25 @@ class BrigadePlayerColumn extends StatelessWidget {
     final playAreaChild = planningTrumpChooser != null
         ? FittedBox(fit: BoxFit.contain, child: planningTrumpChooser)
         : play == null
-        ? CardSlot(
-            active: active,
-            human: human,
-            width: playObjectWidth,
-            height: playObjectHeight,
-            tokens: tokens,
-            language: language,
-          )
+        ? pendingPlayCard == null
+              ? CardSlot(
+                  active: active,
+                  human: human,
+                  width: playObjectWidth,
+                  height: playObjectHeight,
+                  tokens: tokens,
+                  language: language,
+                )
+              : PendingTrickPreview(
+                  card: pendingPlayCard!,
+                  active: active,
+                  human: human,
+                  width: playObjectWidth,
+                  height: playObjectHeight,
+                  trump: trump,
+                  tokens: tokens,
+                  language: language,
+                )
         : MotionTrackedRegion(
             motionKey: trickCardMotionSourceKey(play!.card.id),
             child: FittedBox(
@@ -1594,6 +1969,62 @@ class BrigadePlayerColumn extends StatelessWidget {
     );
   }
 }
+
+class PendingTrickPreview extends StatelessWidget {
+  const PendingTrickPreview({
+    required this.card,
+    required this.active,
+    required this.human,
+    required this.width,
+    required this.height,
+    required this.trump,
+    required this.tokens,
+    required this.language,
+    super.key,
+  });
+
+  final TableCard card;
+  final bool active;
+  final bool human;
+  final double width;
+  final double height;
+  final String? trump;
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        CardSlot(
+          active: active,
+          human: human,
+          width: width,
+          height: height,
+          tokens: tokens,
+          language: language,
+        ),
+        Opacity(
+          key: const Key('pending-trick-card-preview'),
+          opacity: pendingTrickPreviewOpacity,
+          child: FittedBox(
+            fit: BoxFit.contain,
+            child: GameCard(
+              card: card,
+              tokens: tokens,
+              trump: trump,
+              sizeOverride: tokens.card.large,
+              motionTracked: false,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+const pendingTrickPreviewOpacity = 0.46;
 
 class PlayerBadge extends StatelessWidget {
   const PlayerBadge({
@@ -1782,7 +2213,8 @@ class PlayerBadge extends StatelessWidget {
   }
 
   String get displayName {
-    return seatDisplayName(seat, language: language);
+    final base = seatDisplayName(seat, language: language);
+    return seat.statusText.isEmpty ? base : '$base ${seat.statusText}';
   }
 
   List<String> get statusBadgeAssets {
@@ -2381,6 +2813,7 @@ bool planningTrumpSelectorIsAI(TableViewModel model) {
   for (final seat in model.table.seats) {
     if (seat.id == model.table.currentPlayerID) {
       return seat.controller == controllerHeuristicAI ||
+          seat.controller == controllerMediumAI ||
           seat.controller == controllerNeuralAI;
     }
   }

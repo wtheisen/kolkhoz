@@ -121,6 +121,20 @@ class ResidualBlock(nn.Module):
         return torch.relu(value + self.layers(value))
 
 
+class ResidualLayerNormBlock(nn.Module):
+    def __init__(self, width: int) -> None:
+        super().__init__()
+        self.norm = nn.LayerNorm(width)
+        self.layers = nn.Sequential(
+            nn.Linear(width, width),
+            nn.GELU(),
+            nn.Linear(width, width),
+        )
+
+    def forward(self, value: torch.Tensor) -> torch.Tensor:
+        return torch.relu(value + self.layers(self.norm(value)))
+
+
 class ActionTransformer(nn.Module):
     def __init__(
         self,
@@ -423,6 +437,25 @@ class TorchPolicy(nn.Module):
             self.blocks = nn.ModuleList([ResidualBlock(width) for _ in layer_sizes])
             self.output = nn.Linear(width, head_count)
             self.value_output = nn.Linear(width, 1)
+        elif architecture == "residual-layernorm-mlp":
+            if not layer_sizes:
+                raise ValueError(
+                    "residual-layernorm-mlp requires at least one layer size"
+                )
+            width = layer_sizes[-1]
+            if any(size != width for size in layer_sizes):
+                raise ValueError(
+                    "residual-layernorm-mlp requires equal layer sizes; depth is the number of sizes"
+                )
+            previous = input_size
+            for size in layer_sizes:
+                self.layers.append(nn.Linear(previous, size))
+                previous = size
+            self.blocks = nn.ModuleList(
+                [ResidualLayerNormBlock(width) for _ in layer_sizes]
+            )
+            self.output = nn.Linear(width, head_count)
+            self.value_output = nn.Linear(width, 1)
         elif architecture == "action-transformer":
             self.action_transformer = ActionTransformer(
                 input_size=input_size,
@@ -576,6 +609,13 @@ class TorchPolicy(nn.Module):
             for layer in self.layers:
                 value = torch.relu(layer(value))
             return value
+        if self.architecture == "residual-layernorm-mlp":
+            value = features
+            for layer in self.layers:
+                value = torch.relu(layer(value))
+            for block in self.blocks:
+                value = block(value)
+            return value
         value = torch.relu(self.input_projection(features))
         for block in self.blocks:
             value = block(value)
@@ -707,6 +747,45 @@ class TorchPolicy(nn.Module):
             },
             path,
         )
+
+
+def initialize_policy_from_source(target: TorchPolicy, source: TorchPolicy) -> None:
+    if target.input_size != source.input_size or target.head_count != source.head_count:
+        raise ValueError("cannot initialize from a source policy with different IO shape")
+    if target.architecture == source.architecture:
+        target.load_state_dict(source.state_dict())
+        return
+    if target.architecture == "residual-layernorm-mlp" and source.architecture == "mlp":
+        if len(target.layers) != len(source.layers):
+            raise ValueError(
+                "residual-layernorm-mlp layer count must match the source mlp layer count"
+            )
+        with torch.no_grad():
+            for target_layer, source_layer in _zip_strict(
+                target.layers, source.layers
+            ):
+                if (
+                    target_layer.weight.shape != source_layer.weight.shape
+                    or target_layer.bias.shape != source_layer.bias.shape
+                ):
+                    raise ValueError(
+                        "residual-layernorm-mlp layers must match source mlp shapes"
+                    )
+                target_layer.weight.copy_(source_layer.weight)
+                target_layer.bias.copy_(source_layer.bias)
+            target.output.weight.copy_(source.output.weight)
+            target.output.bias.copy_(source.output.bias)
+            target.value_output.weight.copy_(source.value_output.weight)
+            target.value_output.bias.copy_(source.value_output.bias)
+            for block in target.blocks:
+                final = block.layers[-1]
+                if isinstance(final, nn.Linear):
+                    final.weight.zero_()
+                    final.bias.zero_()
+        return
+    raise ValueError(
+        f"cannot initialize {target.architecture!r} from {source.architecture!r}"
+    )
 
 
 def load_torch_policy(
@@ -6037,6 +6116,7 @@ def train_torch_policy(
     round_famine_rate: float = 0.0,
     unbatched: bool = False,
     record_eval_history: bool = False,
+    reinitialize_architecture: bool = False,
     progress_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     device = best_device(prefer_mps)
@@ -6057,7 +6137,23 @@ def train_torch_policy(
             else transformer_dropout,
         )
     else:
-        model, artifact = load_torch_policy(start_model_path, device)
+        source_model, artifact = load_torch_policy(start_model_path, device)
+        if reinitialize_architecture:
+            model = TorchPolicy.scratch(
+                architecture=architecture,
+                layer_sizes=layer_sizes,
+                input_size=source_model.input_size,
+                head_count=source_model.head_count,
+                seed=scratch_seed,
+                scale=scratch_scale,
+                device=device,
+                transformer_dropout=0.05
+                if transformer_dropout is None
+                else transformer_dropout,
+            )
+            initialize_policy_from_source(model, source_model)
+        else:
+            model = source_model
         if transformer_dropout is not None:
             model.set_transformer_dropout(transformer_dropout)
     opponent_pool: list[TorchPolicy] = []
@@ -6890,8 +6986,13 @@ def train_torch_policy(
             "layers": model.layer_sizes,
             "input_size": model.input_size,
             "head_count": model.head_count,
-            "scratch_seed": scratch_seed if start_model_path is None else None,
-            "scratch_scale": scratch_scale if start_model_path is None else None,
+            "scratch_seed": scratch_seed
+            if start_model_path is None or reinitialize_architecture
+            else None,
+            "scratch_scale": scratch_scale
+            if start_model_path is None or reinitialize_architecture
+            else None,
+            "reinitialized_architecture": reinitialize_architecture,
         },
         "training": {
             "episodes": episodes,

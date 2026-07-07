@@ -150,6 +150,10 @@ h2 {
   display: none;
 }
 
+.model-pool-panel {
+  display: none;
+}
+
 .panel-head {
   display: flex;
   align-items: start;
@@ -637,6 +641,100 @@ h2 {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+.model-pool-table table {
+  min-width: 1040px;
+}
+
+.model-pool-table td {
+  white-space: normal;
+}
+
+.model-pool-table td:first-child {
+  min-width: 250px;
+}
+
+.model-pool-table strong,
+.model-pool-table span,
+.model-pool-table small {
+  display: block;
+}
+
+.model-pool-table strong {
+  color: var(--ink);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.model-pool-table span {
+  color: var(--coal);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.model-pool-table small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.pool-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.pool-metrics span,
+.pool-muted,
+.pool-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f9f6ee;
+  font-size: 11px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pool-metrics .positive {
+  border-color: rgba(63, 122, 75, 0.32);
+  background: rgba(63, 122, 75, 0.1);
+  color: var(--green);
+}
+
+.pool-metrics .negative {
+  border-color: rgba(165, 72, 60, 0.32);
+  background: rgba(165, 72, 60, 0.1);
+  color: var(--red);
+}
+
+.pool-muted {
+  color: var(--muted);
+}
+
+.pool-state {
+  color: var(--coal);
+  text-transform: uppercase;
+}
+
+.pool-state.finalist {
+  border-color: rgba(169, 111, 45, 0.35);
+  background: rgba(169, 111, 45, 0.12);
+  color: #7a4f20;
+}
+
+.pool-state.promoted {
+  border-color: rgba(63, 122, 75, 0.35);
+  background: rgba(63, 122, 75, 0.12);
+  color: var(--green);
 }
 
 .self-play-box {
@@ -1512,6 +1610,26 @@ td {
 
   .distill-diagnostics > div {
     padding: 9px;
+  }
+
+  .model-pool-table table {
+    min-width: 860px;
+  }
+
+  .model-pool-table td:first-child {
+    min-width: 190px;
+  }
+
+  .model-pool-table strong,
+  .model-pool-table span {
+    font-size: 11px;
+  }
+
+  .model-pool-table small,
+  .pool-metrics span,
+  .pool-muted,
+  .pool-state {
+    font-size: 9px;
   }
 
   .distill-bar-row {
