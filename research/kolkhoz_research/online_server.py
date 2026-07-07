@@ -1139,7 +1139,9 @@ class KolkhozOnlineSessionService:
                 if not actions:
                     return
                 action = actions[0]
-            if hasattr(self.engine, "apply_policy_action"):
+            if hasattr(self.engine, "apply_ai_action"):
+                self.engine.apply_ai_action(hosted.engine_pointer, action)
+            elif hasattr(self.engine, "apply_policy_action"):
                 self.engine.apply_policy_action(hosted.engine_pointer, action)
             else:
                 self.engine.apply_action(hosted.engine_pointer, action)

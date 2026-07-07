@@ -30,10 +30,10 @@ void main() {
       expect(
         openingFingerprint(model),
         '''
-year=1 phase=trick current=0 trump=wheat viewer=0 privacy=none
-seats=0:human:hand=beet-10,potato-8,sunflower-8,wheat-12,wheat-6:hidden=0:score=0|1:heuristicAI:hand=beet-13,potato-11,potato-6,sunflower-6,wheat-8:hidden=5:score=0|2:heuristicAI:hand=beet-12,beet-6,beet-9,sunflower-13,wheat-9:hidden=5:score=0|3:heuristicAI:hand=potato-9,sunflower-10,sunflower-11,sunflower-9:hidden=4:score=0
+year=1 phase=trick current=0 trump=beet viewer=0 privacy=none
+seats=0:human:hand=beet-10,potato-8,sunflower-8,wheat-12,wheat-6:hidden=0:score=0|1:heuristicAI:hand=beet-13,potato-11,potato-6,sunflower-6,wheat-8:hidden=5:score=0|2:heuristicAI:hand=beet-12,beet-6,beet-9,sunflower-13,wheat-9:hidden=5:score=0|3:heuristicAI:hand=potato-9,sunflower-10,sunflower-11,wheat-10:hidden=4:score=0
 jobs=beet:beet-2:0:false|potato:potato-2:0:false|sunflower:sunflower-3:0:false|wheat:wheat-1:0:false
-actions=playCard:0:wheat-12|playCard:0:wheat-6
+actions=playCard:0:sunflower-8
 '''
             .trim(),
       );
@@ -210,9 +210,9 @@ actions=playCard:0:wheat-12|playCard:0:wheat-6
         expect(
           gameOverFingerprint(model, appliedActions),
           '''
-actions=34 winner=0
-scores=0:visible=4:final=40|1:visible=0:final=0|2:visible=1:final=7|3:visible=2:final=14
-exiled=1:beet-12,beet-3,beet-7,sunflower-5,sunflower-8,wheat-4|2:beet-1,beet-13,beet-9,potato-1,sunflower-4,sunflower-6,wheat-3|3:beet-11,beet-5,beet-6,sunflower-3,wheat-2|4:beet-4,potato-3,potato-7,potato-8,wheat-5|5:beet-10,beet-2,beet-8,potato-13,potato-5,sunflower-1,sunflower-2,wheat-6
+actions=44 winner=3
+scores=0:visible=4:final=27|1:visible=11:final=24|2:visible=8:final=19|3:visible=10:final=37
+exiled=1:beet-3,wheat-10,wheat-4|2:potato-1|3:sunflower-3,sunflower-4,wheat-12,wheat-2,wheat-6|4:beet-12,beet-4,sunflower-2,sunflower-7,sunflower-8,wheat-13,wheat-7|5:potato-2,potato-7,sunflower-1,sunflower-9,wheat-1,wheat-11
 '''
               .trim(),
         );
@@ -243,8 +243,8 @@ exiled=1:beet-12,beet-3,beet-7,sunflower-5,sunflower-8,wheat-4|2:beet-1,beet-13,
       expect(
         stackFingerprint(model, appliedActions),
         '''
-actions=2
-stacks=2:0:revealed=beet-6:hidden=beet-11,sunflower-10,sunflower-6,wheat-11,wheat-12,wheat-8,wheat-9
+actions=3
+stacks=2:0:revealed=beet-8:hidden=beet-11,beet-9,wheat-11,wheat-12,wheat-9|2:1:revealed=beet-6:hidden=potato-8,potato-9,sunflower-10,sunflower-12,wheat-8
 '''
             .trim(),
       );
@@ -294,11 +294,11 @@ stacks=2:0:revealed=beet-6:hidden=beet-11,sunflower-10,sunflower-6,wheat-11,whea
       expect(
         variantFingerprint(result.model, result.appliedActions),
         '''
-actions=54 winner=0
-scores=0:visible=0:final=17|1:visible=0:final=0|2:visible=0:final=0|3:visible=0:final=12
-exiled=1:beet-10,potato-11,potato-7|2:beet-8,potato-10,potato-6,sunflower-8|3:beet-11,beet-13,sunflower-13|4:beet-7,potato-12,potato-13,potato-9|5:beet-9,potato-8,sunflower-12
-claimed=wheat
-visible=0:0:0|1:0:2|2:0:0|3:0:1
+actions=44 winner=2
+scores=0:visible=8:final=15|1:visible=0:final=0|2:visible=0:final=18|3:visible=0:final=8
+exiled=1:sunflower-13|2:beet-7,potato-13,potato-7|3:potato-11|4:wheat-12,wheat-13,wheat-7,wheat-9|5:beet-11,potato-1,potato-12,potato-6,potato-9,wheat-10,wheat-11
+claimed=sunflower
+visible=0:8:0|1:0:0|2:0:1|3:0:2
 '''
             .trim(),
       );
@@ -320,11 +320,11 @@ visible=0:0:0|1:0:2|2:0:0|3:0:1
         expect(
           variantFingerprint(result.model, result.appliedActions),
           '''
-actions=39 winner=2
-scores=0:visible=5:final=20|1:visible=17:final=17|2:visible=12:final=27|3:visible=3:final=16
-exiled=1:beet-11,potato-10,potato-12|2:potato-7,sunflower-13|3:beet-13,beet-6,beet-9|4:beet-12,potato-13,potato-8|5:beet-8,potato-11,potato-6,sunflower-9
-claimed=wheat
-visible=0:5:1|1:17:2|2:12:0|3:3:0
+actions=59 winner=3
+scores=0:visible=11:final=28|1:visible=8:final=19|2:visible=12:final=12|3:visible=11:final=32
+exiled=1:wheat-10,wheat-13|2:beet-7,wheat-12|3:beet-13,beet-8,sunflower-13,sunflower-3|4:beet-12,sunflower-10,sunflower-6,sunflower-8,wheat-6,wheat-7,wheat-9|5:sunflower-2,wheat-8
+claimed=potato
+visible=0:11:2|1:8:0|2:12:1|3:11:0
 '''
               .trim(),
         );

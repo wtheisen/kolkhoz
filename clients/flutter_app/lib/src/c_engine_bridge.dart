@@ -263,7 +263,7 @@ class KolkhozCEngineBridge {
     Pointer<KCActionNative>,
   )
   _policyAction;
-  late final int Function(Pointer<KCEngine>, KCActionNative) _applyPolicyAction;
+  late final int Function(Pointer<KCEngine>, KCActionNative) _applyAIAction;
   late final int Function(Pointer<KCEngine>, int, int) _applySetTrumpManual;
   late final int Function(Pointer<KCEngine>, int, int, int)
   _applyPlayCardManual;
@@ -575,16 +575,19 @@ class KolkhozCEngineBridge {
     }
   }
 
-  int applyPolicyAction(Pointer<KCEngine> engine, CEngineActionValue action) {
+  int applyAIAction(Pointer<KCEngine> engine, CEngineActionValue action) {
     final arena = Arena();
     try {
       final native = arena<KCActionNative>();
       _writeAction(native.ref, action);
-      return _applyPolicyAction(engine, native.ref);
+      return _applyAIAction(engine, native.ref);
     } finally {
       arena.releaseAll();
     }
   }
+
+  int applyPolicyAction(Pointer<KCEngine> engine, CEngineActionValue action) =>
+      applyAIAction(engine, action);
 
   void _bind() {
     _engineAlloc = _lib
@@ -741,11 +744,11 @@ class KolkhozCEngineBridge {
             Pointer<KCActionNative>,
           )
         >('kc_engine_policy_action');
-    _applyPolicyAction = _lib
+    _applyAIAction = _lib
         .lookupFunction<
           Int32 Function(Pointer<KCEngine>, KCActionNative),
           int Function(Pointer<KCEngine>, KCActionNative)
-        >('kc_engine_apply_policy_action');
+        >('kc_engine_apply_ai_action');
     _applySetTrumpManual = _lib
         .lookupFunction<
           Int32 Function(Pointer<KCEngine>, Int32, Int32),

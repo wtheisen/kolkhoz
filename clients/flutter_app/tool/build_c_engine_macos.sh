@@ -12,12 +12,17 @@ if [[ "${KOLKHOZ_SKIP_POLICY_ASSET_UPDATE:-0}" != "1" ]]; then
   PYTHONDONTWRITEBYTECODE=1 "${PYTHON:-python3}" "$SCRIPT_DIR/update_neural_policy_asset.py"
 fi
 
+ENGINE_SOURCES=()
+while IFS= read -r source; do
+  ENGINE_SOURCES+=("$source")
+done < <(find "$REPO_ROOT/engine/KolkhozCEngine" -maxdepth 1 -name '*.c' -print | sort)
+
 clang \
   -dynamiclib \
   -O2 \
   -std=c11 \
   -I"$REPO_ROOT/engine/KolkhozCEngine/include" \
-  "$REPO_ROOT/engine/KolkhozCEngine/KolkhozCEngine.c" \
+  "${ENGINE_SOURCES[@]}" \
   -o "$OUT_DIR/libkolkhoz_c_engine.dylib"
 
 echo "$OUT_DIR/libkolkhoz_c_engine.dylib"

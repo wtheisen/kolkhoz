@@ -11,7 +11,6 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ENGINE_DIR = REPO_ROOT / "engine/KolkhozCEngine"
-ENGINE_C = ENGINE_DIR / "KolkhozCEngine.c"
 ENGINE_H = ENGINE_DIR / "include/KolkhozCEngine.h"
 BUILD_DIR = REPO_ROOT / "research/.build"
 OBJECT_SCALAR_COUNT = 8
@@ -295,6 +294,20 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _engine_sources() -> list[Path]:
+    return sorted(ENGINE_DIR.glob("*.c"))
+
+
+def _sha256_sources(paths: list[Path]) -> str:
+    digest = hashlib.sha256()
+    for path in paths:
+        digest.update(path.name.encode("utf-8"))
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _git_sha() -> str:
     try:
         result = subprocess.run(
@@ -318,7 +331,8 @@ def shared_library_path() -> Path:
 def build_shared_library(force: bool = False) -> Path:
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     output = shared_library_path()
-    source_mtime = max(ENGINE_C.stat().st_mtime, ENGINE_H.stat().st_mtime)
+    sources = _engine_sources()
+    source_mtime = max([ENGINE_H.stat().st_mtime, *(source.stat().st_mtime for source in sources)])
     if output.exists() and not force and output.stat().st_mtime >= source_mtime:
         return output
 
@@ -330,7 +344,7 @@ def build_shared_library(force: bool = False) -> Path:
             "-dynamiclib",
             "-I",
             str(ENGINE_DIR / "include"),
-            str(ENGINE_C),
+            *(str(source) for source in sources),
             "-o",
             str(output),
         ]
@@ -343,7 +357,7 @@ def build_shared_library(force: bool = False) -> Path:
             "-fPIC",
             "-I",
             str(ENGINE_DIR / "include"),
-            str(ENGINE_C),
+            *(str(source) for source in sources),
             "-o",
             str(output),
         ]
@@ -412,6 +426,8 @@ class CEngine:
             ctypes.POINTER(KCAction),
         ]
         self.lib.kc_engine_policy_action.restype = ctypes.c_bool
+        self.lib.kc_engine_apply_ai_action.argtypes = [ctypes.c_void_p, KCAction]
+        self.lib.kc_engine_apply_ai_action.restype = ctypes.c_int32
         self.lib.kc_engine_apply_policy_action.argtypes = [ctypes.c_void_p, KCAction]
         self.lib.kc_engine_apply_policy_action.restype = ctypes.c_int32
         self.lib.kc_engine_apply.argtypes = [ctypes.c_void_p, KCAction]
@@ -779,10 +795,13 @@ class CEngine:
             )
         return action
 
-    def apply_policy_action(self, pointer: ctypes.c_void_p, action: KCAction) -> None:
-        status = int(self.lib.kc_engine_apply_policy_action(pointer, action))
+    def apply_ai_action(self, pointer: ctypes.c_void_p, action: KCAction) -> None:
+        status = int(self.lib.kc_engine_apply_ai_action(pointer, action))
         if status != 0:
-            raise RuntimeError(f"C engine rejected policy action with status {status}")
+            raise RuntimeError(f"C engine rejected AI action with status {status}")
+
+    def apply_policy_action(self, pointer: ctypes.c_void_p, action: KCAction) -> None:
+        self.apply_ai_action(pointer, action)
 
     def final_scores(self, pointer: ctypes.c_void_p) -> list[int]:
         return [int(self.lib.kc_final_score(pointer, player_id)) for player_id in range(4)]
@@ -826,9 +845,10 @@ class CEngine:
         return int(status), result
 
     def provenance(self) -> EngineProvenance:
+        sources = _engine_sources()
         return EngineProvenance(
             git_sha=_git_sha(),
-            c_sha256=_sha256(ENGINE_C),
+            c_sha256=_sha256_sources(sources),
             header_sha256=_sha256(ENGINE_H),
             library_path=os.fspath(self.library_path),
         )

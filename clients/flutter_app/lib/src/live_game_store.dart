@@ -506,7 +506,7 @@ class LiveGameStore extends ChangeNotifier {
       if (action == null) {
         return 0;
       }
-      final error = bridge.applyPolicyAction(engine, action);
+      final error = bridge.applyAIAction(engine, action);
       if (error == 0) {
         actionLog = [...actionLog, engineActionFromCValue(action)];
         return 1;
@@ -801,7 +801,7 @@ class LiveGameStore extends ChangeNotifier {
                 KolkhozPlayerController.mediumAI ||
             restoredControllers[action.playerID] ==
                 KolkhozPlayerController.neuralAI)) {
-      return bridge.applyPolicyAction(engine, action);
+      return bridge.applyAIAction(engine, action);
     }
     return bridge.apply(engine, action);
   }

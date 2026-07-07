@@ -159,13 +159,6 @@ typedef struct {
 } KCGameRunResult;
 
 typedef struct {
-    int32_t episodes;
-    int32_t actions;
-    int32_t checksum;
-    double weight_checksum;
-} KCTrainingBenchmarkResult;
-
-typedef struct {
     int32_t input_size;
     int32_t hidden_size;
     int32_t layer_count;
@@ -371,6 +364,7 @@ int32_t kc_engine_apply_manual(KCEngine *engine, KCAction action);
 int32_t kc_engine_step_automatic(KCEngine *engine);
 int32_t kc_engine_step_policy_automatic(KCEngine *engine, KCPolicyModelBuffer model);
 bool kc_engine_policy_action(const KCEngine *engine, KCPolicyModelBuffer model, KCAction *selected);
+int32_t kc_engine_apply_ai_action(KCEngine *engine, KCAction action);
 int32_t kc_engine_apply_policy_action(KCEngine *engine, KCAction action);
 int32_t kc_engine_legal_actions(const KCEngine *engine, KCAction *actions, int32_t max_actions);
 int32_t kc_engine_policy_action_features(const KCEngine *engine, int32_t player_id, int32_t input_size, KCPolicyActionFeatures *features, int32_t max_features);
@@ -451,7 +445,6 @@ int32_t kc_engine_apply_swap_manual(KCEngine *engine, int32_t player_id, int32_t
 int32_t kc_engine_apply_assign_manual(KCEngine *engine, int32_t player_id, int32_t suit, int32_t value, int32_t target_suit);
 int32_t kc_engine_apply_simple_manual(KCEngine *engine, int32_t kind, int32_t player_id);
 KCGameRunResult kc_run_benchmark_game(uint64_t seed, KCVariants variants);
-KCTrainingBenchmarkResult kc_run_gradient_benchmark(uint64_t seed, KCVariants variants, int32_t episodes);
 KCPolicyMatchupGameResult kc_run_policy_matchup_game(
     uint64_t seed,
     KCVariants variants,
