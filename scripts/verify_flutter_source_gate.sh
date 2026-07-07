@@ -3,8 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-FLUTTER_BIN="${FLUTTER_BIN:-/Users/wtheisen/.codex/flutter-sdk/flutter/bin/flutter}"
-DART_BIN="${DART_BIN:-/Users/wtheisen/.codex/flutter-sdk/flutter/bin/dart}"
+FLUTTER_BIN="${FLUTTER_BIN:-flutter}"
+DART_BIN="${DART_BIN:-dart}"
 
 cd "$REPO_ROOT"
 
@@ -12,9 +12,14 @@ echo "==> Rebuilding Flutter macOS C engine dylib"
 clients/flutter_app/tool/build_c_engine_macos.sh
 
 echo "==> Checking C engine syntax"
+ENGINE_SOURCES=()
+while IFS= read -r source; do
+  ENGINE_SOURCES+=("$source")
+done < <(find engine/KolkhozCEngine -maxdepth 1 -name '*.c' | sort)
+
 clang -std=c11 \
   -I engine/KolkhozCEngine/include \
-  -fsyntax-only engine/KolkhozCEngine/KolkhozCEngine.c
+  -fsyntax-only "${ENGINE_SOURCES[@]}"
 
 echo "==> Checking Flutter formatting"
 (
