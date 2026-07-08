@@ -1,4 +1,5 @@
 import 'app_settings.dart';
+import 'app_text.dart';
 import 'game_constants.dart';
 import 'render_model.dart';
 
@@ -84,7 +85,7 @@ bool isHumanControlledSeat(Seat seat) {
 
 String seatDisplayName(Seat seat, {KolkhozLanguage? language}) {
   if (seat.isViewer) {
-    return (language ?? KolkhozLanguage.en).text(en: 'You', ru: 'Вы');
+    return (language ?? KolkhozLanguage.en).t(KolkhozText.tabledisplayYou);
   }
   final firstName = seat.name.split(' ').first;
   return firstName.length > 6 ? '${firstName.substring(0, 6)}.' : firstName;

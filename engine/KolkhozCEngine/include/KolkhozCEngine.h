@@ -100,6 +100,7 @@ typedef struct {
 
 typedef struct {
     int32_t deck_type;
+    int32_t max_years;
     bool nomenclature;
     bool allow_swap;
     bool northern_style;

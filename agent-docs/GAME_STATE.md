@@ -66,6 +66,7 @@ remaining hand cards into hidden plots before entering requisition.
 The C `KCVariants` struct owns:
 
 - `deck_type`
+- `max_years`
 - `nomenclature`
 - `allow_swap`
 - `northern_style`

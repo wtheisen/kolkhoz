@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../animation_speed.dart';
 import '../app_settings.dart';
+import '../app_text.dart';
 import '../chrome_button.dart';
 import '../design_tokens.dart';
 import '../pixel_text.dart';
@@ -15,6 +16,8 @@ const optionsPanelLocalPadding = EdgeInsets.only(top: 8);
 const optionsPanelSurfaceMinHeight = 230.0;
 const optionsMenuTabSpacing = 6.0;
 const optionsMenuTabHeight = 32.0;
+const optionsMenuTabIconSize = 18.0;
+const optionsMenuTabContentSpacing = 5.0;
 const optionsMenuSettingSpacing = 8.0;
 const optionsMenuSettingPadding = EdgeInsets.symmetric(
   horizontal: 10,
@@ -50,10 +53,14 @@ double optionsMenuSectionSpacing(double height) {
 
 String animationSpeedLabel(GameAnimationSpeed speed, KolkhozLanguage language) {
   return switch (speed) {
-    GameAnimationSpeed.instant => language.text(en: 'Instant', ru: 'Мигом'),
-    GameAnimationSpeed.fast => language.text(en: 'Fast', ru: 'Быстро'),
-    GameAnimationSpeed.normal => language.text(en: 'Normal', ru: 'Норма'),
-    GameAnimationSpeed.slow => language.text(en: 'Slow', ru: 'Медленно'),
+    GameAnimationSpeed.instant => language.t(
+      KolkhozText.boardOptionspanelInstant,
+    ),
+    GameAnimationSpeed.fast => language.t(KolkhozText.boardOptionspanelFast),
+    GameAnimationSpeed.normal => language.t(
+      KolkhozText.boardOptionspanelNormal,
+    ),
+    GameAnimationSpeed.slow => language.t(KolkhozText.boardOptionspanelSlow),
   };
 }
 
@@ -72,10 +79,23 @@ enum OptionsMenuTab {
 
   String title(KolkhozLanguage language) {
     return switch (this) {
-      OptionsMenuTab.session => language.text(en: 'Session', ru: 'Партия'),
-      OptionsMenuTab.assist => language.text(en: 'Assist', ru: 'Помощь'),
-      OptionsMenuTab.display => language.text(en: 'Display', ru: 'Вид'),
-      OptionsMenuTab.rules => language.text(en: 'Rules', ru: 'Правила'),
+      OptionsMenuTab.session => language.t(
+        KolkhozText.boardOptionspanelSession,
+      ),
+      OptionsMenuTab.assist => language.t(KolkhozText.boardOptionspanelAssist),
+      OptionsMenuTab.display => language.t(
+        KolkhozText.boardOptionspanelDisplay,
+      ),
+      OptionsMenuTab.rules => language.t(KolkhozText.boardOptionspanelRules),
+    };
+  }
+
+  String get iconAsset {
+    return switch (this) {
+      OptionsMenuTab.session => 'ios_resources/Icons/icon-settings-session.png',
+      OptionsMenuTab.assist => 'ios_resources/Icons/icon-settings-assist.png',
+      OptionsMenuTab.display => 'ios_resources/Icons/icon-settings-display.png',
+      OptionsMenuTab.rules => 'ios_resources/Icons/icon-settings-rules.png',
     };
   }
 }
@@ -299,6 +319,7 @@ class OptionsMenuTabs extends StatelessWidget {
             child: OptionsMenuTabButton(
               tokens: tokens,
               label: tab.title(language),
+              iconAsset: tab.iconAsset,
               selected: selectedTab == tab,
               onPressed: () => onTabSelected(tab),
             ),
@@ -314,6 +335,7 @@ class OptionsMenuTabButton extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onPressed,
+    this.iconAsset,
     super.key,
   });
 
@@ -321,6 +343,7 @@ class OptionsMenuTabButton extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onPressed;
+  final String? iconAsset;
 
   @override
   Widget build(BuildContext context) {
@@ -347,10 +370,30 @@ class OptionsMenuTabButton extends StatelessWidget {
                     : tokens.colors.steel.withValues(alpha: 0.5),
               ),
             ),
-            child: ChromePixelLabel(
-              label,
-              size: PixelTextSize.caption,
-              color: selected ? tokens.colors.gold : tokens.colors.creamDim,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                spacing: optionsMenuTabContentSpacing,
+                children: [
+                  if (iconAsset != null)
+                    ChromeAssetIcon(
+                      asset: iconAsset!,
+                      width: optionsMenuTabIconSize,
+                      height: optionsMenuTabIconSize,
+                      fit: BoxFit.contain,
+                    ),
+                  Flexible(
+                    child: ChromeScaledLabel(
+                      label,
+                      size: PixelTextSize.caption,
+                      color: selected
+                          ? tokens.colors.gold
+                          : tokens.colors.creamDim,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -458,7 +501,7 @@ class OptionsMenuHeader extends StatelessWidget {
           filterQuality: FilterQuality.none,
         ),
         ChromePixelLabel(
-          language.text(en: 'Menu', ru: 'Меню'),
+          language.t(KolkhozText.boardOptionspanelMenu),
           size: PixelTextSize.title,
           color: tokens.colors.gold,
         ),
@@ -534,16 +577,14 @@ class OptionsSessionControls extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: optionsMenuActionsSpacing,
       children: [
-        _sectionTitle(
-          language.text(en: 'Game controls', ru: 'Управление игрой'),
-        ),
+        _sectionTitle(language.t(KolkhozText.boardOptionspanelGameControls)),
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: optionsMenuControlsSpacing,
           children: [
             Center(
               child: ChromeAssetButton.command(
-                label: language.text(en: 'New game', ru: 'Новая игра'),
+                label: language.t(KolkhozText.kolkhozappNewGame2),
                 prominent: true,
                 tokens: tokens,
                 onPressed: onNewGame,
@@ -552,7 +593,7 @@ class OptionsSessionControls extends StatelessWidget {
             ),
             Center(
               child: ChromeAssetButton(
-                label: language.text(en: 'How to play', ru: 'Как играть'),
+                label: language.t(KolkhozText.boardOptionspanelHowToPlay),
                 tokens: tokens,
                 backgroundColor: tokens.colors.black.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(5),
@@ -562,7 +603,7 @@ class OptionsSessionControls extends StatelessWidget {
                 textColor: tokens.colors.creamDim,
                 textSize: PixelTextSize.caption,
                 onPressed: onTutorial,
-                iconAsset: 'ios_resources/Icons/icon-tutorial.png',
+                iconAsset: 'ios_resources/Icons/icon-foreman-misha.png',
                 iconMuted: true,
                 iconSize: optionsMenuActionIconSize,
                 width: optionsMenuActionWidth,
@@ -575,7 +616,7 @@ class OptionsSessionControls extends StatelessWidget {
             ),
             Center(
               child: ChromeAssetButton(
-                label: language.text(en: 'Main menu', ru: 'Главное меню'),
+                label: language.t(KolkhozText.kolkhozappMainMenu2),
                 tokens: tokens,
                 backgroundColor: tokens.colors.black.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(5),
@@ -607,29 +648,21 @@ class OptionsSessionControls extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: optionsMenuActionsSpacing,
       children: [
-        _sectionTitle(language.text(en: 'Safeguards', ru: 'Защита')),
+        _sectionTitle(language.t(KolkhozText.boardOptionspanelSafeguards)),
         OptionsSettingToggle(
           tokens: tokens,
-          label: language.text(
-            en: 'Confirm new game',
-            ru: 'Подтверждать новую игру',
-          ),
-          body: language.text(
-            en: 'Ask before replacing the current game.',
-            ru: 'Спросить перед заменой текущей партии.',
+          label: language.t(KolkhozText.boardOptionspanelConfirmNewGame),
+          body: language.t(
+            KolkhozText.boardOptionspanelAskBeforeReplacingTheCurrentGame,
           ),
           value: confirmNewGame,
           onChanged: onConfirmNewGameChanged,
         ),
         OptionsSettingToggle(
           tokens: tokens,
-          label: language.text(
-            en: 'Confirm main menu',
-            ru: 'Подтверждать выход',
-          ),
-          body: language.text(
-            en: 'Ask before leaving the current game.',
-            ru: 'Спросить перед выходом из текущей партии.',
+          label: language.t(KolkhozText.boardOptionspanelConfirmMainMenu),
+          body: language.t(
+            KolkhozText.boardOptionspanelAskBeforeLeavingTheCurrentGame,
           ),
           value: confirmMainMenu,
           onChanged: onConfirmMainMenuChanged,
@@ -660,17 +693,17 @@ class OptionsAssistControls extends StatelessWidget {
       spacing: optionsMenuSettingSpacing,
       children: [
         ChromePixelLabel(
-          language.text(en: 'Move help', ru: 'Помощь хода'),
+          language.t(KolkhozText.boardOptionspanelMoveHelp),
           size: PixelTextSize.caption,
           variant: PixelTextVariant.regular,
           color: tokens.colors.smoke,
         ),
         OptionsSettingToggle(
           tokens: tokens,
-          label: language.text(en: 'Invalid-tap hints', ru: 'Подсказки ошибок'),
-          body: language.text(
-            en: 'Show the Foreman reminder when you tap an illegal card.',
-            ru: 'Показывать напоминание бригадира при неверной карте.',
+          label: language.t(KolkhozText.boardOptionspanelInvalidTapHints),
+          body: language.t(
+            KolkhozText
+                .boardOptionspanelShowTheForemanReminderWhenYouTapAnIllegalC,
           ),
           value: showInvalidTapHints,
           onChanged: onShowInvalidTapHintsChanged,
@@ -707,7 +740,7 @@ class OptionsDisplayControls extends StatelessWidget {
       spacing: optionsMenuActionsSpacing,
       children: [
         ChromePixelLabel(
-          language.text(en: 'Display', ru: 'Вид'),
+          language.t(KolkhozText.boardOptionspanelDisplay),
           size: PixelTextSize.caption,
           variant: PixelTextVariant.regular,
           color: tokens.colors.smoke,
@@ -724,7 +757,7 @@ class OptionsDisplayControls extends StatelessWidget {
                 onPressed: onLanguageToggle,
               ),
               OptionsChromeToggle(
-                iconPath: 'ios_resources/Icons/icon-appearance.png',
+                iconPath: 'ios_resources/Icons/${appearance.toggleIconAsset}',
                 label: appearance.toggleTitle(language),
                 tokens: tokens,
                 onPressed: onAppearanceToggle,
@@ -860,7 +893,7 @@ class OptionsMenuRules extends StatelessWidget {
       spacing: optionsMenuRulesSpacing,
       children: [
         ChromePixelLabel(
-          language.text(en: 'Rules', ru: 'Правила'),
+          language.t(KolkhozText.boardOptionspanelRules),
           size: PixelTextSize.headline,
           color: tokens.colors.gold,
         ),
@@ -904,10 +937,8 @@ class OptionsChromeToggle extends StatelessWidget {
             alignment: Alignment.center,
             children: [
               Positioned.fill(
-                child: Image.asset(
-                  'ios_resources/ui-nav-button-inactive.png',
-                  fit: BoxFit.fill,
-                  filterQuality: FilterQuality.none,
+                child: ChromeButtonBackground(
+                  asset: chromeButtonSecondaryAsset,
                 ),
               ),
               Image.asset(
@@ -954,7 +985,7 @@ class AnimationSpeedControl extends StatelessWidget {
         spacing: optionsAnimationSpeedSpacing,
         children: [
           ChromePixelLabel(
-            language.text(en: 'Animation speed', ru: 'Скорость анимации'),
+            language.t(KolkhozText.boardOptionspanelAnimationSpeed),
             size: PixelTextSize.caption,
             color: tokens.colors.smoke,
           ),

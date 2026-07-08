@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <meta
+      name="description"
+      content="The true account of Point 63, corrected by Dr. V. K—. Printed as it arrives. We did not authorize this edition."
+    />
+    <link rel="icon" type="image/png" href="/assets/icons/icon-wheat.png" />
+    <title>Kolkhoz — The Third Edition</title>
+    <script>
+      try {
+        if (localStorage.getItem("kolkhoz-theme") === "light") {
+          document.documentElement.dataset.theme = "light";
+        }
+      } catch (e) {}
+    </script>
+    <style>
+      @font-face {
+        font-family: "Handjet";
+        src: url("/assets/Handjet.ttf") format("truetype");
+        font-display: swap;
+      }
+
+      :root {
+        --paper: #e3d3aa;
+        --paper-strong: #f2dfb2;
+        --paper-body: #392f1f;
+        --paper-ink: #19140d;
+        --muted: #b7a57d;
+        --red: #9f2f1e;
+        --red-deep: #6f1d17;
+        --gold: #d4aa53;
+        --cold: #7ea7c4;
+        --cold-paper: #2f5b7a;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: linear-gradient(135deg, #0b0a09 0%, #14120e 48%, #0b0a09 100%);
+        color: var(--paper);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 19px;
+        line-height: 1.6;
+      }
+
+      body::before {
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        content: "";
+        opacity: 0.16;
+        background-image:
+          linear-gradient(rgba(126, 167, 196, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(126, 167, 196, 0.02) 1px, transparent 1px);
+        background-size: 18px 18px;
+      }
+
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 60;
+        border-bottom: 1px solid rgba(126, 167, 196, 0.4);
+        background: rgba(13, 12, 10, 0.92);
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+      }
+
+      .site-header-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 14px 24px 12px;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+      }
+
+      .brand-mark {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+      }
+
+      .brand-name {
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 38px;
+        font-weight: 800;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .nav {
+        display: flex;
+        gap: 26px;
+        color: var(--paper-strong);
+        font-size: 17px;
+      }
+
+      .nav a {
+        text-decoration-color: transparent;
+        text-underline-offset: 6px;
+      }
+
+      .nav a:hover,
+      .nav a:focus-visible {
+        color: #fff3cf;
+        text-decoration-color: var(--red);
+      }
+
+      img.pixel {
+        image-rendering: pixelated;
+      }
+
+      .theme-toggle {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        padding: 0;
+        border: 1px solid rgba(212, 170, 83, 0.32);
+        border-radius: 6px;
+        background: rgba(20, 19, 16, 0.8);
+        cursor: pointer;
+      }
+
+      .theme-toggle img {
+        width: 26px;
+        height: 26px;
+        object-fit: contain;
+      }
+
+      html[data-theme="light"] .theme-toggle .tt-to-light {
+        display: none;
+      }
+
+      html:not([data-theme="light"]) .theme-toggle .tt-to-dark {
+        display: none;
+      }
+
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 56px 24px 90px;
+      }
+
+      .eyebrow {
+        display: block;
+        margin: 0 0 14px;
+        color: var(--cold);
+        font-size: 14px;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: clamp(48px, 8vw, 72px);
+        font-weight: 800;
+        line-height: 0.95;
+        text-transform: uppercase;
+      }
+
+      .head-rule {
+        width: 130px;
+        height: 3px;
+        margin: 18px 0 30px;
+        background: linear-gradient(90deg, var(--cold), rgba(126, 167, 196, 0));
+      }
+
+      h2 {
+        margin: 54px 0 14px;
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 34px;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      p {
+        margin: 0 0 18px;
+        color: var(--muted);
+      }
+
+      p strong {
+        color: var(--paper-strong);
+        font-weight: 700;
+      }
+
+      p em {
+        color: #d3c093;
+      }
+
+      a {
+        color: var(--paper-strong);
+        text-decoration-color: var(--red);
+        text-underline-offset: 5px;
+      }
+
+      .subtitle {
+        margin: -2px 0 0;
+        color: var(--muted);
+        font-size: 17px;
+        font-style: italic;
+      }
+
+      .floor {
+        color: var(--cold);
+      }
+
+      .fragment .floor {
+        color: var(--cold-paper);
+      }
+
+      .ru {
+        position: relative;
+        border-bottom: 1px dotted rgba(212, 170, 83, 0.55);
+        cursor: help;
+      }
+
+      .fragment .ru {
+        border-bottom-color: rgba(111, 29, 23, 0.5);
+      }
+
+      .ru::after {
+        content: attr(data-tr);
+        position: absolute;
+        bottom: calc(100% + 9px);
+        left: 50%;
+        z-index: 12;
+        width: max-content;
+        max-width: 280px;
+        padding: 7px 13px;
+        border: 1px solid rgba(72, 46, 22, 0.5);
+        background: linear-gradient(rgba(236, 219, 177, 0.98), rgba(216, 194, 148, 0.98));
+        color: var(--paper-ink);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 14px;
+        font-style: italic;
+        font-weight: 400;
+        letter-spacing: normal;
+        line-height: 1.4;
+        text-transform: none;
+        box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(-50%) rotate(-1deg);
+        transition: opacity 140ms ease;
+      }
+
+      .ru:hover::after,
+      .ru:focus::after {
+        opacity: 1;
+      }
+
+      .ru:focus {
+        outline: none;
+      }
+
+      .fragment .ru::after {
+        bottom: auto;
+        top: calc(100% + 9px);
+      }
+
+      .ed {
+        display: block;
+        margin: 18px 0;
+        color: rgba(183, 165, 125, 0.7);
+        font-size: 16px;
+        font-style: italic;
+      }
+
+      p .ed {
+        display: inline;
+        margin: 0;
+      }
+
+      .installment {
+        margin: 0 0 8px;
+        color: var(--cold);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .fragment {
+        position: relative;
+        margin: 34px 0 34px;
+        padding: 26px 28px 20px;
+        border: 1px solid rgba(72, 46, 22, 0.45);
+        background:
+          linear-gradient(rgba(236, 219, 177, 0.97), rgba(216, 194, 148, 0.97)),
+          radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.45), transparent 18rem);
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
+        color: var(--paper-ink);
+        transform: rotate(-0.9deg);
+        clip-path: polygon(
+          0.6% 3%, 4% 0.5%, 22% 1.8%, 41% 0%, 62% 2%, 83% 0.6%, 97% 2.4%, 99.6% 8%,
+          99% 34%, 100% 62%, 99.2% 88%, 96% 99%, 74% 98%, 52% 100%, 30% 98.4%, 9% 99.4%,
+          1.4% 96%, 0% 68%, 1% 38%
+        );
+      }
+
+      .fragment blockquote {
+        margin: 0;
+        color: var(--paper-body);
+        font-size: 22px;
+        font-style: italic;
+        letter-spacing: 0.06em;
+        line-height: 1.55;
+        text-align: center;
+      }
+
+      .fragment figcaption {
+        margin-top: 16px;
+        padding-top: 10px;
+        border-top: 1px dashed rgba(72, 46, 22, 0.4);
+        color: var(--red-deep);
+        font-size: 13px;
+        font-style: normal;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      .plate {
+        margin: 38px auto;
+        max-width: 560px;
+        padding: 14px 14px 12px;
+        background: linear-gradient(rgba(230, 214, 176, 0.96), rgba(211, 191, 148, 0.96));
+        border: 1px solid rgba(72, 46, 22, 0.4);
+        box-shadow: 0 20px 44px rgba(0, 0, 0, 0.45);
+        transform: rotate(0.6deg);
+      }
+
+      .plate img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 1px solid rgba(25, 20, 13, 0.55);
+        filter: saturate(0.85) contrast(1.02);
+      }
+
+      .plate figcaption {
+        margin-top: 12px;
+        color: var(--red-deep);
+        font-size: 12.5px;
+        letter-spacing: 0.16em;
+        line-height: 1.7;
+        text-transform: uppercase;
+      }
+
+      .plate figcaption .ed-inline {
+        color: rgba(57, 47, 31, 0.75);
+        font-style: italic;
+        text-transform: none;
+        letter-spacing: 0.03em;
+        font-size: 13.5px;
+      }
+
+      .site-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 26px 24px 34px;
+        color: var(--muted);
+        font-size: 15px;
+      }
+
+      .site-footer nav {
+        display: flex;
+        gap: 22px;
+      }
+
+      @media (max-width: 620px) {
+        .brand-name {
+          font-size: 30px;
+        }
+
+        .nav {
+          gap: 13px;
+          font-size: 15px;
+        }
+
+        body {
+          font-size: 18px;
+        }
+
+        .fragment {
+          padding: 22px 20px 18px;
+        }
+
+        .site-footer {
+          flex-direction: column;
+        }
+      }
+
+      /* ---------- Light theme ---------- */
+
+      html[data-theme="light"] {
+        --paper: #4a3d26;
+        --paper-strong: #241b0e;
+        --muted: #6d5c3e;
+        --gold: #8a6a28;
+        --cold: #2f5b7a;
+      }
+
+      html[data-theme="light"] body {
+        background: linear-gradient(135deg, #f0e3bf 0%, #e7d6ac 48%, #f0e3bf 100%);
+        color: var(--paper);
+      }
+
+      html[data-theme="light"] .site-header {
+        background: rgba(240, 227, 191, 0.92);
+      }
+
+      html[data-theme="light"] .theme-toggle {
+        border-color: rgba(72, 46, 22, 0.28);
+        background: rgba(255, 248, 226, 0.9);
+      }
+
+      html[data-theme="light"] .nav a:hover,
+      html[data-theme="light"] .nav a:focus-visible {
+        color: #6f1d17;
+      }
+
+      html[data-theme="light"] p em {
+        color: #443624;
+      }
+
+      html[data-theme="light"] .ed {
+        color: rgba(57, 47, 31, 0.72);
+      }
+
+      html[data-theme="light"] .ru {
+        border-bottom-color: rgba(72, 46, 22, 0.28);
+      }
+
+      html[data-theme="light"] .fragment .ru {
+        border-bottom-color: rgba(111, 29, 23, 0.5);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="brand" href="/" aria-label="Kolkhoz home">
+          <img class="brand-mark" src="/assets/app-icon.png" alt="" width="42" height="42" />
+          <span class="brand-name">Kolkhoz</span>
+        </a>
+        <nav class="nav" aria-label="Primary navigation">
+          <a href="/">Home</a>
+          <a href="/about.html">The second edition</a>
+          <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch appearance">
+            <img class="pixel tt-to-light" src="/assets/icons/icon-appearance-light.png" alt="" />
+            <img class="pixel tt-to-dark" src="/assets/icons/icon-appearance-dark.png" alt="" />
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <span class="eyebrow">About the game · Third edition, unnumbered</span>
+      <h1>The true account of Point 63</h1>
+      <p class="subtitle">
+        Corrected by Dr.&nbsp;V.&nbsp;K&#8288;—, who is owed this much.
+      </p>
+      <div class="head-rule" aria-hidden="true"></div>
+
+      <span class="ed">
+        [This document arrives in installments, postmarked from a village that has no post
+        office. We did not solicit it, we do not authorize it, and we print it as it comes,
+        because the alternative — a drawer of unprinted installments, accumulating — was
+        discussed once and will not be discussed again. The account it corrects is
+        <a href="/about.html">here</a>. —Eds.]
+      </span>
+
+      <h2>First installment</h2>
+      <p class="installment">Postmarked 2 April</p>
+      <p>
+        I went back. The reader of the second edition will know that I advised against April,
+        and the reader of anything at all will know what such advice is worth to the man who
+        gives it. Pechorin kept a journal for the same reason I keep a surveyor's chain: not to
+        learn the truth, but to have somewhere to put it afterward.
+      </p>
+      <p>
+        The man who walks people in was waiting at the milestone. I had told no one the train.
+        He did not ask my name; he said it, in my grandmother's pronunciation, which I have
+        heard from no living person, and then he walked, and I followed, because the only other
+        direction was the platform, and I have written elsewhere what platforms are for.
+      </p>
+      <span class="ed">[An enclosure is referenced here — "the photograph of the milestone."
+      The envelope contained no photograph. It contained a second envelope, smaller. We have
+      not opened it. —Eds.]</span>
+
+      <h2>Second installment</h2>
+      <p class="installment">Postmarked 9 April</p>
+      <p>
+        The barracks. W. gave you his paces and I gave you my scorn for them, and I record now,
+        with the chain laid flat and the pegs driven properly, the following measurements. The
+        exterior: as before. The interior: <strong>the length of my grandmother's fifth
+        field</strong>. I measured that field in the year 19—, at her instruction, with this
+        same chain, and I never published the number, and I never told it to anyone, and the
+        barracks knows it to the link.
+      </p>
+      <p>
+        I do not ask the reader to believe this. Belief is a currency for the second edition. I
+        ask the reader to note that the fifth field was the one my grandmother did not report,
+        in the country where W.'s fragments say <em>what is not a crop does not exist</em> —
+        and that it was therefore the only field that stayed hers. There was a word in her
+        village for people who kept five fields and reported four. The word was
+        <span class="ru" data-tr="alive" tabindex="0">«жив»</span>.
+      </p>
+
+      <figure class="plate">
+        <img
+          src="/assets/plates/plate-chain.jpg"
+          alt="A grainy black-and-white photograph of a surveyor's chain laid in a straight line across a snowfield toward a distant treeline, footprints alongside."
+          loading="lazy"
+          width="1200"
+          height="900"
+        />
+        <figcaption>
+          Enclosure to the second installment: the chain, laid true.
+          <span class="ed-inline">Dr. K— writes that the field is not identified. It is
+          identified. The footprints go out. We have examined the plate at length and are
+          prepared to say only that the footprints go out. —Eds.</span>
+        </figcaption>
+      </figure>
+
+      <h2>Third installment</h2>
+      <p class="installment">Postmarked 17 April</p>
+      <p>
+        The tin was where the fragments said it would be. Not where W. said — where the
+        fragments said. There is a difference, and the difference is the whole of scholarship.
+        I brought, as I promised, an empty tin of my own, and I made the exchange the way one
+        pays a debt: quickly, without counting, in front of no witnesses except the
+        <span class="floor">floor</span>.
+      </p>
+      <p>
+        W.'s tin held thirty-one scraps, or twenty-nine, or thirty-three. Mine, when I opened
+        it on the train south, held one. My inventory does not disagree with itself. I invite
+        the editors to admire this, in their drawer, at their leisure.
+      </p>
+
+      <figure class="fragment">
+        <blockquote>
+          <p><span class="ru" data-tr="THE FIFTH SUIT IS PLAYED ALONE." tabindex="0">«ПЯТАЯ МАСТЬ ИГРАЕТСЯ ОДНА.»</span></p>
+        </blockquote>
+        <figcaption>
+          Fragment 1 of 1 — indelible pencil, hand of Dr. V. K—, who was not there when it was
+          written, and who has stopped offering that sentence as a defense.
+        </figcaption>
+      </figure>
+
+      <p>
+        It is in my handwriting. It is in my grandmother's spelling. Gogol's madman, deep into
+        the diary, dated an entry the 86th of Martober and believed it; I date this installment
+        17 April and I am no longer certain my calendar is in a position to laugh at his.
+      </p>
+
+      <h2>Fourth installment</h2>
+      <p class="installment">Postmark illegible</p>
+      <p>
+        Concerning the turnip rules, which are the true rules: I have written them out in full
+        — the fifth suit, the unreported field, the trick that is won by losing it — and I have
+        sent them to the application's developers, twice. They reply that the fifth suit is
+        "out of scope." I have lived a long time and buried better euphemisms than that one. In
+        my grandmother's village, "out of scope" was the whole science of survival: the fifth
+        field was out of scope, the second tin was out of scope, the game itself, played after
+        dark on a bunk with cards made of margins, was out of scope. The State implemented only
+        the first four suits too. You see what kind of company the developers keep.
+      </p>
+      <span class="ed">[Fourteen pages omitted here, concerning turnips. We are not being
+      droll. Fourteen. —Eds.]</span>
+      <p>
+        The fifth suit is played alone. That is not a variant. That is an instruction, and I
+        am, at last, in a position to follow it. I am staying the winter. The stove works. The
+        commentary to this edition will be written by whoever the man at the milestone walks in
+        next, and I will be patient with their errors, as no one was with mine, and I will
+        keep a separate pencil for the one word, as is the custom of the house.
+      </p>
+
+      <span class="ed">
+        [The installments stopped in November. The envelopes continue. They are empty; they
+        are postmarked from the village with no post office; and they are no longer addressed
+        to us. They are addressed to the next reader, care of this page, and we would return
+        them to the sender if the sender had left us any way to say <em>which</em> April.
+        —Eds.]
+      </span>
+      <span class="ed">
+        [If a fourth edition of this account exists, we have not printed it. —Eds.]
+      </span>
+    </main>
+
+    <footer class="site-footer">
+      <span>Kolkhoz for iPhone</span>
+      <nav aria-label="Footer navigation">
+        <a href="/about.html">The second edition</a>
+        <a href="/how-to-play.html">How to play</a>
+        <a href="/rules.html">Rules</a>
+        <a href="/support.html">Support</a>
+      </nav>
+    </footer>
+
+    <script>
+      const themeToggle = document.getElementById("theme-toggle");
+      if (themeToggle) {
+        themeToggle.addEventListener("click", () => {
+          const toLight = document.documentElement.dataset.theme !== "light";
+          if (toLight) {
+            document.documentElement.dataset.theme = "light";
+          } else {
+            delete document.documentElement.dataset.theme;
+          }
+          try {
+            localStorage.setItem("kolkhoz-theme", toLight ? "light" : "dark");
+          } catch (e) {}
+        });
+      }
+    </script>
+  </body>
+</html>

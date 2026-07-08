@@ -17,6 +17,13 @@
     <meta property="og:type" content="website" />
     <link rel="icon" type="image/png" href="/assets/icons/icon-wheat.png" />
     <title>Kolkhoz — Offline Trick-Taking for iPhone</title>
+    <script>
+      try {
+        if (localStorage.getItem("kolkhoz-theme") === "light") {
+          document.documentElement.dataset.theme = "light";
+        }
+      } catch (e) {}
+    </script>
     <style>
       @font-face {
         font-family: "Handjet";
@@ -49,6 +56,7 @@
 
       html {
         scroll-behavior: smooth;
+        scroll-padding-top: 92px;
       }
 
       body {
@@ -110,13 +118,22 @@
       /* ---------- Header ---------- */
 
       .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 60;
+        border-bottom: 1px solid rgba(159, 47, 30, 0.8);
+        background: rgba(13, 12, 10, 0.92);
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+      }
+
+      .site-header-inner {
         display: flex;
         align-items: center;
         justify-content: space-between;
         max-width: 1180px;
         margin: 0 auto;
-        padding: 24px 24px 20px;
-        border-bottom: 1px solid rgba(159, 47, 30, 0.8);
+        padding: 14px 24px 12px;
       }
 
       .brand {
@@ -127,16 +144,36 @@
       }
 
       .brand-mark {
-        display: grid;
         width: 42px;
         height: 42px;
-        place-items: center;
-        color: var(--gold);
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
       }
 
-      .brand-mark svg {
-        width: 42px;
-        height: 42px;
+      .theme-toggle {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        padding: 0;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: rgba(20, 19, 16, 0.8);
+        cursor: pointer;
+      }
+
+      .theme-toggle img {
+        width: 26px;
+        height: 26px;
+        object-fit: contain;
+      }
+
+      html[data-theme="light"] .theme-toggle .tt-to-light {
+        display: none;
+      }
+
+      html:not([data-theme="light"]) .theme-toggle .tt-to-dark {
+        display: none;
       }
 
       .brand-name {
@@ -873,6 +910,74 @@
         }
       }
 
+      /* ---------- Light theme ---------- */
+
+      html[data-theme="light"] {
+        --paper: #4a3d26;
+        --paper-strong: #241b0e;
+        --muted: #6d5c3e;
+        --gold: #8a6a28;
+        --line: rgba(111, 29, 23, 0.28);
+        --shadow: 0 24px 55px rgba(72, 46, 22, 0.3);
+      }
+
+      html[data-theme="light"] body {
+        background:
+          radial-gradient(circle at 78% 12%, rgba(159, 47, 30, 0.08), transparent 34rem),
+          linear-gradient(135deg, #f0e3bf 0%, #e7d6ac 48%, #f0e3bf 100%);
+        color: var(--paper);
+      }
+
+      html[data-theme="light"] body::before {
+        opacity: 0.5;
+        background-image:
+          linear-gradient(rgba(72, 46, 22, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(72, 46, 22, 0.04) 1px, transparent 1px);
+      }
+
+      html[data-theme="light"] .site-header {
+        background: rgba(240, 227, 191, 0.92);
+      }
+
+      html[data-theme="light"] .theme-toggle {
+        background: rgba(255, 248, 226, 0.9);
+      }
+
+      html[data-theme="light"] .nav a:hover,
+      html[data-theme="light"] .nav a:focus-visible {
+        color: var(--red-deep);
+      }
+
+      html[data-theme="light"] .lead {
+        color: #443624;
+      }
+
+      html[data-theme="light"] .features {
+        border-bottom-color: rgba(72, 46, 22, 0.3);
+        background: rgba(236, 219, 177, 0.6);
+      }
+
+      html[data-theme="light"] .suits {
+        border-bottom-color: rgba(72, 46, 22, 0.3);
+        background:
+          radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.3), transparent 26rem),
+          linear-gradient(180deg, #dae0b6, #ccd4a6 70%);
+      }
+
+      html[data-theme="light"] .suit {
+        border-color: rgba(72, 46, 22, 0.28);
+      }
+
+      html[data-theme="light"] .suit p {
+        color: rgba(57, 47, 31, 0.72);
+      }
+
+      html[data-theme="light"] .closing {
+        background:
+          radial-gradient(circle at 50% 120%, rgba(159, 47, 30, 0.14), transparent 40rem),
+          rgba(236, 219, 177, 0.55);
+      }
+
       /* ---------- Responsive ---------- */
 
       @media (max-width: 980px) {
@@ -1016,23 +1121,23 @@
   </head>
   <body>
     <header class="site-header">
-      <a class="brand" href="/" aria-label="Kolkhoz home">
-        <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 48 48" fill="none" role="img">
-            <path d="M24 3l3.8 11.5h12.1l-9.8 7.1 3.7 11.5-9.8-7.1-9.8 7.1 3.7-11.5-9.8-7.1h12.1L24 3z" fill="#a43123" />
-            <path d="M12 42c2.8-10.1 8.1-18.6 16.2-25.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
-            <path d="M8 33c6.7.6 13 3.2 18.8 7.8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
-            <path d="M36 42c-2.8-10.1-8.1-18.6-16.2-25.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
-            <path d="M40 33c-6.7.6-13 3.2-18.8 7.8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
-          </svg>
-        </span>
-        <span class="brand-name">Kolkhoz</span>
-      </a>
-      <nav class="nav" aria-label="Primary navigation">
-        <a href="#year-loop">How it plays</a>
-        <a href="/support.html">Support</a>
-        <a href="/privacy.html">Privacy</a>
-      </nav>
+      <div class="site-header-inner">
+        <a class="brand" href="/" aria-label="Kolkhoz home">
+          <img class="brand-mark" src="/assets/app-icon.png" alt="" width="42" height="42" />
+          <span class="brand-name">Kolkhoz</span>
+        </a>
+        <nav class="nav" aria-label="Primary navigation">
+          <a href="/how-to-play.html">How to play</a>
+          <a href="/rules.html">Rules</a>
+          <a href="/about.html">About</a>
+          <a href="/support.html">Support</a>
+          <a href="/privacy.html">Privacy</a>
+          <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch appearance">
+            <img class="pixel tt-to-light" src="/assets/icons/icon-appearance-light.png" alt="" />
+            <img class="pixel tt-to-dark" src="/assets/icons/icon-appearance-dark.png" alt="" />
+          </button>
+        </nav>
+      </div>
     </header>
 
     <main>
@@ -1277,6 +1382,9 @@
     <footer class="site-footer">
       <span>Kolkhoz for iPhone</span>
       <nav aria-label="Footer navigation">
+        <a href="/how-to-play.html">How to play</a>
+        <a href="/rules.html">Rules</a>
+        <a href="/about.html">About</a>
         <a href="/support.html">Support</a>
         <a href="/privacy.html">Privacy</a>
       </nav>
@@ -1285,6 +1393,21 @@
     <script>
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker.register("/sw.js").catch(() => {});
+      }
+
+      const themeToggle = document.getElementById("theme-toggle");
+      if (themeToggle) {
+        themeToggle.addEventListener("click", () => {
+          const toLight = document.documentElement.dataset.theme !== "light";
+          if (toLight) {
+            document.documentElement.dataset.theme = "light";
+          } else {
+            delete document.documentElement.dataset.theme;
+          }
+          try {
+            localStorage.setItem("kolkhoz-theme", toLight ? "light" : "dark");
+          } catch (e) {}
+        });
       }
 
       const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;

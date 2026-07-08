@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'app_text.dart';
+
 import 'design_tokens.dart';
 import 'game_constants.dart';
 
@@ -178,34 +180,38 @@ enum KolkhozLanguage {
     return this == KolkhozLanguage.ru ? KolkhozLanguage.en : KolkhozLanguage.ru;
   }
 
-  String text({required String en, required String ru}) {
-    return this == KolkhozLanguage.ru ? ru : en;
+  String t(KolkhozText key, [Map<String, Object?> args = const {}]) {
+    return lookupKolkhozText(
+      key,
+      russian: this == KolkhozLanguage.ru,
+      args: args,
+    );
   }
 
   String suitName(String suit) {
     return switch (suit) {
-      'wheat' => text(en: 'Wheat', ru: 'Пшеница'),
-      'sunflower' => text(en: 'Sunflower', ru: 'Подсолнух'),
-      'potato' => text(en: 'Potatoes', ru: 'Картофель'),
-      'beet' => text(en: 'Beets', ru: 'Свёкла'),
+      'wheat' => t(KolkhozText.suitWheat),
+      'sunflower' => t(KolkhozText.suitSunflower),
+      'potato' => t(KolkhozText.suitPotatoes),
+      'beet' => t(KolkhozText.suitBeets),
       _ => suit,
     };
   }
 
   String phaseName(String phase) {
     return switch (phase) {
-      phasePlanning => text(en: 'Planning', ru: 'План'),
-      phaseSwap => text(en: 'Swap', ru: 'Обмен'),
-      phaseTrick => text(en: 'Trick', ru: 'Взятка'),
-      phaseAssignment => text(en: 'Assignment', ru: 'Работы'),
-      phaseRequisition => text(en: 'Requisition', ru: 'Реквизиция'),
-      phaseGameOver => text(en: 'Game Over', ru: 'Итог'),
+      phasePlanning => t(KolkhozText.phasePlanning),
+      phaseSwap => t(KolkhozText.phaseSwap),
+      phaseTrick => t(KolkhozText.phaseTrick),
+      phaseAssignment => t(KolkhozText.phaseAssignment),
+      phaseRequisition => t(KolkhozText.phaseRequisition),
+      phaseGameOver => t(KolkhozText.phaseGameOver),
       _ => phase,
     };
   }
 
   String get toggleTitle {
-    return text(en: 'Switch to Russian', ru: 'Switch to English');
+    return t(KolkhozText.languageSwitchTitle);
   }
 
   String get toggleIconAsset {
@@ -244,14 +250,20 @@ enum KolkhozAppearance {
 
   String label(KolkhozLanguage language) {
     return this == KolkhozAppearance.dark
-        ? language.text(en: 'DARK', ru: 'ТЬМА')
-        : language.text(en: 'LIGHT', ru: 'СВЕТ');
+        ? language.t(KolkhozText.appsettingsDark)
+        : language.t(KolkhozText.appsettingsLight);
   }
 
   String toggleTitle(KolkhozLanguage language) {
     return this == KolkhozAppearance.dark
-        ? language.text(en: 'Switch to light mode', ru: 'Включить светлую тему')
-        : language.text(en: 'Switch to dark mode', ru: 'Включить тёмную тему');
+        ? language.t(KolkhozText.appsettingsSwitchToLightMode)
+        : language.t(KolkhozText.appsettingsSwitchToDarkMode);
+  }
+
+  String get toggleIconAsset {
+    return next == KolkhozAppearance.light
+        ? 'icon-appearance-light.png'
+        : 'icon-appearance-dark.png';
   }
 }
 

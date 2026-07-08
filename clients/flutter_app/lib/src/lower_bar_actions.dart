@@ -1,4 +1,5 @@
 import 'app_settings.dart';
+import 'app_text.dart';
 import 'game_constants.dart';
 import 'render_model.dart';
 
@@ -62,23 +63,29 @@ String lowerBarActionLabel(
 }) {
   final resolvedLanguage = language ?? KolkhozLanguage.en;
   return switch (action.kind) {
-    actionSwap => resolvedLanguage.text(en: 'Swap', ru: 'Обмен'),
-    actionUndoSwap => resolvedLanguage.text(en: 'Undo', ru: 'Отменить'),
-    actionConfirmSwap => resolvedLanguage.text(
-      en: 'Confirm',
-      ru: 'Подтвердить',
-    ),
-    actionSubmitAssignments => resolvedLanguage.text(
-      en: 'Confirm',
-      ru: 'Подтвердить',
+    actionSwap => resolvedLanguage.t(KolkhozText.lowerbaractionsSwap),
+    actionUndoSwap => resolvedLanguage.t(KolkhozText.lowerbaractionsUndo),
+    actionConfirmSwap => resolvedLanguage.t(KolkhozText.lowerbaractionsConfirm),
+    actionSubmitAssignments => resolvedLanguage.t(
+      KolkhozText.lowerbaractionsConfirm,
     ),
     actionContinueAfterRequisition =>
       tableYear >= finalGameYear
-          ? resolvedLanguage.text(en: 'Finish', ru: 'Завершить')
-          : resolvedLanguage.text(
-              en: 'Year ${tableYear + 1}',
-              ru: 'Год ${tableYear + 1}',
-            ),
+          ? resolvedLanguage.t(KolkhozText.lowerbaractionsFinish)
+          : resolvedLanguage.t(KolkhozText.lowerbaractionsYearValue1, {
+              'value1': tableYear + 1,
+            }),
     _ => action.label,
+  };
+}
+
+String lowerBarActionIconAsset(LegalAction action) {
+  return switch (action.kind) {
+    actionSwap => 'icon-toolbar-swap.png',
+    actionUndoSwap => 'icon-toolbar-undo.png',
+    actionConfirmSwap ||
+    actionSubmitAssignments ||
+    actionContinueAfterRequisition => 'icon-toolbar-confirm.png',
+    _ => 'icon-toolbar-confirm.png',
   };
 }

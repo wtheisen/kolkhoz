@@ -22,6 +22,7 @@ MAX_OBJECT_TOKENS = 256
 class KCVariants(ctypes.Structure):
     _fields_ = [
         ("deck_type", ctypes.c_int32),
+        ("max_years", ctypes.c_int32),
         ("nomenclature", ctypes.c_bool),
         ("allow_swap", ctypes.c_bool),
         ("northern_style", ctypes.c_bool),

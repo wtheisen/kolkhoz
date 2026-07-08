@@ -71,6 +71,7 @@ class CEngineActionValue {
 class KolkhozGameVariants {
   const KolkhozGameVariants({
     this.deckType = 52,
+    this.maxYears = 5,
     this.nomenclature = true,
     this.allowSwap = true,
     this.northernStyle = false,
@@ -83,6 +84,7 @@ class KolkhozGameVariants {
   });
 
   final int deckType;
+  final int maxYears;
   final bool nomenclature;
   final bool allowSwap;
   final bool northernStyle;
@@ -95,6 +97,7 @@ class KolkhozGameVariants {
 
   KolkhozGameVariants copyWith({
     int? deckType,
+    int? maxYears,
     bool? nomenclature,
     bool? allowSwap,
     bool? northernStyle,
@@ -107,6 +110,7 @@ class KolkhozGameVariants {
   }) {
     return KolkhozGameVariants(
       deckType: deckType ?? this.deckType,
+      maxYears: maxYears ?? this.maxYears,
       nomenclature: nomenclature ?? this.nomenclature,
       allowSwap: allowSwap ?? this.allowSwap,
       northernStyle: northernStyle ?? this.northernStyle,
@@ -120,6 +124,11 @@ class KolkhozGameVariants {
   }
 
   static const kolkhoz = KolkhozGameVariants(
+    nomenclature: false,
+    wreckerCard: true,
+  );
+  static const demoKolkhoz = KolkhozGameVariants(
+    maxYears: 2,
     nomenclature: false,
     wreckerCard: true,
   );
@@ -147,6 +156,7 @@ enum KolkhozPlayerController {
   neuralAI;
 
   static const defaultControllers = [human, neuralAI, neuralAI, neuralAI];
+  static const demoControllers = [human, heuristicAI, heuristicAI, heuristicAI];
 
   static List<KolkhozPlayerController> normalized(
     List<KolkhozPlayerController> controllers,
@@ -305,6 +315,7 @@ class KolkhozCEngineBridge {
       _variantsKolkhoz(nativeVariants);
       return KolkhozGameVariants(
         deckType: nativeVariants.ref.deckType,
+        maxYears: nativeVariants.ref.maxYears,
         nomenclature: nativeVariants.ref.nomenclature,
         allowSwap: nativeVariants.ref.allowSwap,
         northernStyle: nativeVariants.ref.northernStyle,
@@ -323,6 +334,7 @@ class KolkhozCEngineBridge {
   void _writeVariants(KCVariantsNative native, KolkhozGameVariants variants) {
     native
       ..deckType = variants.deckType
+      ..maxYears = variants.maxYears
       ..nomenclature = variants.nomenclature
       ..allowSwap = variants.allowSwap
       ..northernStyle = variants.northernStyle
@@ -901,6 +913,9 @@ class KolkhozCEngineBridge {
 final class KCVariantsNative extends Struct {
   @Int32()
   external int deckType;
+
+  @Int32()
+  external int maxYears;
 
   @Bool()
   external bool nomenclature;

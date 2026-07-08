@@ -4,6 +4,7 @@ import 'dart:ui' show clampDouble;
 import 'package:flutter/material.dart';
 
 import '../app_settings.dart';
+import '../app_text.dart';
 import '../chrome_button.dart';
 import '../design_tokens.dart';
 import '../game_constants.dart';
@@ -42,8 +43,8 @@ class PlotPanel extends StatelessWidget {
                 height: model.table.phase == phaseRequisition ? 58 : 54,
                 child: PanelTitleRow(
                   title: model.table.phase == phaseRequisition
-                      ? language.text(en: 'Requisition', ru: 'Реквизиция')
-                      : language.text(en: 'Private plot', ru: 'Личный участок'),
+                      ? language.t(KolkhozText.boardPlotpanelRequisition)
+                      : language.t(KolkhozText.boardPlotpanelPrivatePlot),
                   subtitle: plotHeaderSubtitle(model, language),
                   iconPath: model.table.phase == phaseRequisition
                       ? 'ios_resources/Icons/icon-requisition-north.png'
@@ -84,6 +85,8 @@ class GameOverPlotPanel extends StatelessWidget {
     required this.tokens,
     required this.language,
     this.onNewGame,
+    this.onReturnToLobby,
+    this.returnsToLobby = false,
     super.key,
   });
 
@@ -91,6 +94,8 @@ class GameOverPlotPanel extends StatelessWidget {
   final DesignTokens tokens;
   final KolkhozLanguage language;
   final VoidCallback? onNewGame;
+  final VoidCallback? onReturnToLobby;
+  final bool returnsToLobby;
 
   @override
   Widget build(BuildContext context) {
@@ -117,10 +122,10 @@ class GameOverPlotPanel extends StatelessWidget {
               SizedBox(
                 height: gameOverPlotHeaderHeight,
                 child: PanelTitleRow(
-                  title: language.text(en: 'Game Over', ru: 'Игра окончена'),
-                  subtitle: language.text(
-                    en: 'Winner: $winnerName - $winnerScore',
-                    ru: 'Победитель: $winnerName - $winnerScore',
+                  title: language.t(KolkhozText.boardPlotpanelGameOver),
+                  subtitle: language.t(
+                    KolkhozText.boardPlotpanelWinnerWinnernameWinnerscore,
+                    {'winnerName': winnerName, 'winnerScore': winnerScore},
                   ),
                   iconPath: 'ios_resources/Icons/icon-medal-star.png',
                   tokens: tokens,
@@ -152,11 +157,17 @@ class GameOverPlotPanel extends StatelessWidget {
                       ),
                     ),
                     ChromeAssetButton.command(
-                      label: language.text(en: 'New game', ru: 'Новая игра'),
+                      label: returnsToLobby
+                          ? language.t(KolkhozText.kolkhozappMainMenu2)
+                          : language.t(KolkhozText.kolkhozappNewGame2),
                       prominent: true,
                       tokens: tokens,
-                      onPressed: onNewGame,
-                      surfaceKey: const Key('game-over-new-game-button'),
+                      onPressed: returnsToLobby ? onReturnToLobby : onNewGame,
+                      surfaceKey: Key(
+                        returnsToLobby
+                            ? 'game-over-main-menu-button'
+                            : 'game-over-new-game-button',
+                      ),
                     ),
                   ],
                 ),
@@ -338,26 +349,13 @@ class PlotOverviewView extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final opponentCount = otherSeats.length;
-        final opponentSpacing =
-            metrics.spacing * math.max(0, opponentCount - 1);
         final availableForOpponents = math.max(
           0.0,
           constraints.maxHeight - metrics.spacing - plotLocalAreaMinHeight,
         );
-        final rawOpponentHeight = opponentCount == 0
-            ? 0.0
-            : (availableForOpponents - opponentSpacing) / opponentCount;
-        final opponentHeightMin = math.min(
-          plotOpponentRowHeightMin,
-          math.max(0.0, rawOpponentHeight),
-        );
         final opponentHeight = opponentCount == 0
             ? 0.0
-            : clampDouble(
-                rawOpponentHeight,
-                opponentHeightMin,
-                metrics.opponentHeight,
-              );
+            : math.min(metrics.opponentHeight, availableForOpponents);
         final opponentMetrics = metrics.copyWith(
           opponentHeight: opponentHeight,
         );
@@ -366,21 +364,23 @@ class PlotOverviewView extends StatelessWidget {
           spacing: metrics.spacing,
           children: [
             if (otherSeats.isNotEmpty)
-              Column(
-                spacing: metrics.spacing,
-                children: [
-                  for (final seat in otherSeats)
-                    SizedBox(
-                      height: opponentHeight,
-                      child: OpponentPlotPanel(
-                        seat: seat,
-                        metrics: opponentMetrics,
-                        tokens: tokens,
-                        exiledCardIDs: exiledCardIDs,
-                        hiddenExiledCardIDs: hiddenExiledCardIDs,
+              SizedBox(
+                height: opponentHeight,
+                child: Row(
+                  spacing: metrics.spacing,
+                  children: [
+                    for (final seat in otherSeats)
+                      Expanded(
+                        child: OpponentPlotPanel(
+                          seat: seat,
+                          metrics: opponentMetrics,
+                          tokens: tokens,
+                          exiledCardIDs: exiledCardIDs,
+                          hiddenExiledCardIDs: hiddenExiledCardIDs,
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             Expanded(
               child: Row(
@@ -393,6 +393,7 @@ class PlotOverviewView extends StatelessWidget {
                       cards: viewerHiddenCards,
                       hiddenCount: viewerHiddenCards.length,
                       hidden: true,
+                      hiddenCards: false,
                       selectable: selectable,
                       selectedCardID: model.selection.plotCardID,
                       exiledCardIDs: exiledCardIDs,
@@ -1382,6 +1383,7 @@ class LocalPlotColumn extends StatelessWidget {
     this.stacks = const [],
     required this.hiddenCount,
     required this.hidden,
+    bool? hiddenCards,
     required this.selectable,
     required this.selectedCardID,
     required this.exiledCardIDs,
@@ -1389,7 +1391,7 @@ class LocalPlotColumn extends StatelessWidget {
     required this.tokens,
     this.onCardTap,
     super.key,
-  });
+  }) : hiddenCards = hiddenCards ?? hidden;
 
   final String title;
   final String iconPath;
@@ -1397,6 +1399,7 @@ class LocalPlotColumn extends StatelessWidget {
   final List<PlotStackState> stacks;
   final int hiddenCount;
   final bool hidden;
+  final bool hiddenCards;
   final bool selectable;
   final String? selectedCardID;
   final Set<String> exiledCardIDs;
@@ -1460,7 +1463,7 @@ class LocalPlotColumn extends StatelessWidget {
                 final cardWidgets = plotRowCardItems(
                   cards: cards,
                   stacks: stacks,
-                  hiddenCards: hidden,
+                  hiddenCards: hiddenCards,
                   cardSize: cardSize,
                   selectedCardID: selectedCardID,
                   selectable: selectable,

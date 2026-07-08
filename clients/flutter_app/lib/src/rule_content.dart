@@ -1,280 +1,220 @@
 import 'app_settings.dart';
+import 'app_text.dart';
 
 class RuleSummary {
   const RuleSummary({
     required this.iconPath,
-    required this.titleEn,
-    required this.titleRu,
-    required this.bodyEn,
-    required this.bodyRu,
+    required this.titleKey,
+    required this.bodyKey,
   });
 
   final String iconPath;
-  final String titleEn;
-  final String titleRu;
-  final String bodyEn;
-  final String bodyRu;
+  final KolkhozText titleKey;
+  final KolkhozText bodyKey;
 
-  String title(KolkhozLanguage language) {
-    return language.text(en: titleEn, ru: titleRu);
-  }
+  String title(KolkhozLanguage language) => language.t(titleKey);
 
-  String body(KolkhozLanguage language) {
-    return language.text(en: bodyEn, ru: bodyRu);
-  }
+  String body(KolkhozLanguage language) => language.t(bodyKey);
 }
 
 const lobbyRuleSummaries = [
   RuleSummary(
     iconPath: 'ios_resources/Icons/icon-plot.png',
-    titleEn: 'Objective',
-    titleRu: 'Цель',
-    bodyEn:
-        'Complete collective farm jobs while protecting your private plot. Highest score wins!',
-    bodyRu:
-        'Выполняйте работы колхоза, защищая свой участок. Побеждает наибольший счёт!',
+    titleKey: KolkhozText.ruleSummary1Title,
+    bodyKey: KolkhozText.ruleSummary1Body,
   ),
   RuleSummary(
     iconPath: 'ios_resources/Icons/icon-hand.png',
-    titleEn: 'Gameplay',
-    titleRu: 'Игра',
-    bodyEn: 'Play cards to tricks - must follow lead suit if able.',
-    bodyRu: 'Играйте карты во взятки - следуйте масти если возможно.',
+    titleKey: KolkhozText.ruleSummary2Title,
+    bodyKey: KolkhozText.ruleSummary2Body,
   ),
   RuleSummary(
     iconPath: 'ios_resources/Icons/icon-jobs.png',
-    titleEn: 'Jobs',
-    titleRu: 'Работы',
-    bodyEn: 'Jobs need 40 work hours to complete.',
-    bodyRu: 'Работы требуют 40 часов для завершения.',
+    titleKey: KolkhozText.ruleSummary3Title,
+    bodyKey: KolkhozText.ruleSummary3Body,
   ),
   RuleSummary(
     iconPath: 'ios_resources/Icons/icon-warning.png',
-    titleEn: 'Trump Face Cards',
-    titleRu: 'Козырные карты',
-    bodyEn: 'Jack, Queen, and King have special powers in nomenclature games.',
-    bodyRu: 'Валет, Дама и Король имеют особые силы в игре с номенклатурой.',
+    titleKey: KolkhozText.ruleSummary4Title,
+    bodyKey: KolkhozText.ruleSummary4Body,
   ),
   RuleSummary(
     iconPath: 'ios_resources/Icons/icon-medal-star.png',
-    titleEn: 'Scoring',
-    titleRu: 'Подсчёт очков',
-    bodyEn: 'Cards in your plot equal your score. Highest score wins.',
-    bodyRu: 'Карты на вашем участке дают очки. Побеждает тот, у кого больше.',
+    titleKey: KolkhozText.ruleSummary5Title,
+    bodyKey: KolkhozText.ruleSummary5Body,
   ),
 ];
 
 const optionsRuleSummaries = [
   RuleSummary(
     iconPath: 'ios_resources/Icons/icon-jobs.png',
-    titleEn: 'Work',
-    titleRu: 'Работы',
-    bodyEn: 'Win tricks, then assign captured cards to matching jobs.',
-    bodyRu: 'Выигрывайте взятки и назначайте карты на подходящие работы.',
+    titleKey: KolkhozText.ruleSummary6Title,
+    bodyKey: KolkhozText.ruleSummary6Body,
   ),
   RuleSummary(
     iconPath: 'ios_resources/Icons/icon-plot.png',
-    titleEn: 'Protect',
-    titleRu: 'Защита',
-    bodyEn: 'Keep plot cards safe from failed-job requisition.',
-    bodyRu: 'Берегите карты участка от реквизиции за проваленные работы.',
+    titleKey: KolkhozText.ruleSummary7Title,
+    bodyKey: KolkhozText.ruleSummary7Body,
   ),
   RuleSummary(
     iconPath: 'ios_resources/Icons/icon-warning.png',
-    titleEn: 'Trump faces',
-    titleRu: 'Козырные карты',
-    bodyEn: 'Jack goes north, Queen exposes, King doubles exile.',
-    bodyRu: 'Валет уходит на Север, Дама раскрывает, Король удваивает ссылку.',
+    titleKey: KolkhozText.ruleSummary8Title,
+    bodyKey: KolkhozText.ruleSummary8Body,
   ),
 ];
 
+/// Board region a tutorial step points the player at.
+enum TutorialFocus { none, rail, jobs, table, hand }
+
+/// Live-game event that completes a tutorial step automatically.
+enum TutorialAdvance {
+  manual,
+  trumpChosen,
+  cardPlayed,
+  trickTaken,
+  workAssigned,
+  jobCompleted,
+  yearEnd,
+  swapPhase,
+  famineYear,
+}
+
 class TutorialStepContent {
   const TutorialStepContent({
-    required this.titleEn,
-    required this.titleRu,
-    required this.bodyEn,
-    required this.bodyRu,
-    required this.tipEn,
-    required this.tipRu,
-    required this.calloutEn,
-    required this.calloutRu,
+    required this.titleKey,
+    required this.bodyKey,
+    required this.tipKey,
+    required this.calloutKey,
     required this.iconPath,
+    this.focus = TutorialFocus.none,
+    this.advance = TutorialAdvance.manual,
   });
 
-  final String titleEn;
-  final String titleRu;
-  final String bodyEn;
-  final String bodyRu;
-  final String tipEn;
-  final String tipRu;
-  final String calloutEn;
-  final String calloutRu;
+  final KolkhozText titleKey;
+  final KolkhozText bodyKey;
+  final KolkhozText tipKey;
+  final KolkhozText calloutKey;
   final String iconPath;
+  final TutorialFocus focus;
+  final TutorialAdvance advance;
 
-  String title(KolkhozLanguage language) {
-    return language.text(en: titleEn, ru: titleRu);
-  }
+  String title(KolkhozLanguage language) => language.t(titleKey);
 
-  String body(KolkhozLanguage language) {
-    return language.text(en: bodyEn, ru: bodyRu);
-  }
+  String body(KolkhozLanguage language) => language.t(bodyKey);
 
-  String tip(KolkhozLanguage language) {
-    return language.text(en: tipEn, ru: tipRu);
-  }
+  String tip(KolkhozLanguage language) => language.t(tipKey);
 
-  String callout(KolkhozLanguage language) {
-    return language.text(en: calloutEn, ru: calloutRu);
-  }
+  String callout(KolkhozLanguage language) => language.t(calloutKey);
 }
 
 const tutorialStepContents = [
   TutorialStepContent(
-    titleEn: 'First, read the table',
-    titleRu: 'Сначала осмотрите стол',
-    bodyEn:
-        'Every year has four jobs. Your hand wins tricks; your cellar keeps the points that survive requisition.',
-    bodyRu:
-        'Каждый год есть четыре работы. Рука выигрывает взятки, а подвал сохраняет очки, которые переживут реквизицию.',
-    tipEn:
-        'High hidden cards are your bank. Losing one to the North can swing the final score.',
-    tipRu:
-        'Старшие скрытые карты - ваш запас. Потеря одной на Севере может решить итоговый счет.',
-    calloutEn: 'Tap the Cellar icon to inspect your kept card.',
-    calloutRu: 'Нажмите значок подвала, чтобы проверить сохраненную карту.',
+    titleKey: KolkhozText.tutorialStep1Title,
+    bodyKey: KolkhozText.tutorialStep1Body,
+    tipKey: KolkhozText.tutorialStep1Tip,
+    calloutKey: KolkhozText.tutorialStep1Callout,
     iconPath: 'ios_resources/Icons/icon-plot.png',
   ),
   TutorialStepContent(
-    titleEn: 'Pick the trump crop',
-    titleRu: 'Выберите козырную культуру',
-    bodyEn:
-        'In planning, the selector chooses one crop as trump. Trump cards can beat the led crop.',
-    bodyRu:
-        'В планировании выбранный игрок назначает одну культуру козырем. Козыри могут побить масть хода.',
-    tipEn:
-        'Pick trump for the hand you expect to play, not only for the biggest card you see.',
-    tipRu:
-        'Выбирайте козырь под руку, которую хотите разыграть, а не только под самую крупную карту.',
-    calloutEn: 'Tap Wheat as trump.',
-    calloutRu: 'Нажмите пшеницу как козырь.',
+    titleKey: KolkhozText.tutorialStep2Title,
+    bodyKey: KolkhozText.tutorialStep2Body,
+    tipKey: KolkhozText.tutorialStep2Tip,
+    calloutKey: KolkhozText.tutorialStep2Callout,
     iconPath: 'ios_resources/Icons/icon-jobs.png',
+    focus: TutorialFocus.jobs,
   ),
   TutorialStepContent(
-    titleEn: 'Win the trick',
-    titleRu: 'Выиграйте взятку',
-    bodyEn:
-        'Follow suit when you can. Highest card in the winning suit takes the trick.',
-    bodyRu:
-        'Следуйте масти, когда можете. Старшая карта в выигравшей масти берет взятку.',
-    tipEn:
-        'Winning is power, but it paints a target on your cellar for the rest of the year.',
-    tipRu: 'Победа дает власть, но делает ваш подвал целью до конца года.',
-    calloutEn: 'Tap a highlighted legal card.',
-    calloutRu: 'Нажмите подсвеченную разрешенную карту.',
+    titleKey: KolkhozText.tutorialStep3Title,
+    bodyKey: KolkhozText.tutorialStep3Body,
+    tipKey: KolkhozText.tutorialStep3Tip,
+    calloutKey: KolkhozText.tutorialStep3Callout,
+    iconPath: 'ios_resources/Icons/icon-crop-seal.png',
+    focus: TutorialFocus.table,
+    advance: TutorialAdvance.trumpChosen,
+  ),
+  TutorialStepContent(
+    titleKey: KolkhozText.tutorialStep4Title,
+    bodyKey: KolkhozText.tutorialStep4Body,
+    tipKey: KolkhozText.tutorialStep4Tip,
+    calloutKey: KolkhozText.tutorialStep4Callout,
     iconPath: 'ios_resources/Icons/icon-hand.png',
+    focus: TutorialFocus.hand,
+    advance: TutorialAdvance.cardPlayed,
   ),
   TutorialStepContent(
-    titleEn: 'Medal now, risk later',
-    titleRu: 'Медаль сейчас, риск потом',
-    bodyEn:
-        'Trick winners earn medals. Medals break ties, but winning also exposes you to requisition.',
-    bodyRu:
-        'Победители взяток получают медали. Медали решают ничьи, но победа также открывает вас реквизиции.',
-    tipEn:
-        'Sometimes ducking a trick is correct if your cellar holds a card you cannot afford to lose.',
-    tipRu:
-        'Иногда лучше уступить взятку, если в подвале карта, которую нельзя потерять.',
-    calloutEn: 'Continue to see where the risk lands.',
-    calloutRu: 'Продолжите, чтобы увидеть, куда попадет риск.',
+    titleKey: KolkhozText.tutorialStep5Title,
+    bodyKey: KolkhozText.tutorialStep5Body,
+    tipKey: KolkhozText.tutorialStep5Tip,
+    calloutKey: KolkhozText.tutorialStep5Callout,
     iconPath: 'ios_resources/Icons/icon-medal-star.png',
+    focus: TutorialFocus.table,
+    advance: TutorialAdvance.trickTaken,
   ),
   TutorialStepContent(
-    titleEn: 'The winner assigns work',
-    titleRu: 'Победитель назначает работу',
-    bodyEn:
-        'As brigade leader, you send captured cards into jobs to protect matching crops.',
-    bodyRu:
-        'Как бригадир, отправляйте взятые карты на работы, чтобы защитить подходящие культуры.',
-    tipEn:
-        'Assign work to protect the suits that match your best cellar cards.',
-    tipRu: 'Назначайте работу, чтобы защищать масти ваших лучших карт подвала.',
-    calloutEn: 'Tap the Jobs icon to view the work board.',
-    calloutRu: 'Нажмите значок работ, чтобы открыть доску работ.',
+    titleKey: KolkhozText.tutorialStep6Title,
+    bodyKey: KolkhozText.tutorialStep6Body,
+    tipKey: KolkhozText.tutorialStep6Tip,
+    calloutKey: KolkhozText.tutorialStep6Callout,
     iconPath: 'ios_resources/Icons/icon-jobs.png',
+    focus: TutorialFocus.jobs,
+    advance: TutorialAdvance.workAssigned,
   ),
   TutorialStepContent(
-    titleEn: 'Finish jobs for rewards',
-    titleRu: 'Завершайте работы ради наград',
-    bodyEn:
-        'When a job reaches 40 hours, the revealed reward card goes into the winner\'s cellar.',
-    bodyRu:
-        'Когда работа набирает 40 часов, открытая награда уходит в подвал победителя.',
-    tipEn:
-        'A finished job both pays you and stops that crop from causing requisition this year.',
-    tipRu:
-        'Завершенная работа приносит награду и не вызывает реквизицию этой культуры в этом году.',
-    calloutEn: 'Inspect completed job rewards, then continue.',
-    calloutRu: 'Проверьте награды завершенных работ, затем продолжайте.',
-    iconPath: 'ios_resources/Icons/icon-medal-star.png',
+    titleKey: KolkhozText.tutorialStep7Title,
+    bodyKey: KolkhozText.tutorialStep7Body,
+    tipKey: KolkhozText.tutorialStep7Tip,
+    calloutKey: KolkhozText.tutorialStep7Callout,
+    iconPath: 'ios_resources/Icons/icon-status-reward-claimed.png',
+    focus: TutorialFocus.jobs,
+    advance: TutorialAdvance.jobCompleted,
   ),
   TutorialStepContent(
-    titleEn: 'This is requisition',
-    titleRu: 'Это реквизиция',
-    bodyEn:
-        'Failed crops can reveal and exile matching cellar cards from players who won tricks.',
-    bodyRu:
-        'Проваленные культуры могут раскрыть и сослать карты подвала у игроков, выигравших взятки.',
-    tipEn:
-        'A medal may break a tie later, but losing a high cellar card hurts immediately.',
-    tipRu:
-        'Медаль может позже решить ничью, но потеря старшей карты сразу бьет по счету.',
-    calloutEn: 'Tap the requisition report.',
-    calloutRu: 'Нажмите отчет о реквизиции.',
-    iconPath: 'ios_resources/Icons/icon-north.png',
-  ),
-  TutorialStepContent(
-    titleEn: 'Swap before later years',
-    titleRu: 'Обмен перед следующими годами',
-    bodyEn:
-        'From year two, you may trade one hand card with your cellar before tricks begin.',
-    bodyRu:
-        'Со второго года можно обменять одну карту руки с подвалом перед взятками.',
-    tipEn:
-        'Swap high cards into the cellar when they can stay safe; pull danger cards out before requisition.',
-    tipRu:
-        'Убирайте старшие карты в подвал, когда они в безопасности; вытаскивайте опасные перед реквизицией.',
-    calloutEn: 'Tap the Cellar icon again before you swap.',
-    calloutRu: 'Снова нажмите значок подвала перед обменом.',
+    titleKey: KolkhozText.tutorialStep8Title,
+    bodyKey: KolkhozText.tutorialStep8Body,
+    tipKey: KolkhozText.tutorialStep8Tip,
+    calloutKey: KolkhozText.tutorialStep8Callout,
     iconPath: 'ios_resources/Icons/icon-cellar.png',
+    focus: TutorialFocus.hand,
+    advance: TutorialAdvance.yearEnd,
   ),
   TutorialStepContent(
-    titleEn: 'Year five is famine',
-    titleRu: 'Пятый год - голод',
-    bodyEn:
-        'The last year has no trump and only three tricks. It is short and usually decisive.',
-    bodyRu:
-        'В последний год нет козыря и только три взятки. Он короткий и часто решающий.',
-    tipEn:
-        'Save flexible high cards for famine; no trump means a bad lead is harder to escape.',
-    tipRu:
-        'Сохраните гибкие старшие карты на голод; без козыря плохой ход тяжелее исправить.',
-    calloutEn: 'Continue when you have seen the famine board.',
-    calloutRu: 'Продолжайте, когда осмотрите доску голода.',
+    titleKey: KolkhozText.tutorialStep9Title,
+    bodyKey: KolkhozText.tutorialStep9Body,
+    tipKey: KolkhozText.tutorialStep9Tip,
+    calloutKey: KolkhozText.tutorialStep9Callout,
+    iconPath: 'ios_resources/Icons/icon-north.png',
+    focus: TutorialFocus.table,
+    advance: TutorialAdvance.swapPhase,
+  ),
+  TutorialStepContent(
+    titleKey: KolkhozText.tutorialStep10Title,
+    bodyKey: KolkhozText.tutorialStep10Body,
+    tipKey: KolkhozText.tutorialStep10Tip,
+    calloutKey: KolkhozText.tutorialStep10Callout,
+    iconPath: 'ios_resources/Icons/icon-cellar.png',
+    focus: TutorialFocus.hand,
+  ),
+  TutorialStepContent(
+    titleKey: KolkhozText.tutorialStep11Title,
+    bodyKey: KolkhozText.tutorialStep11Body,
+    tipKey: KolkhozText.tutorialStep11Tip,
+    calloutKey: KolkhozText.tutorialStep11Callout,
+    iconPath: 'ios_resources/Icons/icon-warning.png',
+  ),
+  TutorialStepContent(
+    titleKey: KolkhozText.tutorialStep12Title,
+    bodyKey: KolkhozText.tutorialStep12Body,
+    tipKey: KolkhozText.tutorialStep12Tip,
+    calloutKey: KolkhozText.tutorialStep12Callout,
     iconPath: 'ios_resources/Icons/icon-famine.png',
+    focus: TutorialFocus.table,
+    advance: TutorialAdvance.famineYear,
   ),
   TutorialStepContent(
-    titleEn: 'Highest final cellar wins',
-    titleRu: 'Побеждает лучший итог подвала',
-    bodyEn:
-        'At the end, hidden cellar cards count too. Highest cellar score wins; medals break ties.',
-    bodyRu:
-        'В конце скрытые карты подвала тоже считаются. Лучший счет подвала побеждает; медали решают ничьи.',
-    tipEn:
-        'Bigger ranks mean bigger cellar points. One protected high card can decide the whole game.',
-    tipRu:
-        'Большие ранги дают больше очков подвала. Одна защищенная старшая карта может решить игру.',
-    calloutEn: 'Review the final score, then finish.',
-    calloutRu: 'Проверьте итоговый счет и завершите.',
+    titleKey: KolkhozText.tutorialStep13Title,
+    bodyKey: KolkhozText.tutorialStep13Body,
+    tipKey: KolkhozText.tutorialStep13Tip,
+    calloutKey: KolkhozText.tutorialStep13Callout,
     iconPath: 'ios_resources/Icons/icon-medal-star.png',
   ),
 ];

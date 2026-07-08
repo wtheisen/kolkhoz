@@ -24,6 +24,7 @@ from research.kolkhoz_research.online_store import seat_token_hash
 def kolkhoz_variants() -> dict[str, object]:
     return {
         "deckType": 52,
+        "maxYears": 5,
         "nomenclature": False,
         "allowSwap": True,
         "northernStyle": False,
@@ -160,6 +161,59 @@ class OnlineServerTests(unittest.TestCase):
         self.assertEqual(
             created["update"]["controllers"],
             ["human", "human", "neuralAI", "neuralAI"],
+        )
+
+    def test_service_exposes_ordered_action_updates_for_animation_queue(self) -> None:
+        created = self.service.create_session(create_request())
+        joined = self.service.join_session(
+            created["sessionID"],
+            {"preferredPlayerID": 1},
+        )
+        start_revision = created["update"]["actionLogCount"]
+        player_zero_actions = self.service.legal_actions(
+            created["sessionID"],
+            0,
+            created["seatToken"],
+        )
+        first = self.service.submit_action(
+            created["sessionID"],
+            {
+                "playerID": 0,
+                "actionLogCount": start_revision,
+                "action": player_zero_actions[0],
+            },
+            created["seatToken"],
+        )
+        player_one_actions = self.service.legal_actions(
+            created["sessionID"],
+            1,
+            joined["seatToken"],
+        )
+        submitted = self.service.submit_action(
+            created["sessionID"],
+            {
+                "playerID": 1,
+                "actionLogCount": first["actionLogCount"],
+                "action": player_one_actions[0],
+            },
+            joined["seatToken"],
+        )
+        queued = self.service.action_updates(
+            created["sessionID"],
+            0,
+            start_revision,
+            created["seatToken"],
+        )
+
+        self.assertGreaterEqual(submitted["actionLogCount"], start_revision + 2)
+        revisions = [entry["revision"] for entry in queued["updates"]]
+        self.assertEqual(
+            revisions,
+            list(range(start_revision + 1, submitted["actionLogCount"] + 1)),
+        )
+        self.assertEqual(
+            queued["updates"][-1]["update"]["actionLogCount"],
+            submitted["actionLogCount"],
         )
 
     def test_service_lists_open_sessions(self) -> None:
@@ -342,6 +396,33 @@ class OnlineServerTests(unittest.TestCase):
 
         self.assertEqual(denied.exception.status, HTTPStatus.FORBIDDEN)
         self.assertIn("sent north", denied.exception.message)
+
+    def test_auth_enabled_server_rejects_anonymous_online_create_and_join(self) -> None:
+        class FakeAuthVerifier:
+            def user_id_from_authorization(self, authorization: str | None) -> str | None:
+                return None
+
+        service = KolkhozOnlineSessionService(
+            self.engine,
+            auth_verifier=FakeAuthVerifier(),  # type: ignore[arg-type]
+        )
+        try:
+            with self.assertRaises(OnlineServerError) as create_denied:
+                service.create_session(create_request())
+            created = service.create_session(
+                create_request(),
+                user_id="11111111-1111-1111-1111-111111111111",
+            )
+            with self.assertRaises(OnlineServerError) as join_denied:
+                service.join_session(
+                    created["sessionID"],
+                    {"preferredPlayerID": 1},
+                )
+        finally:
+            service.close()
+
+        self.assertEqual(create_denied.exception.status, HTTPStatus.UNAUTHORIZED)
+        self.assertEqual(join_denied.exception.status, HTTPStatus.UNAUTHORIZED)
 
     def test_service_persists_supabase_user_ids_when_authenticated(self) -> None:
         store = FakeOnlineStore()

@@ -199,6 +199,11 @@ def _model_spec(record: dict[str, Any]) -> dict[str, Any]:
     return {
         "architecture": architecture,
         "layers": layers if isinstance(layers, list) else [],
+        "hidden_size": model.get("hidden_size") or record.get("hidden_size"),
+        "layer_count": model.get("layer_count") or record.get("layer_count"),
+        "head_count": model.get("head_count") or record.get("head_count"),
+        "context_length": model.get("context_length") or record.get("context_length"),
+        "action_encoding": model.get("action_encoding") or record.get("action_encoding"),
         "backend": record.get("backend") or artifact.get("backend"),
         "device": record.get("device"),
         "output_model": record.get("output_model")

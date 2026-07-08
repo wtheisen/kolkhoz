@@ -475,6 +475,25 @@ class OnlineSessionUpdate {
       snapshot: OnlineEngineSnapshot.fromJson(_objectMap(json['snapshot'])),
     );
   }
+
+  OnlineSessionUpdate copyWith({
+    List<OnlineEngineAction>? legalActions,
+  }) {
+    return OnlineSessionUpdate(
+      sessionID: sessionID,
+      viewerID: viewerID,
+      actionLogCount: actionLogCount,
+      isViewerTurn: isViewerTurn,
+      legalActions: legalActions ?? this.legalActions,
+      variants: variants,
+      controllers: controllers,
+      playerProfiles: playerProfiles,
+      seatPresence: seatPresence,
+      turnPlayerID: turnPlayerID,
+      turnDeadlineAt: turnDeadlineAt,
+      snapshot: snapshot,
+    );
+  }
 }
 
 class OnlineSeatPresence {
@@ -525,6 +544,49 @@ class OnlineSessionResponse {
       playerID: json['playerID'] as int,
       seatToken: json['seatToken'] as String,
       update: OnlineSessionUpdate.fromJson(_objectMap(json['update'])),
+    );
+  }
+}
+
+class OnlineActionUpdate {
+  const OnlineActionUpdate({
+    required this.revision,
+    required this.action,
+    required this.update,
+  });
+
+  final int revision;
+  final OnlineEngineAction action;
+  final OnlineSessionUpdate update;
+
+  static OnlineActionUpdate fromJson(Map<String, Object?> json) {
+    return OnlineActionUpdate(
+      revision: json['revision'] as int,
+      action: OnlineEngineAction.fromJson(_objectMap(json['action'])),
+      update: OnlineSessionUpdate.fromJson(_objectMap(json['update'])),
+    );
+  }
+}
+
+class OnlineActionUpdatesResponse {
+  const OnlineActionUpdatesResponse({
+    required this.sessionID,
+    required this.actionLogCount,
+    required this.updates,
+  });
+
+  final String sessionID;
+  final int actionLogCount;
+  final List<OnlineActionUpdate> updates;
+
+  static OnlineActionUpdatesResponse fromJson(Map<String, Object?> json) {
+    return OnlineActionUpdatesResponse(
+      sessionID: json['sessionID'] as String,
+      actionLogCount: json['actionLogCount'] as int,
+      updates: [
+        for (final value in _objectList(json['updates'] ?? const []))
+          OnlineActionUpdate.fromJson(_objectMap(value)),
+      ],
     );
   }
 }
@@ -654,6 +716,24 @@ class KolkhozOnlineClient {
       headers: {_seatTokenHeader: seatToken},
     );
     return OnlineSessionUpdate.fromJson(json);
+  }
+
+  Future<OnlineActionUpdatesResponse> fetchActionUpdates({
+    required String sessionID,
+    required int playerID,
+    required String seatToken,
+    required int afterRevision,
+  }) async {
+    final json = await _sendJson(
+      method: 'GET',
+      path: 'sessions/$sessionID/actions',
+      query: {
+        'viewerID': '$playerID',
+        'afterRevision': '$afterRevision',
+      },
+      headers: {_seatTokenHeader: seatToken},
+    );
+    return OnlineActionUpdatesResponse.fromJson(json);
   }
 
   Future<List<OnlineEngineAction>> fetchLegalActions({

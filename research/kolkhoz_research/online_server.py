@@ -364,6 +364,16 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
                         _authorization_header(headers),
                     ),
                 )
+            if method == "GET" and len(parts) == 3 and parts[2] == "actions":
+                return service.action_updates(
+                    session_id,
+                    _optional_int_query(query, "viewerID"),
+                    _required_int_query(query, "afterRevision"),
+                    _seat_token(headers, query, body),
+                    user_id=service.user_id_from_authorization(
+                        _authorization_header(headers),
+                    ),
+                )
             if (
                 method == "GET"
                 and len(parts) == 5
@@ -527,6 +537,7 @@ class KolkhozOnlineSessionService:
         user_id: str | None = None,
     ) -> dict[str, object]:
         with self._lock:
+            self._require_authenticated_user(user_id)
             self._ensure_not_online_banned(user_id)
             self._prune_expired_sessions()
             variants = _normalize_variants(request.get("variants"))
@@ -568,7 +579,7 @@ class KolkhozOnlineSessionService:
                 hosted.seat_user_ids[player_id] = user_id
             self._sessions[session_id] = hosted
             try:
-                self._advance_automatic_turns(hosted)
+                self._advance_automatic_turns(hosted, persist=False)
                 self._sync_turn_deadline(hosted, now, persist=False)
                 self._persist_session_created(hosted)
                 self._persist_turn_state(hosted, now)
@@ -593,6 +604,7 @@ class KolkhozOnlineSessionService:
         user_id: str | None = None,
     ) -> dict[str, object]:
         with self._lock:
+            self._require_authenticated_user(user_id)
             self._ensure_not_online_banned(user_id)
             hosted = self._session(session_id)
             preferred = _optional_int(request.get("preferredPlayerID"))
@@ -743,13 +755,46 @@ class KolkhozOnlineSessionService:
             if not _action_in(action, self._legal_actions_for_player(hosted, player_id)):
                 raise OnlineServerError(HTTPStatus.CONFLICT, "illegal action")
             self.engine.apply_action(hosted.engine_pointer, action)
-            hosted.action_log.append(_action_json(action))
+            hosted.action_log.append(_action_json(action, source="manual"))
+            hosted.last_seen_at = time.time()
+            self._persist_action_appended(hosted, player_id, hosted.action_log[-1])
             self._advance_automatic_turns(hosted)
             hosted.last_seen_at = time.time()
             self._sync_turn_deadline(hosted, hosted.last_seen_at)
-            self._persist_action_appended(hosted, player_id, hosted.action_log[-1])
             self._persist_finished_if_needed(hosted)
             return self._update(hosted, player_id)
+
+    def action_updates(
+        self,
+        session_id: str,
+        viewer_id: int | None,
+        after_revision: int,
+        seat_token: str | None,
+        *,
+        user_id: str | None = None,
+    ) -> dict[str, object]:
+        with self._lock:
+            hosted = self._session(session_id)
+            self._authenticate(hosted, viewer_id, seat_token, user_id=user_id)
+            now = time.time()
+            hosted.last_seen_at = now
+            if viewer_id is not None:
+                self._mark_seat_seen(hosted, viewer_id, now)
+            self._resolve_turn_timeouts(hosted, now)
+            current_revision = len(hosted.action_log)
+            if after_revision < 0 or after_revision > current_revision:
+                raise OnlineServerError(HTTPStatus.CONFLICT, "unknown revision")
+            self._persist_touch_if_needed(hosted)
+            self._persist_finished_if_needed(hosted)
+            return {
+                "sessionID": hosted.session_id,
+                "actionLogCount": current_revision,
+                "updates": self._action_updates_since(
+                    hosted,
+                    viewer_id,
+                    after_revision,
+                ),
+            }
 
     def _session(self, session_id: str) -> HostedSession:
         self._prune_expired_sessions()
@@ -787,12 +832,18 @@ class KolkhozOnlineSessionService:
         ):
             raise OnlineServerError(HTTPStatus.UNAUTHORIZED, "invalid seat token")
         expected_user_id = hosted.seat_user_ids.get(player_id)
+        if self.auth_verifier is not None and user_id is None:
+            raise OnlineServerError(HTTPStatus.UNAUTHORIZED, "missing auth token")
         if (
             self.auth_verifier is not None
             and expected_user_id is not None
             and user_id != expected_user_id
         ):
             raise OnlineServerError(HTTPStatus.UNAUTHORIZED, "invalid auth token")
+
+    def _require_authenticated_user(self, user_id: str | None) -> None:
+        if self.auth_verifier is not None and user_id is None:
+            raise OnlineServerError(HTTPStatus.UNAUTHORIZED, "missing auth token")
 
     def _ensure_not_online_banned(self, user_id: str | None) -> None:
         if user_id is None or self.store is None:
@@ -1150,7 +1201,7 @@ class KolkhozOnlineSessionService:
                 HTTPStatus.INTERNAL_SERVER_ERROR,
                 f"online autopilot action failed: {error}",
             ) from error
-        hosted.action_log.append(_action_json(action))
+        hosted.action_log.append(_action_json(action, source="autopilot"))
         hosted.last_seen_at = now
         self._persist_action_appended(hosted, player_id, hosted.action_log[-1])
         self._advance_automatic_turns(hosted)
@@ -1240,7 +1291,12 @@ class KolkhozOnlineSessionService:
         self._policy_models[controller] = model
         return model
 
-    def _advance_automatic_turns(self, hosted: HostedSession) -> None:
+    def _advance_automatic_turns(
+        self,
+        hosted: HostedSession,
+        *,
+        persist: bool = True,
+    ) -> None:
         for _ in range(200):
             player_id = self.engine.waiting_player(hosted.engine_pointer)
             if player_id < 0 or player_id >= PLAYER_COUNT:
@@ -1249,25 +1305,111 @@ class KolkhozOnlineSessionService:
             if controller == CONTROLLER_HUMAN:
                 return
             if controller == CONTROLLER_HEURISTIC_AI:
-                status = self.engine.step_automatic(hosted.engine_pointer)
+                if not hasattr(self.engine, "heuristic_action"):
+                    status = self.engine.step_automatic(hosted.engine_pointer)
+                    if status < 0:
+                        raise OnlineServerError(
+                            HTTPStatus.INTERNAL_SERVER_ERROR,
+                            f"automatic controller failed with status {status}",
+                        )
+                    if status == 0:
+                        return
+                    continue
+                action = self.engine.heuristic_action(hosted.engine_pointer)
             elif controller == CONTROLLER_POLICY_AI:
-                status = self.engine.step_policy_automatic(
+                if not hasattr(self.engine, "policy_action"):
+                    status = self.engine.step_policy_automatic(
+                        hosted.engine_pointer,
+                        self._policy_model_buffer(hosted.controllers[player_id]),
+                    )
+                    if status < 0:
+                        raise OnlineServerError(
+                            HTTPStatus.INTERNAL_SERVER_ERROR,
+                            f"automatic controller failed with status {status}",
+                        )
+                    if status == 0:
+                        return
+                    continue
+                action = self.engine.policy_action(
                     hosted.engine_pointer,
                     self._policy_model_buffer(hosted.controllers[player_id]),
                 )
+                if action is None:
+                    return
             else:
                 return
-            if status < 0:
+            try:
+                self.engine.apply_ai_action(hosted.engine_pointer, action)
+            except Exception as error:
                 raise OnlineServerError(
                     HTTPStatus.INTERNAL_SERVER_ERROR,
-                    f"automatic controller failed with status {status}",
-                )
-            if status == 0:
-                return
+                    f"automatic controller failed: {error}",
+                ) from error
+            hosted.action_log.append(_action_json(action, source="automatic"))
+            hosted.last_seen_at = time.time()
+            if persist:
+                self._persist_action_appended(hosted, player_id, hosted.action_log[-1])
         raise OnlineServerError(
             HTTPStatus.INTERNAL_SERVER_ERROR,
             "automatic controller loop exceeded guard limit",
         )
+
+    def _action_updates_since(
+        self,
+        hosted: HostedSession,
+        viewer_id: int | None,
+        after_revision: int,
+    ) -> list[dict[str, object]]:
+        if after_revision >= len(hosted.action_log):
+            return []
+        replay = self.engine.new_engine(
+            hosted.seed,
+            variants=_variants_native(hosted.variants),
+            controllers=_controllers_native(hosted.controllers),
+        )
+        replay_hosted = HostedSession(
+            session_id=hosted.session_id,
+            engine_pointer=replay,
+            seed=hosted.seed,
+            variants=hosted.variants,
+            controllers=hosted.controllers,
+            occupied_seats=set(hosted.occupied_seats),
+            seat_tokens=dict(hosted.seat_tokens),
+            seat_user_ids=dict(hosted.seat_user_ids),
+            created_by_user_id=hosted.created_by_user_id,
+            action_log=[],
+            created_at=hosted.created_at,
+            last_seen_at=hosted.last_seen_at,
+            last_persisted_touch_at=hosted.last_persisted_touch_at,
+            seat_last_seen_at=dict(hosted.seat_last_seen_at),
+            seat_timeouts=dict(hosted.seat_timeouts),
+            autopilot_seats=set(hosted.autopilot_seats),
+            abandoned_seats=set(hosted.abandoned_seats),
+            turn_player_id=hosted.turn_player_id,
+            turn_deadline_at=hosted.turn_deadline_at,
+        )
+        try:
+            updates: list[dict[str, object]] = []
+            for index, action_json in enumerate(hosted.action_log):
+                action = _action_from_json(action_json)
+                source = action_json.get("source")
+                if source in ("automatic", "autopilot"):
+                    self.engine.apply_ai_action(replay, action)
+                else:
+                    self.engine.apply_action(replay, action)
+                replay_hosted.action_log.append(action_json)
+                revision = index + 1
+                if revision > after_revision:
+                    updates.append(
+                        {
+                            "revision": revision,
+                            "action": action_json,
+                            "update": self._update(replay_hosted, viewer_id),
+                        }
+                    )
+            return updates
+        finally:
+            self.engine.free_engine(replay)
 
     def _legal_actions_for_player(
         self,
@@ -1485,6 +1627,7 @@ def _display_timestamp(value: object) -> str:
 def _normalize_variants(value: object) -> dict[str, object]:
     default = {
         "deckType": 52,
+        "maxYears": 5,
         "nomenclature": False,
         "allowSwap": True,
         "northernStyle": False,
@@ -1509,6 +1652,7 @@ def _normalize_variants(value: object) -> dict[str, object]:
 def _variants_native(variants: dict[str, object]) -> KCVariants:
     return KCVariants(
         int(variants["deckType"]),
+        int(variants["maxYears"]),
         bool(variants["nomenclature"]),
         bool(variants["allowSwap"]),
         bool(variants["northernStyle"]),
@@ -1656,8 +1800,8 @@ def _requisition_message(kind: int) -> str:
     }.get(kind, "Requisition resolved.")
 
 
-def _action_json(action: KCAction) -> dict[str, object]:
-    return {
+def _action_json(action: KCAction, *, source: str | None = None) -> dict[str, object]:
+    value: dict[str, object] = {
         "kind": int(action.kind),
         "playerID": int(action.player_id),
         "suit": int(action.suit),
@@ -1667,6 +1811,9 @@ def _action_json(action: KCAction) -> dict[str, object]:
         "plotZone": int(action.plot_zone),
         "targetSuit": int(action.target_suit),
     }
+    if source is not None:
+        value["source"] = source
+    return value
 
 
 def _action_from_json(value: object) -> KCAction:
@@ -1731,6 +1878,13 @@ def _optional_int_query(query: dict[str, list[str]], key: str) -> int | None:
     if not values:
         return None
     return _parse_int(values[0], key)
+
+
+def _required_int_query(query: dict[str, list[str]], key: str) -> int:
+    value = _optional_int_query(query, key)
+    if value is None:
+        raise OnlineServerError(HTTPStatus.BAD_REQUEST, f"missing {key}")
+    return value
 
 
 def _authorization_header(headers: object) -> str | None:

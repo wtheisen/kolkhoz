@@ -20,6 +20,19 @@ void main() {
     );
   });
 
+  test('two-year variant ends after the second year', () {
+    withEngine(seed: 20260708, variants: KolkhozGameVariants.demoKolkhoz, (
+      bridge,
+      engine,
+    ) {
+      final result = runToGameOver(bridge, engine);
+
+      expect(result.model.table.phase, phaseGameOver);
+      expect(result.model.table.year, 2);
+      expect(result.phaseVisits, contains(phaseRequisition));
+    });
+  });
+
   test('fixed opening seed projects the canonical Flutter table state', () {
     withEngine(seed: 20260703, variants: KolkhozGameVariants.kolkhoz, (
       bridge,
@@ -569,6 +582,7 @@ String stackFingerprint(TableViewModel model, int appliedActions) {
 String variantsFingerprint(KolkhozGameVariants variants) {
   return [
     variants.deckType,
+    variants.maxYears,
     variants.nomenclature,
     variants.allowSwap,
     variants.northernStyle,

@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="How Kolkhoz was designed — or rather, how it was found: the second, corrected edition of an account of Point 63, with foreword, commentary, and appendix."
+    />
+    <meta property="og:title" content="Kolkhoz — About the Game" />
+    <meta
+      property="og:description"
+      content="We did not design this game. We found it. The second, corrected edition, with commentary we were afraid not to print."
+    />
+    <meta property="og:image" content="https://kolkhoz.williamtheisen.com/assets/title-card-kolkhoz.png" />
+    <meta property="og:url" content="https://kolkhoz.williamtheisen.com/about.html" />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/png" href="/assets/icons/icon-wheat.png" />
+    <title>Kolkhoz — About the Game</title>
+    <script>
+      try {
+        if (localStorage.getItem("kolkhoz-theme") === "light") {
+          document.documentElement.dataset.theme = "light";
+        }
+      } catch (e) {}
+    </script>
+    <style>
+      @font-face {
+        font-family: "Handjet";
+        src: url("/assets/Handjet.ttf") format("truetype");
+        font-display: swap;
+      }
+
+      :root {
+        --paper: #e3d3aa;
+        --paper-strong: #f2dfb2;
+        --paper-body: #392f1f;
+        --paper-ink: #19140d;
+        --muted: #b7a57d;
+        --red: #9f2f1e;
+        --red-deep: #6f1d17;
+        --gold: #d4aa53;
+        --cold: #7ea7c4;
+        --cold-paper: #2f5b7a;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-padding-top: 92px;
+      }
+
+      img.pixel {
+        image-rendering: pixelated;
+      }
+
+      body {
+        margin: 0;
+        background: linear-gradient(135deg, #0d0c0a 0%, #191611 48%, #0d0c0a 100%);
+        color: var(--paper);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 19px;
+        line-height: 1.6;
+      }
+
+      body::before {
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        content: "";
+        opacity: 0.22;
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        background-size: 18px 18px;
+      }
+
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 60;
+        border-bottom: 1px solid rgba(159, 47, 30, 0.8);
+        background: rgba(13, 12, 10, 0.92);
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+      }
+
+      .site-header-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 14px 24px 12px;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+      }
+
+      .brand-mark {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+      }
+
+      .theme-toggle {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        padding: 0;
+        border: 1px solid rgba(212, 170, 83, 0.32);
+        border-radius: 6px;
+        background: rgba(20, 19, 16, 0.8);
+        cursor: pointer;
+      }
+
+      .theme-toggle img {
+        width: 26px;
+        height: 26px;
+        object-fit: contain;
+      }
+
+      html[data-theme="light"] .theme-toggle .tt-to-light {
+        display: none;
+      }
+
+      html:not([data-theme="light"]) .theme-toggle .tt-to-dark {
+        display: none;
+      }
+
+      .brand-name {
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 38px;
+        font-weight: 800;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .nav {
+        display: flex;
+        gap: 26px;
+        color: var(--paper-strong);
+        font-size: 17px;
+      }
+
+      .nav a {
+        text-decoration-color: transparent;
+        text-underline-offset: 6px;
+      }
+
+      .nav a:hover,
+      .nav a:focus-visible {
+        color: #fff3cf;
+        text-decoration-color: var(--red);
+      }
+
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 56px 24px 90px;
+      }
+
+      .eyebrow {
+        display: block;
+        margin: 0 0 14px;
+        color: var(--gold);
+        font-size: 14px;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: clamp(52px, 8vw, 76px);
+        font-weight: 800;
+        line-height: 0.95;
+        text-transform: uppercase;
+      }
+
+      .head-rule {
+        width: 130px;
+        height: 3px;
+        margin: 18px 0 30px;
+        background: linear-gradient(90deg, var(--red), rgba(159, 47, 30, 0));
+      }
+
+      h2 {
+        margin: 54px 0 14px;
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 36px;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      p {
+        margin: 0 0 18px;
+        color: var(--muted);
+      }
+
+      p strong {
+        color: var(--paper-strong);
+        font-weight: 700;
+      }
+
+      p em {
+        color: #d3c093;
+      }
+
+      a {
+        color: var(--paper-strong);
+        text-decoration-color: var(--red);
+        text-underline-offset: 5px;
+      }
+
+      .standfirst {
+        color: #ead8b1;
+        font-size: 23px;
+        font-style: italic;
+        line-height: 1.45;
+      }
+
+      .subtitle {
+        margin: -2px 0 0;
+        color: var(--muted);
+        font-size: 17px;
+        font-style: italic;
+      }
+
+      /* ---------- The cold word ---------- */
+
+      .floor {
+        color: var(--cold);
+      }
+
+      .fragment .floor {
+        color: var(--cold-paper);
+      }
+
+      /* ---------- Untranslated words ---------- */
+
+      .ru {
+        position: relative;
+        border-bottom: 1px dotted rgba(212, 170, 83, 0.55);
+        cursor: help;
+      }
+
+      .fragment .ru {
+        border-bottom-color: rgba(111, 29, 23, 0.5);
+      }
+
+      .ru::after {
+        content: attr(data-tr);
+        position: absolute;
+        bottom: calc(100% + 9px);
+        left: 50%;
+        z-index: 12;
+        width: max-content;
+        max-width: 280px;
+        padding: 7px 13px;
+        border: 1px solid rgba(72, 46, 22, 0.5);
+        background: linear-gradient(rgba(236, 219, 177, 0.98), rgba(216, 194, 148, 0.98));
+        color: var(--paper-ink);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 14px;
+        font-style: italic;
+        font-weight: 400;
+        letter-spacing: normal;
+        line-height: 1.4;
+        text-transform: none;
+        box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(-50%) rotate(-1deg);
+        transition: opacity 140ms ease;
+      }
+
+      .ru:hover::after,
+      .ru:focus::after {
+        opacity: 1;
+      }
+
+      .ru:focus {
+        outline: none;
+      }
+
+      /* Inside the scraps, the torn clip-path would cut a slip pinned above the line. */
+      .fragment .ru::after {
+        bottom: auto;
+        top: calc(100% + 9px);
+      }
+
+      /* ---------- Footnote apparatus ---------- */
+
+      sup.fn {
+        line-height: 0;
+      }
+
+      sup.fn a {
+        color: var(--gold);
+        font-size: 13px;
+        text-decoration: none;
+      }
+
+      sup.fn a:hover,
+      sup.fn a:focus-visible {
+        color: #fff3cf;
+        text-decoration: underline;
+        text-decoration-color: var(--red);
+      }
+
+      del {
+        color: rgba(183, 165, 125, 0.55);
+        text-decoration: line-through;
+        text-decoration-color: rgba(126, 167, 196, 0.75);
+        text-decoration-thickness: 1.5px;
+      }
+
+      .ed {
+        color: rgba(183, 165, 125, 0.7);
+        font-size: 16px;
+        font-style: italic;
+      }
+
+      .dagger {
+        color: var(--red);
+        font-style: normal;
+      }
+
+      .commentary .note {
+        margin: 0 0 22px;
+        padding-left: 34px;
+        text-indent: -34px;
+        font-size: 17.5px;
+      }
+
+      .note-no {
+        color: var(--red);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 21px;
+        font-weight: 800;
+      }
+
+      .lemma {
+        color: var(--paper-strong);
+        font-style: italic;
+      }
+
+      .fn-back {
+        color: var(--gold);
+        font-size: 14px;
+        text-decoration: none;
+      }
+
+      a.quiet {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      a.quiet:hover,
+      a.quiet:focus-visible {
+        text-decoration: underline;
+        text-decoration-color: var(--cold);
+        text-underline-offset: 5px;
+      }
+
+      /* April. See note 3. */
+      body.april .floor {
+        color: #a9cfec;
+        text-shadow: 0 0 12px rgba(126, 167, 196, 0.35);
+      }
+
+      .april-notice {
+        margin: 26px 0 0;
+        padding: 12px 16px;
+        border-left: 3px solid var(--red);
+        background: rgba(126, 167, 196, 0.06);
+      }
+
+      /* ---------- Recovered fragments ---------- */
+
+      .fragment {
+        position: relative;
+        margin: 34px 0 34px;
+        padding: 26px 28px 20px;
+        border: 1px solid rgba(72, 46, 22, 0.45);
+        background:
+          linear-gradient(rgba(236, 219, 177, 0.97), rgba(216, 194, 148, 0.97)),
+          radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.45), transparent 18rem);
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
+        color: var(--paper-ink);
+        clip-path: polygon(
+          0.6% 3%, 4% 0.5%, 22% 1.8%, 41% 0%, 62% 2%, 83% 0.6%, 97% 2.4%, 99.6% 8%,
+          99% 34%, 100% 62%, 99.2% 88%, 96% 99%, 74% 98%, 52% 100%, 30% 98.4%, 9% 99.4%,
+          1.4% 96%, 0% 68%, 1% 38%
+        );
+      }
+
+      .fragment:nth-of-type(odd) {
+        transform: rotate(-0.9deg);
+      }
+
+      .fragment:nth-of-type(even) {
+        transform: rotate(0.7deg);
+      }
+
+      .fragment blockquote {
+        margin: 0;
+        color: var(--paper-body);
+        font-size: 20px;
+        font-style: italic;
+        line-height: 1.55;
+      }
+
+      .fragment blockquote p {
+        color: inherit;
+      }
+
+      .fragment blockquote p:last-child {
+        margin-bottom: 0;
+      }
+
+      .fragment .torn {
+        color: rgba(57, 47, 31, 0.5);
+        letter-spacing: 0.2em;
+      }
+
+      .fragment .missing {
+        color: rgba(57, 47, 31, 0.55);
+        font-style: normal;
+        font-size: 17px;
+      }
+
+      .fragment figcaption {
+        margin-top: 16px;
+        padding-top: 10px;
+        border-top: 1px dashed rgba(72, 46, 22, 0.4);
+        color: var(--red-deep);
+        font-size: 13px;
+        font-style: normal;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      .fragment figcaption sup.fn a {
+        color: var(--red-deep);
+      }
+
+      .fragment .stamp {
+        position: absolute;
+        top: 12px;
+        right: 14px;
+        padding: 2px 10px;
+        border: 2px solid rgba(111, 29, 23, 0.55);
+        border-radius: 3px;
+        color: rgba(111, 29, 23, 0.6);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 19px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        transform: rotate(6deg);
+      }
+
+      /* ---------- Plates ---------- */
+
+      .plate {
+        margin: 38px auto;
+        max-width: 560px;
+        padding: 14px 14px 12px;
+        background: linear-gradient(rgba(230, 214, 176, 0.96), rgba(211, 191, 148, 0.96));
+        border: 1px solid rgba(72, 46, 22, 0.4);
+        box-shadow: 0 20px 44px rgba(0, 0, 0, 0.45);
+      }
+
+      .plate:nth-of-type(odd) {
+        transform: rotate(-0.7deg);
+      }
+
+      .plate:nth-of-type(even) {
+        transform: rotate(0.6deg);
+      }
+
+      .plate img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 1px solid rgba(25, 20, 13, 0.55);
+        filter: saturate(0.85) contrast(1.02);
+      }
+
+      .plate figcaption {
+        margin-top: 12px;
+        color: var(--red-deep);
+        font-size: 12.5px;
+        letter-spacing: 0.16em;
+        line-height: 1.7;
+        text-transform: uppercase;
+      }
+
+      .plate figcaption .ed-inline {
+        color: rgba(57, 47, 31, 0.75);
+        font-style: italic;
+        text-transform: none;
+        letter-spacing: 0.03em;
+        font-size: 13.5px;
+      }
+
+      /* ---------- Appendix ---------- */
+
+      .inventory {
+        width: 100%;
+        margin: 26px 0 10px;
+        border-collapse: collapse;
+        font-size: 17px;
+      }
+
+      .inventory caption {
+        margin-bottom: 12px;
+        color: var(--muted);
+        font-size: 15px;
+        font-style: italic;
+        text-align: left;
+      }
+
+      .inventory th {
+        padding: 8px 10px;
+        border-bottom: 2px solid rgba(159, 47, 30, 0.7);
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-align: left;
+        text-transform: uppercase;
+      }
+
+      .inventory th + th,
+      .inventory td + td {
+        text-align: right;
+      }
+
+      .inventory td {
+        padding: 9px 10px;
+        border-bottom: 1px solid rgba(212, 170, 83, 0.18);
+        color: var(--muted);
+      }
+
+      .inventory tr.totals td {
+        border-top: 2px solid rgba(212, 170, 83, 0.4);
+        border-bottom: 0;
+        color: var(--paper-strong);
+        font-weight: 700;
+      }
+
+      /* ---------- Closing note ---------- */
+
+      .truth {
+        margin-top: 64px;
+        padding: 26px 28px;
+        border-top: 1px solid rgba(212, 170, 83, 0.32);
+        border-bottom: 1px solid rgba(212, 170, 83, 0.32);
+        background: rgba(20, 19, 16, 0.7);
+      }
+
+      .truth h2 {
+        margin-top: 0;
+      }
+
+      .truth p:last-child {
+        margin-bottom: 0;
+      }
+
+      .site-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 26px 24px 34px;
+        color: var(--muted);
+        font-size: 15px;
+      }
+
+      .site-footer nav {
+        display: flex;
+        gap: 22px;
+      }
+
+      /* ---------- Light theme ---------- */
+
+      html[data-theme="light"] {
+        --paper: #4a3d26;
+        --paper-strong: #241b0e;
+        --muted: #6d5c3e;
+        --gold: #8a6a28;
+      }
+
+      html[data-theme="light"] body {
+        background:
+          radial-gradient(circle at 22% 8%, rgba(159, 47, 30, 0.07), transparent 32rem),
+          linear-gradient(135deg, #f0e3bf 0%, #e7d6ac 48%, #f0e3bf 100%);
+        color: var(--paper);
+      }
+
+      html[data-theme="light"] body::before {
+        opacity: 0.5;
+        background-image:
+          linear-gradient(rgba(72, 46, 22, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(72, 46, 22, 0.04) 1px, transparent 1px);
+      }
+
+      html[data-theme="light"] .site-header {
+        background: rgba(240, 227, 191, 0.92);
+      }
+
+      html[data-theme="light"] .theme-toggle {
+        border-color: rgba(72, 46, 22, 0.28);
+        background: rgba(255, 248, 226, 0.9);
+      }
+
+      html[data-theme="light"] .nav a:hover,
+      html[data-theme="light"] .nav a:focus-visible {
+        color: #6f1d17;
+      }
+
+      html[data-theme="light"] .standfirst {
+        color: #443624;
+      }
+
+      html[data-theme="light"] p em {
+        color: rgba(90, 76, 51, 0.9);
+      }
+
+      html[data-theme="light"] .floor {
+        color: var(--cold-paper);
+      }
+
+      html[data-theme="light"] body.april .floor {
+        color: var(--cold-paper);
+        text-shadow: 0 0 12px rgba(47, 91, 122, 0.25);
+      }
+
+      html[data-theme="light"] .ru {
+        border-bottom-color: rgba(72, 46, 22, 0.4);
+      }
+
+      html[data-theme="light"] sup.fn a:hover,
+      html[data-theme="light"] sup.fn a:focus-visible {
+        color: var(--red-deep);
+      }
+
+      html[data-theme="light"] del {
+        color: rgba(90, 76, 51, 0.6);
+        text-decoration-color: rgba(47, 91, 122, 0.75);
+      }
+
+      html[data-theme="light"] .ed {
+        color: rgba(90, 76, 51, 0.9);
+      }
+
+      html[data-theme="light"] a.quiet:hover,
+      html[data-theme="light"] a.quiet:focus-visible {
+        text-decoration-color: var(--cold-paper);
+      }
+
+      html[data-theme="light"] .inventory td {
+        border-bottom-color: rgba(72, 46, 22, 0.18);
+      }
+
+      html[data-theme="light"] .inventory tr.totals td {
+        border-top-color: rgba(72, 46, 22, 0.35);
+      }
+
+      html[data-theme="light"] .truth {
+        border-top-color: rgba(72, 46, 22, 0.28);
+        border-bottom-color: rgba(72, 46, 22, 0.28);
+        background: rgba(236, 219, 177, 0.6);
+      }
+
+      @media (max-width: 620px) {
+        .brand-name {
+          font-size: 30px;
+        }
+
+        .nav {
+          gap: 13px;
+          font-size: 15px;
+        }
+
+        body {
+          font-size: 18px;
+        }
+
+        .fragment {
+          padding: 22px 20px 18px;
+        }
+
+        .inventory {
+          font-size: 15px;
+        }
+
+        .site-footer {
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="brand" href="/" aria-label="Kolkhoz home">
+          <img class="brand-mark" src="/assets/app-icon.png" alt="" width="42" height="42" />
+          <span class="brand-name">Kolkhoz</span>
+        </a>
+        <nav class="nav" aria-label="Primary navigation">
+          <a href="/">Home</a>
+          <a href="/how-to-play.html">How to play</a>
+          <a href="/rules.html">Rules</a>
+          <a href="/support.html">Support</a>
+          <a href="/privacy.html">Privacy</a>
+          <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch appearance">
+            <img class="pixel tt-to-light" src="/assets/icons/icon-appearance-light.png" alt="" />
+            <img class="pixel tt-to-dark" src="/assets/icons/icon-appearance-dark.png" alt="" />
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <span class="eyebrow">About the game · Second, corrected edition</span>
+      <h1>We did not design Kolkhoz</h1>
+      <p class="subtitle">
+        Being an account of Point 63, with a foreword by the editors, commentary by
+        Dr.&nbsp;V.&nbsp;K&#8288;—, and one appendix.
+      </p>
+      <div class="head-rule" aria-hidden="true"></div>
+
+      <p class="standfirst">
+        We found it. This is the account of where, as faithfully as it can now be given,
+        together with the commentary it has since attracted.
+      </p>
+
+      <h2>A note on the text</h2>
+      <!-- R: do we keep "afraid not to"?
+           M: it is the only true sentence in the foreword. it stays. -->
+      <p>
+        The account that follows was written by the game's designer, whom we will call
+        <strong>W.</strong>, because that is his initial and because he asked us, in the only
+        letter of his we still have, to use it. It first appeared, in shorter form, in the release
+        notes of version 1.0, where it was mistaken for patch documentation and read by no one.
+        It is reprinted here together with commentary by <strong>Dr.&nbsp;V.&nbsp;K—</strong>, who
+        wrote to us nine days after launch to say that the account was substantially plagiarized,
+        materially false, and that he alone was qualified to annotate it. We have printed his
+        notes. We were, frankly, afraid not to.
+      </p>
+      <p>
+        There is nothing original in any of this procedure. Russian letters has exactly one
+        protocol for documents of this kind: a traveler, a chance companion meeting him on the
+        road, a dead man's papers, and an editor who assures the public that the author is
+        beyond reach and that publication has therefore become a duty. Lermontov perfected the
+        form, and had the honesty to admit that the news of his author's death came to him as a
+        relief, since it freed his hands. We make no such admission. W.'s letters simply
+        stopped.
+      </p>
+      <p>Four editorial matters.</p>
+      <p>
+        First: the word <span class="floor">floor</span>. W.'s manuscript renders it, every time,
+        in a different ink — colder than the ink around it. We do not know how he achieved this
+        in pencil. We have preserved the effect. We add, before Dr. K— can add it for us, that
+        the Russian for "underground" is <em>podpolye</em>: literally, the space beneath the
+        floorboards. The man in Dostoevsky who spites the world from his underground is, in the
+        original, a man from under the <span class="floor">floor</span>. We make no further
+        comment.
+      </p>
+      <p>
+        Second: brackets [&nbsp;] mark text missing from the manuscript. Daggers
+        <span class="dagger">†</span> mark text present in the manuscript that we could not bring
+        ourselves to include.
+      </p>
+      <!-- R: someone is going to ask what the dagger cuts.
+           M: no one who has read this far will ask. -->
+      <!-- R: what DID we cut at the dagger?
+           M: you know what we cut. it is in the drawer that doesn't open in april. -->
+      <!-- do not move these comments above the fold. they prefer it here. -->
+
+      <p>
+        Third: the number of fragments. W. says thirty-one. Our own inventory, conducted twice,
+        found twenty-nine, and then thirty-three. We have stopped counting. See
+        <a href="#appendix-a">Appendix&nbsp;A</a>.
+      </p>
+      <p>
+        Fourth: the men of Point 63 wrote in Russian. Dr. K— holds that certain of their words
+        do not survive translation, and in deference to the dead we have printed those words as
+        written. In deference to the reader we have gone behind his back: rest on any of them,
+        and our rendering will appear on a slip above the line. The words are theirs. The slips
+        are ours. The objection, standing, is his.
+      </p>
+
+      <h2>The footnote</h2>
+      <p>
+        It began, as these things do, with a footnote. A regional almanac, self-published in 1994
+        by a man the title page gives only as <strong>P.T.</strong>, shelved in a university
+        library under the wrong decade, devoted eleven pages to the timber stations of a northern
+        river valley. Ten of those pages were freight tables. The eleventh mentioned, in passing,
+        that the inmates of a camp the maps had stopped naming were known to the villages
+        downstream for two things: the quality of their coffin boards, and
+        <strong>a card game about farming that no one on the outside could ever quite learn</strong>.
+        The page carried a single citation, to <em>Notes from the House of the Dead</em>, with a
+        page number. No edition we have consulted possesses that page.
+      </p>
+
+      <figure class="plate">
+        <img
+          src="/assets/plates/plate-almanac.jpg"
+          alt="A photographed page of a self-published almanac: dense typewritten freight tables in Russian, with a short paragraph and a single footnote at the bottom."
+          loading="lazy"
+          width="1200"
+          height="1600"
+        />
+        <figcaption>
+          Plate I. The eleventh page.
+          <span class="ed-inline">The page is numbered 37. P.T.'s pagination, like his death,
+          was in keeping with his research. The citation is at the foot; we have enlarged it
+          three times, and it is not there in the enlargements. —Eds.</span>
+        </figcaption>
+      </figure>
+      <p>
+        P.T. was dead by the time we went looking for him — the regional paper said only that he
+        had died <em>in keeping with his research</em>.<sup class="fn"><a id="ref1" href="#note1">1</a></sup>
+        The library's copy of the almanac was the only one anyone could locate; its catalog card
+        had been copied out by hand, beautifully, each letter loved separately, the way clerks
+        copied before there was anyone left to pity them. The camp appears in the records as
+        <strong>Point&nbsp;63</strong>,<sup class="fn"><a id="ref11" href="#note11">11</a></sup>
+        closed in 1957, buildings left to the larches. We wrote three letters north and received
+        one reply, from a retired schoolteacher in the nearest living
+        village,<sup class="fn"><a id="ref2" href="#note2">2</a></sup> who agreed to walk us in
+        if we came before the mud and after the bears. His reply reached us, by the postmarks,
+        four days before our third letter reached him. We have kept both envelopes. We do not
+        look at them often.
+      </p>
+
+      <figure class="plate">
+        <img
+          src="/assets/plates/plate-catalog.jpg"
+          alt="A close-up of a handwritten library catalog card in an open wooden drawer, every Cyrillic letter formed with great care."
+          loading="lazy"
+          width="1200"
+          height="900"
+        />
+        <figcaption>
+          Plate II. The catalog card, in the hand described.
+          <span class="ed-inline">The card does not name the almanac. The librarian writes that
+          it never did. The shelf it points to held what we came for. —Eds.</span>
+        </figcaption>
+      </figure>
+      <p>
+        So in the last week of a very cold April we went. The train that goes there stops,
+        according to the timetable, nowhere: the conductor sells you a ticket
+        <span class="ru" data-tr="&ldquo;to the post&rdquo; — the ticket names no station" tabindex="0">«до столба»</span>
+        and does not look at you again, and the milestone, when you reach it, gives distances to
+        three towns, two of which exist. We did not linger on the platform. Tolstoy taught this
+        country what platforms are for, and then, at Astapovo, took the lesson himself.
+      </p>
+
+      <figure class="plate">
+        <img
+          src="/assets/plates/plate-milestone.jpg"
+          alt="A weathered roadside milestone beside an empty dirt road, painted with town names and distances in Cyrillic; the third name is painted over."
+          loading="lazy"
+          width="900"
+          height="1200"
+        />
+        <figcaption>
+          Plate III. The milestone.
+          <span class="ed-inline">Two of the towns exist. The third has been corrected. —Eds.</span>
+        </figcaption>
+      </figure>
+
+      <h2>The ruins</h2>
+      <p>
+        We went in the way Turgenev's hunter went among the villages — on foot, notebook first,
+        trusting to be talked at. There is not much left of a camp after seventy winters. The
+        wire is gone — wire is useful. The watchtowers came down for their nails. What remains is
+        what nobody wanted: the foundations, a brick kiln shouldered open by a birch tree, and
+        one long barracks kept standing by the sheer stubbornness of its
+        roofline.<sup class="fn"><a id="ref20" href="#note20">20</a></sup> Our guide
+        waited outside. He said his grandfather had helped build it and that this was reason
+        enough never to go in. In the evening he built a fire and told stories the way the boys
+        tell them in Bezhin Meadow — low, half to the horses — except that in his stories the
+        dead did not wander. They audited.
+      </p>
+
+      <figure class="plate">
+        <img
+          src="/assets/plates/plate-fire.jpg"
+          alt="A night photograph lit only by a small campfire, sparks rising, the dark edge of a larch forest beyond. No one is in the frame."
+          loading="lazy"
+          width="1200"
+          height="900"
+        />
+        <figcaption>
+          Plate IV. The fire, first night.
+          <span class="ed-inline">Our guide asked that no photograph be taken of him. None was.
+          He is not in this plate. We have checked. —Eds.</span>
+        </figcaption>
+      </figure>
+      <p>
+        The barracks is thirty-four paces long. We measured it because our guide would not come
+        in, and one measures things when one is alone in a place like that. Inside, walking the
+        same wall, it is <span id="paces">forty-one</span>
+        paces.<sup class="fn"><a id="ref3" href="#note3">3</a></sup> We
+        measured four times. The numbers did not change, and did not agree. Our photographs of
+        the outside developed normally. Our photographs of the inside were, every one of them, of
+        the outside.
+      </p>
+
+      <figure class="plate">
+        <img
+          src="/assets/plates/plate-barracks.jpg"
+          alt="A grainy black-and-white photograph of a long collapsed wooden barracks among larch trees, patches of snow on the ground."
+          loading="lazy"
+          width="1200"
+          height="900"
+        />
+        <figcaption>
+          Plate V. The barracks at Point 63. The exterior, from the south, April.
+        </figcaption>
+      </figure>
+
+      <figure class="plate">
+        <img
+          src="/assets/plates/plate-barracks.jpg"
+          alt="The same photograph again: the exterior of the barracks among larch trees, although this exposure was taken inside."
+          loading="lazy"
+          width="1200"
+          height="900"
+        />
+        <figcaption>
+          Plate VI. The interior.
+          <span class="ed-inline">This is the frame as developed. W.'s notes insist the camera
+          was facing the stove. —Eds.</span>
+        </figcaption>
+      </figure>
+      <p>
+        Under the third <span class="floor">floor</span>board from the stove — where every
+        <span class="floor">floor</span> in that country keeps its secrets — was a rusted makhorka
+        tobacco tin. And inside the tin, folded into a square the size of a playing card, were
+        <strong>thirty-one scraps of paper</strong>: cement-bag paper, newspaper margins, the
+        backs of requisition forms. Each one written in indelible pencil, in at least four
+        different hands,<sup class="fn"><a id="ref4" href="#note4">4</a></sup> over what must have
+        been years. We took nothing else from the barracks.<span class="dagger">†</span>
+      </p>
+      <p>They were rules.</p>
+
+      <figure class="plate">
+        <img
+          src="/assets/plates/plate-tin.jpg"
+          alt="An evidence-style flash photograph of a rusted makhorka tobacco tin, lid open, packed with small folded paper scraps, a measuring scale laid in front."
+          loading="lazy"
+          width="1200"
+          height="900"
+        />
+        <figcaption>
+          Plate VII. The tin, at the moment of cataloguing.
+          <span class="ed-inline">The scale was included in the exposure for rigor. The count
+          visible in this plate has been made eleven times, with eleven results. —Eds.</span>
+        </figcaption>
+      </figure>
+
+      <figure class="fragment">
+        <span class="stamp" aria-hidden="true">Point 63</span>
+        <blockquote>
+          <p>
+            <span class="ru" data-tr="The deck is the village." tabindex="0">«Колода&nbsp;— деревня.»</span>
+            Four crops only — wheat, sunflower, potato, beet. What is not a crop does not
+            exist. Remember this and you will not ask foolish questions.
+          </p>
+        </blockquote>
+        <figcaption>
+          Fragment 1 — pencil on cement-bag paper<sup class="fn"><a id="ref5" href="#note5">5</a></sup>
+        </figcaption>
+      </figure>
+
+      <figure class="fragment">
+        <blockquote>
+          <p>
+            <span class="ru" data-tr="All fulfilled jobs are alike." tabindex="0">«Все выполненные работы похожи друг на друга.»</span>
+            Every failed job fails in its own way. Both are written down, but only one is read
+            aloud.
+          </p>
+        </blockquote>
+        <figcaption>
+          Fragment 2 — newspaper margin<sup class="fn"><a id="ref12" href="#note12">12</a></sup>
+        </figcaption>
+      </figure>
+
+      <figure class="fragment">
+        <blockquote>
+          <p>
+            Follow the suit that is led if you can. The strongest card takes the trick. But
+            understand: taking is not winning.
+            <span class="ru" data-tr="To take is to be seen." tabindex="0">«Взять&nbsp;— значит быть увиденным.»</span>
+            Everything you take must be assigned, and everything assigned is counted.
+          </p>
+        </blockquote>
+        <figcaption>
+          Fragment 4 — newspaper margin, hand of the
+          "accountant"<sup class="fn"><a id="ref13" href="#note13">13</a></sup>
+        </figcaption>
+      </figure>
+
+      <figure class="fragment">
+        <blockquote>
+          <p>
+            The <span class="ru" data-tr="brigade leader" tabindex="0">бригадир</span> divides
+            the harvest among the posted jobs. A job fulfilled is applause, and applause is
+            worth nothing. A job failed is a name in the ledger, and
+            <span class="ru" data-tr="the ledger forgets no one." tabindex="0">«ведомость никого не забывает»</span>.
+          </p>
+        </blockquote>
+        <figcaption>
+          Fragment 9 — reverse of a grain requisition
+          form<sup class="fn"><a id="ref14" href="#note14">14</a></sup>
+        </figcaption>
+      </figure>
+
+      <figure class="fragment">
+        <blockquote>
+          <p>
+            What is still in your hand when the year ends goes under the
+            <span class="floor">floor</span>. This is your plot. It is the only thing in the game
+            that is yours. Do not speak of the <span class="floor">floor</span>. Do not look at
+            the <span class="floor">floor</span>.
+            <span class="ru" data-tr="There is no floor." tabindex="0">«<span class="floor">Пола</span>&nbsp;нет.»</span>
+          </p>
+        </blockquote>
+        <figcaption>
+          Fragment 14 — cigarette paper, unsigned<sup class="fn"><a id="ref7" href="#note7">7</a></sup>
+        </figcaption>
+      </figure>
+
+      <figure class="fragment">
+        <blockquote>
+          <p>
+            When a job fails, they come and they count. Whatever in your plot matches what they
+            are looking for, they find, and what they find, they take. Do not plan for whether
+            the knock comes. Plan for
+            <span class="ru" data-tr="when" tabindex="0">«когда»</span>.
+          </p>
+        </blockquote>
+        <figcaption>
+          Fragment 17 — cement-bag paper,
+          water-damaged<sup class="fn"><a id="ref15" href="#note15">15</a></sup>
+        </figcaption>
+      </figure>
+
+      <figure class="fragment">
+        <blockquote>
+          <p>
+            Requisition can be survived. I have seen it survived. The method is
+            <span class="missing">[text missing]</span> and afterward you must never
+            <span class="missing">[text missing]</span> in front of the same men twice.
+          </p>
+        </blockquote>
+        <figcaption>
+          Fragment 17 — the tin contains two fragments numbered seventeen. They contradict each
+          other. We print both.
+        </figcaption>
+      </figure>
+
+      <figure class="fragment">
+        <blockquote>
+          <p>
+            The young one asked the old one: if there is no requisition, then everything is
+            permitted? The old one dealt the next year and said:
+            <span class="ru" data-tr="there is requisition." tabindex="0">«реквизиция есть»</span>.
+          </p>
+        </blockquote>
+        <figcaption>
+          Fragment 19 — reverse of a requisition form, two hands
+          alternating<sup class="fn"><a id="ref16" href="#note16">16</a></sup>
+        </figcaption>
+      </figure>
+
+      <figure class="fragment">
+        <blockquote>
+          <p>
+            There is a man in the deck who is every crop and none. The hand that drew him wrote
+            <span class="ru" data-tr="wrecker; saboteur" tabindex="0">«вредитель»</span> beneath
+            the wrench. Fourteen hours of work in his hands and every hour of it poison — any
+            job he touches fails, whatever the count. Play him proudly. Receive him bitterly.
+            In this he is like several men we know.
+          </p>
+        </blockquote>
+        <figcaption>
+          Fragment 22 — the only fragment with a drawing: a man holding a wrench, or, held the
+          other way up, a wrench holding a man<sup class="fn"><a id="ref6" href="#note6">6</a></sup>
+        </figcaption>
+      </figure>
+
+      <figure class="fragment">
+        <blockquote>
+          <p>
+            A man once asked how much land a man needs. The story was known even here. The
+            State knows it too. The State liked the ending.
+          </p>
+        </blockquote>
+        <figcaption>
+          Fragment 26 — cement-bag paper, the largest
+          fragment<sup class="fn"><a id="ref17" href="#note17">17</a></sup>
+        </figcaption>
+      </figure>
+
+      <figure class="fragment">
+        <blockquote>
+          <p>
+            In the fifth year there is no trump and only three tricks,
+            <span class="ru" data-tr="because in the fifth year there is no&nbsp;—" tabindex="0">«потому что в пятый год нет»</span>&nbsp;<span class="torn">— — —</span>
+          </p>
+        </blockquote>
+        <figcaption>
+          Fragment 31 — torn. The rest of the sentence has never been
+          found.<sup class="fn"><a id="ref8" href="#note8">8</a></sup>
+        </figcaption>
+      </figure>
+
+      <h2>The reconstruction</h2>
+      <p>
+        Thirty-one scraps do not make a rulebook. They contradict each other. They refer to rules
+        that are not among them — a swap that begins "as before, from the second year," a scoring
+        table reduced by damp to its column headings. We spent the years that followed the way
+        archaeologists spend theirs: playing every version the fragments would permit, hundreds
+        of five-year plans across a kitchen table, until the gaps closed and the game underneath
+        stood up on its own.
+      </p>
+      <p>
+        By the third year of playtesting we noticed that the arguments about the rules had
+        stopped. Not because we had resolved them — because certain readings, tried at the table,
+        refused to work, and refused in a way that had stopped feeling like design. It felt like
+        being corrected. Tolstoy says somewhere that a scythe, once the man stops thinking about
+        it, mows by itself.<sup class="fn"><a id="ref18" href="#note18">18</a></sup> There were
+        evenings the game played itself in that fashion, and we sat behind it the way a man
+        walks behind a scythe, and it was not our field.
+      </p>
+
+      <figure class="plate">
+        <img
+          src="/assets/plates/plate-table.jpg"
+          alt="A kitchen at night under a single bare bulb: a small table covered with playing cards laid out mid-game, two empty chairs pushed back, smoke in the lamplight."
+          loading="lazy"
+          width="1200"
+          height="900"
+        />
+        <figcaption>
+          Plate VIII. The reconstruction, third year of play.
+          <span class="ed-inline">The exposure was made at the end of an evening, after both
+          chairs had been pushed back. The cards are not where we left them. —Eds.</span>
+        </figcaption>
+      </figure>
+      <p>
+        Where two fragments disagreed, we adopted a rule of interpretation and held to it:
+        <strong>choose the crueler reading</strong>. Everywhere the scraps could be checked
+        against each other, the game sided against the player — and we were not prepared to
+        believe the men who wrote them had grown gentler in the parts we couldn't read.
+      </p>
+      <p>
+        <del>In the second summer a thirty-second scrap appeared in the tin. It was blank on both
+        sides. It has since</del> <span class="ed">[Passage struck in the manuscript, by a hand
+        we have not identified. The strike is in the cold ink. There is no thirty-second
+        scrap.<sup class="fn"><a id="ref19" href="#note19">19</a></sup> —Eds.]</span>
+      </p>
+
+      <figure class="plate">
+        <img
+          src="/assets/plates/plate-scrap.jpg"
+          alt="A macro photograph of a torn scrap of cigarette paper on a black surface, four lines of faint pencil handwriting in Russian; the final word carries a faint blue tint in an otherwise black-and-white photograph."
+          loading="lazy"
+          width="1200"
+          height="900"
+        />
+        <figcaption>
+          Plate IX. Fragment 28, photographic reproduction.
+          <span class="ed-inline">It is not a rules fragment, and we have not translated it.
+          The plate is printed as developed. The last word developed in a color the negative
+          does not contain. —Eds.</span>
+        </figcaption>
+      </figure>
+      <p>
+        What you hold on your phone is that reconstruction: the village, the ledger, the
+        <span class="floor">floor</span> that does not exist, the man with the wrench. We added
+        the pictures, the animations, and an opponent that never needs to sleep. The rest was
+        already written, in four hands, in indelible pencil, waiting under a
+        <span class="floor">floor</span>board for someone to ask the wrong questions in the right
+        library.<sup class="fn"><a id="ref10" href="#note10">10</a></sup>
+      </p>
+
+      <section class="commentary" aria-label="Commentary">
+        <h2>Commentary</h2>
+        <p class="ed">
+          The notes below are printed as received, in Dr. K—'s numbering, which is not ours and
+          which does not follow the text. We have stopped apologizing for it. —Eds.
+        </p>
+
+        <p class="note" id="note1">
+          <span class="note-no">1.</span> <span class="lemma">in keeping with his research</span>]
+          A regional paper does not write such a sentence. I knew its editor; he wrote obituaries
+          the way he wrote freight tables, which is fitting, since P.T. wrote freight tables the
+          way other men write confessions. The sentence is W.'s. The death, I concede, is real,
+          and it was Gogol's death: February, the stove lit and recently fed with paper, the man
+          declining all food until the question was settled. Whether P.T.'s stove was fed freight
+          tables or a twelfth page of his own, the coroner did not think to ask.
+          <a class="fn-back" href="#ref1" aria-label="Back to text">↩</a>
+        </p>
+
+        <p class="note" id="note2">
+          <span class="note-no">2.</span> <span class="lemma">a retired schoolteacher</span>]
+          There is no schoolteacher. I have been to the village and its residents assure me that
+          no one has ever retired there; retirement requires a before and an after. There is, they
+          allow, a man who walks people in; they call him
+          <span class="ru" data-tr="the conductor; the one who walks people through" tabindex="0">«проводник»</span>.
+          The editors will want him to be Maxim Maximych —
+          every account of this kind requires one, the old campaigner who knows the passes and is
+          discarded by the narrative once used, and Lermontov at least had the grace to leave his
+          weeping on the road. The man who walks people in does not weep. The village asked me to
+          write that down as well. <a class="fn-back" href="#ref2" aria-label="Back to text">↩</a>
+        </p>
+
+        <p class="note" id="note3">
+          <span class="note-no">3.</span> <span class="lemma">it is forty-one paces</span>]
+          W.'s stride is short; I have walked behind him and can testify. Measured with a proper
+          surveyor's chain, the interior of the barracks is the same length as the exterior on
+          every day of the year but one. The staff of the regional museum decline to say which
+          day. I no longer visit in April. <a class="fn-back" href="#ref3" aria-label="Back to text">↩</a>
+        </p>
+
+        <p class="note" id="note4">
+          <span class="note-no">4.</span> <span class="lemma">at least four different hands</span>]
+          Five. The fourth hand also wrote with its left. See note 9.
+          <a class="fn-back" href="#ref4" aria-label="Back to text">↩</a>
+        </p>
+
+        <p class="note" id="note5">
+          <span class="note-no">5.</span> <span class="lemma">Four crops only</span>]
+          Here I must speak plainly. This game was played in my grandmother's village three
+          hundred kilometers from Point 63, under the name
+          <span class="ru" data-tr="Inventory — the count, the list" tabindex="0">«Опись»</span>,
+          before W. was born, and it had five suits, the fifth being turnips. W. has four crops because W. had
+          four fragments. I have five crops because my grandmother had five fields. The reader
+          may decide which of us is closer to the soil. As for <em>what is not a crop does not
+          exist</em> — the reader will be told this is nihilism, Bazarov's creed. Bazarov denied
+          everything from a landowner's guest room and died of a scratch acquired in the pursuit
+          of science. At Point 63 the sentence is not a philosophy. It is a warning about the
+          census. <a class="fn-back" href="#ref5" aria-label="Back to text">↩</a>
+        </p>
+
+        <p class="note" id="note6">
+          <span class="note-no">6.</span> <span class="lemma">a man holding a wrench</span>]
+          It is a portrait. I decline to say of whom, beyond noting that the resemblance is not
+          approximate, and that the man it resembles could not have been at Point 63 before the
+          drawing was made. After it was made — yes. The editors ask how one drawing can be two
+          things. I refer them to the collegiate assessor whose nose left his face, put on a
+          uniform of a higher rank, and prayed in the Kazan cathedral untouchable; Gogol
+          reported the case and was believed. In this country a picture may outrank its subject.
+          The drawing knows it. <a class="fn-back" href="#ref6" aria-label="Back to text">↩</a>
+        </p>
+
+        <p class="note" id="note7">
+          <span class="note-no">7.</span> <span class="lemma">There is no floor</span>]
+          The editors marvel, in their foreword, at pencil that reads cold, and hurry past it to
+          their <em>podpolye</em>, pleased with their Dostoevsky. Their philology is correct and
+          useless. The men of Point 63 did not name the space under the
+          <span class="floor">floor</span> after a book; the book is named after spaces like it.
+          They kept a separate pencil-stub for that one word —
+          <span class="ru floor" data-tr="floor" tabindex="0">пол</span> — and it is not the ink
+          that is cold.
+          I will not explain the practice further in a document sold alongside a game.
+          <a class="fn-back" href="#ref7" aria-label="Back to text">↩</a>
+        </p>
+
+        <p class="note" id="note8">
+          <span class="note-no">8.</span> <span class="lemma">in the fifth year there is no —</span>]
+          The sentence ends "no trump." It is a rules sentence; the poetry is the reader's
+          invention. I should add that in my grandmother's village the sentence ended
+          <span class="ru" data-tr="there will be no fifth year" tabindex="0">«пятого года не будет»</span>,
+          which is also a rules sentence. In the interest of completeness: I have once
+          seen it ended "no one left who remembers losing," but only once, and in my own
+          handwriting, and I do not remember writing it.
+          <a class="fn-back" href="#ref8" aria-label="Back to text">↩</a>
+        </p>
+
+        <p class="note" id="note9">
+          <span class="note-no">9.</span> <span class="ed">[This note reached us as a sealed
+          envelope, with instructions that it be printed unopened. It is printed unopened.
+          —Eds.]</span>
+        </p>
+        <!-- M insists the envelope stays sealed. R held it to a lamp once, and copied down what
+             showed through, and then rotated every letter thirteen places so that neither of us
+             would have to be the one who read it:
+
+             Va gur znggre bs gur svsgu unaq. Vg vf zvar. V jnf abg ng Cbvag 63 orsber guvf
+             Ncevy. Obgu fgngrzragf ner gehr. V unir fgbccrq gelvat gb erpbapvyr gurz. Qb abg
+             cevag guvf. -I.X.
+
+             R: it is still sealed. we printed it unopened. both statements are true.
+             M: stop writing that sentence. -->
+        <!-- the third inventory file is named april.txt. it is empty. it is 41 bytes. -->
+
+        <p class="note" id="note10">
+          <span class="note-no">10.</span> <span class="lemma">the right library</span>]
+          I have written to the library. The almanac is no longer in its catalog; the librarian,
+          who is patient, replies that it was never in its catalog, and that mine was the second
+          letter to ask. I return to Point 63 in April, against my own advice, with a surveyor's
+          chain and an empty tin. If this account is printed
+          <a class="quiet" href="/the-third-edition.html">a third time</a> it will not need my
+          commentary. It will need my forwarding address. —&#8288;V.K.
+          <a class="fn-back" href="#ref10" aria-label="Back to text">↩</a>
+        </p>
+
+        <p class="note" id="note11">
+          <span class="note-no">11.</span> <span class="lemma">Point 63</span>]
+          Pierre Bezukhov once proved by arithmetic that it fell to him, personally, to kill
+          Napoleon. The proof was false and he believed it, which is the Russian relationship to
+          arithmetic in miniature. I have performed a comparable arithmetic upon the number 63.
+          I will not print the result. It is false, and I believe it.
+          <a class="fn-back" href="#ref11" aria-label="Back to text">↩</a>
+        </p>
+
+        <p class="note" id="note12">
+          <span class="note-no">12.</span> <span class="lemma">All fulfilled jobs are alike</span>]
+          The reader hears Tolstoy and feels clever. Hear instead a man on a bunk improving
+          Tolstoy. <em>Anna Karenina</em> opens with families because the count could afford
+          families; at Point 63, jobs were what remained to be happy or unhappy in. The
+          emendation is exact, and the count, wherever he is, has no grounds for complaint.
+          <a class="fn-back" href="#ref12" aria-label="Back to text">↩</a>
+        </p>
+
+        <p class="note" id="note13">
+          <span class="note-no">13.</span> <span class="lemma">hand of the "accountant"</span>]
+          A copyist's hand — each letter loved separately, the words not at all. Gogol met this
+          man a century earlier and wrapped him in an overcoat, and the overcoat was taken from
+          him, and he died of it, and came back for it. Point 63 issued no overcoats. What its
+          copyist came back for, the fragments do not say. See Fragment 14.
+          <a class="fn-back" href="#ref13" aria-label="Back to text">↩</a>
+        </p>
+
+        <p class="note" id="note14">
+          <span class="note-no">14.</span> <span class="lemma">a name in the ledger</span>]
+          There was a gentleman in Gogol who drove from estate to estate buying dead souls —
+          peasants dead since the last census, alive on paper, worth money to a man with patience
+          for paperwork. The camps ran the same scheme in reverse: the paper was kept alive and
+          the men were let lapse. Every scheme in this country is eventually run in both
+          directions. The ledger in the game is where the two directions meet, and the game is
+          honest about which direction pays.
+          <a class="fn-back" href="#ref14" aria-label="Back to text">↩</a>
+        </p>
+
+        <p class="note" id="note15">
+          <span class="note-no">15.</span> <span class="lemma">Plan for when</span>]
+          Compare Lermontov's Vulich, who put a pistol to his temple to settle a wager on
+          predestination, and won the wager, and was dead by morning anyway, of a drunkard's
+          sabre on an unrelated street. "The Fatalist" is the shortest chapter in <em>A Hero of
+          Our Time</em> because there was nothing more to say. Fragment 17 says it in fewer words
+          and without wasting the pistol; the men of Point 63 had learned to economize.
+          <a class="fn-back" href="#ref15" aria-label="Back to text">↩</a>
+        </p>
+
+        <p class="note" id="note16">
+          <span class="note-no">16.</span> <span class="lemma">there is requisition</span>]
+          The exchange is lifted, of course, from the Karamazovs, with the Almighty replaced by
+          the collection quota — an emendation history had already made; the fragment merely
+          initials it. I will add that Dostoevsky learned cards in a prison yard in Omsk, from
+          men whose names he was careful to change, and that he would have understood this game
+          at the first deal and been in debt by the second.
+          <a class="fn-back" href="#ref16" aria-label="Back to text">↩</a>
+        </p>
+
+        <p class="note" id="note17">
+          <span class="note-no">17.</span> <span class="lemma">how much land a man needs</span>]
+          Tolstoy. The peasant Pakhom runs from dawn to dusk to circle the land that will be
+          his, and dies at sundown with the circle closed, and the answer to the title question
+          is the six feet in which they bury him. At Point 63 the story was regarded as an
+          optimist's: Pakhom, at least, held the six feet freehold.
+          <a class="fn-back" href="#ref17" aria-label="Back to text">↩</a>
+        </p>
+
+        <p class="note" id="note18">
+          <span class="note-no">18.</span> <span class="lemma">a scythe mows by itself</span>]
+          Levin — and W. cites Tolstoy the way city men cite weather. Levin's scythe swung
+          itself for one afternoon, and he wept for joy, and went in to his dinner. It was, I am
+          obliged to note, his own field. The distinction is not small. The distinction is the
+          entire game W. claims to have found.
+          <a class="fn-back" href="#ref18" aria-label="Back to text">↩</a>
+        </p>
+
+        <p class="note" id="note19">
+          <span class="note-no">19.</span> <span class="lemma">There is no thirty-second scrap</span>]
+          Concerning stoves. It is a national tradition that manuscripts are given to them by
+          their own authors: Gogol fed his the second volume of <em>Dead Souls</em> and then,
+          as if to keep it company, declined further meals until the matter was settled. What
+          the stove at Point 63 was fed, none of us can know. I observe only that W. counts his
+          <span class="floor">floor</span>boards outward from the stove; that the strike through
+          this passage is in the cold ink; and that the cold ink is not W.'s. The editors, I am
+          told, intend to console themselves with Bulgakov — <em>manuscripts don't burn</em>.
+          Bulgakov was an optimist. He never met this stove. What does not burn is the ash's
+          memory of having been a manuscript, and the game, reader, is largely that.
+          <a class="fn-back" href="#ref19" aria-label="Back to text">↩</a>
+        </p>
+
+        <p class="note" id="note20">
+          <span class="note-no">20.</span> <span class="lemma">the foundations</span>]
+          Here the required reading is Platonov. In <em>The Foundation Pit</em> the diggers dig
+          the pit for a building that will house the future, and the pit grows in proportion to
+          the future, and the building is never begun; a child is buried in its wall instead,
+          as a start on the inhabitants. Point 63 should be read in this tradition. The pit was
+          the finished work. The barracks was an afterthought, the fragments were the
+          architecture, and the game is the only structure on the site that was ever completed
+          to plan. <a class="fn-back" href="#ref20" aria-label="Back to text">↩</a>
+        </p>
+      </section>
+
+      <section id="appendix-a" aria-label="Appendix A">
+        <h2>Appendix A — Inventory of the tin</h2>
+        <table class="inventory">
+          <caption>
+            The newspaper margins are the only item on which all counts agree. We distrust them
+            the most.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Item</th>
+              <th scope="col">W.</th>
+              <th scope="col">First inv.</th>
+              <th scope="col">Second inv.</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Cement-bag paper</td>
+              <td>11</td>
+              <td>9</td>
+              <td>12</td>
+            </tr>
+            <tr>
+              <td>Newspaper margins</td>
+              <td>7</td>
+              <td>7</td>
+              <td>7</td>
+            </tr>
+            <tr>
+              <td>Requisition forms, reverse</td>
+              <td>6</td>
+              <td>6</td>
+              <td>9</td>
+            </tr>
+            <tr>
+              <td>Cigarette papers</td>
+              <td>7</td>
+              <td>6</td>
+              <td>5</td>
+            </tr>
+            <tr>
+              <td>Playing card, blank on both sides</td>
+              <td>—</td>
+              <td>1</td>
+              <td>0</td>
+            </tr>
+            <tr class="totals">
+              <td>Total</td>
+              <td>31</td>
+              <td>29</td>
+              <td>33</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="ed">
+          A third inventory was begun this April. It is not complete. We are aware that the
+          numbers which survive all counting are a three, a seven, and an ace, and we are aware
+          of the story in which that sequence ends, and of what the old countess's card did to
+          the man who trusted it. We have declined to bet. —Eds.
+        </p>
+      </section>
+
+      <div class="truth">
+        <h2>How much of this is true</h2>
+        <p>
+          The game is real — you can <a href="/how-to-play.html">learn it here</a>. The tin, the
+          almanac, W., Dr.&nbsp;K&#8288;—, the eleventh page, and the third
+          <span class="floor">floor</span>board from the stove you may assign to whichever job
+          you like; we know which one we'd pick, and it fails requisition. As for the borrowed
+          voices — the count, the hussar, the hunter, the clerk in his overcoat, the man under
+          the <span class="floor">floor</span>boards — they are borrowed openly, from the shelf
+          where Russia keeps its evidence.
+        </p>
+        <p>
+          The camps, however, were real, and so were the people in them, who kept games,
+          songs, and small hidden things alive in places designed to allow none. Kolkhoz is
+          played in that long shadow, and it tries to remember it.
+        </p>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <span>Kolkhoz for iPhone</span>
+      <nav aria-label="Footer navigation">
+        <a href="/how-to-play.html">How to play</a>
+        <a href="/rules.html">Rules</a>
+        <a href="/about.html">About</a>
+        <a href="/support.html">Support</a>
+        <a href="/privacy.html">Privacy</a>
+      </nav>
+    </footer>
+
+    <script>
+      const themeToggle = document.getElementById("theme-toggle");
+      if (themeToggle) {
+        themeToggle.addEventListener("click", () => {
+          const toLight = document.documentElement.dataset.theme !== "light";
+          if (toLight) {
+            document.documentElement.dataset.theme = "light";
+          } else {
+            delete document.documentElement.dataset.theme;
+          }
+          try {
+            localStorage.setItem("kolkhoz-theme", toLight ? "light" : "dark");
+          } catch (e) {}
+        });
+      }
+
+      (function () {
+        // See note 3.
+        if (new Date().getMonth() !== 3) return;
+        document.body.classList.add("april");
+
+        var notice = document.createElement("p");
+        notice.className = "ed april-notice";
+        notice.innerHTML =
+          'It is April. The third inventory is under way, and the installments of a ' +
+          '<a href="/the-third-edition.html">third edition</a> have begun to arrive, ' +
+          'unsigned, in a hand we decline to identify. We print what we can. —Eds.';
+        var rule = document.querySelector(".head-rule");
+        rule.parentNode.insertBefore(notice, rule.nextSibling);
+
+        var paces = document.getElementById("paces");
+        if (paces) paces.textContent = "forty-four";
+      })();
+    </script>
+  </body>
+</html>

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_settings.dart';
+import '../app_text.dart';
 import '../chrome_button.dart';
 import '../design_tokens.dart';
 import '../game_constants.dart';
@@ -201,12 +202,12 @@ String compactToolbarLabelForIndex(
   KolkhozAppearance appearance,
 ) {
   return switch (index) {
-    0 => language.text(en: 'Menu', ru: 'Меню'),
-    1 => language.text(en: 'Board', ru: 'Стол'),
-    2 => language.text(en: 'Jobs', ru: 'Работы'),
-    3 => language.text(en: 'North', ru: 'Север'),
-    4 => language.text(en: 'Cellar', ru: 'Подвал'),
-    5 => language.text(en: 'Lang', ru: 'Язык'),
+    0 => language.t(KolkhozText.boardOptionspanelMenu),
+    1 => language.t(KolkhozText.boardBoardrailBoard),
+    2 => language.t(KolkhozText.boardBoardrailJobs),
+    3 => language.t(KolkhozText.boardBoardrailNorth),
+    4 => language.t(KolkhozText.boardBoardrailCellar),
+    5 => language.t(KolkhozText.boardBoardrailLang),
     6 => appearance.label(language),
     _ => '',
   };
@@ -228,7 +229,7 @@ List<Widget> boardRailButtons({
       asset: 'icon-menu.png',
       active: activePanel == panelOptions,
       action: false,
-      label: language.text(en: 'Menu', ru: 'Меню'),
+      label: language.t(KolkhozText.boardOptionspanelMenu),
       muted: activePanel != panelOptions,
       tokens: tokens,
       metrics: metrics,
@@ -238,7 +239,7 @@ List<Widget> boardRailButtons({
       asset: 'icon-brigade.png',
       active: activePanel == panelBrigade,
       action: actionPanel == panelBrigade,
-      label: language.text(en: 'Brigade', ru: 'Бригада'),
+      label: language.t(KolkhozText.boardBoardrailBrigade),
       muted: activePanel != panelBrigade,
       tokens: tokens,
       metrics: metrics,
@@ -248,7 +249,7 @@ List<Widget> boardRailButtons({
       asset: 'icon-jobs.png',
       active: activePanel == panelJobs,
       action: actionPanel == panelJobs,
-      label: language.text(en: 'Jobs', ru: 'Работы'),
+      label: language.t(KolkhozText.boardBoardrailJobs),
       muted: activePanel != panelJobs,
       tokens: tokens,
       metrics: metrics,
@@ -258,7 +259,7 @@ List<Widget> boardRailButtons({
       asset: 'icon-north.png',
       active: activePanel == panelNorth,
       action: actionPanel == panelNorth,
-      label: language.text(en: 'The North', ru: 'Север'),
+      label: language.t(KolkhozText.boardBoardrailTheNorth),
       muted: activePanel != panelNorth,
       motionKey: northCardMotionTargetKey,
       tokens: tokens,
@@ -269,7 +270,7 @@ List<Widget> boardRailButtons({
       asset: 'icon-plot.png',
       active: activePanel == panelPlot,
       action: actionPanel == panelPlot,
-      label: language.text(en: 'Cellar', ru: 'Подвал'),
+      label: language.t(KolkhozText.boardBoardrailCellar),
       muted: activePanel != panelPlot,
       tokens: tokens,
       metrics: metrics,
@@ -285,7 +286,7 @@ List<Widget> boardRailButtons({
       onTap: onLanguageToggle,
     ),
     RailButton(
-      asset: 'icon-appearance.png',
+      asset: appearance.toggleIconAsset,
       active: false,
       action: false,
       label: appearance.toggleTitle(language),
@@ -367,10 +368,8 @@ class RailButton extends StatelessWidget {
                     alignment: Alignment.center,
                     children: [
                       Positioned.fill(
-                        child: Image.asset(
-                          'ios_resources/$backgroundAsset',
-                          fit: BoxFit.fill,
-                          filterQuality: FilterQuality.none,
+                        child: ChromeButtonBackground(
+                          asset: 'ios_resources/$backgroundAsset',
                         ),
                       ),
                       Padding(

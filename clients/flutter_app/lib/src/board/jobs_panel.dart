@@ -4,6 +4,7 @@ import 'dart:ui' show clampDouble;
 import 'package:flutter/material.dart';
 
 import '../app_settings.dart';
+import '../app_text.dart';
 import '../assignment_display.dart';
 import '../design_tokens.dart';
 import '../game_constants.dart';
@@ -414,7 +415,9 @@ class _JobTileState extends State<JobTile> {
                         ),
                         PixelText(
                           job.claimed
-                              ? widget.language.text(en: 'DONE', ru: 'ГОТОВО')
+                              ? widget.language.t(
+                                  KolkhozText.boardJobspanelDone,
+                                )
                               : '$displayHours/${job.requiredHours}',
                           size: PixelTextSize.headline,
                           variant: PixelTextVariant.heavy,
@@ -439,9 +442,9 @@ class _JobTileState extends State<JobTile> {
                                     child: Center(
                                       child: PixelText(
                                         showAssignPrompt
-                                            ? widget.language.text(
-                                                en: 'TAP TO ASSIGN',
-                                                ru: 'НАЗНАЧИТЬ',
+                                            ? widget.language.t(
+                                                KolkhozText
+                                                    .boardJobspanelTapToAssign,
                                               )
                                             : '',
                                         textAlign: TextAlign.center,

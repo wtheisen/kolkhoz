@@ -1,4 +1,5 @@
 import 'app_settings.dart';
+import 'app_text.dart';
 import 'card_display.dart';
 import 'game_constants.dart';
 import 'render_model.dart';
@@ -49,13 +50,12 @@ TableCard selectedPlotCard(TableCard card, String? selectedCardID) {
 
 String plotHeaderSubtitle(TableViewModel model, KolkhozLanguage language) {
   if (model.table.phase != phaseRequisition) {
-    return language.text(
-      en: "Other stores above, active player's cellar below.",
-      ru: 'Участки других сверху, подвал активного игрока снизу.',
+    return language.t(
+      KolkhozText.plotdisplayOtherStoresAboveActivePlayerSCellarBelow,
     );
   }
   if (model.table.requisitionEvents.isEmpty) {
-    return language.text(en: 'All jobs complete.', ru: 'Все работы выполнены.');
+    return language.t(KolkhozText.plotdisplayAllJobsComplete);
   }
-  return language.text(en: 'Audit complete.', ru: 'Проверка завершена.');
+  return language.t(KolkhozText.plotdisplayAuditComplete);
 }

@@ -12,19 +12,8 @@ from .benchmark import benchmark_candidate, mine_seed_panel, run_tournament
 from .c_engine import CEngine, build_shared_library
 from .dashboard import serve_dashboard
 from .history import append_history, write_current_experiment
-from .masked_state_policy import train_masked_state_policy
 from .online_server import SupabaseAuthVerifier, serve_online
 from .online_store import PostgresOnlineSessionStore
-from .torch_policy import (
-    distill_action_transformer_policy,
-    generate_supervised_trajectories,
-    pretrain_torch_policy_from_trajectories,
-    search_oracle_benchmark,
-    trajectory_oracle_benchmark,
-    torch_benchmark_candidate,
-    torch_parity,
-    train_torch_policy,
-)
 from .training import train_c_mlp
 
 
@@ -323,6 +312,8 @@ def mine_seeds(args: argparse.Namespace) -> int:
 
 
 def torch_parity_command(args: argparse.Namespace) -> int:
+    from .torch_policy import torch_parity
+
     engine = CEngine(build_shared_library(force=args.rebuild))
     record = torch_parity(
         engine,
@@ -337,6 +328,8 @@ def torch_parity_command(args: argparse.Namespace) -> int:
 
 
 def torch_train_command(args: argparse.Namespace) -> int:
+    from .torch_policy import train_torch_policy
+
     if args.serious_run:
         if args.reward_mode not in {
             "paired-baseline-delta",
@@ -423,6 +416,8 @@ def torch_train_command(args: argparse.Namespace) -> int:
 
 
 def masked_state_train_command(args: argparse.Namespace) -> int:
+    from .masked_state_policy import train_masked_state_policy
+
     if args.round_curriculum:
         raise SystemExit(
             "masked-state-train does not support --round-curriculum yet; use full-game episodes"
@@ -460,7 +455,113 @@ def masked_state_train_command(args: argparse.Namespace) -> int:
     return _emit(record, False)
 
 
+def masked_state_rnn_train_command(args: argparse.Namespace) -> int:
+    from .masked_state_policy import train_recurrent_masked_state_policy
+
+    engine = CEngine(build_shared_library(force=args.rebuild))
+    record = train_recurrent_masked_state_policy(
+        engine,
+        output_path=args.output,
+        start_model_path=args.start_model,
+        hidden_size=args.hidden_size,
+        scratch_seed=args.scratch_seed,
+        scratch_scale=args.scratch_scale,
+        episodes=args.episodes,
+        batch_size=args.batch_size,
+        seed=args.seed,
+        learning_rate=args.learning_rate,
+        temperature=args.temperature,
+        prefer_mps=not args.cpu,
+        ppo_epochs=args.ppo_epochs,
+        ppo_minibatch_size=args.ppo_minibatch_size,
+        ppo_clip=args.ppo_clip,
+        value_loss_weight=args.value_loss_weight,
+        entropy_weight=args.entropy_weight,
+        eval_interval=args.eval_interval,
+        eval_games_per_seat=args.eval_games_per_seat,
+        eval_seed=args.eval_seed,
+        record_history=args.record,
+        progress_callback=_current_experiment_callback(args),
+    )
+    record["engine"] = asdict(engine.provenance())
+    return _emit(record, False)
+
+
+def masked_state_transformer_train_command(args: argparse.Namespace) -> int:
+    from .masked_state_policy import train_transformer_masked_state_policy
+
+    engine = CEngine(build_shared_library(force=args.rebuild))
+    record = train_transformer_masked_state_policy(
+        engine,
+        output_path=args.output,
+        start_model_path=args.start_model,
+        hidden_size=args.hidden_size,
+        layer_count=args.layer_count,
+        head_count=args.head_count,
+        context_length=args.context_length,
+        dropout=args.dropout,
+        scratch_seed=args.scratch_seed,
+        scratch_scale=args.scratch_scale,
+        episodes=args.episodes,
+        batch_size=args.batch_size,
+        seed=args.seed,
+        learning_rate=args.learning_rate,
+        temperature=args.temperature,
+        prefer_mps=not args.cpu,
+        ppo_epochs=args.ppo_epochs,
+        ppo_minibatch_size=args.ppo_minibatch_size,
+        ppo_clip=args.ppo_clip,
+        value_loss_weight=args.value_loss_weight,
+        entropy_weight=args.entropy_weight,
+        eval_interval=args.eval_interval,
+        eval_games_per_seat=args.eval_games_per_seat,
+        eval_seed=args.eval_seed,
+        record_history=args.record,
+        progress_callback=_current_experiment_callback(args),
+    )
+    record["engine"] = asdict(engine.provenance())
+    return _emit(record, False)
+
+
+def masked_state_routed_transformer_train_command(args: argparse.Namespace) -> int:
+    from .masked_state_policy import train_routed_transformer_masked_state_policy
+
+    engine = CEngine(build_shared_library(force=args.rebuild))
+    record = train_routed_transformer_masked_state_policy(
+        engine,
+        output_path=args.output,
+        start_model_path=args.start_model,
+        hidden_size=args.hidden_size,
+        layer_count=args.layer_count,
+        head_count=args.head_count,
+        context_length=args.context_length,
+        dropout=args.dropout,
+        scratch_seed=args.scratch_seed,
+        scratch_scale=args.scratch_scale,
+        episodes=args.episodes,
+        batch_size=args.batch_size,
+        seed=args.seed,
+        learning_rate=args.learning_rate,
+        temperature=args.temperature,
+        prefer_mps=not args.cpu,
+        ppo_epochs=args.ppo_epochs,
+        ppo_minibatch_size=args.ppo_minibatch_size,
+        ppo_clip=args.ppo_clip,
+        value_loss_weight=args.value_loss_weight,
+        entropy_weight=args.entropy_weight,
+        eval_interval=args.eval_interval,
+        eval_games_per_seat=args.eval_games_per_seat,
+        eval_seed=args.eval_seed,
+        record_history=args.record,
+        progress_callback=_current_experiment_callback(args),
+    )
+    record["engine"] = asdict(engine.provenance())
+    return _emit(record, False)
+
+
 def supervised_generate_command(args: argparse.Namespace) -> int:
+    from .torch_policy import generate_supervised_trajectories
+
     engine = CEngine(build_shared_library(force=args.rebuild))
     record = generate_supervised_trajectories(
         engine,
@@ -497,6 +598,8 @@ def supervised_generate_command(args: argparse.Namespace) -> int:
 
 
 def supervised_pretrain_command(args: argparse.Namespace) -> int:
+    from .torch_policy import pretrain_torch_policy_from_trajectories
+
     record = pretrain_torch_policy_from_trajectories(
         trajectory_paths=args.trajectory,
         output_path=args.output,
@@ -524,6 +627,8 @@ def supervised_pretrain_command(args: argparse.Namespace) -> int:
 
 
 def torch_distill_command(args: argparse.Namespace) -> int:
+    from .torch_policy import distill_action_transformer_policy
+
     engine = CEngine(build_shared_library(force=args.rebuild))
     record = distill_action_transformer_policy(
         engine,
@@ -552,6 +657,8 @@ def torch_distill_command(args: argparse.Namespace) -> int:
 
 
 def torch_benchmark_command(args: argparse.Namespace) -> int:
+    from .torch_policy import torch_benchmark_candidate
+
     engine = CEngine(build_shared_library(force=args.rebuild))
     record = torch_benchmark_candidate(
         engine,
@@ -611,6 +718,8 @@ def _dedupe_paths(paths: list[Path]) -> list[Path]:
 
 
 def self_play_improve_command(args: argparse.Namespace) -> int:
+    from .torch_policy import torch_benchmark_candidate, train_torch_policy
+
     if args.generations <= 0:
         raise SystemExit("--generations must be positive")
     if args.episodes_per_generation <= 0:
@@ -951,6 +1060,8 @@ def self_play_improve_command(args: argparse.Namespace) -> int:
 
 
 def trajectory_oracle_benchmark_command(args: argparse.Namespace) -> int:
+    from .torch_policy import trajectory_oracle_benchmark
+
     engine = CEngine(build_shared_library(force=args.rebuild))
     record = trajectory_oracle_benchmark(
         engine,
@@ -986,6 +1097,8 @@ def trajectory_oracle_benchmark_command(args: argparse.Namespace) -> int:
 
 
 def search_oracle_benchmark_command(args: argparse.Namespace) -> int:
+    from .torch_policy import search_oracle_benchmark
+
     engine = CEngine(build_shared_library(force=args.rebuild))
     record = search_oracle_benchmark(
         engine,
@@ -1407,6 +1520,103 @@ def main() -> int:
     masked_state_parser.add_argument("--record", action="store_true")
     masked_state_parser.add_argument("--rebuild", action="store_true")
     masked_state_parser.set_defaults(func=masked_state_train_command)
+
+    masked_state_rnn_parser = subparsers.add_parser(
+        "masked-state-rnn-train",
+        help="train a recurrent board-state policy with masked fixed-action PPO",
+    )
+    masked_state_rnn_parser.add_argument("--start-model", type=_path, default=None)
+    masked_state_rnn_parser.add_argument("--output", type=Path, required=True)
+    masked_state_rnn_parser.add_argument("--hidden-size", type=int, default=256)
+    masked_state_rnn_parser.add_argument("--scratch-seed", type=int, default=1)
+    masked_state_rnn_parser.add_argument("--scratch-scale", type=float, default=0.02)
+    masked_state_rnn_parser.add_argument("--episodes", type=int, default=32)
+    masked_state_rnn_parser.add_argument("--batch-size", type=int, default=8)
+    masked_state_rnn_parser.add_argument("--seed", type=int, default=92_500_000)
+    masked_state_rnn_parser.add_argument("--learning-rate", type=float, default=1e-4)
+    masked_state_rnn_parser.add_argument("--temperature", type=float, default=1.0)
+    masked_state_rnn_parser.add_argument("--ppo-epochs", type=int, default=4)
+    masked_state_rnn_parser.add_argument("--ppo-minibatch-size", type=int, default=256)
+    masked_state_rnn_parser.add_argument("--ppo-clip", type=float, default=0.2)
+    masked_state_rnn_parser.add_argument("--value-loss-weight", type=float, default=0.5)
+    masked_state_rnn_parser.add_argument("--entropy-weight", type=float, default=0.01)
+    masked_state_rnn_parser.add_argument("--eval-interval", type=int, default=0)
+    masked_state_rnn_parser.add_argument("--eval-games-per-seat", type=int, default=4)
+    masked_state_rnn_parser.add_argument("--eval-seed", type=int, default=93_500_000)
+    masked_state_rnn_parser.add_argument(
+        "--cpu", action="store_true", help="force CPU instead of MPS"
+    )
+    masked_state_rnn_parser.add_argument("--record", action="store_true")
+    masked_state_rnn_parser.add_argument("--rebuild", action="store_true")
+    masked_state_rnn_parser.set_defaults(func=masked_state_rnn_train_command)
+
+    masked_state_transformer_parser = subparsers.add_parser(
+        "masked-state-transformer-train",
+        help="train a short-context transformer board-state policy with masked PPO",
+    )
+    masked_state_transformer_parser.add_argument("--start-model", type=_path, default=None)
+    masked_state_transformer_parser.add_argument("--output", type=Path, required=True)
+    masked_state_transformer_parser.add_argument("--hidden-size", type=int, default=128)
+    masked_state_transformer_parser.add_argument("--layer-count", type=int, default=2)
+    masked_state_transformer_parser.add_argument("--head-count", type=int, default=4)
+    masked_state_transformer_parser.add_argument("--context-length", type=int, default=8)
+    masked_state_transformer_parser.add_argument("--dropout", type=float, default=0.0)
+    masked_state_transformer_parser.add_argument("--scratch-seed", type=int, default=1)
+    masked_state_transformer_parser.add_argument("--scratch-scale", type=float, default=0.02)
+    masked_state_transformer_parser.add_argument("--episodes", type=int, default=32)
+    masked_state_transformer_parser.add_argument("--batch-size", type=int, default=8)
+    masked_state_transformer_parser.add_argument("--seed", type=int, default=92_700_000)
+    masked_state_transformer_parser.add_argument("--learning-rate", type=float, default=1e-4)
+    masked_state_transformer_parser.add_argument("--temperature", type=float, default=1.0)
+    masked_state_transformer_parser.add_argument("--ppo-epochs", type=int, default=4)
+    masked_state_transformer_parser.add_argument("--ppo-minibatch-size", type=int, default=256)
+    masked_state_transformer_parser.add_argument("--ppo-clip", type=float, default=0.2)
+    masked_state_transformer_parser.add_argument("--value-loss-weight", type=float, default=0.5)
+    masked_state_transformer_parser.add_argument("--entropy-weight", type=float, default=0.01)
+    masked_state_transformer_parser.add_argument("--eval-interval", type=int, default=0)
+    masked_state_transformer_parser.add_argument("--eval-games-per-seat", type=int, default=4)
+    masked_state_transformer_parser.add_argument("--eval-seed", type=int, default=93_700_000)
+    masked_state_transformer_parser.add_argument(
+        "--cpu", action="store_true", help="force CPU instead of MPS"
+    )
+    masked_state_transformer_parser.add_argument("--record", action="store_true")
+    masked_state_transformer_parser.add_argument("--rebuild", action="store_true")
+    masked_state_transformer_parser.set_defaults(func=masked_state_transformer_train_command)
+
+    masked_state_routed_transformer_parser = subparsers.add_parser(
+        "masked-state-routed-transformer-train",
+        help="train a short-context transformer with phase-routed legal-action heads",
+    )
+    masked_state_routed_transformer_parser.add_argument("--start-model", type=_path, default=None)
+    masked_state_routed_transformer_parser.add_argument("--output", type=Path, required=True)
+    masked_state_routed_transformer_parser.add_argument("--hidden-size", type=int, default=128)
+    masked_state_routed_transformer_parser.add_argument("--layer-count", type=int, default=2)
+    masked_state_routed_transformer_parser.add_argument("--head-count", type=int, default=4)
+    masked_state_routed_transformer_parser.add_argument("--context-length", type=int, default=8)
+    masked_state_routed_transformer_parser.add_argument("--dropout", type=float, default=0.0)
+    masked_state_routed_transformer_parser.add_argument("--scratch-seed", type=int, default=1)
+    masked_state_routed_transformer_parser.add_argument("--scratch-scale", type=float, default=0.02)
+    masked_state_routed_transformer_parser.add_argument("--episodes", type=int, default=32)
+    masked_state_routed_transformer_parser.add_argument("--batch-size", type=int, default=8)
+    masked_state_routed_transformer_parser.add_argument("--seed", type=int, default=92_900_000)
+    masked_state_routed_transformer_parser.add_argument("--learning-rate", type=float, default=1e-4)
+    masked_state_routed_transformer_parser.add_argument("--temperature", type=float, default=1.0)
+    masked_state_routed_transformer_parser.add_argument("--ppo-epochs", type=int, default=4)
+    masked_state_routed_transformer_parser.add_argument("--ppo-minibatch-size", type=int, default=256)
+    masked_state_routed_transformer_parser.add_argument("--ppo-clip", type=float, default=0.2)
+    masked_state_routed_transformer_parser.add_argument("--value-loss-weight", type=float, default=0.5)
+    masked_state_routed_transformer_parser.add_argument("--entropy-weight", type=float, default=0.01)
+    masked_state_routed_transformer_parser.add_argument("--eval-interval", type=int, default=0)
+    masked_state_routed_transformer_parser.add_argument("--eval-games-per-seat", type=int, default=4)
+    masked_state_routed_transformer_parser.add_argument("--eval-seed", type=int, default=93_900_000)
+    masked_state_routed_transformer_parser.add_argument(
+        "--cpu", action="store_true", help="force CPU instead of MPS"
+    )
+    masked_state_routed_transformer_parser.add_argument("--record", action="store_true")
+    masked_state_routed_transformer_parser.add_argument("--rebuild", action="store_true")
+    masked_state_routed_transformer_parser.set_defaults(
+        func=masked_state_routed_transformer_train_command
+    )
 
     self_play_parser = subparsers.add_parser(
         "self-play-improve",

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import 'animation_speed.dart';
 import 'app_settings.dart';
+import 'app_text.dart';
 import 'brigade_display.dart';
 import 'chrome_button.dart';
 import 'render_model.dart';
@@ -85,6 +86,7 @@ class KolkhozBoard extends StatelessWidget {
     this.onHotSeatReady,
     this.onNewGame,
     this.onReturnToLobby,
+    this.gameOverReturnsToLobby = false,
     this.onTutorial,
     this.animationSpeed = defaultGameAnimationSpeed,
     this.onAnimationSpeedChanged,
@@ -115,6 +117,7 @@ class KolkhozBoard extends StatelessWidget {
   final VoidCallback? onHotSeatReady;
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
+  final bool gameOverReturnsToLobby;
   final VoidCallback? onTutorial;
   final GameAnimationSpeed animationSpeed;
   final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
@@ -204,6 +207,7 @@ class KolkhozBoard extends StatelessWidget {
                                 onUndo: onUndo,
                                 onNewGame: onNewGame,
                                 onReturnToLobby: onReturnToLobby,
+                                gameOverReturnsToLobby: gameOverReturnsToLobby,
                                 onTutorial: onTutorial,
                                 animationSpeed: animationSpeed,
                                 onAnimationSpeedChanged:
@@ -263,6 +267,8 @@ class KolkhozBoard extends StatelessWidget {
                                       onUndo: onUndo,
                                       onNewGame: onNewGame,
                                       onReturnToLobby: onReturnToLobby,
+                                      gameOverReturnsToLobby:
+                                          gameOverReturnsToLobby,
                                       onTutorial: onTutorial,
                                       animationSpeed: animationSpeed,
                                       onAnimationSpeedChanged:
@@ -324,6 +330,7 @@ class CompactBoardShell extends StatelessWidget {
     this.onUndo,
     this.onNewGame,
     this.onReturnToLobby,
+    this.gameOverReturnsToLobby = false,
     this.onTutorial,
     this.animationSpeed = defaultGameAnimationSpeed,
     this.onAnimationSpeedChanged,
@@ -354,6 +361,7 @@ class CompactBoardShell extends StatelessWidget {
   final VoidCallback? onUndo;
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
+  final bool gameOverReturnsToLobby;
   final VoidCallback? onTutorial;
   final GameAnimationSpeed animationSpeed;
   final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
@@ -387,6 +395,7 @@ class CompactBoardShell extends StatelessWidget {
             onUndo: onUndo,
             onNewGame: onNewGame,
             onReturnToLobby: onReturnToLobby,
+            gameOverReturnsToLobby: gameOverReturnsToLobby,
             onTutorial: onTutorial,
             animationSpeed: animationSpeed,
             onAnimationSpeedChanged: onAnimationSpeedChanged,
@@ -460,13 +469,10 @@ class HotSeatPrivacyOverlay extends StatelessWidget {
                     SizedBox(
                       height: hotSeatTitleRowHeight,
                       child: PanelTitleRow(
-                        title: language.text(
-                          en: 'Pass Device',
-                          ru: 'Передайте устройство',
-                        ),
-                        subtitle: language.text(
-                          en: 'Seat ${player.id + 1} is up.',
-                          ru: 'Ходит место ${player.id + 1}.',
+                        title: language.t(KolkhozText.boardviewPassDevice),
+                        subtitle: language.t(
+                          KolkhozText.boardviewSeatValue1IsUp,
+                          {'value1': player.id + 1},
                         ),
                         iconPath: 'ios_resources/Icons/icon-pass-device.png',
                         tokens: tokens,
@@ -547,7 +553,7 @@ class HotSeatPrivacyOverlay extends StatelessWidget {
                       width: hotSeatReadyButtonMaxWidth,
                       child: HotSeatReadyButton(
                         tokens: tokens,
-                        label: language.text(en: 'Ready', ru: 'Готов'),
+                        label: language.t(KolkhozText.boardviewReady),
                         onPressed: onReady,
                       ),
                     ),
@@ -621,6 +627,7 @@ class BoardPlayArea extends StatelessWidget {
     this.onUndo,
     this.onNewGame,
     this.onReturnToLobby,
+    this.gameOverReturnsToLobby = false,
     this.onTutorial,
     this.animationSpeed = defaultGameAnimationSpeed,
     this.onAnimationSpeedChanged,
@@ -652,6 +659,7 @@ class BoardPlayArea extends StatelessWidget {
   final VoidCallback? onUndo;
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
+  final bool gameOverReturnsToLobby;
   final VoidCallback? onTutorial;
   final GameAnimationSpeed animationSpeed;
   final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
@@ -734,6 +742,7 @@ class BoardPlayArea extends StatelessWidget {
                         onPlotCardTap: onPlotCardTap,
                         onNewGame: onNewGame,
                         onReturnToLobby: onReturnToLobby,
+                        gameOverReturnsToLobby: gameOverReturnsToLobby,
                         onTutorial: onTutorial,
                         animationSpeed: animationSpeed,
                         onAnimationSpeedChanged: onAnimationSpeedChanged,
@@ -1417,6 +1426,7 @@ class ActivePanelView extends StatelessWidget {
     this.onPlotCardTap,
     this.onNewGame,
     this.onReturnToLobby,
+    this.gameOverReturnsToLobby = false,
     this.onTutorial,
     this.animationSpeed = defaultGameAnimationSpeed,
     this.onAnimationSpeedChanged,
@@ -1441,6 +1451,7 @@ class ActivePanelView extends StatelessWidget {
   final void Function(String cardID, String zone)? onPlotCardTap;
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
+  final bool gameOverReturnsToLobby;
   final VoidCallback? onTutorial;
   final GameAnimationSpeed animationSpeed;
   final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
@@ -1465,6 +1476,8 @@ class ActivePanelView extends StatelessWidget {
         tokens: tokens,
         language: language,
         onNewGame: onNewGame,
+        onReturnToLobby: onReturnToLobby,
+        returnsToLobby: gameOverReturnsToLobby,
       );
     }
     switch (model.panels.active) {
@@ -2223,6 +2236,7 @@ class PlayerBadge extends StatelessWidget {
         isHumanControlledSeat(seat)
             ? 'icon-status-current-turn.png'
             : 'icon-status-ai-thinking.png',
+      if (seat.statusText.endsWith('s')) 'icon-turn-timer-clock.png',
       if (seat.isBrigadeLeader) 'icon-status-brigade-leader.png',
     ];
   }
@@ -2552,8 +2566,8 @@ class CardSlot extends StatelessWidget {
           child: active
               ? PixelText(
                   human
-                      ? language.text(en: 'YOUR TURN', ru: 'ВАШ ХОД')
-                      : language.text(en: 'WAIT', ru: 'ЖДИТЕ'),
+                      ? language.t(KolkhozText.boardviewYourTurn)
+                      : language.t(KolkhozText.boardviewWait),
                   size: human ? PixelTextSize.headline : PixelTextSize.caption2,
                   variant: PixelTextVariant.heavy,
                   color: human
@@ -2743,8 +2757,8 @@ class PlanningTrumpPanel extends StatelessWidget {
       language: language,
     );
     final title = isFamine
-        ? language.text(en: 'Famine year', ru: 'Год неурожая')
-        : language.text(en: 'Choose Trump', ru: 'Выберите козырь');
+        ? language.t(KolkhozText.boardviewFamineYear)
+        : language.t(KolkhozText.boardviewChooseTrump);
     return PanelStyleSurface(
       tokens: tokens,
       padding: const EdgeInsets.all(8),
@@ -2872,12 +2886,10 @@ class TrumpSelectionButton extends StatelessWidget {
             alignment: Alignment.center,
             children: [
               Positioned.fill(
-                child: Image.asset(
-                  selected
-                      ? 'ios_resources/ui-nav-button-active-current.png'
-                      : 'ios_resources/ui-nav-button-inactive-current.png',
-                  fit: BoxFit.fill,
-                  filterQuality: FilterQuality.none,
+                child: ChromeButtonBackground(
+                  asset: selected
+                      ? chromeButtonPrimaryCurrentAsset
+                      : chromeButtonSecondaryCurrentAsset,
                 ),
               ),
               Padding(

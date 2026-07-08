@@ -1,0 +1,3812 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="The official Kolkhoz field manual. Table setup, the three approved regimes, and a phase-by-phase walkthrough of a full Five-Year Plan — narrated by Foreman Misha."
+    />
+    <meta property="og:title" content="How to Play Kolkhoz — The Foreman's Manual" />
+    <meta
+      property="og:description"
+      content="Set the table, pick a regime, and walk a full year of play — phase by phase, trick by trick."
+    />
+    <meta property="og:image" content="https://kolkhoz.williamtheisen.com/assets/title-card-kolkhoz.png" />
+    <meta property="og:url" content="https://kolkhoz.williamtheisen.com/how-to-play.html" />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/png" href="/assets/icons/icon-wheat.png" />
+    <title>How to Play — Kolkhoz</title>
+    <script>
+      try {
+        if (localStorage.getItem("kolkhoz-lang") === "ru") {
+          document.documentElement.dataset.lang = "ru";
+          document.documentElement.setAttribute("lang", "ru");
+        }
+        if (localStorage.getItem("kolkhoz-theme") === "light") {
+          document.documentElement.dataset.theme = "light";
+        }
+      } catch (e) {}
+    </script>
+    <style>
+      @font-face {
+        font-family: "Handjet";
+        src: url("/assets/Handjet.ttf") format("truetype");
+        font-display: swap;
+      }
+
+      :root {
+        --ink: #100f0c;
+        --coal: #171512;
+        --coal-2: #211e18;
+        --paper: #e3d3aa;
+        --paper-strong: #f2dfb2;
+        --paper-body: #392f1f;
+        --paper-ink: #19140d;
+        --muted: #b7a57d;
+        --red: #9f2f1e;
+        --red-bright: #b8422b;
+        --red-deep: #6f1d17;
+        --gold: #d4aa53;
+        --field: #26301d;
+        --field-2: #2c321f;
+        --line: rgba(212, 170, 83, 0.32);
+        --shadow: 0 28px 70px rgba(0, 0, 0, 0.5);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 92px;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 22% 8%, rgba(159, 47, 30, 0.16), transparent 32rem),
+          linear-gradient(135deg, #0d0c0a 0%, #191611 48%, #0d0c0a 100%);
+        color: var(--paper);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 19px;
+        line-height: 1.5;
+      }
+
+      body::before {
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        content: "";
+        opacity: 0.22;
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        background-size: 18px 18px;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      img.pixel {
+        image-rendering: pixelated;
+      }
+
+      .display {
+        font-family: "Handjet", Georgia, serif;
+        font-weight: 800;
+        line-height: 0.9;
+        letter-spacing: 0.01em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow {
+        display: block;
+        margin: 0 0 14px;
+        color: var(--gold);
+        font-size: 14px;
+        font-weight: 400;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+      }
+
+      .ru {
+        font-style: italic;
+        color: inherit;
+        opacity: 0.82;
+      }
+
+      /* ---------- Language switching ---------- */
+
+      html[data-lang="ru"] .i-en {
+        display: none !important;
+      }
+
+      html:not([data-lang="ru"]) .i-ru {
+        display: none !important;
+      }
+
+      .lang-toggle {
+        display: inline-flex;
+        margin-left: 4px;
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        background: rgba(20, 19, 16, 0.8);
+        cursor: pointer;
+      }
+
+      .lang-toggle span {
+        padding: 7px 11px 5px;
+        color: var(--muted);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        line-height: 1;
+        transition: background 160ms ease, color 160ms ease;
+      }
+
+      html:not([data-lang="ru"]) .lang-toggle .lt-en,
+      html[data-lang="ru"] .lang-toggle .lt-ru {
+        background: var(--red);
+        color: #fff2d1;
+      }
+
+      .theme-toggle {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        padding: 0;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: rgba(20, 19, 16, 0.8);
+        cursor: pointer;
+      }
+
+      .theme-toggle img {
+        width: 26px;
+        height: 26px;
+        object-fit: contain;
+      }
+
+      html[data-theme="light"] .theme-toggle .tt-to-light {
+        display: none;
+      }
+
+      html:not([data-theme="light"]) .theme-toggle .tt-to-dark {
+        display: none;
+      }
+
+      /* ---------- Header ---------- */
+
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 60;
+        border-bottom: 1px solid rgba(159, 47, 30, 0.8);
+        background: rgba(13, 12, 10, 0.92);
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+      }
+
+      .site-header-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 14px 24px 12px;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+      }
+
+      .brand-mark {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+      }
+
+      .brand-name {
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 38px;
+        font-weight: 800;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        gap: 30px;
+        color: var(--paper-strong);
+        font-size: 17px;
+      }
+
+      .nav a {
+        text-decoration-color: transparent;
+        text-underline-offset: 6px;
+        transition: color 160ms ease, text-decoration-color 160ms ease;
+      }
+
+      .nav a:hover,
+      .nav a:focus-visible {
+        color: #fff3cf;
+        text-decoration-color: var(--red);
+      }
+
+      .nav a[aria-current="page"] {
+        color: #fff3cf;
+        text-decoration: underline;
+        text-decoration-color: var(--red);
+      }
+
+      /* ---------- Hero: the briefing ---------- */
+
+      .briefing {
+        position: relative;
+        overflow: hidden;
+        padding: 68px 24px 72px;
+      }
+
+      .briefing-rays {
+        position: absolute;
+        top: -460px;
+        left: 50%;
+        z-index: 0;
+        width: 1600px;
+        height: 1600px;
+        pointer-events: none;
+        background: repeating-conic-gradient(
+          from 0deg,
+          rgba(212, 170, 83, 0.06) 0deg 9deg,
+          transparent 9deg 24deg
+        );
+        -webkit-mask-image: radial-gradient(circle, rgba(0, 0, 0, 0.9), transparent 62%);
+        mask-image: radial-gradient(circle, rgba(0, 0, 0, 0.9), transparent 62%);
+        transform: translateX(-50%);
+      }
+
+      .briefing-inner {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.28fr);
+        gap: 64px;
+        align-items: center;
+        max-width: 1080px;
+        margin: 0 auto;
+      }
+
+      .foreman-poster {
+        position: relative;
+        justify-self: center;
+        width: min(100%, 330px);
+        padding: 24px 24px 18px;
+        border: 1px solid rgba(72, 46, 22, 0.4);
+        background: linear-gradient(rgba(236, 219, 177, 0.97), rgba(214, 192, 146, 0.97));
+        box-shadow: var(--shadow);
+        color: var(--paper-ink);
+        text-align: center;
+        transform: rotate(-2deg);
+      }
+
+      .foreman-poster .portrait {
+        display: block;
+        width: 86%;
+        margin: 0 auto;
+        image-rendering: pixelated;
+      }
+
+      .foreman-poster .placard-name {
+        margin: 14px 0 2px;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 42px;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .foreman-poster .placard-title {
+        margin: 0;
+        color: var(--paper-body);
+        font-size: 14px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      .foreman-stamp {
+        position: absolute;
+        right: -16px;
+        top: 42px;
+        padding: 5px 14px;
+        border: 3px solid var(--red);
+        border-radius: 4px;
+        color: var(--red);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 26px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        opacity: 0.85;
+        transform: rotate(12deg);
+      }
+
+      .briefing-copy h1 {
+        margin: 0;
+        color: var(--paper-strong);
+        font-size: clamp(58px, 8vw, 104px);
+      }
+
+      .briefing-copy .head-rule {
+        margin-inline: 0;
+      }
+
+      .briefing-copy .lead {
+        max-width: 560px;
+        margin: 26px 0 0;
+        color: #ead8b1;
+        font-size: clamp(22px, 2.6vw, 27px);
+        line-height: 1.3;
+      }
+
+      .briefing-copy .lead em {
+        color: var(--paper-strong);
+      }
+
+      .briefing-note {
+        max-width: 540px;
+        margin: 18px 0 0;
+        color: var(--muted);
+        font-size: 18px;
+      }
+
+      .manual-toc {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 12px;
+        margin-top: 26px;
+      }
+
+      .manual-toc a {
+        padding: 7px 16px 6px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        background: rgba(20, 19, 16, 0.7);
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 21px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        line-height: 1;
+        text-decoration: none;
+        text-transform: uppercase;
+        transition: border-color 160ms ease, color 160ms ease;
+      }
+
+      .manual-toc a:hover,
+      .manual-toc a:focus-visible {
+        border-color: var(--red-bright);
+        color: #fff3cf;
+      }
+
+      .briefing .foreman-poster,
+      .briefing-copy .eyebrow,
+      .briefing-copy h1,
+      .briefing-copy .head-rule,
+      .briefing-copy .lead,
+      .briefing-note,
+      .manual-toc {
+        animation: rise-in 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+      }
+
+      .briefing-copy h1 { animation-delay: 100ms; }
+      .briefing-copy .head-rule { animation-delay: 180ms; }
+      .briefing-copy .lead { animation-delay: 260ms; }
+      .briefing-note { animation-delay: 380ms; }
+      .manual-toc { animation-delay: 480ms; }
+      .briefing .foreman-poster { animation-delay: 200ms; }
+
+      @keyframes rise-in {
+        from {
+          opacity: 0;
+          transform: translateY(18px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes rise-in-tilted {
+        from {
+          opacity: 0;
+          transform: rotate(-2deg) translateY(18px);
+        }
+        to {
+          opacity: 1;
+          transform: rotate(-2deg) translateY(0);
+        }
+      }
+
+      .briefing .foreman-poster {
+        animation-name: rise-in-tilted;
+      }
+
+      /* ---------- Vitals band ---------- */
+
+      .vitals {
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.7);
+        background: rgba(20, 19, 16, 0.86);
+      }
+
+      .vitals-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .vital {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        min-height: 116px;
+        padding: 20px 30px;
+        border-right: 1px solid var(--line);
+      }
+
+      .vital:last-child {
+        border-right: 0;
+      }
+
+      .vital img {
+        flex: none;
+        width: 52px;
+        height: 52px;
+        object-fit: contain;
+      }
+
+      .vital-title {
+        display: block;
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 27px;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .vital-note {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 15px;
+      }
+
+      /* ---------- Section scaffolding ---------- */
+
+      .section-head {
+        max-width: 720px;
+        margin: 0 auto 46px;
+        text-align: center;
+      }
+
+      .section-head h2 {
+        margin: 0;
+        color: var(--paper-strong);
+        font-size: clamp(48px, 6.4vw, 80px);
+      }
+
+      .section-head .sub {
+        max-width: 620px;
+        margin: 16px auto 0;
+        color: var(--muted);
+        font-size: 20px;
+      }
+
+      .head-rule {
+        width: 130px;
+        height: 3px;
+        margin: 22px auto 0;
+        background: linear-gradient(90deg, rgba(159, 47, 30, 0), var(--red), rgba(159, 47, 30, 0));
+      }
+
+      /* ---------- The directive (paper order) ---------- */
+
+      .directive-band {
+        padding: 88px 24px 96px;
+      }
+
+      .directive {
+        position: relative;
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 46px 50px 42px;
+        border: 1px solid rgba(72, 46, 22, 0.45);
+        background:
+          linear-gradient(rgba(236, 219, 177, 0.96), rgba(219, 199, 154, 0.97)),
+          radial-gradient(circle at 18% 8%, rgba(255, 255, 255, 0.4), transparent 22rem);
+        box-shadow: var(--shadow);
+        color: var(--paper-ink);
+        transform: rotate(0.6deg);
+      }
+
+      .directive::before {
+        position: absolute;
+        inset: 10px;
+        pointer-events: none;
+        content: "";
+        border: 2px solid rgba(111, 29, 23, 0.35);
+      }
+
+      .directive .doc-no {
+        margin: 0;
+        color: var(--red-deep);
+        font-size: 14px;
+        letter-spacing: 0.26em;
+        text-align: center;
+        text-transform: uppercase;
+      }
+
+      .directive h2 {
+        margin: 10px 0 4px;
+        color: var(--red-deep);
+        font-size: clamp(44px, 5.6vw, 64px);
+        text-align: center;
+      }
+
+      .directive .doc-sub {
+        margin: 0 0 26px;
+        color: var(--paper-body);
+        font-size: 15px;
+        letter-spacing: 0.14em;
+        text-align: center;
+        text-transform: uppercase;
+      }
+
+      .directive p {
+        margin: 0 0 16px;
+        color: var(--paper-body);
+        font-size: 18.5px;
+        line-height: 1.55;
+      }
+
+      .directive p strong {
+        color: var(--paper-ink);
+      }
+
+      .approved-stamp {
+        position: absolute;
+        right: 26px;
+        bottom: -22px;
+        padding: 6px 18px;
+        border: 3px solid var(--red);
+        border-radius: 4px;
+        background: rgba(236, 219, 177, 0.9);
+        color: var(--red);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        opacity: 0.9;
+        transform: rotate(-8deg);
+      }
+
+      /* ---------- Misha speech bubbles ---------- */
+
+      .misha-says {
+        display: flex;
+        gap: 18px;
+        align-items: flex-start;
+        max-width: 640px;
+        margin: 42px auto 0;
+      }
+
+      .misha-says .mug {
+        flex: none;
+        width: 74px;
+        height: 74px;
+        overflow: hidden;
+        border: 2px solid var(--line);
+        border-radius: 6px;
+        background: var(--coal-2);
+      }
+
+      .misha-says .mug img {
+        width: 100%;
+        height: auto;
+        transform: translateY(-2%) scale(1.55);
+        transform-origin: top center;
+        image-rendering: pixelated;
+      }
+
+      .misha-says .bubble {
+        position: relative;
+        padding: 16px 22px;
+        border: 1px solid rgba(72, 46, 22, 0.45);
+        border-radius: 6px;
+        background: linear-gradient(rgba(236, 219, 177, 0.97), rgba(219, 199, 154, 0.97));
+        box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
+        color: var(--paper-body);
+        font-size: 18px;
+      }
+
+      .misha-says .bubble::before {
+        position: absolute;
+        top: 26px;
+        left: -9px;
+        content: "";
+        width: 16px;
+        height: 16px;
+        border-bottom: 1px solid rgba(72, 46, 22, 0.45);
+        border-left: 1px solid rgba(72, 46, 22, 0.45);
+        background: rgba(236, 219, 177, 0.97);
+        transform: rotate(45deg);
+      }
+
+      .misha-says .bubble .who {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 21px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      /* ---------- The deck ---------- */
+
+      .deck {
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.7);
+        background:
+          radial-gradient(circle at 50% 0%, rgba(212, 170, 83, 0.1), transparent 26rem),
+          linear-gradient(180deg, var(--field-2), var(--field) 70%);
+        padding: 84px 24px 92px;
+      }
+
+      .suit-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0;
+        max-width: 1080px;
+        margin: 0 auto;
+      }
+
+      .suit {
+        padding: 10px 26px 6px;
+        border-right: 1px solid rgba(212, 170, 83, 0.24);
+        text-align: center;
+      }
+
+      .suit:last-child {
+        border-right: 0;
+      }
+
+      .suit img {
+        width: 84px;
+        height: 84px;
+        object-fit: contain;
+        filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.35));
+      }
+
+      .suit h3 {
+        margin: 14px 0 6px;
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 32px;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .suit p {
+        margin: 0;
+        color: rgba(227, 211, 170, 0.75);
+        font-size: 16px;
+        font-style: italic;
+      }
+
+      .deck-split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+        max-width: 1080px;
+        margin: 54px auto 0;
+      }
+
+      .deck-half {
+        padding: 28px 30px 26px;
+        border: 1px solid var(--line);
+        background: rgba(16, 15, 12, 0.5);
+      }
+
+      .deck-half h3 {
+        margin: 0 0 8px;
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 30px;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .deck-half p {
+        margin: 0 0 18px;
+        color: var(--muted);
+        font-size: 17px;
+      }
+
+      .rank-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .rank-chip {
+        display: grid;
+        min-width: 56px;
+        padding: 8px 6px 7px;
+        place-items: center;
+        border: 1px solid rgba(212, 170, 83, 0.4);
+        border-radius: 5px;
+        background: linear-gradient(rgba(236, 219, 177, 0.95), rgba(214, 192, 146, 0.95));
+        color: var(--paper-ink);
+        line-height: 1;
+      }
+
+      .rank-chip .r {
+        font-family: "Handjet", Georgia, serif;
+        font-size: 25px;
+        font-weight: 800;
+      }
+
+      .rank-chip .h {
+        margin-top: 4px;
+        color: var(--red-deep);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .rank-chip.reward {
+        background: linear-gradient(rgba(38, 48, 29, 0.95), rgba(30, 38, 23, 0.95));
+        border-color: rgba(212, 170, 83, 0.5);
+        color: var(--paper-strong);
+      }
+
+      .rank-chip.reward .h {
+        color: var(--gold);
+      }
+
+      /* ---------- Setting the table (paper) ---------- */
+
+      .setup {
+        background:
+          linear-gradient(rgba(236, 219, 177, 0.94), rgba(219, 199, 154, 0.96)),
+          radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.45), transparent 30rem);
+        border-top: 4px solid var(--red-deep);
+        border-bottom: 4px solid var(--red-deep);
+        color: var(--paper-ink);
+        padding: 84px 24px 92px;
+      }
+
+      .setup .section-head h2 {
+        color: var(--paper-ink);
+      }
+
+      .setup .section-head .sub {
+        color: var(--paper-body);
+      }
+
+      .setup .eyebrow {
+        color: var(--red-deep);
+      }
+
+      .setup-steps {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 26px 30px;
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 0;
+        list-style: none;
+        counter-reset: setup;
+      }
+
+      .setup-step {
+        position: relative;
+        padding: 26px 28px 24px 30px;
+        border: 1px solid rgba(72, 46, 22, 0.45);
+        background: rgba(255, 248, 226, 0.5);
+        box-shadow: 0 16px 36px rgba(52, 35, 16, 0.16);
+      }
+
+      .setup-step::before {
+        counter-increment: setup;
+        content: counter(setup);
+        position: absolute;
+        top: -16px;
+        left: -14px;
+        display: grid;
+        width: 40px;
+        height: 40px;
+        place-items: center;
+        border: 2px solid var(--red-deep);
+        border-radius: 50%;
+        background: rgba(236, 219, 177, 0.98);
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 26px;
+        font-weight: 800;
+        transform: rotate(-6deg);
+      }
+
+      .setup-step h3 {
+        margin: 0 0 8px;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 30px;
+        font-weight: 800;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .setup-step p {
+        margin: 0;
+        color: var(--paper-body);
+        font-size: 17.5px;
+        line-height: 1.5;
+      }
+
+      .setup-step p strong {
+        color: var(--paper-ink);
+      }
+
+      .setup-step .aside {
+        margin-top: 10px;
+        color: rgba(57, 47, 31, 0.75);
+        font-size: 15px;
+        font-style: italic;
+      }
+
+      /* ---------- Regimes ---------- */
+
+      .regimes {
+        padding: 92px 24px 96px;
+      }
+
+      .regime-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 34px;
+        max-width: 1180px;
+        margin: 0 auto;
+        align-items: start;
+      }
+
+      .regime {
+        position: relative;
+        padding: 30px 28px 26px;
+        border: 1px solid rgba(72, 46, 22, 0.4);
+        background: linear-gradient(rgba(236, 219, 177, 0.97), rgba(214, 192, 146, 0.97));
+        box-shadow: var(--shadow);
+        color: var(--paper-ink);
+      }
+
+      .regime:nth-child(1) { transform: rotate(-1.2deg); }
+      .regime:nth-child(2) { transform: rotate(0.8deg); }
+      .regime:nth-child(3) { transform: rotate(-0.6deg); }
+
+      .regime .regime-kicker {
+        margin: 0 0 4px;
+        color: var(--paper-body);
+        font-size: 13px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+      }
+
+      .regime h3 {
+        margin: 0 0 2px;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 40px;
+        font-weight: 800;
+        line-height: 0.95;
+        text-transform: uppercase;
+      }
+
+      .regime .alias {
+        margin: 0 0 16px;
+        color: var(--paper-body);
+        font-size: 15px;
+        font-style: italic;
+      }
+
+      .regime .deck-badge {
+        position: absolute;
+        top: 22px;
+        right: -12px;
+        padding: 4px 12px;
+        border: 2px solid var(--red-deep);
+        border-radius: 4px;
+        background: rgba(236, 219, 177, 0.96);
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 21px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        transform: rotate(6deg);
+      }
+
+      .regime ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .regime li {
+        padding: 12px 0 11px;
+        border-top: 1px dashed rgba(72, 46, 22, 0.4);
+        font-size: 16px;
+        color: var(--paper-body);
+        line-height: 1.45;
+      }
+
+      .regime li strong {
+        display: block;
+        color: var(--paper-ink);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 21px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        line-height: 1.1;
+        text-transform: uppercase;
+      }
+
+      .regime li strong .ru {
+        font-family: Georgia, serif;
+        font-size: 13.5px;
+        font-weight: 400;
+        letter-spacing: 0.04em;
+        text-transform: none;
+      }
+
+      .regime .verdict {
+        margin: 16px 0 0;
+        color: var(--red-deep);
+        font-size: 14.5px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        text-align: center;
+      }
+
+      /* ---------- Phases walkthrough ---------- */
+
+      .phases {
+        border-top: 1px solid var(--line);
+        background: rgba(20, 19, 16, 0.6);
+        padding: 92px 24px 96px;
+      }
+
+      .phase-list {
+        display: grid;
+        gap: 0;
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 0;
+        list-style: none;
+      }
+
+      .phase-step {
+        position: relative;
+        display: flex;
+        gap: 26px;
+        padding: 30px 0 32px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .phase-step:first-child {
+        border-top: 0;
+        padding-top: 0;
+      }
+
+      .phase-step .badge {
+        flex: none;
+        display: grid;
+        width: 64px;
+        height: 64px;
+        margin-top: 2px;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: rgba(20, 19, 16, 0.86);
+      }
+
+      .phase-step .badge img {
+        width: 44px;
+        height: 44px;
+        object-fit: contain;
+      }
+
+      .phase-step .phase-label {
+        display: block;
+        margin: 0 0 4px;
+        color: var(--gold);
+        font-size: 13px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+      }
+
+      .phase-step h3 {
+        margin: 0 0 8px;
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 34px;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .phase-step p {
+        max-width: 660px;
+        margin: 0 0 10px;
+        color: var(--muted);
+        font-size: 18px;
+      }
+
+      .phase-step p strong {
+        color: var(--paper-strong);
+        font-weight: 700;
+      }
+
+      .phase-step .fine-print {
+        margin: 0;
+        color: rgba(183, 165, 125, 0.75);
+        font-size: 15.5px;
+        font-style: italic;
+      }
+
+      .phase-step .archival {
+        margin-top: 8px;
+      }
+
+      .floor {
+        color: #7ea7c4;
+      }
+
+      .loop-marker {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin: 0;
+        padding: 18px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .loop-marker .loop-pill {
+        flex: none;
+        padding: 7px 18px 6px;
+        border: 2px solid var(--red-bright);
+        border-radius: 999px;
+        color: var(--red-bright);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 23px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        line-height: 1;
+        text-transform: uppercase;
+        transform: rotate(-2deg);
+      }
+
+      .loop-marker p {
+        margin: 0;
+        color: rgba(183, 165, 125, 0.85);
+        font-size: 16px;
+        font-style: italic;
+      }
+
+      /* ---------- Interactive year (sim) ---------- */
+
+      .sim {
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.7);
+        background:
+          radial-gradient(circle at 50% 0%, rgba(212, 170, 83, 0.1), transparent 26rem),
+          linear-gradient(180deg, var(--field-2), var(--field) 70%);
+        padding: 84px 24px 92px;
+      }
+
+      .sim-stage {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 16px 16px 20px;
+        border: 1px solid var(--line);
+        background: rgba(16, 15, 12, 0.66);
+        box-shadow: var(--shadow);
+      }
+
+      .sim-topbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 10px;
+        padding: 4px 4px 14px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .sim-year {
+        padding: 6px 12px 5px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 21px;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .sim-job {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 5px 10px;
+        border: 1px solid rgba(72, 46, 22, 0.5);
+        border-radius: 4px;
+        background: linear-gradient(rgba(236, 219, 177, 0.95), rgba(214, 192, 146, 0.95));
+        color: var(--paper-ink);
+        transition: box-shadow 300ms ease, transform 300ms ease;
+      }
+
+      .sim-job img {
+        width: 24px;
+        height: 24px;
+        image-rendering: pixelated;
+      }
+
+      .sim-job .reward {
+        padding: 1px 6px 0;
+        border: 1px solid rgba(111, 29, 23, 0.5);
+        border-radius: 3px;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 19px;
+        font-weight: 800;
+        line-height: 1.2;
+      }
+
+      .sim-job .meter {
+        min-width: 54px;
+        font-family: "Handjet", Georgia, serif;
+        font-size: 20px;
+        font-weight: 800;
+        line-height: 1;
+        text-align: right;
+      }
+
+      .sim-job.pulse {
+        box-shadow: 0 0 0 3px rgba(212, 170, 83, 0.65);
+        transform: translateY(-2px);
+      }
+
+      .sim-job.done {
+        box-shadow: 0 0 0 3px var(--gold);
+      }
+
+      .sim-job.done .meter {
+        color: #3f5a2a;
+      }
+
+      .sim-job.failed {
+        background:
+          repeating-linear-gradient(-45deg, rgba(159, 47, 30, 0.14) 0 8px, transparent 8px 16px),
+          linear-gradient(rgba(236, 219, 177, 0.95), rgba(214, 192, 146, 0.95));
+        box-shadow: 0 0 0 3px var(--red-bright);
+      }
+
+      .sim-job.failed .meter {
+        color: var(--red-deep);
+      }
+
+      .sim-trump {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+        padding: 6px 12px 5px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        background: rgba(20, 19, 16, 0.85);
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 20px;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .sim-trump img {
+        width: 22px;
+        height: 22px;
+        image-rendering: pixelated;
+      }
+
+      .sim-players {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      .sim-player {
+        padding: 10px 12px 12px;
+        border: 1px solid rgba(212, 170, 83, 0.22);
+        background: rgba(20, 19, 16, 0.8);
+        transition: border-color 300ms ease, box-shadow 300ms ease;
+      }
+
+      .sim-player.you {
+        border-color: rgba(212, 170, 83, 0.5);
+      }
+
+      .sim-player.active {
+        border-color: var(--gold);
+        box-shadow: 0 0 0 1px var(--gold), 0 14px 30px rgba(0, 0, 0, 0.35);
+      }
+
+      .sim-phead {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .sim-phead img {
+        width: 26px;
+        height: 26px;
+        image-rendering: pixelated;
+      }
+
+      .sim-phead .pname {
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 21px;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .sim-stats {
+        display: flex;
+        gap: 12px;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 13.5px;
+      }
+
+      .sim-stats .medals {
+        letter-spacing: 2px;
+        color: var(--gold);
+      }
+
+      .sim-slot {
+        position: relative;
+        display: grid;
+        min-height: 170px;
+        margin-top: 10px;
+        place-items: center;
+        border: 1px dashed rgba(212, 170, 83, 0.28);
+      }
+
+      .sim-slot .slot-tag {
+        position: absolute;
+        bottom: 6px;
+        left: 0;
+        right: 0;
+        color: var(--muted);
+        font-size: 12.5px;
+        font-style: italic;
+        text-align: center;
+        opacity: 0;
+        transition: opacity 300ms ease;
+      }
+
+      .sim-slot .slot-tag.on {
+        opacity: 1;
+      }
+
+      .simcard {
+        position: relative;
+        width: 88px;
+        aspect-ratio: 5 / 7;
+        overflow: hidden;
+        border-radius: 7px;
+        background: url("/assets/cards/card-template-light.png") center / 100% 100% no-repeat;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+        image-rendering: pixelated;
+      }
+
+      .sim-slot .simcard {
+        opacity: 0;
+        transform: translateY(16px) scale(0.9);
+        transition: opacity 420ms ease, transform 420ms cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 300ms ease;
+      }
+
+      .sim-slot .simcard.on {
+        opacity: 1;
+        transform: none;
+      }
+
+      .simcard.win {
+        box-shadow: 0 0 0 3px var(--gold), 0 10px 22px rgba(0, 0, 0, 0.45);
+      }
+
+      .simcard .rank {
+        position: absolute;
+        top: 5%;
+        left: 9%;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 17px;
+        font-weight: 800;
+        line-height: 1;
+      }
+
+      .simcard .suit-mark {
+        position: absolute;
+        top: 5.5%;
+        right: 8%;
+        width: 18%;
+        image-rendering: pixelated;
+      }
+
+      .simcard .big-rank {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 38px;
+        font-weight: 800;
+        line-height: 1;
+        transform: translate(-50%, -46%);
+      }
+
+      .simcard .portrait {
+        position: absolute;
+        bottom: 4%;
+        left: 50%;
+        width: 88%;
+        transform: translateX(-50%);
+        image-rendering: pixelated;
+      }
+
+      .simcard.north {
+        position: absolute;
+        right: 6px;
+        bottom: 8px;
+        width: 70px;
+        opacity: 0;
+        transform: rotate(12deg) translateY(14px);
+        transition: opacity 420ms ease, transform 420ms ease;
+      }
+
+      .simcard.north.on {
+        opacity: 1;
+        transform: rotate(12deg);
+      }
+
+      .simcard .northstamp {
+        position: absolute;
+        top: 42%;
+        left: 50%;
+        padding: 2px 6px;
+        border: 2px solid var(--red);
+        border-radius: 3px;
+        background: rgba(236, 219, 177, 0.92);
+        color: var(--red);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        white-space: nowrap;
+        text-transform: uppercase;
+        transform: translate(-50%, -50%) rotate(-12deg);
+      }
+
+      .sim-hand {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid var(--line);
+      }
+
+      .sim-hand .simcard {
+        width: 96px;
+        transition: opacity 350ms ease, transform 350ms ease, box-shadow 350ms ease;
+      }
+
+      .sim-hand .simcard.legal {
+        box-shadow: 0 0 0 3px #7fa257, 0 10px 20px rgba(0, 0, 0, 0.4);
+        cursor: pointer;
+        animation: sim-bob 1.4s ease-in-out infinite;
+      }
+
+      @keyframes sim-bob {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
+      }
+
+      .sim-hand .simcard.dim {
+        opacity: 0.3;
+      }
+
+      .sim-hand .simcard.gone {
+        opacity: 0;
+        transform: translateY(-30px) scale(0.85);
+        pointer-events: none;
+      }
+
+      .sim-caption {
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+        max-width: 880px;
+        margin: 22px auto 0;
+      }
+
+      .sim-caption .mug {
+        flex: none;
+        width: 62px;
+        height: 62px;
+        overflow: hidden;
+        border: 2px solid var(--line);
+        border-radius: 6px;
+        background: var(--coal-2);
+      }
+
+      .sim-caption .mug img {
+        width: 100%;
+        transform: translateY(-2%) scale(1.55);
+        transform-origin: top center;
+      }
+
+      .sim-caption .bubble {
+        flex: 1;
+        min-height: 100px;
+        padding: 14px 20px;
+        border: 1px solid rgba(72, 46, 22, 0.45);
+        border-radius: 6px;
+        background: linear-gradient(rgba(236, 219, 177, 0.97), rgba(219, 199, 154, 0.97));
+        color: var(--paper-body);
+        font-size: 17px;
+      }
+
+      .sim-caption .bubble .cap-title {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .sim-controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        margin-top: 18px;
+      }
+
+      .sim-btn {
+        min-width: 110px;
+        padding: 9px 20px 8px;
+        border: 1px solid #c14f36;
+        border-radius: 6px;
+        background: linear-gradient(180deg, #b8422b, #7b2319);
+        color: #fff2d1;
+        font-family: "Handjet", Georgia, serif;
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        line-height: 1;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: transform 140ms ease, opacity 140ms ease;
+      }
+
+      .sim-btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+      }
+
+      .sim-btn:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+
+      .sim-btn.ghost {
+        border-color: var(--line);
+        background: rgba(20, 19, 16, 0.8);
+        color: var(--paper-strong);
+      }
+
+      .sim-dots {
+        display: flex;
+        gap: 7px;
+      }
+
+      .sim-dots span {
+        width: 9px;
+        height: 9px;
+        border: 1px solid rgba(212, 170, 83, 0.5);
+        border-radius: 50%;
+      }
+
+      .sim-dots span.here {
+        background: var(--gold);
+      }
+
+      /* ---------- Work board (paper) ---------- */
+
+      .workboard {
+        background:
+          linear-gradient(rgba(236, 219, 177, 0.94), rgba(219, 199, 154, 0.96)),
+          radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.45), transparent 30rem);
+        border-top: 4px solid var(--red-deep);
+        border-bottom: 4px solid var(--red-deep);
+        color: var(--paper-ink);
+        padding: 84px 24px 92px;
+      }
+
+      .workboard .section-head h2 {
+        color: var(--paper-ink);
+      }
+
+      .workboard .section-head .sub {
+        color: var(--paper-body);
+      }
+
+      .workboard .eyebrow {
+        color: var(--red-deep);
+      }
+
+      .quota-demo {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 30px 34px 28px;
+        border: 1px solid rgba(72, 46, 22, 0.45);
+        background: rgba(255, 248, 226, 0.4);
+        box-shadow: 0 22px 50px rgba(52, 35, 16, 0.22);
+      }
+
+      .quota-demo .job-line {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+
+      .quota-demo .job-line img {
+        width: 46px;
+        height: 46px;
+        object-fit: contain;
+      }
+
+      .quota-demo .job-line h3 {
+        margin: 0;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 34px;
+        font-weight: 800;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .quota-demo .job-line .quota-target {
+        margin-left: auto;
+        color: var(--paper-body);
+        font-size: 15px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .meter {
+        display: flex;
+        height: 44px;
+        overflow: hidden;
+        border: 2px solid rgba(72, 46, 22, 0.55);
+        border-radius: 4px;
+        background:
+          repeating-linear-gradient(
+            -45deg,
+            rgba(72, 46, 22, 0.08) 0 10px,
+            transparent 10px 20px
+          );
+      }
+
+      .meter .seg {
+        display: grid;
+        place-items: center;
+        border-right: 2px solid rgba(236, 219, 177, 0.7);
+        background: linear-gradient(180deg, #46552f, #37452a);
+        color: #f2dfb2;
+        font-family: "Handjet", Georgia, serif;
+        font-size: 23px;
+        font-weight: 800;
+      }
+
+      .meter .seg:last-of-type {
+        border-right: 0;
+      }
+
+      .meter-caption {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 10px;
+        color: var(--paper-body);
+        font-size: 15.5px;
+        font-style: italic;
+      }
+
+      .workboard .misha-says .bubble {
+        background: rgba(255, 248, 226, 0.75);
+      }
+
+      /* ---------- Nomenclature cards ---------- */
+
+      .nomenclature {
+        padding: 92px 24px 96px;
+      }
+
+      .nomen-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 34px;
+        max-width: 980px;
+        margin: 0 auto;
+      }
+
+      .nomen-card {
+        text-align: center;
+      }
+
+      .nomen-card .playing-card {
+        position: relative;
+        width: min(100%, 196px);
+        aspect-ratio: 5 / 7;
+        margin: 0 auto;
+        overflow: hidden;
+        border-radius: 10px;
+        background: url("/assets/cards/card-template-light.png") center / 100% 100% no-repeat;
+        box-shadow: 0 20px 35px rgba(0, 0, 0, 0.38);
+        image-rendering: pixelated;
+        transition: transform 220ms ease, box-shadow 220ms ease;
+      }
+
+      .nomen-card:nth-child(1) .playing-card { transform: rotate(-4deg); }
+      .nomen-card:nth-child(2) .playing-card { transform: rotate(1.5deg); }
+      .nomen-card:nth-child(3) .playing-card { transform: rotate(4deg); }
+
+      .nomen-card:nth-child(1):hover .playing-card { transform: rotate(-4deg) translateY(-10px); }
+      .nomen-card:nth-child(2):hover .playing-card { transform: rotate(1.5deg) translateY(-10px); }
+      .nomen-card:nth-child(3):hover .playing-card { transform: rotate(4deg) translateY(-10px); }
+
+      .nomen-card .playing-card .portrait {
+        position: absolute;
+        bottom: 4%;
+        left: 50%;
+        width: 88%;
+        transform: translateX(-50%);
+        image-rendering: pixelated;
+      }
+
+      .nomen-card .playing-card .rank {
+        position: absolute;
+        top: 5.5%;
+        left: 9%;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 30px;
+        font-weight: 800;
+        line-height: 1;
+      }
+
+      .nomen-card .playing-card .suit-mark {
+        position: absolute;
+        top: 6%;
+        right: 8.5%;
+        width: 17%;
+        image-rendering: pixelated;
+        filter: drop-shadow(0 1px 0 rgba(255, 244, 214, 0.65));
+      }
+
+      .nomen-card h3 {
+        margin: 22px 0 4px;
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 33px;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .nomen-card .alias {
+        margin: 0 0 10px;
+        color: var(--gold);
+        font-size: 15px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .nomen-card p {
+        max-width: 280px;
+        margin: 0 auto;
+        color: var(--muted);
+        font-size: 16.5px;
+      }
+
+      /* ---------- Requisition ---------- */
+
+      .requisition {
+        border-top: 1px solid rgba(0, 0, 0, 0.7);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.7);
+        background:
+          radial-gradient(circle at 50% 0%, rgba(159, 47, 30, 0.24), transparent 34rem),
+          linear-gradient(180deg, #1c1310, #14100d 70%);
+        padding: 88px 24px 96px;
+      }
+
+      .req-inner {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+        gap: 64px;
+        align-items: center;
+        max-width: 1080px;
+        margin: 0 auto;
+      }
+
+      .req-copy .section-head {
+        margin-bottom: 24px;
+        text-align: left;
+      }
+
+      .req-copy .section-head .head-rule {
+        margin-inline: 0;
+        background: linear-gradient(90deg, var(--red), rgba(159, 47, 30, 0));
+      }
+
+      .req-copy p {
+        max-width: 540px;
+        margin: 0 0 18px;
+        color: var(--muted);
+        font-size: 19px;
+      }
+
+      .req-copy p strong {
+        color: var(--paper-strong);
+        font-weight: 700;
+      }
+
+      .req-notice {
+        position: relative;
+        justify-self: center;
+        width: min(100%, 340px);
+        padding: 30px 28px 26px;
+        border: 1px solid rgba(72, 46, 22, 0.4);
+        background: linear-gradient(rgba(236, 219, 177, 0.97), rgba(214, 192, 146, 0.97));
+        box-shadow: var(--shadow);
+        color: var(--paper-ink);
+        text-align: center;
+        transform: rotate(2deg);
+      }
+
+      .req-notice h3 {
+        margin: 0;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 40px;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .req-notice img {
+        width: 96px;
+        height: 96px;
+        margin: 16px auto 10px;
+        object-fit: contain;
+      }
+
+      .req-notice .terms {
+        margin: 0;
+        color: var(--paper-body);
+        font-size: 15px;
+        line-height: 1.5;
+      }
+
+      .req-notice .north-stamp {
+        position: absolute;
+        left: -16px;
+        bottom: -18px;
+        padding: 5px 14px;
+        border: 3px solid var(--red);
+        border-radius: 4px;
+        color: var(--red);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 26px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        opacity: 0.85;
+        transform: rotate(-11deg);
+      }
+
+      /* ---------- The five-year campaign (paper) ---------- */
+
+      .campaign {
+        background:
+          linear-gradient(rgba(236, 219, 177, 0.94), rgba(219, 199, 154, 0.96)),
+          radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.45), transparent 30rem);
+        border-top: 4px solid var(--red-deep);
+        border-bottom: 4px solid var(--red-deep);
+        color: var(--paper-ink);
+        padding: 84px 24px 92px;
+      }
+
+      .campaign .section-head h2 {
+        color: var(--paper-ink);
+      }
+
+      .campaign .section-head .sub {
+        color: var(--paper-body);
+      }
+
+      .campaign .eyebrow {
+        color: var(--red-deep);
+      }
+
+      .plan-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        max-width: 1180px;
+        margin: 0 auto;
+        border: 1px solid rgba(72, 46, 22, 0.45);
+        background: rgba(255, 248, 226, 0.35);
+        box-shadow: 0 22px 50px rgba(52, 35, 16, 0.22);
+      }
+
+      .plan-year {
+        position: relative;
+        padding: 30px 22px 28px;
+        border-right: 1px solid rgba(72, 46, 22, 0.3);
+        text-align: center;
+      }
+
+      .plan-year:last-child {
+        border-right: 0;
+      }
+
+      .plan-year img {
+        width: 74px;
+        height: 74px;
+        object-fit: contain;
+      }
+
+      .plan-year h3 {
+        margin: 14px 0 8px;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 28px;
+        font-weight: 800;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .plan-year p {
+        margin: 0;
+        color: var(--paper-body);
+        font-size: 15.5px;
+        line-height: 1.45;
+      }
+
+      .plan-year .year-facts {
+        display: block;
+        margin-top: 10px;
+        color: var(--red-deep);
+        font-size: 13px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .plan-year.famine {
+        background:
+          repeating-linear-gradient(
+            -45deg,
+            rgba(111, 29, 23, 0.06) 0 14px,
+            transparent 14px 28px
+          ),
+          rgba(159, 47, 30, 0.1);
+      }
+
+      .famine-stamp {
+        display: inline-block;
+        margin-top: 10px;
+        padding: 3px 12px;
+        border: 2px solid var(--red-deep);
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        transform: rotate(-4deg);
+      }
+
+      .scoring-note {
+        display: flex;
+        gap: 22px;
+        align-items: center;
+        max-width: 760px;
+        margin: 44px auto 0;
+        padding: 26px 30px 24px;
+        border: 1px solid rgba(72, 46, 22, 0.45);
+        background: rgba(255, 248, 226, 0.5);
+        box-shadow: 0 16px 36px rgba(52, 35, 16, 0.16);
+      }
+
+      .scoring-note img {
+        flex: none;
+        width: 62px;
+        height: 62px;
+        object-fit: contain;
+      }
+
+      .scoring-note h3 {
+        margin: 0 0 6px;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 30px;
+        font-weight: 800;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .scoring-note p {
+        margin: 0;
+        color: var(--paper-body);
+        font-size: 17px;
+        line-height: 1.5;
+      }
+
+      .scoring-note p strong {
+        color: var(--paper-ink);
+      }
+
+      /* ---------- Foreman's advice ---------- */
+
+      .advice {
+        border-top: 1px solid var(--line);
+        background: rgba(20, 19, 16, 0.86);
+        padding: 84px 24px 92px;
+      }
+
+      .advice-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 26px 34px;
+        max-width: 980px;
+        margin: 0 auto;
+      }
+
+      .advice .misha-says {
+        margin: 0;
+        max-width: none;
+      }
+
+      /* ---------- Closing ---------- */
+
+      .closing {
+        border-top: 1px solid var(--line);
+        background:
+          radial-gradient(circle at 50% 120%, rgba(159, 47, 30, 0.28), transparent 40rem),
+          rgba(20, 19, 16, 0.86);
+        padding: 96px 24px 104px;
+        text-align: center;
+      }
+
+      .closing h2 {
+        margin: 0;
+        color: var(--paper-strong);
+        font-size: clamp(52px, 7.4vw, 96px);
+      }
+
+      .closing .sub {
+        max-width: 540px;
+        margin: 20px auto 0;
+        color: var(--muted);
+        font-size: 20px;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 22px 34px;
+        margin-top: 40px;
+      }
+
+      .store-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 228px;
+        min-height: 68px;
+        padding: 16px 34px;
+        border: 1px solid #c14f36;
+        border-radius: 8px;
+        background: linear-gradient(180deg, #b8422b, #7b2319);
+        box-shadow: 0 16px 30px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+        color: #fff2d1;
+        font-family: "Handjet", Georgia, serif;
+        font-size: 30px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-decoration: none;
+        text-transform: uppercase;
+        transition: transform 160ms ease, background 160ms ease;
+      }
+
+      .store-button:hover,
+      .store-button:focus-visible {
+        transform: translateY(-2px);
+        background: linear-gradient(180deg, #c64d34, #81261b);
+      }
+
+      .inline-link {
+        color: var(--paper-strong);
+        font-size: 20px;
+        text-decoration-color: var(--red);
+        text-underline-offset: 8px;
+      }
+
+      /* ---------- Footer ---------- */
+
+      .site-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 26px 24px 34px;
+        color: var(--muted);
+        font-size: 15px;
+      }
+
+      .site-footer nav {
+        display: flex;
+        gap: 22px;
+      }
+
+      /* ---------- Scroll reveal ---------- */
+
+      .reveal {
+        opacity: 0;
+        transform: translateY(22px);
+        transition: opacity 640ms ease, transform 640ms cubic-bezier(0.2, 0.7, 0.2, 1);
+      }
+
+      .reveal.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+
+        .briefing .foreman-poster,
+        .briefing-copy .eyebrow,
+        .briefing-copy h1,
+        .briefing-copy .head-rule,
+        .briefing-copy .lead,
+        .briefing-note,
+        .manual-toc {
+          animation: none;
+        }
+
+        .reveal {
+          opacity: 1;
+          transform: none;
+          transition: none;
+        }
+
+        .nomen-card .playing-card,
+        .store-button {
+          transition: none;
+        }
+      }
+
+      /* ---------- Light theme ---------- */
+
+      html[data-theme="light"] {
+        --paper: #4a3d26;
+        --paper-strong: #241b0e;
+        --muted: #6d5c3e;
+        --gold: #8a6a28;
+        --line: rgba(111, 29, 23, 0.28);
+        --shadow: 0 24px 55px rgba(72, 46, 22, 0.3);
+      }
+
+      html[data-theme="light"] body {
+        background:
+          radial-gradient(circle at 22% 8%, rgba(159, 47, 30, 0.07), transparent 32rem),
+          linear-gradient(135deg, #f0e3bf 0%, #e7d6ac 48%, #f0e3bf 100%);
+        color: var(--paper);
+      }
+
+      html[data-theme="light"] body::before {
+        opacity: 0.5;
+        background-image:
+          linear-gradient(rgba(72, 46, 22, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(72, 46, 22, 0.04) 1px, transparent 1px);
+      }
+
+      html[data-theme="light"] .site-header {
+        background: rgba(240, 227, 191, 0.92);
+      }
+
+      html[data-theme="light"] .theme-toggle,
+      html[data-theme="light"] .lang-toggle {
+        background: rgba(255, 248, 226, 0.9);
+      }
+
+      html[data-theme="light"] .nav a:hover,
+      html[data-theme="light"] .nav a:focus-visible,
+      html[data-theme="light"] .nav a[aria-current="page"] {
+        color: var(--red-deep);
+      }
+
+      html[data-theme="light"] .briefing-copy .lead {
+        color: #443624;
+      }
+
+      html[data-theme="light"] .manual-toc a {
+        background: rgba(255, 248, 226, 0.75);
+      }
+
+      html[data-theme="light"] .manual-toc a:hover,
+      html[data-theme="light"] .manual-toc a:focus-visible {
+        color: var(--red-deep);
+      }
+
+      html[data-theme="light"] .vitals {
+        border-bottom-color: rgba(72, 46, 22, 0.3);
+        background: rgba(236, 219, 177, 0.6);
+      }
+
+      html[data-theme="light"] .deck {
+        border-bottom-color: rgba(72, 46, 22, 0.3);
+        background:
+          radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.3), transparent 26rem),
+          linear-gradient(180deg, #dae0b6, #ccd4a6 70%);
+      }
+
+      html[data-theme="light"] .suit {
+        border-color: rgba(72, 46, 22, 0.28);
+      }
+
+      html[data-theme="light"] .suit p {
+        color: rgba(57, 47, 31, 0.72);
+      }
+
+      html[data-theme="light"] .deck-half {
+        background: rgba(255, 248, 226, 0.6);
+      }
+
+      html[data-theme="light"] .rank-chip.reward {
+        color: #f2dfb2;
+      }
+
+      html[data-theme="light"] .rank-chip.reward .h {
+        color: #d4aa53;
+      }
+
+      html[data-theme="light"] .phases {
+        background: rgba(236, 219, 177, 0.6);
+      }
+
+      html[data-theme="light"] .phase-step .badge {
+        background: rgba(255, 248, 226, 0.6);
+      }
+
+      html[data-theme="light"] .phase-step .fine-print {
+        color: rgba(90, 76, 51, 0.9);
+      }
+
+      html[data-theme="light"] .loop-marker p {
+        color: rgba(90, 76, 51, 0.9);
+      }
+
+      html[data-theme="light"] .floor {
+        color: #3d6a8a;
+      }
+
+      html[data-theme="light"] .sim {
+        border-bottom-color: rgba(72, 46, 22, 0.3);
+        background:
+          radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.3), transparent 26rem),
+          linear-gradient(180deg, #dae0b6, #ccd4a6 70%);
+      }
+
+      html[data-theme="light"] .sim-stage {
+        background: rgba(236, 219, 177, 0.6);
+      }
+
+      html[data-theme="light"] .sim-trump {
+        background: rgba(255, 248, 226, 0.6);
+      }
+
+      html[data-theme="light"] .sim-player {
+        border-color: rgba(72, 46, 22, 0.28);
+        background: rgba(255, 248, 226, 0.6);
+      }
+
+      html[data-theme="light"] .sim-player.you {
+        border-color: rgba(72, 46, 22, 0.55);
+      }
+
+      html[data-theme="light"] .sim-slot {
+        border-color: rgba(72, 46, 22, 0.28);
+      }
+
+      html[data-theme="light"] .sim-btn.ghost {
+        background: rgba(255, 248, 226, 0.9);
+      }
+
+      html[data-theme="light"] .sim-dots span {
+        border-color: rgba(72, 46, 22, 0.4);
+      }
+
+      html[data-theme="light"] .requisition {
+        border-top-color: rgba(72, 46, 22, 0.3);
+        border-bottom-color: rgba(72, 46, 22, 0.3);
+        background:
+          radial-gradient(circle at 50% 0%, rgba(159, 47, 30, 0.1), transparent 34rem),
+          rgba(236, 219, 177, 0.6);
+      }
+
+      html[data-theme="light"] .advice {
+        background: rgba(236, 219, 177, 0.6);
+      }
+
+      html[data-theme="light"] .closing {
+        background:
+          radial-gradient(circle at 50% 120%, rgba(159, 47, 30, 0.14), transparent 40rem),
+          rgba(236, 219, 177, 0.55);
+      }
+
+      /* ---------- Responsive ---------- */
+
+      @media (max-width: 980px) {
+        .briefing-inner,
+        .req-inner {
+          grid-template-columns: 1fr;
+          gap: 48px;
+        }
+
+        .briefing-copy {
+          text-align: center;
+        }
+
+        .briefing-copy .head-rule,
+        .briefing-copy .lead,
+        .briefing-note {
+          margin-inline: auto;
+        }
+
+        .manual-toc {
+          justify-content: center;
+        }
+
+        .req-notice {
+          order: -1;
+        }
+
+        .deck-split {
+          grid-template-columns: 1fr;
+        }
+
+        .setup-steps {
+          grid-template-columns: 1fr;
+          max-width: 620px;
+        }
+
+        .regime-grid {
+          grid-template-columns: 1fr;
+          max-width: 520px;
+          gap: 44px;
+        }
+
+        .nomen-grid {
+          grid-template-columns: 1fr;
+          gap: 54px;
+        }
+
+        .sim-players {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .sim-trump {
+          margin-left: 0;
+        }
+
+        .advice-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .vitals-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .vital:nth-child(2) {
+          border-right: 0;
+        }
+
+        .vital:nth-child(-n + 2) {
+          border-bottom: 1px solid var(--line);
+        }
+
+        .suit-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .suit {
+          padding-block: 22px;
+        }
+
+        .suit:nth-child(2) {
+          border-right: 0;
+        }
+
+        .suit:nth-child(-n + 2) {
+          border-bottom: 1px solid rgba(212, 170, 83, 0.24);
+        }
+
+        .plan-grid {
+          grid-template-columns: repeat(5, minmax(180px, 1fr));
+          overflow-x: auto;
+        }
+      }
+
+      @media (max-width: 900px) {
+        .site-header {
+          padding-inline: 18px;
+        }
+
+        .nav {
+          gap: 16px;
+          font-size: 16px;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .brand-name {
+          font-size: 30px;
+        }
+
+        .nav {
+          gap: 13px;
+          font-size: 15px;
+        }
+
+        body {
+          font-size: 18px;
+        }
+
+        .briefing {
+          padding: 48px 18px 56px;
+        }
+
+        .directive-band,
+        .setup,
+        .regimes,
+        .phases,
+        .sim,
+        .workboard,
+        .nomenclature,
+        .requisition,
+        .campaign,
+        .advice,
+        .closing {
+          padding-block: 60px 68px;
+        }
+
+        .directive {
+          padding: 34px 24px 36px;
+        }
+
+        .vitals-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .vital {
+          min-height: 92px;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .vital:last-child {
+          border-bottom: 0;
+        }
+
+        .suit-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .suit {
+          border-right: 0;
+          border-bottom: 1px solid rgba(212, 170, 83, 0.24);
+        }
+
+        .suit:last-child {
+          border-bottom: 0;
+        }
+
+        .suit:nth-child(2) {
+          border-bottom: 1px solid rgba(212, 170, 83, 0.24);
+        }
+
+        .phase-step {
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .sim-players {
+          grid-template-columns: 1fr;
+        }
+
+        .sim-caption {
+          flex-direction: column;
+          align-items: center;
+          text-align: left;
+        }
+
+        .quota-demo {
+          padding: 22px 18px 20px;
+        }
+
+        .meter .seg {
+          font-size: 19px;
+        }
+
+        .scoring-note {
+          flex-direction: column;
+          text-align: center;
+        }
+
+        .actions {
+          gap: 16px 22px;
+        }
+
+        .store-button {
+          width: 100%;
+          min-height: 62px;
+        }
+
+        .site-footer {
+          flex-direction: column;
+          padding-inline: 18px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="brand" href="/" aria-label="Kolkhoz home">
+          <img class="brand-mark" src="/assets/app-icon.png" alt="" width="42" height="42" />
+          <span class="brand-name">Kolkhoz</span>
+        </a>
+        <nav class="nav" aria-label="Primary navigation">
+          <a href="/how-to-play.html" aria-current="page"><span class="i-en">How to play</span><span class="i-ru">Как играть</span></a>
+          <a href="/rules.html"><span class="i-en">Rules</span><span class="i-ru">Правила</span></a>
+          <a href="/about.html"><span class="i-en">About</span><span class="i-ru">Об игре</span></a>
+          <a href="/support.html"><span class="i-en">Support</span><span class="i-ru">Поддержка</span></a>
+          <a href="/privacy.html"><span class="i-en">Privacy</span><span class="i-ru">Приватность</span></a>
+          <button class="lang-toggle" id="lang-toggle" type="button" aria-label="Switch language / Сменить язык">
+            <span class="lt-en">EN</span><span class="lt-ru">РУ</span>
+          </button>
+          <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch appearance / Сменить тему">
+            <img class="pixel tt-to-light" src="/assets/icons/icon-appearance-light.png" alt="" />
+            <img class="pixel tt-to-dark" src="/assets/icons/icon-appearance-dark.png" alt="" />
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="briefing" aria-labelledby="page-title">
+        <div class="briefing-rays" aria-hidden="true"></div>
+        <div class="briefing-inner">
+          <div class="foreman-poster" aria-label="Portrait of Foreman Misha">
+            <img class="portrait" src="/assets/foreman-misha.png" alt="Foreman Misha, a stout pixel-art farm foreman in cap and coat" />
+            <p class="placard-name"><span class="i-en">Foreman Misha</span><span class="i-ru">Бригадир Миша</span></p>
+            <p class="placard-title"><span class="i-en">Your instructor · appointed by the district</span><span class="i-ru">Ваш наставник · назначен округом</span></p>
+            <span class="foreman-stamp" aria-hidden="true"><span class="i-en">Trusted</span><span class="i-ru">Проверен</span></span>
+          </div>
+          <div class="briefing-copy">
+            <span class="eyebrow"><span class="i-en">The official field manual</span><span class="i-ru">Официальное полевое руководство</span></span>
+            <h1 class="display" id="page-title"><span class="i-en">How to play</span><span class="i-ru">Как играть</span></h1>
+            <div class="head-rule" aria-hidden="true"></div>
+            <p class="lead">
+              <span class="i-en">&ldquo;Listen close, comrade. The State counts everything &mdash;
+              <em>except what it never finds.</em>&rdquo;</span>
+              <span class="i-ru">&laquo;Слушай внимательно, товарищ. Государство считает всё &mdash;
+              <em>кроме того, чего не находит.</em>&raquo;</span>
+            </p>
+            <p class="briefing-note">
+              <span class="i-en">Kolkhoz is a trick-taking game across a Five-Year Plan. This manual covers
+              the full procedure: how the table is set, the three approved ways to play,
+              and a phase-by-phase walkthrough of every year from first sowing to famine.</span>
+              <span class="i-ru">Колхоз &mdash; игра со взятками длиной в пятилетку. В этом руководстве вся
+              процедура: как накрыть стол, три утверждённых способа игры и разбор каждого
+              года по фазам &mdash; от первого сева до голода.</span>
+            </p>
+            <nav class="manual-toc" aria-label="Manual sections">
+              <a href="#deck-title"><span class="i-en">The deck</span><span class="i-ru">Колода</span></a>
+              <a href="#setup-title"><span class="i-en">Setup</span><span class="i-ru">Стол</span></a>
+              <a href="#regimes-title"><span class="i-en">Regimes</span><span class="i-ru">Режимы</span></a>
+              <a href="#phases-title"><span class="i-en">Phases</span><span class="i-ru">Фазы</span></a>
+              <a href="#sim-title"><span class="i-en">Try it</span><span class="i-ru">Попробуй</span></a>
+              <a href="#campaign-title"><span class="i-en">The Plan</span><span class="i-ru">План</span></a>
+            </nav>
+          </div>
+        </div>
+      </section>
+
+      <section class="vitals" aria-label="Game at a glance">
+        <div class="vitals-grid">
+          <div class="vital">
+            <img class="pixel" src="/assets/icons/icon-human-seat.png" alt="" />
+            <div>
+              <span class="vital-title"><span class="i-en">Four comrades</span><span class="i-ru">Четверо товарищей</span></span>
+              <span class="vital-note"><span class="i-en">Pass one device around the table.</span><span class="i-ru">Одно устройство по кругу стола.</span></span>
+            </div>
+          </div>
+          <div class="vital">
+            <img class="pixel" src="/assets/icons/icon-year-1.png" alt="" />
+            <div>
+              <span class="vital-title"><span class="i-en">Five years</span><span class="i-ru">Пять лет</span></span>
+              <span class="vital-note"><span class="i-en">One round per year. The fifth is famine.</span><span class="i-ru">Один раунд на год. Пятый &mdash; голод.</span></span>
+            </div>
+          </div>
+          <div class="vital">
+            <img class="pixel" src="/assets/icons/icon-hand.png" alt="" />
+            <div>
+              <span class="vital-title"><span class="i-en">Four tricks a year</span><span class="i-ru">Четыре взятки в год</span></span>
+              <span class="vital-note"><span class="i-en">Five cards dealt; one always escapes.</span><span class="i-ru">Сдаётся пять карт; одна всегда ускользает.</span></span>
+            </div>
+          </div>
+          <div class="vital">
+            <img class="pixel" src="/assets/icons/icon-cellar.png" alt="" />
+            <div>
+              <span class="vital-title"><span class="i-en">Cellar wins</span><span class="i-ru">Побеждает подвал</span></span>
+              <span class="vital-note"><span class="i-en">Highest hidden score takes the game.</span><span class="i-ru">Игру берёт наибольший скрытый счёт.</span></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="directive-band" aria-labelledby="directive-title">
+        <div class="directive reveal">
+          <p class="doc-no"><span class="i-en">Order № 5 &mdash; to all workers of the collective</span><span class="i-ru">Приказ № 5 &mdash; всем работникам колхоза</span></p>
+          <h2 class="display" id="directive-title"><span class="i-en">The objective</span><span class="i-ru">Цель</span></h2>
+          <p class="doc-sub"><span class="i-en">Read aloud before the first sowing</span><span class="i-ru">Зачитать вслух перед первым севом</span></p>
+          <p>
+            <span class="i-en">Each year, the collective posts <strong>four jobs</strong> &mdash; one per crop.
+            Win tricks, assign the captured workers to those jobs, and meet the quota.
+            Completed jobs pay rewards. Failed jobs summon the inspectors.</span>
+            <span class="i-ru">Каждый год колхоз объявляет <strong>четыре работы</strong> &mdash; по одной на
+            культуру. Выигрывайте взятки, назначайте взятых работников на работы и
+            выполняйте норму. Завершённые работы платят награды. Проваленные &mdash;
+            зовут инспекторов.</span>
+          </p>
+          <p>
+            <span class="i-en">But your true score lives in your <strong>cellar</strong> <span class="ru">(подвал)</span> &mdash;
+            the hidden cards you keep back from the State, one per year. When the Plan
+            ends, the comrade with the <strong>highest total card value in their cellar</strong> wins.</span>
+            <span class="i-ru">Но настоящий счёт живёт в вашем <strong>подвале</strong> &mdash; в скрытых
+            картах, утаённых от государства, по одной в год. Когда пятилетка кончится,
+            победит товарищ с <strong>наибольшей суммой карт в подвале</strong>.</span>
+          </p>
+          <p>
+            <span class="i-en">Work hard enough to stay safe. Hide well enough to stay rich.
+            The whole game lives between those two instructions.</span>
+            <span class="i-ru">Работайте достаточно, чтобы уцелеть. Прячьте достаточно, чтобы разбогатеть.
+            Вся игра живёт между этими двумя приказами.</span>
+          </p>
+          <span class="approved-stamp" aria-hidden="true"><span class="i-en">Approved</span><span class="i-ru">Утверждено</span></span>
+        </div>
+
+        <div class="misha-says reveal">
+          <span class="mug" aria-hidden="true"><img src="/assets/foreman-misha.png" alt="" /></span>
+          <div class="bubble">
+            <span class="who"><span class="i-en">Misha says</span><span class="i-ru">Миша говорит</span></span>
+            <span class="i-en">The jobs feed the collective. The cellar feeds <em>you</em>. Never confuse the two.</span>
+            <span class="i-ru">Работы кормят колхоз. Подвал кормит <em>тебя</em>. Никогда не путай.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="deck" aria-labelledby="deck-title">
+        <div class="section-head reveal">
+          <span class="eyebrow"><span class="i-en">The deck</span><span class="i-ru">Колода</span></span>
+          <h2 class="display" id="deck-title"><span class="i-en">Know your workers</span><span class="i-ru">Знай своих работников</span></h2>
+          <p class="sub"><span class="i-en">One standard deck, split into labor and reward.</span><span class="i-ru">Одна стандартная колода: труд и награда.</span></p>
+        </div>
+        <div class="suit-grid reveal">
+          <div class="suit">
+            <img class="pixel" src="/assets/icons/icon-wheat.png" alt="" />
+            <h3><span class="i-en">Wheat</span><span class="i-ru">Пшеница</span></h3>
+            <p><span class="i-en">Hearts. The pride of the plan.</span><span class="i-ru">Черви. Гордость плана.</span></p>
+          </div>
+          <div class="suit">
+            <img class="pixel" src="/assets/icons/icon-sunflower.png" alt="" />
+            <h3><span class="i-en">Sunflower</span><span class="i-ru">Подсолнечник</span></h3>
+            <p><span class="i-en">Spades. Oil for the machine.</span><span class="i-ru">Пики. Масло для машины.</span></p>
+          </div>
+          <div class="suit">
+            <img class="pixel" src="/assets/icons/icon-potato.png" alt="" />
+            <h3><span class="i-en">Potato</span><span class="i-ru">Картофель</span></h3>
+            <p><span class="i-en">Clubs. What actually feeds you.</span><span class="i-ru">Трефы. То, что кормит на самом деле.</span></p>
+          </div>
+          <div class="suit">
+            <img class="pixel" src="/assets/icons/icon-beet.png" alt="" />
+            <h3><span class="i-en">Beet</span><span class="i-ru">Свёкла</span></h3>
+            <p><span class="i-en">Diamonds. Sugar for the cities.</span><span class="i-ru">Бубны. Сахар для городов.</span></p>
+          </div>
+        </div>
+        <div class="deck-split reveal">
+          <div class="deck-half">
+            <h3><span class="i-en">The worker deck</span><span class="i-ru">Колода рабочих</span></h3>
+            <p>
+              <span class="i-en">Ranks 6 through King of every crop. These are dealt to hands, played to
+              tricks, and assigned to jobs. A card's rank is its <strong>work hours</strong> &mdash;
+              and, if it reaches a cellar, its points.</span>
+              <span class="i-ru">Ранги от 6 до короля каждой культуры. Их сдают в руки, играют во взятки
+              и назначают на работы. Ранг карты &mdash; её <strong>рабочие часы</strong>, а
+              если она дойдёт до подвала &mdash; её очки.</span>
+            </p>
+            <div class="rank-strip" aria-label="Worker ranks and their work hours">
+              <span class="rank-chip"><span class="r">6</span><span class="h"><span class="i-en">6 hrs</span><span class="i-ru">6 ч</span></span></span>
+              <span class="rank-chip"><span class="r">7</span><span class="h"><span class="i-en">7 hrs</span><span class="i-ru">7 ч</span></span></span>
+              <span class="rank-chip"><span class="r">8</span><span class="h"><span class="i-en">8 hrs</span><span class="i-ru">8 ч</span></span></span>
+              <span class="rank-chip"><span class="r">9</span><span class="h"><span class="i-en">9 hrs</span><span class="i-ru">9 ч</span></span></span>
+              <span class="rank-chip"><span class="r">10</span><span class="h"><span class="i-en">10 hrs</span><span class="i-ru">10 ч</span></span></span>
+              <span class="rank-chip"><span class="r">J</span><span class="h"><span class="i-en">11 hrs</span><span class="i-ru">11 ч</span></span></span>
+              <span class="rank-chip"><span class="r">Q</span><span class="h"><span class="i-en">12 hrs</span><span class="i-ru">12 ч</span></span></span>
+              <span class="rank-chip"><span class="r">K</span><span class="h"><span class="i-en">13 hrs</span><span class="i-ru">13 ч</span></span></span>
+            </div>
+          </div>
+          <div class="deck-half">
+            <h3><span class="i-en">The reward piles</span><span class="i-ru">Стопки наград</span></h3>
+            <p>
+              <span class="i-en">Aces through 5s never enter a hand. They sit beside the board as
+              <strong>rewards</strong>: each year one is revealed per crop, worth its rank
+              in points to whoever completes that job.</span>
+              <span class="i-ru">Тузы и карты до пятёрки в руки не попадают. Они лежат у поля как
+              <strong>награды</strong>: каждый год по одной открывают на культуру, и она
+              стоит свой ранг в очках тому, кто закроет работу.</span>
+            </p>
+            <div class="rank-strip" aria-label="Reward ranks and their point values">
+              <span class="rank-chip reward"><span class="r">A</span><span class="h"><span class="i-en">1 pt</span><span class="i-ru">1 очко</span></span></span>
+              <span class="rank-chip reward"><span class="r">2</span><span class="h"><span class="i-en">2 pts</span><span class="i-ru">2 очка</span></span></span>
+              <span class="rank-chip reward"><span class="r">3</span><span class="h"><span class="i-en">3 pts</span><span class="i-ru">3 очка</span></span></span>
+              <span class="rank-chip reward"><span class="r">4</span><span class="h"><span class="i-en">4 pts</span><span class="i-ru">4 очка</span></span></span>
+              <span class="rank-chip reward"><span class="r">5</span><span class="h"><span class="i-en">5 pts</span><span class="i-ru">5 очков</span></span></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="setup" aria-labelledby="setup-title">
+        <div class="section-head reveal">
+          <span class="eyebrow"><span class="i-en">Игровой набор</span><span class="i-ru">Игровой набор</span></span>
+          <h2 class="display" id="setup-title"><span class="i-en">Setting the table</span><span class="i-ru">Накрываем стол</span></h2>
+          <p class="sub">
+            <span class="i-en">The app sets the table for you &mdash; but a comrade should know where every
+            card comes from. With a real deck, do this:</span>
+            <span class="i-ru">Приложение накроет стол за вас &mdash; но товарищ обязан знать, откуда
+            берётся каждая карта. С настоящей колодой делайте так:</span>
+          </p>
+        </div>
+        <ol class="setup-steps">
+          <li class="setup-step reveal">
+            <h3><span class="i-en">Split the deck</span><span class="i-ru">Разделите колоду</span></h3>
+            <p>
+              <span class="i-en">Pull the <strong>Ace, 2, 3, 4, and 5 of every suit</strong> from a standard
+              52-card deck. Keep them in four piles &mdash; one per field &mdash; and
+              shuffle each pile separately. These are the reward piles.</span>
+              <span class="i-ru">Выньте <strong>туза, 2, 3, 4 и 5 каждой масти</strong> из стандартной колоды
+              в 52 карты. Разложите их в четыре стопки &mdash; по одной на поле &mdash; и
+              перетасуйте каждую отдельно. Это стопки наград.</span>
+            </p>
+          </li>
+          <li class="setup-step reveal">
+            <h3><span class="i-en">Build the worker deck</span><span class="i-ru">Соберите колоду рабочих</span></h3>
+            <p>
+              <span class="i-en">Shuffle the remaining 32 cards (6 through King) into the
+              <strong>worker deck</strong> <span class="ru">(Колода Рабочих)</span>.</span>
+              <span class="i-ru">Перетасуйте оставшиеся 32 карты (от шестёрки до короля) в
+              <strong>Колоду Рабочих</strong>.</span>
+            </p>
+            <p class="aside">
+              <span class="i-en">Playing with the Wrecker? Shuffle a joker in now, and may God have mercy on your quota.</span>
+              <span class="i-ru">Играете с Вредителем? Замешайте джокера сейчас &mdash; и да поможет бог вашей норме.</span>
+            </p>
+          </li>
+          <li class="setup-step reveal">
+            <h3><span class="i-en">Appoint the planner</span><span class="i-ru">Назначьте плановика</span></h3>
+            <p>
+              <span class="i-en">Choose a first <strong>Central Planner</strong>
+              <span class="ru">(Центральный Плановик)</span> by agreement or by chance.
+              The planner deals <strong>five cards face-down</strong> to each player and
+              runs the year's planning. The role passes left each year.</span>
+              <span class="i-ru">Выберите первого <strong>Центрального Плановика</strong> &mdash; по
+              договорённости или жребием. Плановик сдаёт каждому <strong>по пять карт
+              рубашкой вверх</strong> и ведёт планирование года. Роль каждый год переходит
+              влево.</span>
+            </p>
+          </li>
+          <li class="setup-step reveal">
+            <h3><span class="i-en">Mark your cellar</span><span class="i-ru">Отметьте подвал</span></h3>
+            <p>
+              <span class="i-en">Every player claims a patch of table for their <strong>cellar</strong>
+              <span class="ru">(подвал)</span> &mdash; the pile of face-down cards the
+              State hasn't counted. It starts empty. It will not stay that way.</span>
+              <span class="i-ru">Каждый игрок занимает угол стола под свой <strong>подвал</strong> &mdash;
+              стопку закрытых карт, не учтённых государством. Сначала он пуст. Это
+              ненадолго.</span>
+            </p>
+          </li>
+        </ol>
+        <div class="misha-says reveal">
+          <span class="mug" aria-hidden="true"><img src="/assets/foreman-misha.png" alt="" /></span>
+          <div class="bubble">
+            <span class="who"><span class="i-en">Misha says</span><span class="i-ru">Миша говорит</span></span>
+            <span class="i-en">Playing the short game? With a 36-card deck there are no reward piles &mdash;
+            set out the four Aces to mark the job fields and get to work.</span>
+            <span class="i-ru">Короткая партия? С колодой в 36 карт стопок наград нет &mdash; выложите
+            четыре туза как метки полей и за работу.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="regimes" aria-labelledby="regimes-title">
+        <div class="section-head reveal">
+          <span class="eyebrow"><span class="i-en">Approved configurations</span><span class="i-ru">Утверждённые составы</span></span>
+          <h2 class="display" id="regimes-title"><span class="i-en">Choose your regime</span><span class="i-ru">Выбери свой режим</span></h2>
+          <p class="sub">
+            <span class="i-en">Three party-approved table setups, from the standard collective to the labor
+            camp. The app ships the first; the district recommends you master it before
+            requesting a transfer.</span>
+            <span class="i-ru">Три одобренных партией варианта стола &mdash; от обычного колхоза до лагеря.
+            В приложении установлен первый; округ рекомендует освоить его, прежде чем
+            проситься на перевод.</span>
+          </p>
+          <div class="head-rule" aria-hidden="true"></div>
+        </div>
+        <div class="regime-grid">
+          <div class="regime reveal">
+            <span class="deck-badge"><span class="i-en">52 cards</span><span class="i-ru">52 карты</span></span>
+            <p class="regime-kicker"><span class="i-en">Setup I &mdash; the standard</span><span class="i-ru">Состав I &mdash; стандарт</span></p>
+            <h3>Колхоз</h3>
+            <p class="alias"><span class="i-en">"The Collective" &mdash; as played in the app</span><span class="i-ru">&laquo;Коллектив&raquo; &mdash; как в приложении</span></p>
+            <ul>
+              <li>
+                <strong><span class="i-en">The swap <span class="ru">· Поменять шило на мыло</span></span><span class="i-ru">Обмен <span class="ru">· Поменять шило на мыло</span></span></strong>
+                <span class="i-en">From year two, trade one hand card with one cellar card before tricks begin.</span>
+                <span class="i-ru">Со второго года меняйте одну карту руки на одну карту подвала до начала взяток.</span>
+              </li>
+              <li>
+                <strong><span class="i-en">Stakhanovite <span class="ru">· стахановец</span></span><span class="i-ru">Стахановец</span></strong>
+                <span class="i-en">Sweep every medal in a year and you become a Hero of Labor: requisition
+                falls on everyone <em>except</em> you.</span>
+                <span class="i-ru">Соберите все медали года &mdash; и вы Герой Труда: реквизиция падает на
+                всех, <em>кроме</em> вас.</span>
+              </li>
+              <li>
+                <strong><span class="i-en">The Wrecker <span class="ru">· вредитель</span></span><span class="i-ru">Вредитель</span></strong>
+                <span class="i-en">A joker in the worker deck. Follows any suit, counts 14 work hours &mdash;
+                and any job holding him fails inspection regardless.</span>
+                <span class="i-ru">Джокер в колоде рабочих. Ходит под любую масть, даёт 14 часов &mdash; и
+                любая работа с ним всё равно проваливает проверку.</span>
+              </li>
+            </ul>
+            <p class="verdict"><span class="i-en">Recommended for first plans</span><span class="i-ru">Рекомендован для первых пятилеток</span></p>
+          </div>
+          <div class="regime reveal">
+            <span class="deck-badge"><span class="i-en">36 cards</span><span class="i-ru">36 карт</span></span>
+            <p class="regime-kicker"><span class="i-en">Setup II &mdash; the short game</span><span class="i-ru">Состав II &mdash; короткая игра</span></p>
+            <h3>Колхозник</h3>
+            <p class="alias"><span class="i-en">"The Farmhand" &mdash; a quicker, meaner deck</span><span class="i-ru">&laquo;Колхозник&raquo; &mdash; быстрее и злее</span></p>
+            <ul>
+              <li>
+                <strong><span class="i-en">The swap <span class="ru">· Поменять шило на мыло</span></span><span class="i-ru">Обмен <span class="ru">· Поменять шило на мыло</span></span></strong>
+                <span class="i-en">One hand-for-cellar trade each year after the first.</span>
+                <span class="i-ru">Один обмен руки на подвал каждый год после первого.</span>
+              </li>
+              <li>
+                <strong><span class="i-en">Nomenklatura <span class="ru">· Номенклатура живёт по своим законам</span></span><span class="i-ru">Номенклатура <span class="ru">· живёт по своим законам</span></span></strong>
+                <span class="i-en">The trump Jack, Queen, and King carry special orders &mdash; the Drunkard,
+                the Informant, and the Party Man.</span>
+                <span class="i-ru">Козырные валет, дама и король несут особые приказы &mdash; Пьяница,
+                Информатор и Партиец.</span>
+              </li>
+              <li>
+                <strong><span class="i-en">Orders to the boss <span class="ru">· Орден — начальнику, работа — нам</span></span><span class="i-ru">Орден &mdash; начальнику, работа &mdash; нам</span></strong>
+                <span class="i-en">The brigade leader who closes a job claims its reward at once &mdash; and
+                only those who led brigades answer for failed fields.</span>
+                <span class="i-ru">Бригадир, закрывший работу, сразу забирает награду &mdash; и только
+                бригадиры отвечают за проваленные поля.</span>
+              </li>
+            </ul>
+            <p class="verdict"><span class="i-en">For tables that like consequences</span><span class="i-ru">Для столов, любящих последствия</span></p>
+          </div>
+          <div class="regime reveal">
+            <span class="deck-badge"><span class="i-en">36 cards</span><span class="i-ru">36 карт</span></span>
+            <p class="regime-kicker"><span class="i-en">Setup III &mdash; the hard way</span><span class="i-ru">Состав III &mdash; по-суровому</span></p>
+            <h3>Зонский режим</h3>
+            <p class="alias"><span class="i-en">"Zone Rules" &mdash; nobody is safe</span><span class="i-ru">&laquo;Зона&raquo; &mdash; никто не в безопасности</span></p>
+            <ul>
+              <li>
+                <strong><span class="i-en">The swap <span class="ru">· Поменять шило на мыло</span></span><span class="i-ru">Обмен <span class="ru">· Поменять шило на мыло</span></span></strong>
+                <span class="i-en">Same trade, colder climate.</span>
+                <span class="i-ru">Тот же обмен, климат холоднее.</span>
+              </li>
+              <li>
+                <strong><span class="i-en">Northern play <span class="ru">· Игра по-северному</span></span><span class="i-ru">Игра по-северному</span></strong>
+                <span class="i-en">No rewards for finishing jobs. No record of who led brigades. Work is its
+                own punishment.</span>
+                <span class="i-ru">Наград за работы нет. Бригадиров никто не помнит. Труд &mdash; сам себе
+                наказание.</span>
+              </li>
+              <li>
+                <strong><span class="i-en">Nomenklatura <span class="ru">· Номенклатура живёт по своим законам</span></span><span class="i-ru">Номенклатура <span class="ru">· живёт по своим законам</span></span></strong>
+                <span class="i-en">The trump court keeps its privileges, even here.</span>
+                <span class="i-ru">Козырной двор хранит привилегии даже здесь.</span>
+              </li>
+              <li>
+                <strong><span class="i-en">Even the mice informed <span class="ru">· Разговоры вели даже с мышами</span></span><span class="i-ru">Разговоры вели даже с мышами</span></strong>
+                <span class="i-en">Every failed field makes <em>all</em> players reveal their highest matching
+                cellar card &mdash; and the highest at the table goes North.</span>
+                <span class="i-ru">Каждое проваленное поле заставляет <em>всех</em> игроков открыть свою
+                старшую карту этой культуры &mdash; и самая старшая за столом уходит на
+                Север.</span>
+              </li>
+            </ul>
+            <p class="verdict"><span class="i-en">For veterans of the plan</span><span class="i-ru">Для ветеранов плана</span></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="phases" aria-labelledby="phases-title">
+        <div class="section-head reveal">
+          <span class="eyebrow"><span class="i-en">Standard procedure</span><span class="i-ru">Стандартная процедура</span></span>
+          <h2 class="display" id="phases-title"><span class="i-en">One year, phase by phase</span><span class="i-ru">Один год, фаза за фазой</span></h2>
+          <p class="sub">
+            <span class="i-en">Every year of the Plan runs the same protocol. The app moves you through it
+            automatically; here is the full circuit.</span>
+            <span class="i-ru">Каждый год пятилетки идёт по одному протоколу. Приложение проведёт вас по
+            нему само; вот полный круг.</span>
+          </p>
+          <div class="head-rule" aria-hidden="true"></div>
+        </div>
+        <ol class="phase-list">
+          <li class="phase-step reveal">
+            <span class="badge"><img class="pixel" src="/assets/icons/icon-jobs.png" alt="" /></span>
+            <div>
+              <span class="phase-label"><span class="i-en">Phase 1 · Фаза Планирования</span><span class="i-ru">Фаза 1 · Планирование</span></span>
+              <h3><span class="i-en">Planning</span><span class="i-ru">Планирование</span></h3>
+              <p>
+                <span class="i-en">The Central Planner deals <strong>five cards</strong> to each player and
+                flips <strong>one reward card over each of the four fields</strong> &mdash;
+                those are the year's jobs and their pay. Then the year's
+                <strong>trump crop</strong> is declared: the State's main task
+                <span class="ru">(Наша главная задача)</span>. Trump cards beat the led
+                suit in any trick.</span>
+                <span class="i-ru">Центральный Плановик сдаёт каждому <strong>по пять карт</strong> и
+                открывает <strong>по одной награде над каждым из четырёх полей</strong>
+                &mdash; это работы года и их плата. Затем объявляется
+                <strong>козырная культура</strong>: наша главная задача. Козырь бьёт
+                ведущую масть в любой взятке.</span>
+              </p>
+              <p class="fine-print">
+                <span class="i-en">Famine year: only four cards are dealt, and no trump is declared at all.</span>
+                <span class="i-ru">Год голода: сдают только четыре карты, козыря нет вовсе.</span>
+              </p>
+            </div>
+          </li>
+          <li class="phase-step reveal">
+            <span class="badge"><img class="pixel" src="/assets/icons/icon-cellar.png" alt="" /></span>
+            <div>
+              <span class="phase-label"><span class="i-en">Phase 2 · years two and later</span><span class="i-ru">Фаза 2 · со второго года</span></span>
+              <h3><span class="i-en">The swap</span><span class="i-ru">Обмен</span></h3>
+              <p>
+                <span class="i-en">In turn order, each player may trade <strong>one hand card for one cellar
+                card</strong> &mdash; hidden or revealed &mdash; or pass. One trade, no
+                takebacks once confirmed.</span>
+                <span class="i-ru">По очереди каждый игрок может обменять <strong>одну карту руки на одну
+                карту подвала</strong> &mdash; скрытую или открытую &mdash; или пропустить
+                ход. Один обмен, после подтверждения возврата нет.</span>
+              </p>
+              <p class="fine-print">
+                <span class="i-en">Bury a high card where the inspectors aren't looking; pull out a crop you expect to fail.</span>
+                <span class="i-ru">Прячьте старшую карту туда, куда инспекторы не смотрят; вытаскивайте культуру, которую ждёт провал.</span>
+              </p>
+            </div>
+          </li>
+          <li class="phase-step reveal">
+            <span class="badge"><img class="pixel" src="/assets/icons/icon-hand.png" alt="" /></span>
+            <div>
+              <span class="phase-label"><span class="i-en">Phase 3 · пора</span><span class="i-ru">Фаза 3 · пора</span></span>
+              <h3><span class="i-en">The trick</span><span class="i-ru">Взятка</span></h3>
+              <p>
+                <span class="i-en">The planner leads the first trick; after that, the previous winner leads.
+                Each player plays one card. <strong>Follow the led crop if you can</strong>;
+                if you can't, play anything &mdash; including trump. Highest card of the
+                led crop wins, unless trump appears; then the highest trump wins. The
+                winner takes a <strong>medal</strong> and becomes
+                <strong>brigade leader</strong> <span class="ru">(бригадир)</span>.</span>
+                <span class="i-ru">Плановик ведёт первую взятку; дальше ведёт победитель предыдущей. Каждый
+                кладёт одну карту. <strong>Ходите в масть, если можете</strong>; не можете
+                &mdash; кладите что угодно, хоть козырь. Взятку берёт старшая карта ведущей
+                культуры &mdash; если не лёг козырь: тогда берёт старший козырь. Победитель
+                получает <strong>медаль</strong> и становится <strong>бригадиром</strong>.</span>
+              </p>
+            </div>
+          </li>
+          <li class="phase-step reveal">
+            <span class="badge"><img class="pixel" src="/assets/icons/icon-crop-seal.png" alt="" /></span>
+            <div>
+              <span class="phase-label"><span class="i-en">Phase 4 · назначить добровольцев</span><span class="i-ru">Фаза 4 · назначить добровольцев</span></span>
+              <h3><span class="i-en">Assignment</span><span class="i-ru">Назначение</span></h3>
+              <p>
+                <span class="i-en">The brigade leader "volunteers" the trick's four cards onto the work
+                board. Cards may go to <strong>any job whose crop appears in the
+                trick</strong>, in any combination. A job that reaches
+                <strong>40 work hours</strong> is complete: its reward card drops into the
+                finisher's cellar, and that crop cannot trigger requisition this year.</span>
+                <span class="i-ru">Бригадир &laquo;записывает добровольцев&raquo;: четыре карты взятки идут
+                на доску работ. Карту можно отдать <strong>любой работе, чья культура есть
+                во взятке</strong>, в любом сочетании. Работа, набравшая
+                <strong>40 часов</strong>, завершена: её награда падает в подвал
+                закрывшего, и эта культура в этом году реквизицию не вызовет.</span>
+              </p>
+              <p class="fine-print">
+                <span class="i-en">The Wrecker counts as every crop at once — he makes every job in the trick a legal target.</span>
+                <span class="i-ru">Вредитель считается всеми культурами сразу &mdash; с ним любая работа из взятки становится законной целью.</span>
+              </p>
+            </div>
+          </li>
+          <li class="loop-marker reveal" aria-label="Phases three and four repeat">
+            <span class="loop-pill"><span class="i-en">&#8635; Repeat &times;4</span><span class="i-ru">&#8635; Повтор &times;4</span></span>
+            <p>
+              <span class="i-en">Trick, then assignment, four times over &mdash; three in a famine year. Then the year closes.</span>
+              <span class="i-ru">Взятка, затем назначение &mdash; четыре раза (в голодный год три). Потом год закрывается.</span>
+            </p>
+          </li>
+          <li class="phase-step reveal">
+            <span class="badge"><img class="pixel" src="/assets/icons/icon-plot.png" alt="" /></span>
+            <div>
+              <span class="phase-label"><span class="i-en">Phase 5 · Уносить, что под руку попадётся</span><span class="i-ru">Фаза 5 · Уносить, что под руку попадётся</span></span>
+              <h3><span class="i-en">Pocket the leftover</span><span class="i-ru">Прикарманьте остаток</span></h3>
+              <p>
+                <span class="i-en">After the last trick, the one card still in your hand slips into your
+                cellar, <strong>face-down</strong>. Nobody assigns it. Nobody sees it.
+                This is how fortunes are made &mdash; and why your fifth card matters as
+                much as the four you play.</span>
+                <span class="i-ru">После последней взятки единственная карта, оставшаяся в руке, тихо уходит
+                в подвал <strong>рубашкой вверх</strong>. Её никто не назначает. Её никто
+                не видит. Так делаются состояния &mdash; и потому пятая карта важна не
+                меньше четырёх сыгранных.</span>
+              </p>
+              <p class="fine-print archival">
+                <span class="i-en">The recovered rules do not say "cellar." They say
+                <span class="floor">floor</span>, and then they say there is no
+                <span class="floor">floor</span>. See <a href="/about.html">the About page</a>.</span>
+                <span class="i-ru">В восстановленных правилах нет слова «подвал». Там написано:
+                <span class="floor">пол</span>, &mdash; а затем: <span class="floor">пола</span> не
+                существует. См. <a href="/about.html">«Об игре»</a>.</span>
+              </p>
+            </div>
+          </li>
+          <li class="phase-step reveal">
+            <span class="badge"><img class="pixel" src="/assets/icons/icon-requisition-north.png" alt="" /></span>
+            <div>
+              <span class="phase-label"><span class="i-en">Phase 6 · Ищут врагов народа</span><span class="i-ru">Фаза 6 · Ищут врагов народа</span></span>
+              <h3><span class="i-en">Requisition</span><span class="i-ru">Реквизиция</span></h3>
+              <p>
+                <span class="i-en">The inspectors review the work board. For <strong>every job that missed
+                its 40 hours</strong>, players who won tricks this year reveal their
+                highest cellar card of that crop &mdash; and it is
+                <strong>sent North</strong>, out of the game. Cards that survive stay
+                face-up for everyone to count.</span>
+                <span class="i-ru">Инспекторы сверяют доску работ. За <strong>каждую работу, не добравшую
+                40 часов</strong>, игроки, бравшие взятки в этом году, открывают свою
+                старшую карту этой культуры в подвале &mdash; и она
+                <strong>уходит на Север</strong>, вон из игры. Уцелевшие карты остаются
+                открытыми у всех на виду.</span>
+              </p>
+              <p class="fine-print">
+                <span class="i-en">Regimes change who answers: under Zone Rules everyone reveals; under the Stakhanovite rule a clean sweep of medals buys immunity.</span>
+                <span class="i-ru">Режим меняет, кто отвечает: по зонским правилам открывают все; у стахановца полный комплект медалей покупает неприкосновенность.</span>
+              </p>
+              <p class="fine-print archival">
+                <span class="i-en">This rule follows the crueler of two recovered readings. The gentler
+                reading is torn where the method begins. Both are printed in
+                <a href="/about.html">the About page</a>.</span>
+                <span class="i-ru">Это правило следует более жестокому из двух восстановленных прочтений.
+                Более мягкое оборвано там, где начинается способ. Оба напечатаны на странице
+                <a href="/about.html">«Об игре»</a>.</span>
+              </p>
+            </div>
+          </li>
+          <li class="phase-step reveal">
+            <span class="badge"><img class="pixel" src="/assets/icons/icon-pass-device.png" alt="" /></span>
+            <div>
+              <span class="phase-label"><span class="i-en">Phase 7 · Конец Раунда</span><span class="i-ru">Фаза 7 · Конец раунда</span></span>
+              <h3><span class="i-en">The year turns</span><span class="i-ru">Год поворачивается</span></h3>
+              <p>
+                <span class="i-en">Unclaimed workers shuffle back into the deck, medals return to the supply,
+                and the planner's cap passes to the left. A new year begins at Phase 1
+                &mdash; until five years have passed and the arithmetic begins.</span>
+                <span class="i-ru">Невостребованные работники возвращаются в колоду, медали &mdash; в запас,
+                а фуражка плановика переходит влево. Новый год начинается с фазы 1 &mdash;
+                пока не пройдут пять лет и не начнётся арифметика.</span>
+              </p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section class="sim" aria-labelledby="sim-title">
+        <div class="section-head reveal">
+          <span class="eyebrow"><span class="i-en">Interactive walkthrough</span><span class="i-ru">Интерактивный разбор</span></span>
+          <h2 class="display" id="sim-title"><span class="i-en">Play a year yourself</span><span class="i-ru">Сыграй год сам</span></h2>
+          <p class="sub">
+            <span class="i-en">A replica of the real table. Click <strong>Next</strong> &mdash; or whatever
+            is glowing &mdash; and Misha will talk you through year two of the Plan.</span>
+            <span class="i-ru">Копия настоящего стола. Жмите <strong>&laquo;Далее&raquo;</strong> &mdash;
+            или на то, что светится, &mdash; и Миша проведёт вас через второй год
+            пятилетки.</span>
+          </p>
+        </div>
+        <div class="sim-stage reveal">
+          <div class="sim-topbar">
+            <span class="sim-year"><span class="i-en">Year 2</span><span class="i-ru">Год 2</span></span>
+            <span class="sim-job" id="job-wheat">
+              <img class="pixel" src="/assets/icons/icon-wheat.png" alt="Wheat job" />
+              <span class="reward">4</span>
+              <span class="meter" id="m-wheat">0/40</span>
+            </span>
+            <span class="sim-job" id="job-sun">
+              <img class="pixel" src="/assets/icons/icon-sunflower.png" alt="Sunflower job" />
+              <span class="reward">5</span>
+              <span class="meter" id="m-sun">0/40</span>
+            </span>
+            <span class="sim-job" id="job-pot">
+              <img class="pixel" src="/assets/icons/icon-potato.png" alt="Potato job" />
+              <span class="reward">2</span>
+              <span class="meter" id="m-pot">0/40</span>
+            </span>
+            <span class="sim-job" id="job-beet">
+              <img class="pixel" src="/assets/icons/icon-beet.png" alt="Beet job" />
+              <span class="reward">3</span>
+              <span class="meter" id="m-beet">0/40</span>
+            </span>
+            <span class="sim-trump" id="sim-trump">
+              <span class="i-en">Trump</span><span class="i-ru">Козырь</span>
+              <img class="pixel" src="/assets/icons/icon-sunflower.png" alt="Sunflower is trump" />
+            </span>
+          </div>
+          <div class="sim-players">
+            <div class="sim-player" id="sp-0">
+              <div class="sim-phead">
+                <img class="pixel" src="/assets/icons/icon-basic-ai.png" alt="" />
+                <span class="pname"><span class="i-en">Pyotr</span><span class="i-ru">Пётр</span></span>
+              </div>
+              <div class="sim-stats">
+                <span class="medals" id="med-0">&#9734;&#9734;&#9734;&#9734;</span>
+                <span><span class="i-en">Cellar:</span><span class="i-ru">Подвал:</span> <b id="cel-0">1</b></span>
+              </div>
+              <div class="sim-slot">
+                <div class="simcard" id="pc-0">
+                  <span class="rank">9</span>
+                  <img class="suit-mark pixel" src="/assets/icons/icon-wheat.png" alt="" />
+                  <span class="big-rank">9</span>
+                </div>
+                <span class="slot-tag" id="tag-0"><span class="i-en">leads &mdash; wheat must be followed</span><span class="i-ru">ведёт &mdash; пшеницу нужно поддержать</span></span>
+              </div>
+            </div>
+            <div class="sim-player" id="sp-1">
+              <div class="sim-phead">
+                <img class="pixel" src="/assets/icons/icon-basic-ai.png" alt="" />
+                <span class="pname"><span class="i-en">Anya</span><span class="i-ru">Аня</span></span>
+              </div>
+              <div class="sim-stats">
+                <span class="medals" id="med-1">&#9734;&#9734;&#9734;&#9734;</span>
+                <span><span class="i-en">Cellar:</span><span class="i-ru">Подвал:</span> <b id="cel-1">1</b></span>
+              </div>
+              <div class="sim-slot">
+                <div class="simcard" id="pc-1">
+                  <span class="rank">K&middot;13</span>
+                  <img class="suit-mark pixel" src="/assets/icons/icon-wheat.png" alt="" />
+                  <img class="portrait" src="/assets/cards/face-king-wheat.png" alt="King of wheat" />
+                </div>
+                <span class="slot-tag" id="tag-1"><span class="i-en">follows &mdash; the best wheat at the table</span><span class="i-ru">в масть &mdash; лучшая пшеница за столом</span></span>
+              </div>
+            </div>
+            <div class="sim-player" id="sp-2">
+              <div class="sim-phead">
+                <img class="pixel" src="/assets/icons/icon-basic-ai.png" alt="" />
+                <span class="pname"><span class="i-en">Boris</span><span class="i-ru">Борис</span></span>
+              </div>
+              <div class="sim-stats">
+                <span class="medals" id="med-2">&#9734;&#9734;&#9734;&#9734;</span>
+                <span><span class="i-en">Cellar:</span><span class="i-ru">Подвал:</span> <b id="cel-2">1</b></span>
+              </div>
+              <div class="sim-slot">
+                <div class="simcard" id="pc-2">
+                  <span class="rank">6</span>
+                  <img class="suit-mark pixel" src="/assets/icons/icon-potato.png" alt="" />
+                  <span class="big-rank">6</span>
+                </div>
+                <span class="slot-tag" id="tag-2"><span class="i-en">void in wheat &mdash; sheds a weak worker</span><span class="i-ru">пшеницы нет &mdash; сбрасывает слабого работника</span></span>
+              </div>
+            </div>
+            <div class="sim-player you" id="sp-3">
+              <div class="sim-phead">
+                <img class="pixel" src="/assets/icons/icon-human-seat.png" alt="" />
+                <span class="pname"><span class="i-en">You</span><span class="i-ru">Вы</span></span>
+              </div>
+              <div class="sim-stats">
+                <span class="medals" id="med-3">&#9734;&#9734;&#9734;&#9734;</span>
+                <span><span class="i-en">Cellar:</span><span class="i-ru">Подвал:</span> <b id="cel-3">1</b></span>
+              </div>
+              <div class="sim-slot">
+                <div class="simcard" id="pc-3">
+                  <span class="rank">Q&middot;12</span>
+                  <img class="suit-mark pixel" src="/assets/icons/icon-sunflower.png" alt="" />
+                  <img class="portrait" src="/assets/cards/face-queen-sunflower.png" alt="Queen of sunflowers" />
+                </div>
+                <div class="simcard north" id="north-card">
+                  <span class="rank">10</span>
+                  <img class="suit-mark pixel" src="/assets/icons/icon-potato.png" alt="" />
+                  <span class="big-rank">10</span>
+                  <span class="northstamp">На Север</span>
+                </div>
+                <span class="slot-tag" id="tag-3"><span class="i-en">trump beats the led crop &mdash; the King falls</span><span class="i-ru">козырь бьёт ведущую масть &mdash; король пал</span></span>
+              </div>
+            </div>
+          </div>
+          <div class="sim-hand" id="sim-hand">
+            <div class="simcard" id="hand-q" role="button" tabindex="0" aria-label="Play the Queen of Sunflower">
+              <span class="rank">Q&middot;12</span>
+              <img class="suit-mark pixel" src="/assets/icons/icon-sunflower.png" alt="" />
+              <img class="portrait" src="/assets/cards/face-queen-sunflower.png" alt="Queen of sunflowers" />
+            </div>
+            <div class="simcard" id="hand-1">
+              <span class="rank">6</span>
+              <img class="suit-mark pixel" src="/assets/icons/icon-sunflower.png" alt="" />
+              <span class="big-rank">6</span>
+            </div>
+            <div class="simcard" id="hand-2">
+              <span class="rank">8</span>
+              <img class="suit-mark pixel" src="/assets/icons/icon-potato.png" alt="" />
+              <span class="big-rank">8</span>
+            </div>
+            <div class="simcard" id="hand-3">
+              <span class="rank">7</span>
+              <img class="suit-mark pixel" src="/assets/icons/icon-beet.png" alt="" />
+              <span class="big-rank">7</span>
+            </div>
+            <div class="simcard" id="hand-4">
+              <span class="rank" id="swap-rank">10</span>
+              <img class="suit-mark pixel" src="/assets/icons/icon-beet.png" alt="" />
+              <span class="big-rank" id="swap-big">10</span>
+            </div>
+          </div>
+          <div class="sim-caption">
+            <span class="mug" aria-hidden="true"><img src="/assets/foreman-misha.png" alt="" /></span>
+            <div class="bubble" aria-live="polite">
+              <span class="cap-title" id="sim-cap-title"></span>
+              <span id="sim-cap-text"></span>
+            </div>
+          </div>
+          <div class="sim-controls">
+            <button class="sim-btn ghost" id="sim-prev" type="button">Back</button>
+            <div class="sim-dots" id="sim-dots" aria-hidden="true"></div>
+            <button class="sim-btn" id="sim-next" type="button">Next</button>
+          </div>
+          <!-- Button labels are set by script so they can follow the language toggle. -->
+        </div>
+      </section>
+
+      <section class="workboard" aria-labelledby="workboard-title">
+        <div class="section-head reveal">
+          <span class="eyebrow"><span class="i-en">The quota</span><span class="i-ru">Норма</span></span>
+          <h2 class="display" id="workboard-title"><span class="i-en">40 hours or nothing</span><span class="i-ru">40 часов или ничего</span></h2>
+          <p class="sub">
+            <span class="i-en">A job is complete the moment its assigned work hours reach forty. There is no
+            partial credit. There never is.</span>
+            <span class="i-ru">Работа завершена в тот миг, когда назначенные часы достигают сорока.
+            Частичного зачёта нет. Его не бывает.</span>
+          </p>
+        </div>
+        <div class="quota-demo reveal" aria-label="Example of a completed wheat job">
+          <div class="job-line">
+            <img class="pixel" src="/assets/icons/icon-wheat.png" alt="" />
+            <h3><span class="i-en">Wheat harvest</span><span class="i-ru">Уборка пшеницы</span></h3>
+            <span class="quota-target"><span class="i-en">Quota: 40 hours</span><span class="i-ru">Норма: 40 часов</span></span>
+          </div>
+          <div class="meter" role="img" aria-label="Four assigned cards: 6, 9, Queen worth 12, and King worth 13, totalling 40 work hours">
+            <span class="seg" style="width: 15%">6</span>
+            <span class="seg" style="width: 22.5%">9</span>
+            <span class="seg" style="width: 30%">Q&middot;12</span>
+            <span class="seg" style="width: 32.5%">K&middot;13</span>
+          </div>
+          <div class="meter-caption">
+            <span><span class="i-en">6 + 9 + 12 + 13 = 40. The quota is met.</span><span class="i-ru">6 + 9 + 12 + 13 = 40. Норма выполнена.</span></span>
+            <span><span class="i-en">Reward claimed &check;</span><span class="i-ru">Награда получена &check;</span></span>
+          </div>
+        </div>
+        <div class="misha-says reveal">
+          <span class="mug" aria-hidden="true"><img src="/assets/foreman-misha.png" alt="" /></span>
+          <div class="bubble">
+            <span class="who"><span class="i-en">Misha says</span><span class="i-ru">Миша говорит</span></span>
+            <span class="i-en">Assign work to the crops that match your best cellar cards. A finished job pays
+            you <em>and</em> keeps the inspectors away from that crop. Two birds, one quota.</span>
+            <span class="i-ru">Назначайте работу на культуры своих лучших карт подвала. Закрытая работа и
+            платит вам, <em>и</em> держит инспекторов подальше от этой культуры. Две птицы
+            &mdash; одна норма.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="nomenclature" aria-labelledby="nomen-title">
+        <div class="section-head reveal">
+          <span class="eyebrow"><span class="i-en">Trump face cards &mdash; Колхозник &amp; Зонский режим</span><span class="i-ru">Козырные фигуры &mdash; Колхозник и Зонский режим</span></span>
+          <h2 class="display" id="nomen-title"><span class="i-en">The nomenklatura</span><span class="i-ru">Номенклатура</span></h2>
+          <p class="sub">
+            <span class="i-en">Under nomenklatura rules, the Party lives by its own laws: the Jack, Queen,
+            and King of the trump crop carry special orders wherever they land.</span>
+            <span class="i-ru">По правилам номенклатуры партия живёт по своим законам: валет, дама и
+            король козырной культуры несут особые приказы всюду, где окажутся.</span>
+          </p>
+          <div class="head-rule" aria-hidden="true"></div>
+        </div>
+        <div class="nomen-grid">
+          <div class="nomen-card reveal">
+            <div class="playing-card">
+              <span class="rank">J&middot;11</span>
+              <img class="suit-mark pixel" src="/assets/icons/icon-beet.png" alt="" />
+              <img class="portrait" src="/assets/cards/face-jack-beet.png" alt="Jack of beets" />
+            </div>
+            <h3><span class="i-en">The Drunkard</span><span class="i-ru">Пьяница</span></h3>
+            <p class="alias"><span class="i-en">Jack &mdash; Пьяница</span><span class="i-ru">Валет &mdash; Jack</span></p>
+            <p>
+              <span class="i-en">Contributes <strong>zero</strong> work hours to any job. If his job is
+              inspected, the Jack is exiled North instead of your card. Useless, but loyal.</span>
+              <span class="i-ru">Даёт <strong>ноль</strong> часов любой работе. Если его работу проверяют,
+              на Север едет валет &mdash; вместо вашей карты. Бесполезен, но предан.</span>
+            </p>
+          </div>
+          <div class="nomen-card reveal">
+            <div class="playing-card">
+              <span class="rank">Q&middot;12</span>
+              <img class="suit-mark pixel" src="/assets/icons/icon-sunflower.png" alt="" />
+              <img class="portrait" src="/assets/cards/face-queen-sunflower.png" alt="Queen of sunflowers" />
+            </div>
+            <h3><span class="i-en">The Informant</span><span class="i-ru">Информатор</span></h3>
+            <p class="alias"><span class="i-en">Queen &mdash; Информатор</span><span class="i-ru">Дама &mdash; Queen</span></p>
+            <p>
+              <span class="i-en">If her job goes unfinished, <strong>every player</strong> must reveal their
+              matching cellar cards &mdash; not just the trick winners. She talks.</span>
+              <span class="i-ru">Если её работа не закрыта, подвал открывают <strong>все игроки</strong>
+              &mdash; не только бравшие взятки. Она разговорчива.</span>
+            </p>
+          </div>
+          <div class="nomen-card reveal">
+            <div class="playing-card">
+              <span class="rank">K&middot;13</span>
+              <img class="suit-mark pixel" src="/assets/icons/icon-wheat.png" alt="" />
+              <img class="portrait" src="/assets/cards/face-king-wheat.png" alt="King of wheat" />
+            </div>
+            <h3><span class="i-en">The Party Man</span><span class="i-ru">Партиец</span></h3>
+            <p class="alias"><span class="i-en">King &mdash; Партиец</span><span class="i-ru">Король &mdash; King</span></p>
+            <p>
+              <span class="i-en">If his job is inspected, <strong>two</strong> matching cards per player go North
+              instead of one. The Party expects twice the sacrifice.</span>
+              <span class="i-ru">Если его работу проверяют, на Север уходят <strong>две</strong> подходящие
+              карты с игрока вместо одной. Партия ждёт двойной жертвы.</span>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="requisition" aria-labelledby="req-title">
+        <div class="req-inner">
+          <div class="req-copy">
+            <div class="section-head reveal">
+              <span class="eyebrow"><span class="i-en">The knock at the door</span><span class="i-ru">Стук в дверь</span></span>
+              <h2 class="display" id="req-title"><span class="i-en">Requisition</span><span class="i-ru">Реквизиция</span></h2>
+              <div class="head-rule" aria-hidden="true"></div>
+            </div>
+            <p class="reveal">
+              <span class="i-en">Every failed job has consequences, and they land on the ambitious. If you wore
+              the brigade leader's armband this year, each unfarmed crop forces you to reveal
+              your <strong>highest matching cellar card</strong> and surrender it to the North.</span>
+              <span class="i-ru">У каждой проваленной работы есть последствия, и падают они на честолюбивых.
+              Носили в этом году повязку бригадира &mdash; каждое неубранное поле заставит
+              вас открыть свою <strong>старшую карту этой культуры в подвале</strong> и
+              сдать её Северу.</span>
+            </p>
+            <p class="reveal">
+              <span class="i-en">Medals sweeten the deal &mdash; they <strong>break ties</strong> at final scoring
+              &mdash; but every trick you win paints the target brighter.
+              <strong>Sometimes ducking a trick is the shrewdest play in the game.</strong></span>
+              <span class="i-ru">Медали подслащивают сделку &mdash; они <strong>решают ничьи</strong> при
+              финальном подсчёте, &mdash; но каждая взятая взятка делает мишень ярче.
+              <strong>Иногда уступить взятку &mdash; самый хитрый ход в игре.</strong></span>
+            </p>
+            <p class="reveal">
+              <span class="i-en">Cards that survive an inspection stay face-up for the rest of the game.
+              Your neighbors are counting. So is the State.</span>
+              <span class="i-ru">Пережившие проверку карты лежат открытыми до конца игры. Соседи считают.
+              Государство тоже.</span>
+            </p>
+          </div>
+          <div class="req-notice reveal" aria-label="Requisition notice">
+            <h3><span class="i-en">Notice of requisition</span><span class="i-ru">Извещение о реквизиции</span></h3>
+            <img class="pixel" src="/assets/icons/icon-requisition-north.png" alt="A worker being escorted toward a northern train" />
+            <p class="terms">
+              <span class="i-en">By order of the district: the quota for this field was not met. Trick winners
+              will present their cellars for inspection. Confiscated goods will not return.</span>
+              <span class="i-ru">Приказом округа: норма по этому полю не выполнена. Бравшие взятки предъявят
+              подвалы к осмотру. Изъятое не возвращается.</span>
+            </p>
+            <span class="north-stamp" aria-hidden="true">На Север</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="campaign" aria-labelledby="campaign-title">
+        <div class="section-head reveal">
+          <span class="eyebrow"><span class="i-en">Round by round</span><span class="i-ru">Раунд за раундом</span></span>
+          <h2 class="display" id="campaign-title"><span class="i-en">The Five-Year Plan</span><span class="i-ru">Пятилетка</span></h2>
+          <p class="sub">
+            <span class="i-en">Five rounds, one per year. The protocol never changes &mdash; but the years do.</span>
+            <span class="i-ru">Пять раундов, по одному на год. Протокол не меняется &mdash; меняются годы.</span>
+          </p>
+        </div>
+        <div class="plan-grid reveal">
+          <div class="plan-year">
+            <img class="pixel" src="/assets/icons/icon-year-1.png" alt="Year one" />
+            <h3><span class="i-en">First sowing</span><span class="i-ru">Первый сев</span></h3>
+            <p>
+              <span class="i-en">Jobs are posted, trump is declared, and the fields are new. No swap yet &mdash; you play the hand you're dealt.</span>
+              <span class="i-ru">Работы объявлены, козырь назван, поля новые. Обмена ещё нет &mdash; играете, что сдали.</span>
+            </p>
+            <span class="year-facts"><span class="i-en">5 cards · 4 tricks · trump</span><span class="i-ru">5 карт · 4 взятки · козырь</span></span>
+          </div>
+          <div class="plan-year">
+            <img class="pixel" src="/assets/icons/icon-year-2.png" alt="Year two" />
+            <h3><span class="i-en">Swaps begin</span><span class="i-ru">Начинаются обмены</span></h3>
+            <p>
+              <span class="i-en">The swap opens: one hand card for one cellar card, every year from now on.</span>
+              <span class="i-ru">Открывается обмен: карта руки на карту подвала, теперь каждый год.</span>
+            </p>
+            <span class="year-facts"><span class="i-en">5 cards · 4 tricks · trump · swap</span><span class="i-ru">5 карт · 4 взятки · козырь · обмен</span></span>
+          </div>
+          <div class="plan-year">
+            <img class="pixel" src="/assets/icons/icon-year-3.png" alt="Year three" />
+            <h3><span class="i-en">Mid-plan</span><span class="i-ru">Середина плана</span></h3>
+            <p>
+              <span class="i-en">Cellars grow heavy and revealed cards pile up. Everyone at the table is counting.</span>
+              <span class="i-ru">Подвалы тяжелеют, открытых карт всё больше. Считают все за столом.</span>
+            </p>
+            <span class="year-facts"><span class="i-en">5 cards · 4 tricks · trump · swap</span><span class="i-ru">5 карт · 4 взятки · козырь · обмен</span></span>
+          </div>
+          <div class="plan-year">
+            <img class="pixel" src="/assets/icons/icon-year-4.png" alt="Year four" />
+            <h3><span class="i-en">Last full harvest</span><span class="i-ru">Последняя жатва</span></h3>
+            <p>
+              <span class="i-en">The final year of plenty. Protect what you've buried &mdash; requisition remembers.</span>
+              <span class="i-ru">Последний сытый год. Берегите закопанное &mdash; реквизиция помнит.</span>
+            </p>
+            <span class="year-facts"><span class="i-en">5 cards · 4 tricks · trump · swap</span><span class="i-ru">5 карт · 4 взятки · козырь · обмен</span></span>
+          </div>
+          <div class="plan-year famine">
+            <img class="pixel" src="/assets/icons/icon-year-5.png" alt="Year five" />
+            <h3><span class="i-en">Year of hunger</span><span class="i-ru">Год голода</span></h3>
+            <p>
+              <span class="i-en">Four cards dealt, three tricks played, and no trump to save you. Short, and usually decisive.</span>
+              <span class="i-ru">Четыре карты, три взятки и никакого козыря. Коротко &mdash; и обычно решающе.</span>
+            </p>
+            <span class="year-facts"><span class="i-en">4 cards · 3 tricks · no trump</span><span class="i-ru">4 карты · 3 взятки · без козыря</span></span>
+            <span class="famine-stamp"><span class="i-en">Famine</span><span class="i-ru">Голод</span></span>
+          </div>
+        </div>
+        <div class="scoring-note reveal">
+          <img class="pixel" src="/assets/icons/icon-medal-star.png" alt="" />
+          <div>
+            <h3><span class="i-en">Then, the arithmetic</span><span class="i-ru">Затем &mdash; арифметика</span></h3>
+            <p>
+              <span class="i-en">After year five's requisition, every card in your cellar &mdash; hidden or
+              revealed, worker or reward &mdash; counts its rank in points.
+              <strong>Highest cellar total wins the Plan.</strong> Tied? The comrade with
+              more medals takes it.</span>
+              <span class="i-ru">После реквизиции пятого года каждая карта в подвале &mdash; скрытая или
+              открытая, рабочий или награда &mdash; приносит свой ранг в очках.
+              <strong>Наибольшая сумма подвала выигрывает пятилетку.</strong> Ничья?
+              Побеждает товарищ с большим числом медалей.</span>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="advice" aria-labelledby="advice-title">
+        <div class="section-head reveal">
+          <span class="eyebrow"><span class="i-en">From the foreman's notebook</span><span class="i-ru">Из блокнота бригадира</span></span>
+          <h2 class="display" id="advice-title"><span class="i-en">Misha's advice</span><span class="i-ru">Советы Миши</span></h2>
+          <div class="head-rule" aria-hidden="true"></div>
+        </div>
+        <div class="advice-grid">
+          <div class="misha-says reveal">
+            <span class="mug" aria-hidden="true"><img src="/assets/foreman-misha.png" alt="" /></span>
+            <div class="bubble">
+              <span class="who"><span class="i-en">On the cellar</span><span class="i-ru">О подвале</span></span>
+              <span class="i-en">High hidden cards are your bank. Losing one to the North can swing the whole
+              Plan. Guard them like bread in winter.</span>
+              <span class="i-ru">Старшие скрытые карты &mdash; ваш банк. Потеря одной на Севере может решить
+              всю пятилетку. Берегите их, как хлеб зимой.</span>
+            </div>
+          </div>
+          <div class="misha-says reveal">
+            <span class="mug" aria-hidden="true"><img src="/assets/foreman-misha.png" alt="" /></span>
+            <div class="bubble">
+              <span class="who"><span class="i-en">On winning</span><span class="i-ru">О победах</span></span>
+              <span class="i-en">Winning is power, but it paints a target on your cellar for the rest of the
+              year. Duck a trick when you cannot afford the attention.</span>
+              <span class="i-ru">Победа &mdash; сила, но она рисует мишень на вашем подвале до конца года.
+              Уступайте взятку, когда внимание вам не по карману.</span>
+            </div>
+          </div>
+          <div class="misha-says reveal">
+            <span class="mug" aria-hidden="true"><img src="/assets/foreman-misha.png" alt="" /></span>
+            <div class="bubble">
+              <span class="who"><span class="i-en">On the swap</span><span class="i-ru">Об обмене</span></span>
+              <span class="i-en">Tuck high cards into the cellar when they can sit safe; pull dangerous ones
+              out before the inspectors come counting.</span>
+              <span class="i-ru">Прячьте старшие карты в подвал, пока им там спокойно; вытаскивайте опасные,
+              пока инспекторы не начали считать.</span>
+            </div>
+          </div>
+          <div class="misha-says reveal">
+            <span class="mug" aria-hidden="true"><img src="/assets/foreman-misha.png" alt="" /></span>
+            <div class="bubble">
+              <span class="who"><span class="i-en">On trump</span><span class="i-ru">О козыре</span></span>
+              <span class="i-en">Pick trump for the hand you intend to play, not for the biggest card you happen
+              to hold. The Plan rewards intention.</span>
+              <span class="i-ru">Выбирайте козырь под руку, которую собираетесь разыграть, а не под самую
+              большую карту. План вознаграждает намерение.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="closing" aria-labelledby="closing-title">
+        <div class="reveal">
+          <h2 class="display" id="closing-title"><span class="i-en">Now get to work.</span><span class="i-ru">А теперь &mdash; за работу.</span></h2>
+          <p class="sub">
+            <span class="i-en">Misha will walk you through your first year inside the app &mdash; card by card,
+            trick by trick, knock by knock.</span>
+            <span class="i-ru">Миша проведёт вас через первый год прямо в приложении &mdash; карта за
+            картой, взятка за взяткой, стук за стуком.</span>
+          </p>
+          <div class="actions">
+            <a class="store-button" href="/#availability"><span class="i-en">Get the game</span><span class="i-ru">Скачать игру</span></a>
+            <a class="inline-link" href="/"><span class="i-en">Back to the collective</span><span class="i-ru">Назад в колхоз</span></a>
+            <a class="inline-link" href="/support.html"><span class="i-en">Support</span><span class="i-ru">Поддержка</span></a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span><span class="i-en">Kolkhoz for iPhone</span><span class="i-ru">Колхоз для iPhone</span></span>
+      <nav aria-label="Footer navigation">
+        <a href="/how-to-play.html"><span class="i-en">How to play</span><span class="i-ru">Как играть</span></a>
+        <a href="/rules.html"><span class="i-en">Rules</span><span class="i-ru">Правила</span></a>
+        <a href="/about.html"><span class="i-en">About</span><span class="i-ru">Об игре</span></a>
+        <a href="/support.html"><span class="i-en">Support</span><span class="i-ru">Поддержка</span></a>
+        <a href="/privacy.html"><span class="i-en">Privacy</span><span class="i-ru">Приватность</span></a>
+      </nav>
+    </footer>
+
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js").catch(() => {});
+      }
+
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const revealed = document.querySelectorAll(".reveal");
+      if (reduceMotion || !("IntersectionObserver" in window)) {
+        revealed.forEach((el) => el.classList.add("visible"));
+      } else {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                entry.target.classList.add("visible");
+                observer.unobserve(entry.target);
+              }
+            });
+          },
+          { rootMargin: "0px 0px -8% 0px" }
+        );
+        revealed.forEach((el) => observer.observe(el));
+      }
+
+      // ---------- Interactive year walkthrough ----------
+      (() => {
+        const $ = (id) => document.getElementById(id);
+        const capTitle = $("sim-cap-title");
+        const capText = $("sim-cap-text");
+        const prevBtn = $("sim-prev");
+        const nextBtn = $("sim-next");
+        const dotsBox = $("sim-dots");
+        if (!capTitle) return;
+
+        const steps = [
+          {
+            t: "Phase 1 — Planning",
+            x: "The planner has flipped one reward card over each field — wheat pays 4 points this year — and declared sunflower the State's main task. Trump beats everything.",
+            tr: "Фаза 1 — Планирование",
+            xr: "Плановик открыл по награде над каждым полем — пшеница в этом году стоит 4 очка — и объявил подсолнечник главной задачей государства. Козырь бьёт всё.",
+          },
+          {
+            t: "Phase 2 — The swap",
+            x: "It is year two, so you may trade one hand card for one cellar card. You bury your 10 of beets where the State can't count it and pull back a 9. Insurance.",
+            tr: "Фаза 2 — Обмен",
+            xr: "Второй год: можно обменять одну карту руки на карту подвала. Вы прячете десятку свёклы туда, где государство её не сосчитает, и забираете девятку. Страховка.",
+          },
+          {
+            t: "Phase 3 — Pyotr leads",
+            x: "Pyotr opens the trick with the 9 of wheat. Wheat is now the led crop — everyone who holds wheat must follow it.",
+            tr: "Фаза 3 — Пётр ведёт",
+            xr: "Пётр открывает взятку девяткой пшеницы. Пшеница — ведущая культура: у кого она есть, обязан ходить в масть.",
+          },
+          {
+            t: "Anya follows",
+            x: "Anya plays the King of wheat: thirteen work hours of pure ambition. For the moment, the trick is hers.",
+            tr: "Аня в масть",
+            xr: "Аня кладёт короля пшеницы: тринадцать часов чистого честолюбия. Пока что взятка её.",
+          },
+          {
+            t: "Boris is void",
+            x: "Boris has no wheat, so he may play anything. He sheds his weakest potato and keeps his good workers hidden.",
+            tr: "У Бориса пусто",
+            xr: "У Бориса нет пшеницы — можно класть что угодно. Он сбрасывает худшую картошку и прячет хороших работников.",
+          },
+          {
+            t: "Your move, comrade",
+            x: "You have no wheat either — and sunflower is trump. Play the Queen.",
+            tr: "Ваш ход, товарищ",
+            xr: "У вас пшеницы тоже нет — а подсолнечник козырь. Кладите даму.",
+          },
+          {
+            t: "The Queen takes it",
+            x: "Trump beats the led crop; the King falls. You take a medal, wear the brigade leader's armband — and every card in this trick is yours to assign.",
+            tr: "Дама забирает",
+            xr: "Козырь бьёт ведущую масть; король пал. Вы получаете медаль, надеваете повязку бригадира — и все карты взятки ваши: назначайте.",
+          },
+          {
+            t: "Phase 4 — Assign the labor",
+            x: "You volunteer the workers: both wheat cards to the wheat job (22 hours), the potato to potatoes, your Queen to sunflowers — guarding your own cellar. Beets never appeared in the trick, so that job gets nothing.",
+            tr: "Фаза 4 — Назначение",
+            xr: "Вы записываете добровольцев: обе пшеницы — на пшеницу (22 часа), картошку — на картофель, свою даму — на подсолнечник, прикрывая собственный подвал. Свёклы во взятке не было — этой работе ничего.",
+          },
+          {
+            t: "Phase 5 — The year closes",
+            x: "Three tricks later the wheat job hits its 40 hours — reward claimed — and your one unplayed card slips face-down into your cellar. The State never saw it.",
+            tr: "Фаза 5 — Год закрывается",
+            xr: "Тремя взятками позже пшеница добирает свои 40 часов — награда получена, — а ваша несыгранная карта тихо уходит в подвал рубашкой вверх. Государство её не видело.",
+          },
+          {
+            t: "Phase 6 — Requisition",
+            x: "The potato job missed quota. You won a trick this year, so the inspectors reveal your highest potato — and send it North. Gone. Boris pays the same way.",
+            tr: "Фаза 6 — Реквизиция",
+            xr: "Картофель норму не выполнил. Вы брали взятку в этом году — инспекторы вскрывают вашу старшую картошку и отправляют её на Север. Всё. Борис платит так же.",
+          },
+          {
+            t: "Phase 7 — The year turns",
+            x: "The planner's cap passes left and year three begins. That's the whole loop: plan, swap, four tricks, the leftover, the knock at the door. Replay it — or go meet the real thing.",
+            tr: "Фаза 7 — Год поворачивается",
+            xr: "Фуражка плановика уходит влево — начинается третий год. Вот и весь круг: план, обмен, четыре взятки, остаток, стук в дверь. Прокрутите заново — или идите знакомиться с настоящим.",
+          },
+        ];
+
+        let step = 0;
+        steps.forEach(() => dotsBox.appendChild(document.createElement("span")));
+        const dots = Array.from(dotsBox.children);
+
+        const meters = { wheat: $("m-wheat"), sun: $("m-sun"), pot: $("m-pot"), beet: $("m-beet") };
+        const jobs = { wheat: $("job-wheat"), sun: $("job-sun"), pot: $("job-pot"), beet: $("job-beet") };
+        const star = (n) => "★".repeat(n) + "☆".repeat(4 - n);
+
+        function apply() {
+          const i = step;
+
+          // Job meters and states
+          const meterVals =
+            i < 7
+              ? { wheat: 0, sun: 0, pot: 0, beet: 0 }
+              : i < 8
+                ? { wheat: 22, sun: 12, pot: 6, beet: 0 }
+                : { wheat: 40, sun: 31, pot: 26, beet: 9 };
+          for (const k of ["wheat", "sun", "pot", "beet"]) {
+            meters[k].textContent = meterVals[k] + "/40";
+            jobs[k].classList.toggle("pulse", i === 7 && k !== "beet");
+            jobs[k].classList.toggle("done", i >= 8 && k === "wheat");
+            jobs[k].classList.toggle("failed", i >= 9 && k === "pot");
+          }
+
+          // Swapped hand card (10 of beets -> 9 of beets after the swap)
+          $("swap-rank").textContent = i >= 1 ? "9" : "10";
+          $("swap-big").textContent = i >= 1 ? "9" : "10";
+
+          // Played cards
+          $("pc-0").classList.toggle("on", i >= 2);
+          $("pc-1").classList.toggle("on", i >= 3);
+          $("pc-2").classList.toggle("on", i >= 4);
+          $("pc-3").classList.toggle("on", i >= 6);
+          $("pc-3").classList.toggle("win", i >= 6 && i < 8);
+          $("tag-0").classList.toggle("on", i === 2);
+          $("tag-1").classList.toggle("on", i === 3);
+          $("tag-2").classList.toggle("on", i === 4);
+          $("tag-3").classList.toggle("on", i === 6);
+
+          // Player highlights
+          $("sp-0").classList.toggle("active", i === 2);
+          $("sp-1").classList.toggle("active", i === 3);
+          $("sp-2").classList.toggle("active", i === 4);
+          $("sp-3").classList.toggle("active", i === 5 || i === 6);
+
+          // Medals and cellar counts
+          $("med-3").textContent = star(i >= 6 ? 1 : 0);
+          $("med-0").textContent = star(0);
+          $("med-1").textContent = star(0);
+          $("med-2").textContent = star(0);
+          $("cel-3").textContent = i >= 9 ? "1" : i >= 8 ? "2" : "1";
+          $("cel-2").textContent = i >= 9 ? "1" : i >= 8 ? "2" : "1";
+          $("cel-0").textContent = i >= 8 ? "2" : "1";
+          $("cel-1").textContent = i >= 8 ? "2" : "1";
+
+          // Hand
+          const q = $("hand-q");
+          q.classList.toggle("legal", i === 5);
+          q.classList.toggle("gone", i >= 6);
+          for (const id of ["hand-1", "hand-2", "hand-3", "hand-4"]) {
+            $(id).classList.toggle("dim", i >= 8);
+          }
+
+          // North exile
+          $("north-card").classList.toggle("on", i >= 9);
+
+          // Caption and controls
+          const ru = document.documentElement.dataset.lang === "ru";
+          capTitle.textContent = ru ? steps[i].tr : steps[i].t;
+          capText.textContent = ru ? steps[i].xr : steps[i].x;
+          dots.forEach((d, n) => d.classList.toggle("here", n === i));
+          prevBtn.disabled = i === 0;
+          prevBtn.textContent = ru ? "Назад" : "Back";
+          nextBtn.textContent =
+            i === steps.length - 1 ? (ru ? "Заново" : "Replay") : (ru ? "Далее" : "Next");
+        }
+
+        nextBtn.addEventListener("click", () => {
+          step = step === steps.length - 1 ? 0 : step + 1;
+          apply();
+        });
+        prevBtn.addEventListener("click", () => {
+          if (step > 0) {
+            step -= 1;
+            apply();
+          }
+        });
+        $("hand-q").addEventListener("click", () => {
+          if (step === 5) {
+            step = 6;
+            apply();
+          }
+        });
+        $("hand-q").addEventListener("keydown", (e) => {
+          if ((e.key === "Enter" || e.key === " ") && step === 5) {
+            e.preventDefault();
+            step = 6;
+            apply();
+          }
+        });
+
+        document.addEventListener("kolkhoz-lang", apply);
+        apply();
+      })();
+
+      // ---------- Language toggle ----------
+      (() => {
+        const btn = document.getElementById("lang-toggle");
+        if (!btn) return;
+        btn.addEventListener("click", () => {
+          const next = document.documentElement.dataset.lang === "ru" ? "en" : "ru";
+          if (next === "ru") {
+            document.documentElement.dataset.lang = "ru";
+          } else {
+            delete document.documentElement.dataset.lang;
+          }
+          document.documentElement.setAttribute("lang", next);
+          try {
+            localStorage.setItem("kolkhoz-lang", next);
+          } catch (e) {}
+          document.dispatchEvent(new Event("kolkhoz-lang"));
+        });
+      })();
+
+      // ---------- Theme toggle ----------
+      const themeToggle = document.getElementById("theme-toggle");
+      if (themeToggle) {
+        themeToggle.addEventListener("click", () => {
+          const toLight = document.documentElement.dataset.theme !== "light";
+          if (toLight) {
+            document.documentElement.dataset.theme = "light";
+          } else {
+            delete document.documentElement.dataset.theme;
+          }
+          try {
+            localStorage.setItem("kolkhoz-theme", toLight ? "light" : "dark");
+          } catch (e) {}
+        });
+      }
+    </script>
+  </body>
+</html>

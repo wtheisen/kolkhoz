@@ -1390,7 +1390,13 @@ function rememberLiveSupervisedPoint(record) {
 function isMaskedStateTraining(record) {
   return record?.kind === "masked_state_policy_training"
     || record?.model?.architecture === "masked-state-mlp"
-    || record?.architecture === "masked-state-mlp";
+    || record?.architecture === "masked-state-mlp"
+    || record?.model?.architecture === "masked-state-rnn"
+    || record?.architecture === "masked-state-rnn"
+    || record?.model?.architecture === "masked-state-transformer"
+    || record?.architecture === "masked-state-transformer"
+    || record?.model?.architecture === "masked-state-routed-transformer"
+    || record?.architecture === "masked-state-routed-transformer";
 }
 
 function maskedStateLiveKey(record) {

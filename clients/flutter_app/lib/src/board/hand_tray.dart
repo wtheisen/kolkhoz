@@ -4,12 +4,13 @@ import 'dart:ui' show clampDouble;
 import 'package:flutter/material.dart';
 
 import '../app_settings.dart';
+import '../app_text.dart';
 import '../assignment_display.dart';
 import '../card_display.dart';
+import '../chrome_button.dart';
 import '../design_tokens.dart';
 import '../game_constants.dart';
 import '../lower_bar_actions.dart';
-import '../pixel_text.dart';
 import '../render_model.dart';
 import '../table_display.dart';
 import 'board_widgets.dart';
@@ -22,18 +23,15 @@ const handTrayIconSize = 32.0;
 const handTrayCardSpacing = 10.0;
 const handTrayCardYOffset = 8.0;
 const handTrayAssignmentWidth = 290.0;
-const handTrayActionSingleWidth = 150.0;
-const handTrayActionDoubleWidth = 268.0;
 const handTrayAssignmentDividerWidth = 2.0;
 const handTrayAssignmentDividerTopMargin = 5.0;
 const handTrayAssignmentCardsYOffset = 4.0;
-const handTrayProminentActionWidth = 132.0;
-const handTraySecondaryActionWidth = 88.0;
-const handTrayProminentActionHeight = 36.0;
-const handTraySecondaryActionHeight = 32.0;
+const handTrayActionButtonSize = 48.0;
+const handTrayActionIconSize = 34.0;
+const handTrayActionSpacing = 8.0;
+const handTrayActionBarPadding = 6.0;
 const handTraySwapHighlightStrokeWidth = 2.0;
 const handTraySwapHighlightCornerRadius = 7.0;
-const handTrayActionFontSize = 13.0;
 const handTrayCardHeightFillFactor = 1.0;
 const handTrayCardMinScale = 0.65;
 const handTrayCardMaxScale = 3.0;
@@ -505,13 +503,15 @@ class ActionCommandBar extends StatelessWidget {
     final commands = [
       if (canUndo)
         HandTrayCommand(
-          label: language.text(en: 'Undo', ru: 'Назад'),
+          label: language.t(KolkhozText.boardHandtrayUndo),
+          iconAsset: 'icon-toolbar-undo.png',
           prominent: false,
           onPressed: onUndo,
         ),
       if (selectedPlayAction != null)
         HandTrayCommand(
-          label: language.text(en: 'Play', ru: 'Ход'),
+          label: language.t(KolkhozText.boardHandtrayPlay),
+          iconAsset: 'icon-toolbar-play.png',
           prominent: true,
           onPressed: onAction == null
               ? null
@@ -525,6 +525,7 @@ class ActionCommandBar extends StatelessWidget {
               tableYear: tableYear,
               language: language,
             ),
+            iconAsset: lowerBarActionIconAsset(action),
             prominent: isProminentLowerBarAction(action),
             onPressed: onAction == null ? null : () => onAction!(action),
           ),
@@ -541,8 +542,9 @@ class ActionCommandBar extends StatelessWidget {
             spacing: 8,
             children: [
               for (final command in commands)
-                ActionPill(
+                ActionIconButton(
                   label: command.label,
+                  iconAsset: command.iconAsset,
                   tokens: tokens,
                   prominent: command.prominent,
                   onPressed: command.onPressed,
@@ -555,24 +557,23 @@ class ActionCommandBar extends StatelessWidget {
   }
 
   double actionBarWidth(int commandCount) {
-    if (commandCount <= 1) {
-      return handTrayActionSingleWidth;
-    }
-    if (commandCount == 2) {
-      return handTrayActionDoubleWidth;
-    }
-    return handTrayActionDoubleWidth + handTraySecondaryActionWidth + 8;
+    final visibleCommands = math.max(1, commandCount);
+    return handTrayActionBarPadding * 2 +
+        visibleCommands * handTrayActionButtonSize +
+        math.max(0, visibleCommands - 1) * handTrayActionSpacing;
   }
 }
 
 class HandTrayCommand {
   const HandTrayCommand({
     required this.label,
+    required this.iconAsset,
     required this.prominent,
     this.onPressed,
   });
 
   final String label;
+  final String iconAsset;
   final bool prominent;
   final VoidCallback? onPressed;
 }
@@ -727,9 +728,10 @@ class AssignmentCommandCard extends StatelessWidget {
   }
 }
 
-class ActionPill extends StatelessWidget {
-  const ActionPill({
+class ActionIconButton extends StatelessWidget {
+  const ActionIconButton({
     required this.label,
+    required this.iconAsset,
     required this.tokens,
     required this.prominent,
     this.scale = 1,
@@ -738,6 +740,7 @@ class ActionPill extends StatelessWidget {
   });
 
   final String label;
+  final String iconAsset;
   final DesignTokens tokens;
   final bool prominent;
   final double scale;
@@ -745,79 +748,54 @@ class ActionPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onPressed,
-      child: Container(
-        width:
-            (prominent
-                ? handTrayProminentActionWidth
-                : handTraySecondaryActionWidth) *
-            scale,
-        height:
-            (prominent
-                ? handTrayProminentActionHeight
-                : handTraySecondaryActionHeight) *
-            scale,
-        padding: EdgeInsets.only(
-          left: (prominent ? 20 : 16) * scale,
-          right: (prominent ? 20 : 16) * scale,
-          top: (prominent ? 8 : 7) * scale,
-          bottom: (prominent ? 6 : 5) * scale,
-        ),
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage(
-              prominent
-                  ? 'ios_resources/ui-button-primary.png'
-                  : 'ios_resources/ui-button-secondary.png',
-            ),
-            fit: BoxFit.fill,
-            filterQuality: FilterQuality.none,
+    final enabled = onPressed != null;
+    final button = SizedBox(
+      width: handTrayActionButtonSize * scale,
+      height: handTrayActionButtonSize * scale,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned.fill(
+            child: ChromeButtonBackground(asset: chromeButtonSecondaryAsset),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: tokens.colors.black.withValues(
-                alpha: prominent ? 0.28 : 0.18,
+          ChromeAssetIcon(
+            asset: 'ios_resources/Icons/$iconAsset',
+            width: handTrayActionIconSize * scale,
+            height: handTrayActionIconSize * scale,
+            fit: BoxFit.contain,
+            muted: !enabled,
+          ),
+        ],
+      ),
+    );
+    final child = enabled ? button : Opacity(opacity: 0.55, child: button);
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        label: label,
+        child: ExcludeSemantics(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onPressed,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                boxShadow: [
+                  BoxShadow(
+                    color: tokens.colors.black.withValues(
+                      alpha: prominent ? 0.28 : 0.18,
+                    ),
+                    blurRadius: (prominent ? 5 : 3) * scale,
+                    offset: Offset(0, 2 * scale),
+                  ),
+                ],
               ),
-              blurRadius: (prominent ? 5 : 3) * scale,
-              offset: Offset(0, 2 * scale),
-            ),
-          ],
-        ),
-        child: Center(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: HandTrayActionPillLabel(
-              label.toUpperCase(),
-              prominent: prominent,
-              tokens: tokens,
+              child: child,
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-class HandTrayActionPillLabel extends StatelessWidget {
-  const HandTrayActionPillLabel(
-    this.label, {
-    required this.prominent,
-    required this.tokens,
-    super.key,
-  });
-
-  final String label;
-  final bool prominent;
-  final DesignTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    return ChromePixelLabel(
-      label.toUpperCase(),
-      size: PixelTextSize.caption,
-      color: prominent ? tokens.colors.onAccent : tokens.colors.cream,
     );
   }
 }

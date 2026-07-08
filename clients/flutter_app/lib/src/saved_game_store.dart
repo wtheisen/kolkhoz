@@ -128,6 +128,7 @@ class KolkhozAutosaveStore {
 Map<String, Object?> variantsToJson(KolkhozGameVariants variants) {
   return {
     'deckType': variants.deckType,
+    'maxYears': variants.maxYears,
     'nomenclature': variants.nomenclature,
     'allowSwap': variants.allowSwap,
     'northernStyle': variants.northernStyle,
@@ -143,6 +144,7 @@ Map<String, Object?> variantsToJson(KolkhozGameVariants variants) {
 KolkhozGameVariants variantsFromJson(Map<String, Object?> json) {
   return KolkhozGameVariants(
     deckType: json['deckType'] as int,
+    maxYears: json['maxYears'] as int? ?? 5,
     nomenclature: json['nomenclature'] as bool,
     allowSwap: json['allowSwap'] as bool,
     northernStyle: json['northernStyle'] as bool,

@@ -1,0 +1,1964 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="The complete tabletop rules for Kolkhoz: setup, the round flow, requisition, scoring, every named variant, and the 36-card Колхозик deck."
+    />
+    <meta property="og:title" content="Kolkhoz Rules — The Tabletop Game" />
+    <meta
+      property="og:description"
+      content="Setup, the round flow, requisition, scoring, and every named variant — the full rules for playing Kolkhoz with a real deck of cards."
+    />
+    <meta property="og:image" content="https://kolkhoz.williamtheisen.com/assets/title-card-kolkhoz.png" />
+    <meta property="og:url" content="https://kolkhoz.williamtheisen.com/rules.html" />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/png" href="/assets/icons/icon-wheat.png" />
+    <title>Rules — Kolkhoz</title>
+    <script>
+      try {
+        if (localStorage.getItem("kolkhoz-theme") === "light") {
+          document.documentElement.dataset.theme = "light";
+        }
+      } catch (e) {}
+    </script>
+    <style>
+      @font-face {
+        font-family: "Handjet";
+        src: url("/assets/Handjet.ttf") format("truetype");
+        font-display: swap;
+      }
+
+      :root {
+        --ink: #100f0c;
+        --coal: #171512;
+        --coal-2: #211e18;
+        --paper: #e3d3aa;
+        --paper-strong: #f2dfb2;
+        --paper-body: #392f1f;
+        --paper-ink: #19140d;
+        --muted: #b7a57d;
+        --red: #9f2f1e;
+        --red-bright: #b8422b;
+        --red-deep: #6f1d17;
+        --gold: #d4aa53;
+        --field: #26301d;
+        --field-2: #2c321f;
+        --line: rgba(212, 170, 83, 0.32);
+        --shadow: 0 28px 70px rgba(0, 0, 0, 0.5);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 92px;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 22% 8%, rgba(159, 47, 30, 0.16), transparent 32rem),
+          linear-gradient(135deg, #0d0c0a 0%, #191611 48%, #0d0c0a 100%);
+        color: var(--paper);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 19px;
+        line-height: 1.5;
+      }
+
+      body::before {
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        content: "";
+        opacity: 0.22;
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        background-size: 18px 18px;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      img.pixel {
+        image-rendering: pixelated;
+      }
+
+      .display {
+        font-family: "Handjet", Georgia, serif;
+        font-weight: 800;
+        line-height: 0.9;
+        letter-spacing: 0.01em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow {
+        display: block;
+        margin: 0 0 14px;
+        color: var(--gold);
+        font-size: 14px;
+        font-weight: 400;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+      }
+
+      .ru {
+        font-style: italic;
+        opacity: 0.85;
+      }
+
+      /* ---------- Header ---------- */
+
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 60;
+        border-bottom: 1px solid rgba(159, 47, 30, 0.8);
+        background: rgba(13, 12, 10, 0.92);
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+      }
+
+      .site-header-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 14px 24px 12px;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+      }
+
+      .brand-mark {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+      }
+
+      .theme-toggle {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        padding: 0;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: rgba(20, 19, 16, 0.8);
+        cursor: pointer;
+      }
+
+      .theme-toggle img {
+        width: 26px;
+        height: 26px;
+        object-fit: contain;
+      }
+
+      html[data-theme="light"] .theme-toggle .tt-to-light {
+        display: none;
+      }
+
+      html:not([data-theme="light"]) .theme-toggle .tt-to-dark {
+        display: none;
+      }
+
+      .brand-name {
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 38px;
+        font-weight: 800;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        gap: 30px;
+        color: var(--paper-strong);
+        font-size: 17px;
+      }
+
+      .nav a {
+        text-decoration-color: transparent;
+        text-underline-offset: 6px;
+        transition: color 160ms ease, text-decoration-color 160ms ease;
+      }
+
+      .nav a:hover,
+      .nav a:focus-visible {
+        color: #fff3cf;
+        text-decoration-color: var(--red);
+      }
+
+      .nav a[aria-current="page"] {
+        color: #fff3cf;
+        text-decoration: underline;
+        text-decoration-color: var(--red);
+      }
+
+      /* ---------- Hero ---------- */
+
+      .hero {
+        position: relative;
+        overflow: hidden;
+        padding: 68px 24px 64px;
+        text-align: center;
+      }
+
+      .hero-rays {
+        position: absolute;
+        top: -460px;
+        left: 50%;
+        z-index: 0;
+        width: 1600px;
+        height: 1600px;
+        pointer-events: none;
+        background: repeating-conic-gradient(
+          from 0deg,
+          rgba(212, 170, 83, 0.06) 0deg 9deg,
+          transparent 9deg 24deg
+        );
+        -webkit-mask-image: radial-gradient(circle, rgba(0, 0, 0, 0.9), transparent 62%);
+        mask-image: radial-gradient(circle, rgba(0, 0, 0, 0.9), transparent 62%);
+        transform: translateX(-50%);
+      }
+
+      .hero-inner {
+        position: relative;
+        z-index: 1;
+        max-width: 820px;
+        margin: 0 auto;
+      }
+
+      .hero-crest {
+        display: block;
+        width: 160px;
+        height: 160px;
+        margin: 0 auto 16px;
+        object-fit: contain;
+        filter: drop-shadow(0 14px 18px rgba(0, 0, 0, 0.45));
+      }
+
+      .hero h1 {
+        margin: 0;
+        color: var(--paper-strong);
+        font-size: clamp(58px, 9vw, 110px);
+      }
+
+      .hero .head-rule {
+        margin: 22px auto 0;
+      }
+
+      .hero .lead {
+        max-width: 640px;
+        margin: 24px auto 0;
+        color: #ead8b1;
+        font-size: clamp(21px, 2.5vw, 26px);
+        line-height: 1.3;
+      }
+
+      .hero .lead em {
+        color: var(--paper-strong);
+      }
+
+      .hero-note {
+        max-width: 560px;
+        margin: 16px auto 0;
+        color: var(--muted);
+        font-size: 17px;
+      }
+
+      .hero-note a {
+        color: var(--paper-strong);
+        text-decoration-color: var(--red);
+        text-underline-offset: 5px;
+      }
+
+      .rules-toc {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px 12px;
+        margin-top: 30px;
+      }
+
+      .rules-toc a {
+        padding: 7px 16px 6px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        background: rgba(20, 19, 16, 0.7);
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 21px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        line-height: 1;
+        text-decoration: none;
+        text-transform: uppercase;
+        transition: border-color 160ms ease, color 160ms ease;
+      }
+
+      .rules-toc a:hover,
+      .rules-toc a:focus-visible {
+        border-color: var(--red-bright);
+        color: #fff3cf;
+      }
+
+      .head-rule {
+        width: 130px;
+        height: 3px;
+        margin: 22px auto 0;
+        background: linear-gradient(90deg, rgba(159, 47, 30, 0), var(--red), rgba(159, 47, 30, 0));
+      }
+
+      /* ---------- Section scaffolding ---------- */
+
+      .section-head {
+        max-width: 760px;
+        margin: 0 auto 46px;
+        text-align: center;
+      }
+
+      .section-head h2 {
+        margin: 0;
+        color: var(--paper-strong);
+        font-size: clamp(44px, 6vw, 76px);
+      }
+
+      .section-head .sub {
+        max-width: 620px;
+        margin: 16px auto 0;
+        color: var(--muted);
+        font-size: 20px;
+      }
+
+      /* ---------- Suit key ---------- */
+
+      .fields {
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.7);
+        background:
+          radial-gradient(circle at 50% 0%, rgba(212, 170, 83, 0.1), transparent 26rem),
+          linear-gradient(180deg, var(--field-2), var(--field) 70%);
+        padding: 64px 24px 72px;
+      }
+
+      .field-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0;
+        max-width: 1080px;
+        margin: 0 auto;
+      }
+
+      .field-card {
+        padding: 10px 26px 6px;
+        border-right: 1px solid rgba(212, 170, 83, 0.24);
+        text-align: center;
+      }
+
+      .field-card:last-child {
+        border-right: 0;
+      }
+
+      .field-card img {
+        width: 130px;
+        height: 130px;
+        object-fit: contain;
+        filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.35));
+      }
+
+      .field-card .suit-symbol {
+        display: block;
+        margin: 10px 0 2px;
+        font-size: 30px;
+        line-height: 1;
+      }
+
+      .field-card .suit-symbol.red-suit {
+        color: #d24a35;
+      }
+
+      .field-card .suit-symbol.black-suit {
+        color: var(--paper-strong);
+      }
+
+      .field-card h3 {
+        margin: 6px 0 4px;
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 32px;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .field-card p {
+        margin: 0;
+        color: rgba(227, 211, 170, 0.75);
+        font-size: 16px;
+        font-style: italic;
+      }
+
+      /* ---------- Recommended setups ---------- */
+
+      .setups {
+        padding: 88px 24px 92px;
+      }
+
+      .setup-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 34px;
+        max-width: 1180px;
+        margin: 0 auto;
+        align-items: start;
+      }
+
+      .setup-card {
+        position: relative;
+        padding: 30px 28px 26px;
+        border: 1px solid rgba(72, 46, 22, 0.4);
+        background: linear-gradient(rgba(236, 219, 177, 0.97), rgba(214, 192, 146, 0.97));
+        box-shadow: var(--shadow);
+        color: var(--paper-ink);
+      }
+
+      .setup-card:nth-child(1) { transform: rotate(-1.2deg); }
+      .setup-card:nth-child(2) { transform: rotate(0.8deg); }
+      .setup-card:nth-child(3) { transform: rotate(-0.6deg); }
+
+      .setup-card.featured {
+        border-color: rgba(111, 29, 23, 0.55);
+        box-shadow: var(--shadow), 0 0 0 3px rgba(212, 170, 83, 0.4);
+        transform: rotate(0.4deg) scale(1.04);
+      }
+
+      .featured-medal {
+        position: absolute;
+        top: -58px;
+        left: -26px;
+        display: grid;
+        justify-items: center;
+        gap: 3px;
+        transform: rotate(-9deg);
+      }
+
+      .featured-medal img {
+        width: 84px;
+        height: 84px;
+        object-fit: contain;
+        filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.35));
+      }
+
+      .featured-medal span {
+        padding: 2px 10px 1px;
+        border: 2px solid var(--red-deep);
+        border-radius: 3px;
+        background: rgba(236, 219, 177, 0.97);
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 17px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        line-height: 1.1;
+        text-transform: uppercase;
+      }
+
+      .setup-card .preset-icon {
+        display: block;
+        width: 150px;
+        height: 150px;
+        margin: 0 auto 12px;
+        object-fit: contain;
+        filter: drop-shadow(0 10px 14px rgba(52, 35, 16, 0.35));
+      }
+
+      .setup-card .kicker {
+        margin: 0 0 4px;
+        color: var(--paper-body);
+        font-size: 13px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+      }
+
+      .setup-card h3 {
+        margin: 0 0 2px;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 40px;
+        font-weight: 800;
+        line-height: 0.95;
+        text-transform: uppercase;
+      }
+
+      .setup-card .alias {
+        margin: 0 0 16px;
+        color: var(--paper-body);
+        font-size: 15px;
+        font-style: italic;
+      }
+
+      .setup-card .deck-badge {
+        position: absolute;
+        top: 22px;
+        right: -12px;
+        padding: 4px 12px;
+        border: 2px solid var(--red-deep);
+        border-radius: 4px;
+        background: rgba(236, 219, 177, 0.96);
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 21px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        transform: rotate(6deg);
+      }
+
+      .setup-card ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .setup-card li {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        padding: 12px 0 11px;
+        border-top: 1px dashed rgba(72, 46, 22, 0.4);
+        color: var(--paper-body);
+        font-size: 16px;
+        line-height: 1.45;
+      }
+
+      .setup-card li img {
+        flex: none;
+        width: 56px;
+        height: 56px;
+        object-fit: contain;
+      }
+
+      .setup-card li strong {
+        display: block;
+        color: var(--paper-ink);
+        font-size: 16.5px;
+      }
+
+      /* ---------- The rulebook (paper) ---------- */
+
+      .rulebook {
+        background:
+          linear-gradient(rgba(236, 219, 177, 0.94), rgba(219, 199, 154, 0.96)),
+          radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.45), transparent 30rem);
+        border-top: 4px solid var(--red-deep);
+        border-bottom: 4px solid var(--red-deep);
+        color: var(--paper-ink);
+        padding: 84px 24px 92px;
+      }
+
+      .rulebook .section-head h2 {
+        color: var(--paper-ink);
+      }
+
+      .rulebook .section-head .sub {
+        color: var(--paper-body);
+      }
+
+      .rulebook .eyebrow {
+        color: var(--red-deep);
+      }
+
+      .rule-doc {
+        max-width: 820px;
+        margin: 0 auto;
+      }
+
+      .rule-part {
+        margin-top: 56px;
+        scroll-margin-top: 24px;
+      }
+
+      .rule-part:first-child {
+        margin-top: 0;
+      }
+
+      .rule-part > h3 {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin: 0 0 6px;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: clamp(32px, 4vw, 42px);
+        font-weight: 800;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .rule-part > h3 .num {
+        color: var(--red-bright);
+        font-size: 0.72em;
+      }
+
+      .part-icon {
+        flex: none;
+        width: 84px;
+        height: 84px;
+        object-fit: contain;
+        filter: drop-shadow(0 6px 8px rgba(52, 35, 16, 0.35));
+      }
+
+      .rule-part .part-ru {
+        margin: 0 0 20px;
+        color: var(--paper-body);
+        font-size: 15px;
+        font-style: italic;
+        letter-spacing: 0.06em;
+      }
+
+      .rule-part h4 {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 34px 0 4px;
+        color: var(--paper-ink);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 27px;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+
+      .rule-part h4 .phase-letter {
+        color: var(--red-bright);
+        font-size: 0.8em;
+      }
+
+      .phase-icon {
+        flex: none;
+        width: 62px;
+        height: 62px;
+        object-fit: contain;
+        filter: drop-shadow(0 5px 6px rgba(52, 35, 16, 0.3));
+      }
+
+      .trump-strip {
+        display: inline-flex;
+        gap: 7px;
+        margin-left: 8px;
+        vertical-align: -13px;
+      }
+
+      .trump-strip img {
+        width: 42px;
+        height: 42px;
+        object-fit: contain;
+      }
+
+      .rule-part .phase-ru {
+        margin: 0 0 12px;
+        color: var(--paper-body);
+        font-size: 14.5px;
+        font-style: italic;
+      }
+
+      .rule-part p,
+      .rule-part li {
+        color: var(--paper-body);
+        font-size: 18px;
+        line-height: 1.55;
+      }
+
+      .rule-part p {
+        margin: 0 0 14px;
+      }
+
+      .rule-part ul {
+        margin: 0 0 14px;
+        padding-left: 24px;
+      }
+
+      .rule-part li {
+        margin-bottom: 10px;
+      }
+
+      .rule-part li:last-child {
+        margin-bottom: 0;
+      }
+
+      .rule-part strong {
+        color: var(--paper-ink);
+      }
+
+      .term {
+        color: var(--paper-strong);
+        font-weight: 700;
+      }
+
+      .gloss {
+        color: rgba(227, 211, 170, 0.72);
+        font-size: 0.88em;
+        font-style: italic;
+      }
+
+      .rulebook .term {
+        color: var(--paper-ink);
+      }
+
+      .rulebook .gloss {
+        color: rgba(57, 47, 31, 0.78);
+      }
+
+      /* Variant callout */
+
+      .variant {
+        position: relative;
+        margin: 22px 0;
+        padding: 20px 24px 18px;
+        border: 2px dashed rgba(111, 29, 23, 0.55);
+        background: rgba(255, 248, 226, 0.55);
+      }
+
+      .variant .variant-icon {
+        position: absolute;
+        top: -34px;
+        right: 16px;
+        width: 100px;
+        height: 100px;
+        object-fit: contain;
+        filter: drop-shadow(0 8px 10px rgba(52, 35, 16, 0.35));
+      }
+
+      .variant .variant-tag {
+        position: absolute;
+        top: -14px;
+        left: 16px;
+        padding: 3px 12px 2px;
+        border: 2px solid var(--red-deep);
+        background: rgba(236, 219, 177, 0.98);
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        transform: rotate(-2deg);
+      }
+
+      .variant h5 {
+        margin: 2px 0 4px;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 25px;
+        font-weight: 800;
+        line-height: 1.05;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+      }
+
+      .variant .variant-gloss {
+        margin: 0 0 10px;
+        color: rgba(57, 47, 31, 0.78);
+        font-size: 14.5px;
+        font-style: italic;
+      }
+
+      .variant p,
+      .variant li {
+        font-size: 17px;
+      }
+
+      .variant p:last-child,
+      .variant ul:last-child {
+        margin-bottom: 0;
+      }
+
+      .variant.nested {
+        margin-top: 14px;
+        background: rgba(255, 248, 226, 0.35);
+      }
+
+      /* Nomenklatura face-card table */
+
+      .court {
+        display: grid;
+        gap: 12px;
+        margin: 14px 0 4px;
+      }
+
+      .court-row {
+        display: grid;
+        grid-template-columns: 124px 1fr;
+        gap: 20px;
+        align-items: center;
+        padding: 14px 16px;
+        border: 1px solid rgba(72, 46, 22, 0.4);
+        background: rgba(255, 248, 226, 0.5);
+      }
+
+      .court-card {
+        position: relative;
+        width: 116px;
+        aspect-ratio: 5 / 7;
+        overflow: hidden;
+        border-radius: 8px;
+        background: url("/assets/cards/card-template-light.png") center / 100% 100% no-repeat;
+        box-shadow: 0 12px 22px rgba(52, 35, 16, 0.35);
+        image-rendering: pixelated;
+      }
+
+      .court-card .rank {
+        position: absolute;
+        top: 5.5%;
+        left: 9%;
+        color: var(--red-deep);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 21px;
+        font-weight: 800;
+        line-height: 1;
+      }
+
+      .court-card .portrait {
+        position: absolute;
+        bottom: 4%;
+        left: 50%;
+        width: 88%;
+        transform: translateX(-50%);
+        image-rendering: pixelated;
+      }
+
+      .court-row h6 {
+        margin: 0 0 4px;
+        color: var(--paper-ink);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .court-row p {
+        margin: 0;
+        font-size: 16.5px;
+      }
+
+      .court-row .mice {
+        margin-top: 6px;
+        color: rgba(57, 47, 31, 0.82);
+        font-size: 15px;
+        font-style: italic;
+      }
+
+      /* Wrecker aside */
+
+      .wrecker-aside {
+        display: grid;
+        grid-template-columns: 140px 1fr;
+        gap: 24px;
+        align-items: center;
+      }
+
+      .wrecker-aside .card-face {
+        width: 140px;
+        aspect-ratio: 5 / 7;
+        overflow: hidden;
+        border-radius: 7px;
+        background: url("/assets/cards/card-template-light.png") center / 100% 100% no-repeat;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        position: relative;
+        image-rendering: pixelated;
+      }
+
+      .wrecker-aside .card-face img {
+        position: absolute;
+        bottom: 6%;
+        left: 50%;
+        width: 64%;
+        transform: translateX(-50%);
+        image-rendering: pixelated;
+      }
+
+      /* ---------- Kolkhozik (36-card) ---------- */
+
+      .kolkhozik {
+        border-top: 1px solid var(--line);
+        background: rgba(20, 19, 16, 0.6);
+        padding: 92px 24px 96px;
+        scroll-margin-top: 24px;
+      }
+
+      .kolkhozik-doc {
+        max-width: 820px;
+        margin: 0 auto;
+      }
+
+      .kolkhozik-doc > p {
+        margin: 0 0 20px;
+        color: var(--muted);
+        font-size: 19px;
+      }
+
+      .kolkhozik-doc > p strong {
+        color: var(--paper-strong);
+      }
+
+      .option-block {
+        margin-top: 30px;
+        padding: 26px 28px 24px;
+        border: 1px solid var(--line);
+        background: rgba(16, 15, 12, 0.5);
+      }
+
+      .option-block h3 {
+        margin: 0 0 6px;
+        color: var(--paper-strong);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 30px;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .option-block .option-ru {
+        margin: 0 0 16px;
+        color: var(--muted);
+        font-size: 15px;
+        font-style: italic;
+      }
+
+      .option-item {
+        padding: 16px 0 15px;
+        border-top: 1px dashed rgba(212, 170, 83, 0.3);
+      }
+
+      .option-item:last-child {
+        padding-bottom: 0;
+      }
+
+      .option-item h4 {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin: 0 0 6px;
+        color: var(--gold);
+        font-family: "Handjet", Georgia, serif;
+        font-size: 23px;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        line-height: 1.05;
+        text-transform: uppercase;
+      }
+
+      .option-item h4 img {
+        flex: none;
+        width: 56px;
+        height: 56px;
+        object-fit: contain;
+      }
+
+      .option-item h4 .opt-tag {
+        margin-right: 8px;
+        padding: 2px 8px 1px;
+        border: 1px solid var(--red-bright);
+        border-radius: 3px;
+        color: var(--red-bright);
+        font-size: 0.78em;
+        letter-spacing: 0.1em;
+      }
+
+      .option-item p {
+        margin: 0 0 10px;
+        color: var(--muted);
+        font-size: 17.5px;
+      }
+
+      .option-item p:last-child {
+        margin-bottom: 0;
+      }
+
+      .option-item strong {
+        color: var(--paper-strong);
+      }
+
+      .option-item .note,
+      .option-block .block-note {
+        color: rgba(183, 165, 125, 0.8);
+        font-size: 15.5px;
+        font-style: italic;
+      }
+
+      .option-block .block-note {
+        margin: 16px 0 0;
+      }
+
+      /* ---------- Closing ---------- */
+
+      .closing {
+        border-top: 1px solid var(--line);
+        background:
+          radial-gradient(circle at 50% 120%, rgba(159, 47, 30, 0.28), transparent 40rem),
+          rgba(20, 19, 16, 0.86);
+        padding: 84px 24px 92px;
+        text-align: center;
+      }
+
+      .closing h2 {
+        margin: 0;
+        color: var(--paper-strong);
+        font-size: clamp(48px, 7vw, 88px);
+      }
+
+      .closing .sub {
+        max-width: 540px;
+        margin: 20px auto 0;
+        color: var(--muted);
+        font-size: 20px;
+      }
+
+      .closing .actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 22px 34px;
+        margin-top: 38px;
+      }
+
+      .store-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 228px;
+        min-height: 64px;
+        padding: 15px 34px;
+        border: 1px solid #c14f36;
+        border-radius: 8px;
+        background: linear-gradient(180deg, #b8422b, #7b2319);
+        box-shadow: 0 16px 30px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+        color: #fff2d1;
+        font-family: "Handjet", Georgia, serif;
+        font-size: 29px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-decoration: none;
+        text-transform: uppercase;
+        transition: transform 160ms ease, background 160ms ease;
+      }
+
+      .store-button:hover,
+      .store-button:focus-visible {
+        transform: translateY(-2px);
+        background: linear-gradient(180deg, #c64d34, #81261b);
+      }
+
+      .inline-link {
+        color: var(--paper-strong);
+        font-size: 20px;
+        text-decoration-color: var(--red);
+        text-underline-offset: 8px;
+      }
+
+      /* ---------- Footer ---------- */
+
+      .site-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 26px 24px 34px;
+        color: var(--muted);
+        font-size: 15px;
+      }
+
+      .site-footer nav {
+        display: flex;
+        gap: 22px;
+      }
+
+      /* ---------- Scroll reveal ---------- */
+
+      .reveal {
+        opacity: 0;
+        transform: translateY(22px);
+        transition: opacity 640ms ease, transform 640ms cubic-bezier(0.2, 0.7, 0.2, 1);
+      }
+
+      .reveal.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+
+        .reveal {
+          opacity: 1;
+          transform: none;
+          transition: none;
+        }
+
+        .store-button {
+          transition: none;
+        }
+      }
+
+      /* ---------- Light theme ---------- */
+
+      html[data-theme="light"] {
+        --paper: #4a3d26;
+        --paper-strong: #241b0e;
+        --muted: #6d5c3e;
+        --gold: #8a6a28;
+        --line: rgba(111, 29, 23, 0.28);
+        --shadow: 0 24px 55px rgba(72, 46, 22, 0.3);
+      }
+
+      html[data-theme="light"] body {
+        background:
+          radial-gradient(circle at 22% 8%, rgba(159, 47, 30, 0.07), transparent 32rem),
+          linear-gradient(135deg, #f0e3bf 0%, #e7d6ac 48%, #f0e3bf 100%);
+        color: var(--paper);
+      }
+
+      html[data-theme="light"] body::before {
+        opacity: 0.5;
+        background-image:
+          linear-gradient(rgba(72, 46, 22, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(72, 46, 22, 0.04) 1px, transparent 1px);
+      }
+
+      html[data-theme="light"] .site-header {
+        background: rgba(240, 227, 191, 0.92);
+      }
+
+      html[data-theme="light"] .theme-toggle {
+        background: rgba(255, 248, 226, 0.9);
+      }
+
+      html[data-theme="light"] .nav a:hover,
+      html[data-theme="light"] .nav a:focus-visible,
+      html[data-theme="light"] .nav a[aria-current="page"] {
+        color: var(--red-deep);
+      }
+
+      html[data-theme="light"] .hero .lead {
+        color: #443624;
+      }
+
+      html[data-theme="light"] .rules-toc a {
+        background: rgba(255, 248, 226, 0.75);
+      }
+
+      html[data-theme="light"] .gloss {
+        color: rgba(57, 47, 31, 0.72);
+      }
+
+      html[data-theme="light"] .fields {
+        border-bottom-color: rgba(72, 46, 22, 0.3);
+        background:
+          radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.3), transparent 26rem),
+          linear-gradient(180deg, #dae0b6, #ccd4a6 70%);
+      }
+
+      html[data-theme="light"] .field-card {
+        border-color: rgba(72, 46, 22, 0.28);
+      }
+
+      html[data-theme="light"] .field-card p {
+        color: rgba(57, 47, 31, 0.72);
+      }
+
+      html[data-theme="light"] .kolkhozik {
+        background: rgba(236, 219, 177, 0.5);
+      }
+
+      html[data-theme="light"] .option-block {
+        border-color: rgba(111, 29, 23, 0.3);
+        background: rgba(255, 248, 226, 0.55);
+      }
+
+      html[data-theme="light"] .option-item h4 {
+        color: var(--red-deep);
+      }
+
+      html[data-theme="light"] .option-item h4 .opt-tag {
+        border-color: var(--red-deep);
+        color: var(--red-deep);
+      }
+
+      html[data-theme="light"] .option-item .note,
+      html[data-theme="light"] .option-block .block-note {
+        color: rgba(90, 76, 51, 0.92);
+      }
+
+      html[data-theme="light"] .closing {
+        background:
+          radial-gradient(circle at 50% 120%, rgba(159, 47, 30, 0.14), transparent 40rem),
+          rgba(236, 219, 177, 0.55);
+      }
+
+      /* ---------- Responsive ---------- */
+
+      @media (max-width: 980px) {
+        .setup-grid {
+          grid-template-columns: 1fr;
+          max-width: 560px;
+        }
+
+        .setup-card.featured {
+          order: -1;
+          transform: rotate(0.4deg);
+        }
+
+        .field-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .field-card {
+          padding-block: 22px;
+        }
+
+        .field-card:nth-child(2) {
+          border-right: 0;
+        }
+
+        .field-card:nth-child(-n + 2) {
+          border-bottom: 1px solid rgba(212, 170, 83, 0.24);
+        }
+      }
+
+      @media (max-width: 900px) {
+        .site-header {
+          padding-inline: 18px;
+        }
+
+        .nav {
+          gap: 16px;
+          font-size: 16px;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .brand-name {
+          font-size: 30px;
+        }
+
+        .nav {
+          gap: 13px;
+          font-size: 15px;
+        }
+
+        body {
+          font-size: 18px;
+        }
+
+        .hero {
+          padding: 48px 18px 52px;
+        }
+
+        .fields,
+        .setups,
+        .rulebook,
+        .kolkhozik,
+        .closing {
+          padding-block: 56px 64px;
+        }
+
+        .field-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .field-card {
+          border-right: 0;
+          border-bottom: 1px solid rgba(212, 170, 83, 0.24);
+        }
+
+        .field-card:last-child {
+          border-bottom: 0;
+        }
+
+        .field-card:nth-child(2) {
+          border-bottom: 1px solid rgba(212, 170, 83, 0.24);
+        }
+
+        .rule-part ul {
+          padding-left: 18px;
+        }
+
+        .wrecker-aside {
+          grid-template-columns: 1fr;
+        }
+
+        .wrecker-aside .card-face {
+          margin: 0 auto;
+        }
+
+        .court-row {
+          grid-template-columns: 1fr;
+        }
+
+        .court-row .court-card {
+          margin: 0 auto;
+        }
+
+        .store-button {
+          width: 100%;
+        }
+
+        .site-footer {
+          flex-direction: column;
+          padding-inline: 18px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="brand" href="/" aria-label="Kolkhoz home">
+          <img class="brand-mark" src="/assets/app-icon.png" alt="" width="42" height="42" />
+          <span class="brand-name">Kolkhoz</span>
+        </a>
+        <nav class="nav" aria-label="Primary navigation">
+          <a href="/how-to-play.html">How to play</a>
+          <a href="/rules.html" aria-current="page">Rules</a>
+          <a href="/about.html">About</a>
+          <a href="/support.html">Support</a>
+          <a href="/privacy.html">Privacy</a>
+          <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch appearance">
+            <img class="pixel tt-to-light" src="/assets/icons/icon-appearance-light.png" alt="" />
+            <img class="pixel tt-to-dark" src="/assets/icons/icon-appearance-dark.png" alt="" />
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="rules-title">
+        <div class="hero-rays" aria-hidden="true"></div>
+        <div class="hero-inner">
+          <img class="hero-crest pixel" src="/assets/icons/icon-rules-scroll.png" alt="" />
+          <span class="eyebrow">The tabletop game — complete official rules</span>
+          <h1 class="display" id="rules-title">The Rules</h1>
+          <div class="head-rule" aria-hidden="true"></div>
+          <p class="lead">
+            Everything you need to run a Five-Year Plan with a real deck of cards:
+            setup, the round flow, requisition, scoring — <em>and every named variant.</em>
+          </p>
+          <p class="hero-note">
+            New to the game? Start with the <a href="/how-to-play.html">illustrated field manual</a>
+            for a gentler walkthrough, then come back here for the full letter of the law.
+          </p>
+          <nav class="rules-toc" aria-label="Rules contents">
+            <a href="#setups">Recommended setups</a>
+            <a href="#setup">1 · Setup</a>
+            <a href="#round">2 · Round flow</a>
+            <a href="#scoring">3 · Scoring</a>
+            <a href="#kolkhozik">Колхозик · 36 cards</a>
+          </nav>
+        </div>
+      </section>
+
+      <section class="fields" aria-labelledby="fields-title">
+        <div class="section-head reveal">
+          <span class="eyebrow">Read this first</span>
+          <h2 class="display" id="fields-title">Suits are fields</h2>
+          <p class="sub">
+            Each suit of a standard deck stands for one <span class="term">поле</span>
+            <span class="gloss">(polye — field)</span>. Every card is a worker; its rank is
+            the work-hours it contributes.
+          </p>
+        </div>
+        <div class="field-grid reveal">
+          <div class="field-card">
+            <img class="pixel" src="/assets/icons/icon-wheat.png" alt="" />
+            <span class="suit-symbol red-suit" aria-hidden="true">&hearts;</span>
+            <h3>Пшеница</h3>
+            <p>Hearts — Wheat</p>
+          </div>
+          <div class="field-card">
+            <img class="pixel" src="/assets/icons/icon-beet.png" alt="" />
+            <span class="suit-symbol red-suit" aria-hidden="true">&diams;</span>
+            <h3>Свёкла</h3>
+            <p>Diamonds — Beets</p>
+          </div>
+          <div class="field-card">
+            <img class="pixel" src="/assets/icons/icon-potato.png" alt="" />
+            <span class="suit-symbol black-suit" aria-hidden="true">&clubs;</span>
+            <h3>Картофель</h3>
+            <p>Clubs — Potatoes</p>
+          </div>
+          <div class="field-card">
+            <img class="pixel" src="/assets/icons/icon-sunflower.png" alt="" />
+            <span class="suit-symbol black-suit" aria-hidden="true">&spades;</span>
+            <h3>Подсолнечник</h3>
+            <p>Spades — Sunflowers</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="setups" id="setups" aria-labelledby="setups-title">
+        <div class="section-head reveal">
+          <span class="eyebrow">Approved combinations</span>
+          <h2 class="display" id="setups-title">Recommended setups</h2>
+          <p class="sub">
+            The rules below are modular: a core game plus named variants. These three
+            combinations are known to be good. Pick one, or assemble your own regime.
+          </p>
+        </div>
+        <div class="setup-grid">
+          <article class="setup-card reveal">
+            <span class="deck-badge">36 cards</span>
+            <img class="preset-icon pixel" src="/assets/icons/icon-preset-little-kolkhoz.png" alt="" />
+            <p class="kicker">The village game</p>
+            <h3>Колхозник</h3>
+            <p class="alias">Kolkhoznik — the collective farmer</p>
+            <ul>
+              <li><img class="pixel" src="/assets/icons/icon-variant-nomenclature.png" alt="" /><span><strong>Номенклатура живёт по своим законам</strong> The trump court — Jack, Queen, King — plays by its own laws.</span></li>
+              <li><img class="pixel" src="/assets/icons/icon-variant-order-to-boss.png" alt="" /><span><strong>Орден — начальнику, работа — нам</strong> Brigade leaders take the reward; requisition remembers them.</span></li>
+              <li><img class="pixel" src="/assets/icons/icon-variant-swap.png" alt="" /><span><strong>Поменять шило на мыло</strong> From year two, swap a hand card for a cellar card before play.</span></li>
+            </ul>
+          </article>
+          <article class="setup-card featured reveal">
+            <div class="featured-medal" aria-label="Recommended setup">
+              <img class="pixel" src="/assets/icons/icon-medal-star.png" alt="" />
+              <span>Recommended</span>
+            </div>
+            <span class="deck-badge">52 cards</span>
+            <img class="preset-icon pixel" src="/assets/icons/icon-preset-kolkhoz.png" alt="" />
+            <p class="kicker">The full plan</p>
+            <h3>Колхоз</h3>
+            <p class="alias">Kolkhoz — the standard game</p>
+            <ul>
+              <li><img class="pixel" src="/assets/icons/icon-variant-hero.png" alt="" /><span><strong>стахановец</strong> Sweep every medal in a round and the inspectors requisition everyone else instead.</span></li>
+              <li><img class="pixel" src="/assets/icons/icon-variant-swap.png" alt="" /><span><strong>Поменять шило на мыло</strong> From year two, swap a hand card for a cellar card before play.</span></li>
+              <li><img class="pixel" src="/assets/icons/icon-variant-saboteur.png" alt="" /><span><strong>вредитель</strong> A joker in the deck: 14 hours of every suit, and poison to any job it joins.</span></li>
+            </ul>
+          </article>
+          <article class="setup-card reveal">
+            <span class="deck-badge">36 cards</span>
+            <img class="preset-icon pixel" src="/assets/icons/icon-preset-camp-style.png" alt="" />
+            <p class="kicker">The hard way</p>
+            <h3>Зонский режим</h3>
+            <p class="alias">Zonskiy rezhim — the camp regime</p>
+            <ul>
+              <li><img class="pixel" src="/assets/icons/icon-variant-northern-style.png" alt="" /><span><strong>Игра по-северному</strong> No rewards for farming. Nobody keeps track of who led.</span></li>
+              <li><img class="pixel" src="/assets/icons/icon-variant-nomenclature.png" alt="" /><span><strong>Номенклатура живёт по своим законам</strong> The trump court plays by its own laws.</span></li>
+              <li><img class="pixel" src="/assets/icons/icon-variant-mice.png" alt="" /><span><strong>Разговоры вели даже с мышами</strong> Everyone answers to the inspectors — not just the leaders.</span></li>
+              <li><img class="pixel" src="/assets/icons/icon-variant-swap.png" alt="" /><span><strong>Поменять шило на мыло</strong> From year two, swap a hand card for a cellar card.</span></li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="rulebook" aria-labelledby="rulebook-title">
+        <div class="section-head reveal">
+          <span class="eyebrow">The rulebook</span>
+          <h2 class="display" id="rulebook-title">Колхоз — 52-card deck</h2>
+          <p class="sub">
+            The core game, phase by phase. Boxes marked <em>Вариант</em> are optional
+            rules — add them where they appear.
+          </p>
+        </div>
+
+        <div class="rule-doc">
+          <!-- 1. Setup -->
+          <article class="rule-part reveal" id="setup">
+            <h3><img class="part-icon pixel" src="/assets/icons/icon-gears.png" alt="" /><span class="num">1.</span> Game Setup</h3>
+            <p class="part-ru">Игровой Набор · Igrovoy Nabor</p>
+            <ul>
+              <li>
+                Remove the <strong>Ace, 2, 3, 4, and 5</strong> of each suit from a standard
+                52-card deck. Set these aside in piles according to their
+                <span class="term">поле</span> <span class="gloss">(field)</span>, then shuffle
+                each pile individually. These become the
+                <span class="term">Карты Плановых Заданий</span>
+                <span class="gloss">(plan-assignment cards — the job rewards)</span>.
+              </li>
+              <li>
+                Shuffle the remaining <strong>32 cards</strong> (6 through King of each suit) to
+                form the <span class="term">Колода Рабочих</span>
+                <span class="gloss">(Koloda Rabochikh — the Workers Deck)</span>.
+              </li>
+              <li>
+                Choose a player to be the first <span class="term">Центральный Плановик</span>
+                <span class="gloss">(Tsentral'nyy Planovik — Central Planner, the dealer)</span>.
+                This can be done randomly or by agreement. That player deals
+                <strong>5 cards face-down</strong> to each player.
+              </li>
+              <li>
+                Each player has a designated area for their hidden cards called their
+                <span class="term">подвал</span> <span class="gloss">(Podval — Cellar)</span>.
+              </li>
+            </ul>
+
+            <div class="variant">
+              <span class="variant-tag">Вариант</span>
+              <img class="variant-icon pixel" src="/assets/icons/icon-variant-saboteur.png" alt="" />
+              <h5>вредитель</h5>
+              <p class="variant-gloss">vreditel' — the Wrecker</p>
+              <div class="wrecker-aside">
+                <div class="card-face" aria-hidden="true">
+                  <img src="/assets/cards/face-wrecker.png" alt="" />
+                </div>
+                <div>
+                  <p>
+                    Shuffle a joker into the Workers Deck. The joker counts as
+                    <strong>14 of every suit, simultaneously</strong>. During
+                    <span class="term">Ищут врагов народа</span>, if the
+                    <span class="term">вредитель</span> has been assigned to a
+                    <span class="term">поле</span>, that job <strong>fails regardless</strong> of
+                    the work-hours it may otherwise have — though the reward can still be claimed.
+                  </p>
+                  <p>
+                    If you enjoy the <span class="term">вредитель</span>, consider shuffling him
+                    back into the Workers Deck whenever he is
+                    <span class="term">отправлен на Север</span>
+                    <span class="gloss">(sent to the North)</span>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- 2. Round flow -->
+          <article class="rule-part reveal" id="round">
+            <h3><img class="part-icon pixel" src="/assets/icons/icon-brigade.png" alt="" /><span class="num">2.</span> Round Flow — a Season</h3>
+            <p class="part-ru">Ход Игры · Khod Igry</p>
+            <p>The game proceeds over a set number of rounds — one per year of the plan.</p>
+
+            <h4><img class="phase-icon pixel" src="/assets/icons/icon-jobs.png" alt="" /><span class="phase-letter">a.</span> Planning Phase</h4>
+            <p class="phase-ru">Фаза Планирования · Faza Planirovaniya</p>
+            <ul>
+              <li>
+                The <span class="term">Центральный Плановик</span> reveals one
+                <span class="term">Карта Плановых Заданий</span> face-up for each of the four
+                <span class="term">поля</span>. These values (Ace–5) are the Victory Points
+                awarded for successfully farming that field this season.
+              </li>
+              <li>
+                The <span class="term">Центральный Плановик</span> then declares
+                <span class="term">Наша главная задача</span>
+                <span class="gloss">("our main task" — the trump suit)</span> for the current
+                year.
+                <span class="trump-strip" aria-hidden="true"><img class="pixel" src="/assets/icons/icon-trump-wheat.png" alt="" /><img class="pixel" src="/assets/icons/icon-trump-beet.png" alt="" /><img class="pixel" src="/assets/icons/icon-trump-potato.png" alt="" /><img class="pixel" src="/assets/icons/icon-trump-sunflower.png" alt="" /></span>
+              </li>
+              <li>
+                The fifth year is a <span class="term">Год неурожая</span>
+                <span class="gloss">(year of failed harvest — famine)</span>: only
+                <strong>four cards</strong> are dealt to each player, there is
+                <strong>no trump</strong>, and only <strong>3 tricks</strong> are played.
+              </li>
+            </ul>
+
+            <div class="variant">
+              <span class="variant-tag">Вариант</span>
+              <img class="variant-icon pixel" src="/assets/icons/icon-variant-accumulation.png" alt="" />
+              <h5>Накопление</h5>
+              <p class="variant-gloss">nakopleniye — accumulation</p>
+              <p>
+                Unclaimed job rewards carry over. An unfarmed <span class="term">поле</span> keeps
+                its <span class="term">Карты Плановых Заданий</span> from previous years and gains
+                a new one each Planning Phase — so an unfarmed field can show more than one
+                visible reward card.
+              </p>
+            </div>
+
+            <div class="variant">
+              <span class="variant-tag">Вариант</span>
+              <img class="variant-icon pixel" src="/assets/icons/icon-variant-swap.png" alt="" />
+              <h5>Поменять шило на мыло</h5>
+              <p class="variant-gloss">Pomenyat' shilo na mylo — "exchange an awl for soap"</p>
+              <p>
+                After the first year, each player may swap one card in their hand with one of the
+                hidden cards in their <span class="term">подвал</span> before play begins.
+              </p>
+            </div>
+
+            <h4><img class="phase-icon pixel" src="/assets/icons/icon-hand.png" alt="" /><span class="phase-letter">b.</span> The Tricks</h4>
+            <p class="phase-ru">пора · pora</p>
+            <ul>
+              <li>Starting with the <span class="term">Центральный Плановик</span>, players play one card each.</li>
+              <li>Players must follow suit if able; otherwise they may play any card.</li>
+              <li>
+                The highest-ranking card of the lead suit — or the highest trump, if trump was
+                played — wins the <span class="term">пора</span>.
+              </li>
+              <li>
+                The winner becomes the <span class="term">Бригадир</span>
+                <span class="gloss">(Brigadir — brigade leader)</span> of the trick and collects
+                the played cards and a <strong>medal</strong>.
+              </li>
+              <li>
+                The <span class="term">Бригадир</span> then
+                <span class="term">назначает добровольцев</span>
+                <span class="gloss">(assigns "volunteers")</span>: the cards of the trick are
+                assigned, in any combination, to the fields that have at least one worker
+                represented in the trick. Assigned workers count toward that field's
+                work-hours threshold.
+              </li>
+              <li>
+                The <span class="term">Бригадир</span> leads the next trick.
+                <strong>Four tricks</strong> are played in total — three in a
+                <span class="term">Год неурожая</span>.
+              </li>
+            </ul>
+
+            <p><strong>When a field passes its work-hours threshold, it is farmed:</strong></p>
+
+            <div class="variant">
+              <span class="variant-tag">Вариант</span>
+              <img class="variant-icon pixel" src="/assets/icons/icon-variant-order-to-boss.png" alt="" />
+              <h5>Орден — начальнику, работа — нам</h5>
+              <p class="variant-gloss">"The medal to the boss, the work to us"</p>
+              <p>
+                The <span class="term">Бригадир</span> who completes the job immediately adds all
+                <span class="term">Карты Плановых Заданий</span> for that field to their
+                <span class="term">подвал</span>, face-up.
+              </p>
+            </div>
+
+            <div class="variant">
+              <span class="variant-tag">Вариант</span>
+              <img class="variant-icon pixel" src="/assets/icons/icon-variant-northern-style.png" alt="" />
+              <h5>Игра по-северному</h5>
+              <p class="variant-gloss">"Playing the northern way"</p>
+              <p>
+                There is no reward for finishing a job — and no need to remember who has been
+                <span class="term">Бригадир</span>.
+              </p>
+            </div>
+
+            <div class="variant">
+              <span class="variant-tag">Вариант</span>
+              <img class="variant-icon pixel" src="/assets/icons/icon-variant-nomenclature.png" alt="" />
+              <h5>Номенклатура живёт по своим законам</h5>
+              <p class="variant-gloss">"The nomenklatura lives by its own laws"</p>
+              <p>The face cards of the <strong>trump suit</strong> have special effects:</p>
+              <div class="court">
+                <div class="court-row">
+                  <div class="court-card" aria-hidden="true">
+                    <span class="rank">J·0</span>
+                    <img class="portrait" src="/assets/cards/face-jack-wheat-nomenklatura.png" alt="" />
+                  </div>
+                  <div>
+                    <h6>Пьяница <span class="gloss">— the Drunkard</span></h6>
+                    <p>
+                      Contributes <strong>0 work hours</strong>. If his field is
+                      <span class="term">расследовано</span> <span class="gloss">(investigated)</span>,
+                      the Jack is sent north instead of a player's card.
+                    </p>
+                  </div>
+                </div>
+                <div class="court-row">
+                  <div class="court-card" aria-hidden="true">
+                    <span class="rank">Q·12</span>
+                    <img class="portrait" src="/assets/cards/face-queen-sunflower-nomenklatura.png" alt="" />
+                  </div>
+                  <div>
+                    <h6>Информатор <span class="gloss">— the Informant</span></h6>
+                    <p>
+                      If her field goes unfarmed, <strong>all players</strong> must reveal their
+                      <span class="term">подвал</span> — not just the
+                      <span class="term">Бригадир</span>.
+                    </p>
+                    <p class="mice">
+                      With Разговоры вели даже с мышами: players reveal every cellar card that
+                      matches the unfarmed field.
+                    </p>
+                  </div>
+                </div>
+                <div class="court-row">
+                  <div class="court-card" aria-hidden="true">
+                    <span class="rank">K·13</span>
+                    <img class="portrait" src="/assets/cards/face-king-wheat-nomenklatura.png" alt="" />
+                  </div>
+                  <div>
+                    <h6>партиец <span class="gloss">— the Party Man</span></h6>
+                    <p>
+                      If his field is investigated, <strong>two</strong> matching cards per player
+                      are sent north instead of one.
+                    </p>
+                    <p class="mice">
+                      With Разговоры вели даже с мышами: the second-highest card matching the
+                      unfarmed field is also sent north.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <h4><img class="phase-icon pixel" src="/assets/icons/icon-cellar.png" alt="" /><span class="phase-letter">c.</span> Pocket what comes to hand</h4>
+            <p class="phase-ru">Уносить, что под руку попадётся</p>
+            <ul>
+              <li>
+                After the final trick, each player adds the one card remaining in their hand to
+                their <span class="term">подвал</span>, keeping it hidden.
+              </li>
+            </ul>
+
+            <h4><img class="phase-icon pixel" src="/assets/icons/icon-requisition-north.png" alt="" /><span class="phase-letter">d.</span> Requisition</h4>
+            <p class="phase-ru">Ищут врагов народа · "They are looking for enemies of the people"</p>
+
+            <div class="variant">
+              <span class="variant-tag">Вариант</span>
+              <img class="variant-icon pixel" src="/assets/icons/icon-variant-order-to-boss.png" alt="" />
+              <h5>Орден — начальнику, работа — нам</h5>
+              <p class="variant-gloss">Requisition for leaders</p>
+              <p>
+                For each <span class="term">поле</span> that did not reach its work-hours
+                threshold, every player who was a <span class="term">Бригадир</span> this round
+                reveals the highest hidden card in their <span class="term">подвал</span>
+                matching the unfarmed field, and must
+                <span class="term">отправить на Север</span>
+                <span class="gloss">(send to the North — exile)</span> the highest-value card of
+                that field from their cellar. If you are playing with
+                <em>Номенклатура живёт по своим законам</em>, follow those resolution rules
+                instead.
+              </p>
+              <div class="variant nested">
+                <span class="variant-tag">Вариант</span>
+                <img class="variant-icon pixel" src="/assets/icons/icon-variant-hero.png" alt="" />
+                <h5>стахановец</h5>
+                <p class="variant-gloss">stakhanovets — the model worker</p>
+                <p>
+                  If a player won <strong>every medal</strong> in the round, all other players are
+                  requisitioned instead of them.
+                </p>
+              </div>
+            </div>
+
+            <div class="variant">
+              <span class="variant-tag">Вариант</span>
+              <img class="variant-icon pixel" src="/assets/icons/icon-variant-mice.png" alt="" />
+              <h5>Разговоры вели даже с мышами</h5>
+              <p class="variant-gloss">"They held conversations even with the mice"</p>
+              <p>
+                For each <span class="term">поле</span> that did not reach its work-hours
+                threshold, <strong>all players</strong> reveal the highest hidden card in their
+                <span class="term">подвал</span> matching the unfarmed field. The highest revealed
+                card is then sent north. If you are playing with
+                <em>Номенклатура живёт по своим законам</em>, follow those resolution rules
+                instead.
+              </p>
+            </div>
+
+            <ul>
+              <li>
+                If all four fields are unfarmed and no player is vulnerable to an inquisition, use
+                <em>Разговоры вели даже с мышами</em> for the round. (This is quite rare unless
+                you are playing a 36-card deck with
+                <em>Орден — начальнику, работа — нам</em>.)
+              </li>
+              <li>Leave all revealed cards face-up for the rest of the game.</li>
+            </ul>
+
+            <h4><img class="phase-icon pixel" src="/assets/icons/icon-pass-device.png" alt="" /><span class="phase-letter">e.</span> End of Round</h4>
+            <p class="phase-ru">Конец Раунда · Konets Raunda</p>
+            <ul>
+              <li>
+                All remaining worker cards are reshuffled — those that are not in a
+                <span class="term">подвал</span> and have not been sent north.
+              </li>
+              <li>
+                The role of <span class="term">Центральный Плановик</span> passes to the player on
+                the left.
+              </li>
+              <li>A new round begins with the Planning Phase.</li>
+            </ul>
+
+            <div class="variant">
+              <span class="variant-tag">Вариант</span>
+              <img class="variant-icon pixel" src="/assets/icons/icon-variant-medals.png" alt="" />
+              <h5>Орденов — полшкафа, а есть — нечего</h5>
+              <p class="variant-gloss">"Half a cabinet of medals, and nothing to eat"</p>
+              <p>
+                Players with medals add them to their <span class="term">подвал</span> instead of
+                returning them to the supply. At the end of the game each medal is worth
+                <strong>one point</strong>.
+              </p>
+            </div>
+          </article>
+
+          <!-- 3. Scoring -->
+          <article class="rule-part reveal" id="scoring">
+            <h3><img class="part-icon pixel" src="/assets/icons/icon-plot.png" alt="" /><span class="num">3.</span> End of Game &amp; Scoring</h3>
+            <p class="part-ru">Конец Игры и Итоговый Подсчет Очков · Konets Igry i Itogovyy Podschet Ochkov</p>
+            <p>
+              After the completion of the <span class="term">Пятилетка</span>
+              <span class="gloss">(Pyatiletka — the Five-Year Plan)</span>, players calculate
+              their final scores:
+            </p>
+            <ul>
+              <li>
+                Sum the values of the cards remaining in your <span class="term">подвал</span> —
+                both hidden workers taken over the years and revealed rewards for finished jobs.
+              </li>
+              <li>
+                If playing with <em>Орденов — полшкафа, а есть — нечего</em>, each medal you hold
+                is also worth 1 point.
+              </li>
+              <li><strong>The player with the highest total score wins.</strong></li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="kolkhozik" id="kolkhozik" aria-labelledby="kolkhozik-title">
+        <div class="section-head reveal">
+          <span class="eyebrow">Вариант · The short deck</span>
+          <h2 class="display" id="kolkhozik-title">Колхо́зик — 36-card deck</h2>
+          <p class="sub">
+            The same game on a Russian 36-card deck (6 through Ace). Leaner, meaner,
+            and easier to find a deck for.
+          </p>
+        </div>
+        <div class="kolkhozik-doc">
+          <p class="reveal">
+            Start the game by setting out the <strong>4 Aces</strong> to indicate the job piles,
+            then pick one option from each block below.
+          </p>
+
+          <div class="option-block reveal">
+            <h3>The Tricks</h3>
+            <p class="option-ru">пора — choose one</p>
+            <div class="option-item">
+              <h4><img class="pixel" src="/assets/icons/icon-variant-order-to-boss.png" alt="" /><span class="opt-tag">Вариант</span>Орден — начальнику, работа — нам</h4>
+              <p>
+                When a <span class="term">поле</span> is farmed, the
+                <strong>Бригадир</strong> who closes it immediately adds all workers assigned to
+                that field to their <strong>подвал</strong> as a single stack, with the
+                <strong>lowest card face-up on top</strong>. In this variant, cards that are sent
+                north are shuffled back into the deck at the start of the next year.
+              </p>
+            </div>
+            <div class="option-item">
+              <h4><img class="pixel" src="/assets/icons/icon-variant-northern-style.png" alt="" /><span class="opt-tag">Вариант</span>Северный вариант</h4>
+              <p>
+                The northern way: there is no reward for farming a field, and no need to remember
+                who has been <strong>Бригадир</strong>.
+              </p>
+            </div>
+          </div>
+
+          <div class="option-block reveal">
+            <h3>Requisition</h3>
+            <p class="option-ru">Ищут врагов народа — choose one, matching your trick variant</p>
+            <div class="option-item">
+              <h4><img class="pixel" src="/assets/icons/icon-variant-order-to-boss.png" alt="" /><span class="opt-tag">Вариант A</span>Орден — начальнику, работа — нам</h4>
+              <p>
+                For each field that did not reach its work-hours threshold, the players who were
+                <strong>Бригадир</strong> during the round send north the highest card in their
+                <strong>подвал</strong> matching the unfarmed field.
+              </p>
+              <p class="note">
+                Bookkeeping: brigade leaders will have stacks of cards in their подвал — this is
+                how you track who led during the round. After requisition, players return the
+                face-down stacks to the deck, keeping only the top card of each stack (if that top
+                card wasn't sent north).
+              </p>
+            </div>
+            <div class="option-item">
+              <h4><img class="pixel" src="/assets/icons/icon-variant-mice.png" alt="" /><span class="opt-tag">Вариант B</span>Разговоры вели даже с мышами</h4>
+              <p>
+                For each field that did not reach its work-hours threshold, <strong>all
+                players</strong> reveal the highest hidden card in their <strong>подвал</strong>
+                matching the unfarmed field. The highest revealed card is then sent north.
+              </p>
+            </div>
+            <p class="note block-note">
+              Note: Вариант A requires the Орден — начальнику trick variant, but Разговоры вели
+              даже с мышами can be played with either.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="closing" aria-labelledby="closing-title">
+        <div class="reveal">
+          <h2 class="display" id="closing-title">Now report to the fields.</h2>
+          <p class="sub">
+            Prefer the State to shuffle for you? The iPhone app runs the full plan —
+            offline, pass-and-play, no account.
+          </p>
+          <div class="actions">
+            <a class="store-button" href="/#availability">Get the app</a>
+            <a class="inline-link" href="/how-to-play.html">Read the field manual</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>Kolkhoz for iPhone</span>
+      <nav aria-label="Footer navigation">
+        <a href="/how-to-play.html">How to play</a>
+        <a href="/rules.html">Rules</a>
+        <a href="/about.html">About</a>
+        <a href="/support.html">Support</a>
+        <a href="/privacy.html">Privacy</a>
+      </nav>
+    </footer>
+
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js").catch(() => {});
+      }
+
+      const themeToggle = document.getElementById("theme-toggle");
+      if (themeToggle) {
+        themeToggle.addEventListener("click", () => {
+          const toLight = document.documentElement.dataset.theme !== "light";
+          if (toLight) {
+            document.documentElement.dataset.theme = "light";
+          } else {
+            delete document.documentElement.dataset.theme;
+          }
+          try {
+            localStorage.setItem("kolkhoz-theme", toLight ? "light" : "dark");
+          } catch (e) {}
+        });
+      }
+
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const revealed = document.querySelectorAll(".reveal");
+      if (reduceMotion || !("IntersectionObserver" in window)) {
+        revealed.forEach((el) => el.classList.add("visible"));
+      } else {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                entry.target.classList.add("visible");
+                observer.unobserve(entry.target);
+              }
+            });
+          },
+          { rootMargin: "0px 0px -8% 0px" }
+        );
+        revealed.forEach((el) => observer.observe(el));
+      }
+    </script>
+  </body>
+</html>

@@ -133,9 +133,16 @@ static void kc_clear_last_swap(KCEngine *engine) {
     engine->last_swap_new_plot_card = kc_no_card();
 }
 
+static int32_t kc_variant_max_years(KCVariants variants) {
+    if (variants.max_years < 1) return KC_MAX_YEARS;
+    if (variants.max_years > KC_MAX_YEARS) return KC_MAX_YEARS;
+    return variants.max_years;
+}
+
 void kc_variants_kolkhoz(KCVariants *variants) {
     memset(variants, 0, sizeof(*variants));
     variants->deck_type = 52;
+    variants->max_years = KC_MAX_YEARS;
     variants->nomenclature = false;
     variants->allow_swap = true;
     variants->hero_of_soviet_union = true;
@@ -1471,11 +1478,11 @@ static void kc_transition_to_next_year(KCEngine *engine) {
             }
         }
     }
-    engine->year += 1;
-    if (engine->year > KC_MAX_YEARS) {
+    if (engine->year >= kc_variant_max_years(engine->variants)) {
         kc_finish_game(engine);
         return;
     }
+    engine->year += 1;
     engine->trick_count = 0;
     engine->current_trick_count = 0;
     engine->last_trick_count = 0;
