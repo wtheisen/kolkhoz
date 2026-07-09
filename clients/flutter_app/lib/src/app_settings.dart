@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/widgets.dart';
+
 import 'app_text.dart';
+import 'c_engine_bridge.dart';
 
 import 'design_tokens.dart';
 import 'game_constants.dart';
@@ -15,28 +18,41 @@ class KolkhozProfileStats {
   const KolkhozProfileStats({
     this.offlinePlays = 0,
     this.offlineWins = 0,
-    this.onlinePlays = 0,
-    this.onlineWins = 0,
+    int onlinePlays = 0,
+    int onlineWins = 0,
+    int? casualPlays,
+    int? casualWins,
+    int? rankedPlays,
+    int? rankedWins,
     this.rating = 1000,
     this.totalWins = 0,
     this.totalLosses = 0,
-  });
+  }) : casualPlays = casualPlays ?? onlinePlays,
+       casualWins = casualWins ?? onlineWins,
+       rankedPlays = rankedPlays ?? 0,
+       rankedWins = rankedWins ?? 0;
 
   final int offlinePlays;
   final int offlineWins;
-  final int onlinePlays;
-  final int onlineWins;
+  final int casualPlays;
+  final int casualWins;
+  final int rankedPlays;
+  final int rankedWins;
   final int rating;
   final int totalWins;
   final int totalLosses;
 
   int get gamesPlayed => totalWins + totalLosses;
+  int get onlinePlays => casualPlays + rankedPlays;
+  int get onlineWins => casualWins + rankedWins;
 
   KolkhozProfileStats copyWith({
     int? offlinePlays,
     int? offlineWins,
-    int? onlinePlays,
-    int? onlineWins,
+    int? casualPlays,
+    int? casualWins,
+    int? rankedPlays,
+    int? rankedWins,
     int? rating,
     int? totalWins,
     int? totalLosses,
@@ -44,24 +60,32 @@ class KolkhozProfileStats {
     return KolkhozProfileStats(
       offlinePlays: offlinePlays ?? this.offlinePlays,
       offlineWins: offlineWins ?? this.offlineWins,
-      onlinePlays: onlinePlays ?? this.onlinePlays,
-      onlineWins: onlineWins ?? this.onlineWins,
+      casualPlays: casualPlays ?? this.casualPlays,
+      casualWins: casualWins ?? this.casualWins,
+      rankedPlays: rankedPlays ?? this.rankedPlays,
+      rankedWins: rankedWins ?? this.rankedWins,
       rating: rating ?? this.rating,
       totalWins: totalWins ?? this.totalWins,
       totalLosses: totalLosses ?? this.totalLosses,
     );
   }
 
-  KolkhozProfileStats recordResult({required bool online, required bool won}) {
+  KolkhozProfileStats recordResult({
+    required bool online,
+    required bool won,
+    bool ranked = false,
+  }) {
     final ratingDelta = won ? 16 : -16;
-    final nextRating = online
+    final nextRating = online && ranked
         ? _clampInt(rating + ratingDelta, min: 100, max: 3000)
         : rating;
     return copyWith(
       offlinePlays: online ? offlinePlays : offlinePlays + 1,
       offlineWins: online ? offlineWins : offlineWins + (won ? 1 : 0),
-      onlinePlays: online ? onlinePlays + 1 : onlinePlays,
-      onlineWins: online ? onlineWins + (won ? 1 : 0) : onlineWins,
+      casualPlays: online && !ranked ? casualPlays + 1 : casualPlays,
+      casualWins: online && !ranked ? casualWins + (won ? 1 : 0) : casualWins,
+      rankedPlays: online && ranked ? rankedPlays + 1 : rankedPlays,
+      rankedWins: online && ranked ? rankedWins + (won ? 1 : 0) : rankedWins,
       rating: nextRating,
       totalWins: totalWins + (won ? 1 : 0),
       totalLosses: totalLosses + (won ? 0 : 1),
@@ -72,6 +96,10 @@ class KolkhozProfileStats {
     return {
       'offline-plays': offlinePlays,
       'offline-wins': offlineWins,
+      'casual-plays': casualPlays,
+      'casual-wins': casualWins,
+      'ranked-plays': rankedPlays,
+      'ranked-wins': rankedWins,
       'online-plays': onlinePlays,
       'online-wins': onlineWins,
       'rating': rating,
@@ -87,8 +115,12 @@ class KolkhozProfileStats {
     return KolkhozProfileStats(
       offlinePlays: _nonNegativeInt(value['offline-plays']),
       offlineWins: _nonNegativeInt(value['offline-wins']),
-      onlinePlays: _nonNegativeInt(value['online-plays']),
-      onlineWins: _nonNegativeInt(value['online-wins']),
+      casualPlays: _nonNegativeInt(
+        value['casual-plays'] ?? value['online-plays'],
+      ),
+      casualWins: _nonNegativeInt(value['casual-wins'] ?? value['online-wins']),
+      rankedPlays: _nonNegativeInt(value['ranked-plays']),
+      rankedWins: _nonNegativeInt(value['ranked-wins']),
       rating: _positiveInt(value['rating'], fallback: 1000),
       totalWins: _nonNegativeInt(value['total-wins']),
       totalLosses: _nonNegativeInt(value['total-losses']),
@@ -115,11 +147,25 @@ KolkhozProfileStats profileStatsFromSupabaseJson(Object? value) {
     min: 0,
     max: gamesPlayed,
   );
+  final onlineGames = _dbInt(value['online_games']);
+  final onlineWins = _dbInt(value['online_wins']);
+  final rankedGames = _dbInt(value['ranked_games'] ?? value['rating_games']);
+  final rankedWins = value.containsKey('ranked_wins')
+      ? _dbInt(value['ranked_wins'])
+      : _clampInt(onlineWins, min: 0, max: rankedGames);
+  final casualGames = value.containsKey('casual_games')
+      ? _dbInt(value['casual_games'])
+      : _clampInt(onlineGames - rankedGames, min: 0, max: onlineGames);
+  final casualWins = value.containsKey('casual_wins')
+      ? _dbInt(value['casual_wins'])
+      : _clampInt(onlineWins - rankedWins, min: 0, max: casualGames);
   return KolkhozProfileStats(
     offlinePlays: _dbInt(value['offline_games']),
     offlineWins: _dbInt(value['offline_wins']),
-    onlinePlays: _dbInt(value['online_games']),
-    onlineWins: _dbInt(value['online_wins']),
+    casualPlays: casualGames,
+    casualWins: casualWins,
+    rankedPlays: rankedGames,
+    rankedWins: rankedWins,
     rating: _dbPositiveInt(value['rating'], fallback: 1000),
     totalWins: winsTotal,
     totalLosses: lossesTotal,
@@ -132,11 +178,15 @@ Map<String, Object?> profileStatsToSupabaseJson(KolkhozProfileStats stats) {
     'wins_total': stats.totalWins,
     'offline_games': stats.offlinePlays,
     'offline_wins': stats.offlineWins,
+    'casual_games': stats.casualPlays,
+    'casual_wins': stats.casualWins,
+    'ranked_games': stats.rankedPlays,
+    'ranked_wins': stats.rankedWins,
     'online_games': stats.onlinePlays,
     'online_wins': stats.onlineWins,
     'rating': stats.rating,
     'peak_rating': stats.rating,
-    'rating_games': stats.onlinePlays,
+    'rating_games': stats.rankedPlays,
   };
 }
 
@@ -163,6 +213,98 @@ int _clampInt(int value, {required int min, required int max}) {
     return max;
   }
   return value;
+}
+
+class KolkhozFavoriteSetup {
+  const KolkhozFavoriteSetup({
+    required this.variants,
+    required this.controllers,
+  });
+
+  final KolkhozGameVariants variants;
+  final List<KolkhozPlayerController> controllers;
+
+  Map<String, Object?> toJson() {
+    return {
+      'variants': {
+        'deckType': variants.deckType,
+        'maxYears': variants.maxYears,
+        'nomenclature': variants.nomenclature,
+        'allowSwap': variants.allowSwap,
+        'northernStyle': variants.northernStyle,
+        'miceVariant': variants.miceVariant,
+        'ordenNachalniku': variants.ordenNachalniku,
+        'medalsCount': variants.medalsCount,
+        'accumulateJobs': variants.accumulateJobs,
+        'heroOfSovietUnion': variants.heroOfSovietUnion,
+        'wrecker': variants.wreckerCard,
+      },
+      'controllers': controllers.map((controller) => controller.name).toList(),
+    };
+  }
+
+  static KolkhozFavoriteSetup? fromJson(Object? value) {
+    if (value is! Map) {
+      return null;
+    }
+    try {
+      final json = value.cast<String, Object?>();
+      final variantsJson = _objectMap(json['variants']);
+      return KolkhozFavoriteSetup(
+        variants: KolkhozGameVariants(
+          deckType: variantsJson['deckType'] as int,
+          maxYears: variantsJson['maxYears'] as int? ?? 5,
+          nomenclature: variantsJson['nomenclature'] as bool,
+          allowSwap: variantsJson['allowSwap'] as bool,
+          northernStyle: variantsJson['northernStyle'] as bool,
+          miceVariant: variantsJson['miceVariant'] as bool,
+          ordenNachalniku: variantsJson['ordenNachalniku'] as bool,
+          medalsCount: variantsJson['medalsCount'] as bool,
+          accumulateJobs: variantsJson['accumulateJobs'] as bool,
+          heroOfSovietUnion: variantsJson['heroOfSovietUnion'] as bool,
+          wreckerCard: variantsJson['wrecker'] as bool? ?? false,
+        ),
+        controllers: KolkhozPlayerController.normalized([
+          for (final controller in _objectList(json['controllers']))
+            _controllerFromJson(controller),
+        ]),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+Map<String, Object?> _objectMap(Object? value) {
+  if (value is Map<String, Object?>) {
+    return value;
+  }
+  if (value is Map) {
+    return value.cast<String, Object?>();
+  }
+  throw const FormatException('Expected object');
+}
+
+List<Object?> _objectList(Object? value) {
+  if (value is List<Object?>) {
+    return value;
+  }
+  if (value is List) {
+    return value.cast<Object?>();
+  }
+  throw const FormatException('Expected list');
+}
+
+KolkhozPlayerController _controllerFromJson(Object? value) {
+  if (value is! String) {
+    throw const FormatException('Invalid player controller');
+  }
+  for (final controller in KolkhozPlayerController.values) {
+    if (controller.name == value) {
+      return controller;
+    }
+  }
+  throw const FormatException('Unknown player controller');
 }
 
 enum KolkhozLanguage {
@@ -267,46 +409,115 @@ enum KolkhozAppearance {
   }
 }
 
+enum KolkhozCardBack {
+  classic(
+    assetPath: 'ios_resources/Cards/card-back.png',
+    iconAssetPath: 'ios_resources/Cards/card-back-icon.png',
+  ),
+  harvest(
+    assetPath: 'ios_resources/Cards/card-back-harvest.png',
+    iconAssetPath: 'ios_resources/Cards/card-back-harvest-icon.png',
+  ),
+  granary(
+    assetPath: 'ios_resources/Cards/card-back-granary.png',
+    iconAssetPath: 'ios_resources/Cards/card-back-granary-icon.png',
+  ),
+  winter(
+    assetPath: 'ios_resources/Cards/card-back-winter.png',
+    iconAssetPath: 'ios_resources/Cards/card-back-winter-icon.png',
+  );
+
+  const KolkhozCardBack({required this.assetPath, required this.iconAssetPath});
+
+  final String assetPath;
+  final String iconAssetPath;
+
+  static KolkhozCardBack fromStoredValue(String? value) {
+    return KolkhozCardBack.values.firstWhere(
+      (cardBack) => cardBack.name == value,
+      orElse: () => KolkhozCardBack.classic,
+    );
+  }
+
+  String label(KolkhozLanguage language) {
+    return switch (this) {
+      KolkhozCardBack.classic => language.t(KolkhozText.appsettingsClassic),
+      KolkhozCardBack.harvest => language.t(KolkhozText.appsettingsHarvest),
+      KolkhozCardBack.granary => language.t(KolkhozText.appsettingsGranary),
+      KolkhozCardBack.winter => language.t(KolkhozText.appsettingsWinter),
+    };
+  }
+}
+
+class KolkhozCardBackScope extends InheritedWidget {
+  const KolkhozCardBackScope({
+    required this.cardBack,
+    required super.child,
+    super.key,
+  });
+
+  final KolkhozCardBack cardBack;
+
+  static KolkhozCardBack of(BuildContext context) {
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<KolkhozCardBackScope>();
+    return scope?.cardBack ?? KolkhozCardBack.classic;
+  }
+
+  @override
+  bool updateShouldNotify(KolkhozCardBackScope oldWidget) {
+    return cardBack != oldWidget.cardBack;
+  }
+}
+
 class KolkhozAppSettings {
   const KolkhozAppSettings({
     this.language = KolkhozLanguage.ru,
     this.appearance = KolkhozAppearance.dark,
+    this.cardBack = KolkhozCardBack.classic,
     this.confirmNewGame = true,
     this.confirmMainMenu = true,
     this.showInvalidTapHints = true,
     this.displayName = defaultProfileDisplayName,
     this.portraitAsset = defaultProfilePortraitAsset,
     this.profileStats = defaultProfileStats,
+    this.favoriteSetup,
   });
 
   final KolkhozLanguage language;
   final KolkhozAppearance appearance;
+  final KolkhozCardBack cardBack;
   final bool confirmNewGame;
   final bool confirmMainMenu;
   final bool showInvalidTapHints;
   final String displayName;
   final String portraitAsset;
   final KolkhozProfileStats profileStats;
+  final KolkhozFavoriteSetup? favoriteSetup;
 
   KolkhozAppSettings copyWith({
     KolkhozLanguage? language,
     KolkhozAppearance? appearance,
+    KolkhozCardBack? cardBack,
     bool? confirmNewGame,
     bool? confirmMainMenu,
     bool? showInvalidTapHints,
     String? displayName,
     String? portraitAsset,
     KolkhozProfileStats? profileStats,
+    KolkhozFavoriteSetup? favoriteSetup,
   }) {
     return KolkhozAppSettings(
       language: language ?? this.language,
       appearance: appearance ?? this.appearance,
+      cardBack: cardBack ?? this.cardBack,
       confirmNewGame: confirmNewGame ?? this.confirmNewGame,
       confirmMainMenu: confirmMainMenu ?? this.confirmMainMenu,
       showInvalidTapHints: showInvalidTapHints ?? this.showInvalidTapHints,
       displayName: displayName ?? this.displayName,
       portraitAsset: portraitAsset ?? this.portraitAsset,
       profileStats: profileStats ?? this.profileStats,
+      favoriteSetup: favoriteSetup ?? this.favoriteSetup,
     );
   }
 
@@ -314,12 +525,14 @@ class KolkhozAppSettings {
     return {
       'kolkhoz-lang': language.name,
       'kolkhoz-appearance': appearance.name,
+      'card-back': cardBack.name,
       'confirm-new-game': confirmNewGame,
       'confirm-main-menu': confirmMainMenu,
       'show-invalid-tap-hints': showInvalidTapHints,
       'display-name': displayName,
       'portrait-asset': portraitAsset,
       'profile-stats': profileStats.toJson(),
+      if (favoriteSetup != null) 'favorite-setup': favoriteSetup!.toJson(),
     };
   }
 
@@ -333,6 +546,7 @@ class KolkhozAppSettings {
       appearance: KolkhozAppearance.fromStoredValue(
         json['kolkhoz-appearance'] as String?,
       ),
+      cardBack: KolkhozCardBack.fromStoredValue(json['card-back'] as String?),
       confirmNewGame: json['confirm-new-game'] as bool? ?? true,
       confirmMainMenu: json['confirm-main-menu'] as bool? ?? true,
       showInvalidTapHints: json['show-invalid-tap-hints'] as bool? ?? true,
@@ -343,6 +557,7 @@ class KolkhozAppSettings {
           ? portraitAsset!
           : defaultProfilePortraitAsset,
       profileStats: KolkhozProfileStats.fromJson(json['profile-stats']),
+      favoriteSetup: KolkhozFavoriteSetup.fromJson(json['favorite-setup']),
     );
   }
 }

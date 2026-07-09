@@ -195,6 +195,7 @@ class LiveGameStore extends ChangeNotifier {
   String? get onlineSessionID => _online?.sessionID;
   String? get onlineInviteCode => _online?.inviteCode;
   int? get onlinePlayerID => _online?.playerID;
+  OnlineSessionUpdate? get onlineUpdate => _online?.update;
   bool get onlineWaitingForPlayers {
     final update = _online?.update;
     if (update == null) {
@@ -243,6 +244,7 @@ class LiveGameStore extends ChangeNotifier {
     required KolkhozGameVariants variants,
     required List<KolkhozPlayerController> controllers,
     required bool ranked,
+    required bool browserJoinable,
   }) async {
     try {
       final client = KolkhozOnlineClient(
@@ -256,6 +258,7 @@ class LiveGameStore extends ChangeNotifier {
         variants: variants,
         controllers: normalizedControllers,
         ranked: ranked,
+        browserJoinable: browserJoinable,
       );
       await _connectOnline(
         client: client,
@@ -302,8 +305,61 @@ class LiveGameStore extends ChangeNotifier {
     }
   }
 
+  Future<String> matchmakeOnlineGame({
+    required Uri baseURL,
+    bool rankedOnly = false,
+    bool comradesOnly = false,
+  }) async {
+    try {
+      final client = KolkhozOnlineClient(
+        baseURL,
+        accessTokenProvider: onlineAccessTokenProvider,
+      );
+      final response = await client.matchmakeSession(
+        rankedOnly: rankedOnly,
+        comradesOnly: comradesOnly,
+      );
+      await _connectOnline(
+        client: client,
+        sessionID: response.sessionID,
+        inviteCode: response.inviteCode,
+        playerID: response.playerID,
+        seatToken: response.seatToken,
+        update: response.update,
+      );
+      return response.inviteCode;
+    } catch (exception) {
+      error = '$exception';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   Future<void> refreshOnlineGame() async {
     await _refreshOnlineGame();
+  }
+
+  Future<void> kickOnlinePlayer(int playerID) async {
+    final online = _online;
+    if (online == null) {
+      return;
+    }
+    try {
+      final update = await online.client.kickSessionPlayer(
+        sessionID: online.sessionID,
+        hostPlayerID: online.playerID,
+        targetPlayerID: playerID,
+        seatToken: online.seatToken,
+      );
+      online.update = update;
+      online.legalActions = update.legalActions;
+      error = null;
+      _sync();
+    } catch (exception) {
+      error = '$exception';
+      notifyListeners();
+      rethrow;
+    }
   }
 
   Future<void> _refreshOnlineGame({int? minimumRevision}) async {

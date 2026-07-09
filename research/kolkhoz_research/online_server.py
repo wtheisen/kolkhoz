@@ -7,10 +7,13 @@ import os
 import secrets
 import socket
 import ssl
+import sys
 import threading
 import time
+import traceback
 import uuid
-from dataclasses import dataclass
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -28,7 +31,13 @@ from .c_engine import (
     REPO_ROOT,
 )
 from .model import PolicyArtifact
-from .online_store import OnlineSessionStore
+from .online_store import (
+    SERVER_BOT_PROFILES,
+    SERVER_BOT_PROFILES_BY_CONTROLLER,
+    SERVER_BOT_PROFILES_BY_ID,
+    OnlineSessionStore,
+    seat_token_hash,
+)
 
 try:
     import certifi
@@ -43,12 +52,22 @@ MAX_CARDS = 80
 MAX_STACKS = 16
 
 PHASE_GAME_OVER = 5
-DEFAULT_SESSION_TTL_SECONDS = 6 * 60 * 60
+DEFAULT_SESSION_TTL_SECONDS = 30 * 60
 PERSISTED_TOUCH_INTERVAL_SECONDS = 60
 DEFAULT_TURN_SECONDS = 90
 PRESENCE_GRACE_SECONDS = 20
 TIMEOUTS_BEFORE_AUTOPILOT = 2
 DEFAULT_BACKGROUND_TICK_SECONDS = 1.0
+BOT_LOBBY_SEED_INTERVAL_SECONDS = 15 * 60
+BOT_OPEN_SEAT_FILL_INTERVAL_SECONDS = 30
+BOT_OPEN_SEAT_MIN_AGE_SECONDS = 30
+BOT_HUMAN_GAME_ACTION_DELAY_MIN_SECONDS = 1.5
+BOT_HUMAN_GAME_ACTION_DELAY_MAX_SECONDS = 8.0
+BOT_LOBBY_OPEN_SEAT_ROTATION = (3, 2, 1)
+DEFAULT_MATCHMAKING_RATING = 1000
+MATCHMAKING_IDEAL_RATING_DELTA = 300
+MATCHMAKING_ACCEPTABLE_RATING_DELTA = 600
+PROFILE_BOT_TARGET_WAIT_SECONDS = 90
 DEFAULT_ONLINE_POLICY_PATH = REPO_ROOT / "clients/flutter_app/assets/policies/hard_policy.json"
 DEFAULT_ONLINE_POLICY_PATHS = {
     "mediumAI": REPO_ROOT / "clients/flutter_app/assets/policies/medium_policy.json",
@@ -71,6 +90,7 @@ CONTROLLER_NAMES = {
 }
 INVITE_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 INVITE_CODE_LENGTH = 5
+METRIC_SAMPLE_LIMIT = 2048
 
 
 class OnlineServerError(Exception):
@@ -78,6 +98,99 @@ class OnlineServerError(Exception):
         super().__init__(message)
         self.status = status
         self.message = message
+
+
+class OnlineMetricBucket:
+    def __init__(self) -> None:
+        self.count = 0
+        self.total = 0.0
+        self.minimum: float | None = None
+        self.maximum: float | None = None
+        self.samples: list[float] = []
+
+    def record(self, value: float) -> None:
+        self.count += 1
+        self.total += value
+        self.minimum = value if self.minimum is None else min(self.minimum, value)
+        self.maximum = value if self.maximum is None else max(self.maximum, value)
+        self.samples.append(value)
+        if len(self.samples) > METRIC_SAMPLE_LIMIT:
+            del self.samples[: len(self.samples) - METRIC_SAMPLE_LIMIT]
+
+    def snapshot(self) -> dict[str, object]:
+        samples = sorted(self.samples)
+        return {
+            "count": self.count,
+            "meanMs": (self.total / self.count) * 1000 if self.count else 0.0,
+            "minMs": (self.minimum or 0.0) * 1000,
+            "maxMs": (self.maximum or 0.0) * 1000,
+            "p50Ms": _percentile(samples, 0.50) * 1000,
+            "p95Ms": _percentile(samples, 0.95) * 1000,
+            "p99Ms": _percentile(samples, 0.99) * 1000,
+        }
+
+
+class OnlineServerMetrics:
+    def __init__(self) -> None:
+        self.started_at = time.time()
+        self._lock = threading.RLock()
+        self._routes: dict[str, OnlineMetricBucket] = {}
+        self._route_statuses: dict[str, int] = {}
+        self._lock_waits: dict[str, OnlineMetricBucket] = {}
+        self._store_calls: dict[str, OnlineMetricBucket] = {}
+        self._ticks = OnlineMetricBucket()
+
+    def record_route(
+        self,
+        *,
+        method: str,
+        route: str,
+        status: int,
+        elapsed: float,
+    ) -> None:
+        key = f"{method} {route}"
+        with self._lock:
+            self._routes.setdefault(key, OnlineMetricBucket()).record(elapsed)
+            status_key = f"{key} {status}"
+            self._route_statuses[status_key] = self._route_statuses.get(status_key, 0) + 1
+
+    def record_lock_wait(self, kind: str, elapsed: float) -> None:
+        with self._lock:
+            self._lock_waits.setdefault(kind, OnlineMetricBucket()).record(elapsed)
+
+    def record_store_call(self, name: str, elapsed: float) -> None:
+        with self._lock:
+            self._store_calls.setdefault(name, OnlineMetricBucket()).record(elapsed)
+
+    def record_background_tick(self, elapsed: float) -> None:
+        with self._lock:
+            self._ticks.record(elapsed)
+
+    def snapshot(self, service: "KolkhozOnlineSessionService") -> dict[str, object]:
+        with self._lock:
+            return {
+                "startedAt": self.started_at,
+                "uptimeSeconds": time.time() - self.started_at,
+                "process": {
+                    "activeThreads": threading.active_count(),
+                    "python": sys.version.split()[0],
+                },
+                "service": service.metrics_state(),
+                "routes": {
+                    key: bucket.snapshot()
+                    for key, bucket in sorted(self._routes.items())
+                },
+                "routeStatuses": dict(sorted(self._route_statuses.items())),
+                "sessionLockWaits": {
+                    key: bucket.snapshot()
+                    for key, bucket in sorted(self._lock_waits.items())
+                },
+                "storeCalls": {
+                    key: bucket.snapshot()
+                    for key, bucket in sorted(self._store_calls.items())
+                },
+                "backgroundTick": self._ticks.snapshot(),
+            }
 
 
 class SupabaseAuthVerifier:
@@ -245,6 +358,7 @@ def serve_online(
         store=store,
         auth_verifier=auth_verifier,
         background_tick_seconds=DEFAULT_BACKGROUND_TICK_SECONDS,
+        population_enabled=True,
     )
     server = KolkhozOnlineHTTPServer((host, port), service)
     print(f"Kolkhoz online server: http://{host}:{port}")
@@ -294,8 +408,11 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
         print(f"Online server: {format % args}", flush=True)
 
     def _handle(self) -> None:
+        started = time.perf_counter()
+        parsed = urlparse(self.path)
+        status = int(HTTPStatus.INTERNAL_SERVER_ERROR)
+        route = _route_label(parsed.path)
         try:
-            parsed = urlparse(self.path)
             response = self._route(
                 method=self.command,
                 path=parsed.path,
@@ -303,11 +420,28 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
                 headers=self.headers,
                 body=self._read_json_body(),
             )
+            status = int(HTTPStatus.OK)
             self._send_json(response)
         except OnlineServerError as error:
+            status = int(error.status)
+            if error.status >= HTTPStatus.INTERNAL_SERVER_ERROR:
+                print(
+                    f"Online server error {error.status}: {error.message}",
+                    flush=True,
+            )
             self._send_json({"error": error.message}, status=error.status)
         except Exception as error:
+            status = int(HTTPStatus.BAD_REQUEST)
+            print(f"Online server unexpected error: {error!r}", flush=True)
+            traceback.print_exc()
             self._send_json({"error": str(error)}, status=HTTPStatus.BAD_REQUEST)
+        finally:
+            self.server.service.metrics.record_route(
+                method=self.command,
+                route=route,
+                status=status,
+                elapsed=time.perf_counter() - started,
+            )
 
     def _route(
         self,
@@ -322,6 +456,8 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
         service = self.server.service
         if method == "GET" and parts == ["health"]:
             return {"status": "ok"}
+        if method == "GET" and parts == ["metrics"]:
+            return service.metrics_snapshot()
         if len(parts) >= 1 and parts[0] == "comrades":
             user_id = service.user_id_from_authorization(_authorization_header(headers))
             if method == "GET" and len(parts) == 1:
@@ -333,9 +469,20 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
             if method == "POST" and len(parts) == 2 and parts[1] == "remove":
                 return service.remove_comrade(body, user_id=user_id)
         if method == "GET" and parts == ["sessions"]:
-            return service.list_sessions()
+            return service.list_sessions(
+                user_id=service.user_id_from_authorization(
+                    _authorization_header(headers),
+                ),
+            )
         if method == "POST" and parts == ["sessions"]:
             return service.create_session(
+                body,
+                user_id=service.user_id_from_authorization(
+                    _authorization_header(headers),
+                ),
+            )
+        if method == "POST" and parts == ["sessions", "matchmake"]:
+            return service.matchmake_session(
                 body,
                 user_id=service.user_id_from_authorization(
                     _authorization_header(headers),
@@ -362,6 +509,21 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
                 return service.leave_session(
                     session_id,
                     _parse_int(parts[3], "playerID"),
+                    _seat_token(headers, query, body),
+                    user_id=service.user_id_from_authorization(
+                        _authorization_header(headers),
+                    ),
+                )
+            if (
+                method == "POST"
+                and len(parts) == 5
+                and parts[2] == "players"
+                and parts[4] == "kick"
+            ):
+                return service.kick_session_player(
+                    session_id,
+                    _parse_int(parts[3], "playerID"),
+                    body,
                     _seat_token(headers, query, body),
                     user_id=service.user_id_from_authorization(
                         _authorization_header(headers),
@@ -450,11 +612,17 @@ class HostedSession:
     variants: dict[str, object]
     controllers: list[str]
     ranked: bool
+    browser_joinable: bool
+    population_kind: str | None
     occupied_seats: set[int]
     seat_tokens: dict[int, str]
+    seat_token_hashes: dict[int, str]
     seat_user_ids: dict[int, str]
+    server_bot_controllers: dict[int, str]
+    bot_action_ready_at: dict[int, float]
     created_by_user_id: str | None
     action_log: list[dict[str, object]]
+    action_update_cache: list[dict[str, object]]
     created_at: float
     last_seen_at: float
     last_persisted_touch_at: float
@@ -465,6 +633,146 @@ class HostedSession:
     turn_player_id: int | None
     turn_deadline_at: float | None
     stats_recorded: bool = False
+    lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
+
+
+class ProfileBotFactory:
+    def create_profiles(
+        self,
+        *,
+        count: int,
+        now: float,
+        exclude_user_ids: set[str],
+        target_wait_seconds: float,
+        target_rating: int,
+    ) -> list[dict[str, object]]:
+        return []
+
+
+class StoreBackedProfileBotFactory(ProfileBotFactory):
+    def __init__(self, store: OnlineSessionStore) -> None:
+        self.store = store
+
+    def create_profiles(
+        self,
+        *,
+        count: int,
+        now: float,
+        exclude_user_ids: set[str],
+        target_wait_seconds: float,
+        target_rating: int,
+    ) -> list[dict[str, object]]:
+        return self.store.create_profile_bot_profiles(
+            count=count,
+            exclude_user_ids=set(exclude_user_ids),
+            target_rating=target_rating,
+            updated_at=now,
+        )
+
+
+class OnlinePopulationHandler:
+    def __init__(self, service: KolkhozOnlineSessionService) -> None:
+        self.service = service
+        now = time.time()
+        self.next_lobby_seed_at = now
+        self.next_open_seat_fill_at = now + BOT_OPEN_SEAT_FILL_INTERVAL_SECONDS
+        self.bot_use_counts = {
+            str(profile["user_id"]): 0 for profile in SERVER_BOT_PROFILES
+        }
+        self.lobby_seed_count = 0
+
+    def tick(self, now: float) -> None:
+        if now >= self.next_lobby_seed_at:
+            self._seed_open_lobbies(now)
+            self.next_lobby_seed_at = _next_interval_after(
+                self.next_lobby_seed_at,
+                now,
+                BOT_LOBBY_SEED_INTERVAL_SECONDS,
+            )
+        if now >= self.next_open_seat_fill_at:
+            filled_profiles = self.service.fill_open_seats_with_server_bots(
+                now=now,
+                profiles=self._choose_bot_profiles(len(SERVER_BOT_PROFILES), now),
+            )
+            self._mark_used(filled_profiles)
+            self.next_open_seat_fill_at = _next_interval_after(
+                self.next_open_seat_fill_at,
+                now,
+                BOT_OPEN_SEAT_FILL_INTERVAL_SECONDS,
+            )
+
+    def _seed_open_lobbies(self, now: float) -> None:
+        open_seat_choices = self._choose_lobby_open_seats(now)
+        self.lobby_seed_count += 1
+        for ranked, open_human_seats in zip((True, False), open_seat_choices):
+            profiles = self._choose_bot_profiles(
+                PLAYER_COUNT - open_human_seats,
+                now,
+            )
+            try:
+                session_id = self.service.create_population_session(
+                    bot_profiles=profiles,
+                    open_human_seats=open_human_seats,
+                    ranked=ranked,
+                    now=now,
+                    population_kind="open_lobby_seed",
+                )
+            except ValueError:
+                continue
+            seated_profile_user_ids = {
+                str(profile["userID"])
+                for profile in self.service.session_listing(session_id)["playerProfiles"]
+                if str(profile.get("userID")) in SERVER_BOT_PROFILES_BY_ID
+            }
+            self._mark_used(
+                [
+                    profile
+                    for profile in profiles
+                    if str(profile["user_id"]) in seated_profile_user_ids
+                ]
+            )
+
+    def _choose_lobby_open_seats(self, now: float) -> list[int]:
+        epoch = int(now // BOT_LOBBY_SEED_INTERVAL_SECONDS)
+        options = list(BOT_LOBBY_OPEN_SEAT_ROTATION)
+        options.sort(
+            key=lambda open_human_seats: hashlib.sha256(
+                (
+                    f"{epoch}:{self.lobby_seed_count}:"
+                    f"{open_human_seats}"
+                ).encode("utf-8")
+            ).hexdigest()
+        )
+        return options[:2]
+
+    def _choose_bot_profiles(
+        self,
+        count: int,
+        now: float,
+        *,
+        exclude_user_ids: set[str] | None = None,
+    ) -> list[dict[str, object]]:
+        excluded = exclude_user_ids or set()
+        epoch = int(now // BOT_OPEN_SEAT_FILL_INTERVAL_SECONDS)
+        profiles = [
+            profile
+            for profile in SERVER_BOT_PROFILES
+            if str(profile["user_id"]) not in excluded
+        ]
+        profiles.sort(
+            key=lambda profile: (
+                self.bot_use_counts.get(str(profile["user_id"]), 0),
+                hashlib.sha256(
+                    f"{epoch}:{profile['user_id']}".encode("utf-8")
+                ).hexdigest(),
+            )
+        )
+        return profiles[:count]
+
+    def _mark_used(self, profiles: list[dict[str, object]]) -> None:
+        for profile in profiles:
+            user_id = str(profile["user_id"])
+            self.bot_use_counts[user_id] = self.bot_use_counts.get(user_id, 0) + 1
 
 
 class KolkhozOnlineSessionService:
@@ -478,7 +786,9 @@ class KolkhozOnlineSessionService:
         policy_artifact: PolicyArtifact | None = None,
         store: OnlineSessionStore | None = None,
         auth_verifier: SupabaseAuthVerifier | None = None,
+        profile_bot_factory: ProfileBotFactory | None = None,
         background_tick_seconds: float = 0,
+        population_enabled: bool = False,
     ) -> None:
         self.engine = engine
         self._sessions: dict[str, HostedSession] = {}
@@ -504,12 +814,20 @@ class KolkhozOnlineSessionService:
             self._policy_artifacts["neuralAI"] = policy_artifact
         self.store = store
         self.auth_verifier = auth_verifier
+        self.profile_bot_factory = (
+            profile_bot_factory
+            or (StoreBackedProfileBotFactory(store) if store is not None else None)
+            or ProfileBotFactory()
+        )
         self.background_tick_seconds = background_tick_seconds
         self._closed = threading.Event()
         self._background_thread: threading.Thread | None = None
         self._lock = threading.RLock()
-        if self.store is not None:
-            self.store.abandon_active_sessions(updated_at=time.time())
+        self._policy_lock = threading.RLock()
+        self.metrics = OnlineServerMetrics()
+        self.population_handler = (
+            OnlinePopulationHandler(self) if population_enabled else None
+        )
         if self.background_tick_seconds > 0:
             self._background_thread = threading.Thread(
                 target=self._run_background_tick,
@@ -532,17 +850,116 @@ class KolkhozOnlineSessionService:
 
     def _run_background_tick(self) -> None:
         while not self._closed.wait(self.background_tick_seconds):
+            started = time.perf_counter()
             try:
                 self.tick()
             except Exception as error:
                 print(f"Online background tick failed: {error}", flush=True)
+            finally:
+                self.metrics.record_background_tick(time.perf_counter() - started)
 
     def tick(self) -> None:
         with self._lock:
             self._prune_expired_sessions()
             now = time.time()
-            for hosted in list(self._sessions.values()):
+            if self.population_handler is not None:
+                self.population_handler.tick(now)
+            sessions = list(self._sessions.values())
+        for hosted in sessions:
+            with self._session_lock(hosted, "background_tick"):
+                if not self._session_is_registered(hosted):
+                    continue
                 self._resolve_turn_timeouts(hosted, now)
+
+    @contextmanager
+    def _locked_session(self, session_id: str):
+        hosted = self._get_or_load_session_locked(session_id)
+        try:
+            yield hosted
+        finally:
+            hosted.lock.release()
+
+    @contextmanager
+    def _session_lock(self, hosted: HostedSession, kind: str):
+        self._acquire_session_lock(hosted, kind)
+        try:
+            yield hosted
+        finally:
+            hosted.lock.release()
+
+    def _acquire_session_lock(self, hosted: HostedSession, kind: str) -> None:
+        started = time.perf_counter()
+        hosted.lock.acquire()
+        self.metrics.record_lock_wait(kind, time.perf_counter() - started)
+
+    def _get_or_load_session_locked(self, session_id: str) -> HostedSession:
+        with self._lock:
+            self._prune_expired_sessions()
+            hosted = self._session_from_memory(session_id)
+            if hosted is not None:
+                self._acquire_session_lock(hosted, "request")
+                return hosted
+        loaded = self._load_persisted_session(session_id)
+        with self._lock:
+            existing = self._session_from_memory(str(loaded.session_id))
+            if existing is None:
+                existing = self._session_from_memory(str(loaded.invite_code))
+            if existing is not None:
+                self.engine.free_engine(loaded.engine_pointer)
+                self._acquire_session_lock(existing, "request")
+                return existing
+            self._sessions[loaded.session_id] = loaded
+            self._acquire_session_lock(loaded, "request")
+            return loaded
+
+    def _session_is_registered(self, hosted: HostedSession) -> bool:
+        with self._lock:
+            return self._sessions.get(hosted.session_id) is hosted
+
+    def _store_call(self, name: str, func: object, *args: object, **kwargs: object):
+        started = time.perf_counter()
+        try:
+            return func(*args, **kwargs)  # type: ignore[misc]
+        finally:
+            self.metrics.record_store_call(name, time.perf_counter() - started)
+
+    def metrics_snapshot(self) -> dict[str, object]:
+        return self.metrics.snapshot(self)
+
+    def metrics_state(self) -> dict[str, object]:
+        with self._lock:
+            sessions = list(self._sessions.values())
+        now = time.time()
+        active_sessions = len(sessions)
+        active_seats = sum(len(hosted.occupied_seats) for hosted in sessions)
+        connected_human_seats = sum(
+            1
+            for hosted in sessions
+            for player_id in hosted.occupied_seats
+            if self._effective_controller(hosted, player_id) == "human"
+            and now - hosted.seat_last_seen_at.get(player_id, 0.0)
+            <= PRESENCE_GRACE_SECONDS
+        )
+        action_cache_entries = sum(
+            len(hosted.action_update_cache) for hosted in sessions
+        )
+        action_cache_viewer_snapshots = sum(
+            len(entry.get("updatesByViewer", {}))
+            for hosted in sessions
+            for entry in hosted.action_update_cache
+            if isinstance(entry, dict)
+        )
+        return {
+            "activeSessions": active_sessions,
+            "activeSeats": active_seats,
+            "connectedHumanSeats": connected_human_seats,
+            "profiledBotSeats": len(SERVER_BOT_PROFILES),
+            "citizensOnline": connected_human_seats + len(SERVER_BOT_PROFILES),
+            "actionCacheEntries": action_cache_entries,
+            "actionCacheViewerSnapshots": action_cache_viewer_snapshots,
+            "populationEnabled": self.population_handler is not None,
+            "storeConfigured": self.store is not None,
+        }
 
     def create_session(
         self,
@@ -552,11 +969,11 @@ class KolkhozOnlineSessionService:
     ) -> dict[str, object]:
         with self._lock:
             self._require_authenticated_user(user_id)
-            self._ensure_not_online_banned(user_id)
             self._prune_expired_sessions()
             variants = _normalize_variants(request.get("variants"))
             controllers = _normalize_controllers(request.get("controllers"))
-            ranked = _optional_bool(request.get("ranked"), True)
+            browser_joinable = _optional_bool(request.get("browserJoinable"), True)
+            ranked = False
             seed = _optional_int(request.get("seed")) or int(time.time_ns())
             session_id = str(uuid.uuid4())
             invite_code = self._generate_invite_code()
@@ -574,11 +991,17 @@ class KolkhozOnlineSessionService:
                 variants=variants,
                 controllers=controllers,
                 ranked=ranked,
+                browser_joinable=browser_joinable,
+                population_kind=None,
                 occupied_seats=set(),
                 seat_tokens={},
+                seat_token_hashes={},
                 seat_user_ids={},
+                server_bot_controllers={},
+                bot_action_ready_at={},
                 created_by_user_id=user_id,
                 action_log=[],
+                action_update_cache=[],
                 created_at=now,
                 last_seen_at=now,
                 last_persisted_touch_at=now,
@@ -595,6 +1018,7 @@ class KolkhozOnlineSessionService:
             hosted.seat_last_seen_at[player_id] = now
             if user_id is not None:
                 hosted.seat_user_ids[player_id] = user_id
+            self._assign_server_bot_profiles(hosted)
             self._sessions[session_id] = hosted
             try:
                 self._advance_automatic_turns(hosted, persist=False)
@@ -622,10 +1046,10 @@ class KolkhozOnlineSessionService:
         *,
         user_id: str | None = None,
     ) -> dict[str, object]:
-        with self._lock:
+        with self._locked_session(session_id) as hosted:
             self._require_authenticated_user(user_id)
-            self._ensure_not_online_banned(user_id)
-            hosted = self._session(session_id)
+            if not _session_lookup_is_invite_code(session_id):
+                self._ensure_not_online_banned(user_id)
             preferred = _optional_int(request.get("preferredPlayerID"))
             if preferred is not None:
                 if not self._seat_is_joinable(hosted, preferred):
@@ -633,27 +1057,574 @@ class KolkhozOnlineSessionService:
                 player_id = preferred
             else:
                 player_id = self._first_available_seat(hosted)
-            hosted.occupied_seats.add(player_id)
-            seat_token = self._issue_seat_token(hosted, player_id)
-            if user_id is not None:
-                hosted.seat_user_ids[player_id] = user_id
-            hosted.last_seen_at = time.time()
+            return self._join_hosted_seat(hosted, player_id, user_id=user_id)
+
+    def matchmake_session(
+        self,
+        request: dict[str, object],
+        *,
+        user_id: str | None = None,
+    ) -> dict[str, object]:
+        self._require_authenticated_user(user_id)
+        self._ensure_not_online_banned(user_id)
+        ranked_only = _optional_bool(request.get("rankedOnly"), False)
+        comrades_only = _optional_bool(request.get("comradesOnly"), False)
+        comrade_user_ids: set[str] = set()
+        if comrades_only:
+            if user_id is None or self.store is None:
+                raise OnlineServerError(HTTPStatus.NOT_FOUND, "no open games")
+            comrade_summary = self.store.comrades_for_user(user_id=user_id)
+            comrade_user_ids = {
+                str(comrade.get("user_id") or comrade.get("userID"))
+                for comrade in comrade_summary.get("comrades", [])
+                if comrade.get("user_id") or comrade.get("userID")
+            }
+            if not comrade_user_ids:
+                raise OnlineServerError(HTTPStatus.NOT_FOUND, "no open games")
+        with self._lock:
+            self._prune_expired_sessions()
+            candidates = [
+                hosted
+                for hosted in self._sessions.values()
+                if hosted.browser_joinable
+                and (not ranked_only or hosted.ranked)
+                and (
+                    not comrades_only
+                    or any(
+                        seat_user_id in comrade_user_ids
+                        for seat_user_id in hosted.seat_user_ids.values()
+                    )
+                )
+                and self._open_seats(hosted)
+            ]
+            rating_user_ids = {
+                seat_user_id
+                for hosted in candidates
+                for seat_user_id in hosted.seat_user_ids.values()
+            }
+        if user_id is not None:
+            rating_user_ids.add(user_id)
+        ratings = self._matchmaking_ratings(rating_user_ids)
+        player_rating = (
+            ratings.get(user_id, DEFAULT_MATCHMAKING_RATING)
+            if user_id is not None
+            else DEFAULT_MATCHMAKING_RATING
+        )
+        scored_candidates = [
+            (
+                self._matchmaking_rating_key(hosted, player_rating, ratings),
+                len(self._open_seats(hosted)),
+                hosted.created_at,
+                hosted.session_id,
+                hosted,
+            )
+            for hosted in candidates
+        ]
+        if any(score[0][0] < 2 for score in scored_candidates):
+            scored_candidates = [
+                score for score in scored_candidates if score[0][0] < 2
+            ]
+        candidates = [
+            hosted
+            for _, _, _, _, hosted in sorted(
+                scored_candidates,
+                key=lambda score: (score[0], score[1], score[2], score[3]),
+            )
+        ]
+        for hosted in candidates:
+            with self._session_lock(hosted, "matchmake"):
+                if not self._session_is_registered(hosted):
+                    continue
+                self._resolve_turn_timeouts(hosted, time.time())
+                open_seats = self._open_seats(hosted)
+                if (
+                    not hosted.browser_joinable
+                    or not open_seats
+                    or (ranked_only and not hosted.ranked)
+                    or (
+                        comrades_only
+                        and not any(
+                            seat_user_id in comrade_user_ids
+                            for seat_user_id in hosted.seat_user_ids.values()
+                        )
+                    )
+                    or (user_id is not None and user_id in hosted.seat_user_ids.values())
+                ):
+                    continue
+                return self._join_hosted_seat(
+                    hosted,
+                    open_seats[0],
+                    user_id=user_id,
+                )
+        if ranked_only and not comrades_only:
+            return self._join_new_ranked_matchmaking_seed(user_id=user_id)
+        raise OnlineServerError(HTTPStatus.NOT_FOUND, "no open games")
+
+    def _join_new_ranked_matchmaking_seed(
+        self,
+        *,
+        user_id: str | None,
+    ) -> dict[str, object]:
+        now = time.time()
+        try:
+            session_id = self.create_population_session(
+                bot_profiles=[],
+                open_human_seats=PLAYER_COUNT,
+                ranked=True,
+                now=now,
+                population_kind="rating_seed",
+            )
+        except ValueError as error:
+            raise OnlineServerError(HTTPStatus.NOT_FOUND, "no open games") from error
+        with self._locked_session(session_id) as hosted:
+            return self._join_hosted_seat(
+                hosted,
+                self._first_available_seat(hosted),
+                user_id=user_id,
+            )
+
+    def _bot_profiles_by_rating_match(
+        self,
+        profiles: list[dict[str, object]],
+        target_rating: int,
+        ratings: dict[str, int],
+    ) -> list[dict[str, object]]:
+        return [
+            profile
+            for _, profile in sorted(
+                enumerate(profiles),
+                key=lambda entry: (
+                    abs(self._profile_rating(entry[1], ratings) - target_rating),
+                    entry[0],
+                ),
+            )
+        ]
+
+    def _profile_rating(
+        self,
+        profile: dict[str, object],
+        ratings: dict[str, int],
+    ) -> int:
+        stats = profile.get("stats")
+        rating = stats.get("rating") if isinstance(stats, dict) else None
+        if isinstance(rating, (int, float)):
+            return int(rating)
+        return ratings.get(str(profile["user_id"]), DEFAULT_MATCHMAKING_RATING)
+
+    def _matchmaking_ratings(self, user_ids: set[str]) -> dict[str, int]:
+        ratings = {
+            user_id: DEFAULT_MATCHMAKING_RATING
+            for user_id in user_ids
+            if user_id
+        }
+        if not ratings or self.store is None:
+            return ratings
+        try:
+            profiles = self.store.profiles_for_user_ids(sorted(ratings))
+        except Exception:
+            return ratings
+        for profile_user_id, profile in profiles.items():
+            stats = profile.get("stats") if isinstance(profile, dict) else None
+            rating = stats.get("rating") if isinstance(stats, dict) else None
+            if isinstance(rating, (int, float)):
+                ratings[str(profile_user_id)] = int(rating)
+        return ratings
+
+    def _matchmaking_rating_key(
+        self,
+        hosted: HostedSession,
+        player_rating: int,
+        ratings: dict[str, int],
+    ) -> tuple[int, int, int]:
+        seat_ratings = [
+            ratings.get(seat_user_id, DEFAULT_MATCHMAKING_RATING)
+            for seat_user_id in hosted.seat_user_ids.values()
+            if seat_user_id
+        ]
+        if not seat_ratings:
+            return (0, 0, 0)
+        max_delta = max(abs(rating - player_rating) for rating in seat_ratings)
+        average_rating = sum(seat_ratings) / len(seat_ratings)
+        average_delta = int(abs(average_rating - player_rating))
+        if max_delta <= MATCHMAKING_IDEAL_RATING_DELTA:
+            band = 0
+        elif max_delta <= MATCHMAKING_ACCEPTABLE_RATING_DELTA:
+            band = 1
+        else:
+            band = 2
+        return (band, max_delta, average_delta)
+
+    def _join_hosted_seat(
+        self,
+        hosted: HostedSession,
+        player_id: int,
+        *,
+        user_id: str | None = None,
+    ) -> dict[str, object]:
+        previous_occupied_seats = set(hosted.occupied_seats)
+        previous_seat_tokens = dict(hosted.seat_tokens)
+        previous_seat_token_hashes = dict(hosted.seat_token_hashes)
+        previous_seat_user_ids = dict(hosted.seat_user_ids)
+        previous_last_seen_at = hosted.last_seen_at
+        previous_seat_last_seen_at = dict(hosted.seat_last_seen_at)
+        previous_autopilot_seats = set(hosted.autopilot_seats)
+        previous_turn_deadline_at = hosted.turn_deadline_at
+        hosted.occupied_seats.add(player_id)
+        seat_token = self._issue_seat_token(hosted, player_id)
+        if user_id is not None:
+            hosted.seat_user_ids[player_id] = user_id
+        hosted.last_seen_at = time.time()
+        try:
             self._mark_seat_seen(hosted, player_id, hosted.last_seen_at)
+            self._persist_seat_joined(hosted, player_id, seat_token)
             self._advance_automatic_turns(hosted)
             self._sync_turn_deadline(hosted, hosted.last_seen_at)
-            self._persist_seat_joined(hosted, player_id, seat_token)
             self._persist_finished_if_needed(hosted)
+        except Exception:
+            hosted.occupied_seats = previous_occupied_seats
+            hosted.seat_tokens = previous_seat_tokens
+            hosted.seat_token_hashes = previous_seat_token_hashes
+            hosted.seat_user_ids = previous_seat_user_ids
+            hosted.last_seen_at = previous_last_seen_at
+            hosted.seat_last_seen_at = previous_seat_last_seen_at
+            hosted.autopilot_seats = previous_autopilot_seats
+            hosted.turn_deadline_at = previous_turn_deadline_at
+            raise
+        print(
+            f"Player {player_id} joined online session {hosted.session_id}",
+            flush=True,
+        )
+        return {
+            "sessionID": hosted.session_id,
+            "inviteCode": hosted.invite_code,
+            "playerID": player_id,
+            "seatToken": seat_token,
+            "update": self._update(hosted, player_id),
+        }
+
+    def create_population_session(
+        self,
+        *,
+        bot_profiles: list[dict[str, object]],
+        open_human_seats: int,
+        ranked: bool,
+        now: float,
+        population_kind: str,
+    ) -> str:
+        bot_count = PLAYER_COUNT - open_human_seats
+        if bot_count < 0 or bot_count > PLAYER_COUNT:
+            raise ValueError("population session needs between 0 and 4 bots")
+        with self._lock:
+            self._prune_expired_sessions()
+            selected_profiles = self._available_profile_bots_locked(
+                bot_profiles,
+            )[:bot_count]
+            if len(selected_profiles) < bot_count:
+                selected_profiles = self._available_profile_bots_locked(
+                    [
+                        *selected_profiles,
+                        *self._create_profile_bot_profiles_locked(
+                            count=bot_count - len(selected_profiles),
+                            now=now,
+                            exclude_user_ids={
+                                str(profile["user_id"])
+                                for profile in selected_profiles
+                            },
+                            target_rating=DEFAULT_MATCHMAKING_RATING,
+                        ),
+                    ],
+                )[:bot_count]
+            if len(selected_profiles) < bot_count:
+                raise ValueError("not enough available bot profiles")
+            controllers = [
+                str(profile["controller"]) for profile in selected_profiles
+            ] + ["human"] * open_human_seats
+            seed = int(now * 1_000_000_000) ^ int(
+                hashlib.sha256(
+                    f"{population_kind}:{now}:{controllers}".encode("utf-8")
+                ).hexdigest()[:16],
+                16,
+            )
+            seed &= (1 << 64) - 1
+            session_id = str(uuid.uuid4())
+            invite_code = self._generate_invite_code()
+            variants = _normalize_variants(None)
+            pointer = self.engine.new_engine(
+                seed,
+                variants=_variants_native(variants),
+                controllers=_controllers_native(controllers),
+            )
+            hosted = HostedSession(
+                session_id=session_id,
+                invite_code=invite_code,
+                engine_pointer=pointer,
+                seed=seed,
+                variants=variants,
+                controllers=controllers,
+                ranked=ranked,
+                browser_joinable=True,
+                population_kind=population_kind,
+                occupied_seats=set(),
+                seat_tokens={},
+                seat_token_hashes={},
+                seat_user_ids={},
+                server_bot_controllers={},
+                bot_action_ready_at={},
+                created_by_user_id=str(selected_profiles[0]["user_id"])
+                if selected_profiles
+                else None,
+                action_log=[],
+                action_update_cache=[],
+                created_at=now,
+                last_seen_at=now,
+                last_persisted_touch_at=now,
+                seat_last_seen_at={},
+                seat_timeouts={},
+                autopilot_seats=set(),
+                abandoned_seats=set(),
+                turn_player_id=None,
+                turn_deadline_at=None,
+            )
+            for player_id, profile in enumerate(selected_profiles):
+                self._seat_server_bot(hosted, player_id, profile, now)
+            self._sessions[session_id] = hosted
+            try:
+                self._advance_automatic_turns(hosted, persist=False)
+                self._sync_turn_deadline(hosted, now, persist=False)
+                self._persist_session_created(hosted)
+                self._persist_turn_state(hosted, now)
+                self._persist_finished_if_needed(hosted)
+            except Exception:
+                self._sessions.pop(session_id, None)
+                self.engine.free_engine(pointer)
+                raise
             print(
-                f"Player {player_id} joined online session {hosted.session_id}",
+                f"Seeded {population_kind} online session {session_id}",
                 flush=True,
             )
-            return {
-                "sessionID": hosted.session_id,
-                "inviteCode": hosted.invite_code,
-                "playerID": player_id,
-                "seatToken": seat_token,
-                "update": self._update(hosted, player_id),
+            return session_id
+
+    def fill_open_seats_with_server_bots(
+        self,
+        *,
+        now: float,
+        profiles: list[dict[str, object]],
+    ) -> list[dict[str, object]]:
+        with self._lock:
+            self._prune_expired_sessions()
+            profiles = self._available_profile_bots_locked(profiles)
+            hosted_candidates = [
+                hosted
+                for hosted in self._sessions.values()
+                if hosted.browser_joinable and self._open_seats(hosted)
+            ]
+            seated_user_ids = {
+                seat_user_id
+                for hosted in hosted_candidates
+                for seat_user_id in hosted.seat_user_ids.values()
             }
+            seated_ratings = self._matchmaking_ratings(seated_user_ids)
+            target_rating = self._profile_bot_target_rating(
+                hosted_candidates,
+                seated_ratings,
+            )
+            if len(profiles) < len(hosted_candidates):
+                profiles = self._available_profile_bots_locked(
+                    [
+                        *profiles,
+                        *self._create_profile_bot_profiles_locked(
+                            count=len(hosted_candidates) - len(profiles),
+                            now=now,
+                            exclude_user_ids={
+                                str(profile["user_id"]) for profile in profiles
+                            },
+                            target_rating=target_rating,
+                        ),
+                    ],
+                )
+            profile_by_user_id = {
+                str(profile["user_id"]): profile for profile in profiles
+            }
+            rating_user_ids = {
+                seat_user_id
+                for hosted in hosted_candidates
+                for seat_user_id in hosted.seat_user_ids.values()
+            } | set(profile_by_user_id)
+        ratings = self._matchmaking_ratings(rating_user_ids)
+        scored_candidates = []
+        for hosted in hosted_candidates:
+            used_user_ids = set(hosted.seat_user_ids.values())
+            for profile_index, profile in enumerate(profiles):
+                profile_user_id = str(profile["user_id"])
+                if profile_user_id in used_user_ids:
+                    continue
+                profile_rating = self._profile_rating(profile, ratings)
+                scored_candidates.append(
+                    (
+                        self._matchmaking_rating_key(
+                            hosted,
+                            profile_rating,
+                            ratings,
+                        ),
+                        len(self._open_seats(hosted)),
+                        hosted.created_at,
+                        hosted.session_id,
+                        profile_index,
+                        hosted,
+                        profile,
+                    )
+                )
+        if any(score[0][0] < 2 for score in scored_candidates):
+            scored_candidates = [
+                score for score in scored_candidates if score[0][0] < 2
+            ]
+        scored_candidates.sort(
+            key=lambda score: (score[0], score[1], score[2], score[3], score[4])
+        )
+        filled_profiles: list[dict[str, object]] = []
+        filled_session_ids: set[str] = set()
+        filled_profile_user_ids: set[str] = set()
+        for _, _, _, _, _, hosted, profile in scored_candidates:
+            profile_user_id = str(profile["user_id"])
+            if (
+                hosted.session_id in filled_session_ids
+                or profile_user_id in filled_profile_user_ids
+            ):
+                continue
+            with self._session_lock(hosted, "population_fill"):
+                if not self._session_is_registered(hosted):
+                    continue
+                self._resolve_turn_timeouts(hosted, now)
+                open_seats = self._open_seats(hosted)
+                if (
+                    not hosted.browser_joinable
+                    or not open_seats
+                    or profile_user_id in hosted.seat_user_ids.values()
+                ):
+                    continue
+                self._join_server_bot_seat(hosted, open_seats[0], profile, now)
+                filled_profiles.append(profile)
+                filled_session_ids.add(hosted.session_id)
+                filled_profile_user_ids.add(profile_user_id)
+        return filled_profiles
+
+    def fill_open_seat_with_server_bot(
+        self,
+        *,
+        now: float,
+        profiles: list[dict[str, object]],
+    ) -> dict[str, object] | None:
+        filled_profiles = self.fill_open_seats_with_server_bots(
+            now=now,
+            profiles=profiles,
+        )
+        return filled_profiles[0] if filled_profiles else None
+
+    def _available_profile_bots_locked(
+        self,
+        profiles: list[dict[str, object]],
+    ) -> list[dict[str, object]]:
+        active_user_ids = self._active_profile_bot_user_ids_locked()
+        available: list[dict[str, object]] = []
+        seen_user_ids: set[str] = set()
+        for profile in profiles:
+            user_id = str(profile["user_id"])
+            if user_id in active_user_ids or user_id in seen_user_ids:
+                continue
+            available.append(profile)
+            seen_user_ids.add(user_id)
+        return available
+
+    def _create_profile_bot_profiles_locked(
+        self,
+        *,
+        count: int,
+        now: float,
+        exclude_user_ids: set[str],
+        target_rating: int,
+    ) -> list[dict[str, object]]:
+        if count <= 0:
+            return []
+        excluded = set(exclude_user_ids) | self._active_profile_bot_user_ids_locked()
+        try:
+            created = self.profile_bot_factory.create_profiles(
+                count=count,
+                now=now,
+                exclude_user_ids=excluded,
+                target_wait_seconds=PROFILE_BOT_TARGET_WAIT_SECONDS,
+                target_rating=target_rating,
+            )
+        except Exception:
+            return []
+        profiles: list[dict[str, object]] = []
+        seen_user_ids = set(excluded)
+        for profile in created:
+            normalized = self._normalized_profile_bot(profile)
+            if normalized is None:
+                continue
+            user_id = str(normalized["user_id"])
+            if user_id in seen_user_ids:
+                continue
+            profiles.append(normalized)
+            seen_user_ids.add(user_id)
+        return profiles[:count]
+
+    def _profile_bot_target_rating(
+        self,
+        hosted_candidates: list[HostedSession],
+        ratings: dict[str, int],
+    ) -> int:
+        table_ratings: list[int] = []
+        for hosted in hosted_candidates:
+            seat_ratings = [
+                ratings.get(seat_user_id, DEFAULT_MATCHMAKING_RATING)
+                for seat_user_id in hosted.seat_user_ids.values()
+                if seat_user_id
+            ]
+            if seat_ratings:
+                table_ratings.append(round(sum(seat_ratings) / len(seat_ratings)))
+        if not table_ratings:
+            return DEFAULT_MATCHMAKING_RATING
+        return round(sum(table_ratings) / len(table_ratings))
+
+    def _normalized_profile_bot(
+        self,
+        profile: dict[str, object],
+    ) -> dict[str, object] | None:
+        user_id = str(profile.get("user_id") or "").strip()
+        controller = str(profile.get("controller") or "").strip()
+        if not user_id or controller not in CONTROLLER_CODES or controller == "human":
+            return None
+        return {
+            "user_id": user_id,
+            "controller": controller,
+            "slot": profile.get("slot", 0),
+            "display_name": profile.get("display_name"),
+            "avatar_url": profile.get("avatar_url"),
+            "stats": profile.get("stats") if isinstance(profile.get("stats"), dict) else {},
+        }
+
+    def _active_profile_bot_user_ids_locked(self) -> set[str]:
+        active_user_ids: set[str] = set()
+        for hosted in self._sessions.values():
+            if int(_engine_state(hosted.engine_pointer).phase) == PHASE_GAME_OVER:
+                continue
+            for player_id, user_id in hosted.seat_user_ids.items():
+                if (
+                    user_id in SERVER_BOT_PROFILES_BY_ID
+                    or player_id in hosted.server_bot_controllers
+                ):
+                    active_user_ids.add(user_id)
+        return active_user_ids
+
+    def _player_created_lobby_is_empty(self, hosted: HostedSession) -> bool:
+        if hosted.population_kind is not None:
+            return False
+        return not any(
+            player_id in hosted.occupied_seats
+            and self._effective_controller(hosted, player_id) == "human"
+            for player_id in range(PLAYER_COUNT)
+        )
 
     def leave_session(
         self,
@@ -663,10 +1634,34 @@ class KolkhozOnlineSessionService:
         *,
         user_id: str | None = None,
     ) -> dict[str, object]:
-        with self._lock:
-            hosted = self._session(session_id)
+        with self._locked_session(session_id) as hosted:
             self._authenticate(hosted, player_id, seat_token, user_id=user_id)
             now = time.time()
+            if len(hosted.action_log) == 0:
+                hosted.last_seen_at = now
+                hosted.occupied_seats.discard(player_id)
+                hosted.seat_tokens.pop(player_id, None)
+                hosted.seat_token_hashes.pop(player_id, None)
+                hosted.seat_user_ids.pop(player_id, None)
+                hosted.seat_last_seen_at.pop(player_id, None)
+                hosted.seat_timeouts.pop(player_id, None)
+                hosted.abandoned_seats.discard(player_id)
+                hosted.autopilot_seats.discard(player_id)
+                if hosted.turn_player_id == player_id:
+                    hosted.turn_player_id = None
+                    hosted.turn_deadline_at = None
+                update = self._update(hosted, player_id)
+                if self._player_created_lobby_is_empty(hosted):
+                    self._expire_empty_lobby(hosted, now)
+                else:
+                    self._persist_lobby_seat_left(hosted, player_id, now)
+                return {
+                    "sessionID": hosted.session_id,
+                    "inviteCode": hosted.invite_code,
+                    "playerID": player_id,
+                    "penalty": {},
+                    "update": update,
+                }
             hosted.last_seen_at = now
             hosted.abandoned_seats.add(player_id)
             hosted.autopilot_seats.add(player_id)
@@ -685,6 +1680,82 @@ class KolkhozOnlineSessionService:
                 "update": self._update(hosted, player_id),
             }
 
+    def kick_session_player(
+        self,
+        session_id: str,
+        target_player_id: int,
+        request: dict[str, object],
+        seat_token: str | None,
+        *,
+        user_id: str | None = None,
+    ) -> dict[str, object]:
+        with self._locked_session(session_id) as hosted:
+            host_player_id = _required_int(request.get("hostPlayerID"), "hostPlayerID")
+            self._authenticate(hosted, host_player_id, seat_token, user_id=user_id)
+            if not self._seat_can_kick_players(hosted, host_player_id):
+                raise OnlineServerError(HTTPStatus.FORBIDDEN, "only the host can kick")
+            if target_player_id == host_player_id:
+                raise OnlineServerError(HTTPStatus.CONFLICT, "cannot kick yourself")
+            if len(hosted.action_log) > 0:
+                raise OnlineServerError(
+                    HTTPStatus.CONFLICT,
+                    "cannot kick after the game starts",
+                )
+            if (
+                target_player_id < 0
+                or target_player_id >= len(hosted.controllers)
+                or target_player_id not in hosted.occupied_seats
+                or hosted.controllers[target_player_id] != "human"
+            ):
+                raise OnlineServerError(HTTPStatus.CONFLICT, "seat unavailable")
+            previous_occupied_seats = set(hosted.occupied_seats)
+            previous_seat_tokens = dict(hosted.seat_tokens)
+            previous_seat_token_hashes = dict(hosted.seat_token_hashes)
+            previous_seat_user_ids = dict(hosted.seat_user_ids)
+            previous_last_seen_at = hosted.last_seen_at
+            previous_seat_last_seen_at = dict(hosted.seat_last_seen_at)
+            previous_seat_timeouts = dict(hosted.seat_timeouts)
+            previous_autopilot_seats = set(hosted.autopilot_seats)
+            previous_abandoned_seats = set(hosted.abandoned_seats)
+            previous_turn_player_id = hosted.turn_player_id
+            previous_turn_deadline_at = hosted.turn_deadline_at
+            now = time.time()
+            hosted.occupied_seats.discard(target_player_id)
+            hosted.seat_tokens.pop(target_player_id, None)
+            hosted.seat_token_hashes.pop(target_player_id, None)
+            hosted.seat_user_ids.pop(target_player_id, None)
+            hosted.seat_last_seen_at.pop(target_player_id, None)
+            hosted.seat_timeouts.pop(target_player_id, None)
+            hosted.autopilot_seats.discard(target_player_id)
+            hosted.abandoned_seats.discard(target_player_id)
+            if hosted.turn_player_id == target_player_id:
+                hosted.turn_player_id = None
+                hosted.turn_deadline_at = None
+            hosted.last_seen_at = now
+            try:
+                self._persist_seat_kicked(hosted, target_player_id, now)
+                self._sync_turn_deadline(hosted, now)
+                self._persist_finished_if_needed(hosted)
+            except Exception:
+                hosted.occupied_seats = previous_occupied_seats
+                hosted.seat_tokens = previous_seat_tokens
+                hosted.seat_token_hashes = previous_seat_token_hashes
+                hosted.seat_user_ids = previous_seat_user_ids
+                hosted.last_seen_at = previous_last_seen_at
+                hosted.seat_last_seen_at = previous_seat_last_seen_at
+                hosted.seat_timeouts = previous_seat_timeouts
+                hosted.autopilot_seats = previous_autopilot_seats
+                hosted.abandoned_seats = previous_abandoned_seats
+                hosted.turn_player_id = previous_turn_player_id
+                hosted.turn_deadline_at = previous_turn_deadline_at
+                raise
+            return {
+                "sessionID": hosted.session_id,
+                "inviteCode": hosted.invite_code,
+                "playerID": host_player_id,
+                "update": self._update(hosted, host_player_id),
+            }
+
     def update(
         self,
         session_id: str,
@@ -693,8 +1764,7 @@ class KolkhozOnlineSessionService:
         *,
         user_id: str | None = None,
     ) -> dict[str, object]:
-        with self._lock:
-            hosted = self._session(session_id)
+        with self._locked_session(session_id) as hosted:
             self._authenticate(hosted, viewer_id, seat_token, user_id=user_id)
             now = time.time()
             hosted.last_seen_at = now
@@ -708,19 +1778,25 @@ class KolkhozOnlineSessionService:
     def user_id_from_authorization(self, authorization: str | None) -> str | None:
         if self.auth_verifier is None:
             return None
-        return self.auth_verifier.user_id_from_authorization(authorization)
+        started = time.perf_counter()
+        try:
+            return self.auth_verifier.user_id_from_authorization(authorization)
+        finally:
+            self.metrics.record_store_call(
+                "supabase_auth",
+                time.perf_counter() - started,
+            )
 
     def comrades(self, *, user_id: str | None = None) -> dict[str, object]:
-        with self._lock:
-            self._require_authenticated_user(user_id)
-            if user_id is None or self.store is None:
-                return {"userID": user_id, "comradeCode": None, "comrades": []}
-            self.store.ensure_comrade_code(
-                user_id=user_id,
-                display_name="Player",
-                updated_at=time.time(),
-            )
-            return _comrades_response(self.store.comrades_for_user(user_id=user_id))
+        self._require_authenticated_user(user_id)
+        if user_id is None or self.store is None:
+            return {"userID": user_id, "comradeCode": None, "comrades": []}
+        self.store.ensure_comrade_code(
+            user_id=user_id,
+            display_name="Player",
+            updated_at=time.time(),
+        )
+        return _comrades_response(self.store.comrades_for_user(user_id=user_id))
 
     def send_comrade_request(
         self,
@@ -728,37 +1804,36 @@ class KolkhozOnlineSessionService:
         *,
         user_id: str | None = None,
     ) -> dict[str, object]:
-        with self._lock:
-            self._require_authenticated_user(user_id)
-            if user_id is None or self.store is None:
-                raise OnlineServerError(
-                    HTTPStatus.SERVICE_UNAVAILABLE,
-                    "comrade profiles are not configured",
+        self._require_authenticated_user(user_id)
+        if user_id is None or self.store is None:
+            raise OnlineServerError(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                "comrade profiles are not configured",
+            )
+        try:
+            comrade_user_id = str(request.get("userID") or "").strip()
+            if comrade_user_id:
+                profile = self.store.send_comrade_request_to_user(
+                    user_id=user_id,
+                    comrade_user_id=comrade_user_id,
+                    updated_at=time.time(),
                 )
-            try:
-                comrade_user_id = str(request.get("userID") or "").strip()
-                if comrade_user_id:
-                    profile = self.store.send_comrade_request_to_user(
-                        user_id=user_id,
-                        comrade_user_id=comrade_user_id,
-                        updated_at=time.time(),
+            else:
+                code = str(request.get("comradeCode") or "").strip()
+                if not code:
+                    raise OnlineServerError(
+                        HTTPStatus.BAD_REQUEST,
+                        "missing comrade code",
                     )
-                else:
-                    code = str(request.get("comradeCode") or "").strip()
-                    if not code:
-                        raise OnlineServerError(
-                            HTTPStatus.BAD_REQUEST,
-                            "missing comrade code",
-                        )
-                    profile = self.store.send_comrade_request_by_code(
-                        user_id=user_id,
-                        comrade_code=code,
-                        updated_at=time.time(),
-                    )
-            except ValueError as error:
-                raise OnlineServerError(HTTPStatus.NOT_FOUND, str(error)) from error
-            key = "comrade" if profile.get("accepted") is True else "request"
-            return {key: _comrade_profile_response(profile)}
+                profile = self.store.send_comrade_request_by_code(
+                    user_id=user_id,
+                    comrade_code=code,
+                    updated_at=time.time(),
+                )
+        except ValueError as error:
+            raise OnlineServerError(HTTPStatus.NOT_FOUND, str(error)) from error
+        key = "comrade" if profile.get("accepted") is True else "request"
+        return {key: _comrade_profile_response(profile)}
 
     def respond_to_comrade_request(
         self,
@@ -766,29 +1841,28 @@ class KolkhozOnlineSessionService:
         *,
         user_id: str | None = None,
     ) -> dict[str, object]:
-        with self._lock:
-            self._require_authenticated_user(user_id)
-            if user_id is None or self.store is None:
-                raise OnlineServerError(
-                    HTTPStatus.SERVICE_UNAVAILABLE,
-                    "comrade profiles are not configured",
-                )
-            requester_user_id = str(request.get("userID") or "").strip()
-            if not requester_user_id:
-                raise OnlineServerError(HTTPStatus.BAD_REQUEST, "missing userID")
-            accept = bool(request.get("accept"))
-            try:
-                profile = self.store.respond_to_comrade_request(
-                    user_id=user_id,
-                    requester_user_id=requester_user_id,
-                    accept=accept,
-                    updated_at=time.time(),
-                )
-            except ValueError as error:
-                raise OnlineServerError(HTTPStatus.NOT_FOUND, str(error)) from error
-            if profile is None:
-                return {"accepted": False}
-            return {"accepted": True, "comrade": _comrade_profile_response(profile)}
+        self._require_authenticated_user(user_id)
+        if user_id is None or self.store is None:
+            raise OnlineServerError(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                "comrade profiles are not configured",
+            )
+        requester_user_id = str(request.get("userID") or "").strip()
+        if not requester_user_id:
+            raise OnlineServerError(HTTPStatus.BAD_REQUEST, "missing userID")
+        accept = bool(request.get("accept"))
+        try:
+            profile = self.store.respond_to_comrade_request(
+                user_id=user_id,
+                requester_user_id=requester_user_id,
+                accept=accept,
+                updated_at=time.time(),
+            )
+        except ValueError as error:
+            raise OnlineServerError(HTTPStatus.NOT_FOUND, str(error)) from error
+        if profile is None:
+            return {"accepted": False}
+        return {"accepted": True, "comrade": _comrade_profile_response(profile)}
 
     def remove_comrade(
         self,
@@ -796,39 +1870,37 @@ class KolkhozOnlineSessionService:
         *,
         user_id: str | None = None,
     ) -> dict[str, object]:
-        with self._lock:
-            self._require_authenticated_user(user_id)
-            if user_id is None or self.store is None:
-                raise OnlineServerError(
-                    HTTPStatus.SERVICE_UNAVAILABLE,
-                    "comrade profiles are not configured",
-                )
-            comrade_user_id = str(request.get("userID") or "").strip()
-            if not comrade_user_id:
-                raise OnlineServerError(HTTPStatus.BAD_REQUEST, "missing userID")
-            self.store.remove_comrade(
-                user_id=user_id,
-                comrade_user_id=comrade_user_id,
+        self._require_authenticated_user(user_id)
+        if user_id is None or self.store is None:
+            raise OnlineServerError(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                "comrade profiles are not configured",
             )
-            return {"removed": True}
+        comrade_user_id = str(request.get("userID") or "").strip()
+        if not comrade_user_id:
+            raise OnlineServerError(HTTPStatus.BAD_REQUEST, "missing userID")
+        self.store.remove_comrade(
+            user_id=user_id,
+            comrade_user_id=comrade_user_id,
+        )
+        return {"removed": True}
 
-    def list_sessions(self) -> list[dict[str, object]]:
+    def list_sessions(self, *, user_id: str | None = None) -> list[dict[str, object]]:
+        self._ensure_not_online_banned(user_id)
         with self._lock:
             self._prune_expired_sessions()
-            now = time.time()
-            for hosted in list(self._sessions.values()):
-                self._resolve_turn_timeouts(hosted, now)
-            return [
-                self._listing(hosted)
-                for hosted in self._sessions.values()
-                if self._open_seats(hosted)
-            ]
+            sessions = list(self._sessions.values())
+        listings: list[dict[str, object]] = []
+        for hosted in sessions:
+            with self._session_lock(hosted, "list_sessions"):
+                if not self._session_is_registered(hosted):
+                    continue
+                if hosted.browser_joinable and self._open_seats(hosted):
+                    listings.append(self._listing(hosted))
+        return listings
 
     def session_listing(self, session_id: str) -> dict[str, object]:
-        with self._lock:
-            self._prune_expired_sessions()
-            hosted = self._session(session_id)
-            self._resolve_turn_timeouts(hosted, time.time())
+        with self._locked_session(session_id) as hosted:
             return self._listing(hosted)
 
     def legal_actions(
@@ -839,8 +1911,7 @@ class KolkhozOnlineSessionService:
         *,
         user_id: str | None = None,
     ) -> list[dict[str, object]]:
-        with self._lock:
-            hosted = self._session(session_id)
+        with self._locked_session(session_id) as hosted:
             self._authenticate(hosted, player_id, seat_token, user_id=user_id)
             now = time.time()
             hosted.last_seen_at = now
@@ -858,8 +1929,7 @@ class KolkhozOnlineSessionService:
         *,
         user_id: str | None = None,
     ) -> dict[str, object]:
-        with self._lock:
-            hosted = self._session(session_id)
+        with self._locked_session(session_id) as hosted:
             player_id = _required_int(request.get("playerID"), "playerID")
             self._authenticate(hosted, player_id, seat_token, user_id=user_id)
             now = time.time()
@@ -878,9 +1948,9 @@ class KolkhozOnlineSessionService:
             if not _action_in(action, self._legal_actions_for_player(hosted, player_id)):
                 raise OnlineServerError(HTTPStatus.CONFLICT, "illegal action")
             self.engine.apply_action(hosted.engine_pointer, action)
-            hosted.action_log.append(_action_json(action, source="manual"))
+            action_json = self._append_action(hosted, action, source="manual")
             hosted.last_seen_at = time.time()
-            self._persist_action_appended(hosted, player_id, hosted.action_log[-1])
+            self._persist_action_appended(hosted, player_id, action_json)
             self._advance_automatic_turns(hosted)
             hosted.last_seen_at = time.time()
             self._sync_turn_deadline(hosted, hosted.last_seen_at)
@@ -896,8 +1966,7 @@ class KolkhozOnlineSessionService:
         *,
         user_id: str | None = None,
     ) -> dict[str, object]:
-        with self._lock:
-            hosted = self._session(session_id)
+        with self._locked_session(session_id) as hosted:
             self._authenticate(hosted, viewer_id, seat_token, user_id=user_id)
             now = time.time()
             hosted.last_seen_at = now
@@ -920,19 +1989,143 @@ class KolkhozOnlineSessionService:
             }
 
     def _session(self, session_id: str) -> HostedSession:
-        self._prune_expired_sessions()
+        hosted = self._session_from_memory(session_id)
+        if hosted is None:
+            raise OnlineServerError(HTTPStatus.NOT_FOUND, "session not found")
+        return hosted
+
+    def _session_from_memory(self, session_id: str) -> HostedSession | None:
         normalized_invite = session_id.strip().upper()
         for hosted in self._sessions.values():
             if hosted.invite_code == normalized_invite:
                 return hosted
         try:
             uuid.UUID(session_id)
-        except ValueError as error:
-            raise OnlineServerError(HTTPStatus.NOT_FOUND, "session not found") from error
-        hosted = self._sessions.get(session_id)
-        if hosted is None:
+        except ValueError:
+            return None
+        return self._sessions.get(session_id)
+
+    def _load_persisted_session(self, session_id: str) -> HostedSession:
+        if self.store is None:
             raise OnlineServerError(HTTPStatus.NOT_FOUND, "session not found")
-        return hosted
+        try:
+            record = self._store_call("load_session", self.store.load_session, session_id)
+        except Exception as error:
+            raise OnlineServerError(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                f"online session recovery failed: {error}",
+            ) from error
+        if record is None:
+            raise OnlineServerError(HTTPStatus.NOT_FOUND, "session not found")
+        return self._hosted_from_persisted_record(record)
+
+    def _hosted_from_persisted_record(
+        self,
+        record: dict[str, object],
+    ) -> HostedSession:
+        variants = _normalize_variants(record.get("variants"))
+        controllers = _normalize_controllers(record.get("controllers"))
+        seed = _required_int(record.get("seed"), "seed")
+        pointer = self.engine.new_engine(
+            seed,
+            variants=_variants_native(variants),
+            controllers=_controllers_native(controllers),
+        )
+        try:
+            seats = [
+                seat for seat in record.get("seats", []) if isinstance(seat, dict)
+            ]
+            occupied_seats = {
+                int(seat["player_id"])
+                for seat in seats
+                if bool(seat.get("occupied")) and "player_id" in seat
+            }
+            seat_user_ids = {
+                int(seat["player_id"]): str(seat["user_id"])
+                for seat in seats
+                if "player_id" in seat and isinstance(seat.get("user_id"), str)
+            }
+            seat_token_hashes = {
+                int(seat["player_id"]): str(seat["seat_token_hash"])
+                for seat in seats
+                if "player_id" in seat
+                and isinstance(seat.get("seat_token_hash"), str)
+            }
+            seat_last_seen_at = {
+                int(seat["player_id"]): float(seat["last_seen_at"])
+                for seat in seats
+                if "player_id" in seat and isinstance(seat.get("last_seen_at"), (int, float))
+            }
+            seat_timeouts = {
+                int(seat["player_id"]): int(seat.get("timeouts") or 0)
+                for seat in seats
+                if "player_id" in seat
+            }
+            autopilot_seats = {
+                int(seat["player_id"])
+                for seat in seats
+                if "player_id" in seat and bool(seat.get("autopilot"))
+            }
+            abandoned_seats = {
+                int(seat["player_id"])
+                for seat in seats
+                if "player_id" in seat and bool(seat.get("abandoned"))
+            }
+            now = time.time()
+            hosted = HostedSession(
+                session_id=str(record["session_id"]),
+                invite_code=str(record.get("invite_code") or ""),
+                engine_pointer=pointer,
+                seed=seed,
+                variants=variants,
+                controllers=controllers,
+                ranked=_optional_bool(record.get("ranked"), True),
+                browser_joinable=_optional_bool(record.get("browser_joinable"), True),
+                population_kind=None,
+                occupied_seats=occupied_seats,
+                seat_tokens={},
+                seat_token_hashes=seat_token_hashes,
+                seat_user_ids=seat_user_ids,
+                server_bot_controllers={},
+                bot_action_ready_at={},
+                created_by_user_id=str(record["created_by_user_id"])
+                if isinstance(record.get("created_by_user_id"), str)
+                else None,
+                action_log=[],
+                action_update_cache=[],
+                created_at=float(record.get("created_at") or now),
+                last_seen_at=float(record.get("last_seen_at") or now),
+                last_persisted_touch_at=float(record.get("last_seen_at") or now),
+                seat_last_seen_at=seat_last_seen_at,
+                seat_timeouts=seat_timeouts,
+                autopilot_seats=autopilot_seats,
+                abandoned_seats=abandoned_seats,
+                turn_player_id=_optional_int(record.get("turn_player_id")),
+                turn_deadline_at=float(record["turn_deadline_at"])
+                if isinstance(record.get("turn_deadline_at"), (int, float))
+                else None,
+            )
+            self._assign_server_bot_profiles(hosted)
+            self._restore_server_bot_controllers(hosted)
+            for entry in record.get("actions", []):
+                if not isinstance(entry, dict):
+                    continue
+                action_json = entry.get("action")
+                action = _action_from_json(action_json)
+                source = action_json.get("source") if isinstance(action_json, dict) else None
+                if source in ("automatic", "autopilot"):
+                    self.engine.apply_ai_action(pointer, action)
+                else:
+                    self.engine.apply_action(pointer, action)
+                self._append_action_json(hosted, action_json if isinstance(action_json, dict) else _action_json(action))
+            print(
+                f"Recovered online session {hosted.session_id} from persistence",
+                flush=True,
+            )
+            return hosted
+        except Exception:
+            self.engine.free_engine(pointer)
+            raise
 
     def _generate_invite_code(self) -> str:
         for _ in range(100):
@@ -950,6 +2143,7 @@ class KolkhozOnlineSessionService:
     def _issue_seat_token(self, hosted: HostedSession, player_id: int) -> str:
         token = secrets.token_urlsafe(24)
         hosted.seat_tokens[player_id] = token
+        hosted.seat_token_hashes[player_id] = seat_token_hash(token)
         return token
 
     def _authenticate(
@@ -965,11 +2159,16 @@ class KolkhozOnlineSessionService:
         if player_id not in hosted.occupied_seats:
             raise OnlineServerError(HTTPStatus.CONFLICT, "seat not joined")
         expected = hosted.seat_tokens.get(player_id)
-        if (
-            expected is None
-            or not seat_token
-            or not secrets.compare_digest(expected, seat_token)
-        ):
+        expected_hash = hosted.seat_token_hashes.get(player_id)
+        if not seat_token:
+            raise OnlineServerError(HTTPStatus.UNAUTHORIZED, "invalid seat token")
+        if expected is not None:
+            if not secrets.compare_digest(expected, seat_token):
+                raise OnlineServerError(HTTPStatus.UNAUTHORIZED, "invalid seat token")
+        elif expected_hash is not None:
+            if not secrets.compare_digest(expected_hash, seat_token_hash(seat_token)):
+                raise OnlineServerError(HTTPStatus.UNAUTHORIZED, "invalid seat token")
+        else:
             raise OnlineServerError(HTTPStatus.UNAUTHORIZED, "invalid seat token")
         expected_user_id = hosted.seat_user_ids.get(player_id)
         if self.auth_verifier is not None and user_id is None:
@@ -1010,8 +2209,20 @@ class KolkhozOnlineSessionService:
             if now - hosted.last_seen_at > self.session_ttl_seconds
         ]
         for session_id in expired:
-            hosted = self._sessions.pop(session_id)
-            self.engine.free_engine(hosted.engine_pointer)
+            hosted = self._sessions.get(session_id)
+            if hosted is None:
+                continue
+            if not hosted.lock.acquire(blocking=False):
+                continue
+            try:
+                if (
+                    self._sessions.get(session_id) is hosted
+                    and now - hosted.last_seen_at > self.session_ttl_seconds
+                ):
+                    self._sessions.pop(session_id, None)
+                    self.engine.free_engine(hosted.engine_pointer)
+            finally:
+                hosted.lock.release()
 
     def _first_available_seat(self, hosted: HostedSession) -> int:
         for player_id in self._open_seats(hosted):
@@ -1025,12 +2236,99 @@ class KolkhozOnlineSessionService:
             and player_id not in hosted.occupied_seats
         )
 
+    def _seat_can_kick_players(
+        self,
+        hosted: HostedSession,
+        player_id: int,
+    ) -> bool:
+        seat_user_id = hosted.seat_user_ids.get(player_id)
+        if hosted.created_by_user_id is not None:
+            return seat_user_id == hosted.created_by_user_id
+        return player_id == 0
+
     def _open_seats(self, hosted: HostedSession) -> list[int]:
         return [
             player_id
             for player_id in range(PLAYER_COUNT)
             if self._seat_is_joinable(hosted, player_id)
         ]
+
+    def _seat_server_bot(
+        self,
+        hosted: HostedSession,
+        player_id: int,
+        profile: dict[str, object],
+        now: float,
+    ) -> str:
+        hosted.occupied_seats.add(player_id)
+        seat_token = self._issue_seat_token(hosted, player_id)
+        hosted.seat_user_ids[player_id] = str(profile["user_id"])
+        hosted.server_bot_controllers[player_id] = str(profile["controller"])
+        hosted.seat_last_seen_at[player_id] = now
+        return seat_token
+
+    def _join_server_bot_seat(
+        self,
+        hosted: HostedSession,
+        player_id: int,
+        profile: dict[str, object],
+        now: float,
+    ) -> None:
+        previous_occupied_seats = set(hosted.occupied_seats)
+        previous_seat_tokens = dict(hosted.seat_tokens)
+        previous_seat_token_hashes = dict(hosted.seat_token_hashes)
+        previous_seat_user_ids = dict(hosted.seat_user_ids)
+        previous_server_bot_controllers = dict(hosted.server_bot_controllers)
+        previous_last_seen_at = hosted.last_seen_at
+        previous_seat_last_seen_at = dict(hosted.seat_last_seen_at)
+        previous_autopilot_seats = set(hosted.autopilot_seats)
+        previous_turn_deadline_at = hosted.turn_deadline_at
+        seat_token = self._seat_server_bot(hosted, player_id, profile, now)
+        hosted.last_seen_at = now
+        try:
+            self._persist_seat_joined(hosted, player_id, seat_token)
+            self._advance_automatic_turns(hosted)
+            self._sync_turn_deadline(hosted, now)
+            self._persist_finished_if_needed(hosted)
+        except Exception:
+            hosted.occupied_seats = previous_occupied_seats
+            hosted.seat_tokens = previous_seat_tokens
+            hosted.seat_token_hashes = previous_seat_token_hashes
+            hosted.seat_user_ids = previous_seat_user_ids
+            hosted.server_bot_controllers = previous_server_bot_controllers
+            hosted.last_seen_at = previous_last_seen_at
+            hosted.seat_last_seen_at = previous_seat_last_seen_at
+            hosted.autopilot_seats = previous_autopilot_seats
+            hosted.turn_deadline_at = previous_turn_deadline_at
+            raise
+        print(
+            f"Server bot {profile['user_id']} joined online session "
+            f"{hosted.session_id} as player {player_id}",
+            flush=True,
+        )
+
+    def _restore_server_bot_controllers(self, hosted: HostedSession) -> None:
+        for player_id, user_id in hosted.seat_user_ids.items():
+            profile = SERVER_BOT_PROFILES_BY_ID.get(user_id)
+            if profile is not None:
+                hosted.server_bot_controllers[player_id] = str(profile["controller"])
+
+    def _assign_server_bot_profiles(self, hosted: HostedSession) -> None:
+        controller_counts: dict[str, int] = {}
+        for player_id, controller in enumerate(hosted.controllers):
+            profiles = SERVER_BOT_PROFILES_BY_CONTROLLER.get(controller)
+            if not profiles or player_id in hosted.seat_user_ids:
+                continue
+            count = controller_counts.get(controller, 0)
+            controller_counts[controller] = count + 1
+            offset = int(
+                hashlib.sha256(
+                    f"{hosted.session_id}:{controller}".encode("utf-8")
+                ).hexdigest()[:8],
+                16,
+            )
+            profile = profiles[(offset + count) % len(profiles)]
+            self._seat_server_bot(hosted, player_id, profile, hosted.created_at)
 
     def _listing(self, hosted: HostedSession) -> dict[str, object]:
         now = time.time()
@@ -1041,6 +2339,7 @@ class KolkhozOnlineSessionService:
             "occupiedSeats": sorted(hosted.occupied_seats),
             "controllers": hosted.controllers,
             "ranked": hosted.ranked,
+            "browserJoinable": hosted.browser_joinable,
             "playerProfiles": self._player_profiles(hosted),
             "seatPresence": self._seat_presence_json(hosted, now),
             "turnPlayerID": hosted.turn_player_id,
@@ -1057,11 +2356,16 @@ class KolkhozOnlineSessionService:
         if self.store is None:
             return
         try:
-            self.store.create_session(
+            self._store_call(
+                "create_session",
+                self.store.create_session,
                 session_id=hosted.session_id,
+                invite_code=hosted.invite_code,
                 seed=hosted.seed,
                 variants=hosted.variants,
                 controllers=hosted.controllers,
+                ranked=hosted.ranked,
+                browser_joinable=hosted.browser_joinable,
                 occupied_seats=hosted.occupied_seats,
                 seat_tokens=hosted.seat_tokens,
                 seat_user_ids=hosted.seat_user_ids,
@@ -1086,7 +2390,9 @@ class KolkhozOnlineSessionService:
         if self.store is None:
             return
         try:
-            self.store.join_seat(
+            self._store_call(
+                "join_seat",
+                self.store.join_seat,
                 session_id=hosted.session_id,
                 player_id=player_id,
                 seat_token=seat_token,
@@ -1111,7 +2417,9 @@ class KolkhozOnlineSessionService:
             return
         try:
             revision = len(hosted.action_log)
-            self.store.append_action(
+            self._store_call(
+                "append_action",
+                self.store.append_action,
                 session_id=hosted.session_id,
                 revision=revision,
                 player_id=player_id,
@@ -1135,7 +2443,9 @@ class KolkhozOnlineSessionService:
         ):
             return
         try:
-            self.store.touch_session(
+            self._store_call(
+                "touch_session",
+                self.store.touch_session,
                 session_id=hosted.session_id,
                 updated_at=hosted.last_seen_at,
                 expires_at=self._expires_at(hosted),
@@ -1151,7 +2461,9 @@ class KolkhozOnlineSessionService:
         if self.store is None:
             return
         try:
-            self.store.update_turn_state(
+            self._store_call(
+                "update_turn_state",
+                self.store.update_turn_state,
                 session_id=hosted.session_id,
                 turn_player_id=hosted.turn_player_id,
                 turn_deadline_at=hosted.turn_deadline_at,
@@ -1174,7 +2486,9 @@ class KolkhozOnlineSessionService:
         if self.store is None:
             return
         try:
-            self.store.touch_seat(
+            self._store_call(
+                "touch_seat",
+                self.store.touch_seat,
                 session_id=hosted.session_id,
                 player_id=player_id,
                 updated_at=now,
@@ -1196,7 +2510,9 @@ class KolkhozOnlineSessionService:
         if self.store is None:
             return
         try:
-            self.store.record_seat_timeout(
+            self._store_call(
+                "record_seat_timeout",
+                self.store.record_seat_timeout,
                 session_id=hosted.session_id,
                 player_id=player_id,
                 timeouts=hosted.seat_timeouts.get(player_id, 0),
@@ -1221,7 +2537,9 @@ class KolkhozOnlineSessionService:
         if self.store is None:
             return None
         try:
-            penalty = self.store.abandon_seat(
+            penalty = self._store_call(
+                "abandon_seat",
+                self.store.abandon_seat,
                 session_id=hosted.session_id,
                 player_id=player_id,
                 user_id=hosted.seat_user_ids.get(player_id),
@@ -1237,6 +2555,77 @@ class KolkhozOnlineSessionService:
                 f"online abandon persistence failed: {error}",
             ) from error
 
+    def _persist_lobby_seat_left(
+        self,
+        hosted: HostedSession,
+        player_id: int,
+        now: float,
+    ) -> None:
+        if self.store is None:
+            return
+        try:
+            self._store_call(
+                "leave_lobby_seat",
+                self.store.leave_lobby_seat,
+                session_id=hosted.session_id,
+                player_id=player_id,
+                updated_at=now,
+                expires_at=self._expires_at(hosted),
+                revision=len(hosted.action_log),
+            )
+            hosted.last_persisted_touch_at = now
+        except Exception as error:
+            raise OnlineServerError(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                f"online lobby leave persistence failed: {error}",
+            ) from error
+
+    def _expire_empty_lobby(self, hosted: HostedSession, now: float) -> None:
+        if self.store is not None:
+            try:
+                self._store_call(
+                    "expire_session",
+                    self.store.expire_session,
+                    session_id=hosted.session_id,
+                    updated_at=now,
+                    expires_at=now,
+                )
+                hosted.last_persisted_touch_at = now
+            except Exception as error:
+                raise OnlineServerError(
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                    f"online lobby expiration failed: {error}",
+                ) from error
+        with self._lock:
+            if self._sessions.get(hosted.session_id) is hosted:
+                self._sessions.pop(hosted.session_id, None)
+                self.engine.free_engine(hosted.engine_pointer)
+
+    def _persist_seat_kicked(
+        self,
+        hosted: HostedSession,
+        player_id: int,
+        now: float,
+    ) -> None:
+        if self.store is None:
+            return
+        try:
+            self._store_call(
+                "kick_seat",
+                self.store.kick_seat,
+                session_id=hosted.session_id,
+                player_id=player_id,
+                updated_at=now,
+                expires_at=self._expires_at(hosted),
+                revision=len(hosted.action_log),
+            )
+            hosted.last_persisted_touch_at = now
+        except Exception as error:
+            raise OnlineServerError(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                f"online kick persistence failed: {error}",
+            ) from error
+
     def _mark_seat_seen(
         self,
         hosted: HostedSession,
@@ -1250,6 +2639,51 @@ class KolkhozOnlineSessionService:
             hosted.turn_deadline_at = now + DEFAULT_TURN_SECONDS
         self._persist_seat_seen(hosted, player_id, now)
 
+    def _effective_controller(self, hosted: HostedSession, player_id: int) -> str:
+        return hosted.server_bot_controllers.get(
+            player_id,
+            hosted.controllers[player_id],
+        )
+
+    def _should_delay_bot_action(self, hosted: HostedSession, player_id: int) -> bool:
+        return (
+            hosted.population_kind != "rating_seed"
+            and hosted.browser_joinable
+            and "human" in hosted.controllers
+            and self._effective_controller(hosted, player_id) != "human"
+        )
+
+    def _bot_action_is_ready(
+        self,
+        hosted: HostedSession,
+        player_id: int,
+        now: float,
+    ) -> bool:
+        if not self._should_delay_bot_action(hosted, player_id):
+            hosted.bot_action_ready_at.pop(player_id, None)
+            return True
+        ready_at = hosted.bot_action_ready_at.get(player_id)
+        if ready_at is None:
+            hosted.bot_action_ready_at[player_id] = now + self._bot_action_delay(
+                hosted,
+                player_id,
+            )
+            return False
+        return now >= ready_at
+
+    def _bot_action_delay(self, hosted: HostedSession, player_id: int) -> float:
+        digest = hashlib.sha256(
+            (
+                f"{hosted.session_id}:{player_id}:"
+                f"{len(hosted.action_log)}:{hosted.seat_user_ids.get(player_id, '')}"
+            ).encode("utf-8")
+        ).digest()
+        jitter = int.from_bytes(digest[:4], "big") / 0xFFFFFFFF
+        return BOT_HUMAN_GAME_ACTION_DELAY_MIN_SECONDS + (
+            BOT_HUMAN_GAME_ACTION_DELAY_MAX_SECONDS
+            - BOT_HUMAN_GAME_ACTION_DELAY_MIN_SECONDS
+        ) * jitter
+
     def _sync_turn_deadline(
         self,
         hosted: HostedSession,
@@ -1261,7 +2695,7 @@ class KolkhozOnlineSessionService:
         if (
             player_id < 0
             or player_id >= PLAYER_COUNT
-            or hosted.controllers[player_id] != "human"
+            or self._effective_controller(hosted, player_id) != "human"
             or player_id in hosted.autopilot_seats
         ):
             next_player_id: int | None = None
@@ -1284,15 +2718,24 @@ class KolkhozOnlineSessionService:
 
     def _resolve_turn_timeouts(self, hosted: HostedSession, now: float) -> None:
         for _ in range(200):
+            previous_action_count = len(hosted.action_log)
+            previous_player_id = self.engine.waiting_player(hosted.engine_pointer)
             self._advance_automatic_turns(hosted)
             player_id = self.engine.waiting_player(hosted.engine_pointer)
             if player_id < 0 or player_id >= PLAYER_COUNT:
                 self._sync_turn_deadline(hosted, now)
                 return
-            if hosted.controllers[player_id] != "human":
+            if self._effective_controller(hosted, player_id) != "human":
+                if (
+                    player_id == previous_player_id
+                    and len(hosted.action_log) == previous_action_count
+                ):
+                    return
                 continue
             if player_id in hosted.autopilot_seats:
-                self._apply_autopilot_action(hosted, player_id, now)
+                if not self._apply_autopilot_action(hosted, player_id, now):
+                    self._sync_turn_deadline(hosted, now)
+                    return
                 continue
             self._sync_turn_deadline(hosted, now)
             deadline = hosted.turn_deadline_at
@@ -1306,12 +2749,14 @@ class KolkhozOnlineSessionService:
             if forced_abandon:
                 hosted.autopilot_seats.add(player_id)
                 hosted.abandoned_seats.add(player_id)
-            self._apply_autopilot_action(hosted, player_id, now)
+            applied = self._apply_autopilot_action(hosted, player_id, now)
             self._persist_seat_timeout(hosted, player_id, now)
             if forced_abandon:
                 self._persist_seat_abandoned(hosted, player_id, now)
             self._sync_turn_deadline(hosted, now)
             self._persist_finished_if_needed(hosted)
+            if not applied:
+                return
             if int(_engine_state(hosted.engine_pointer).phase) == PHASE_GAME_OVER:
                 return
         raise OnlineServerError(
@@ -1324,13 +2769,13 @@ class KolkhozOnlineSessionService:
         hosted: HostedSession,
         player_id: int,
         now: float,
-    ) -> None:
+    ) -> bool:
         try:
             action = self.engine.heuristic_action(hosted.engine_pointer)
             if action.player_id != player_id:
                 actions = self._legal_actions_for_player(hosted, player_id)
                 if not actions:
-                    return
+                    return False
                 action = actions[0]
             if hasattr(self.engine, "apply_ai_action"):
                 self.engine.apply_ai_action(hosted.engine_pointer, action)
@@ -1343,10 +2788,11 @@ class KolkhozOnlineSessionService:
                 HTTPStatus.INTERNAL_SERVER_ERROR,
                 f"online autopilot action failed: {error}",
             ) from error
-        hosted.action_log.append(_action_json(action, source="autopilot"))
+        action_json = self._append_action(hosted, action, source="autopilot")
         hosted.last_seen_at = now
-        self._persist_action_appended(hosted, player_id, hosted.action_log[-1])
+        self._persist_action_appended(hosted, player_id, action_json)
         self._advance_automatic_turns(hosted)
+        return True
 
     def _persist_finished_if_needed(self, hosted: HostedSession) -> None:
         if hosted.stats_recorded:
@@ -1368,7 +2814,7 @@ class KolkhozOnlineSessionService:
             {
                 "player_id": player_id,
                 "user_id": hosted.seat_user_ids.get(player_id),
-                "controller": hosted.controllers[player_id],
+                "controller": self._effective_controller(hosted, player_id),
                 "score": scores[player_id],
                 "rank": ranks[player_id],
                 "won": player_id == winner_id,
@@ -1376,7 +2822,9 @@ class KolkhozOnlineSessionService:
             for player_id in range(PLAYER_COUNT)
         ]
         try:
-            self.store.finish_session(
+            self._store_call(
+                "finish_session",
+                self.store.finish_session,
                 session_id=hosted.session_id,
                 results=results,
                 ranked=hosted.ranked,
@@ -1390,6 +2838,44 @@ class KolkhozOnlineSessionService:
                 HTTPStatus.INTERNAL_SERVER_ERROR,
                 f"online result persistence failed: {error}",
             ) from error
+
+    def _append_action(
+        self,
+        hosted: HostedSession,
+        action: KCAction,
+        *,
+        source: str,
+    ) -> dict[str, object]:
+        return self._append_action_json(hosted, _action_json(action, source=source))
+
+    def _append_action_json(
+        self,
+        hosted: HostedSession,
+        action_json: dict[str, object],
+    ) -> dict[str, object]:
+        hosted.action_log.append(dict(action_json))
+        self._cache_action_update(hosted, hosted.action_log[-1])
+        return hosted.action_log[-1]
+
+    def _cache_action_update(
+        self,
+        hosted: HostedSession,
+        action_json: dict[str, object],
+        *,
+        revision: int | None = None,
+    ) -> None:
+        revision = revision or len(hosted.action_log)
+        updates_by_viewer = {
+            str(player_id): self._update(hosted, player_id)
+            for player_id in range(PLAYER_COUNT)
+        }
+        hosted.action_update_cache.append(
+            {
+                "revision": revision,
+                "action": dict(action_json),
+                "updatesByViewer": updates_by_viewer,
+            }
+        )
 
     def _policy_model_sha(self) -> str | None:
         available_paths = {
@@ -1406,46 +2892,52 @@ class KolkhozOnlineSessionService:
         return digest.hexdigest()
 
     def _policy_model_buffer(self, controller: str) -> KCPolicyModelBuffer:
-        if controller in self._policy_models:
-            return self._policy_models[controller]
-        artifact = self._policy_artifacts.get(controller)
-        if artifact is None:
-            policy_path = self.policy_paths.get(controller)
-            if policy_path is None:
-                raise OnlineServerError(
-                    HTTPStatus.INTERNAL_SERVER_ERROR,
-                    f"online policy {controller!r} is not configured",
-                )
+        with self._policy_lock:
+            if controller in self._policy_models:
+                return self._policy_models[controller]
+            artifact = self._policy_artifacts.get(controller)
+            if artifact is None:
+                policy_path = self.policy_paths.get(controller)
+                if policy_path is None:
+                    raise OnlineServerError(
+                        HTTPStatus.INTERNAL_SERVER_ERROR,
+                        f"online policy {controller!r} is not configured",
+                    )
+                try:
+                    artifact = PolicyArtifact.load(policy_path)
+                except Exception as error:
+                    raise OnlineServerError(
+                        HTTPStatus.INTERNAL_SERVER_ERROR,
+                        f"online policy {controller!r} failed to load: {error}",
+                    ) from error
+                self._policy_artifacts[controller] = artifact
             try:
-                artifact = PolicyArtifact.load(policy_path)
+                model = artifact.c_buffer()
             except Exception as error:
                 raise OnlineServerError(
                     HTTPStatus.INTERNAL_SERVER_ERROR,
-                    f"online policy {controller!r} failed to load: {error}",
+                    f"online policy {controller!r} failed to initialize: {error}",
                 ) from error
-            self._policy_artifacts[controller] = artifact
-        try:
-            model = artifact.c_buffer()
-        except Exception as error:
-            raise OnlineServerError(
-                HTTPStatus.INTERNAL_SERVER_ERROR,
-                f"online policy {controller!r} failed to initialize: {error}",
-            ) from error
-        self._policy_models[controller] = model
-        return model
+            self._policy_models[controller] = model
+            return model
 
     def _advance_automatic_turns(
         self,
         hosted: HostedSession,
         *,
         persist: bool = True,
+        now: float | None = None,
     ) -> None:
         for _ in range(200):
+            action_now = time.time() if now is None else now
             player_id = self.engine.waiting_player(hosted.engine_pointer)
             if player_id < 0 or player_id >= PLAYER_COUNT:
                 return
-            controller = CONTROLLER_CODES[hosted.controllers[player_id]]
+            controller_name = self._effective_controller(hosted, player_id)
+            controller = CONTROLLER_CODES[controller_name]
             if controller == CONTROLLER_HUMAN:
+                return
+            if not self._bot_action_is_ready(hosted, player_id, action_now):
                 return
             if controller == CONTROLLER_HEURISTIC_AI:
                 if not hasattr(self.engine, "heuristic_action"):
@@ -1461,9 +2953,39 @@ class KolkhozOnlineSessionService:
                 action = self.engine.heuristic_action(hosted.engine_pointer)
             elif controller == CONTROLLER_POLICY_AI:
                 if not hasattr(self.engine, "policy_action"):
+                    if hosted.controllers[player_id] != controller_name:
+                        if not hasattr(self.engine, "heuristic_action"):
+                            return
+                        action = self.engine.heuristic_action(hosted.engine_pointer)
+                        if action.player_id != player_id:
+                            actions = self._legal_actions_for_player(hosted, player_id)
+                            if not actions:
+                                return
+                            action = actions[0]
+                        try:
+                            self.engine.apply_ai_action(hosted.engine_pointer, action)
+                        except Exception as error:
+                            raise OnlineServerError(
+                                HTTPStatus.INTERNAL_SERVER_ERROR,
+                                f"automatic controller failed: {error}",
+                            ) from error
+                        hosted.bot_action_ready_at.pop(player_id, None)
+                        action_json = self._append_action(
+                            hosted,
+                            action,
+                            source="automatic",
+                        )
+                        hosted.last_seen_at = action_now
+                        if persist:
+                            self._persist_action_appended(
+                                hosted,
+                                player_id,
+                                action_json,
+                            )
+                        continue
                     status = self.engine.step_policy_automatic(
                         hosted.engine_pointer,
-                        self._policy_model_buffer(hosted.controllers[player_id]),
+                        self._policy_model_buffer(controller_name),
                     )
                     if status < 0:
                         raise OnlineServerError(
@@ -1475,12 +2997,20 @@ class KolkhozOnlineSessionService:
                     continue
                 action = self.engine.policy_action(
                     hosted.engine_pointer,
-                    self._policy_model_buffer(hosted.controllers[player_id]),
+                    self._policy_model_buffer(controller_name),
                 )
                 if action is None:
-                    return
+                    actions = self._legal_actions_for_player(hosted, player_id)
+                    if not actions:
+                        return
+                    action = actions[0]
             else:
                 return
+            if action.player_id != player_id:
+                actions = self._legal_actions_for_player(hosted, player_id)
+                if not actions:
+                    return
+                action = actions[0]
             try:
                 self.engine.apply_ai_action(hosted.engine_pointer, action)
             except Exception as error:
@@ -1488,10 +3018,11 @@ class KolkhozOnlineSessionService:
                     HTTPStatus.INTERNAL_SERVER_ERROR,
                     f"automatic controller failed: {error}",
                 ) from error
-            hosted.action_log.append(_action_json(action, source="automatic"))
-            hosted.last_seen_at = time.time()
+            hosted.bot_action_ready_at.pop(player_id, None)
+            action_json = self._append_action(hosted, action, source="automatic")
+            hosted.last_seen_at = action_now
             if persist:
-                self._persist_action_appended(hosted, player_id, hosted.action_log[-1])
+                self._persist_action_appended(hosted, player_id, action_json)
         raise OnlineServerError(
             HTTPStatus.INTERNAL_SERVER_ERROR,
             "automatic controller loop exceeded guard limit",
@@ -1503,58 +3034,31 @@ class KolkhozOnlineSessionService:
         viewer_id: int | None,
         after_revision: int,
     ) -> list[dict[str, object]]:
-        if after_revision >= len(hosted.action_log):
-            return []
-        replay = self.engine.new_engine(
-            hosted.seed,
-            variants=_variants_native(hosted.variants),
-            controllers=_controllers_native(hosted.controllers),
-        )
-        replay_hosted = HostedSession(
-            session_id=hosted.session_id,
-            invite_code=hosted.invite_code,
-            engine_pointer=replay,
-            seed=hosted.seed,
-            variants=hosted.variants,
-            controllers=hosted.controllers,
-            ranked=hosted.ranked,
-            occupied_seats=set(hosted.occupied_seats),
-            seat_tokens=dict(hosted.seat_tokens),
-            seat_user_ids=dict(hosted.seat_user_ids),
-            created_by_user_id=hosted.created_by_user_id,
-            action_log=[],
-            created_at=hosted.created_at,
-            last_seen_at=hosted.last_seen_at,
-            last_persisted_touch_at=hosted.last_persisted_touch_at,
-            seat_last_seen_at=dict(hosted.seat_last_seen_at),
-            seat_timeouts=dict(hosted.seat_timeouts),
-            autopilot_seats=set(hosted.autopilot_seats),
-            abandoned_seats=set(hosted.abandoned_seats),
-            turn_player_id=hosted.turn_player_id,
-            turn_deadline_at=hosted.turn_deadline_at,
-        )
-        try:
-            updates: list[dict[str, object]] = []
-            for index, action_json in enumerate(hosted.action_log):
-                action = _action_from_json(action_json)
-                source = action_json.get("source")
-                if source in ("automatic", "autopilot"):
-                    self.engine.apply_ai_action(replay, action)
-                else:
-                    self.engine.apply_action(replay, action)
-                replay_hosted.action_log.append(action_json)
-                revision = index + 1
-                if revision > after_revision:
-                    updates.append(
-                        {
-                            "revision": revision,
-                            "action": action_json,
-                            "update": self._update(replay_hosted, viewer_id),
-                        }
-                    )
-            return updates
-        finally:
-            self.engine.free_engine(replay)
+        updates: list[dict[str, object]] = []
+        for index, action_json in enumerate(
+            hosted.action_log[len(hosted.action_update_cache) :],
+            start=len(hosted.action_update_cache) + 1,
+        ):
+            self._cache_action_update(hosted, action_json, revision=index)
+        viewer_key = str(viewer_id) if viewer_id is not None else None
+        for entry in hosted.action_update_cache:
+            revision = int(entry.get("revision") or 0)
+            if revision <= after_revision:
+                continue
+            updates_by_viewer = entry.get("updatesByViewer")
+            cached_update = None
+            if isinstance(updates_by_viewer, dict) and viewer_key is not None:
+                cached_update = updates_by_viewer.get(viewer_key)
+            updates.append(
+                {
+                    "revision": revision,
+                    "action": entry.get("action", {}),
+                    "update": cached_update
+                    if isinstance(cached_update, dict)
+                    else self._update(hosted, viewer_id),
+                }
+            )
+        return updates
 
     def _legal_actions_for_player(
         self,
@@ -1598,6 +3102,7 @@ class KolkhozOnlineSessionService:
             "variants": hosted.variants,
             "controllers": hosted.controllers,
             "ranked": hosted.ranked,
+            "browserJoinable": hosted.browser_joinable,
             "playerProfiles": self._player_profiles(hosted),
             "seatPresence": self._seat_presence_json(hosted, time.time()),
             "turnPlayerID": hosted.turn_player_id,
@@ -1615,8 +3120,11 @@ class KolkhozOnlineSessionService:
                 "playerID": player_id,
                 "connected": (
                     player_id in hosted.occupied_seats
-                    and now - hosted.seat_last_seen_at.get(player_id, 0.0)
-                    <= PRESENCE_GRACE_SECONDS
+                    and (
+                        self._effective_controller(hosted, player_id) != "human"
+                        or now - hosted.seat_last_seen_at.get(player_id, 0.0)
+                        <= PRESENCE_GRACE_SECONDS
+                    )
                 ),
                 "lastSeenAt": hosted.seat_last_seen_at.get(player_id),
                 "timeouts": hosted.seat_timeouts.get(player_id, 0),
@@ -1644,6 +3152,8 @@ class KolkhozOnlineSessionService:
         profiles: list[dict[str, object]] = []
         for player_id, user_id in sorted(hosted.seat_user_ids.items()):
             profile = profile_by_user_id.get(user_id, {})
+            if not profile:
+                profile = SERVER_BOT_PROFILES_BY_ID.get(user_id, {})
             display_name = profile.get("display_name")
             avatar_url = profile.get("avatar_url")
             stats = profile.get("stats")
@@ -1805,6 +3315,13 @@ def _comrade_profile_response(profile: dict[str, object]) -> dict[str, object]:
         "requestedAt": profile.get("requested_at") or profile.get("requestedAt"),
         "stats": profile.get("stats") if isinstance(profile.get("stats"), dict) else {},
     }
+
+
+def _next_interval_after(previous: float, now: float, interval: float) -> float:
+    next_at = previous + interval
+    while next_at <= now:
+        next_at += interval
+    return next_at
 
 
 def _normalize_variants(value: object) -> dict[str, object]:
@@ -2092,6 +3609,14 @@ def _authorization_header(headers: object) -> str | None:
     return str(value) if value else None
 
 
+def _session_lookup_is_invite_code(value: str) -> bool:
+    try:
+        uuid.UUID(value)
+    except ValueError:
+        return True
+    return False
+
+
 def _seat_token(
     headers: object,
     query: dict[str, list[str]],
@@ -2109,3 +3634,39 @@ def _seat_token(
     if body_value is None:
         return None
     return str(body_value)
+
+
+def _percentile(samples: list[float], percentile: float) -> float:
+    if not samples:
+        return 0.0
+    if len(samples) == 1:
+        return samples[0]
+    index = int(round((len(samples) - 1) * percentile))
+    return samples[max(0, min(index, len(samples) - 1))]
+
+
+def _route_label(path: str) -> str:
+    parts = [part for part in path.split("/") if part]
+    if not parts:
+        return "/"
+    if parts == ["health"]:
+        return "/health"
+    if parts == ["metrics"]:
+        return "/metrics"
+    if parts == ["sessions"]:
+        return "/sessions"
+    if parts == ["sessions", "matchmake"]:
+        return "/sessions/matchmake"
+    if parts[0] == "comrades":
+        if len(parts) == 1:
+            return "/comrades"
+        return f"/comrades/{parts[1]}"
+    if parts[0] != "sessions":
+        return "/" + "/".join(parts)
+    if len(parts) == 2:
+        return "/sessions/{session}"
+    if len(parts) == 3:
+        return f"/sessions/{{session}}/{parts[2]}"
+    if len(parts) == 5 and parts[2] == "players":
+        return f"/sessions/{{session}}/players/{{player}}/{parts[4]}"
+    return "/sessions/{session}/" + "/".join(parts[2:])

@@ -86,6 +86,7 @@ class GameOverPlotPanel extends StatelessWidget {
     required this.language,
     this.onNewGame,
     this.onReturnToLobby,
+    this.onCopyGameResult,
     this.returnsToLobby = false,
     super.key,
   });
@@ -95,6 +96,7 @@ class GameOverPlotPanel extends StatelessWidget {
   final KolkhozLanguage language;
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
+  final VoidCallback? onCopyGameResult;
   final bool returnsToLobby;
 
   @override
@@ -156,6 +158,20 @@ class GameOverPlotPanel extends StatelessWidget {
                         tokens: tokens,
                       ),
                     ),
+                    SizedBox(
+                      width: gameOverCopyResultButtonWidth,
+                      child: ChromeAssetButton.command(
+                        label: language.t(KolkhozText.kolkhozappCopyResult),
+                        prominent: false,
+                        tokens: tokens,
+                        onPressed: onCopyGameResult,
+                        height: gameOverPlotFooterHeight,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        textSize: PixelTextSize.caption,
+                        expandLabel: false,
+                        surfaceKey: const Key('game-over-copy-result-button'),
+                      ),
+                    ),
                     ChromeAssetButton.command(
                       label: returnsToLobby
                           ? language.t(KolkhozText.kolkhozappMainMenu2)
@@ -163,6 +179,11 @@ class GameOverPlotPanel extends StatelessWidget {
                       prominent: true,
                       tokens: tokens,
                       onPressed: returnsToLobby ? onReturnToLobby : onNewGame,
+                      width: gameOverPrimaryActionButtonWidth,
+                      height: gameOverPlotFooterHeight,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      textSize: PixelTextSize.caption,
+                      expandLabel: false,
                       surfaceKey: Key(
                         returnsToLobby
                             ? 'game-over-main-menu-button'
@@ -268,6 +289,8 @@ class GameOverFinalScorePill extends StatelessWidget {
 
 const gameOverPlotHeaderHeight = 58.0;
 const gameOverPlotFooterHeight = 40.0;
+const gameOverCopyResultButtonWidth = 112.0;
+const gameOverPrimaryActionButtonWidth = 154.0;
 const gameOverScoreStripSpacing = 6.0;
 
 class PlotRowsView extends StatelessWidget {
@@ -1679,6 +1702,7 @@ class CardBackMini extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cardBack = KolkhozCardBackScope.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(cardViewCornerRadius),
@@ -1707,7 +1731,7 @@ class CardBackMini extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(cardViewCornerRadius),
           child: Image.asset(
-            'ios_resources/Cards/card-back.png',
+            cardBack.assetPath,
             fit: BoxFit.cover,
             filterQuality: FilterQuality.none,
             errorBuilder: (_, _, _) => ColoredBox(color: tokens.colors.iron),

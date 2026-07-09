@@ -6,8 +6,17 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from .c_engine import CEngine, KCPolicyModelBuffer
+from .c_engine import CEngine, KCControllers, KCPolicyModelBuffer, REPO_ROOT
 from .model import PolicyArtifact
+from .ratings import DEFAULT_MU, DEFAULT_SIGMA, RatingInput, display_rating, rate_multiplayer
+
+
+PHASE_GAME_OVER = 5
+BOT_RATING_CONTROLLERS = ("heuristicAI", "mediumAI", "neuralAI")
+DEFAULT_BOT_POLICY_PATHS = {
+    "mediumAI": REPO_ROOT / "clients/flutter_app/assets/policies/medium_policy.json",
+    "neuralAI": REPO_ROOT / "clients/flutter_app/assets/policies/hard_policy.json",
+}
 
 
 @dataclass(frozen=True)
@@ -26,6 +35,24 @@ class PairedRecord:
     win_delta: float
     rank_delta: float
     margin_delta: float
+
+
+@dataclass(frozen=True)
+class BotRatingVirtualPlayer:
+    key: str
+    controller: str
+
+
+@dataclass
+class BotRatingState:
+    key: str
+    controller: str
+    mu: float = DEFAULT_MU
+    sigma: float = DEFAULT_SIGMA
+    games: int = 0
+    wins: int = 0
+    rank_total: float = 0.0
+    score_total: float = 0.0
 
 
 def _rank(scores: list[int], medals: list[int], player_id: int) -> int:
@@ -510,6 +537,299 @@ def benchmark_candidate(
     }
     if include_games:
         record["games"] = games
+    return record
+
+
+def _load_bot_policy_buffers(
+    policy_paths: dict[str, Path] | None = None,
+) -> dict[str, KCPolicyModelBuffer]:
+    paths = {**DEFAULT_BOT_POLICY_PATHS, **(policy_paths or {})}
+    buffers: dict[str, KCPolicyModelBuffer] = {}
+    for controller, path in paths.items():
+        if controller == "heuristicAI":
+            continue
+        buffers[controller] = PolicyArtifact.load(path).c_buffer()
+    return buffers
+
+
+def _bot_rating_virtual_players(
+    *,
+    controllers: tuple[str, ...] = BOT_RATING_CONTROLLERS,
+    virtual_players_per_controller: int,
+) -> list[BotRatingVirtualPlayer]:
+    players: list[BotRatingVirtualPlayer] = []
+    for controller in controllers:
+        for index in range(virtual_players_per_controller):
+            players.append(
+                BotRatingVirtualPlayer(
+                    key=f"{controller}-{index + 1}",
+                    controller=controller,
+                )
+            )
+    return players
+
+
+def _bot_rating_lineup(
+    *,
+    controllers: tuple[str, ...],
+    players_by_controller: dict[str, list[BotRatingVirtualPlayer]],
+    game_index: int,
+    seed: int,
+) -> list[BotRatingVirtualPlayer]:
+    duplicate_controller = controllers[game_index % len(controllers)]
+    controller_lineup = list(controllers) + [duplicate_controller]
+    rng = random.Random(seed + game_index * 104_729)
+    rng.shuffle(controller_lineup)
+
+    usage: dict[str, int] = {}
+    lineup: list[BotRatingVirtualPlayer] = []
+    for seat, controller in enumerate(controller_lineup):
+        players = players_by_controller[controller]
+        occurrence = usage.get(controller, 0)
+        usage[controller] = occurrence + 1
+        player_index = (game_index + seat + occurrence) % len(players)
+        lineup.append(players[player_index])
+    return lineup
+
+
+def _run_bot_rating_game(
+    engine: CEngine,
+    *,
+    seed: int,
+    lineup: list[BotRatingVirtualPlayer],
+    policy_buffers: dict[str, KCPolicyModelBuffer],
+    max_actions: int = 1000,
+) -> dict[str, Any]:
+    controller_codes = tuple(
+        1 if player.controller == "heuristicAI" else 2 for player in lineup
+    )
+    pointer = engine.new_engine(seed, controllers=KCControllers(controller_codes))
+    actions = 0
+    checksum = 0
+    policy_fallbacks = 0
+    try:
+        while engine.phase(pointer) != PHASE_GAME_OVER and actions < max_actions:
+            player_id = engine.waiting_player(pointer)
+            if player_id < 0 or player_id >= len(lineup):
+                break
+            controller = lineup[player_id].controller
+            if controller == "heuristicAI":
+                action = engine.heuristic_action(pointer)
+            else:
+                action = engine.policy_action(pointer, policy_buffers[controller])
+                if action is None:
+                    try:
+                        action = engine.heuristic_action(pointer)
+                    except RuntimeError:
+                        status = engine.step_policy_automatic(
+                            pointer,
+                            policy_buffers[controller],
+                        )
+                        if status < 0:
+                            raise RuntimeError(
+                                f"{controller} automatic step failed with status {status}"
+                            )
+                        if status > 0:
+                            actions += 1
+                            checksum = (
+                                (checksum * 131) ^ (int(player_id) << 8) ^ 0x7F
+                            ) & 0x7FFFFFFF
+                            continue
+                        raise RuntimeError(
+                            f"{controller} could not choose an action "
+                            f"(phase={engine.phase(pointer)}, player={player_id})"
+                        )
+                    policy_fallbacks += 1
+            if action.player_id != player_id:
+                legal_actions = [
+                    item for item in engine.legal_actions(pointer) if item.player_id == player_id
+                ]
+                if not legal_actions:
+                    break
+                action = legal_actions[0]
+            engine.apply_ai_action(pointer, action)
+            actions += 1
+            checksum = ((checksum * 131) ^ int(action.kind) ^ (int(action.player_id) << 8)) & 0x7FFFFFFF
+
+        if engine.phase(pointer) != PHASE_GAME_OVER:
+            raise RuntimeError(
+                f"bot rating game did not finish within {max_actions} actions"
+            )
+        scores = engine.final_scores(pointer)
+        medals = engine.total_medals(pointer)
+        winner = engine.winner_id(pointer)
+        return {
+            "seed": seed,
+            "actions": actions,
+            "checksum": checksum,
+            "policy_fallbacks": policy_fallbacks,
+            "winner_id": winner,
+            "scores": scores,
+            "medals": medals,
+            "players": [
+                {"key": player.key, "controller": player.controller}
+                for player in lineup
+            ],
+        }
+    finally:
+        engine.free_engine(pointer)
+
+
+def run_bot_rating_simulation(
+    engine: CEngine,
+    *,
+    games: int,
+    seed: int,
+    virtual_players_per_controller: int = 4,
+    anchor_controller: str = "neuralAI",
+    anchor_rating: int = 1000,
+    policy_paths: dict[str, Path] | None = None,
+    include_games: bool = False,
+) -> dict[str, Any]:
+    if games <= 0:
+        raise ValueError("games must be positive")
+    if virtual_players_per_controller < 2:
+        raise ValueError("virtual_players_per_controller must be at least 2")
+    if anchor_controller not in BOT_RATING_CONTROLLERS:
+        raise ValueError(f"unknown anchor controller {anchor_controller!r}")
+
+    virtual_players = _bot_rating_virtual_players(
+        virtual_players_per_controller=virtual_players_per_controller
+    )
+    players_by_controller: dict[str, list[BotRatingVirtualPlayer]] = {
+        controller: [
+            player for player in virtual_players if player.controller == controller
+        ]
+        for controller in BOT_RATING_CONTROLLERS
+    }
+    states = {
+        player.key: BotRatingState(key=player.key, controller=player.controller)
+        for player in virtual_players
+    }
+    policy_buffers = _load_bot_policy_buffers(policy_paths)
+    game_records: list[dict[str, Any]] = []
+
+    for game_index in range(games):
+        game_seed = seed + game_index
+        lineup = _bot_rating_lineup(
+            controllers=BOT_RATING_CONTROLLERS,
+            players_by_controller=players_by_controller,
+            game_index=game_index,
+            seed=seed,
+        )
+        game = _run_bot_rating_game(
+            engine,
+            seed=game_seed,
+            lineup=lineup,
+            policy_buffers=policy_buffers,
+        )
+        participants: list[RatingInput] = []
+        for seat, player in enumerate(lineup):
+            state = states[player.key]
+            rank = float(_rank(game["scores"], game["medals"], seat))
+            participants.append(
+                RatingInput(
+                    key=player.key,
+                    rank=rank,
+                    score=float(game["scores"][seat]),
+                    mu=state.mu,
+                    sigma=state.sigma,
+                )
+            )
+            state.games += 1
+            state.wins += 1 if game["winner_id"] == seat else 0
+            state.rank_total += rank
+            state.score_total += float(game["scores"][seat])
+
+        outputs = rate_multiplayer(participants)
+        for key, output in outputs.items():
+            states[key].mu = output.mu
+            states[key].sigma = output.sigma
+
+        if include_games:
+            game_records.append(game)
+
+    controller_rows = []
+    anchor_states = [
+        state for state in states.values() if state.controller == anchor_controller
+    ]
+    anchor_mu = _mean([state.mu for state in anchor_states])
+    anchor_sigma = _mean([state.sigma for state in anchor_states])
+    anchored_mu = DEFAULT_MU + (
+        anchor_rating
+        - 1000
+        + (anchor_sigma - DEFAULT_SIGMA) * 8.0
+    ) / 32.0
+    mu_shift = anchored_mu - anchor_mu
+    for controller in BOT_RATING_CONTROLLERS:
+        controller_states = [
+            state for state in states.values() if state.controller == controller
+        ]
+        mean_mu = _mean([state.mu for state in controller_states])
+        mean_sigma = _mean([state.sigma for state in controller_states])
+        total_games = sum(state.games for state in controller_states)
+        total_wins = sum(state.wins for state in controller_states)
+        controller_rows.append(
+            {
+                "controller": controller,
+                "display_rating": display_rating(mean_mu + mu_shift, mean_sigma),
+                "relative_display_rating": display_rating(mean_mu, mean_sigma),
+                "mu": mean_mu + mu_shift,
+                "relative_mu": mean_mu,
+                "sigma": mean_sigma,
+                "games": total_games,
+                "win_rate": total_wins / total_games if total_games else 0.0,
+                "average_rank": (
+                    sum(state.rank_total for state in controller_states) / total_games
+                    if total_games
+                    else 0.0
+                ),
+                "average_score": (
+                    sum(state.score_total for state in controller_states) / total_games
+                    if total_games
+                    else 0.0
+                ),
+            }
+        )
+    controller_rows.sort(key=lambda item: item["display_rating"], reverse=True)
+
+    virtual_player_rows = [
+        {
+            "key": state.key,
+            "controller": state.controller,
+            "display_rating": display_rating(state.mu + mu_shift, state.sigma),
+            "relative_display_rating": display_rating(state.mu, state.sigma),
+            "mu": state.mu + mu_shift,
+            "relative_mu": state.mu,
+            "sigma": state.sigma,
+            "games": state.games,
+            "win_rate": state.wins / state.games if state.games else 0.0,
+            "average_rank": state.rank_total / state.games if state.games else 0.0,
+            "average_score": state.score_total / state.games if state.games else 0.0,
+        }
+        for state in sorted(states.values(), key=lambda item: item.key)
+    ]
+
+    record: dict[str, Any] = {
+        "kind": "bot_rating_simulation",
+        "controllers": list(BOT_RATING_CONTROLLERS),
+        "games": games,
+        "seed": seed,
+        "virtual_players_per_controller": virtual_players_per_controller,
+        "anchor": {
+            "controller": anchor_controller,
+            "display_rating": anchor_rating,
+            "note": "absolute ratings are anchored; relative_display_rating is unanchored",
+        },
+        "policy_paths": {
+            controller: str(path)
+            for controller, path in {**DEFAULT_BOT_POLICY_PATHS, **(policy_paths or {})}.items()
+        },
+        "standings": controller_rows,
+        "virtual_players": virtual_player_rows,
+    }
+    if include_games:
+        record["game_records"] = game_records
     return record
 
 

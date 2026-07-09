@@ -483,6 +483,8 @@ class CEngine:
         self.lib.kc_engine_phase.restype = ctypes.c_int32
         self.lib.kc_engine_year.argtypes = [ctypes.c_void_p]
         self.lib.kc_engine_year.restype = ctypes.c_int32
+        self.lib.kc_engine_winner_id.argtypes = [ctypes.c_void_p]
+        self.lib.kc_engine_winner_id.restype = ctypes.c_int32
         self.lib.kc_visible_score.argtypes = [ctypes.c_void_p, ctypes.c_int32]
         self.lib.kc_visible_score.restype = ctypes.c_int32
         self.lib.kc_final_score.argtypes = [ctypes.c_void_p, ctypes.c_int32]
@@ -595,6 +597,9 @@ class CEngine:
 
     def year(self, pointer: ctypes.c_void_p) -> int:
         return int(self.lib.kc_engine_year(pointer))
+
+    def winner_id(self, pointer: ctypes.c_void_p) -> int:
+        return int(self.lib.kc_engine_winner_id(pointer))
 
     def legal_actions(self, pointer: ctypes.c_void_p, max_actions: int = 256) -> list[KCAction]:
         actions = (KCAction * max_actions)()

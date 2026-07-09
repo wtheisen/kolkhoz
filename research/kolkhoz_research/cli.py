@@ -8,10 +8,16 @@ from dataclasses import asdict
 from pathlib import Path
 
 from .artifact_cleanup import cleanup_artifacts
-from .benchmark import benchmark_candidate, mine_seed_panel, run_tournament
+from .benchmark import (
+    benchmark_candidate,
+    mine_seed_panel,
+    run_bot_rating_simulation,
+    run_tournament,
+)
 from .c_engine import CEngine, build_shared_library
 from .dashboard import serve_dashboard
 from .history import append_history, write_current_experiment
+from .online_load_test import run_online_load_test
 from .online_server import SupabaseAuthVerifier, serve_online
 from .online_store import PostgresOnlineSessionStore
 from .training import train_c_mlp
@@ -294,6 +300,27 @@ def tournament(args: argparse.Namespace) -> int:
     status = _emit(record, args.record)
     _auto_cleanup_artifacts(args)
     return status
+
+
+def bot_ratings(args: argparse.Namespace) -> int:
+    engine = CEngine(build_shared_library(force=args.rebuild))
+    policy_paths: dict[str, Path] = {}
+    if args.medium_policy:
+        policy_paths["mediumAI"] = args.medium_policy
+    if args.hard_policy:
+        policy_paths["neuralAI"] = args.hard_policy
+    record = run_bot_rating_simulation(
+        engine,
+        games=args.games,
+        seed=args.seed,
+        virtual_players_per_controller=args.virtual_players_per_controller,
+        anchor_controller=args.anchor_controller,
+        anchor_rating=args.anchor_rating,
+        policy_paths=policy_paths or None,
+        include_games=args.include_games,
+    )
+    record["engine"] = asdict(engine.provenance())
+    return _emit(record, args.record)
 
 
 def mine_seeds(args: argparse.Namespace) -> int:
@@ -1164,6 +1191,21 @@ def serve_online_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def online_load_test_command(args: argparse.Namespace) -> int:
+    record = run_online_load_test(
+        base_url=args.base_url,
+        players=args.players,
+        duration_seconds=args.duration,
+        poll_interval_seconds=args.poll_interval,
+        setup_concurrency=args.setup_concurrency,
+        request_timeout_seconds=args.request_timeout,
+        auth_token=args.auth_token,
+        seed=args.seed,
+    )
+    print(json.dumps(record, indent=2, sort_keys=True))
+    return 0
+
+
 def cleanup_artifacts_command(args: argparse.Namespace) -> int:
     roots = args.root or DEFAULT_CLEANUP_ROOTS
     record = cleanup_artifacts(
@@ -1278,6 +1320,47 @@ def main() -> int:
     tournament_parser.add_argument("--record", action="store_true")
     tournament_parser.add_argument("--rebuild", action="store_true")
     tournament_parser.set_defaults(func=tournament)
+
+    bot_ratings_parser = subparsers.add_parser(
+        "bot-ratings",
+        help="estimate easy/medium/hard bot ratings with C-engine simulations",
+    )
+    bot_ratings_parser.add_argument("--games", type=int, default=1024)
+    bot_ratings_parser.add_argument("--seed", type=int, default=41_000_000)
+    bot_ratings_parser.add_argument(
+        "--virtual-players-per-controller",
+        type=int,
+        default=4,
+        help="virtual profiles per bot difficulty for rating updates",
+    )
+    bot_ratings_parser.add_argument(
+        "--anchor-controller",
+        choices=["heuristicAI", "mediumAI", "neuralAI"],
+        default="neuralAI",
+        help="difficulty assigned the anchor display rating",
+    )
+    bot_ratings_parser.add_argument(
+        "--anchor-rating",
+        type=int,
+        default=1000,
+        help="display rating assigned to the anchor difficulty",
+    )
+    bot_ratings_parser.add_argument(
+        "--medium-policy",
+        type=Path,
+        default=None,
+        help="mediumAI policy artifact; defaults to the Flutter bundled medium policy",
+    )
+    bot_ratings_parser.add_argument(
+        "--hard-policy",
+        type=Path,
+        default=None,
+        help="neuralAI policy artifact; defaults to the Flutter bundled hard policy",
+    )
+    bot_ratings_parser.add_argument("--include-games", action="store_true")
+    bot_ratings_parser.add_argument("--record", action="store_true")
+    bot_ratings_parser.add_argument("--rebuild", action="store_true")
+    bot_ratings_parser.set_defaults(func=bot_ratings)
 
     mine = subparsers.add_parser(
         "mine-seeds", help="find hard seed panels for a candidate"
@@ -2108,6 +2191,22 @@ def main() -> int:
         ),
     )
     online_parser.set_defaults(func=serve_online_command)
+
+    load_parser = subparsers.add_parser(
+        "online-load-test", help="run synthetic players against an online server"
+    )
+    load_parser.add_argument("--base-url", default="http://127.0.0.1:8787")
+    load_parser.add_argument("--players", type=int, default=100)
+    load_parser.add_argument("--duration", type=float, default=30.0)
+    load_parser.add_argument("--poll-interval", type=float, default=1.0)
+    load_parser.add_argument("--setup-concurrency", type=int, default=16)
+    load_parser.add_argument("--request-timeout", type=float, default=10.0)
+    load_parser.add_argument(
+        "--auth-token",
+        default=os.environ.get("KOLKHOZ_ONLINE_LOAD_AUTH_TOKEN"),
+    )
+    load_parser.add_argument("--seed", type=int, default=None)
+    load_parser.set_defaults(func=online_load_test_command)
 
     cleanup_parser = subparsers.add_parser(
         "cleanup-artifacts", help="dry-run or delete stale local training checkpoints"

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import threading
+import uuid
 from datetime import UTC, datetime
 from typing import Any
 
@@ -12,6 +13,93 @@ AI_PROFILES = {
     "heuristicAI": "Easy AI",
     "mediumAI": "Medium AI",
     "neuralAI": "Hard AI",
+}
+SERVER_BOT_PROFILES = tuple(
+    {
+        "user_id": user_id,
+        "controller": controller,
+        "slot": slot,
+        "display_name": display_name,
+        "avatar_url": avatar,
+    }
+    for controller, names, prefix in (
+        (
+            "heuristicAI",
+            (
+                "Mira Petrov",
+                "Nadia Volkov",
+                "Vera Sokolov",
+                "Anya Morozov",
+                "Lena Orlov",
+            ),
+            101,
+        ),
+        (
+            "mediumAI",
+            (
+                "Pavel Kuznetsov",
+                "Irina Smirnov",
+                "Oleg Novikov",
+                "Dima Fedorov",
+                "Sofia Ivanov",
+            ),
+            201,
+        ),
+        (
+            "neuralAI",
+            (
+                "Boris Mikhailov",
+                "Katya Romanov",
+                "Anton Lebedev",
+                "Yuri Belov",
+                "Tanya Kozlov",
+            ),
+            301,
+        ),
+    )
+    for slot, display_name, user_id, avatar in (
+        (
+            1,
+            names[0],
+            f"00000000-0000-4000-8000-000000000{prefix}",
+            "worker1",
+        ),
+        (
+            2,
+            names[1],
+            f"00000000-0000-4000-8000-000000000{prefix + 1}",
+            "worker2",
+        ),
+        (
+            3,
+            names[2],
+            f"00000000-0000-4000-8000-000000000{prefix + 2}",
+            "worker3",
+        ),
+        (
+            4,
+            names[3],
+            f"00000000-0000-4000-8000-000000000{prefix + 3}",
+            "worker4",
+        ),
+        (
+            5,
+            names[4],
+            f"00000000-0000-4000-8000-000000000{prefix + 4}",
+            "worker1",
+        ),
+    )
+)
+SERVER_BOT_PROFILES_BY_ID = {
+    str(profile["user_id"]): profile for profile in SERVER_BOT_PROFILES
+}
+SERVER_BOT_PROFILES_BY_CONTROLLER = {
+    controller: [
+        profile
+        for profile in SERVER_BOT_PROFILES
+        if profile["controller"] == controller
+    ]
+    for controller in AI_PROFILES
 }
 BAN_STRIKES = 3
 
@@ -28,9 +116,12 @@ class OnlineSessionStore:
         self,
         *,
         session_id: str,
+        invite_code: str,
         seed: int,
         variants: dict[str, object],
         controllers: list[str],
+        ranked: bool,
+        browser_joinable: bool,
         occupied_seats: set[int],
         seat_tokens: dict[int, str],
         seat_user_ids: dict[int, str],
@@ -65,6 +156,9 @@ class OnlineSessionStore:
         expires_at: float,
     ) -> None:
         pass
+
+    def load_session(self, session_id_or_invite: str) -> dict[str, object] | None:
+        return None
 
     def touch_session(
         self,
@@ -128,6 +222,26 @@ class OnlineSessionStore:
         revision: int,
     ) -> dict[str, object] | None:
         return None
+
+    def leave_lobby_seat(
+        self,
+        *,
+        session_id: str,
+        player_id: int,
+        updated_at: float,
+        expires_at: float,
+        revision: int,
+    ) -> None:
+        pass
+
+    def expire_session(
+        self,
+        *,
+        session_id: str,
+        updated_at: float,
+        expires_at: float,
+    ) -> None:
+        pass
 
     def abandon_active_sessions(self, *, updated_at: float) -> None:
         pass
@@ -213,6 +327,16 @@ class OnlineSessionStore:
     ) -> None:
         pass
 
+    def create_profile_bot_profiles(
+        self,
+        *,
+        count: int,
+        exclude_user_ids: set[str],
+        target_rating: int,
+        updated_at: float,
+    ) -> list[dict[str, object]]:
+        return []
+
 
 class PostgresOnlineSessionStore(OnlineSessionStore):
     def __init__(self, database_url: str) -> None:
@@ -229,18 +353,76 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
         self._jsonb = Jsonb
         self._connection = psycopg.connect(database_url, autocommit=True)
         self._lock = threading.RLock()
+        self._profile_stats_has_split_columns = self._has_columns(
+            "profile_stats",
+            {"casual_games", "casual_wins", "ranked_games", "ranked_wins"},
+        )
+        self._ai_profile_stats_has_split_columns = self._has_columns(
+            "ai_profile_stats",
+            {"casual_games", "casual_wins", "ranked_games", "ranked_wins"},
+        )
+        self._has_user_comrades_table = self._has_table("user_comrades")
+        self._has_user_comrade_requests_table = self._has_table(
+            "user_comrade_requests",
+        )
 
     def close(self) -> None:
         with self._lock:
             self._connection.close()
 
+    def _has_columns(self, table_name: str, column_names: set[str]) -> bool:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                select column_name
+                  from information_schema.columns
+                 where table_schema = 'public'
+                   and table_name = %s
+                   and column_name = any(%s::text[])
+                """,
+                (table_name, sorted(column_names)),
+            )
+            found_columns = {str(row[0]) for row in cursor.fetchall()}
+            return column_names.issubset(found_columns)
+
+    def _has_table(self, table_name: str) -> bool:
+        with self._connection.cursor() as cursor:
+            cursor.execute("select to_regclass(%s)", (f"public.{table_name}",))
+            row = cursor.fetchone()
+            return row is not None and row[0] is not None
+
+    def _split_stats_select_sql(self, alias: str, *, ai: bool = False) -> str:
+        has_split_columns = (
+            self._ai_profile_stats_has_split_columns
+            if ai
+            else self._profile_stats_has_split_columns
+        )
+        if has_split_columns:
+            return f"""
+                    {alias}.casual_games,
+                    {alias}.casual_wins,
+                    {alias}.ranked_games,
+                    {alias}.ranked_wins"""
+        online_games = f"coalesce({alias}.online_games, 0)"
+        online_wins = f"coalesce({alias}.online_wins, 0)"
+        rating_games = f"coalesce({alias}.rating_games, 0)"
+        ranked_wins = f"least({online_wins}, {rating_games})"
+        return f"""
+                    greatest({online_games} - {rating_games}, 0) as casual_games,
+                    greatest({online_wins} - {ranked_wins}, 0) as casual_wins,
+                    {rating_games} as ranked_games,
+                    {ranked_wins} as ranked_wins"""
+
     def create_session(
         self,
         *,
         session_id: str,
+        invite_code: str,
         seed: int,
         variants: dict[str, object],
         controllers: list[str],
+        ranked: bool,
+        browser_joinable: bool,
         occupied_seats: set[int],
         seat_tokens: dict[int, str],
         seat_user_ids: dict[int, str],
@@ -265,9 +447,12 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                 """
                 insert into public.game_sessions (
                     session_id,
+                    invite_code,
                     seed,
                     variants,
                     controllers,
+                    ranked,
+                    browser_joinable,
                     status,
                     action_log_count,
                     created_at,
@@ -276,13 +461,16 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     policy_model_sha,
                     created_by
                 )
-                values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     session_id,
+                    invite_code,
                     seed,
                     self._jsonb(variants),
                     controllers,
+                    ranked,
+                    browser_joinable,
                     status,
                     action_log_count,
                     now,
@@ -321,6 +509,118 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     ),
                 )
             self._insert_update(cursor, session_id, action_log_count, "created", now)
+
+    def load_session(self, session_id_or_invite: str) -> dict[str, object] | None:
+        key = session_id_or_invite.strip()
+        if not key:
+            return None
+        normalized_invite = key.upper()
+        try:
+            uuid.UUID(key)
+            where = "session_id = %s::uuid"
+            params: tuple[object, ...] = (key,)
+        except ValueError:
+            where = "invite_code = %s"
+            params = (normalized_invite,)
+        with self._lock, self._connection.cursor() as cursor:
+            cursor.execute(
+                f"""
+                select
+                    session_id::text,
+                    invite_code,
+                    seed,
+                    variants,
+                    controllers,
+                    ranked,
+                    browser_joinable,
+                    status,
+                    created_by::text,
+                    created_at,
+                    updated_at,
+                    expires_at,
+                    action_log_count,
+                    turn_player_id,
+                    turn_deadline_at
+                  from public.game_sessions
+                 where {where}
+                   and status in ('open', 'active')
+                   and expires_at > now()
+                """,
+                params,
+            )
+            session = cursor.fetchone()
+            if session is None:
+                return None
+            session_id = session[0]
+            cursor.execute(
+                """
+                select
+                    player_id,
+                    controller,
+                    occupied,
+                    user_id::text,
+                    seat_token_hash,
+                    last_seen_at,
+                    timeouts,
+                    abandoned,
+                    autopilot
+                  from public.game_seats
+                 where session_id = %s
+                 order by player_id
+                """,
+                (session_id,),
+            )
+            seats = cursor.fetchall()
+            cursor.execute(
+                """
+                select revision, player_id, action, created_at
+                  from public.game_actions
+                 where session_id = %s
+                 order by revision
+                """,
+                (session_id,),
+            )
+            actions = cursor.fetchall()
+        return {
+            "session_id": session_id,
+            "invite_code": session[1],
+            "seed": int(session[2]),
+            "variants": session[3],
+            "controllers": list(session[4]),
+            "ranked": bool(session[5]),
+            "browser_joinable": bool(session[6]),
+            "status": session[7],
+            "created_by_user_id": session[8],
+            "created_at": _timestamp_seconds(session[9]),
+            "last_seen_at": _timestamp_seconds(session[10]),
+            "expires_at": _timestamp_seconds(session[11]),
+            "action_log_count": int(session[12]),
+            "turn_player_id": session[13],
+            "turn_deadline_at": _timestamp_seconds(session[14]),
+            "seats": [
+                {
+                    "player_id": int(row[0]),
+                    "controller": row[1],
+                    "occupied": bool(row[2]),
+                    "user_id": row[3],
+                    "seat_token_hash": row[4],
+                    "last_seen_at": _timestamp_seconds(row[5]),
+                    "timeouts": int(row[6] or 0),
+                    "abandoned": bool(row[7]),
+                    "autopilot": bool(row[8]),
+                }
+                for row in seats
+            ],
+            "actions": [
+                {
+                    "revision": int(row[0]),
+                    "player_id": int(row[1]),
+                    "action": row[2],
+                    "created_at": _timestamp_seconds(row[3]),
+                }
+                for row in actions
+            ],
+        }
 
     def join_seat(
         self,
@@ -594,6 +894,122 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
             self._insert_update(cursor, session_id, revision, "abandoned", now)
         return penalty
 
+    def kick_seat(
+        self,
+        *,
+        session_id: str,
+        player_id: int,
+        updated_at: float,
+        expires_at: float,
+        revision: int,
+    ) -> None:
+        now = _pg_timestamp(updated_at)
+        with self._lock, self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                update public.game_seats
+                   set occupied = false,
+                       user_id = null,
+                       seat_token_hash = null,
+                       joined_at = null,
+                       last_seen_at = null,
+                       disconnected_at = null,
+                       timeouts = 0,
+                       autopilot = false,
+                       abandoned = false
+                 where session_id = %s and player_id = %s
+                """,
+                (session_id, player_id),
+            )
+            self._touch_session(cursor, session_id, now, expires_at)
+            cursor.execute(
+                """
+                update public.game_sessions
+                   set status = case
+                       when exists (
+                           select 1
+                             from public.game_seats
+                            where game_seats.session_id = game_sessions.session_id
+                              and game_seats.controller = 'human'
+                              and not game_seats.occupied
+                       ) then 'open'
+                       else 'active'
+                   end
+                 where session_id = %s
+                """,
+                (session_id,),
+            )
+            self._insert_update(cursor, session_id, revision, "seat_kicked", now)
+
+    def leave_lobby_seat(
+        self,
+        *,
+        session_id: str,
+        player_id: int,
+        updated_at: float,
+        expires_at: float,
+        revision: int,
+    ) -> None:
+        now = _pg_timestamp(updated_at)
+        with self._lock, self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                update public.game_seats
+                   set occupied = false,
+                       user_id = null,
+                       seat_token_hash = null,
+                       joined_at = null,
+                       last_seen_at = null,
+                       disconnected_at = null,
+                       timeouts = 0,
+                       autopilot = false,
+                       abandoned = false
+                 where session_id = %s and player_id = %s
+                """,
+                (session_id, player_id),
+            )
+            self._touch_session(cursor, session_id, now, expires_at)
+            cursor.execute(
+                """
+                update public.game_sessions
+                   set status = case
+                       when exists (
+                           select 1
+                             from public.game_seats
+                            where game_seats.session_id = game_sessions.session_id
+                              and game_seats.controller = 'human'
+                              and not game_seats.occupied
+                       ) then 'open'
+                       else 'active'
+                   end,
+                       updated_at = %s,
+                       expires_at = %s
+                 where session_id = %s
+                """,
+                (now, _pg_timestamp(expires_at), session_id),
+            )
+            self._insert_update(cursor, session_id, revision, "seat_left_lobby", now)
+
+    def expire_session(
+        self,
+        *,
+        session_id: str,
+        updated_at: float,
+        expires_at: float,
+    ) -> None:
+        now = _pg_timestamp(updated_at)
+        with self._lock, self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                update public.game_sessions
+                   set status = 'expired',
+                       updated_at = %s,
+                       expires_at = %s
+                 where session_id = %s
+                """,
+                (now, _pg_timestamp(expires_at), session_id),
+            )
+
     def abandon_active_sessions(self, *, updated_at: float) -> None:
         now = _pg_timestamp(updated_at)
         with self._lock, self._connection.cursor() as cursor:
@@ -687,35 +1103,74 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     mu = output.mu
                     sigma = output.sigma
                     rating = output.display_rating
-                cursor.execute(
-                    """
-                    update public.profile_stats
-                       set games_played = games_played + 1,
-                           wins_total = wins_total + %s,
-                           online_games = online_games + 1,
-                           online_wins = online_wins + %s,
-                           rating = coalesce(%s, rating),
-                           peak_rating = greatest(peak_rating, coalesce(%s, rating)),
-                           rating_games = rating_games + %s,
-                           rating_mu = coalesce(%s, rating_mu),
-                           rating_sigma = coalesce(%s, rating_sigma),
-                           rating_version = case when %s then 2 else rating_version end,
-                           updated_at = %s
-                     where user_id = %s
-                    """,
-                    (
-                        1 if won else 0,
-                        1 if won else 0,
-                        rating,
-                        rating,
-                        1 if ranked else 0,
-                        mu,
-                        sigma,
-                        ranked,
-                        now,
-                        user_id,
-                    ),
-                )
+                if self._profile_stats_has_split_columns:
+                    cursor.execute(
+                        """
+                        update public.profile_stats
+                           set games_played = games_played + 1,
+                               wins_total = wins_total + %s,
+                               online_games = online_games + 1,
+                               online_wins = online_wins + %s,
+                               casual_games = casual_games + %s,
+                               casual_wins = casual_wins + %s,
+                               ranked_games = ranked_games + %s,
+                               ranked_wins = ranked_wins + %s,
+                               rating = coalesce(%s, rating),
+                               peak_rating = greatest(peak_rating, coalesce(%s, rating)),
+                               rating_games = rating_games + %s,
+                               rating_mu = coalesce(%s, rating_mu),
+                               rating_sigma = coalesce(%s, rating_sigma),
+                               rating_version = case when %s then 2 else rating_version end,
+                               updated_at = %s
+                         where user_id = %s
+                        """,
+                        (
+                            1 if won else 0,
+                            1 if won else 0,
+                            0 if ranked else 1,
+                            0 if ranked or not won else 1,
+                            1 if ranked else 0,
+                            1 if ranked and won else 0,
+                            rating,
+                            rating,
+                            1 if ranked else 0,
+                            mu,
+                            sigma,
+                            ranked,
+                            now,
+                            user_id,
+                        ),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        update public.profile_stats
+                           set games_played = games_played + 1,
+                               wins_total = wins_total + %s,
+                               online_games = online_games + 1,
+                               online_wins = online_wins + %s,
+                               rating = coalesce(%s, rating),
+                               peak_rating = greatest(peak_rating, coalesce(%s, rating)),
+                               rating_games = rating_games + %s,
+                               rating_mu = coalesce(%s, rating_mu),
+                               rating_sigma = coalesce(%s, rating_sigma),
+                               rating_version = case when %s then 2 else rating_version end,
+                               updated_at = %s
+                         where user_id = %s
+                        """,
+                        (
+                            1 if won else 0,
+                            1 if won else 0,
+                            rating,
+                            rating,
+                            1 if ranked else 0,
+                            mu,
+                            sigma,
+                            ranked,
+                            now,
+                            user_id,
+                        ),
+                    )
             for ai_key, result in ai_results.items():
                 won = bool(result.get("won"))
                 output = rating_outputs.get(_ai_rating_key(ai_key))
@@ -733,35 +1188,74 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     mu = output.mu
                     sigma = output.sigma
                     rating = output.display_rating
-                cursor.execute(
-                    """
-                    update public.ai_profile_stats
-                       set games_played = games_played + 1,
-                           wins_total = wins_total + %s,
-                           online_games = online_games + 1,
-                           online_wins = online_wins + %s,
-                           rating = coalesce(%s, rating),
-                           peak_rating = greatest(peak_rating, coalesce(%s, rating)),
-                           rating_games = rating_games + %s,
-                           rating_mu = coalesce(%s, rating_mu),
-                           rating_sigma = coalesce(%s, rating_sigma),
-                           rating_version = case when %s then 2 else rating_version end,
-                           updated_at = %s
-                     where ai_key = %s
-                    """,
-                    (
-                        1 if won else 0,
-                        1 if won else 0,
-                        rating,
-                        rating,
-                        1 if ranked else 0,
-                        mu,
-                        sigma,
-                        ranked,
-                        now,
-                        ai_key,
-                    ),
-                )
+                if self._ai_profile_stats_has_split_columns:
+                    cursor.execute(
+                        """
+                        update public.ai_profile_stats
+                           set games_played = games_played + 1,
+                               wins_total = wins_total + %s,
+                               online_games = online_games + 1,
+                               online_wins = online_wins + %s,
+                               casual_games = casual_games + %s,
+                               casual_wins = casual_wins + %s,
+                               ranked_games = ranked_games + %s,
+                               ranked_wins = ranked_wins + %s,
+                               rating = coalesce(%s, rating),
+                               peak_rating = greatest(peak_rating, coalesce(%s, rating)),
+                               rating_games = rating_games + %s,
+                               rating_mu = coalesce(%s, rating_mu),
+                               rating_sigma = coalesce(%s, rating_sigma),
+                               rating_version = case when %s then 2 else rating_version end,
+                               updated_at = %s
+                         where ai_key = %s
+                        """,
+                        (
+                            1 if won else 0,
+                            1 if won else 0,
+                            0 if ranked else 1,
+                            0 if ranked or not won else 1,
+                            1 if ranked else 0,
+                            1 if ranked and won else 0,
+                            rating,
+                            rating,
+                            1 if ranked else 0,
+                            mu,
+                            sigma,
+                            ranked,
+                            now,
+                            ai_key,
+                        ),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        update public.ai_profile_stats
+                           set games_played = games_played + 1,
+                               wins_total = wins_total + %s,
+                               online_games = online_games + 1,
+                               online_wins = online_wins + %s,
+                               rating = coalesce(%s, rating),
+                               peak_rating = greatest(peak_rating, coalesce(%s, rating)),
+                               rating_games = rating_games + %s,
+                               rating_mu = coalesce(%s, rating_mu),
+                               rating_sigma = coalesce(%s, rating_sigma),
+                               rating_version = case when %s then 2 else rating_version end,
+                               updated_at = %s
+                         where ai_key = %s
+                        """,
+                        (
+                            1 if won else 0,
+                            1 if won else 0,
+                            rating,
+                            rating,
+                            1 if ranked else 0,
+                            mu,
+                            sigma,
+                            ranked,
+                            now,
+                            ai_key,
+                        ),
+                    )
             self._insert_update(cursor, session_id, None, "finished", now)
 
     def profiles_for_user_ids(
@@ -772,7 +1266,7 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
             return {}
         with self._lock, self._connection.cursor() as cursor:
             cursor.execute(
-                """
+                f"""
                 select
                     profiles.user_id::text,
                     profiles.display_name,
@@ -785,7 +1279,8 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     profile_stats.online_wins,
                     profile_stats.rating,
                     profile_stats.peak_rating,
-                    profile_stats.rating_games
+                    profile_stats.rating_games,
+{self._split_stats_select_sql("profile_stats")}
                   from public.profiles
                   left join public.profile_stats
                     on profile_stats.user_id = profiles.user_id
@@ -809,6 +1304,10 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                         "rating": row[9] or 1000,
                         "peak_rating": row[10] or 1000,
                         "rating_games": row[11] or 0,
+                        "casual_games": row[12] or 0,
+                        "casual_wins": row[13] or 0,
+                        "ranked_games": row[14] or 0,
+                        "ranked_wins": row[15] or 0,
                     },
                 }
             return profiles
@@ -824,7 +1323,7 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
             return {}
         with self._lock, self._connection.cursor() as cursor:
             cursor.execute(
-                """
+                f"""
                 select
                     ai_key,
                     display_name,
@@ -834,7 +1333,8 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     online_wins,
                     rating,
                     peak_rating,
-                    rating_games
+                    rating_games,
+{self._split_stats_select_sql("ai_profile_stats", ai=True)}
                   from public.ai_profile_stats
                  where ai_key = any(%s::text[])
                 """,
@@ -855,9 +1355,213 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                         "rating": row[6] or 1000,
                         "peak_rating": row[7] or 1000,
                         "rating_games": row[8] or 0,
+                        "casual_games": row[9] or 0,
+                        "casual_wins": row[10] or 0,
+                        "ranked_games": row[11] or 0,
+                        "ranked_wins": row[12] or 0,
                     },
                 }
             return profiles
+
+    def create_profile_bot_profiles(
+        self,
+        *,
+        count: int,
+        exclude_user_ids: set[str],
+        target_rating: int,
+        updated_at: float,
+    ) -> list[dict[str, object]]:
+        if count <= 0:
+            return []
+        now = _pg_timestamp(updated_at)
+        target_rating = max(100, min(3000, int(target_rating)))
+        controller = _profile_bot_controller_for_rating(target_rating)
+        display_prefix = _profile_bot_display_prefix(controller)
+        rating_mu = DEFAULT_MU + ((target_rating - 1000) / 32.0)
+        rating_sigma = DEFAULT_SIGMA
+        created: list[dict[str, object]] = []
+        with self._lock, self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                select coalesce(max(slot), 0)
+                  from public.server_bot_profiles
+                 where controller = %s
+                """,
+                (controller,),
+            )
+            row = cursor.fetchone()
+            next_slot = int(row[0] or 0) + 1
+            for _ in range(count):
+                user_id = str(uuid.uuid4())
+                while user_id in exclude_user_ids:
+                    user_id = str(uuid.uuid4())
+                slot = next_slot
+                next_slot += 1
+                display_name = f"{display_prefix} {slot}"
+                avatar_url = f"worker{((slot - 1) % 4) + 1}"
+                email = f"{controller}-{slot}-{user_id[:8]}@bots.kolkhoz.local"
+                cursor.execute(
+                    """
+                    insert into auth.users (
+                        id,
+                        aud,
+                        role,
+                        email,
+                        email_confirmed_at,
+                        raw_app_meta_data,
+                        raw_user_meta_data,
+                        created_at,
+                        updated_at,
+                        is_sso_user,
+                        is_anonymous
+                    )
+                    values (
+                        %s,
+                        'authenticated',
+                        'authenticated',
+                        %s,
+                        %s,
+                        jsonb_build_object(
+                            'provider', 'server-bot',
+                            'providers', jsonb_build_array('server-bot')
+                        ),
+                        jsonb_build_object(
+                            'server_bot', true,
+                            'generated', true,
+                            'controller', %s,
+                            'slot', %s
+                        ),
+                        %s,
+                        %s,
+                        false,
+                        false
+                    )
+                    on conflict (id) do nothing
+                    """,
+                    (user_id, email, now, controller, slot, now, now),
+                )
+                cursor.execute(
+                    """
+                    insert into public.profiles (
+                        user_id,
+                        display_name,
+                        avatar_url,
+                        created_at,
+                        updated_at
+                    )
+                    values (%s, %s, %s, %s, %s)
+                    on conflict (user_id) do update
+                        set display_name = excluded.display_name,
+                            avatar_url = excluded.avatar_url,
+                            updated_at = excluded.updated_at
+                    """,
+                    (user_id, display_name, avatar_url, now, now),
+                )
+                self._insert_profile_bot_stats(
+                    cursor,
+                    user_id=user_id,
+                    rating=target_rating,
+                    rating_mu=rating_mu,
+                    rating_sigma=rating_sigma,
+                    updated_at=now,
+                )
+                cursor.execute(
+                    """
+                    insert into public.server_bot_profiles (
+                        user_id,
+                        controller,
+                        slot,
+                        active,
+                        created_at,
+                        updated_at
+                    )
+                    values (%s, %s, %s, true, %s, %s)
+                    on conflict (user_id) do update
+                        set controller = excluded.controller,
+                            slot = excluded.slot,
+                            active = true,
+                            updated_at = excluded.updated_at
+                    """,
+                    (user_id, controller, slot, now, now),
+                )
+                profile = {
+                    "user_id": user_id,
+                    "controller": controller,
+                    "slot": slot,
+                    "display_name": display_name,
+                    "avatar_url": avatar_url,
+                    "stats": {
+                        "rating": target_rating,
+                        "peak_rating": target_rating,
+                        "rating_games": 0,
+                    },
+                }
+                created.append(profile)
+                exclude_user_ids.add(user_id)
+        return created
+
+    def _insert_profile_bot_stats(
+        self,
+        cursor: object,
+        *,
+        user_id: str,
+        rating: int,
+        rating_mu: float,
+        rating_sigma: float,
+        updated_at: datetime,
+    ) -> None:
+        if self._profile_stats_has_split_columns:
+            cursor.execute(
+                """
+                insert into public.profile_stats (
+                    user_id,
+                    rating,
+                    peak_rating,
+                    rating_games,
+                    rating_mu,
+                    rating_sigma,
+                    rating_version,
+                    casual_games,
+                    casual_wins,
+                    ranked_games,
+                    ranked_wins,
+                    updated_at
+                )
+                values (%s, %s, %s, 0, %s, %s, 2, 0, 0, 0, 0, %s)
+                on conflict (user_id) do update
+                    set rating = excluded.rating,
+                        peak_rating = greatest(profile_stats.peak_rating, excluded.peak_rating),
+                        rating_mu = excluded.rating_mu,
+                        rating_sigma = excluded.rating_sigma,
+                        rating_version = 2,
+                        updated_at = excluded.updated_at
+                """,
+                (user_id, rating, rating, rating_mu, rating_sigma, updated_at),
+            )
+            return
+        cursor.execute(
+            """
+            insert into public.profile_stats (
+                user_id,
+                rating,
+                peak_rating,
+                rating_games,
+                rating_mu,
+                rating_sigma,
+                rating_version,
+                updated_at
+            )
+            values (%s, %s, %s, 0, %s, %s, 2, %s)
+            on conflict (user_id) do update
+                set rating = excluded.rating,
+                    peak_rating = greatest(profile_stats.peak_rating, excluded.peak_rating),
+                    rating_mu = excluded.rating_mu,
+                    rating_sigma = excluded.rating_sigma,
+                    rating_version = 2,
+                    updated_at = excluded.updated_at
+            """,
+            (user_id, rating, rating, rating_mu, rating_sigma, updated_at),
+        )
 
     def ensure_comrade_code(
         self,
@@ -895,95 +1599,105 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
     ) -> dict[str, object]:
         with self._lock, self._connection.cursor() as cursor:
             code = self._comrade_code_for_user(cursor, user_id)
-            cursor.execute(
-                """
-                select
-                    profiles.user_id::text,
-                    profiles.display_name,
-                    profiles.avatar_url,
-                    profiles.comrade_code,
-                    profile_stats.games_played,
-                    profile_stats.wins_total,
-                    profile_stats.offline_games,
-                    profile_stats.offline_wins,
-                    profile_stats.online_games,
-                    profile_stats.online_wins,
-                    profile_stats.rating,
-                    profile_stats.peak_rating,
-                    profile_stats.rating_games
-                  from public.user_comrades
-                  join public.profiles
-                    on profiles.user_id = user_comrades.comrade_user_id
-                  left join public.profile_stats
-                    on profile_stats.user_id = profiles.user_id
-                 where user_comrades.user_id = %s
-                 order by lower(profiles.display_name), profiles.comrade_code
-                """,
-                (user_id,),
-            )
-            comrades = [self._comrade_profile_json(row) for row in cursor.fetchall()]
-            cursor.execute(
-                """
-                select
-                    profiles.user_id::text,
-                    profiles.display_name,
-                    profiles.avatar_url,
-                    profiles.comrade_code,
-                    profile_stats.games_played,
-                    profile_stats.wins_total,
-                    profile_stats.offline_games,
-                    profile_stats.offline_wins,
-                    profile_stats.online_games,
-                    profile_stats.online_wins,
-                    profile_stats.rating,
-                    profile_stats.peak_rating,
-                    profile_stats.rating_games,
-                    user_comrade_requests.created_at
-                  from public.user_comrade_requests
-                  join public.profiles
-                    on profiles.user_id = user_comrade_requests.requester_user_id
-                  left join public.profile_stats
-                    on profile_stats.user_id = profiles.user_id
-                 where user_comrade_requests.addressee_user_id = %s
-                 order by user_comrade_requests.created_at desc
-                """,
-                (user_id,),
-            )
-            incoming = [
-                self._comrade_profile_json(row, requested_at_index=13)
-                for row in cursor.fetchall()
-            ]
-            cursor.execute(
-                """
-                select
-                    profiles.user_id::text,
-                    profiles.display_name,
-                    profiles.avatar_url,
-                    profiles.comrade_code,
-                    profile_stats.games_played,
-                    profile_stats.wins_total,
-                    profile_stats.offline_games,
-                    profile_stats.offline_wins,
-                    profile_stats.online_games,
-                    profile_stats.online_wins,
-                    profile_stats.rating,
-                    profile_stats.peak_rating,
-                    profile_stats.rating_games,
-                    user_comrade_requests.created_at
-                  from public.user_comrade_requests
-                  join public.profiles
-                    on profiles.user_id = user_comrade_requests.addressee_user_id
-                  left join public.profile_stats
-                    on profile_stats.user_id = profiles.user_id
-                 where user_comrade_requests.requester_user_id = %s
-                 order by user_comrade_requests.created_at desc
-                """,
-                (user_id,),
-            )
-            outgoing = [
-                self._comrade_profile_json(row, requested_at_index=13)
-                for row in cursor.fetchall()
-            ]
+            comrades: list[dict[str, object]] = []
+            incoming: list[dict[str, object]] = []
+            outgoing: list[dict[str, object]] = []
+            if self._has_user_comrades_table:
+                cursor.execute(
+                    f"""
+                    select
+                        profiles.user_id::text,
+                        profiles.display_name,
+                        profiles.avatar_url,
+                        profiles.comrade_code,
+                        profile_stats.games_played,
+                        profile_stats.wins_total,
+                        profile_stats.offline_games,
+                        profile_stats.offline_wins,
+                        profile_stats.online_games,
+                        profile_stats.online_wins,
+                        profile_stats.rating,
+                        profile_stats.peak_rating,
+                        profile_stats.rating_games,
+{self._split_stats_select_sql("profile_stats")}
+                      from public.user_comrades
+                      join public.profiles
+                        on profiles.user_id = user_comrades.comrade_user_id
+                      left join public.profile_stats
+                        on profile_stats.user_id = profiles.user_id
+                     where user_comrades.user_id = %s
+                     order by lower(profiles.display_name), profiles.comrade_code
+                    """,
+                    (user_id,),
+                )
+                comrades = [
+                    self._comrade_profile_json(row) for row in cursor.fetchall()
+                ]
+            if self._has_user_comrade_requests_table:
+                cursor.execute(
+                    f"""
+                    select
+                        profiles.user_id::text,
+                        profiles.display_name,
+                        profiles.avatar_url,
+                        profiles.comrade_code,
+                        profile_stats.games_played,
+                        profile_stats.wins_total,
+                        profile_stats.offline_games,
+                        profile_stats.offline_wins,
+                        profile_stats.online_games,
+                        profile_stats.online_wins,
+                        profile_stats.rating,
+                        profile_stats.peak_rating,
+                        profile_stats.rating_games,
+{self._split_stats_select_sql("profile_stats")},
+                        user_comrade_requests.created_at
+                      from public.user_comrade_requests
+                      join public.profiles
+                        on profiles.user_id = user_comrade_requests.requester_user_id
+                      left join public.profile_stats
+                        on profile_stats.user_id = profiles.user_id
+                     where user_comrade_requests.addressee_user_id = %s
+                     order by user_comrade_requests.created_at desc
+                    """,
+                    (user_id,),
+                )
+                incoming = [
+                    self._comrade_profile_json(row, requested_at_index=17)
+                    for row in cursor.fetchall()
+                ]
+                cursor.execute(
+                    f"""
+                    select
+                        profiles.user_id::text,
+                        profiles.display_name,
+                        profiles.avatar_url,
+                        profiles.comrade_code,
+                        profile_stats.games_played,
+                        profile_stats.wins_total,
+                        profile_stats.offline_games,
+                        profile_stats.offline_wins,
+                        profile_stats.online_games,
+                        profile_stats.online_wins,
+                        profile_stats.rating,
+                        profile_stats.peak_rating,
+                        profile_stats.rating_games,
+{self._split_stats_select_sql("profile_stats")},
+                        user_comrade_requests.created_at
+                      from public.user_comrade_requests
+                      join public.profiles
+                        on profiles.user_id = user_comrade_requests.addressee_user_id
+                      left join public.profile_stats
+                        on profile_stats.user_id = profiles.user_id
+                     where user_comrade_requests.requester_user_id = %s
+                     order by user_comrade_requests.created_at desc
+                    """,
+                    (user_id,),
+                )
+                outgoing = [
+                    self._comrade_profile_json(row, requested_at_index=17)
+                    for row in cursor.fetchall()
+                ]
             return {
                 "user_id": user_id,
                 "comrade_code": code,
@@ -1192,7 +1906,7 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
 
     def _profile_for_user(self, cursor: Any, user_id: str) -> dict[str, object]:
         cursor.execute(
-            """
+            f"""
             select
                 profiles.user_id::text,
                 profiles.display_name,
@@ -1206,7 +1920,8 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                 profile_stats.online_wins,
                 profile_stats.rating,
                 profile_stats.peak_rating,
-                profile_stats.rating_games
+                profile_stats.rating_games,
+{self._split_stats_select_sql("profile_stats")}
               from public.profiles
               left join public.profile_stats
                 on profile_stats.user_id = profiles.user_id
@@ -1240,6 +1955,10 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                 "rating": row[10] or 1000,
                 "peak_rating": row[11] or 1000,
                 "rating_games": row[12] or 0,
+                "casual_games": row[13] or 0,
+                "casual_wins": row[14] or 0,
+                "ranked_games": row[15] or 0,
+                "ranked_wins": row[16] or 0,
             },
         }
         if requested_at_index is not None and row[requested_at_index] is not None:
@@ -1294,6 +2013,12 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
 
 def _pg_timestamp(seconds: float) -> datetime:
     return datetime.fromtimestamp(seconds, tz=UTC)
+
+
+def _timestamp_seconds(value: object) -> float | None:
+    if isinstance(value, datetime):
+        return value.timestamp()
+    return None
 
 
 def _fallback_comrade_code(user_id: str) -> str:
@@ -1413,6 +2138,22 @@ def _user_rating_key(user_id: str) -> str:
 
 def _ai_rating_key(ai_key: str) -> str:
     return f"ai:{ai_key}"
+
+
+def _profile_bot_controller_for_rating(rating: int) -> str:
+    if rating < 754:
+        return "heuristicAI"
+    if rating < 898:
+        return "mediumAI"
+    return "neuralAI"
+
+
+def _profile_bot_display_prefix(controller: str) -> str:
+    if controller == "heuristicAI":
+        return "Mira Reserve"
+    if controller == "mediumAI":
+        return "Pavel Reserve"
+    return "Boris Reserve"
 
 
 def _float_value(value: object, *, fallback: float = 0.0) -> float:

@@ -507,6 +507,7 @@ class OnlineSessionUpdate {
     required this.controllers,
     required this.playerProfiles,
     this.ranked = true,
+    this.browserJoinable = true,
     this.seatPresence = const [],
     this.turnPlayerID,
     this.turnDeadlineAt,
@@ -523,6 +524,7 @@ class OnlineSessionUpdate {
   final List<KolkhozPlayerController> controllers;
   final List<OnlinePlayerProfile> playerProfiles;
   final bool ranked;
+  final bool browserJoinable;
   final List<OnlineSeatPresence> seatPresence;
   final int? turnPlayerID;
   final double? turnDeadlineAt;
@@ -549,6 +551,7 @@ class OnlineSessionUpdate {
           OnlinePlayerProfile.fromJson(_objectMap(value)),
       ],
       ranked: json['ranked'] as bool? ?? true,
+      browserJoinable: json['browserJoinable'] as bool? ?? true,
       seatPresence: [
         for (final value in _objectList(json['seatPresence'] ?? const []))
           OnlineSeatPresence.fromJson(_objectMap(value)),
@@ -571,6 +574,7 @@ class OnlineSessionUpdate {
       controllers: controllers,
       playerProfiles: playerProfiles,
       ranked: ranked,
+      browserJoinable: browserJoinable,
       seatPresence: seatPresence,
       turnPlayerID: turnPlayerID,
       turnDeadlineAt: turnDeadlineAt,
@@ -686,6 +690,7 @@ class OnlineSessionListing {
     required this.controllers,
     required this.playerProfiles,
     this.ranked = true,
+    this.browserJoinable = true,
     this.seatPresence = const [],
     this.turnPlayerID,
     this.turnDeadlineAt,
@@ -701,6 +706,7 @@ class OnlineSessionListing {
   final List<KolkhozPlayerController> controllers;
   final List<OnlinePlayerProfile> playerProfiles;
   final bool ranked;
+  final bool browserJoinable;
   final List<OnlineSeatPresence> seatPresence;
   final int? turnPlayerID;
   final double? turnDeadlineAt;
@@ -713,6 +719,24 @@ class OnlineSessionListing {
       (sessionID.length <= 8
           ? sessionID
           : sessionID.substring(0, 8).toUpperCase());
+
+  int get connectedHumanSeatCount {
+    bool isHumanSeat(int playerID) {
+      return playerID >= 0 &&
+          playerID < controllers.length &&
+          controllers[playerID] == KolkhozPlayerController.human;
+    }
+
+    if (seatPresence.isNotEmpty) {
+      return seatPresence
+          .where(
+            (presence) =>
+                presence.connected && isHumanSeat(presence.playerID),
+          )
+          .length;
+    }
+    return occupiedSeats.where(isHumanSeat).length;
+  }
 
   static OnlineSessionListing fromJson(Map<String, Object?> json) {
     return OnlineSessionListing(
@@ -729,6 +753,7 @@ class OnlineSessionListing {
           OnlinePlayerProfile.fromJson(_objectMap(value)),
       ],
       ranked: json['ranked'] as bool? ?? true,
+      browserJoinable: json['browserJoinable'] as bool? ?? true,
       seatPresence: [
         for (final value in _objectList(json['seatPresence'] ?? const []))
           OnlineSeatPresence.fromJson(_objectMap(value)),
@@ -738,6 +763,21 @@ class OnlineSessionListing {
       actionLogCount: json['actionLogCount'] as int,
       createdAt: (json['createdAt'] as num).toDouble(),
       expiresAt: (json['expiresAt'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+}
+
+class OnlineServerStatus {
+  const OnlineServerStatus({required this.citizensOnline});
+
+  final int citizensOnline;
+
+  static OnlineServerStatus fromJson(Map<String, Object?> json) {
+    final service = _objectMap(json['service']);
+    return OnlineServerStatus(
+      citizensOnline: _nonNegativeInt(
+        service['citizensOnline'] ?? service['activeSeats'],
+      ),
     );
   }
 }
@@ -764,6 +804,11 @@ class KolkhozOnlineClient {
   Future<OnlineSessionListing> fetchSession(String sessionID) async {
     final decoded = await _send(method: 'GET', path: 'sessions/$sessionID');
     return OnlineSessionListing.fromJson(_objectMap(decoded));
+  }
+
+  Future<OnlineServerStatus> fetchServerStatus() async {
+    final decoded = await _send(method: 'GET', path: 'metrics');
+    return OnlineServerStatus.fromJson(_objectMap(decoded));
   }
 
   Future<OnlineComradesResponse> fetchComrades() async {
@@ -820,12 +865,14 @@ class KolkhozOnlineClient {
     int? seed,
     required KolkhozGameVariants variants,
     required List<KolkhozPlayerController> controllers,
-    bool ranked = true,
+    bool ranked = false,
+    bool browserJoinable = true,
   }) async {
     final body = <String, Object?>{
       'variants': variantsToJson(variants),
       'controllers': controllers.map((controller) => controller.name).toList(),
       'ranked': ranked,
+      'browserJoinable': browserJoinable,
     };
     if (seed != null) {
       body['seed'] = seed;
@@ -848,6 +895,33 @@ class KolkhozOnlineClient {
       body: body,
     );
     return OnlineSessionResponse.fromJson(json);
+  }
+
+  Future<OnlineSessionResponse> matchmakeSession({
+    bool rankedOnly = false,
+    bool comradesOnly = false,
+  }) async {
+    final json = await _sendJson(
+      method: 'POST',
+      path: 'sessions/matchmake',
+      body: {'rankedOnly': rankedOnly, 'comradesOnly': comradesOnly},
+    );
+    return OnlineSessionResponse.fromJson(json);
+  }
+
+  Future<OnlineSessionUpdate> kickSessionPlayer({
+    required String sessionID,
+    required int hostPlayerID,
+    required int targetPlayerID,
+    required String seatToken,
+  }) async {
+    final json = await _sendJson(
+      method: 'POST',
+      path: 'sessions/$sessionID/players/$targetPlayerID/kick',
+      headers: {_seatTokenHeader: seatToken},
+      body: {'hostPlayerID': hostPlayerID},
+    );
+    return OnlineSessionUpdate.fromJson(_objectMap(json['update']));
   }
 
   Future<OnlineSessionUpdate> fetchUpdate({
@@ -976,9 +1050,11 @@ class KolkhozOnlineClient {
     final response = await request.close();
     final responseBody = await response.transform(utf8.decoder).join();
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException(
-        responseBody.isEmpty ? 'Online request failed' : responseBody,
+      throw OnlineRequestException(
+        statusCode: response.statusCode,
         uri: uri,
+        responseBody: responseBody,
+        sentAuthorization: accessToken != null && accessToken.isNotEmpty,
       );
     }
     return responseBody.isEmpty ? null : jsonDecode(responseBody);
@@ -996,7 +1072,54 @@ class KolkhozOnlineClient {
   }
 }
 
+class OnlineRequestException implements Exception {
+  const OnlineRequestException({
+    required this.statusCode,
+    required this.uri,
+    required this.responseBody,
+    required this.sentAuthorization,
+  });
+
+  final int statusCode;
+  final Uri uri;
+  final String responseBody;
+  final bool sentAuthorization;
+
+  String get message {
+    final parsed = _serverError(responseBody);
+    if (parsed.isNotEmpty) {
+      return parsed;
+    }
+    return responseBody.isEmpty ? 'Online request failed' : responseBody;
+  }
+
+  @override
+  String toString() {
+    final auth = sentAuthorization ? 'sent' : 'missing';
+    return 'OnlineRequestException: $message '
+        '(status $statusCode, auth $auth), uri = $uri';
+  }
+}
+
 const _seatTokenHeader = 'X-Kolkhoz-Seat-Token';
+
+String _serverError(String responseBody) {
+  if (responseBody.isEmpty) {
+    return '';
+  }
+  try {
+    final decoded = jsonDecode(responseBody);
+    if (decoded is Map<String, Object?>) {
+      final error = decoded['error'];
+      if (error is String) {
+        return error;
+      }
+    }
+  } catch (_) {
+    return '';
+  }
+  return '';
+}
 
 List<OnlineEngineCard> _cards(Object? value) {
   return [
@@ -1014,6 +1137,10 @@ List<OnlineSuitCardsSnapshot> _suitCards(Object? value) {
 
 List<int> _ints(Object? value) {
   return [for (final entry in _objectList(value)) entry as int];
+}
+
+int _nonNegativeInt(Object? value) {
+  return value is int && value >= 0 ? value : 0;
 }
 
 Map<String, Object?> _objectMap(Object? value) {

@@ -40,6 +40,8 @@ const optionsMenuActionContentSpacing = 7.0;
 const optionsMenuActionIconSize = 15.0;
 const optionsChromeToggleSize = 48.0;
 const optionsChromeToggleIconSize = 25.0;
+const optionsCardBackPreviewWidth = 34.0;
+const optionsCardBackPreviewHeight = 48.0;
 const optionsSessionTwoColumnMinWidth = 720.0;
 const optionsSessionColumnSpacing = 16.0;
 
@@ -112,8 +114,10 @@ class OptionsPanel extends StatefulWidget {
     this.onShowInvalidTapHintsChanged,
     required this.language,
     required this.appearance,
+    this.cardBack = KolkhozCardBack.classic,
     this.onLanguageToggle,
     this.onAppearanceToggle,
+    this.onCardBackChanged,
     super.key,
   });
 
@@ -132,8 +136,10 @@ class OptionsPanel extends StatefulWidget {
   final ValueChanged<bool>? onShowInvalidTapHintsChanged;
   final KolkhozLanguage language;
   final KolkhozAppearance appearance;
+  final KolkhozCardBack cardBack;
   final VoidCallback? onLanguageToggle;
   final VoidCallback? onAppearanceToggle;
+  final ValueChanged<KolkhozCardBack>? onCardBackChanged;
 
   @override
   State<OptionsPanel> createState() => _OptionsPanelState();
@@ -179,6 +185,7 @@ class _OptionsPanelState extends State<OptionsPanel> {
                         tokens: widget.tokens,
                         language: widget.language,
                         appearance: widget.appearance,
+                        cardBack: widget.cardBack,
                         selectedTab: selectedTab,
                         onTabSelected: (tab) =>
                             setState(() => selectedTab = tab),
@@ -198,6 +205,7 @@ class _OptionsPanelState extends State<OptionsPanel> {
                             widget.onShowInvalidTapHintsChanged,
                         onLanguageToggle: widget.onLanguageToggle,
                         onAppearanceToggle: widget.onAppearanceToggle,
+                        onCardBackChanged: widget.onCardBackChanged,
                       ),
                     ),
                   ),
@@ -214,6 +222,7 @@ class OptionsMenuContent extends StatelessWidget {
     required this.tokens,
     required this.language,
     required this.appearance,
+    this.cardBack = KolkhozCardBack.classic,
     required this.selectedTab,
     required this.onTabSelected,
     required this.sectionSpacing,
@@ -230,12 +239,14 @@ class OptionsMenuContent extends StatelessWidget {
     this.onShowInvalidTapHintsChanged,
     this.onLanguageToggle,
     this.onAppearanceToggle,
+    this.onCardBackChanged,
     super.key,
   });
 
   final DesignTokens tokens;
   final KolkhozLanguage language;
   final KolkhozAppearance appearance;
+  final KolkhozCardBack cardBack;
   final OptionsMenuTab selectedTab;
   final ValueChanged<OptionsMenuTab> onTabSelected;
   final double sectionSpacing;
@@ -252,6 +263,7 @@ class OptionsMenuContent extends StatelessWidget {
   final ValueChanged<bool>? onShowInvalidTapHintsChanged;
   final VoidCallback? onLanguageToggle;
   final VoidCallback? onAppearanceToggle;
+  final ValueChanged<KolkhozCardBack>? onCardBackChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -270,6 +282,7 @@ class OptionsMenuContent extends StatelessWidget {
           tokens: tokens,
           language: language,
           appearance: appearance,
+          cardBack: cardBack,
           selectedTab: selectedTab,
           onNewGame: onNewGame,
           onReturnToLobby: onReturnToLobby,
@@ -284,6 +297,7 @@ class OptionsMenuContent extends StatelessWidget {
           onShowInvalidTapHintsChanged: onShowInvalidTapHintsChanged,
           onLanguageToggle: onLanguageToggle,
           onAppearanceToggle: onAppearanceToggle,
+          onCardBackChanged: onCardBackChanged,
         ),
       ],
     );
@@ -407,6 +421,7 @@ class OptionsMenuTabBody extends StatelessWidget {
     required this.tokens,
     required this.language,
     required this.appearance,
+    this.cardBack = KolkhozCardBack.classic,
     required this.selectedTab,
     this.onNewGame,
     this.onReturnToLobby,
@@ -421,12 +436,14 @@ class OptionsMenuTabBody extends StatelessWidget {
     this.onShowInvalidTapHintsChanged,
     this.onLanguageToggle,
     this.onAppearanceToggle,
+    this.onCardBackChanged,
     super.key,
   });
 
   final DesignTokens tokens;
   final KolkhozLanguage language;
   final KolkhozAppearance appearance;
+  final KolkhozCardBack cardBack;
   final OptionsMenuTab selectedTab;
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
@@ -441,6 +458,7 @@ class OptionsMenuTabBody extends StatelessWidget {
   final ValueChanged<bool>? onShowInvalidTapHintsChanged;
   final VoidCallback? onLanguageToggle;
   final VoidCallback? onAppearanceToggle;
+  final ValueChanged<KolkhozCardBack>? onCardBackChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -473,10 +491,12 @@ class OptionsMenuTabBody extends StatelessWidget {
         tokens: tokens,
         language: language,
         appearance: appearance,
+        cardBack: cardBack,
         animationSpeed: animationSpeed,
         onAnimationSpeedChanged: onAnimationSpeedChanged,
         onLanguageToggle: onLanguageToggle,
         onAppearanceToggle: onAppearanceToggle,
+        onCardBackChanged: onCardBackChanged,
       ),
       OptionsMenuTab.rules => OptionsMenuRules(
         tokens: tokens,
@@ -725,20 +745,24 @@ class OptionsDisplayControls extends StatelessWidget {
     required this.tokens,
     required this.language,
     required this.appearance,
+    this.cardBack = KolkhozCardBack.classic,
     this.animationSpeed = defaultGameAnimationSpeed,
     this.onAnimationSpeedChanged,
     this.onLanguageToggle,
     this.onAppearanceToggle,
+    this.onCardBackChanged,
     super.key,
   });
 
   final DesignTokens tokens;
   final KolkhozLanguage language;
   final KolkhozAppearance appearance;
+  final KolkhozCardBack cardBack;
   final GameAnimationSpeed animationSpeed;
   final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
   final VoidCallback? onLanguageToggle;
   final VoidCallback? onAppearanceToggle;
+  final ValueChanged<KolkhozCardBack>? onCardBackChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -780,7 +804,123 @@ class OptionsDisplayControls extends StatelessWidget {
             onChanged: onAnimationSpeedChanged,
           ),
         ),
+        OptionsCardBackPicker(
+          selected: cardBack,
+          tokens: tokens,
+          language: language,
+          onChanged: onCardBackChanged,
+        ),
       ],
+    );
+  }
+}
+
+class OptionsCardBackPicker extends StatelessWidget {
+  const OptionsCardBackPicker({
+    required this.selected,
+    required this.tokens,
+    required this.language,
+    this.onChanged,
+    super.key,
+  });
+
+  final KolkhozCardBack selected;
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final ValueChanged<KolkhozCardBack>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: optionsMenuSettingSpacing,
+      children: [
+        ChromePixelLabel(
+          language.t(KolkhozText.appsettingsCardBacks),
+          size: PixelTextSize.caption,
+          variant: PixelTextVariant.regular,
+          color: tokens.colors.smoke,
+        ),
+        Wrap(
+          spacing: optionsMenuChromeToggleSpacing,
+          runSpacing: optionsMenuChromeToggleSpacing,
+          children: [
+            for (final cardBack in KolkhozCardBack.values)
+              OptionsCardBackButton(
+                cardBack: cardBack,
+                selected: selected == cardBack,
+                tokens: tokens,
+                language: language,
+                onPressed: onChanged == null
+                    ? null
+                    : () => onChanged!(cardBack),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class OptionsCardBackButton extends StatelessWidget {
+  const OptionsCardBackButton({
+    required this.cardBack,
+    required this.selected,
+    required this.tokens,
+    required this.language,
+    this.onPressed,
+    super.key,
+  });
+
+  final KolkhozCardBack cardBack;
+  final bool selected;
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = cardBack.label(language);
+    final borderColor = selected
+        ? tokens.colors.gold
+        : tokens.colors.gold.withValues(alpha: 0.32);
+    return Semantics(
+      container: true,
+      button: true,
+      selected: selected,
+      enabled: onPressed != null,
+      label: label,
+      child: ExcludeSemantics(
+        child: Tooltip(
+          message: label,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onPressed,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: tokens.colors.black.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: borderColor, width: selected ? 2 : 1),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(5),
+                child: SizedBox(
+                  width: optionsCardBackPreviewWidth,
+                  height: optionsCardBackPreviewHeight,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: Image.asset(
+                      cardBack.assetPath,
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.none,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

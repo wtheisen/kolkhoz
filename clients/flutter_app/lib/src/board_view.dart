@@ -16,6 +16,7 @@ import 'hot_seat_display.dart';
 import 'phase_display.dart';
 import 'pixel_text.dart';
 import 'player_panel_display.dart';
+import 'player_profile_panel.dart';
 import 'trump_actions.dart';
 import 'table_display.dart';
 import 'table_projection_helpers.dart';
@@ -72,10 +73,12 @@ class KolkhozBoard extends StatelessWidget {
     required this.tokens,
     required this.language,
     required this.appearance,
+    this.cardBack = KolkhozCardBack.classic,
     this.onAction,
     this.onPanelSelected,
     this.onLanguageToggle,
     this.onAppearanceToggle,
+    this.onCardBackChanged,
     this.onSwapHandCardTap,
     this.onTrickHandCardTap,
     this.onPlotCardTap,
@@ -86,6 +89,7 @@ class KolkhozBoard extends StatelessWidget {
     this.onHotSeatReady,
     this.onNewGame,
     this.onReturnToLobby,
+    this.onCopyGameResult,
     this.gameOverReturnsToLobby = false,
     this.onTutorial,
     this.animationSpeed = defaultGameAnimationSpeed,
@@ -108,10 +112,12 @@ class KolkhozBoard extends StatelessWidget {
   final DesignTokens tokens;
   final KolkhozLanguage language;
   final KolkhozAppearance appearance;
+  final KolkhozCardBack cardBack;
   final ValueChanged<LegalAction>? onAction;
   final ValueChanged<String>? onPanelSelected;
   final VoidCallback? onLanguageToggle;
   final VoidCallback? onAppearanceToggle;
+  final ValueChanged<KolkhozCardBack>? onCardBackChanged;
   final ValueChanged<String>? onSwapHandCardTap;
   final ValueChanged<String>? onTrickHandCardTap;
   final void Function(String cardID, String zone)? onPlotCardTap;
@@ -122,6 +128,7 @@ class KolkhozBoard extends StatelessWidget {
   final VoidCallback? onHotSeatReady;
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
+  final VoidCallback? onCopyGameResult;
   final bool gameOverReturnsToLobby;
   final VoidCallback? onTutorial;
   final GameAnimationSpeed animationSpeed;
@@ -139,200 +146,214 @@ class KolkhozBoard extends StatelessWidget {
   final Future<void> Function(String userID)? onComradeRequestToUser;
   @override
   Widget build(BuildContext context) {
-    return DefaultTextStyle.merge(
-      style: kolkhozFontStyle,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final metrics = ResponsiveBoardMetrics.fromSize(
-            constraints.biggest,
-            tokens,
-          );
-          final margin = metrics.margin;
-          final contentWidth = constraints.maxWidth - margin * 2;
-          final contentHeight = constraints.maxHeight - margin * 2;
-          final boardWidth = boardPlayableContentWidth(contentWidth);
-          final railWidth = metrics.railWidth(boardWidth);
-          final separatorWidth = metrics.separatorWidth;
-          final gameWidth = boardWidth - railWidth - separatorWidth;
-          final safePadding = MediaQuery.paddingOf(context);
-          final compact = shouldUseCompactBoardShell(
-            contentWidth: contentWidth,
-            contentHeight: contentHeight,
-          );
+    return KolkhozCardBackScope(
+      cardBack: cardBack,
+      child: DefaultTextStyle.merge(
+        style: kolkhozFontStyle,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final metrics = ResponsiveBoardMetrics.fromSize(
+              constraints.biggest,
+              tokens,
+            );
+            final margin = metrics.margin;
+            final contentWidth = constraints.maxWidth - margin * 2;
+            final contentHeight = constraints.maxHeight - margin * 2;
+            final boardWidth = boardPlayableContentWidth(contentWidth);
+            final railWidth = metrics.railWidth(boardWidth);
+            final separatorWidth = metrics.separatorWidth;
+            final gameWidth = boardWidth - railWidth - separatorWidth;
+            final safePadding = MediaQuery.paddingOf(context);
+            final compact = shouldUseCompactBoardShell(
+              contentWidth: contentWidth,
+              contentHeight: contentHeight,
+            );
 
-          return DecoratedBox(
-            decoration: boardBackdropDecoration(tokens),
-            child: CardMotionLayer(
-              model: model,
-              tokens: tokens,
-              speed: animationSpeed,
-              child: Stack(
-                clipBehavior: Clip.none,
-                fit: StackFit.expand,
-                children: [
-                  if (safePadding.left > 0)
-                    Positioned(
-                      left: boardLeftGutterOffset(safePadding.left),
-                      top: 0,
-                      bottom: 0,
-                      child: BoardGutterInfill(
-                        side: BoardGutterInfillSide.left,
-                        width: boardLeftGutterWidth(safePadding.left),
-                        light: appearance == KolkhozAppearance.light,
+            return DecoratedBox(
+              decoration: boardBackdropDecoration(tokens),
+              child: CardMotionLayer(
+                model: model,
+                tokens: tokens,
+                speed: animationSpeed,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  fit: StackFit.expand,
+                  children: [
+                    if (safePadding.left > 0)
+                      Positioned(
+                        left: boardLeftGutterOffset(safePadding.left),
+                        top: 0,
+                        bottom: 0,
+                        child: BoardGutterInfill(
+                          side: BoardGutterInfillSide.left,
+                          width: boardLeftGutterWidth(safePadding.left),
+                          light: appearance == KolkhozAppearance.light,
+                        ),
                       ),
-                    ),
-                  if (safePadding.right > 0)
-                    Positioned(
-                      right: boardRightGutterOffset(safePadding.right),
-                      top: 0,
-                      bottom: 0,
-                      child: BoardGutterInfill(
-                        side: BoardGutterInfillSide.right,
-                        width: boardRightGutterWidth(safePadding.right),
-                        light: appearance == KolkhozAppearance.light,
+                    if (safePadding.right > 0)
+                      Positioned(
+                        right: boardRightGutterOffset(safePadding.right),
+                        top: 0,
+                        bottom: 0,
+                        child: BoardGutterInfill(
+                          side: BoardGutterInfillSide.right,
+                          width: boardRightGutterWidth(safePadding.right),
+                          light: appearance == KolkhozAppearance.light,
+                        ),
                       ),
-                    ),
-                  Padding(
-                    padding: EdgeInsets.all(margin),
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: SizedBox(
-                        width: boardWidth,
-                        height: contentHeight,
-                        child: compact
-                            ? CompactBoardShell(
-                                model: model,
-                                tokens: tokens,
-                                metrics: metrics,
-                                language: language,
-                                appearance: appearance,
-                                onAction: onAction,
-                                onPanelSelected: onPanelSelected,
-                                onSwapHandCardTap: onSwapHandCardTap,
-                                onTrickHandCardTap: onTrickHandCardTap,
-                                onPlotCardTap: onPlotCardTap,
-                                onAssignmentCardTap: onAssignmentCardTap,
-                                onInvalidHandCardTap: onInvalidHandCardTap,
-                                canUndo: canUndo,
-                                onUndo: onUndo,
-                                onNewGame: onNewGame,
-                                onReturnToLobby: onReturnToLobby,
-                                gameOverReturnsToLobby: gameOverReturnsToLobby,
-                                onTutorial: onTutorial,
-                                animationSpeed: animationSpeed,
-                                onAnimationSpeedChanged:
-                                    onAnimationSpeedChanged,
-                                confirmNewGame: confirmNewGame,
-                                onConfirmNewGameChanged:
-                                    onConfirmNewGameChanged,
-                                confirmMainMenu: confirmMainMenu,
-                                onConfirmMainMenuChanged:
-                                    onConfirmMainMenuChanged,
-                                showInvalidTapHints: showInvalidTapHints,
-                                onShowInvalidTapHintsChanged:
-                                    onShowInvalidTapHintsChanged,
-                                currentProfileUserID: currentProfileUserID,
-                                comradeUserIDs: comradeUserIDs,
-                                incomingComradeRequestUserIDs:
-                                    incomingComradeRequestUserIDs,
-                                outgoingComradeRequestUserIDs:
-                                    outgoingComradeRequestUserIDs,
-                                onComradeRequestToUser: onComradeRequestToUser,
-                                onLanguageToggle: onLanguageToggle,
-                                onAppearanceToggle: onAppearanceToggle,
-                              )
-                            : Row(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  SizedBox(
-                                    width: railWidth,
-                                    child: BoardRail(
-                                      activePanel: model.panels.active,
-                                      actionPanel: actionPanelForPhase(
-                                        model.table.phase,
+                    Padding(
+                      padding: EdgeInsets.all(margin),
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: SizedBox(
+                          width: boardWidth,
+                          height: contentHeight,
+                          child: compact
+                              ? CompactBoardShell(
+                                  model: model,
+                                  tokens: tokens,
+                                  metrics: metrics,
+                                  language: language,
+                                  appearance: appearance,
+                                  cardBack: cardBack,
+                                  onAction: onAction,
+                                  onPanelSelected: onPanelSelected,
+                                  onSwapHandCardTap: onSwapHandCardTap,
+                                  onTrickHandCardTap: onTrickHandCardTap,
+                                  onPlotCardTap: onPlotCardTap,
+                                  onAssignmentCardTap: onAssignmentCardTap,
+                                  onInvalidHandCardTap: onInvalidHandCardTap,
+                                  canUndo: canUndo,
+                                  onUndo: onUndo,
+                                  onNewGame: onNewGame,
+                                  onReturnToLobby: onReturnToLobby,
+                                  onCopyGameResult: onCopyGameResult,
+                                  gameOverReturnsToLobby:
+                                      gameOverReturnsToLobby,
+                                  onTutorial: onTutorial,
+                                  animationSpeed: animationSpeed,
+                                  onAnimationSpeedChanged:
+                                      onAnimationSpeedChanged,
+                                  confirmNewGame: confirmNewGame,
+                                  onConfirmNewGameChanged:
+                                      onConfirmNewGameChanged,
+                                  confirmMainMenu: confirmMainMenu,
+                                  onConfirmMainMenuChanged:
+                                      onConfirmMainMenuChanged,
+                                  showInvalidTapHints: showInvalidTapHints,
+                                  onShowInvalidTapHintsChanged:
+                                      onShowInvalidTapHintsChanged,
+                                  currentProfileUserID: currentProfileUserID,
+                                  comradeUserIDs: comradeUserIDs,
+                                  incomingComradeRequestUserIDs:
+                                      incomingComradeRequestUserIDs,
+                                  outgoingComradeRequestUserIDs:
+                                      outgoingComradeRequestUserIDs,
+                                  onComradeRequestToUser:
+                                      onComradeRequestToUser,
+                                  onLanguageToggle: onLanguageToggle,
+                                  onAppearanceToggle: onAppearanceToggle,
+                                  onCardBackChanged: onCardBackChanged,
+                                )
+                              : Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    SizedBox(
+                                      width: railWidth,
+                                      child: BoardRail(
+                                        activePanel: model.panels.active,
+                                        actionPanel: actionPanelForPhase(
+                                          model.table.phase,
+                                        ),
+                                        tokens: tokens,
+                                        metrics: metrics,
+                                        language: language,
+                                        appearance: appearance,
+                                        onPanelSelected: onPanelSelected,
+                                        onLanguageToggle: onLanguageToggle,
+                                        onAppearanceToggle: onAppearanceToggle,
                                       ),
-                                      tokens: tokens,
-                                      metrics: metrics,
-                                      language: language,
-                                      appearance: appearance,
-                                      onPanelSelected: onPanelSelected,
-                                      onLanguageToggle: onLanguageToggle,
-                                      onAppearanceToggle: onAppearanceToggle,
                                     ),
-                                  ),
-                                  BoardSeparator(
-                                    tokens: tokens,
-                                    vertical: true,
-                                    thickness: separatorWidth,
-                                  ),
-                                  SizedBox(
-                                    width: gameWidth,
-                                    height: contentHeight,
-                                    child: BoardPlayArea(
-                                      model: model,
+                                    BoardSeparator(
                                       tokens: tokens,
-                                      metrics: metrics,
-                                      onAction: onAction,
-                                      onPanelSelected: onPanelSelected,
-                                      onSwapHandCardTap: onSwapHandCardTap,
-                                      onTrickHandCardTap: onTrickHandCardTap,
-                                      onPlotCardTap: onPlotCardTap,
-                                      onAssignmentCardTap: onAssignmentCardTap,
-                                      onInvalidHandCardTap:
-                                          onInvalidHandCardTap,
-                                      canUndo: canUndo,
-                                      onUndo: onUndo,
-                                      onNewGame: onNewGame,
-                                      onReturnToLobby: onReturnToLobby,
-                                      gameOverReturnsToLobby:
-                                          gameOverReturnsToLobby,
-                                      onTutorial: onTutorial,
-                                      animationSpeed: animationSpeed,
-                                      onAnimationSpeedChanged:
-                                          onAnimationSpeedChanged,
-                                      confirmNewGame: confirmNewGame,
-                                      onConfirmNewGameChanged:
-                                          onConfirmNewGameChanged,
-                                      confirmMainMenu: confirmMainMenu,
-                                      onConfirmMainMenuChanged:
-                                          onConfirmMainMenuChanged,
-                                      showInvalidTapHints: showInvalidTapHints,
-                                      onShowInvalidTapHintsChanged:
-                                          onShowInvalidTapHintsChanged,
-                                      currentProfileUserID:
-                                          currentProfileUserID,
-                                      comradeUserIDs: comradeUserIDs,
-                                      incomingComradeRequestUserIDs:
-                                          incomingComradeRequestUserIDs,
-                                      outgoingComradeRequestUserIDs:
-                                          outgoingComradeRequestUserIDs,
-                                      onComradeRequestToUser:
-                                          onComradeRequestToUser,
-                                      language: language,
-                                      appearance: appearance,
-                                      onLanguageToggle: onLanguageToggle,
-                                      onAppearanceToggle: onAppearanceToggle,
+                                      vertical: true,
+                                      thickness: separatorWidth,
                                     ),
-                                  ),
-                                ],
-                              ),
+                                    SizedBox(
+                                      width: gameWidth,
+                                      height: contentHeight,
+                                      child: BoardPlayArea(
+                                        model: model,
+                                        tokens: tokens,
+                                        metrics: metrics,
+                                        onAction: onAction,
+                                        onPanelSelected: onPanelSelected,
+                                        onSwapHandCardTap: onSwapHandCardTap,
+                                        onTrickHandCardTap: onTrickHandCardTap,
+                                        onPlotCardTap: onPlotCardTap,
+                                        onAssignmentCardTap:
+                                            onAssignmentCardTap,
+                                        onInvalidHandCardTap:
+                                            onInvalidHandCardTap,
+                                        canUndo: canUndo,
+                                        onUndo: onUndo,
+                                        onNewGame: onNewGame,
+                                        onReturnToLobby: onReturnToLobby,
+                                        onCopyGameResult: onCopyGameResult,
+                                        gameOverReturnsToLobby:
+                                            gameOverReturnsToLobby,
+                                        onTutorial: onTutorial,
+                                        animationSpeed: animationSpeed,
+                                        onAnimationSpeedChanged:
+                                            onAnimationSpeedChanged,
+                                        confirmNewGame: confirmNewGame,
+                                        onConfirmNewGameChanged:
+                                            onConfirmNewGameChanged,
+                                        confirmMainMenu: confirmMainMenu,
+                                        onConfirmMainMenuChanged:
+                                            onConfirmMainMenuChanged,
+                                        showInvalidTapHints:
+                                            showInvalidTapHints,
+                                        onShowInvalidTapHintsChanged:
+                                            onShowInvalidTapHintsChanged,
+                                        currentProfileUserID:
+                                            currentProfileUserID,
+                                        comradeUserIDs: comradeUserIDs,
+                                        incomingComradeRequestUserIDs:
+                                            incomingComradeRequestUserIDs,
+                                        outgoingComradeRequestUserIDs:
+                                            outgoingComradeRequestUserIDs,
+                                        onComradeRequestToUser:
+                                            onComradeRequestToUser,
+                                        language: language,
+                                        appearance: appearance,
+                                        cardBack: cardBack,
+                                        onLanguageToggle: onLanguageToggle,
+                                        onAppearanceToggle: onAppearanceToggle,
+                                        onCardBackChanged: onCardBackChanged,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
                       ),
                     ),
-                  ),
-                  if (model.viewer.privacyMode == viewerPrivacyHotSeatHidden)
-                    Positioned.fill(
-                      child: HotSeatPrivacyOverlay(
-                        model: model,
-                        tokens: tokens,
-                        language: language,
-                        onReady: onHotSeatReady,
+                    if (model.viewer.privacyMode == viewerPrivacyHotSeatHidden)
+                      Positioned.fill(
+                        child: HotSeatPrivacyOverlay(
+                          model: model,
+                          tokens: tokens,
+                          language: language,
+                          onReady: onHotSeatReady,
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -345,6 +366,7 @@ class CompactBoardShell extends StatelessWidget {
     required this.metrics,
     required this.language,
     required this.appearance,
+    this.cardBack = KolkhozCardBack.classic,
     this.onAction,
     this.onPanelSelected,
     this.onSwapHandCardTap,
@@ -356,6 +378,7 @@ class CompactBoardShell extends StatelessWidget {
     this.onUndo,
     this.onNewGame,
     this.onReturnToLobby,
+    this.onCopyGameResult,
     this.gameOverReturnsToLobby = false,
     this.onTutorial,
     this.animationSpeed = defaultGameAnimationSpeed,
@@ -373,6 +396,7 @@ class CompactBoardShell extends StatelessWidget {
     this.onComradeRequestToUser,
     this.onLanguageToggle,
     this.onAppearanceToggle,
+    this.onCardBackChanged,
     super.key,
   });
 
@@ -381,6 +405,7 @@ class CompactBoardShell extends StatelessWidget {
   final ResponsiveBoardMetrics metrics;
   final KolkhozLanguage language;
   final KolkhozAppearance appearance;
+  final KolkhozCardBack cardBack;
   final ValueChanged<LegalAction>? onAction;
   final ValueChanged<String>? onPanelSelected;
   final ValueChanged<String>? onSwapHandCardTap;
@@ -392,6 +417,7 @@ class CompactBoardShell extends StatelessWidget {
   final VoidCallback? onUndo;
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
+  final VoidCallback? onCopyGameResult;
   final bool gameOverReturnsToLobby;
   final VoidCallback? onTutorial;
   final GameAnimationSpeed animationSpeed;
@@ -409,6 +435,7 @@ class CompactBoardShell extends StatelessWidget {
   final Future<void> Function(String userID)? onComradeRequestToUser;
   final VoidCallback? onLanguageToggle;
   final VoidCallback? onAppearanceToggle;
+  final ValueChanged<KolkhozCardBack>? onCardBackChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -431,6 +458,7 @@ class CompactBoardShell extends StatelessWidget {
             onUndo: onUndo,
             onNewGame: onNewGame,
             onReturnToLobby: onReturnToLobby,
+            onCopyGameResult: onCopyGameResult,
             gameOverReturnsToLobby: gameOverReturnsToLobby,
             onTutorial: onTutorial,
             animationSpeed: animationSpeed,
@@ -448,8 +476,10 @@ class CompactBoardShell extends StatelessWidget {
             onComradeRequestToUser: onComradeRequestToUser,
             language: language,
             appearance: appearance,
+            cardBack: cardBack,
             onLanguageToggle: onLanguageToggle,
             onAppearanceToggle: onAppearanceToggle,
+            onCardBackChanged: onCardBackChanged,
           ),
         ),
         BoardSeparator(tokens: tokens, thickness: metrics.separatorWidth),
@@ -668,6 +698,7 @@ class BoardPlayArea extends StatelessWidget {
     this.onUndo,
     this.onNewGame,
     this.onReturnToLobby,
+    this.onCopyGameResult,
     this.gameOverReturnsToLobby = false,
     this.onTutorial,
     this.animationSpeed = defaultGameAnimationSpeed,
@@ -686,8 +717,10 @@ class BoardPlayArea extends StatelessWidget {
     this.compact = false,
     required this.language,
     required this.appearance,
+    this.cardBack = KolkhozCardBack.classic,
     this.onLanguageToggle,
     this.onAppearanceToggle,
+    this.onCardBackChanged,
     super.key,
   });
 
@@ -705,6 +738,7 @@ class BoardPlayArea extends StatelessWidget {
   final VoidCallback? onUndo;
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
+  final VoidCallback? onCopyGameResult;
   final bool gameOverReturnsToLobby;
   final VoidCallback? onTutorial;
   final GameAnimationSpeed animationSpeed;
@@ -723,8 +757,10 @@ class BoardPlayArea extends StatelessWidget {
   final bool compact;
   final KolkhozLanguage language;
   final KolkhozAppearance appearance;
+  final KolkhozCardBack cardBack;
   final VoidCallback? onLanguageToggle;
   final VoidCallback? onAppearanceToggle;
+  final ValueChanged<KolkhozCardBack>? onCardBackChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -793,6 +829,7 @@ class BoardPlayArea extends StatelessWidget {
                         onPlotCardTap: onPlotCardTap,
                         onNewGame: onNewGame,
                         onReturnToLobby: onReturnToLobby,
+                        onCopyGameResult: onCopyGameResult,
                         gameOverReturnsToLobby: gameOverReturnsToLobby,
                         onTutorial: onTutorial,
                         animationSpeed: animationSpeed,
@@ -806,6 +843,7 @@ class BoardPlayArea extends StatelessWidget {
                             onShowInvalidTapHintsChanged,
                         language: language,
                         appearance: appearance,
+                        cardBack: cardBack,
                         compact: compact,
                         planningTrumpFocusedSuit: planningTrumpFocusedSuit,
                         currentProfileUserID: currentProfileUserID,
@@ -817,6 +855,7 @@ class BoardPlayArea extends StatelessWidget {
                         onComradeRequestToUser: onComradeRequestToUser,
                         onLanguageToggle: onLanguageToggle,
                         onAppearanceToggle: onAppearanceToggle,
+                        onCardBackChanged: onCardBackChanged,
                       ),
                     ),
                   ),
@@ -1484,6 +1523,7 @@ class ActivePanelView extends StatelessWidget {
     this.onPlotCardTap,
     this.onNewGame,
     this.onReturnToLobby,
+    this.onCopyGameResult,
     this.gameOverReturnsToLobby = false,
     this.onTutorial,
     this.animationSpeed = defaultGameAnimationSpeed,
@@ -1496,6 +1536,7 @@ class ActivePanelView extends StatelessWidget {
     this.onShowInvalidTapHintsChanged,
     required this.language,
     required this.appearance,
+    this.cardBack = KolkhozCardBack.classic,
     this.compact = false,
     this.planningTrumpFocusedSuit,
     this.currentProfileUserID,
@@ -1505,6 +1546,7 @@ class ActivePanelView extends StatelessWidget {
     this.onComradeRequestToUser,
     this.onLanguageToggle,
     this.onAppearanceToggle,
+    this.onCardBackChanged,
     super.key,
   });
 
@@ -1514,6 +1556,7 @@ class ActivePanelView extends StatelessWidget {
   final void Function(String cardID, String zone)? onPlotCardTap;
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
+  final VoidCallback? onCopyGameResult;
   final bool gameOverReturnsToLobby;
   final VoidCallback? onTutorial;
   final GameAnimationSpeed animationSpeed;
@@ -1526,6 +1569,7 @@ class ActivePanelView extends StatelessWidget {
   final ValueChanged<bool>? onShowInvalidTapHintsChanged;
   final KolkhozLanguage language;
   final KolkhozAppearance appearance;
+  final KolkhozCardBack cardBack;
   final bool compact;
   final String? planningTrumpFocusedSuit;
   final String? currentProfileUserID;
@@ -1535,6 +1579,7 @@ class ActivePanelView extends StatelessWidget {
   final Future<void> Function(String userID)? onComradeRequestToUser;
   final VoidCallback? onLanguageToggle;
   final VoidCallback? onAppearanceToggle;
+  final ValueChanged<KolkhozCardBack>? onCardBackChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1545,6 +1590,7 @@ class ActivePanelView extends StatelessWidget {
         language: language,
         onNewGame: onNewGame,
         onReturnToLobby: onReturnToLobby,
+        onCopyGameResult: onCopyGameResult,
         returnsToLobby: gameOverReturnsToLobby,
       );
     }
@@ -1582,8 +1628,10 @@ class ActivePanelView extends StatelessWidget {
           onShowInvalidTapHintsChanged: onShowInvalidTapHintsChanged,
           language: language,
           appearance: appearance,
+          cardBack: cardBack,
           onLanguageToggle: onLanguageToggle,
           onAppearanceToggle: onAppearanceToggle,
+          onCardBackChanged: onCardBackChanged,
         );
       default:
         return BrigadePanel(
@@ -2476,28 +2524,28 @@ class ExpandedPlayerInfoPanel extends StatelessWidget {
       if (seat.statusText.isNotEmpty) seat.statusText,
     ];
     final stats = [
-      _PlayerInfoStat(
+      PlayerProfileStat(
         label: language.t(KolkhozText.kolkhozappScore),
         value: seat.visibleScore.toString(),
       ),
-      _PlayerInfoStat(
+      PlayerProfileStat(
         label: language.t(KolkhozText.kolkhozappMedals),
         value: '${seat.medals}/$maxTricks',
       ),
-      _PlayerInfoStat(
+      PlayerProfileStat(
         label: language.t(KolkhozText.kolkhozappHand),
         value: playerInfoHandCount(seat).toString(),
       ),
-      _PlayerInfoStat(
+      PlayerProfileStat(
         label: language.t(KolkhozText.kolkhozappCellar),
         value: playerInfoCellarCount(seat).toString(),
       ),
-      _PlayerInfoStat(
+      PlayerProfileStat(
         label: language.t(KolkhozText.kolkhozappPlot),
         value: playerInfoVisiblePlotCount(seat).toString(),
       ),
       if (seat.profileStats != null)
-        _PlayerInfoStat(
+        PlayerProfileStat(
           label: language.t(KolkhozText.kolkhozappRating),
           value: seat.profileStats!.rating.toString(),
           prominent: true,
@@ -2531,270 +2579,85 @@ class ExpandedPlayerInfoPanel extends StatelessWidget {
     final actionEnabled =
         showComradeAction && !isComrade && !hasOutgoingRequest;
 
-    return Semantics(
-      container: true,
-      label: title,
-      child: PanelStyleSurface(
-        tokens: tokens,
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          key: Key('player-info-panel-${seat.id}'),
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onClose,
-                  child: SizedBox(
-                    width: 58,
-                    height: 64,
-                    child: PortraitFrame(
-                      seat: seat,
-                      tokens: tokens,
-                      width: 58,
-                      height: 64,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      PixelText(
-                        language.t(KolkhozText.kolkhozappPlayer),
-                        size: PixelTextSize.xSmall,
-                        variant: PixelTextVariant.heavy,
-                        color: tokens.colors.gold,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 3),
-                      PixelText(
-                        title,
-                        size: PixelTextSize.caption,
-                        variant: PixelTextVariant.heavy,
-                        color: tokens.colors.cream,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        softWrap: true,
-                      ),
-                      const SizedBox(height: 4),
-                      PixelText(
-                        playerInfoControllerLabel(seat),
-                        size: PixelTextSize.xSmall,
-                        variant: PixelTextVariant.heavy,
-                        color: tokens.colors.creamDim,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            if (statusChips.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 5,
-                runSpacing: 5,
-                children: [
-                  for (final chip in statusChips)
-                    _PlayerInfoChip(
-                      label: chip,
-                      tokens: tokens,
-                      active:
-                          chip == language.t(KolkhozText.kolkhozappCurrentTurn),
-                    ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 8),
-            Expanded(
-              child: SingleChildScrollView(
-                child: _PlayerInfoStatGrid(stats: stats, tokens: tokens),
-              ),
-            ),
-            if (showComradeAction) ...[
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 30,
-                child: ChromeAssetButton.command(
-                  label: actionLabel,
-                  prominent: hasIncomingRequest,
-                  tokens: tokens,
-                  iconAsset: actionIcon,
-                  iconSize: 18,
-                  textSize: PixelTextSize.xSmall,
-                  expandLabel: false,
-                  onPressed: actionEnabled
-                      ? () => unawaited(onComradeRequestToUser!(profileUserID))
-                      : null,
-                ),
-              ),
-            ],
-            if (onClose != null) ...[
-              const SizedBox(height: 8),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: onClose,
-                child: SizedBox(
-                  height: 26,
-                  child: Center(
-                    child: PixelText(
-                      language.t(KolkhozText.kolkhozappCancel),
-                      size: PixelTextSize.xSmall,
-                      variant: PixelTextVariant.heavy,
-                      color: tokens.colors.gold,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+    return PlayerProfilePanel(
+      key: Key('player-info-panel-${seat.id}'),
+      tokens: tokens,
+      displayName: title,
+      portraitAsset: seat.portraitAsset,
+      subtitle: playerInfoControllerLabel(seat),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PixelText(
+            language.t(KolkhozText.kolkhozappPlayer),
+            size: PixelTextSize.xSmall,
+            variant: PixelTextVariant.heavy,
+            color: tokens.colors.gold,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 3),
+          PixelText(
+            title,
+            size: PixelTextSize.caption,
+            variant: PixelTextVariant.heavy,
+            color: tokens.colors.cream,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            softWrap: true,
+          ),
+        ],
+      ),
+      active: seat.isCurrentTurn,
+      portraitSelected: seat.isViewer,
+      portraitSize: 58,
+      minHeight: 0,
+      padding: const EdgeInsets.all(10),
+      onPortraitPressed: onClose,
+      chips: [
+        for (final chip in statusChips)
+          PlayerProfileChip(
+            label: chip,
+            active: chip == language.t(KolkhozText.kolkhozappCurrentTurn),
+          ),
+      ],
+      statGroups: [
+        for (final stat in stats)
+          PlayerProfileStatGroup(label: stat.label, stats: [stat]),
+      ],
+      expandStats: true,
+      scrollStats: true,
+      action: showComradeAction
+          ? PlayerProfileAction(
+              label: actionLabel,
+              prominent: hasIncomingRequest,
+              iconAsset: actionIcon,
+              iconSize: 18,
+              onPressed: actionEnabled
+                  ? () => unawaited(onComradeRequestToUser!(profileUserID))
+                  : null,
+            )
+          : null,
+      footer: onClose == null
+          ? null
+          : GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onClose,
+              child: SizedBox(
+                height: 26,
+                child: Center(
+                  child: PixelText(
+                    language.t(KolkhozText.kolkhozappCancel),
+                    size: PixelTextSize.xSmall,
+                    variant: PixelTextVariant.heavy,
+                    color: tokens.colors.gold,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PlayerInfoStat {
-  const _PlayerInfoStat({
-    required this.label,
-    required this.value,
-    this.prominent = false,
-  });
-
-  final String label;
-  final String value;
-  final bool prominent;
-}
-
-class _PlayerInfoStatGrid extends StatelessWidget {
-  const _PlayerInfoStatGrid({required this.stats, required this.tokens});
-
-  final List<_PlayerInfoStat> stats;
-  final DesignTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth < 330 ? 2 : 3;
-        final spacing = 7.0;
-        final tileWidth =
-            (constraints.maxWidth - spacing * (columns - 1)) / columns;
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: [
-            for (final stat in stats)
-              SizedBox(
-                width: tileWidth,
-                height: 58,
-                child: _PlayerInfoStatTile(stat: stat, tokens: tokens),
-              ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _PlayerInfoStatTile extends StatelessWidget {
-  const _PlayerInfoStatTile({required this.stat, required this.tokens});
-
-  final _PlayerInfoStat stat;
-  final DesignTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: stat.prominent
-            ? tokens.colors.red.withValues(alpha: 0.74)
-            : tokens.colors.black.withValues(alpha: 0.30),
-        borderRadius: BorderRadius.circular(5),
-        border: Border.all(
-          color: stat.prominent
-              ? tokens.colors.gold.withValues(alpha: 0.76)
-              : tokens.colors.gold.withValues(alpha: 0.26),
-          width: stat.prominent ? 1.4 : 1,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            PixelText(
-              stat.label,
-              size: PixelTextSize.xSmall,
-              variant: PixelTextVariant.heavy,
-              color: tokens.colors.gold,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 5),
-            PixelText(
-              stat.value,
-              size: PixelTextSize.headline,
-              variant: PixelTextVariant.heavy,
-              color: stat.prominent
-                  ? tokens.colors.onAccent
-                  : tokens.colors.cream,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PlayerInfoChip extends StatelessWidget {
-  const _PlayerInfoChip({
-    required this.label,
-    required this.tokens,
-    this.active = false,
-  });
-
-  final String label;
-  final DesignTokens tokens;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: active
-            ? tokens.colors.red.withValues(alpha: 0.72)
-            : tokens.colors.gold.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: active
-              ? tokens.colors.gold.withValues(alpha: 0.76)
-              : tokens.colors.gold.withValues(alpha: 0.34),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-        child: PixelText(
-          label,
-          size: PixelTextSize.xSmall,
-          variant: PixelTextVariant.heavy,
-          color: active ? tokens.colors.onAccent : tokens.colors.cream,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
     );
   }
 }
@@ -3086,6 +2949,7 @@ class PlayerCardBackThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cardBack = KolkhozCardBackScope.of(context);
     return ClipRRect(
       borderRadius: BorderRadius.circular(2 * scale),
       child: Container(
@@ -3099,7 +2963,7 @@ class PlayerCardBackThumbnail extends StatelessWidget {
           ),
         ),
         child: Image.asset(
-          'ios_resources/Cards/card-back-icon.png',
+          cardBack.iconAssetPath,
           fit: BoxFit.cover,
           filterQuality: FilterQuality.none,
         ),
