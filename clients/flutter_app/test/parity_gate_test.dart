@@ -614,6 +614,7 @@ String onlineProjectionFingerprint(TableViewModel model) {
 OnlineSessionUpdate onlineFixtureUpdate() {
   return const OnlineSessionUpdate(
     sessionID: 'fixture',
+    inviteCode: 'FIXT1',
     viewerID: 1,
     actionLogCount: 7,
     isViewerTurn: true,

@@ -1,3 +1,4 @@
+import 'app_settings.dart';
 import 'game_ui_state.dart';
 
 class TableViewModel {
@@ -80,6 +81,8 @@ class Seat {
     required this.plot,
     required this.medals,
     required this.visibleScore,
+    this.profileStats,
+    this.profileUserID,
     this.statusText = '',
   });
 
@@ -95,6 +98,8 @@ class Seat {
   final PlotState plot;
   final int medals;
   final int visibleScore;
+  final KolkhozProfileStats? profileStats;
+  final String? profileUserID;
   final String statusText;
 }
 

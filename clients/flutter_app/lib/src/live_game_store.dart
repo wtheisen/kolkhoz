@@ -193,7 +193,26 @@ class LiveGameStore extends ChangeNotifier {
 
   bool get isOnlineGame => _online != null;
   String? get onlineSessionID => _online?.sessionID;
+  String? get onlineInviteCode => _online?.inviteCode;
   int? get onlinePlayerID => _online?.playerID;
+  bool get onlineWaitingForPlayers {
+    final update = _online?.update;
+    if (update == null) {
+      return false;
+    }
+    final occupiedHumanSeats = {
+      for (final profile in update.playerProfiles)
+        if (profile.userID != null) profile.playerID,
+    };
+    for (var playerID = 0; playerID < update.controllers.length; playerID++) {
+      if (update.controllers[playerID] == KolkhozPlayerController.human &&
+          !occupiedHumanSeats.contains(playerID)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   bool get canUndo =>
       _online == null &&
       model?.table.phase == phaseAssignment &&
@@ -223,6 +242,7 @@ class LiveGameStore extends ChangeNotifier {
     required Uri baseURL,
     required KolkhozGameVariants variants,
     required List<KolkhozPlayerController> controllers,
+    required bool ranked,
   }) async {
     try {
       final client = KolkhozOnlineClient(
@@ -235,10 +255,12 @@ class LiveGameStore extends ChangeNotifier {
       final response = await client.createSession(
         variants: variants,
         controllers: normalizedControllers,
+        ranked: ranked,
       );
       await _connectOnline(
         client: client,
         sessionID: response.sessionID,
+        inviteCode: response.inviteCode,
         playerID: response.playerID,
         seatToken: response.seatToken,
         update: response.update,
@@ -268,6 +290,7 @@ class LiveGameStore extends ChangeNotifier {
       await _connectOnline(
         client: client,
         sessionID: response.sessionID,
+        inviteCode: response.inviteCode,
         playerID: response.playerID,
         seatToken: response.seatToken,
         update: response.update,
@@ -425,6 +448,7 @@ class LiveGameStore extends ChangeNotifier {
   Future<void> _connectOnline({
     required KolkhozOnlineClient client,
     required String sessionID,
+    required String inviteCode,
     required int playerID,
     required String seatToken,
     required OnlineSessionUpdate update,
@@ -440,6 +464,7 @@ class LiveGameStore extends ChangeNotifier {
     _online = OnlineGameRuntime(
       client: client,
       sessionID: sessionID,
+      inviteCode: inviteCode,
       playerID: playerID,
       seatToken: seatToken,
       update: update,
@@ -999,6 +1024,7 @@ class OnlineGameRuntime {
   OnlineGameRuntime({
     required this.client,
     required this.sessionID,
+    required this.inviteCode,
     required this.playerID,
     required this.seatToken,
     required this.update,
@@ -1006,6 +1032,7 @@ class OnlineGameRuntime {
 
   final KolkhozOnlineClient client;
   final String sessionID;
+  final String inviteCode;
   final int playerID;
   final String seatToken;
   OnlineSessionUpdate update;

@@ -96,6 +96,11 @@ class KolkhozBoard extends StatelessWidget {
     this.onConfirmMainMenuChanged,
     this.showInvalidTapHints = true,
     this.onShowInvalidTapHintsChanged,
+    this.currentProfileUserID,
+    this.comradeUserIDs = const {},
+    this.incomingComradeRequestUserIDs = const {},
+    this.outgoingComradeRequestUserIDs = const {},
+    this.onComradeRequestToUser,
     super.key,
   });
 
@@ -127,6 +132,11 @@ class KolkhozBoard extends StatelessWidget {
   final ValueChanged<bool>? onConfirmMainMenuChanged;
   final bool showInvalidTapHints;
   final ValueChanged<bool>? onShowInvalidTapHintsChanged;
+  final String? currentProfileUserID;
+  final Set<String> comradeUserIDs;
+  final Set<String> incomingComradeRequestUserIDs;
+  final Set<String> outgoingComradeRequestUserIDs;
+  final Future<void> Function(String userID)? onComradeRequestToUser;
   @override
   Widget build(BuildContext context) {
     return DefaultTextStyle.merge(
@@ -221,6 +231,13 @@ class KolkhozBoard extends StatelessWidget {
                                 showInvalidTapHints: showInvalidTapHints,
                                 onShowInvalidTapHintsChanged:
                                     onShowInvalidTapHintsChanged,
+                                currentProfileUserID: currentProfileUserID,
+                                comradeUserIDs: comradeUserIDs,
+                                incomingComradeRequestUserIDs:
+                                    incomingComradeRequestUserIDs,
+                                outgoingComradeRequestUserIDs:
+                                    outgoingComradeRequestUserIDs,
+                                onComradeRequestToUser: onComradeRequestToUser,
                                 onLanguageToggle: onLanguageToggle,
                                 onAppearanceToggle: onAppearanceToggle,
                               )
@@ -282,6 +299,15 @@ class KolkhozBoard extends StatelessWidget {
                                       showInvalidTapHints: showInvalidTapHints,
                                       onShowInvalidTapHintsChanged:
                                           onShowInvalidTapHintsChanged,
+                                      currentProfileUserID:
+                                          currentProfileUserID,
+                                      comradeUserIDs: comradeUserIDs,
+                                      incomingComradeRequestUserIDs:
+                                          incomingComradeRequestUserIDs,
+                                      outgoingComradeRequestUserIDs:
+                                          outgoingComradeRequestUserIDs,
+                                      onComradeRequestToUser:
+                                          onComradeRequestToUser,
                                       language: language,
                                       appearance: appearance,
                                       onLanguageToggle: onLanguageToggle,
@@ -340,6 +366,11 @@ class CompactBoardShell extends StatelessWidget {
     this.onConfirmMainMenuChanged,
     this.showInvalidTapHints = true,
     this.onShowInvalidTapHintsChanged,
+    this.currentProfileUserID,
+    this.comradeUserIDs = const {},
+    this.incomingComradeRequestUserIDs = const {},
+    this.outgoingComradeRequestUserIDs = const {},
+    this.onComradeRequestToUser,
     this.onLanguageToggle,
     this.onAppearanceToggle,
     super.key,
@@ -371,6 +402,11 @@ class CompactBoardShell extends StatelessWidget {
   final ValueChanged<bool>? onConfirmMainMenuChanged;
   final bool showInvalidTapHints;
   final ValueChanged<bool>? onShowInvalidTapHintsChanged;
+  final String? currentProfileUserID;
+  final Set<String> comradeUserIDs;
+  final Set<String> incomingComradeRequestUserIDs;
+  final Set<String> outgoingComradeRequestUserIDs;
+  final Future<void> Function(String userID)? onComradeRequestToUser;
   final VoidCallback? onLanguageToggle;
   final VoidCallback? onAppearanceToggle;
 
@@ -405,6 +441,11 @@ class CompactBoardShell extends StatelessWidget {
             onConfirmMainMenuChanged: onConfirmMainMenuChanged,
             showInvalidTapHints: showInvalidTapHints,
             onShowInvalidTapHintsChanged: onShowInvalidTapHintsChanged,
+            currentProfileUserID: currentProfileUserID,
+            comradeUserIDs: comradeUserIDs,
+            incomingComradeRequestUserIDs: incomingComradeRequestUserIDs,
+            outgoingComradeRequestUserIDs: outgoingComradeRequestUserIDs,
+            onComradeRequestToUser: onComradeRequestToUser,
             language: language,
             appearance: appearance,
             onLanguageToggle: onLanguageToggle,
@@ -637,6 +678,11 @@ class BoardPlayArea extends StatelessWidget {
     this.onConfirmMainMenuChanged,
     this.showInvalidTapHints = true,
     this.onShowInvalidTapHintsChanged,
+    this.currentProfileUserID,
+    this.comradeUserIDs = const {},
+    this.incomingComradeRequestUserIDs = const {},
+    this.outgoingComradeRequestUserIDs = const {},
+    this.onComradeRequestToUser,
     this.compact = false,
     required this.language,
     required this.appearance,
@@ -669,6 +715,11 @@ class BoardPlayArea extends StatelessWidget {
   final ValueChanged<bool>? onConfirmMainMenuChanged;
   final bool showInvalidTapHints;
   final ValueChanged<bool>? onShowInvalidTapHintsChanged;
+  final String? currentProfileUserID;
+  final Set<String> comradeUserIDs;
+  final Set<String> incomingComradeRequestUserIDs;
+  final Set<String> outgoingComradeRequestUserIDs;
+  final Future<void> Function(String userID)? onComradeRequestToUser;
   final bool compact;
   final KolkhozLanguage language;
   final KolkhozAppearance appearance;
@@ -757,6 +808,13 @@ class BoardPlayArea extends StatelessWidget {
                         appearance: appearance,
                         compact: compact,
                         planningTrumpFocusedSuit: planningTrumpFocusedSuit,
+                        currentProfileUserID: currentProfileUserID,
+                        comradeUserIDs: comradeUserIDs,
+                        incomingComradeRequestUserIDs:
+                            incomingComradeRequestUserIDs,
+                        outgoingComradeRequestUserIDs:
+                            outgoingComradeRequestUserIDs,
+                        onComradeRequestToUser: onComradeRequestToUser,
                         onLanguageToggle: onLanguageToggle,
                         onAppearanceToggle: onAppearanceToggle,
                       ),
@@ -1440,6 +1498,11 @@ class ActivePanelView extends StatelessWidget {
     required this.appearance,
     this.compact = false,
     this.planningTrumpFocusedSuit,
+    this.currentProfileUserID,
+    this.comradeUserIDs = const {},
+    this.incomingComradeRequestUserIDs = const {},
+    this.outgoingComradeRequestUserIDs = const {},
+    this.onComradeRequestToUser,
     this.onLanguageToggle,
     this.onAppearanceToggle,
     super.key,
@@ -1465,6 +1528,11 @@ class ActivePanelView extends StatelessWidget {
   final KolkhozAppearance appearance;
   final bool compact;
   final String? planningTrumpFocusedSuit;
+  final String? currentProfileUserID;
+  final Set<String> comradeUserIDs;
+  final Set<String> incomingComradeRequestUserIDs;
+  final Set<String> outgoingComradeRequestUserIDs;
+  final Future<void> Function(String userID)? onComradeRequestToUser;
   final VoidCallback? onLanguageToggle;
   final VoidCallback? onAppearanceToggle;
 
@@ -1524,19 +1592,29 @@ class ActivePanelView extends StatelessWidget {
           language: language,
           compact: compact,
           planningTrumpFocusedSuit: planningTrumpFocusedSuit,
+          currentProfileUserID: currentProfileUserID,
+          comradeUserIDs: comradeUserIDs,
+          incomingComradeRequestUserIDs: incomingComradeRequestUserIDs,
+          outgoingComradeRequestUserIDs: outgoingComradeRequestUserIDs,
+          onComradeRequestToUser: onComradeRequestToUser,
           onAction: onAction,
         );
     }
   }
 }
 
-class BrigadePanel extends StatelessWidget {
+class BrigadePanel extends StatefulWidget {
   const BrigadePanel({
     required this.model,
     required this.tokens,
     required this.language,
     this.compact = false,
     this.planningTrumpFocusedSuit,
+    this.currentProfileUserID,
+    this.comradeUserIDs = const {},
+    this.incomingComradeRequestUserIDs = const {},
+    this.outgoingComradeRequestUserIDs = const {},
+    this.onComradeRequestToUser,
     this.onAction,
     super.key,
   });
@@ -1546,10 +1624,41 @@ class BrigadePanel extends StatelessWidget {
   final KolkhozLanguage language;
   final bool compact;
   final String? planningTrumpFocusedSuit;
+  final String? currentProfileUserID;
+  final Set<String> comradeUserIDs;
+  final Set<String> incomingComradeRequestUserIDs;
+  final Set<String> outgoingComradeRequestUserIDs;
+  final Future<void> Function(String userID)? onComradeRequestToUser;
   final ValueChanged<LegalAction>? onAction;
 
   @override
+  State<BrigadePanel> createState() => _BrigadePanelState();
+}
+
+class _BrigadePanelState extends State<BrigadePanel> {
+  int? inspectedSeatID;
+
+  @override
+  void didUpdateWidget(BrigadePanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final selected = inspectedSeatID;
+    if (selected != null &&
+        !widget.model.table.seats.any((seat) => seat.id == selected)) {
+      inspectedSeatID = null;
+    }
+  }
+
+  void togglePlayerInspect(int seatID) {
+    setState(() {
+      inspectedSeatID = inspectedSeatID == seatID ? null : seatID;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final model = widget.model;
+    final tokens = widget.tokens;
+    final language = widget.language;
     final seats = model.table.seats;
     final trick = model.table.phase == phaseAssignment
         ? model.table.lastTrick
@@ -1594,15 +1703,22 @@ class BrigadePanel extends StatelessWidget {
           tokens.card.aspectRatio,
         );
 
-        if (compact) {
+        if (widget.compact) {
           return CompactBrigadeGrid(
             playerOrder: playerOrder,
             trick: trick,
             model: model,
             tokens: tokens,
             language: language,
-            planningTrumpFocusedSuit: planningTrumpFocusedSuit,
-            onAction: onAction,
+            planningTrumpFocusedSuit: widget.planningTrumpFocusedSuit,
+            inspectedSeatID: inspectedSeatID,
+            onInspectSeat: togglePlayerInspect,
+            currentProfileUserID: widget.currentProfileUserID,
+            comradeUserIDs: widget.comradeUserIDs,
+            incomingComradeRequestUserIDs: widget.incomingComradeRequestUserIDs,
+            outgoingComradeRequestUserIDs: widget.outgoingComradeRequestUserIDs,
+            onComradeRequestToUser: widget.onComradeRequestToUser,
+            onAction: widget.onAction,
           );
         }
 
@@ -1635,8 +1751,8 @@ class BrigadePanel extends StatelessWidget {
                                 model: model,
                                 tokens: tokens,
                                 language: language,
-                                focusedSuit: planningTrumpFocusedSuit,
-                                onAction: onAction,
+                                focusedSuit: widget.planningTrumpFocusedSuit,
+                                onAction: widget.onAction,
                               )
                             : null,
                         columnWidth: columnWidth,
@@ -1650,6 +1766,15 @@ class BrigadePanel extends StatelessWidget {
                         phase: model.table.phase,
                         tokens: tokens,
                         language: language,
+                        inspecting: inspectedSeatID == playerOrder[index].id,
+                        onInspectSeat: togglePlayerInspect,
+                        currentProfileUserID: widget.currentProfileUserID,
+                        comradeUserIDs: widget.comradeUserIDs,
+                        incomingComradeRequestUserIDs:
+                            widget.incomingComradeRequestUserIDs,
+                        outgoingComradeRequestUserIDs:
+                            widget.outgoingComradeRequestUserIDs,
+                        onComradeRequestToUser: widget.onComradeRequestToUser,
                       ),
                     ),
                   ),
@@ -1680,6 +1805,13 @@ class CompactBrigadeGrid extends StatelessWidget {
     required this.tokens,
     required this.language,
     this.planningTrumpFocusedSuit,
+    this.inspectedSeatID,
+    this.onInspectSeat,
+    this.currentProfileUserID,
+    this.comradeUserIDs = const {},
+    this.incomingComradeRequestUserIDs = const {},
+    this.outgoingComradeRequestUserIDs = const {},
+    this.onComradeRequestToUser,
     this.onAction,
     super.key,
   });
@@ -1690,6 +1822,13 @@ class CompactBrigadeGrid extends StatelessWidget {
   final DesignTokens tokens;
   final KolkhozLanguage language;
   final String? planningTrumpFocusedSuit;
+  final int? inspectedSeatID;
+  final ValueChanged<int>? onInspectSeat;
+  final String? currentProfileUserID;
+  final Set<String> comradeUserIDs;
+  final Set<String> incomingComradeRequestUserIDs;
+  final Set<String> outgoingComradeRequestUserIDs;
+  final Future<void> Function(String userID)? onComradeRequestToUser;
   final ValueChanged<LegalAction>? onAction;
 
   @override
@@ -1809,6 +1948,13 @@ class CompactBrigadeGrid extends StatelessWidget {
       phase: model.table.phase,
       tokens: tokens,
       language: language,
+      inspecting: inspectedSeatID == seat.id,
+      onInspectSeat: onInspectSeat,
+      currentProfileUserID: currentProfileUserID,
+      comradeUserIDs: comradeUserIDs,
+      incomingComradeRequestUserIDs: incomingComradeRequestUserIDs,
+      outgoingComradeRequestUserIDs: outgoingComradeRequestUserIDs,
+      onComradeRequestToUser: onComradeRequestToUser,
     );
   }
 }
@@ -1861,6 +2007,13 @@ class BrigadePlayerColumn extends StatelessWidget {
     required this.phase,
     required this.tokens,
     required this.language,
+    this.inspecting = false,
+    this.onInspectSeat,
+    this.currentProfileUserID,
+    this.comradeUserIDs = const {},
+    this.incomingComradeRequestUserIDs = const {},
+    this.outgoingComradeRequestUserIDs = const {},
+    this.onComradeRequestToUser,
     super.key,
   });
 
@@ -1879,6 +2032,13 @@ class BrigadePlayerColumn extends StatelessWidget {
   final String phase;
   final DesignTokens tokens;
   final KolkhozLanguage language;
+  final bool inspecting;
+  final ValueChanged<int>? onInspectSeat;
+  final String? currentProfileUserID;
+  final Set<String> comradeUserIDs;
+  final Set<String> incomingComradeRequestUserIDs;
+  final Set<String> outgoingComradeRequestUserIDs;
+  final Future<void> Function(String userID)? onComradeRequestToUser;
 
   @override
   Widget build(BuildContext context) {
@@ -1948,35 +2108,59 @@ class BrigadePlayerColumn extends StatelessWidget {
         ),
         child: Padding(
           padding: brigadeColumnPadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: playerPanelWidth,
-                height: playerPanelHeight,
-                child: PlayerBadge(
-                  seat: seat,
-                  tokens: tokens,
-                  active: active || planningSelector,
-                  width: playerPanelWidth,
-                  height: playerPanelHeight,
-                  maxTricks: maxTricks,
-                  language: language,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: brigadePlayAreaTopInset),
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: SizedBox(
-                    width: playObjectWidth,
-                    height: playObjectHeight,
-                    child: playAreaChild,
+          child: inspecting
+              ? SizedBox.expand(
+                  child: ExpandedPlayerInfoPanel(
+                    seat: seat,
+                    tokens: tokens,
+                    language: language,
+                    maxTricks: maxTricks,
+                    currentProfileUserID: currentProfileUserID,
+                    comradeUserIDs: comradeUserIDs,
+                    incomingComradeRequestUserIDs:
+                        incomingComradeRequestUserIDs,
+                    outgoingComradeRequestUserIDs:
+                        outgoingComradeRequestUserIDs,
+                    onComradeRequestToUser: onComradeRequestToUser,
+                    onClose: onInspectSeat == null
+                        ? null
+                        : () => onInspectSeat!(seat.id),
                   ),
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: playerPanelWidth,
+                      height: playerPanelHeight,
+                      child: PlayerBadge(
+                        seat: seat,
+                        tokens: tokens,
+                        active: active || planningSelector,
+                        width: playerPanelWidth,
+                        height: playerPanelHeight,
+                        maxTricks: maxTricks,
+                        language: language,
+                        onInspect: onInspectSeat == null
+                            ? null
+                            : () => onInspectSeat!(seat.id),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        top: brigadePlayAreaTopInset,
+                      ),
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: SizedBox(
+                          width: playObjectWidth,
+                          height: playObjectHeight,
+                          child: playAreaChild,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -2048,6 +2232,7 @@ class PlayerBadge extends StatelessWidget {
     this.width = 178,
     this.height = 40,
     this.maxTricks = 4,
+    this.onInspect,
     super.key,
   });
 
@@ -2058,6 +2243,7 @@ class PlayerBadge extends StatelessWidget {
   final double width;
   final double height;
   final int maxTricks;
+  final VoidCallback? onInspect;
 
   @override
   Widget build(BuildContext context) {
@@ -2116,11 +2302,23 @@ class PlayerBadge extends StatelessWidget {
                     Positioned(
                       left: portraitLeft,
                       top: portraitTop,
-                      child: PortraitFrame(
-                        seat: seat,
-                        tokens: tokens,
-                        width: portraitSize,
-                        height: portraitSize,
+                      child: Tooltip(
+                        message: displayName,
+                        child: Semantics(
+                          button: true,
+                          label: displayName,
+                          child: GestureDetector(
+                            key: Key('player-portrait-${seat.id}-inspect'),
+                            behavior: HitTestBehavior.opaque,
+                            onTap: onInspect,
+                            child: PortraitFrame(
+                              seat: seat,
+                              tokens: tokens,
+                              width: portraitSize,
+                              height: portraitSize,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                     Positioned(
@@ -2240,6 +2438,393 @@ class PlayerBadge extends StatelessWidget {
       if (seat.isBrigadeLeader) 'icon-status-brigade-leader.png',
     ];
   }
+}
+
+class ExpandedPlayerInfoPanel extends StatelessWidget {
+  const ExpandedPlayerInfoPanel({
+    required this.seat,
+    required this.tokens,
+    required this.language,
+    required this.maxTricks,
+    this.currentProfileUserID,
+    this.comradeUserIDs = const {},
+    this.incomingComradeRequestUserIDs = const {},
+    this.outgoingComradeRequestUserIDs = const {},
+    this.onComradeRequestToUser,
+    this.onClose,
+    super.key,
+  });
+
+  final Seat seat;
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final int maxTricks;
+  final String? currentProfileUserID;
+  final Set<String> comradeUserIDs;
+  final Set<String> incomingComradeRequestUserIDs;
+  final Set<String> outgoingComradeRequestUserIDs;
+  final Future<void> Function(String userID)? onComradeRequestToUser;
+  final VoidCallback? onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = seatDisplayName(seat, language: language);
+    final statusChips = [
+      if (seat.isViewer) language.t(KolkhozText.tabledisplayYou),
+      if (seat.isCurrentTurn) language.t(KolkhozText.kolkhozappCurrentTurn),
+      if (seat.isBrigadeLeader) language.t(KolkhozText.kolkhozappBrigadeLeader),
+      if (seat.statusText.isNotEmpty) seat.statusText,
+    ];
+    final stats = [
+      _PlayerInfoStat(
+        label: language.t(KolkhozText.kolkhozappScore),
+        value: seat.visibleScore.toString(),
+      ),
+      _PlayerInfoStat(
+        label: language.t(KolkhozText.kolkhozappMedals),
+        value: '${seat.medals}/$maxTricks',
+      ),
+      _PlayerInfoStat(
+        label: language.t(KolkhozText.kolkhozappHand),
+        value: playerInfoHandCount(seat).toString(),
+      ),
+      _PlayerInfoStat(
+        label: language.t(KolkhozText.kolkhozappCellar),
+        value: playerInfoCellarCount(seat).toString(),
+      ),
+      _PlayerInfoStat(
+        label: language.t(KolkhozText.kolkhozappPlot),
+        value: playerInfoVisiblePlotCount(seat).toString(),
+      ),
+      if (seat.profileStats != null)
+        _PlayerInfoStat(
+          label: language.t(KolkhozText.kolkhozappRating),
+          value: seat.profileStats!.rating.toString(),
+          prominent: true,
+        ),
+    ];
+    final profileUserID = seat.profileUserID;
+    final showComradeAction =
+        profileUserID != null &&
+        profileUserID != currentProfileUserID &&
+        onComradeRequestToUser != null;
+    final isComrade =
+        profileUserID != null && comradeUserIDs.contains(profileUserID);
+    final hasIncomingRequest =
+        profileUserID != null &&
+        incomingComradeRequestUserIDs.contains(profileUserID);
+    final hasOutgoingRequest =
+        profileUserID != null &&
+        outgoingComradeRequestUserIDs.contains(profileUserID);
+    final actionLabel = isComrade
+        ? language.t(KolkhozText.kolkhozappComrade)
+        : hasOutgoingRequest
+        ? language.t(KolkhozText.kolkhozappPending)
+        : hasIncomingRequest
+        ? language.t(KolkhozText.kolkhozappAccept)
+        : language.t(KolkhozText.kolkhozappAddComrade);
+    final actionIcon = isComrade
+        ? 'ios_resources/Icons/icon-comrade.png'
+        : hasOutgoingRequest
+        ? 'ios_resources/Icons/icon-status-connecting.png'
+        : 'ios_resources/Icons/icon-add-friend.png';
+    final actionEnabled =
+        showComradeAction && !isComrade && !hasOutgoingRequest;
+
+    return Semantics(
+      container: true,
+      label: title,
+      child: PanelStyleSurface(
+        tokens: tokens,
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          key: Key('player-info-panel-${seat.id}'),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onClose,
+                  child: SizedBox(
+                    width: 58,
+                    height: 64,
+                    child: PortraitFrame(
+                      seat: seat,
+                      tokens: tokens,
+                      width: 58,
+                      height: 64,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      PixelText(
+                        language.t(KolkhozText.kolkhozappPlayer),
+                        size: PixelTextSize.xSmall,
+                        variant: PixelTextVariant.heavy,
+                        color: tokens.colors.gold,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 3),
+                      PixelText(
+                        title,
+                        size: PixelTextSize.caption,
+                        variant: PixelTextVariant.heavy,
+                        color: tokens.colors.cream,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: true,
+                      ),
+                      const SizedBox(height: 4),
+                      PixelText(
+                        playerInfoControllerLabel(seat),
+                        size: PixelTextSize.xSmall,
+                        variant: PixelTextVariant.heavy,
+                        color: tokens.colors.creamDim,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (statusChips.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 5,
+                runSpacing: 5,
+                children: [
+                  for (final chip in statusChips)
+                    _PlayerInfoChip(
+                      label: chip,
+                      tokens: tokens,
+                      active:
+                          chip == language.t(KolkhozText.kolkhozappCurrentTurn),
+                    ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 8),
+            Expanded(
+              child: SingleChildScrollView(
+                child: _PlayerInfoStatGrid(stats: stats, tokens: tokens),
+              ),
+            ),
+            if (showComradeAction) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 30,
+                child: ChromeAssetButton.command(
+                  label: actionLabel,
+                  prominent: hasIncomingRequest,
+                  tokens: tokens,
+                  iconAsset: actionIcon,
+                  iconSize: 18,
+                  textSize: PixelTextSize.xSmall,
+                  expandLabel: false,
+                  onPressed: actionEnabled
+                      ? () => unawaited(onComradeRequestToUser!(profileUserID))
+                      : null,
+                ),
+              ),
+            ],
+            if (onClose != null) ...[
+              const SizedBox(height: 8),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onClose,
+                child: SizedBox(
+                  height: 26,
+                  child: Center(
+                    child: PixelText(
+                      language.t(KolkhozText.kolkhozappCancel),
+                      size: PixelTextSize.xSmall,
+                      variant: PixelTextVariant.heavy,
+                      color: tokens.colors.gold,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PlayerInfoStat {
+  const _PlayerInfoStat({
+    required this.label,
+    required this.value,
+    this.prominent = false,
+  });
+
+  final String label;
+  final String value;
+  final bool prominent;
+}
+
+class _PlayerInfoStatGrid extends StatelessWidget {
+  const _PlayerInfoStatGrid({required this.stats, required this.tokens});
+
+  final List<_PlayerInfoStat> stats;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth < 330 ? 2 : 3;
+        final spacing = 7.0;
+        final tileWidth =
+            (constraints.maxWidth - spacing * (columns - 1)) / columns;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final stat in stats)
+              SizedBox(
+                width: tileWidth,
+                height: 58,
+                child: _PlayerInfoStatTile(stat: stat, tokens: tokens),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PlayerInfoStatTile extends StatelessWidget {
+  const _PlayerInfoStatTile({required this.stat, required this.tokens});
+
+  final _PlayerInfoStat stat;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: stat.prominent
+            ? tokens.colors.red.withValues(alpha: 0.74)
+            : tokens.colors.black.withValues(alpha: 0.30),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(
+          color: stat.prominent
+              ? tokens.colors.gold.withValues(alpha: 0.76)
+              : tokens.colors.gold.withValues(alpha: 0.26),
+          width: stat.prominent ? 1.4 : 1,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            PixelText(
+              stat.label,
+              size: PixelTextSize.xSmall,
+              variant: PixelTextVariant.heavy,
+              color: tokens.colors.gold,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 5),
+            PixelText(
+              stat.value,
+              size: PixelTextSize.headline,
+              variant: PixelTextVariant.heavy,
+              color: stat.prominent
+                  ? tokens.colors.onAccent
+                  : tokens.colors.cream,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PlayerInfoChip extends StatelessWidget {
+  const _PlayerInfoChip({
+    required this.label,
+    required this.tokens,
+    this.active = false,
+  });
+
+  final String label;
+  final DesignTokens tokens;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: active
+            ? tokens.colors.red.withValues(alpha: 0.72)
+            : tokens.colors.gold.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: active
+              ? tokens.colors.gold.withValues(alpha: 0.76)
+              : tokens.colors.gold.withValues(alpha: 0.34),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+        child: PixelText(
+          label,
+          size: PixelTextSize.xSmall,
+          variant: PixelTextVariant.heavy,
+          color: active ? tokens.colors.onAccent : tokens.colors.cream,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+  }
+}
+
+int playerInfoHandCount(Seat seat) {
+  return math.max(seat.hand.length, seat.hiddenHandCount);
+}
+
+int playerInfoVisiblePlotCount(Seat seat) {
+  return seat.plot.revealed.length +
+      seat.plot.stacks.fold<int>(
+        0,
+        (total, stack) => total + stack.revealed.length,
+      );
+}
+
+int playerInfoCellarCount(Seat seat) {
+  return seat.plot.hidden.length +
+      seat.plot.stacks.fold<int>(
+        0,
+        (total, stack) => total + stack.hidden.length,
+      );
+}
+
+String playerInfoControllerLabel(Seat seat) {
+  return seat.controller
+      .replaceAll('-', ' ')
+      .replaceAll('_', ' ')
+      .trim()
+      .toUpperCase();
 }
 
 class PlayerStatusBadgeStrip extends StatelessWidget {

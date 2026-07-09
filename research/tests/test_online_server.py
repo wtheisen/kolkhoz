@@ -453,7 +453,115 @@ class OnlineServerTests(unittest.TestCase):
             store.joined["user_id"],
             "22222222-2222-2222-2222-222222222222",
         )
+
+    def test_service_manages_comrade_requests_by_short_code(self) -> None:
+        store = FakeOnlineStore()
+        user_id = "11111111-1111-1111-1111-111111111111"
+        comrade_id = "22222222-2222-2222-2222-222222222222"
+        store.profiles[comrade_id] = {
+            "display_name": "Comrade Vera",
+            "avatar_url": "worker2",
+            "comrade_code": "VERA2",
+            "stats": {"rating": 1234},
+        }
+        service = KolkhozOnlineSessionService(self.engine, store=store)
+        try:
+            initial = service.comrades(user_id=user_id)
+            sent = service.send_comrade_request(
+                {"comradeCode": "vera2"},
+                user_id=user_id,
+            )
+            requester_listed = service.comrades(user_id=user_id)
+            addressee_listed = service.comrades(user_id=comrade_id)
+            accepted = service.respond_to_comrade_request(
+                {"userID": user_id, "accept": True},
+                user_id=comrade_id,
+            )
+            listed = service.comrades(user_id=user_id)
+            removed = service.remove_comrade(
+                {"userID": comrade_id},
+                user_id=user_id,
+            )
+            after_remove = service.comrades(user_id=user_id)
+        finally:
+            service.close()
+
+        self.assertEqual(initial["comradeCode"], "11111")
+        self.assertEqual(sent["request"]["userID"], comrade_id)
+        self.assertEqual(sent["request"]["displayName"], "Comrade Vera")
+        self.assertEqual(requester_listed["outgoingRequests"][0]["userID"], comrade_id)
+        self.assertEqual(addressee_listed["incomingRequests"][0]["userID"], user_id)
+        self.assertEqual(accepted["accepted"], True)
+        self.assertEqual(accepted["comrade"]["userID"], user_id)
+        self.assertEqual(listed["comrades"][0]["userID"], comrade_id)
+        self.assertEqual(removed, {"removed": True})
+        self.assertEqual(after_remove["comrades"], [])
         self.assertEqual(store.abandoned_startups, 1)
+
+    def test_service_declines_comrade_request(self) -> None:
+        store = FakeOnlineStore()
+        user_id = "11111111-1111-1111-1111-111111111111"
+        target_id = "22222222-2222-2222-2222-222222222222"
+        store.profiles[user_id] = {
+            "display_name": "Comrade Misha",
+            "avatar_url": "worker1",
+            "comrade_code": "MISHA",
+            "stats": {"rating": 1011},
+        }
+        store.profiles[target_id] = {
+            "display_name": "Comrade Vera",
+            "avatar_url": "worker2",
+            "comrade_code": "VERA2",
+            "stats": {"rating": 1234},
+        }
+        service = KolkhozOnlineSessionService(self.engine, store=store)
+        try:
+            service.send_comrade_request({"comradeCode": "VERA2"}, user_id=user_id)
+            declined = service.respond_to_comrade_request(
+                {"userID": user_id, "accept": False},
+                user_id=target_id,
+            )
+            listed = service.comrades(user_id=target_id)
+        finally:
+            service.close()
+
+        self.assertEqual(declined, {"accepted": False})
+        self.assertEqual(listed["incomingRequests"], [])
+        self.assertEqual(store.comrade_links.get(user_id), None)
+
+    def test_service_manages_comrade_requests_by_user_id(self) -> None:
+        store = FakeOnlineStore()
+        user_id = "11111111-1111-1111-1111-111111111111"
+        target_id = "22222222-2222-2222-2222-222222222222"
+        store.profiles[user_id] = {
+            "display_name": "Comrade Misha",
+            "avatar_url": "worker1",
+            "comrade_code": "MISHA",
+            "stats": {"rating": 1011},
+        }
+        store.profiles[target_id] = {
+            "display_name": "Comrade Vera",
+            "avatar_url": "worker2",
+            "comrade_code": "VERA2",
+            "stats": {"rating": 1234},
+        }
+        service = KolkhozOnlineSessionService(self.engine, store=store)
+        try:
+            sent = service.send_comrade_request(
+                {"userID": target_id},
+                user_id=user_id,
+            )
+            accepted = service.send_comrade_request(
+                {"userID": user_id},
+                user_id=target_id,
+            )
+            listed = service.comrades(user_id=user_id)
+        finally:
+            service.close()
+
+        self.assertEqual(sent["request"]["userID"], target_id)
+        self.assertEqual(accepted["comrade"]["userID"], user_id)
+        self.assertEqual(listed["comrades"][0]["userID"], target_id)
 
     def test_service_records_online_results_once_when_game_finishes(self) -> None:
         class FakeEngine:
@@ -475,10 +583,12 @@ class OnlineServerTests(unittest.TestCase):
         state.game_scores[3] = 5
         hosted = HostedSession(
             session_id="11111111-1111-1111-1111-111111111111",
+            invite_code="ABCDE",
             engine_pointer=ctypes.cast(ctypes.pointer(state), ctypes.c_void_p),
             seed=123,
             variants=kolkhoz_variants(),
             controllers=["human", "human", "heuristicAI", "heuristicAI"],
+            ranked=True,
             occupied_seats={0, 1},
             seat_tokens={0: "seat-0", 1: "seat-1"},
             seat_user_ids={
@@ -627,10 +737,12 @@ class OnlineServerTests(unittest.TestCase):
         )
         service._sessions[session_id] = HostedSession(
             session_id=session_id,
+            invite_code="ABCDE",
             engine_pointer=object(),  # type: ignore[arg-type]
             seed=123,
             variants=kolkhoz_variants(),
             controllers=["human", "human", "heuristicAI", "heuristicAI"],
+            ranked=True,
             occupied_seats={0, 1},
             seat_tokens={0: "seat-0", 1: "seat-1"},
             seat_user_ids={},
@@ -691,10 +803,12 @@ class OnlineServerTests(unittest.TestCase):
         )
         hosted = HostedSession(
             session_id="11111111-1111-1111-1111-111111111111",
+            invite_code="ABCDE",
             engine_pointer=object(),  # type: ignore[arg-type]
             seed=123,
             variants=kolkhoz_variants(),
             controllers=["mediumAI", "human", "neuralAI", "heuristicAI"],
+            ranked=True,
             occupied_seats={0, 1},
             seat_tokens={0: "seat-0", 1: "seat-1"},
             seat_user_ids={},
@@ -774,6 +888,8 @@ class FakeOnlineStore:
         self.abandoned: list[dict[str, object]] = []
         self.finished: list[dict[str, object]] = []
         self.profiles: dict[str, dict[str, object]] = {}
+        self.comrade_links: dict[str, set[str]] = {}
+        self.comrade_requests: set[tuple[str, str]] = set()
         self.banned_users: dict[str, dict[str, object]] = {}
         self.abandoned_startups = 0
         self.closed = False
@@ -963,6 +1079,7 @@ class FakeOnlineStore:
         *,
         session_id: str,
         results: list[dict[str, object]],
+        ranked: bool,
         updated_at: float,
         expires_at: float,
     ) -> None:
@@ -970,6 +1087,7 @@ class FakeOnlineStore:
             {
                 "session_id": session_id,
                 "results": results,
+                "ranked": ranked,
                 "updated_at": updated_at,
                 "expires_at": expires_at,
             }
@@ -990,6 +1108,134 @@ class FakeOnlineStore:
         controllers: list[str],
     ) -> dict[str, dict[str, object]]:
         return {}
+
+    def ensure_comrade_code(
+        self,
+        *,
+        user_id: str,
+        display_name: str,
+        updated_at: float,
+    ) -> str:
+        profile = self.profiles.setdefault(
+            user_id,
+            {
+                "display_name": display_name,
+                "avatar_url": None,
+                "stats": {},
+            },
+        )
+        profile.setdefault("comrade_code", user_id.replace("-", "").upper()[:5])
+        return str(profile["comrade_code"])
+
+    def comrades_for_user(self, *, user_id: str) -> dict[str, object]:
+        code = self.ensure_comrade_code(
+            user_id=user_id,
+            display_name="Player",
+            updated_at=0,
+        )
+        return {
+            "user_id": user_id,
+            "comrade_code": code,
+            "comrades": [
+                self._comrade_profile(comrade_user_id)
+                for comrade_user_id in sorted(self.comrade_links.get(user_id, set()))
+            ],
+            "incoming_requests": [
+                self._comrade_profile(requester_user_id)
+                for requester_user_id, addressee_user_id in sorted(
+                    self.comrade_requests,
+                )
+                if addressee_user_id == user_id
+            ],
+            "outgoing_requests": [
+                self._comrade_profile(addressee_user_id)
+                for requester_user_id, addressee_user_id in sorted(
+                    self.comrade_requests,
+                )
+                if requester_user_id == user_id
+            ],
+        }
+
+    def send_comrade_request_by_code(
+        self,
+        *,
+        user_id: str,
+        comrade_code: str,
+        updated_at: float,
+    ) -> dict[str, object]:
+        normalized = comrade_code.strip().upper()
+        for candidate_user_id, profile in self.profiles.items():
+            if str(profile.get("comrade_code", "")).upper() != normalized:
+                continue
+            return self._send_comrade_request_to_user(user_id, candidate_user_id)
+        raise ValueError("comrade code not found")
+
+    def send_comrade_request_to_user(
+        self,
+        *,
+        user_id: str,
+        comrade_user_id: str,
+        updated_at: float,
+    ) -> dict[str, object]:
+        return self._send_comrade_request_to_user(user_id, comrade_user_id)
+
+    def _send_comrade_request_to_user(
+        self,
+        user_id: str,
+        comrade_user_id: str,
+    ) -> dict[str, object]:
+        if comrade_user_id not in self.profiles:
+            raise ValueError("comrade profile not found")
+        if comrade_user_id == user_id:
+            raise ValueError("cannot add yourself as a comrade")
+        if comrade_user_id in self.comrade_links.get(user_id, set()):
+            raise ValueError("already comrades")
+        reverse = (comrade_user_id, user_id)
+        if reverse in self.comrade_requests:
+            self.comrade_requests.remove(reverse)
+            self.comrade_links.setdefault(user_id, set()).add(comrade_user_id)
+            self.comrade_links.setdefault(comrade_user_id, set()).add(user_id)
+            profile = self._comrade_profile(comrade_user_id)
+            profile["accepted"] = True
+            return profile
+        self.comrade_requests.add((user_id, comrade_user_id))
+        profile = self._comrade_profile(comrade_user_id)
+        profile["accepted"] = False
+        return profile
+
+    def respond_to_comrade_request(
+        self,
+        *,
+        user_id: str,
+        requester_user_id: str,
+        accept: bool,
+        updated_at: float,
+    ) -> dict[str, object] | None:
+        request = (requester_user_id, user_id)
+        if request not in self.comrade_requests:
+            raise ValueError("comrade request not found")
+        self.comrade_requests.remove(request)
+        if not accept:
+            return None
+        self.comrade_links.setdefault(user_id, set()).add(requester_user_id)
+        self.comrade_links.setdefault(requester_user_id, set()).add(user_id)
+        return self._comrade_profile(requester_user_id)
+
+    def remove_comrade(self, *, user_id: str, comrade_user_id: str) -> None:
+        self.comrade_links.setdefault(user_id, set()).discard(comrade_user_id)
+        self.comrade_links.setdefault(comrade_user_id, set()).discard(user_id)
+        self.comrade_requests.discard((user_id, comrade_user_id))
+        self.comrade_requests.discard((comrade_user_id, user_id))
+
+    def _comrade_profile(self, user_id: str) -> dict[str, object]:
+        profile = self.profiles[user_id]
+        return {
+            "userID": user_id,
+            "displayName": profile.get("display_name"),
+            "avatarURL": profile.get("avatar_url"),
+            "comradeCode": profile.get("comrade_code"),
+            "stats": profile.get("stats", {}),
+        }
 
 
 def request_json(

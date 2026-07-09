@@ -72,16 +72,12 @@ const optionsAnimationSpeedSegmentHeight = 28.0;
 const menuRuleBodyFontSize = 13.0;
 
 enum OptionsMenuTab {
-  session,
   assist,
   display,
   rules;
 
   String title(KolkhozLanguage language) {
     return switch (this) {
-      OptionsMenuTab.session => language.t(
-        KolkhozText.boardOptionspanelSession,
-      ),
       OptionsMenuTab.assist => language.t(KolkhozText.boardOptionspanelAssist),
       OptionsMenuTab.display => language.t(
         KolkhozText.boardOptionspanelDisplay,
@@ -92,7 +88,6 @@ enum OptionsMenuTab {
 
   String get iconAsset {
     return switch (this) {
-      OptionsMenuTab.session => 'ios_resources/Icons/icon-settings-session.png',
       OptionsMenuTab.assist => 'ios_resources/Icons/icon-settings-assist.png',
       OptionsMenuTab.display => 'ios_resources/Icons/icon-settings-display.png',
       OptionsMenuTab.rules => 'ios_resources/Icons/icon-settings-rules.png',
@@ -145,7 +140,7 @@ class OptionsPanel extends StatefulWidget {
 }
 
 class _OptionsPanelState extends State<OptionsPanel> {
-  OptionsMenuTab selectedTab = OptionsMenuTab.session;
+  OptionsMenuTab selectedTab = OptionsMenuTab.assist;
 
   @override
   Widget build(BuildContext context) {
@@ -353,53 +348,58 @@ class OptionsMenuTabButton extends StatelessWidget {
       selected: selected,
       label: label,
       child: ExcludeSemantics(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: onPressed,
-          child: Container(
-            height: optionsMenuTabHeight,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: selected
-                  ? tokens.colors.gold.withValues(alpha: 0.18)
-                  : tokens.colors.black.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(5),
-              border: Border.all(
-                color: selected
-                    ? tokens.colors.gold
-                    : tokens.colors.steel.withValues(alpha: 0.5),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth.isFinite
+                ? constraints.maxWidth
+                : 120.0;
+            final height = (width * 0.30).clamp(38.0, 52.0);
+            final iconSize = (height * 0.72).clamp(24.0, 38.0);
+            return Tooltip(
+              message: label,
+              child: ChromeAssetButton(
+                label: label,
+                tokens: tokens,
+                backgroundAsset: selected
+                    ? chromeButtonPrimaryAsset
+                    : chromeButtonSecondaryAsset,
+                textColor: selected
+                    ? tokens.colors.onAccent
+                    : tokens.colors.cardInk,
+                textSize: _optionsMenuTabTextSize(height),
+                onPressed: onPressed,
+                iconAsset: iconAsset,
+                iconSize: iconSize,
+                height: height,
+                padding: EdgeInsets.symmetric(
+                  horizontal: (height * 0.08).clamp(3.0, 6.0),
+                ),
+                spacing: (height * 0.08).clamp(3.0, 5.0),
+                expandLabel: false,
               ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                spacing: optionsMenuTabContentSpacing,
-                children: [
-                  if (iconAsset != null)
-                    ChromeAssetIcon(
-                      asset: iconAsset!,
-                      width: optionsMenuTabIconSize,
-                      height: optionsMenuTabIconSize,
-                      fit: BoxFit.contain,
-                    ),
-                  Flexible(
-                    child: ChromeScaledLabel(
-                      label,
-                      size: PixelTextSize.caption,
-                      color: selected
-                          ? tokens.colors.gold
-                          : tokens.colors.creamDim,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
   }
+}
+
+PixelTextSize _optionsMenuTabTextSize(double height) {
+  final targetFontSize = height * 0.58;
+  if (targetFontSize <= 10.5) {
+    return PixelTextSize.small;
+  }
+  if (targetFontSize <= 12) {
+    return PixelTextSize.caption2;
+  }
+  if (targetFontSize <= 15) {
+    return PixelTextSize.caption;
+  }
+  if (targetFontSize <= 18.5) {
+    return PixelTextSize.headline;
+  }
+  return PixelTextSize.title;
 }
 
 class OptionsMenuTabBody extends StatelessWidget {
@@ -445,22 +445,29 @@ class OptionsMenuTabBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return switch (selectedTab) {
-      OptionsMenuTab.session => OptionsSessionControls(
-        tokens: tokens,
-        language: language,
-        onNewGame: onNewGame,
-        onReturnToLobby: onReturnToLobby,
-        onTutorial: onTutorial,
-        confirmNewGame: confirmNewGame,
-        onConfirmNewGameChanged: onConfirmNewGameChanged,
-        confirmMainMenu: confirmMainMenu,
-        onConfirmMainMenuChanged: onConfirmMainMenuChanged,
-      ),
-      OptionsMenuTab.assist => OptionsAssistControls(
-        tokens: tokens,
-        language: language,
-        showInvalidTapHints: showInvalidTapHints,
-        onShowInvalidTapHintsChanged: onShowInvalidTapHintsChanged,
+      OptionsMenuTab.assist => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 12,
+        children: [
+          OptionsSessionControls(
+            tokens: tokens,
+            language: language,
+            onNewGame: onNewGame,
+            onReturnToLobby: onReturnToLobby,
+            onTutorial: onTutorial,
+            confirmNewGame: confirmNewGame,
+            onConfirmNewGameChanged: onConfirmNewGameChanged,
+            confirmMainMenu: confirmMainMenu,
+            onConfirmMainMenuChanged: onConfirmMainMenuChanged,
+          ),
+          Divider(color: tokens.colors.gold.withValues(alpha: 0.28)),
+          OptionsAssistControls(
+            tokens: tokens,
+            language: language,
+            showInvalidTapHints: showInvalidTapHints,
+            onShowInvalidTapHintsChanged: onShowInvalidTapHintsChanged,
+          ),
+        ],
       ),
       OptionsMenuTab.display => OptionsDisplayControls(
         tokens: tokens,

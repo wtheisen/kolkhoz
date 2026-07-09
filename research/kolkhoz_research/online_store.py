@@ -137,6 +137,7 @@ class OnlineSessionStore:
         *,
         session_id: str,
         results: list[dict[str, object]],
+        ranked: bool,
         updated_at: float,
         expires_at: float,
     ) -> None:
@@ -153,6 +154,64 @@ class OnlineSessionStore:
         controllers: list[str],
     ) -> dict[str, dict[str, object]]:
         return {}
+
+    def ensure_comrade_code(
+        self,
+        *,
+        user_id: str,
+        display_name: str,
+        updated_at: float,
+    ) -> str:
+        return _fallback_comrade_code(user_id)
+
+    def comrades_for_user(
+        self,
+        *,
+        user_id: str,
+    ) -> dict[str, object]:
+        return {
+            "user_id": user_id,
+            "comrade_code": _fallback_comrade_code(user_id),
+            "comrades": [],
+            "incoming_requests": [],
+            "outgoing_requests": [],
+        }
+
+    def send_comrade_request_by_code(
+        self,
+        *,
+        user_id: str,
+        comrade_code: str,
+        updated_at: float,
+    ) -> dict[str, object]:
+        raise ValueError("comrade profiles are not configured")
+
+    def send_comrade_request_to_user(
+        self,
+        *,
+        user_id: str,
+        comrade_user_id: str,
+        updated_at: float,
+    ) -> dict[str, object]:
+        raise ValueError("comrade profiles are not configured")
+
+    def respond_to_comrade_request(
+        self,
+        *,
+        user_id: str,
+        requester_user_id: str,
+        accept: bool,
+        updated_at: float,
+    ) -> dict[str, object] | None:
+        raise ValueError("comrade profiles are not configured")
+
+    def remove_comrade(
+        self,
+        *,
+        user_id: str,
+        comrade_user_id: str,
+    ) -> None:
+        pass
 
 
 class PostgresOnlineSessionStore(OnlineSessionStore):
@@ -553,6 +612,7 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
         *,
         session_id: str,
         results: list[dict[str, object]],
+        ranked: bool,
         updated_at: float,
         expires_at: float,
     ) -> None:
@@ -604,15 +664,23 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     """,
                     (ai_key, AI_PROFILES[ai_key]),
                 )
-            ratings = _load_ratings(cursor, human_results, ai_results)
-            rating_inputs = _rating_inputs(human_results, ai_results, ratings)
-            rating_outputs = rate_multiplayer(rating_inputs)
+            if ranked:
+                ratings = _load_ratings(cursor, human_results, ai_results)
+                rating_inputs = _rating_inputs(human_results, ai_results, ratings)
+                rating_outputs = rate_multiplayer(rating_inputs)
+            else:
+                ratings = {}
+                rating_outputs = {}
             for result in human_results:
                 user_id = str(result["user_id"])
                 won = bool(result.get("won"))
                 key = _user_rating_key(user_id)
                 output = rating_outputs.get(key)
-                if output is None:
+                if not ranked:
+                    mu = None
+                    sigma = None
+                    rating = None
+                elif output is None:
                     mu, sigma = ratings.get(key, (DEFAULT_MU, DEFAULT_SIGMA))
                     rating = None
                 else:
@@ -628,10 +696,10 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                            online_wins = online_wins + %s,
                            rating = coalesce(%s, rating),
                            peak_rating = greatest(peak_rating, coalesce(%s, rating)),
-                           rating_games = rating_games + 1,
-                           rating_mu = %s,
-                           rating_sigma = %s,
-                           rating_version = 2,
+                           rating_games = rating_games + %s,
+                           rating_mu = coalesce(%s, rating_mu),
+                           rating_sigma = coalesce(%s, rating_sigma),
+                           rating_version = case when %s then 2 else rating_version end,
                            updated_at = %s
                      where user_id = %s
                     """,
@@ -640,8 +708,10 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                         1 if won else 0,
                         rating,
                         rating,
+                        1 if ranked else 0,
                         mu,
                         sigma,
+                        ranked,
                         now,
                         user_id,
                     ),
@@ -649,7 +719,11 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
             for ai_key, result in ai_results.items():
                 won = bool(result.get("won"))
                 output = rating_outputs.get(_ai_rating_key(ai_key))
-                if output is None:
+                if not ranked:
+                    mu = None
+                    sigma = None
+                    rating = None
+                elif output is None:
                     mu, sigma = ratings.get(
                         _ai_rating_key(ai_key),
                         (DEFAULT_MU, DEFAULT_SIGMA),
@@ -668,10 +742,10 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                            online_wins = online_wins + %s,
                            rating = coalesce(%s, rating),
                            peak_rating = greatest(peak_rating, coalesce(%s, rating)),
-                           rating_games = rating_games + 1,
-                           rating_mu = %s,
-                           rating_sigma = %s,
-                           rating_version = 2,
+                           rating_games = rating_games + %s,
+                           rating_mu = coalesce(%s, rating_mu),
+                           rating_sigma = coalesce(%s, rating_sigma),
+                           rating_version = case when %s then 2 else rating_version end,
                            updated_at = %s
                      where ai_key = %s
                     """,
@@ -680,8 +754,10 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                         1 if won else 0,
                         rating,
                         rating,
+                        1 if ranked else 0,
                         mu,
                         sigma,
+                        ranked,
                         now,
                         ai_key,
                     ),
@@ -783,6 +859,393 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                 }
             return profiles
 
+    def ensure_comrade_code(
+        self,
+        *,
+        user_id: str,
+        display_name: str,
+        updated_at: float,
+    ) -> str:
+        now = _pg_timestamp(updated_at)
+        with self._lock, self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                insert into public.profiles (
+                    user_id,
+                    display_name,
+                    comrade_code,
+                    updated_at
+                )
+                values (%s, %s, %s, %s)
+                on conflict (user_id) do update
+                   set display_name = coalesce(nullif(public.profiles.display_name, ''), excluded.display_name),
+                       comrade_code = coalesce(public.profiles.comrade_code, excluded.comrade_code),
+                       updated_at = greatest(public.profiles.updated_at, excluded.updated_at)
+                returning comrade_code
+                """,
+                (user_id, display_name, _fallback_comrade_code(user_id), now),
+            )
+            row = cursor.fetchone()
+            return str(row[0])
+
+    def comrades_for_user(
+        self,
+        *,
+        user_id: str,
+    ) -> dict[str, object]:
+        with self._lock, self._connection.cursor() as cursor:
+            code = self._comrade_code_for_user(cursor, user_id)
+            cursor.execute(
+                """
+                select
+                    profiles.user_id::text,
+                    profiles.display_name,
+                    profiles.avatar_url,
+                    profiles.comrade_code,
+                    profile_stats.games_played,
+                    profile_stats.wins_total,
+                    profile_stats.offline_games,
+                    profile_stats.offline_wins,
+                    profile_stats.online_games,
+                    profile_stats.online_wins,
+                    profile_stats.rating,
+                    profile_stats.peak_rating,
+                    profile_stats.rating_games
+                  from public.user_comrades
+                  join public.profiles
+                    on profiles.user_id = user_comrades.comrade_user_id
+                  left join public.profile_stats
+                    on profile_stats.user_id = profiles.user_id
+                 where user_comrades.user_id = %s
+                 order by lower(profiles.display_name), profiles.comrade_code
+                """,
+                (user_id,),
+            )
+            comrades = [self._comrade_profile_json(row) for row in cursor.fetchall()]
+            cursor.execute(
+                """
+                select
+                    profiles.user_id::text,
+                    profiles.display_name,
+                    profiles.avatar_url,
+                    profiles.comrade_code,
+                    profile_stats.games_played,
+                    profile_stats.wins_total,
+                    profile_stats.offline_games,
+                    profile_stats.offline_wins,
+                    profile_stats.online_games,
+                    profile_stats.online_wins,
+                    profile_stats.rating,
+                    profile_stats.peak_rating,
+                    profile_stats.rating_games,
+                    user_comrade_requests.created_at
+                  from public.user_comrade_requests
+                  join public.profiles
+                    on profiles.user_id = user_comrade_requests.requester_user_id
+                  left join public.profile_stats
+                    on profile_stats.user_id = profiles.user_id
+                 where user_comrade_requests.addressee_user_id = %s
+                 order by user_comrade_requests.created_at desc
+                """,
+                (user_id,),
+            )
+            incoming = [
+                self._comrade_profile_json(row, requested_at_index=13)
+                for row in cursor.fetchall()
+            ]
+            cursor.execute(
+                """
+                select
+                    profiles.user_id::text,
+                    profiles.display_name,
+                    profiles.avatar_url,
+                    profiles.comrade_code,
+                    profile_stats.games_played,
+                    profile_stats.wins_total,
+                    profile_stats.offline_games,
+                    profile_stats.offline_wins,
+                    profile_stats.online_games,
+                    profile_stats.online_wins,
+                    profile_stats.rating,
+                    profile_stats.peak_rating,
+                    profile_stats.rating_games,
+                    user_comrade_requests.created_at
+                  from public.user_comrade_requests
+                  join public.profiles
+                    on profiles.user_id = user_comrade_requests.addressee_user_id
+                  left join public.profile_stats
+                    on profile_stats.user_id = profiles.user_id
+                 where user_comrade_requests.requester_user_id = %s
+                 order by user_comrade_requests.created_at desc
+                """,
+                (user_id,),
+            )
+            outgoing = [
+                self._comrade_profile_json(row, requested_at_index=13)
+                for row in cursor.fetchall()
+            ]
+            return {
+                "user_id": user_id,
+                "comrade_code": code,
+                "comrades": comrades,
+                "incoming_requests": incoming,
+                "outgoing_requests": outgoing,
+            }
+
+    def send_comrade_request_by_code(
+        self,
+        *,
+        user_id: str,
+        comrade_code: str,
+        updated_at: float,
+    ) -> dict[str, object]:
+        normalized = _normalize_comrade_code(comrade_code)
+        if not normalized:
+            raise ValueError("missing comrade code")
+        now = _pg_timestamp(updated_at)
+        with self._lock, self._connection.cursor() as cursor:
+            self._comrade_code_for_user(cursor, user_id)
+            cursor.execute(
+                """
+                select user_id::text
+                  from public.profiles
+                 where upper(comrade_code) = %s
+                """,
+                (normalized,),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                raise ValueError("comrade code not found")
+            comrade_user_id = str(row[0])
+            return self._send_comrade_request_to_user(
+                cursor,
+                user_id,
+                comrade_user_id,
+                now,
+            )
+
+    def send_comrade_request_to_user(
+        self,
+        *,
+        user_id: str,
+        comrade_user_id: str,
+        updated_at: float,
+    ) -> dict[str, object]:
+        now = _pg_timestamp(updated_at)
+        with self._lock, self._connection.cursor() as cursor:
+            self._comrade_code_for_user(cursor, user_id)
+            return self._send_comrade_request_to_user(
+                cursor,
+                user_id,
+                comrade_user_id,
+                now,
+            )
+
+    def _send_comrade_request_to_user(
+        self,
+        cursor: Any,
+        user_id: str,
+        comrade_user_id: str,
+        now: datetime,
+    ) -> dict[str, object]:
+        if not comrade_user_id:
+            raise ValueError("missing userID")
+        if comrade_user_id == user_id:
+            raise ValueError("cannot add yourself as a comrade")
+        self._profile_for_user(cursor, comrade_user_id)
+        cursor.execute(
+            """
+            select 1
+              from public.user_comrades
+             where user_id = %s and comrade_user_id = %s
+            """,
+            (user_id, comrade_user_id),
+        )
+        if cursor.fetchone() is not None:
+            raise ValueError("already comrades")
+        cursor.execute(
+            """
+            delete from public.user_comrade_requests
+             where requester_user_id = %s and addressee_user_id = %s
+         returning requester_user_id
+            """,
+            (comrade_user_id, user_id),
+        )
+        if cursor.fetchone() is not None:
+            self._insert_comrade_link(cursor, user_id, comrade_user_id, now)
+            self._insert_comrade_link(cursor, comrade_user_id, user_id, now)
+            profile = self._profile_for_user(cursor, comrade_user_id)
+            profile["accepted"] = True
+            return profile
+        cursor.execute(
+            """
+            insert into public.user_comrade_requests (
+                requester_user_id,
+                addressee_user_id,
+                created_at
+            )
+            values (%s, %s, %s)
+            on conflict (requester_user_id, addressee_user_id)
+            do update set created_at = excluded.created_at
+            """,
+            (user_id, comrade_user_id, now),
+        )
+        profile = self._profile_for_user(cursor, comrade_user_id)
+        profile["accepted"] = False
+        return profile
+
+    def respond_to_comrade_request(
+        self,
+        *,
+        user_id: str,
+        requester_user_id: str,
+        accept: bool,
+        updated_at: float,
+    ) -> dict[str, object] | None:
+        now = _pg_timestamp(updated_at)
+        with self._lock, self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                delete from public.user_comrade_requests
+                 where requester_user_id = %s and addressee_user_id = %s
+             returning requester_user_id
+                """,
+                (requester_user_id, user_id),
+            )
+            if cursor.fetchone() is None:
+                raise ValueError("comrade request not found")
+            if not accept:
+                return None
+            self._insert_comrade_link(cursor, user_id, requester_user_id, now)
+            self._insert_comrade_link(cursor, requester_user_id, user_id, now)
+            return self._profile_for_user(cursor, requester_user_id)
+
+    def remove_comrade(
+        self,
+        *,
+        user_id: str,
+        comrade_user_id: str,
+    ) -> None:
+        with self._lock, self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                delete from public.user_comrades
+                 where (user_id = %s and comrade_user_id = %s)
+                    or (user_id = %s and comrade_user_id = %s)
+                """,
+                (user_id, comrade_user_id, comrade_user_id, user_id),
+            )
+            cursor.execute(
+                """
+                delete from public.user_comrade_requests
+                 where (requester_user_id = %s and addressee_user_id = %s)
+                    or (requester_user_id = %s and addressee_user_id = %s)
+                """,
+                (user_id, comrade_user_id, comrade_user_id, user_id),
+            )
+
+    @staticmethod
+    def _insert_comrade_link(
+        cursor: Any,
+        user_id: str,
+        comrade_user_id: str,
+        created_at: datetime,
+    ) -> None:
+        cursor.execute(
+            """
+            insert into public.user_comrades (
+                user_id,
+                comrade_user_id,
+                created_at
+            )
+            values (%s, %s, %s)
+            on conflict (user_id, comrade_user_id) do nothing
+            """,
+            (user_id, comrade_user_id, created_at),
+        )
+
+    def _comrade_code_for_user(self, cursor: Any, user_id: str) -> str:
+        cursor.execute(
+            """
+            select comrade_code
+              from public.profiles
+             where user_id = %s
+            """,
+            (user_id,),
+        )
+        row = cursor.fetchone()
+        if row is not None and isinstance(row[0], str) and row[0]:
+            return row[0]
+        code = _fallback_comrade_code(user_id)
+        cursor.execute(
+            """
+            insert into public.profiles (user_id, display_name, comrade_code)
+            values (%s, 'Player', %s)
+            on conflict (user_id) do update
+               set comrade_code = coalesce(public.profiles.comrade_code, excluded.comrade_code)
+            returning comrade_code
+            """,
+            (user_id, code),
+        )
+        row = cursor.fetchone()
+        return str(row[0])
+
+    def _profile_for_user(self, cursor: Any, user_id: str) -> dict[str, object]:
+        cursor.execute(
+            """
+            select
+                profiles.user_id::text,
+                profiles.display_name,
+                profiles.avatar_url,
+                profiles.comrade_code,
+                profile_stats.games_played,
+                profile_stats.wins_total,
+                profile_stats.offline_games,
+                profile_stats.offline_wins,
+                profile_stats.online_games,
+                profile_stats.online_wins,
+                profile_stats.rating,
+                profile_stats.peak_rating,
+                profile_stats.rating_games
+              from public.profiles
+              left join public.profile_stats
+                on profile_stats.user_id = profiles.user_id
+             where profiles.user_id = %s
+            """,
+            (user_id,),
+        )
+        row = cursor.fetchone()
+        if row is None:
+            raise ValueError("comrade profile not found")
+        return self._comrade_profile_json(row)
+
+    @staticmethod
+    def _comrade_profile_json(
+        row: object,
+        *,
+        requested_at_index: int | None = None,
+    ) -> dict[str, object]:
+        profile = {
+            "userID": row[0],
+            "displayName": row[1],
+            "avatarURL": row[2],
+            "comradeCode": row[3],
+            "stats": {
+                "games_played": row[4] or 0,
+                "wins_total": row[5] or 0,
+                "offline_games": row[6] or 0,
+                "offline_wins": row[7] or 0,
+                "online_games": row[8] or 0,
+                "online_wins": row[9] or 0,
+                "rating": row[10] or 1000,
+                "peak_rating": row[11] or 1000,
+                "rating_games": row[12] or 0,
+            },
+        }
+        if requested_at_index is not None and row[requested_at_index] is not None:
+            profile["requestedAt"] = row[requested_at_index].timestamp()
+        return profile
+
     def _touch_session(
         self,
         cursor: Any,
@@ -831,6 +1294,15 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
 
 def _pg_timestamp(seconds: float) -> datetime:
     return datetime.fromtimestamp(seconds, tz=UTC)
+
+
+def _fallback_comrade_code(user_id: str) -> str:
+    digest = hashlib.sha256(user_id.encode("utf-8")).hexdigest().upper()
+    return digest[:5]
+
+
+def _normalize_comrade_code(value: object) -> str:
+    return "".join(character for character in str(value).upper() if character.isalnum())
 
 
 def _aggregate_ai_results(

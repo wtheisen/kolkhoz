@@ -54,7 +54,6 @@ void main() {
     ]);
     expect(englishPresetLabels, isNot(contains('Saboteur')));
     expect(OptionsMenuTab.values.map((tab) => tab.iconAsset), [
-      'ios_resources/Icons/icon-settings-session.png',
       'ios_resources/Icons/icon-settings-assist.png',
       'ios_resources/Icons/icon-settings-display.png',
       'ios_resources/Icons/icon-settings-rules.png',
@@ -1185,6 +1184,7 @@ void main() {
     ).project();
 
     expect(update.sessionID, '11111111-1111-1111-1111-111111111111');
+    expect(update.inviteCode, 'ABCDE');
     expect(model.viewer.seatID, 0);
     expect(model.table.phase, phasePlanning);
     expect(model.table.seats[0].hand.map((card) => card.id), ['wheat-13']);
@@ -1293,6 +1293,7 @@ void main() {
     final created = await client.createSession(
       variants: KolkhozGameVariants.kolkhoz,
       controllers: KolkhozPlayerController.defaultControllers,
+      ranked: false,
     );
     final sessions = await client.fetchSessions();
     final session = await client.fetchSession(created.sessionID);
@@ -1331,6 +1332,7 @@ void main() {
       jsonDecode(httpClient.requests.first.body)['variants']['deckType'],
       52,
     );
+    expect(jsonDecode(httpClient.requests.first.body)['ranked'], isFalse);
     expect(
       jsonDecode(httpClient.requests.last.body)['action']['kind'],
       kcActionSetTrump,
@@ -2677,7 +2679,8 @@ void main() {
             playerControllers: KolkhozPlayerController.defaultControllers,
             showingRules: false,
             showingOnline: false,
-            onHostOnline: (_, controllers, enterImmediately) async => 'session',
+            onHostOnline: (_, controllers, enterImmediately, _) async =>
+                'session',
             onJoinOnline: (_, _, _) async {},
             onEnterOnlineGame: () {},
             onPresetChanged: (_) {},
@@ -2721,7 +2724,7 @@ void main() {
               playerControllers: KolkhozPlayerController.defaultControllers,
               showingRules: false,
               showingOnline: true,
-              onHostOnline: (_, controllers, enterImmediately) async =>
+              onHostOnline: (_, controllers, enterImmediately, _) async =>
                   'session',
               onJoinOnline: (_, _, _) async {},
               onEnterOnlineGame: () {},
@@ -2764,7 +2767,7 @@ void main() {
               playerControllers: KolkhozPlayerController.defaultControllers,
               showingRules: false,
               showingOnline: false,
-              onHostOnline: (_, controllers, enterImmediately) async =>
+              onHostOnline: (_, controllers, enterImmediately, _) async =>
                   'session',
               onJoinOnline: (_, _, _) async {},
               onEnterOnlineGame: () {},
@@ -2801,7 +2804,7 @@ void main() {
               playerControllers: KolkhozPlayerController.defaultControllers,
               showingRules: true,
               showingOnline: false,
-              onHostOnline: (_, controllers, enterImmediately) async =>
+              onHostOnline: (_, controllers, enterImmediately, _) async =>
                   'session',
               onJoinOnline: (_, _, _) async {},
               onEnterOnlineGame: () {},
@@ -2847,6 +2850,10 @@ void main() {
             showingRules: false,
             showingOnline: false,
             showingProfile: true,
+            cloudConfigured: true,
+            cloudReady: true,
+            cloudSignedIn: true,
+            cloudEmail: 'mira@example.com',
             displayName: 'Mira',
             portraitAsset: 'worker1',
             profileStats: const KolkhozProfileStats(
@@ -2858,7 +2865,7 @@ void main() {
               totalWins: 9,
               totalLosses: 7,
             ),
-            onHostOnline: (_, _, _) async => 'session',
+            onHostOnline: (_, _, _, _) async => 'session',
             onJoinOnline: (_, _, _) async {},
             onEnterOnlineGame: () {},
             onPresetChanged: (_) {},
@@ -2877,7 +2884,7 @@ void main() {
       ),
     );
 
-    expect(find.text('DISPLAY NAME'), findsOneWidget);
+    expect(find.text('DISPLAY NAME'), findsNothing);
     expect(find.text('STATS'), findsOneWidget);
     expect(find.text('OFFLINE'), findsOneWidget);
     expect(find.text('ONLINE'), findsOneWidget);
@@ -2887,14 +2894,67 @@ void main() {
     expect(find.text('1125'), findsOneWidget);
     expect(find.text('Mira'), findsWidgets);
 
-    await tester.enterText(find.byType(TextField), 'Nadia');
+    final displayNameField = find.byWidgetPredicate(
+      (widget) => widget is TextField && widget.controller?.text == 'Mira',
+    );
+    await tester.enterText(displayNameField, 'Nadia');
     await tester.pump();
-    await tester.ensureVisible(find.bySemanticsLabel('worker3'));
+    await tester.tap(find.bySemanticsLabel('worker1'));
+    await tester.pumpAndSettle();
     await tester.tap(find.bySemanticsLabel('worker3'));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(displayName, 'Nadia');
     expect(portraitAsset, 'worker3');
+  });
+
+  testWidgets('profile panel hides player card and stats while signed out', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 844,
+          height: 520,
+          child: StandaloneLobby(
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
+            appearance: KolkhozAppearance.dark,
+            onStart: () {},
+            selectedPreset: KolkhozGamePreset.kolkhoz,
+            customVariants: KolkhozGameVariants.kolkhoz,
+            playerControllers: KolkhozPlayerController.defaultControllers,
+            showingRules: false,
+            showingOnline: false,
+            showingProfile: true,
+            cloudConfigured: true,
+            cloudReady: true,
+            cloudSignedIn: false,
+            displayName: 'Mira',
+            portraitAsset: 'worker1',
+            profileStats: const KolkhozProfileStats(rating: 1125),
+            onHostOnline: (_, _, _, _) async => 'session',
+            onJoinOnline: (_, _, _) async {},
+            onEnterOnlineGame: () {},
+            onPresetChanged: (_) {},
+            onCustomVariantsChanged: (_) {},
+            onPlayerControllersChanged: (_) {},
+            onRulesPressed: () {},
+            onOfflinePressed: () {},
+            onOnlinePressed: () {},
+            onTutorialPressed: () {},
+            onLanguageToggle: () {},
+            onAppearanceToggle: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('STATS'), findsNothing);
+    expect(find.text('Mira'), findsNothing);
+    expect(find.text('1125'), findsNothing);
+    expect(find.bySemanticsLabel('worker1'), findsNothing);
+    expect(find.byType(TextField), findsNWidgets(3));
   });
 
   testWidgets('profile account creation requires matching passwords', (
@@ -2934,7 +2994,7 @@ void main() {
             showingProfile: true,
             cloudConfigured: true,
             cloudReady: true,
-            onHostOnline: (_, _, _) async => 'session',
+            onHostOnline: (_, _, _, _) async => 'session',
             onJoinOnline: (_, _, _) async {},
             onEnterOnlineGame: () {},
             onPresetChanged: (_) {},
@@ -2994,7 +3054,8 @@ void main() {
             playerControllers: KolkhozPlayerController.defaultControllers,
             showingRules: false,
             showingOnline: false,
-            onHostOnline: (_, controllers, enterImmediately) async => 'session',
+            onHostOnline: (_, controllers, enterImmediately, _) async =>
+                'session',
             onJoinOnline: (_, _, _) async {},
             onEnterOnlineGame: () {},
             onPresetChanged: (_) {},
@@ -3023,12 +3084,13 @@ void main() {
     expect(changedControllers![1], KolkhozPlayerController.heuristicAI);
   });
 
-  testWidgets('create lobby can mark seats online and host online game', (
+  testWidgets('create lobby can mark seats online and wait after hosting', (
     tester,
   ) async {
     List<KolkhozPlayerController>? changedControllers;
     List<KolkhozPlayerController>? hostedControllers;
     bool? enterImmediately;
+    bool? ranked;
     var enterCalls = 0;
 
     await tester.pumpWidget(
@@ -3046,11 +3108,13 @@ void main() {
             playerControllers: KolkhozPlayerController.defaultControllers,
             showingRules: false,
             showingOnline: false,
-            onHostOnline: (_, controllers, enterImmediatelyValue) async {
-              hostedControllers = controllers;
-              enterImmediately = enterImmediatelyValue;
-              return 'session';
-            },
+            onHostOnline:
+                (_, controllers, enterImmediatelyValue, rankedValue) async {
+                  hostedControllers = controllers;
+                  enterImmediately = enterImmediatelyValue;
+                  ranked = rankedValue;
+                  return 'session';
+                },
             onJoinOnline: (_, _, _) async {},
             onEnterOnlineGame: () => enterCalls += 1,
             onPresetChanged: (_) {},
@@ -3079,6 +3143,12 @@ void main() {
     expect(changedControllers, isNotNull);
     expect(changedControllers![1], KolkhozPlayerController.human);
     expect(find.text('START ONLINE GAME'), findsOneWidget);
+    expect(find.text('RANKED'), findsOneWidget);
+
+    await tester.tap(find.text('RANKED'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('CASUAL'), findsOneWidget);
 
     await tester.tap(find.text('START ONLINE GAME'));
     await tester.pump();
@@ -3087,8 +3157,9 @@ void main() {
     expect(hostedControllers![0], KolkhozPlayerController.human);
     expect(hostedControllers![1], KolkhozPlayerController.human);
     expect(hostedControllers![2], KolkhozPlayerController.neuralAI);
-    expect(enterImmediately, isTrue);
-    expect(enterCalls, 1);
+    expect(enterImmediately, isFalse);
+    expect(ranked, isFalse);
+    expect(enterCalls, 0);
   });
 
   testWidgets('demo lobby locks setup while signed out', (tester) async {
@@ -3111,7 +3182,8 @@ void main() {
             playerControllers: KolkhozPlayerController.defaultControllers,
             showingRules: false,
             showingOnline: false,
-            onHostOnline: (_, controllers, enterImmediately) async => 'session',
+            onHostOnline: (_, controllers, enterImmediately, _) async =>
+                'session',
             onJoinOnline: (_, _, _) async {},
             onEnterOnlineGame: () {},
             onPresetChanged: (_) => presetChanges += 1,
@@ -3128,24 +3200,23 @@ void main() {
       ),
     );
 
-    expect(
-      find.text('Demo mode: 2-year Kolkhoz with easy AI.'),
-      findsOneWidget,
-    );
+    expect(find.text('Demo mode: 2-year Kolkhoz with easy AI.'), findsNothing);
+    expect(find.text('DEMO MODE'), findsOneWidget);
+    expect(find.text('2-year Kolkhoz with easy AI'), findsOneWidget);
     expect(
       find.byWidgetPredicate(
         (widget) =>
             widget is Image &&
             widget.image is AssetImage &&
             (widget.image as AssetImage).assetName ==
-                'ios_resources/Icons/icon-demo.png',
+                'ios_resources/Icons/icon-year-2.png',
       ),
-      findsWidgets,
+      findsOneWidget,
     );
     expect(find.text('52 CARDS / 2 YEARS'), findsOneWidget);
     expect(KolkhozGameVariants.demoKolkhoz.wreckerCard, isTrue);
 
-    await tester.tap(find.text('LITTLE KOLKHOZ'));
+    await tester.tap(find.bySemanticsLabel('Little Kolkhoz'));
     await tester.tap(find.bySemanticsLabel('P2 Easy'));
     await tester.pumpAndSettle();
 
@@ -3172,7 +3243,8 @@ void main() {
             playerControllers: KolkhozPlayerController.defaultControllers,
             showingRules: false,
             showingOnline: true,
-            onHostOnline: (_, _, _) async => 'session',
+            hostedInviteCode: 'ABCDE',
+            onHostOnline: (_, _, _, _) async => 'session',
             onJoinOnline: (_, _, _) async {
               throw const SocketException('denied');
             },
@@ -3191,7 +3263,11 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('JOIN GAME').last);
+    expect(find.text('YOUR INVITE CODE'), findsOneWidget);
+    expect(find.text('ABCDE'), findsOneWidget);
+    expect(find.text('COPY CODE'), findsOneWidget);
+
+    await tester.tap(find.text('ASSIGN GAME'));
     await tester.pump();
 
     expect(
@@ -3431,6 +3507,31 @@ void main() {
     expect(find.byType(CompactBoardShell), findsNothing);
     expect(find.byType(CompactBoardToolbar), findsNothing);
     expect(find.byType(BoardRail), findsOneWidget);
+  });
+
+  testWidgets('player portrait expands in-game player info in place', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: KolkhozBoard(
+          model: runtimeModel(),
+          tokens: defaultDesignTokens,
+          language: KolkhozLanguage.en,
+          appearance: KolkhozAppearance.dark,
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('player-portrait-0-inspect')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(find.byType(Dialog), findsNothing);
+    expect(find.byKey(const Key('player-info-panel-0')), findsOneWidget);
+    expect(find.text('PLAYER'), findsOneWidget);
+    expect(find.text('SCORE'), findsOneWidget);
+    expect(find.text('HAND'), findsOneWidget);
   });
 
   test('brigade display helpers project column geometry', () {
@@ -4144,6 +4245,7 @@ Finder findAssetImage(String assetName) {
 Map<String, Object?> onlineUpdateJson() {
   return {
     'sessionID': '11111111-1111-1111-1111-111111111111',
+    'inviteCode': 'ABCDE',
     'viewerID': 0,
     'actionLogCount': 0,
     'isViewerTurn': true,
@@ -4284,6 +4386,7 @@ class FakeOnlineHttpClient implements HttpClient {
     if (method == 'POST' && uri.path == '/sessions') {
       return FakeOnlineHttpClientResponse.json({
         'sessionID': '11111111-1111-1111-1111-111111111111',
+        'inviteCode': 'ABCDE',
         'playerID': 0,
         'seatToken': 'seat-token-0',
         'update': onlineUpdateJson(),
@@ -4293,6 +4396,7 @@ class FakeOnlineHttpClient implements HttpClient {
       return FakeOnlineHttpClientResponse.json([
         {
           'sessionID': '11111111-1111-1111-1111-111111111111',
+          'inviteCode': 'ABCDE',
           'openSeats': [1],
           'occupiedSeats': [0],
           'controllers': ['human', 'human', 'heuristicAI', 'heuristicAI'],
@@ -4306,6 +4410,7 @@ class FakeOnlineHttpClient implements HttpClient {
         uri.path == '/sessions/11111111-1111-1111-1111-111111111111') {
       return FakeOnlineHttpClientResponse.json({
         'sessionID': '11111111-1111-1111-1111-111111111111',
+        'inviteCode': 'ABCDE',
         'openSeats': <int>[],
         'occupiedSeats': [0, 1],
         'controllers': ['human', 'human', 'heuristicAI', 'heuristicAI'],

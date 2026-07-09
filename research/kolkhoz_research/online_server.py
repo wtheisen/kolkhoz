@@ -69,6 +69,8 @@ CONTROLLER_NAMES = {
     CONTROLLER_HEURISTIC_AI: "heuristicAI",
     CONTROLLER_POLICY_AI: "neuralAI",
 }
+INVITE_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+INVITE_CODE_LENGTH = 5
 
 
 class OnlineServerError(Exception):
@@ -320,6 +322,16 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
         service = self.server.service
         if method == "GET" and parts == ["health"]:
             return {"status": "ok"}
+        if len(parts) >= 1 and parts[0] == "comrades":
+            user_id = service.user_id_from_authorization(_authorization_header(headers))
+            if method == "GET" and len(parts) == 1:
+                return service.comrades(user_id=user_id)
+            if method == "POST" and len(parts) == 1:
+                return service.send_comrade_request(body, user_id=user_id)
+            if method == "POST" and len(parts) == 2 and parts[1] == "respond":
+                return service.respond_to_comrade_request(body, user_id=user_id)
+            if method == "POST" and len(parts) == 2 and parts[1] == "remove":
+                return service.remove_comrade(body, user_id=user_id)
         if method == "GET" and parts == ["sessions"]:
             return service.list_sessions()
         if method == "POST" and parts == ["sessions"]:
@@ -432,10 +444,12 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
 @dataclass
 class HostedSession:
     session_id: str
+    invite_code: str
     engine_pointer: ctypes.c_void_p
     seed: int
     variants: dict[str, object]
     controllers: list[str]
+    ranked: bool
     occupied_seats: set[int]
     seat_tokens: dict[int, str]
     seat_user_ids: dict[int, str]
@@ -542,8 +556,10 @@ class KolkhozOnlineSessionService:
             self._prune_expired_sessions()
             variants = _normalize_variants(request.get("variants"))
             controllers = _normalize_controllers(request.get("controllers"))
+            ranked = _optional_bool(request.get("ranked"), True)
             seed = _optional_int(request.get("seed")) or int(time.time_ns())
             session_id = str(uuid.uuid4())
+            invite_code = self._generate_invite_code()
             now = time.time()
             pointer = self.engine.new_engine(
                 seed,
@@ -552,10 +568,12 @@ class KolkhozOnlineSessionService:
             )
             hosted = HostedSession(
                 session_id=session_id,
+                invite_code=invite_code,
                 engine_pointer=pointer,
                 seed=seed,
                 variants=variants,
                 controllers=controllers,
+                ranked=ranked,
                 occupied_seats=set(),
                 seat_tokens={},
                 seat_user_ids={},
@@ -591,6 +609,7 @@ class KolkhozOnlineSessionService:
             print(f"Hosted online session {session_id} for player {player_id}", flush=True)
             return {
                 "sessionID": session_id,
+                "inviteCode": hosted.invite_code,
                 "playerID": player_id,
                 "seatToken": seat_token,
                 "update": self._update(hosted, player_id),
@@ -630,6 +649,7 @@ class KolkhozOnlineSessionService:
             )
             return {
                 "sessionID": hosted.session_id,
+                "inviteCode": hosted.invite_code,
                 "playerID": player_id,
                 "seatToken": seat_token,
                 "update": self._update(hosted, player_id),
@@ -659,6 +679,7 @@ class KolkhozOnlineSessionService:
             self._persist_finished_if_needed(hosted)
             return {
                 "sessionID": hosted.session_id,
+                "inviteCode": hosted.invite_code,
                 "playerID": player_id,
                 "penalty": penalty or {},
                 "update": self._update(hosted, player_id),
@@ -688,6 +709,108 @@ class KolkhozOnlineSessionService:
         if self.auth_verifier is None:
             return None
         return self.auth_verifier.user_id_from_authorization(authorization)
+
+    def comrades(self, *, user_id: str | None = None) -> dict[str, object]:
+        with self._lock:
+            self._require_authenticated_user(user_id)
+            if user_id is None or self.store is None:
+                return {"userID": user_id, "comradeCode": None, "comrades": []}
+            self.store.ensure_comrade_code(
+                user_id=user_id,
+                display_name="Player",
+                updated_at=time.time(),
+            )
+            return _comrades_response(self.store.comrades_for_user(user_id=user_id))
+
+    def send_comrade_request(
+        self,
+        request: dict[str, object],
+        *,
+        user_id: str | None = None,
+    ) -> dict[str, object]:
+        with self._lock:
+            self._require_authenticated_user(user_id)
+            if user_id is None or self.store is None:
+                raise OnlineServerError(
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    "comrade profiles are not configured",
+                )
+            try:
+                comrade_user_id = str(request.get("userID") or "").strip()
+                if comrade_user_id:
+                    profile = self.store.send_comrade_request_to_user(
+                        user_id=user_id,
+                        comrade_user_id=comrade_user_id,
+                        updated_at=time.time(),
+                    )
+                else:
+                    code = str(request.get("comradeCode") or "").strip()
+                    if not code:
+                        raise OnlineServerError(
+                            HTTPStatus.BAD_REQUEST,
+                            "missing comrade code",
+                        )
+                    profile = self.store.send_comrade_request_by_code(
+                        user_id=user_id,
+                        comrade_code=code,
+                        updated_at=time.time(),
+                    )
+            except ValueError as error:
+                raise OnlineServerError(HTTPStatus.NOT_FOUND, str(error)) from error
+            key = "comrade" if profile.get("accepted") is True else "request"
+            return {key: _comrade_profile_response(profile)}
+
+    def respond_to_comrade_request(
+        self,
+        request: dict[str, object],
+        *,
+        user_id: str | None = None,
+    ) -> dict[str, object]:
+        with self._lock:
+            self._require_authenticated_user(user_id)
+            if user_id is None or self.store is None:
+                raise OnlineServerError(
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    "comrade profiles are not configured",
+                )
+            requester_user_id = str(request.get("userID") or "").strip()
+            if not requester_user_id:
+                raise OnlineServerError(HTTPStatus.BAD_REQUEST, "missing userID")
+            accept = bool(request.get("accept"))
+            try:
+                profile = self.store.respond_to_comrade_request(
+                    user_id=user_id,
+                    requester_user_id=requester_user_id,
+                    accept=accept,
+                    updated_at=time.time(),
+                )
+            except ValueError as error:
+                raise OnlineServerError(HTTPStatus.NOT_FOUND, str(error)) from error
+            if profile is None:
+                return {"accepted": False}
+            return {"accepted": True, "comrade": _comrade_profile_response(profile)}
+
+    def remove_comrade(
+        self,
+        request: dict[str, object],
+        *,
+        user_id: str | None = None,
+    ) -> dict[str, object]:
+        with self._lock:
+            self._require_authenticated_user(user_id)
+            if user_id is None or self.store is None:
+                raise OnlineServerError(
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    "comrade profiles are not configured",
+                )
+            comrade_user_id = str(request.get("userID") or "").strip()
+            if not comrade_user_id:
+                raise OnlineServerError(HTTPStatus.BAD_REQUEST, "missing userID")
+            self.store.remove_comrade(
+                user_id=user_id,
+                comrade_user_id=comrade_user_id,
+            )
+            return {"removed": True}
 
     def list_sessions(self) -> list[dict[str, object]]:
         with self._lock:
@@ -798,6 +921,10 @@ class KolkhozOnlineSessionService:
 
     def _session(self, session_id: str) -> HostedSession:
         self._prune_expired_sessions()
+        normalized_invite = session_id.strip().upper()
+        for hosted in self._sessions.values():
+            if hosted.invite_code == normalized_invite:
+                return hosted
         try:
             uuid.UUID(session_id)
         except ValueError as error:
@@ -806,6 +933,19 @@ class KolkhozOnlineSessionService:
         if hosted is None:
             raise OnlineServerError(HTTPStatus.NOT_FOUND, "session not found")
         return hosted
+
+    def _generate_invite_code(self) -> str:
+        for _ in range(100):
+            code = "".join(
+                secrets.choice(INVITE_CODE_ALPHABET)
+                for _ in range(INVITE_CODE_LENGTH)
+            )
+            if all(hosted.invite_code != code for hosted in self._sessions.values()):
+                return code
+        raise OnlineServerError(
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            "could not allocate invite code",
+        )
 
     def _issue_seat_token(self, hosted: HostedSession, player_id: int) -> str:
         token = secrets.token_urlsafe(24)
@@ -896,9 +1036,11 @@ class KolkhozOnlineSessionService:
         now = time.time()
         return {
             "sessionID": hosted.session_id,
+            "inviteCode": hosted.invite_code,
             "openSeats": self._open_seats(hosted),
             "occupiedSeats": sorted(hosted.occupied_seats),
             "controllers": hosted.controllers,
+            "ranked": hosted.ranked,
             "playerProfiles": self._player_profiles(hosted),
             "seatPresence": self._seat_presence_json(hosted, now),
             "turnPlayerID": hosted.turn_player_id,
@@ -1237,6 +1379,7 @@ class KolkhozOnlineSessionService:
             self.store.finish_session(
                 session_id=hosted.session_id,
                 results=results,
+                ranked=hosted.ranked,
                 updated_at=hosted.last_seen_at,
                 expires_at=self._expires_at(hosted),
             )
@@ -1369,10 +1512,12 @@ class KolkhozOnlineSessionService:
         )
         replay_hosted = HostedSession(
             session_id=hosted.session_id,
+            invite_code=hosted.invite_code,
             engine_pointer=replay,
             seed=hosted.seed,
             variants=hosted.variants,
             controllers=hosted.controllers,
+            ranked=hosted.ranked,
             occupied_seats=set(hosted.occupied_seats),
             seat_tokens=dict(hosted.seat_tokens),
             seat_user_ids=dict(hosted.seat_user_ids),
@@ -1443,6 +1588,7 @@ class KolkhozOnlineSessionService:
         )
         return {
             "sessionID": hosted.session_id,
+            "inviteCode": hosted.invite_code,
             "viewerID": viewer_id,
             "actionLogCount": len(hosted.action_log),
             "isViewerTurn": is_viewer_turn,
@@ -1451,6 +1597,7 @@ class KolkhozOnlineSessionService:
             else [],
             "variants": hosted.variants,
             "controllers": hosted.controllers,
+            "ranked": hosted.ranked,
             "playerProfiles": self._player_profiles(hosted),
             "seatPresence": self._seat_presence_json(hosted, time.time()),
             "turnPlayerID": hosted.turn_player_id,
@@ -1622,6 +1769,42 @@ def _display_timestamp(value: object) -> str:
     if isinstance(value, (int, float)):
         return time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(float(value)))
     return "the discipline period ends"
+
+
+def _comrades_response(value: dict[str, object]) -> dict[str, object]:
+    comrades = value.get("comrades")
+    return {
+        "userID": value.get("user_id") or value.get("userID"),
+        "comradeCode": value.get("comrade_code") or value.get("comradeCode"),
+        "comrades": [
+            _comrade_profile_response(profile)
+            for profile in comrades
+            if isinstance(profile, dict)
+        ]
+        if isinstance(comrades, list)
+        else [],
+        "incomingRequests": [
+            _comrade_profile_response(profile)
+            for profile in value.get("incoming_requests", value.get("incomingRequests", []))
+            if isinstance(profile, dict)
+        ],
+        "outgoingRequests": [
+            _comrade_profile_response(profile)
+            for profile in value.get("outgoing_requests", value.get("outgoingRequests", []))
+            if isinstance(profile, dict)
+        ],
+    }
+
+
+def _comrade_profile_response(profile: dict[str, object]) -> dict[str, object]:
+    return {
+        "userID": profile.get("user_id") or profile.get("userID"),
+        "displayName": profile.get("display_name") or profile.get("displayName"),
+        "avatarURL": profile.get("avatar_url") or profile.get("avatarURL"),
+        "comradeCode": profile.get("comrade_code") or profile.get("comradeCode"),
+        "requestedAt": profile.get("requested_at") or profile.get("requestedAt"),
+        "stats": profile.get("stats") if isinstance(profile.get("stats"), dict) else {},
+    }
 
 
 def _normalize_variants(value: object) -> dict[str, object]:
@@ -1857,6 +2040,20 @@ def _optional_int(value: object, default: int | None = None) -> int | None:
         return int(value)
     except (TypeError, ValueError) as error:
         raise OnlineServerError(HTTPStatus.BAD_REQUEST, "expected integer") from error
+
+
+def _optional_bool(value: object, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"true", "1", "yes"}:
+            return True
+        if lowered in {"false", "0", "no"}:
+            return False
+    raise OnlineServerError(HTTPStatus.BAD_REQUEST, "expected boolean")
 
 
 def _required_int(value: object, field: str) -> int:

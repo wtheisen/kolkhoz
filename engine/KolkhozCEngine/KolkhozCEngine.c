@@ -40,6 +40,38 @@ int32_t kc_lead_suit(const KCEngine *engine) {
 static void kc_process_automatic_turns(KCEngine *engine);
 static int32_t kc_engine_apply_action(KCEngine *engine, KCAction action);
 
+static int32_t kc_single_assignment_target(const KCEngine *engine) {
+    int32_t only_target = KC_NO_SUIT;
+    int32_t target_count = 0;
+    for (int32_t suit = 0; suit < KC_SUIT_COUNT; suit++) {
+        bool legal = false;
+        for (int32_t i = 0; i < engine->last_trick_count; i++) {
+            if (kc_card_matches_suit(engine->last_trick[i].card, suit)) {
+                legal = true;
+                break;
+            }
+        }
+        if (legal) {
+            only_target = suit;
+            target_count++;
+            if (target_count > 1) {
+                return KC_NO_SUIT;
+            }
+        }
+    }
+    return target_count == 1 ? only_target : KC_NO_SUIT;
+}
+
+static void kc_prefill_single_assignment_target(KCEngine *engine) {
+    int32_t target = kc_single_assignment_target(engine);
+    if (target < 0) {
+        return;
+    }
+    for (int32_t i = 0; i < engine->last_trick_count; i++) {
+        engine->pending_assignment_targets[i] = target;
+    }
+}
+
 static uint64_t kc_next(KCEngine *engine) {
     if (engine->rng_state == 0) {
         engine->rng_state = 1;
@@ -1058,6 +1090,7 @@ static void kc_resolve_current_trick(KCEngine *engine) {
     for (int32_t i = 0; i < KC_PLAYER_COUNT; i++) {
         engine->pending_assignment_targets[i] = KC_NO_SUIT;
     }
+    kc_prefill_single_assignment_target(engine);
 }
 
 static int32_t kc_play_card_index(KCEngine *engine, int32_t player_id, int32_t card_index) {

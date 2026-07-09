@@ -139,6 +139,8 @@ class OnlineTableProjection {
       ),
       medals: player?.medals ?? 0,
       visibleScore: scoreFor(seatID).visibleScore,
+      profileStats: profile?.stats,
+      profileUserID: profile?.userID,
       statusText: _seatStatus(seatID, controller, presence),
     );
   }
