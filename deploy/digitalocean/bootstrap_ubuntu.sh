@@ -31,9 +31,10 @@ if [[ ! -d "$app_dir/.git" ]]; then
 fi
 
 cd "$app_dir"
-git fetch --all --prune
-git checkout "$repo_ref"
-git pull --ff-only origin "$repo_ref"
+git_safe=(git -c safe.directory="$app_dir")
+"${git_safe[@]}" fetch --all --prune
+"${git_safe[@]}" checkout "$repo_ref"
+"${git_safe[@]}" pull --ff-only origin "$repo_ref"
 
 python3 -m venv "$app_dir/.venv"
 "$app_dir/.venv/bin/python" -m pip install --upgrade pip
@@ -65,4 +66,4 @@ fi
 systemctl restart kolkhoz-online.service
 
 echo "Bootstrap complete."
-echo "Kolkhoz online is running from $(git rev-parse HEAD)."
+echo "Kolkhoz online is running from $("${git_safe[@]}" rev-parse HEAD)."
