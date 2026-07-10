@@ -157,6 +157,20 @@ class OnlineSessionStore:
     ) -> None:
         pass
 
+    def append_reaction(
+        self,
+        *,
+        session_id: str,
+        revision: int,
+        player_id: int,
+        reaction_id: str,
+        year: int,
+        phase: int,
+        created_at: float,
+        expires_at: float,
+    ) -> None:
+        pass
+
     def load_session(self, session_id_or_invite: str) -> dict[str, object] | None:
         return None
 
@@ -175,6 +189,17 @@ class OnlineSessionStore:
         session_id: str,
         turn_player_id: int | None,
         turn_deadline_at: float | None,
+        updated_at: float,
+        expires_at: float,
+    ) -> None:
+        pass
+
+    def update_lobby_state(
+        self,
+        *,
+        session_id: str,
+        started: bool,
+        lobby_countdown_ends_at: float | None,
         updated_at: float,
         expires_at: float,
     ) -> None:
@@ -470,14 +495,7 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
     ) -> None:
         now = _pg_timestamp(created_at)
         expires = _pg_timestamp(expires_at)
-        status = (
-            "open"
-            if any(
-                controller == "human" and player_id not in occupied_seats
-                for player_id, controller in enumerate(controllers)
-            )
-            else "active"
-        )
+        status = "open"
         with self._lock, self._connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -576,7 +594,8 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     expires_at,
                     action_log_count,
                     turn_player_id,
-                    turn_deadline_at
+                    turn_deadline_at,
+                    lobby_countdown_ends_at
                   from public.game_sessions
                  where {where}
                    and status in ('open', 'active')
@@ -617,6 +636,16 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                 (session_id,),
             )
             actions = cursor.fetchall()
+            cursor.execute(
+                """
+                select revision, player_id, reaction_id, year, phase, created_at
+                  from public.game_reactions
+                 where session_id = %s
+                 order by revision
+                """,
+                (session_id,),
+            )
+            reactions = cursor.fetchall()
         return {
             "session_id": session_id,
             "invite_code": session[1],
@@ -633,6 +662,7 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
             "action_log_count": int(session[12]),
             "turn_player_id": session[13],
             "turn_deadline_at": _timestamp_seconds(session[14]),
+            "lobby_countdown_ends_at": _timestamp_seconds(session[15]),
             "seats": [
                 {
                     "player_id": int(row[0]),
@@ -655,6 +685,17 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     "created_at": _timestamp_seconds(row[3]),
                 }
                 for row in actions
+            ],
+            "reactions": [
+                {
+                    "revision": int(row[0]),
+                    "playerID": int(row[1]),
+                    "reactionID": str(row[2]),
+                    "year": int(row[3]),
+                    "phase": int(row[4]),
+                    "createdAt": _timestamp_seconds(row[5]),
+                }
+                for row in reactions
             ],
         }
 
@@ -695,16 +736,7 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
             cursor.execute(
                 """
                 update public.game_sessions
-                   set status = case
-                       when exists (
-                           select 1
-                             from public.game_seats
-                            where game_seats.session_id = game_sessions.session_id
-                              and game_seats.controller = 'human'
-                              and not game_seats.occupied
-                       ) then 'open'
-                       else 'active'
-                   end
+                   set status = 'open'
                  where session_id = %s
                 """,
                 (session_id,),
@@ -748,6 +780,38 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
             )
             self._insert_update(cursor, session_id, revision, "action", now)
 
+    def append_reaction(
+        self,
+        *,
+        session_id: str,
+        revision: int,
+        player_id: int,
+        reaction_id: str,
+        year: int,
+        phase: int,
+        created_at: float,
+        expires_at: float,
+    ) -> None:
+        now = _pg_timestamp(created_at)
+        with self._lock, self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                insert into public.game_reactions (
+                    session_id,
+                    revision,
+                    player_id,
+                    reaction_id,
+                    year,
+                    phase,
+                    created_at
+                )
+                values (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (session_id, revision, player_id, reaction_id, year, phase, now),
+            )
+            self._touch_session(cursor, session_id, now, expires_at)
+            self._insert_update(cursor, session_id, None, "reaction", now)
+
     def touch_session(
         self,
         *,
@@ -785,6 +849,47 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                  where session_id = %s
                 """,
                 (turn_player_id, deadline, now, _pg_timestamp(expires_at), session_id),
+            )
+
+    def update_lobby_state(
+        self,
+        *,
+        session_id: str,
+        started: bool,
+        lobby_countdown_ends_at: float | None,
+        updated_at: float,
+        expires_at: float,
+    ) -> None:
+        now = _pg_timestamp(updated_at)
+        countdown_ends_at = (
+            _pg_timestamp(lobby_countdown_ends_at)
+            if lobby_countdown_ends_at is not None
+            else None
+        )
+        with self._lock, self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                update public.game_sessions
+                   set status = %s,
+                       lobby_countdown_ends_at = %s,
+                       updated_at = %s,
+                       expires_at = %s
+                 where session_id = %s
+                """,
+                (
+                    "active" if started else "open",
+                    countdown_ends_at,
+                    now,
+                    _pg_timestamp(expires_at),
+                    session_id,
+                ),
+            )
+            self._insert_update(
+                cursor,
+                session_id,
+                None,
+                "game_started" if started else "lobby_updated",
+                now,
             )
 
     def touch_seat(
@@ -961,16 +1066,7 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
             cursor.execute(
                 """
                 update public.game_sessions
-                   set status = case
-                       when exists (
-                           select 1
-                             from public.game_seats
-                            where game_seats.session_id = game_sessions.session_id
-                              and game_seats.controller = 'human'
-                              and not game_seats.occupied
-                       ) then 'open'
-                       else 'active'
-                   end
+                   set status = 'open'
                  where session_id = %s
                 """,
                 (session_id,),
@@ -1008,16 +1104,7 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
             cursor.execute(
                 """
                 update public.game_sessions
-                   set status = case
-                       when exists (
-                           select 1
-                             from public.game_seats
-                            where game_seats.session_id = game_sessions.session_id
-                              and game_seats.controller = 'human'
-                              and not game_seats.occupied
-                       ) then 'open'
-                       else 'active'
-                   end,
+                   set status = 'open',
                        updated_at = %s,
                        expires_at = %s
                  where session_id = %s

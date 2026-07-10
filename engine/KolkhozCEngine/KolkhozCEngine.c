@@ -353,7 +353,7 @@ static void kc_setup_decks(KCEngine *engine) {
     kc_deal_hands(engine);
 }
 
-void kc_engine_init_with_controllers(KCEngine *engine, uint64_t seed, KCVariants variants, KCControllers controllers) {
+static void kc_engine_init_with_controllers_internal(KCEngine *engine, uint64_t seed, KCVariants variants, KCControllers controllers, bool process_automatic) {
     memset(engine, 0, sizeof(*engine));
     engine->rng_state = seed == 0 ? 1 : seed;
     engine->variants = variants;
@@ -372,7 +372,17 @@ void kc_engine_init_with_controllers(KCEngine *engine, uint64_t seed, KCVariants
     engine->phase = KC_PHASE_PLANNING;
     kc_reset_year_work(engine);
     kc_setup_decks(engine);
-    kc_process_automatic_turns(engine);
+    if (process_automatic) {
+        kc_process_automatic_turns(engine);
+    }
+}
+
+void kc_engine_init_with_controllers(KCEngine *engine, uint64_t seed, KCVariants variants, KCControllers controllers) {
+    kc_engine_init_with_controllers_internal(engine, seed, variants, controllers, true);
+}
+
+void kc_engine_init_with_controllers_stepwise(KCEngine *engine, uint64_t seed, KCVariants variants, KCControllers controllers) {
+    kc_engine_init_with_controllers_internal(engine, seed, variants, controllers, false);
 }
 
 void kc_engine_init(KCEngine *engine, uint64_t seed, KCVariants variants) {
@@ -993,6 +1003,21 @@ int32_t kc_engine_step_automatic(KCEngine *engine) {
     return error == 0 ? 1 : -error;
 }
 
+bool kc_engine_heuristic_action(const KCEngine *engine, KCAction *selected) {
+    if (!engine || !selected) {
+        return false;
+    }
+    int32_t player_id = engine->phase == KC_PHASE_ASSIGNMENT ? engine->last_winner : engine->current_player;
+    if (player_id < 0 ||
+        player_id >= KC_PLAYER_COUNT ||
+        !kc_controller_is_automatic(engine->controllers.seats[player_id])) {
+        return false;
+    }
+    KCAction actions[256];
+    int32_t count = kc_engine_legal_actions(engine, actions, 256);
+    return kc_choose_benchmark_action(engine, actions, count, selected);
+}
+
 bool kc_engine_waiting_for_external_action(const KCEngine *engine) {
     int32_t player_id = kc_engine_waiting_player(engine);
     return player_id >= 0 &&
@@ -1380,6 +1405,7 @@ static void kc_perform_requisition(KCEngine *engine) {
             bool vulnerable = engine->variants.northern_style ||
                 engine->variants.mice_variant ||
                 informant ||
+                hero_id >= 0 ||
                 engine->players[player_id].has_won_trick_this_year;
             if (!vulnerable) {
                 continue;

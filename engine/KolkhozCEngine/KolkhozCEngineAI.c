@@ -2131,6 +2131,29 @@ int32_t kc_engine_apply_ai_action(KCEngine *engine, KCAction action) {
     return kc_apply_policy_action(engine, action);
 }
 
+int32_t kc_engine_apply_ai_action_stepwise(KCEngine *engine, KCAction action) {
+    if (action.kind == KC_ACTION_ASSIGN) {
+        int32_t error = kc_engine_apply_manual(engine, action);
+        if (error != 0) {
+            return error;
+        }
+        if (engine->phase == KC_PHASE_ASSIGNMENT && kc_pending_assignment_count(engine) >= engine->last_trick_count) {
+            KCAction submit = { .kind = KC_ACTION_SUBMIT_ASSIGNMENTS, .player_id = action.player_id, .suit = -1, .card = kc_no_card(), .hand_card = kc_no_card(), .plot_card = kc_no_card(), .plot_zone = -1, .target_suit = -1 };
+            return kc_engine_apply_manual(engine, submit);
+        }
+        return 0;
+    }
+    int32_t error = kc_engine_apply_manual(engine, action);
+    if (error != 0) {
+        return error;
+    }
+    if (action.kind == KC_ACTION_SWAP) {
+        KCAction confirm = { .kind = KC_ACTION_CONFIRM_SWAP, .player_id = action.player_id, .suit = -1, .card = kc_no_card(), .hand_card = kc_no_card(), .plot_card = kc_no_card(), .plot_zone = -1, .target_suit = -1 };
+        return kc_engine_apply_manual(engine, confirm);
+    }
+    return 0;
+}
+
 int32_t kc_engine_apply_policy_action(KCEngine *engine, KCAction action) {
     return kc_engine_apply_ai_action(engine, action);
 }

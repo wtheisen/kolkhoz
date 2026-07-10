@@ -53,6 +53,7 @@ MAX_STACKS = 16
 
 PHASE_GAME_OVER = 5
 DEFAULT_SESSION_TTL_SECONDS = 30 * 60
+LOBBY_COUNTDOWN_SECONDS = 30
 PERSISTED_TOUCH_INTERVAL_SECONDS = 60
 DEFAULT_TURN_SECONDS = 90
 PRESENCE_GRACE_SECONDS = 20
@@ -93,6 +94,14 @@ CONTROLLER_NAMES = {
 INVITE_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 INVITE_CODE_LENGTH = 5
 METRIC_SAMPLE_LIMIT = 2048
+REACTION_IDS = (
+    "comrade",
+    "medal",
+    "protected",
+    "warning",
+    "wheat",
+    "wrecker",
+)
 
 
 class OnlineServerError(Exception):
@@ -488,12 +497,27 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
             return service.list_sessions(user_id=user_id)
         if method == "POST" and parts == ["sessions"]:
             return service.create_session(body, user_id=user_id)
+        if method == "GET" and parts == ["sessions", "invites"]:
+            return service.pending_session_invites(user_id=user_id)
         if method == "POST" and parts == ["sessions", "matchmake"]:
             return service.matchmake_session(body, user_id=user_id)
         if len(parts) >= 2 and parts[0] == "sessions":
             session_id = parts[1]
             if method == "GET" and len(parts) == 2:
                 return service.session_listing(session_id)
+            if method == "POST" and len(parts) == 3 and parts[2] == "invites":
+                return service.invite_session_comrades(
+                    session_id,
+                    body,
+                    user_id=user_id,
+                )
+            if (
+                method == "POST"
+                and len(parts) == 4
+                and parts[2] == "invites"
+                and parts[3] == "decline"
+            ):
+                return service.decline_session_invite(session_id, user_id=user_id)
             if method == "POST" and len(parts) == 3 and parts[2] == "join":
                 return service.join_session(
                     session_id,
@@ -554,6 +578,13 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
                 )
             if method == "POST" and len(parts) == 3 and parts[2] == "actions":
                 return service.submit_action(
+                    session_id,
+                    body,
+                    _seat_token(headers, query, body),
+                    user_id=user_id,
+                )
+            if method == "POST" and len(parts) == 3 and parts[2] == "reactions":
+                return service.submit_reaction(
                     session_id,
                     body,
                     _seat_token(headers, query, body),
@@ -620,6 +651,11 @@ class HostedSession:
     abandoned_seats: set[int]
     turn_player_id: int | None
     turn_deadline_at: float | None
+    invited_user_ids: set[str] = field(default_factory=set)
+    declined_invite_user_ids: set[str] = field(default_factory=set)
+    started: bool = False
+    lobby_countdown_ends_at: float | None = None
+    reaction_log: list[dict[str, object]] = field(default_factory=list)
     stats_recorded: bool = False
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
 
@@ -777,6 +813,7 @@ class KolkhozOnlineSessionService:
         profile_bot_factory: ProfileBotFactory | None = None,
         background_tick_seconds: float = 0,
         population_enabled: bool = False,
+        lobby_countdown_seconds: float = LOBBY_COUNTDOWN_SECONDS,
     ) -> None:
         self.engine = engine
         self._sessions: dict[str, HostedSession] = {}
@@ -808,6 +845,7 @@ class KolkhozOnlineSessionService:
             or ProfileBotFactory()
         )
         self.background_tick_seconds = background_tick_seconds
+        self.lobby_countdown_seconds = max(0.0, lobby_countdown_seconds)
         self._closed = threading.Event()
         self._background_thread: threading.Thread | None = None
         self._lock = threading.RLock()
@@ -858,6 +896,7 @@ class KolkhozOnlineSessionService:
             with self._session_lock(hosted, "background_tick"):
                 if not self._session_is_registered(hosted):
                     continue
+                self._sync_lobby_state(hosted, now)
                 self._resolve_turn_timeouts(hosted, now)
 
     @contextmanager
@@ -1022,6 +1061,7 @@ class KolkhozOnlineSessionService:
                 abandoned_seats=set(),
                 turn_player_id=None,
                 turn_deadline_at=None,
+                started=False,
             )
             player_id = self._first_available_seat(hosted)
             hosted.occupied_seats.add(player_id)
@@ -1032,10 +1072,9 @@ class KolkhozOnlineSessionService:
             self._assign_server_bot_profiles(hosted)
             self._sessions[session_id] = hosted
             try:
-                self._advance_automatic_turns(hosted, persist=False)
-                self._sync_turn_deadline(hosted, now, persist=False)
+                self._sync_lobby_state(hosted, now, persist=False)
                 self._persist_session_created(hosted)
-                self._persist_turn_state(hosted, now)
+                self._persist_lobby_state(hosted, now)
                 self._persist_finished_if_needed(hosted)
             except Exception:
                 self._sessions.pop(session_id, None)
@@ -1059,8 +1098,16 @@ class KolkhozOnlineSessionService:
     ) -> dict[str, object]:
         with self._locked_session(session_id) as hosted:
             self._require_authenticated_user(user_id)
-            if not _session_lookup_is_invite_code(session_id):
+            lookup_is_invite_code = _session_lookup_is_invite_code(session_id)
+            if not lookup_is_invite_code:
                 self._ensure_not_online_banned(user_id)
+            if (
+                not lookup_is_invite_code
+                and not hosted.browser_joinable
+                and (hosted.invited_user_ids or hosted.declined_invite_user_ids)
+                and not self._user_can_join_invited_session(hosted, user_id)
+            ):
+                raise OnlineServerError(HTTPStatus.FORBIDDEN, "not invited")
             preferred = _optional_int(request.get("preferredPlayerID"))
             if preferred is not None:
                 if not self._seat_is_joinable(hosted, preferred):
@@ -1068,7 +1115,93 @@ class KolkhozOnlineSessionService:
                 player_id = preferred
             else:
                 player_id = self._first_available_seat(hosted)
-            return self._join_hosted_seat(hosted, player_id, user_id=user_id)
+            response = self._join_hosted_seat(hosted, player_id, user_id=user_id)
+            if user_id is not None:
+                hosted.invited_user_ids.discard(user_id)
+                hosted.declined_invite_user_ids.discard(user_id)
+            return response
+
+    def invite_session_comrades(
+        self,
+        session_id: str,
+        request: dict[str, object],
+        *,
+        user_id: str | None = None,
+    ) -> dict[str, object]:
+        with self._locked_session(session_id) as hosted:
+            self._require_authenticated_user(user_id)
+            if (
+                hosted.created_by_user_id is not None
+                and user_id != hosted.created_by_user_id
+            ):
+                raise OnlineServerError(HTTPStatus.FORBIDDEN, "only the host can invite")
+            if hosted.started:
+                raise OnlineServerError(HTTPStatus.CONFLICT, "game has already started")
+            user_ids = set(_string_list(request.get("userIDs")))
+            if not user_ids:
+                user_ids = set(_string_list(request.get("invitedUserIDs")))
+            if not user_ids:
+                raise OnlineServerError(HTTPStatus.BAD_REQUEST, "missing userIDs")
+            if user_id is not None:
+                user_ids.discard(user_id)
+            if not user_ids:
+                raise OnlineServerError(HTTPStatus.BAD_REQUEST, "missing userIDs")
+            if self.store is not None and user_id is not None:
+                allowed_user_ids = self._comrade_user_ids(user_id)
+                if not user_ids.issubset(allowed_user_ids):
+                    raise OnlineServerError(
+                        HTTPStatus.FORBIDDEN,
+                        "can only invite comrades",
+                    )
+            seated_user_ids = set(hosted.seat_user_ids.values())
+            pending_user_ids = user_ids - seated_user_ids
+            hosted.invited_user_ids.update(pending_user_ids)
+            hosted.declined_invite_user_ids.difference_update(pending_user_ids)
+            hosted.last_seen_at = time.time()
+            return {
+                "sessionID": hosted.session_id,
+                "invitedUserIDs": sorted(hosted.invited_user_ids),
+            }
+
+    def pending_session_invites(
+        self,
+        *,
+        user_id: str | None = None,
+    ) -> list[dict[str, object]]:
+        self._require_authenticated_user(user_id)
+        self._ensure_not_online_banned(user_id)
+        if user_id is None:
+            return []
+        with self._lock:
+            self._prune_expired_sessions()
+            sessions = list(self._sessions.values())
+        invites: list[dict[str, object]] = []
+        for hosted in sessions:
+            with self._session_lock(hosted, "session_invites"):
+                if not self._session_is_registered(hosted):
+                    continue
+                if not self._pending_invite_for_user(hosted, user_id):
+                    continue
+                self._sync_lobby_state(hosted, time.time())
+                if not self._open_seats(hosted):
+                    continue
+                invites.append(self._invite_listing(hosted, user_id))
+        return invites
+
+    def decline_session_invite(
+        self,
+        session_id: str,
+        *,
+        user_id: str | None = None,
+    ) -> dict[str, object]:
+        with self._locked_session(session_id) as hosted:
+            self._require_authenticated_user(user_id)
+            if user_id is None or user_id not in hosted.invited_user_ids:
+                raise OnlineServerError(HTTPStatus.NOT_FOUND, "invite not found")
+            hosted.invited_user_ids.discard(user_id)
+            hosted.declined_invite_user_ids.add(user_id)
+            hosted.last_seen_at = time.time()
+            return {"declined": True, "sessionID": hosted.session_id}
 
     def matchmake_session(
         self,
@@ -1280,6 +1413,7 @@ class KolkhozOnlineSessionService:
         previous_seat_last_seen_at = dict(hosted.seat_last_seen_at)
         previous_autopilot_seats = set(hosted.autopilot_seats)
         previous_turn_deadline_at = hosted.turn_deadline_at
+        previous_lobby_countdown_ends_at = hosted.lobby_countdown_ends_at
         hosted.occupied_seats.add(player_id)
         seat_token = self._issue_seat_token(hosted, player_id)
         if user_id is not None:
@@ -1288,8 +1422,7 @@ class KolkhozOnlineSessionService:
         try:
             self._mark_seat_seen(hosted, player_id, hosted.last_seen_at)
             self._persist_seat_joined(hosted, player_id, seat_token)
-            self._advance_automatic_turns(hosted)
-            self._sync_turn_deadline(hosted, hosted.last_seen_at)
+            self._sync_lobby_state(hosted, hosted.last_seen_at)
             self._persist_finished_if_needed(hosted)
         except Exception:
             hosted.occupied_seats = previous_occupied_seats
@@ -1300,6 +1433,7 @@ class KolkhozOnlineSessionService:
             hosted.seat_last_seen_at = previous_seat_last_seen_at
             hosted.autopilot_seats = previous_autopilot_seats
             hosted.turn_deadline_at = previous_turn_deadline_at
+            hosted.lobby_countdown_ends_at = previous_lobby_countdown_ends_at
             raise
         print(
             f"Player {player_id} joined online session {hosted.session_id}",
@@ -1307,6 +1441,7 @@ class KolkhozOnlineSessionService:
         )
         return {
             "sessionID": hosted.session_id,
+            "seed": hosted.seed,
             "inviteCode": hosted.invite_code,
             "playerID": player_id,
             "seatToken": seat_token,
@@ -1395,15 +1530,15 @@ class KolkhozOnlineSessionService:
                 abandoned_seats=set(),
                 turn_player_id=None,
                 turn_deadline_at=None,
+                started=False,
             )
             for player_id, profile in enumerate(selected_profiles):
                 self._seat_server_bot(hosted, player_id, profile, now)
             self._sessions[session_id] = hosted
             try:
-                self._advance_automatic_turns(hosted, persist=False)
-                self._sync_turn_deadline(hosted, now, persist=False)
+                self._sync_lobby_state(hosted, now, persist=False)
                 self._persist_session_created(hosted)
-                self._persist_turn_state(hosted, now)
+                self._persist_lobby_state(hosted, now)
                 self._persist_finished_if_needed(hosted)
             except Exception:
                 self._sessions.pop(session_id, None)
@@ -1648,7 +1783,7 @@ class KolkhozOnlineSessionService:
         with self._locked_session(session_id) as hosted:
             self._authenticate(hosted, player_id, seat_token, user_id=user_id)
             now = time.time()
-            if len(hosted.action_log) == 0:
+            if not hosted.started:
                 hosted.last_seen_at = now
                 hosted.occupied_seats.discard(player_id)
                 hosted.seat_tokens.pop(player_id, None)
@@ -1661,11 +1796,13 @@ class KolkhozOnlineSessionService:
                 if hosted.turn_player_id == player_id:
                     hosted.turn_player_id = None
                     hosted.turn_deadline_at = None
+                self._sync_lobby_state(hosted, now, persist=False)
                 update = self._update(hosted, player_id)
                 if self._player_created_lobby_is_empty(hosted):
                     self._expire_empty_lobby(hosted, now)
                 else:
                     self._persist_lobby_seat_left(hosted, player_id, now)
+                    self._persist_lobby_state(hosted, now)
                 return {
                     "sessionID": hosted.session_id,
                     "inviteCode": hosted.invite_code,
@@ -1707,7 +1844,7 @@ class KolkhozOnlineSessionService:
                 raise OnlineServerError(HTTPStatus.FORBIDDEN, "only the host can kick")
             if target_player_id == host_player_id:
                 raise OnlineServerError(HTTPStatus.CONFLICT, "cannot kick yourself")
-            if len(hosted.action_log) > 0:
+            if hosted.started:
                 raise OnlineServerError(
                     HTTPStatus.CONFLICT,
                     "cannot kick after the game starts",
@@ -1730,6 +1867,7 @@ class KolkhozOnlineSessionService:
             previous_abandoned_seats = set(hosted.abandoned_seats)
             previous_turn_player_id = hosted.turn_player_id
             previous_turn_deadline_at = hosted.turn_deadline_at
+            previous_lobby_countdown_ends_at = hosted.lobby_countdown_ends_at
             now = time.time()
             hosted.occupied_seats.discard(target_player_id)
             hosted.seat_tokens.pop(target_player_id, None)
@@ -1745,7 +1883,7 @@ class KolkhozOnlineSessionService:
             hosted.last_seen_at = now
             try:
                 self._persist_seat_kicked(hosted, target_player_id, now)
-                self._sync_turn_deadline(hosted, now)
+                self._sync_lobby_state(hosted, now)
                 self._persist_finished_if_needed(hosted)
             except Exception:
                 hosted.occupied_seats = previous_occupied_seats
@@ -1759,6 +1897,7 @@ class KolkhozOnlineSessionService:
                 hosted.abandoned_seats = previous_abandoned_seats
                 hosted.turn_player_id = previous_turn_player_id
                 hosted.turn_deadline_at = previous_turn_deadline_at
+                hosted.lobby_countdown_ends_at = previous_lobby_countdown_ends_at
                 raise
             return {
                 "sessionID": hosted.session_id,
@@ -1781,6 +1920,7 @@ class KolkhozOnlineSessionService:
             hosted.last_seen_at = now
             if viewer_id is not None:
                 self._mark_seat_seen(hosted, viewer_id, now)
+            self._sync_lobby_state(hosted, now)
             self._resolve_turn_timeouts(hosted, now)
             self._persist_touch_if_needed(hosted)
             self._persist_finished_if_needed(hosted)
@@ -1807,7 +1947,65 @@ class KolkhozOnlineSessionService:
             display_name="Player",
             updated_at=time.time(),
         )
-        return _comrades_response(self.store.comrades_for_user(user_id=user_id))
+        return _comrades_response(
+            self._comrades_with_presence(
+                self.store.comrades_for_user(user_id=user_id),
+            ),
+        )
+
+    def _comrades_with_presence(self, value: dict[str, object]) -> dict[str, object]:
+        user_ids: set[str] = set()
+        for key in ("comrades", "incoming_requests", "outgoing_requests"):
+            profiles = value.get(key)
+            if not isinstance(profiles, list):
+                continue
+            for profile in profiles:
+                if not isinstance(profile, dict):
+                    continue
+                profile_user_id = profile.get("user_id") or profile.get("userID")
+                if profile_user_id:
+                    user_ids.add(str(profile_user_id))
+
+        if not user_ids:
+            return value
+
+        statuses = {
+            profile_user_id: {
+                "isOnline": False,
+                "inGame": False,
+                "inLobby": False,
+            }
+            for profile_user_id in user_ids
+        }
+        with self._lock:
+            self._prune_expired_sessions()
+            self._prune_online_presence_locked()
+            for profile_user_id in user_ids:
+                key = _online_presence_key(profile_user_id)
+                statuses[profile_user_id]["isOnline"] = (
+                    key is not None and key in self._online_presence
+                )
+            for hosted in self._sessions.values():
+                for seat_user_id in hosted.seat_user_ids.values():
+                    status = statuses.get(seat_user_id)
+                    if status is None:
+                        continue
+                    if hosted.started:
+                        status["inGame"] = True
+                    else:
+                        status["inLobby"] = True
+
+        for key in ("comrades", "incoming_requests", "outgoing_requests"):
+            profiles = value.get(key)
+            if not isinstance(profiles, list):
+                continue
+            for profile in profiles:
+                if not isinstance(profile, dict):
+                    continue
+                profile_user_id = profile.get("user_id") or profile.get("userID")
+                if profile_user_id:
+                    profile.update(statuses.get(str(profile_user_id), {}))
+        return value
 
     def send_comrade_request(
         self,
@@ -1912,6 +2110,7 @@ class KolkhozOnlineSessionService:
 
     def session_listing(self, session_id: str) -> dict[str, object]:
         with self._locked_session(session_id) as hosted:
+            self._sync_lobby_state(hosted, time.time())
             return self._listing(hosted)
 
     def legal_actions(
@@ -1927,6 +2126,7 @@ class KolkhozOnlineSessionService:
             now = time.time()
             hosted.last_seen_at = now
             self._mark_seat_seen(hosted, player_id, now)
+            self._sync_lobby_state(hosted, now)
             self._resolve_turn_timeouts(hosted, now)
             self._persist_touch_if_needed(hosted)
             self._persist_finished_if_needed(hosted)
@@ -1946,6 +2146,12 @@ class KolkhozOnlineSessionService:
             now = time.time()
             hosted.last_seen_at = now
             self._mark_seat_seen(hosted, player_id, now)
+            self._sync_lobby_state(hosted, now)
+            if not hosted.started:
+                raise OnlineServerError(
+                    HTTPStatus.CONFLICT,
+                    "game has not started",
+                )
             expected_revision = _required_int(
                 request.get("actionLogCount"),
                 "actionLogCount",
@@ -1968,6 +2174,38 @@ class KolkhozOnlineSessionService:
             self._persist_finished_if_needed(hosted)
             return self._update(hosted, player_id)
 
+    def submit_reaction(
+        self,
+        session_id: str,
+        request: dict[str, object],
+        seat_token: str | None,
+        *,
+        user_id: str | None = None,
+    ) -> dict[str, object]:
+        with self._locked_session(session_id) as hosted:
+            player_id = _required_int(request.get("playerID"), "playerID")
+            self._authenticate(hosted, player_id, seat_token, user_id=user_id)
+            now = time.time()
+            self._sync_lobby_state(hosted, now)
+            if not hosted.started:
+                raise OnlineServerError(HTTPStatus.CONFLICT, "game has not started")
+            reaction_id = str(request.get("reactionID") or "").strip()
+            if reaction_id not in REACTION_IDS:
+                raise OnlineServerError(HTTPStatus.BAD_REQUEST, "invalid reaction")
+            state = _engine_state(hosted.engine_pointer)
+            entry = {
+                "revision": len(hosted.reaction_log) + 1,
+                "playerID": player_id,
+                "reactionID": reaction_id,
+                "year": int(state.year),
+                "phase": int(state.phase),
+                "createdAt": now,
+            }
+            hosted.reaction_log.append(entry)
+            hosted.last_seen_at = now
+            self._persist_reaction(hosted, entry, now)
+            return self._update(hosted, player_id)
+
     def action_updates(
         self,
         session_id: str,
@@ -1983,6 +2221,7 @@ class KolkhozOnlineSessionService:
             hosted.last_seen_at = now
             if viewer_id is not None:
                 self._mark_seat_seen(hosted, viewer_id, now)
+            self._sync_lobby_state(hosted, now)
             self._resolve_turn_timeouts(hosted, now)
             current_revision = len(hosted.action_log)
             if after_revision < 0 or after_revision > current_revision:
@@ -2115,6 +2354,15 @@ class KolkhozOnlineSessionService:
                 turn_deadline_at=float(record["turn_deadline_at"])
                 if isinstance(record.get("turn_deadline_at"), (int, float))
                 else None,
+                started=record.get("status") == "active",
+                lobby_countdown_ends_at=float(record["lobby_countdown_ends_at"])
+                if isinstance(record.get("lobby_countdown_ends_at"), (int, float))
+                else None,
+                reaction_log=[
+                    dict(entry)
+                    for entry in record.get("reactions", [])
+                    if isinstance(entry, dict)
+                ],
             )
             self._assign_server_bot_profiles(hosted)
             self._restore_server_bot_controllers(hosted)
@@ -2242,7 +2490,8 @@ class KolkhozOnlineSessionService:
 
     def _seat_is_joinable(self, hosted: HostedSession, player_id: int) -> bool:
         return (
-            0 <= player_id < PLAYER_COUNT
+            not hosted.started
+            and 0 <= player_id < PLAYER_COUNT
             and hosted.controllers[player_id] == "human"
             and player_id not in hosted.occupied_seats
         )
@@ -2263,6 +2512,93 @@ class KolkhozOnlineSessionService:
             for player_id in range(PLAYER_COUNT)
             if self._seat_is_joinable(hosted, player_id)
         ]
+
+    def _comrade_user_ids(self, user_id: str) -> set[str]:
+        if self.store is None:
+            return set()
+        summary = self.store.comrades_for_user(user_id=user_id)
+        return {
+            str(comrade.get("user_id") or comrade.get("userID"))
+            for comrade in summary.get("comrades", [])
+            if comrade.get("user_id") or comrade.get("userID")
+        }
+
+    def _user_can_join_invited_session(
+        self,
+        hosted: HostedSession,
+        user_id: str | None,
+    ) -> bool:
+        if user_id is None:
+            return False
+        if user_id in hosted.invited_user_ids:
+            return True
+        if user_id == hosted.created_by_user_id:
+            return True
+        return user_id in hosted.seat_user_ids.values()
+
+    def _pending_invite_for_user(
+        self,
+        hosted: HostedSession,
+        user_id: str,
+    ) -> bool:
+        if hosted.started or user_id in hosted.declined_invite_user_ids:
+            return False
+        if user_id not in hosted.invited_user_ids:
+            return False
+        if user_id in hosted.seat_user_ids.values():
+            return False
+        return bool(self._open_seats(hosted))
+
+    def _invite_listing(
+        self,
+        hosted: HostedSession,
+        user_id: str,
+    ) -> dict[str, object]:
+        listing = self._listing(hosted)
+        listing.pop("inviteCode", None)
+        profiles = listing.get("playerProfiles")
+        host_profile: dict[str, object] | None = None
+        if isinstance(profiles, list):
+            for profile in profiles:
+                if not isinstance(profile, dict):
+                    continue
+                if profile.get("userID") == hosted.created_by_user_id:
+                    host_profile = profile
+                    break
+            if host_profile is None and profiles and isinstance(profiles[0], dict):
+                host_profile = profiles[0]
+        listing["hostProfile"] = host_profile or {}
+        listing["invitedUserID"] = user_id
+        return listing
+
+    def _sync_lobby_state(
+        self,
+        hosted: HostedSession,
+        now: float,
+        *,
+        persist: bool = True,
+    ) -> None:
+        if hosted.started:
+            return
+        if self._open_seats(hosted):
+            if hosted.lobby_countdown_ends_at is not None:
+                hosted.lobby_countdown_ends_at = None
+                if persist:
+                    self._persist_lobby_state(hosted, now)
+            return
+        if hosted.lobby_countdown_ends_at is None:
+            hosted.lobby_countdown_ends_at = now + self.lobby_countdown_seconds
+            if persist:
+                self._persist_lobby_state(hosted, now)
+            return
+        if now < hosted.lobby_countdown_ends_at:
+            return
+        hosted.started = True
+        hosted.lobby_countdown_ends_at = None
+        if persist:
+            self._persist_lobby_state(hosted, now)
+        self._advance_automatic_turns(hosted, persist=persist, now=now)
+        self._sync_turn_deadline(hosted, now, persist=persist)
 
     def _seat_server_bot(
         self,
@@ -2294,12 +2630,12 @@ class KolkhozOnlineSessionService:
         previous_seat_last_seen_at = dict(hosted.seat_last_seen_at)
         previous_autopilot_seats = set(hosted.autopilot_seats)
         previous_turn_deadline_at = hosted.turn_deadline_at
+        previous_lobby_countdown_ends_at = hosted.lobby_countdown_ends_at
         seat_token = self._seat_server_bot(hosted, player_id, profile, now)
         hosted.last_seen_at = now
         try:
             self._persist_seat_joined(hosted, player_id, seat_token)
-            self._advance_automatic_turns(hosted)
-            self._sync_turn_deadline(hosted, now)
+            self._sync_lobby_state(hosted, now)
             self._persist_finished_if_needed(hosted)
         except Exception:
             hosted.occupied_seats = previous_occupied_seats
@@ -2311,6 +2647,7 @@ class KolkhozOnlineSessionService:
             hosted.seat_last_seen_at = previous_seat_last_seen_at
             hosted.autopilot_seats = previous_autopilot_seats
             hosted.turn_deadline_at = previous_turn_deadline_at
+            hosted.lobby_countdown_ends_at = previous_lobby_countdown_ends_at
             raise
         print(
             f"Server bot {profile['user_id']} joined online session "
@@ -2356,6 +2693,8 @@ class KolkhozOnlineSessionService:
             "turnPlayerID": hosted.turn_player_id,
             "turnDeadlineAt": hosted.turn_deadline_at,
             "actionLogCount": len(hosted.action_log),
+            "started": hosted.started,
+            "lobbyCountdownEndsAt": hosted.lobby_countdown_ends_at,
             "createdAt": hosted.created_at,
             "expiresAt": hosted.last_seen_at + self.session_ttl_seconds,
         }
@@ -2445,6 +2784,34 @@ class KolkhozOnlineSessionService:
                 f"online action persistence failed: {error}",
             ) from error
 
+    def _persist_reaction(
+        self,
+        hosted: HostedSession,
+        reaction: dict[str, object],
+        now: float,
+    ) -> None:
+        if self.store is None:
+            return
+        try:
+            self._store_call(
+                "append_reaction",
+                self.store.append_reaction,
+                session_id=hosted.session_id,
+                revision=int(reaction["revision"]),
+                player_id=int(reaction["playerID"]),
+                reaction_id=str(reaction["reactionID"]),
+                year=int(reaction["year"]),
+                phase=int(reaction["phase"]),
+                created_at=now,
+                expires_at=self._expires_at(hosted),
+            )
+            hosted.last_persisted_touch_at = now
+        except Exception as error:
+            raise OnlineServerError(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                f"online reaction persistence failed: {error}",
+            ) from error
+
     def _persist_touch_if_needed(self, hosted: HostedSession) -> None:
         if self.store is None:
             return
@@ -2486,6 +2853,26 @@ class KolkhozOnlineSessionService:
             raise OnlineServerError(
                 HTTPStatus.INTERNAL_SERVER_ERROR,
                 f"online turn state persistence failed: {error}",
+            ) from error
+
+    def _persist_lobby_state(self, hosted: HostedSession, now: float) -> None:
+        if self.store is None:
+            return
+        try:
+            self._store_call(
+                "update_lobby_state",
+                self.store.update_lobby_state,
+                session_id=hosted.session_id,
+                started=hosted.started,
+                lobby_countdown_ends_at=hosted.lobby_countdown_ends_at,
+                updated_at=now,
+                expires_at=self._expires_at(hosted),
+            )
+            hosted.last_persisted_touch_at = now
+        except Exception as error:
+            raise OnlineServerError(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                f"online lobby state persistence failed: {error}",
             ) from error
 
     def _persist_seat_seen(
@@ -2702,6 +3089,14 @@ class KolkhozOnlineSessionService:
         *,
         persist: bool = True,
     ) -> None:
+        if not hosted.started:
+            if hosted.turn_player_id is None and hosted.turn_deadline_at is None:
+                return
+            hosted.turn_player_id = None
+            hosted.turn_deadline_at = None
+            if persist:
+                self._persist_turn_state(hosted, now)
+            return
         player_id = self.engine.waiting_player(hosted.engine_pointer)
         if (
             player_id < 0
@@ -2728,6 +3123,8 @@ class KolkhozOnlineSessionService:
             self._persist_turn_state(hosted, now)
 
     def _resolve_turn_timeouts(self, hosted: HostedSession, now: float) -> None:
+        if not hosted.started:
+            return
         for _ in range(200):
             previous_action_count = len(hosted.action_log)
             previous_player_id = self.engine.waiting_player(hosted.engine_pointer)
@@ -2864,6 +3261,7 @@ class KolkhozOnlineSessionService:
         hosted: HostedSession,
         action_json: dict[str, object],
     ) -> dict[str, object]:
+        action_json.setdefault("createdAt", time.time())
         hosted.action_log.append(dict(action_json))
         self._cache_action_update(hosted, hosted.action_log[-1])
         return hosted.action_log[-1]
@@ -2959,6 +3357,8 @@ class KolkhozOnlineSessionService:
         persist: bool = True,
         now: float | None = None,
     ) -> None:
+        if not hosted.started:
+            return
         for _ in range(200):
             action_now = time.time() if now is None else now
             player_id = self.engine.waiting_player(hosted.engine_pointer)
@@ -3097,6 +3497,8 @@ class KolkhozOnlineSessionService:
         hosted: HostedSession,
         player_id: int,
     ) -> list[KCAction]:
+        if not hosted.started:
+            return []
         return [
             action
             for action in self.engine.legal_actions(hosted.engine_pointer)
@@ -3119,14 +3521,20 @@ class KolkhozOnlineSessionService:
         viewer_id: int | None,
     ) -> dict[str, object]:
         is_viewer_turn = (
-            viewer_id is not None
+            hosted.started
+            and viewer_id is not None
             and self.engine.waiting_player(hosted.engine_pointer) == viewer_id
         )
         return {
             "sessionID": hosted.session_id,
+            "seed": hosted.seed,
             "inviteCode": hosted.invite_code,
             "viewerID": viewer_id,
             "actionLogCount": len(hosted.action_log),
+            "started": hosted.started,
+            "lobbyCountdownEndsAt": hosted.lobby_countdown_ends_at,
+            "gameLogActions": self._game_log_actions(hosted, viewer_id),
+            "reactions": [dict(entry) for entry in hosted.reaction_log],
             "isViewerTurn": is_viewer_turn,
             "legalActions": self._legal_action_json_for_player(hosted, viewer_id)
             if viewer_id is not None
@@ -3141,6 +3549,22 @@ class KolkhozOnlineSessionService:
             "turnDeadlineAt": hosted.turn_deadline_at,
             "snapshot": self._snapshot_json(hosted, viewer_id),
         }
+
+    def _game_log_actions(
+        self,
+        hosted: HostedSession,
+        viewer_id: int | None,
+    ) -> list[dict[str, object]]:
+        game_over = int(_engine_state(hosted.engine_pointer).phase) == PHASE_GAME_OVER
+        actions: list[dict[str, object]] = []
+        for action in hosted.action_log:
+            value = dict(action)
+            player_id = _optional_int(value.get("playerID"))
+            if not game_over and player_id != viewer_id and value.get("kind") in (2, 8):
+                value["handCard"] = {"suit": -1, "value": -1}
+                value["plotCard"] = {"suit": -1, "value": -1}
+            actions.append(value)
+        return actions
 
     def _seat_presence_json(
         self,
@@ -3256,7 +3680,7 @@ class KolkhozOnlineSessionService:
                 {"suit": suit, "value": int(state.work_hours[suit])}
                 for suit in range(SUIT_COUNT)
             ],
-            "jobBuckets": _suit_card_lists_json(state.job_buckets, SUIT_COUNT),
+            "jobBuckets": _job_buckets_json(state),
             "accumulatedJobCards": _redacted_suit_cards(SUIT_COUNT),
             "currentTrick": _trick_json(state.current_trick, state.current_trick_count),
             "lastTrick": _trick_json(state.last_trick, state.last_trick_count),
@@ -3345,6 +3769,9 @@ def _comrade_profile_response(profile: dict[str, object]) -> dict[str, object]:
         "avatarURL": profile.get("avatar_url") or profile.get("avatarURL"),
         "comradeCode": profile.get("comrade_code") or profile.get("comradeCode"),
         "requestedAt": profile.get("requested_at") or profile.get("requestedAt"),
+        "isOnline": bool(profile.get("isOnline")),
+        "inGame": bool(profile.get("inGame")),
+        "inLobby": bool(profile.get("inLobby")),
         "stats": profile.get("stats") if isinstance(profile.get("stats"), dict) else {},
     }
 
@@ -3468,6 +3895,22 @@ def _suit_card_lists_json(cards_by_suit: object, count: int) -> list[dict[str, o
     ]
 
 
+def _job_buckets_json(state: KCEngineSnapshot) -> list[dict[str, object]]:
+    return [
+        {
+            "suit": suit,
+            "cards": [
+                {
+                    **_card_json(state.job_buckets[suit].cards[index]),
+                    "assignmentRound": int(state.job_bucket_tricks[suit][index]),
+                }
+                for index in range(int(state.job_buckets[suit].count))
+            ],
+        }
+        for suit in range(SUIT_COUNT)
+    ]
+
+
 def _redacted_suit_cards(count: int) -> list[dict[str, object]]:
     return [{"suit": suit, "cards": []} for suit in range(count)]
 
@@ -3525,10 +3968,10 @@ def _requisition_events_json(state: KCEngineSnapshot) -> list[dict[str, object]]
 
 def _requisition_message(kind: int) -> str:
     return {
-        1: "Protected from requisition.",
-        2: "Drunkard exiled.",
-        3: "Card sent north.",
-        4: "No matching card found.",
+        1: "Card sent north.",
+        2: "No matching card found.",
+        3: "Drunkard exiled.",
+        4: "Protected from requisition.",
     }.get(kind, "Requisition resolved.")
 
 
@@ -3603,6 +4046,18 @@ def _optional_bool(value: object, default: bool = False) -> bool:
         if lowered in {"false", "0", "no"}:
             return False
     raise OnlineServerError(HTTPStatus.BAD_REQUEST, "expected boolean")
+
+
+def _string_list(value: object) -> list[str]:
+    if value is None:
+        return []
+    values = value if isinstance(value, list) else [value]
+    result: list[str] = []
+    for item in values:
+        text = str(item).strip()
+        if text:
+            result.append(text)
+    return result
 
 
 def _required_int(value: object, field: str) -> int:
@@ -3693,6 +4148,8 @@ def _route_label(path: str) -> str:
         return "/metrics"
     if parts == ["sessions"]:
         return "/sessions"
+    if parts == ["sessions", "invites"]:
+        return "/sessions/invites"
     if parts == ["sessions", "matchmake"]:
         return "/sessions/matchmake"
     if parts[0] == "comrades":

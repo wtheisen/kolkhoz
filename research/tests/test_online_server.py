@@ -9,7 +9,12 @@ import urllib.request
 import uuid
 from http import HTTPStatus
 
-from research.kolkhoz_research.c_engine import CEngine, build_shared_library
+from research.kolkhoz_research.c_engine import (
+    CEngine,
+    KCAction,
+    KCCard,
+    build_shared_library,
+)
 from research.kolkhoz_research.online_load_test import run_online_load_test
 from research.kolkhoz_research.online_server import (
     BOT_HUMAN_GAME_ACTION_DELAY_MAX_SECONDS,
@@ -22,6 +27,7 @@ from research.kolkhoz_research.online_server import (
     OnlineServerError,
     PHASE_GAME_OVER,
     POSTGRES_BIGINT_MAX,
+    _requisition_message,
 )
 from research.kolkhoz_research.model import PolicyArtifact
 from research.kolkhoz_research.online_store import (
@@ -55,13 +61,31 @@ def create_request() -> dict[str, object]:
     }
 
 
+def start_hosted_through_lobby(
+    service: KolkhozOnlineSessionService,
+    hosted: HostedSession,
+    *,
+    now: float,
+) -> None:
+    service._sync_lobby_state(hosted, now)
+    deadline = hosted.lobby_countdown_ends_at
+    if deadline is None:
+        raise AssertionError("full lobby did not start a countdown")
+    service._sync_lobby_state(hosted, deadline)
+    if not hosted.started:
+        raise AssertionError("lobby did not start at its deadline")
+
+
 class OnlineServerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.engine = CEngine(build_shared_library())
 
     def setUp(self) -> None:
-        self.service = KolkhozOnlineSessionService(self.engine)
+        self.service = KolkhozOnlineSessionService(
+            self.engine,
+            lobby_countdown_seconds=0,
+        )
 
     def tearDown(self) -> None:
         self.service.close()
@@ -162,6 +186,212 @@ class OnlineServerTests(unittest.TestCase):
                 created["seatToken"],
             )
         self.assertEqual(stale.exception.status, HTTPStatus.CONFLICT)
+
+    def test_requisition_event_messages_match_engine_kinds(self) -> None:
+        self.assertEqual(_requisition_message(1), "Card sent north.")
+        self.assertEqual(_requisition_message(2), "No matching card found.")
+        self.assertEqual(_requisition_message(3), "Drunkard exiled.")
+        self.assertEqual(_requisition_message(4), "Protected from requisition.")
+
+    def test_reactions_are_shared_and_permanent_after_game_start(self) -> None:
+        created = self.service.create_session(create_request())
+        joined = self.service.join_session(
+            created["sessionID"],
+            {"preferredPlayerID": 1},
+        )
+
+        guest_update = self.service.submit_reaction(
+            created["sessionID"],
+            {"playerID": 1, "reactionID": "medal"},
+            joined["seatToken"],
+        )
+        host_update = self.service.update(
+            created["sessionID"],
+            0,
+            created["seatToken"],
+        )
+
+        self.assertEqual(guest_update["reactions"], host_update["reactions"])
+        self.assertEqual(
+            host_update["reactions"][0],
+            {
+                "revision": 1,
+                "playerID": 1,
+                "reactionID": "medal",
+                "year": host_update["snapshot"]["year"],
+                "phase": host_update["snapshot"]["phase"],
+                "createdAt": host_update["reactions"][0]["createdAt"],
+            },
+        )
+
+        with self.assertRaises(OnlineServerError) as invalid:
+            self.service.submit_reaction(
+                created["sessionID"],
+                {"playerID": 1, "reactionID": "not-curated"},
+                joined["seatToken"],
+            )
+        self.assertEqual(invalid.exception.status, HTTPStatus.BAD_REQUEST)
+
+    def test_reactions_are_rejected_while_session_is_in_lobby(self) -> None:
+        service = KolkhozOnlineSessionService(
+            self.engine,
+            lobby_countdown_seconds=30,
+        )
+        try:
+            created = service.create_session(create_request())
+            with self.assertRaises(OnlineServerError) as not_started:
+                service.submit_reaction(
+                    created["sessionID"],
+                    {"playerID": 0, "reactionID": "comrade"},
+                    created["seatToken"],
+                )
+            self.assertEqual(not_started.exception.status, HTTPStatus.CONFLICT)
+        finally:
+            service.close()
+
+    def test_other_players_plot_swaps_are_redacted_until_game_over(self) -> None:
+        created = self.service.create_session(create_request())
+        hosted = self.service._session(created["sessionID"])
+        hosted.action_log.append(
+            {
+                "kind": 2,
+                "playerID": 1,
+                "handCard": {"suit": 0, "value": 7},
+                "plotCard": {"suit": 1, "value": 8},
+            }
+        )
+
+        hidden = self.service._game_log_actions(hosted, 0)[0]
+        visible_to_owner = self.service._game_log_actions(hosted, 1)[0]
+
+        self.assertEqual(hidden["handCard"], {"suit": -1, "value": -1})
+        self.assertEqual(hidden["plotCard"], {"suit": -1, "value": -1})
+        self.assertEqual(visible_to_owner["handCard"], {"suit": 0, "value": 7})
+
+    def test_joined_players_wait_for_shared_lobby_countdown(self) -> None:
+        service = KolkhozOnlineSessionService(
+            self.engine,
+            lobby_countdown_seconds=30,
+        )
+        try:
+            created = service.create_session(create_request())
+            self.assertFalse(created["update"]["started"])
+            self.assertIsNone(created["update"]["lobbyCountdownEndsAt"])
+            self.assertEqual(created["update"]["legalActions"], [])
+
+            joined = service.join_session(
+                created["sessionID"],
+                {"preferredPlayerID": 1},
+            )
+            countdown_ends_at = joined["update"]["lobbyCountdownEndsAt"]
+            self.assertFalse(joined["update"]["started"])
+            self.assertIsInstance(countdown_ends_at, float)
+            self.assertEqual(joined["update"]["legalActions"], [])
+
+            host_update = service.update(
+                created["sessionID"],
+                0,
+                created["seatToken"],
+            )
+            self.assertFalse(host_update["started"])
+            self.assertEqual(host_update["lobbyCountdownEndsAt"], countdown_ends_at)
+
+            hosted = service._session(created["sessionID"])
+            hosted.lobby_countdown_ends_at = time.time() - 1
+            guest_update = service.update(
+                created["sessionID"],
+                1,
+                joined["seatToken"],
+            )
+            self.assertTrue(guest_update["started"])
+            self.assertIsNone(guest_update["lobbyCountdownEndsAt"])
+            self.assertTrue(
+                service.update(
+                    created["sessionID"],
+                    0,
+                    created["seatToken"],
+                )["started"]
+            )
+        finally:
+            service.close()
+
+    def test_lobby_countdown_cancels_when_a_player_leaves(self) -> None:
+        service = KolkhozOnlineSessionService(
+            self.engine,
+            lobby_countdown_seconds=30,
+        )
+        try:
+            created = service.create_session(create_request())
+            joined = service.join_session(
+                created["sessionID"],
+                {"preferredPlayerID": 1},
+            )
+            self.assertIsNotNone(joined["update"]["lobbyCountdownEndsAt"])
+
+            service.leave_session(
+                created["sessionID"],
+                1,
+                joined["seatToken"],
+            )
+            host_update = service.update(
+                created["sessionID"],
+                0,
+                created["seatToken"],
+            )
+            self.assertFalse(host_update["started"])
+            self.assertIsNone(host_update["lobbyCountdownEndsAt"])
+        finally:
+            service.close()
+
+    def test_hero_makes_every_other_player_vulnerable(self) -> None:
+        for is_famine, required_tricks in ((False, 4), (True, 3)):
+            with self.subTest(is_famine=is_famine):
+                pointer = self.engine.new_engine(seed=1)
+                try:
+                    state = ctypes.cast(
+                        pointer, ctypes.POINTER(KCEngineSnapshot)
+                    ).contents
+                    state.year = 5 if is_famine else 1
+                    state.is_famine = is_famine
+                    state.phase = 3
+                    state.last_winner = 0
+                    state.last_trick_count = 0
+                    state.trick_count = required_tricks
+                    state.variants.nomenclature = False
+                    state.variants.northern_style = False
+                    state.variants.mice_variant = False
+                    state.variants.hero_of_soviet_union = True
+                    state.variants.wrecker = False
+                    for suit in range(4):
+                        state.work_hours[suit] = 0 if suit == 0 else 40
+                        state.claimed_jobs[suit] = suit != 0
+                    for player_id in range(4):
+                        player = state.players[player_id]
+                        player.hand.count = 0
+                        player.plot_revealed.count = 1
+                        player.plot_revealed.cards[0] = KCCard(0, 6 + player_id)
+                        player.plot_hidden.count = 0
+                        player.has_won_trick_this_year = player_id == 0
+                        player.medals = required_tricks if player_id == 0 else 0
+
+                    self.engine.apply_action(
+                        pointer,
+                        KCAction(kind=6, player_id=0),
+                    )
+
+                    self.assertEqual(state.phase, 4)
+                    self.assertEqual(state.exiled[state.year].count, 3)
+                    self.assertEqual(
+                        {
+                            state.requisition_events[index].player_id
+                            for index in range(state.requisition_event_count)
+                            if state.requisition_events[index].message_kind == 1
+                        },
+                        {1, 2, 3},
+                    )
+                    self.assertEqual(state.players[0].plot_revealed.count, 1)
+                finally:
+                    self.engine.free_engine(pointer)
 
     def test_service_preserves_neural_seats_for_server_policy_ai(self) -> None:
         request = create_request()
@@ -787,6 +1017,89 @@ class OnlineServerTests(unittest.TestCase):
         self.assertFalse(joined["update"]["ranked"])
         self.assertFalse(joined["update"]["browserJoinable"])
 
+    def test_service_invites_comrade_to_private_session(self) -> None:
+        store = FakeOnlineStore()
+        store.profiles["host-user"] = {
+            "display_name": "Host",
+            "avatar_url": None,
+            "stats": {},
+        }
+        store.profiles["comrade-user"] = {
+            "display_name": "Comrade",
+            "avatar_url": None,
+            "stats": {},
+        }
+        store.comrade_links["host-user"] = {"comrade-user"}
+        store.comrade_links["comrade-user"] = {"host-user"}
+        service = KolkhozOnlineSessionService(
+            self.engine,
+            store=store,  # type: ignore[arg-type]
+            lobby_countdown_seconds=0,
+        )
+        try:
+            request = create_request()
+            request["browserJoinable"] = False
+            created = service.create_session(request, user_id="host-user")
+
+            with self.assertRaises(OnlineServerError) as forbidden_invite:
+                service.invite_session_comrades(
+                    created["sessionID"],
+                    {"userIDs": ["stranger-user"]},
+                    user_id="host-user",
+                )
+            self.assertEqual(forbidden_invite.exception.status, HTTPStatus.FORBIDDEN)
+
+            invited = service.invite_session_comrades(
+                created["sessionID"],
+                {"userIDs": ["comrade-user"]},
+                user_id="host-user",
+            )
+            self.assertEqual(invited["invitedUserIDs"], ["comrade-user"])
+
+            self.assertEqual(service.pending_session_invites(user_id="stranger-user"), [])
+            pending = service.pending_session_invites(user_id="comrade-user")
+            self.assertEqual(len(pending), 1)
+            self.assertEqual(pending[0]["sessionID"], created["sessionID"])
+            self.assertNotIn("inviteCode", pending[0])
+
+            with self.assertRaises(OnlineServerError) as forbidden_join:
+                service.join_session(
+                    created["sessionID"],
+                    {"preferredPlayerID": 1},
+                    user_id="stranger-user",
+                )
+            self.assertEqual(forbidden_join.exception.status, HTTPStatus.FORBIDDEN)
+
+            declined = service.decline_session_invite(
+                created["sessionID"],
+                user_id="comrade-user",
+            )
+            self.assertEqual(declined["declined"], True)
+            self.assertEqual(service.pending_session_invites(user_id="comrade-user"), [])
+
+            with self.assertRaises(OnlineServerError) as declined_join:
+                service.join_session(
+                    created["sessionID"],
+                    {"preferredPlayerID": 1},
+                    user_id="comrade-user",
+                )
+            self.assertEqual(declined_join.exception.status, HTTPStatus.FORBIDDEN)
+
+            service.invite_session_comrades(
+                created["sessionID"],
+                {"userIDs": ["comrade-user"]},
+                user_id="host-user",
+            )
+            joined = service.join_session(
+                created["sessionID"],
+                {"preferredPlayerID": 1},
+                user_id="comrade-user",
+            )
+            self.assertEqual(joined["playerID"], 1)
+            self.assertEqual(service.pending_session_invites(user_id="comrade-user"), [])
+        finally:
+            service.close()
+
     def test_expired_sessions_are_pruned(self) -> None:
         service = KolkhozOnlineSessionService(self.engine, session_ttl_seconds=0.001)
         try:
@@ -803,7 +1116,11 @@ class OnlineServerTests(unittest.TestCase):
         self,
     ) -> None:
         store = FakeOnlineStore()
-        service = KolkhozOnlineSessionService(self.engine, store=store)
+        service = KolkhozOnlineSessionService(
+            self.engine,
+            store=store,
+            lobby_countdown_seconds=0,
+        )
         try:
             created = service.create_session(create_request())
             joined = service.join_session(
@@ -838,9 +1155,20 @@ class OnlineServerTests(unittest.TestCase):
 
     def test_service_recovers_persisted_session_after_restart(self) -> None:
         store = FakeOnlineStore()
-        service = KolkhozOnlineSessionService(self.engine, store=store)
+        service = KolkhozOnlineSessionService(
+            self.engine,
+            store=store,
+            lobby_countdown_seconds=0,
+        )
         try:
-            created = service.create_session(create_request())
+            request = create_request()
+            request["controllers"] = [
+                "human",
+                "heuristicAI",
+                "heuristicAI",
+                "heuristicAI",
+            ]
+            created = service.create_session(request)
             actions = service.legal_actions(
                 created["sessionID"],
                 0,
@@ -971,7 +1299,13 @@ class OnlineServerTests(unittest.TestCase):
         service = KolkhozOnlineSessionService(self.engine, store=store)
         try:
             created = service.create_session(create_request())
+            service.join_session(
+                created["sessionID"],
+                {"preferredPlayerID": 1},
+            )
             hosted = service._sessions[created["sessionID"]]
+            hosted.lobby_countdown_ends_at = 0.0
+            service._sync_lobby_state(hosted, time.time())
             hosted.turn_player_id = 0
             hosted.turn_deadline_at = 0.0
 
@@ -994,7 +1328,14 @@ class OnlineServerTests(unittest.TestCase):
                 create_request(),
                 user_id="11111111-1111-1111-1111-111111111111",
             )
+            service.join_session(
+                created["sessionID"],
+                {"preferredPlayerID": 1},
+                user_id="22222222-2222-2222-2222-222222222222",
+            )
             hosted = service._sessions[created["sessionID"]]
+            hosted.lobby_countdown_ends_at = 0.0
+            service._sync_lobby_state(hosted, time.time())
             hosted.turn_player_id = 0
             hosted.turn_deadline_at = 0.0
             hosted.seat_timeouts[0] = 1
@@ -1064,7 +1405,7 @@ class OnlineServerTests(unittest.TestCase):
             ranked=False,
             browser_joinable=True,
             population_kind=None,
-            occupied_seats={0},
+            occupied_seats={0, 1},
             seat_tokens={0: "seat-0"},
             seat_token_hashes={0: seat_token_hash("seat-0")},
             seat_user_ids={},
@@ -1084,6 +1425,7 @@ class OnlineServerTests(unittest.TestCase):
             turn_deadline_at=None,
         )
         try:
+            start_hosted_through_lobby(service, hosted, now=70.0)
             service._resolve_turn_timeouts(hosted, now=100.0)
         finally:
             service.close()
@@ -1117,10 +1459,21 @@ class OnlineServerTests(unittest.TestCase):
 
     def test_service_records_explicit_leave_and_autopilots_started_game_seat(self) -> None:
         store = FakeOnlineStore()
-        service = KolkhozOnlineSessionService(self.engine, store=store)
+        service = KolkhozOnlineSessionService(
+            self.engine,
+            store=store,
+            lobby_countdown_seconds=0,
+        )
         try:
+            request = create_request()
+            request["controllers"] = [
+                "human",
+                "heuristicAI",
+                "heuristicAI",
+                "heuristicAI",
+            ]
             created = service.create_session(
-                create_request(),
+                request,
                 user_id="11111111-1111-1111-1111-111111111111",
             )
             actions = service.legal_actions(
@@ -1367,6 +1720,46 @@ class OnlineServerTests(unittest.TestCase):
         self.assertEqual(after_remove["comrades"], [])
         self.assertEqual(store.abandoned_startups, 0)
 
+    def test_service_reports_comrade_presence_and_game_status(self) -> None:
+        store = FakeOnlineStore()
+        user_id = "11111111-1111-1111-1111-111111111111"
+        comrade_id = "22222222-2222-2222-2222-222222222222"
+        store.profiles[user_id] = {
+            "display_name": "Comrade Misha",
+            "avatar_url": "worker1",
+            "comrade_code": "MISHA",
+            "stats": {},
+        }
+        store.profiles[comrade_id] = {
+            "display_name": "Comrade Vera",
+            "avatar_url": "worker2",
+            "comrade_code": "VERA2",
+            "stats": {},
+        }
+        store.comrade_links[user_id] = {comrade_id}
+        store.comrade_links[comrade_id] = {user_id}
+        service = KolkhozOnlineSessionService(self.engine, store=store)
+        try:
+            service.mark_online_presence(user_id=comrade_id)
+            created = service.create_session(
+                create_request(),
+                user_id=comrade_id,
+            )
+            listed = service.comrades(user_id=user_id)["comrades"][0]
+            hosted = service._sessions[created["sessionID"]]
+            hosted.started = True
+            playing = service.comrades(user_id=user_id)["comrades"][0]
+        finally:
+            service.close()
+
+        self.assertEqual(listed["userID"], comrade_id)
+        self.assertEqual(listed["isOnline"], True)
+        self.assertEqual(listed["inLobby"], True)
+        self.assertEqual(listed["inGame"], False)
+        self.assertEqual(playing["isOnline"], True)
+        self.assertEqual(playing["inLobby"], False)
+        self.assertEqual(playing["inGame"], True)
+
     def test_service_declines_comrade_request(self) -> None:
         store = FakeOnlineStore()
         user_id = "11111111-1111-1111-1111-111111111111"
@@ -1434,6 +1827,9 @@ class OnlineServerTests(unittest.TestCase):
 
     def test_service_records_online_results_once_when_game_finishes(self) -> None:
         class FakeEngine:
+            def waiting_player(self, pointer: object) -> int:
+                return -1
+
             def free_engine(self, pointer: object) -> None:
                 pass
 
@@ -1486,6 +1882,7 @@ class OnlineServerTests(unittest.TestCase):
             turn_deadline_at=None,
         )
         try:
+            start_hosted_through_lobby(service, hosted, now=0.0)
             service._persist_finished_if_needed(hosted)
             service._persist_finished_if_needed(hosted)
         finally:
@@ -1648,6 +2045,11 @@ class OnlineServerTests(unittest.TestCase):
             turn_player_id=None,
             turn_deadline_at=None,
         )
+        start_hosted_through_lobby(
+            service,
+            service._sessions[session_id],
+            now=time.time(),
+        )
 
         try:
             self.assertEqual(
@@ -1727,7 +2129,7 @@ class OnlineServerTests(unittest.TestCase):
             turn_deadline_at=None,
         )
         try:
-            service._advance_automatic_turns(hosted)
+            start_hosted_through_lobby(service, hosted, now=0.0)
         finally:
             service.close()
 
@@ -1777,7 +2179,7 @@ class OnlineServerTests(unittest.TestCase):
             ranked=True,
             browser_joinable=True,
             population_kind="open_lobby_seed",
-            occupied_seats={0},
+            occupied_seats={0, 1, 2, 3},
             seat_tokens={0: "seat-0"},
             seat_token_hashes={0: seat_token_hash("seat-0")},
             seat_user_ids={
@@ -1799,7 +2201,7 @@ class OnlineServerTests(unittest.TestCase):
             turn_deadline_at=None,
         )
         try:
-            service._advance_automatic_turns(hosted, now=100.0)
+            start_hosted_through_lobby(service, hosted, now=70.0)
             ready_at = hosted.bot_action_ready_at[0]
             service._advance_automatic_turns(hosted, now=ready_at - 0.01)
             self.assertEqual(engine.applied, 0)
@@ -1876,7 +2278,7 @@ class OnlineServerTests(unittest.TestCase):
             ranked=True,
             browser_joinable=True,
             population_kind="open_lobby_seed",
-            occupied_seats={1},
+            occupied_seats={0, 1, 2, 3},
             seat_tokens={1: "seat-1"},
             seat_token_hashes={1: seat_token_hash("seat-1")},
             seat_user_ids={1: "00000000-0000-4000-8000-000000000301"},
@@ -1896,7 +2298,7 @@ class OnlineServerTests(unittest.TestCase):
             turn_deadline_at=None,
         )
         try:
-            service._advance_automatic_turns(hosted, now=1.0)
+            start_hosted_through_lobby(service, hosted, now=1.0)
         finally:
             service.close()
 
@@ -2144,6 +2546,7 @@ class OnlineServerTests(unittest.TestCase):
             self.engine,
             store=store,
             auth_verifier=FakeAuthVerifier(),  # type: ignore[arg-type]
+            lobby_countdown_seconds=0,
         )
         server = KolkhozOnlineHTTPServer(("127.0.0.1", 0), service)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -2275,7 +2678,9 @@ class FakeOnlineStore:
         self.created: dict[str, object] = {}
         self.joined: dict[str, object] = {}
         self.actions: list[dict[str, object]] = []
+        self.reactions: list[dict[str, object]] = []
         self.turn_states: list[dict[str, object]] = []
+        self.lobby_states: list[dict[str, object]] = []
         self.seat_touches: list[dict[str, object]] = []
         self.timeouts: list[dict[str, object]] = []
         self.abandoned: list[dict[str, object]] = []
@@ -2332,6 +2737,8 @@ class FakeOnlineStore:
             "expires_at": expires_at,
             "policy_model_sha": policy_model_sha,
             "created_by_user_id": created_by_user_id,
+            "status": "open",
+            "lobby_countdown_ends_at": None,
         }
 
     def join_seat(
@@ -2374,6 +2781,31 @@ class FakeOnlineStore:
             }
         )
 
+    def append_reaction(
+        self,
+        *,
+        session_id: str,
+        revision: int,
+        player_id: int,
+        reaction_id: str,
+        year: int,
+        phase: int,
+        created_at: float,
+        expires_at: float,
+    ) -> None:
+        self.reactions.append(
+            {
+                "session_id": session_id,
+                "revision": revision,
+                "player_id": player_id,
+                "reaction_id": reaction_id,
+                "year": year,
+                "phase": phase,
+                "created_at": created_at,
+                "expires_at": expires_at,
+            }
+        )
+
     def load_session(self, session_id_or_invite: str) -> dict[str, object] | None:
         if not self.created:
             return None
@@ -2391,12 +2823,14 @@ class FakeOnlineStore:
             "controllers": created["controllers"],
             "ranked": created["ranked"],
             "browser_joinable": created["browser_joinable"],
+            "status": created["status"],
             "created_by_user_id": created["created_by_user_id"],
             "created_at": created["created_at"],
             "last_seen_at": created["created_at"],
             "expires_at": created["expires_at"],
             "turn_player_id": None,
             "turn_deadline_at": None,
+            "lobby_countdown_ends_at": created["lobby_countdown_ends_at"],
             "seats": [
                 {
                     "player_id": player_id,
@@ -2412,6 +2846,17 @@ class FakeOnlineStore:
                 for player_id in range(4)
             ],
             "actions": list(self.actions),
+            "reactions": [
+                {
+                    "revision": entry["revision"],
+                    "playerID": entry["player_id"],
+                    "reactionID": entry["reaction_id"],
+                    "year": entry["year"],
+                    "phase": entry["phase"],
+                    "createdAt": entry["created_at"],
+                }
+                for entry in self.reactions
+            ],
         }
 
     def touch_session(
@@ -2441,6 +2886,27 @@ class FakeOnlineStore:
                 "expires_at": expires_at,
             }
         )
+
+    def update_lobby_state(
+        self,
+        *,
+        session_id: str,
+        started: bool,
+        lobby_countdown_ends_at: float | None,
+        updated_at: float,
+        expires_at: float,
+    ) -> None:
+        state = {
+            "session_id": session_id,
+            "started": started,
+            "lobby_countdown_ends_at": lobby_countdown_ends_at,
+            "updated_at": updated_at,
+            "expires_at": expires_at,
+        }
+        self.lobby_states.append(state)
+        if self.created.get("session_id") == session_id:
+            self.created["status"] = "active" if started else "open"
+            self.created["lobby_countdown_ends_at"] = lobby_countdown_ends_at
 
     def touch_seat(
         self,
