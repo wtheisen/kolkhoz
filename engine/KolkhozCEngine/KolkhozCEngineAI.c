@@ -2042,7 +2042,28 @@ double kc_policy_choice_log_probability(const KCPolicyActionCandidate *candidate
     return chosen_logit - (log(total) + max_logit);
 }
 
+static bool kc_submit_prefilled_assignment_action(const KCEngine *engine, int32_t player_id, KCAction *selected) {
+    if (engine && selected && engine->phase == KC_PHASE_ASSIGNMENT &&
+        kc_pending_assignment_count(engine) >= engine->last_trick_count) {
+        *selected = (KCAction){
+            .kind = KC_ACTION_SUBMIT_ASSIGNMENTS,
+            .player_id = player_id,
+            .suit = -1,
+            .card = kc_no_card(),
+            .hand_card = kc_no_card(),
+            .plot_card = kc_no_card(),
+            .plot_zone = -1,
+            .target_suit = -1
+        };
+        return true;
+    }
+    return false;
+}
+
 bool kc_greedy_policy_action(const KCEngine *engine, int32_t player_id, KCPolicyModelBuffer model, double *hidden_cache, KCAction *selected) {
+    if (kc_submit_prefilled_assignment_action(engine, player_id, selected)) {
+        return true;
+    }
     KCPolicyActionCandidate *candidates = malloc(256 * sizeof(KCPolicyActionCandidate));
     if (!candidates) {
         return false;
@@ -2170,6 +2191,9 @@ bool kc_engine_policy_action(const KCEngine *engine, KCPolicyModelBuffer model, 
         player_id >= KC_PLAYER_COUNT ||
         !kc_controller_is_policy(engine->controllers.seats[player_id])) {
         return false;
+    }
+    if (kc_submit_prefilled_assignment_action(engine, player_id, selected)) {
+        return true;
     }
     int32_t activation_count = kc_policy_activation_count(model);
     if (activation_count <= 0) {

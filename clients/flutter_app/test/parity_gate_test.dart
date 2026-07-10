@@ -8,11 +8,14 @@ import 'package:kolkhoz_app/src/game_constants.dart';
 import 'package:kolkhoz_app/src/game_ui_state.dart';
 import 'package:kolkhoz_app/src/online_game_models.dart';
 import 'package:kolkhoz_app/src/online_table_projection.dart';
+import 'package:kolkhoz_app/src/policy_model.dart';
 import 'package:kolkhoz_app/src/render_model.dart';
 import 'package:kolkhoz_app/src/saved_game_store.dart';
 import 'package:kolkhoz_app/src/table_view_projection.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('dart kolkhoz preset matches C engine kolkhoz defaults', () {
     final bridge = KolkhozCEngineBridge();
     expect(
@@ -95,6 +98,62 @@ actions=
         expect(model.table.trick.plays, hasLength(1));
       },
     );
+  });
+
+  test('policy AI submits an assignment prefilled for a single suit', () async {
+    final bridge = KolkhozCEngineBridge();
+    final policy = await KolkhozNativePolicyModel.loadAsset(
+      mediumNeuralPolicyAsset,
+    );
+    var foundPrefilledAssignment = false;
+
+    try {
+      for (var seed = 1; seed <= 100 && !foundPrefilledAssignment; seed += 1) {
+        final engine = bridge.newEngine(
+          seed: seed,
+          variants: KolkhozGameVariants.kolkhoz,
+          controllers: const [
+            KolkhozPlayerController.mediumAI,
+            KolkhozPlayerController.mediumAI,
+            KolkhozPlayerController.mediumAI,
+            KolkhozPlayerController.mediumAI,
+          ],
+        );
+        try {
+          for (var step = 0; step < 100; step += 1) {
+            final legalActions = bridge.legalActions(engine);
+            if (bridge.phase(engine) == kcPhaseAssignment &&
+                legalActions.length == 1 &&
+                legalActions.single.kind == kcActionSubmitAssignments) {
+              foundPrefilledAssignment = true;
+              final yearBefore = bridge.year(engine);
+              final trickCountBefore = bridge.trickCount(engine);
+              final action = bridge.policyAction(engine, policy.native);
+
+              expect(action, isNotNull);
+              expect(action!.kind, kcActionSubmitAssignments);
+              expect(bridge.applyAIAction(engine, action), 0);
+              expect(
+                bridge.phase(engine) != kcPhaseAssignment ||
+                    bridge.year(engine) != yearBefore ||
+                    bridge.trickCount(engine) != trickCountBefore,
+                isTrue,
+              );
+              break;
+            }
+
+            final action = legalActions.first;
+            expect(bridge.applyAIAction(engine, action), 0);
+          }
+        } finally {
+          bridge.freeEngine(engine);
+        }
+      }
+    } finally {
+      policy.dispose();
+    }
+
+    expect(foundPrefilledAssignment, isTrue);
   });
 
   test('kolkhoz default deals a 14-value all-suit saboteur card', () {

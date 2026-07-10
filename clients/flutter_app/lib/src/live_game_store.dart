@@ -26,6 +26,17 @@ bool actionCapturesUndoSnapshot(String actionKind) {
 
 const onlineGameRefreshInterval = Duration(seconds: 1);
 
+bool isStaleOnlineActionError(Object error) {
+  return error is OnlineRequestException &&
+      error.statusCode == HttpStatus.conflict &&
+      error.message == 'stale action';
+}
+
+bool onlineActionMatches(OnlineEngineAction candidate, EngineAction action) {
+  return jsonEncode(candidate.toJson()) ==
+      jsonEncode(OnlineEngineAction.fromEngineAction(action).toJson());
+}
+
 class LiveGameStore extends ChangeNotifier {
   LiveGameStore({
     KolkhozCEngineBridge? bridge,
@@ -939,17 +950,48 @@ class LiveGameStore extends ChangeNotifier {
     OnlineGameRuntime online,
     LegalAction action,
   ) async {
-    final beforeRevision = online.update.actionLogCount;
+    final selectionBeforeSubmit = uiState;
+    _clearSelectionAfter(action.kind);
+    _sync();
     try {
-      final update = await online.client.submitAction(
-        sessionID: online.sessionID,
-        playerID: online.playerID,
-        seatToken: online.seatToken,
-        actionLogCount: online.update.actionLogCount,
-        action: action.engineAction,
-      );
+      var beforeRevision = online.update.actionLogCount;
+      OnlineSessionUpdate update;
+      try {
+        update = await online.client.submitAction(
+          sessionID: online.sessionID,
+          playerID: online.playerID,
+          seatToken: online.seatToken,
+          actionLogCount: beforeRevision,
+          action: action.engineAction,
+        );
+      } catch (exception) {
+        if (!isStaleOnlineActionError(exception)) {
+          rethrow;
+        }
+        final refreshed = await online.client.fetchUpdate(
+          sessionID: online.sessionID,
+          playerID: online.playerID,
+          seatToken: online.seatToken,
+        );
+        _acceptOnlineUpdate(online, refreshed);
+        online.legalActions = refreshed.legalActions;
+        if (!refreshed.legalActions.any(
+          (candidate) => onlineActionMatches(candidate, action.engineAction),
+        )) {
+          error = null;
+          _sync();
+          return;
+        }
+        beforeRevision = refreshed.actionLogCount;
+        update = await online.client.submitAction(
+          sessionID: online.sessionID,
+          playerID: online.playerID,
+          seatToken: online.seatToken,
+          actionLogCount: beforeRevision,
+          action: action.engineAction,
+        );
+      }
       error = null;
-      _clearSelectionAfter(action.kind);
       final queued = await _fetchAndQueueOnlineUpdates(
         online,
         afterRevision: beforeRevision,
@@ -960,8 +1002,9 @@ class LiveGameStore extends ChangeNotifier {
         _sync();
       }
     } catch (exception) {
+      uiState = selectionBeforeSubmit;
       error = '$exception';
-      notifyListeners();
+      _sync();
     }
   }
 
