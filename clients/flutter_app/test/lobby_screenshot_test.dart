@@ -55,6 +55,11 @@ const _scenarios = [
     settingsTab: KolkhozSettingsTab.comrades,
   ),
   _LobbyScenario(
+    'lobby_progress',
+    showingProfile: true,
+    settingsTab: KolkhozSettingsTab.progress,
+  ),
+  _LobbyScenario(
     'lobby_assist_settings',
     showingProfile: true,
     settingsTab: KolkhozSettingsTab.assist,

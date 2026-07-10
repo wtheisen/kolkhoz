@@ -8,10 +8,35 @@ import 'c_engine_bridge.dart';
 
 import 'design_tokens.dart';
 import 'game_constants.dart';
+import 'progression/progression.dart';
 
 const defaultProfileDisplayName = 'Player';
 const defaultProfilePortraitAsset = 'worker1';
-const profilePortraitAssets = ['worker1', 'worker2', 'worker3', 'worker4'];
+const profilePortraitAssets = [
+  'worker1',
+  'worker2',
+  'worker3',
+  'worker4',
+  'worker-agronomist',
+  'worker-mechanic',
+  'worker-beekeeper',
+  'worker-forewoman',
+];
+const profilePortraitUnlockRequirements = <String, String>{
+  'worker-agronomist': 'achievement.century',
+  'worker-mechanic': 'challenge.medals_25',
+  'worker-beekeeper': 'achievement.saboteur_exiled',
+  'worker-forewoman': 'challenge.games_10',
+};
+
+bool isProfilePortraitUnlocked(
+  ProgressionState progression,
+  String portraitAsset,
+) {
+  final requirement = profilePortraitUnlockRequirements[portraitAsset];
+  return requirement == null || progression.isCompleted(requirement);
+}
+
 const defaultProfileStats = KolkhozProfileStats();
 
 class KolkhozProfileStats {
@@ -488,6 +513,23 @@ enum KolkhozCardBack {
   }
 }
 
+String? cardBackUnlockID(KolkhozCardBack cardBack) {
+  return switch (cardBack) {
+    KolkhozCardBack.classic => null,
+    KolkhozCardBack.harvest => 'unlock.card_back.harvest',
+    KolkhozCardBack.granary => 'unlock.card_back.granary',
+    KolkhozCardBack.winter => 'unlock.card_back.winter',
+  };
+}
+
+bool isCardBackUnlocked(
+  ProgressionState progression,
+  KolkhozCardBack cardBack,
+) {
+  final unlockID = cardBackUnlockID(cardBack);
+  return unlockID == null || progression.hasUnlock(unlockID);
+}
+
 class KolkhozCardBackScope extends InheritedWidget {
   const KolkhozCardBackScope({
     required this.cardBack,
@@ -517,9 +559,13 @@ class KolkhozAppSettings {
     this.confirmNewGame = true,
     this.confirmMainMenu = true,
     this.showInvalidTapHints = true,
+    this.soundEnabled = true,
     this.displayName = defaultProfileDisplayName,
     this.portraitAsset = defaultProfilePortraitAsset,
     this.profileStats = defaultProfileStats,
+    this.progression = const ProgressionState(),
+    this.onlineProgression = const ProgressionState(),
+    this.onlineProgressionUserID,
     this.favoriteSetup,
     this.lastStartedSetup,
   });
@@ -530,9 +576,13 @@ class KolkhozAppSettings {
   final bool confirmNewGame;
   final bool confirmMainMenu;
   final bool showInvalidTapHints;
+  final bool soundEnabled;
   final String displayName;
   final String portraitAsset;
   final KolkhozProfileStats profileStats;
+  final ProgressionState progression;
+  final ProgressionState onlineProgression;
+  final String? onlineProgressionUserID;
   final KolkhozFavoriteSetup? favoriteSetup;
   final KolkhozFavoriteSetup? lastStartedSetup;
 
@@ -543,9 +593,13 @@ class KolkhozAppSettings {
     bool? confirmNewGame,
     bool? confirmMainMenu,
     bool? showInvalidTapHints,
+    bool? soundEnabled,
     String? displayName,
     String? portraitAsset,
     KolkhozProfileStats? profileStats,
+    ProgressionState? progression,
+    ProgressionState? onlineProgression,
+    String? onlineProgressionUserID,
     KolkhozFavoriteSetup? favoriteSetup,
     KolkhozFavoriteSetup? lastStartedSetup,
   }) {
@@ -556,9 +610,14 @@ class KolkhozAppSettings {
       confirmNewGame: confirmNewGame ?? this.confirmNewGame,
       confirmMainMenu: confirmMainMenu ?? this.confirmMainMenu,
       showInvalidTapHints: showInvalidTapHints ?? this.showInvalidTapHints,
+      soundEnabled: soundEnabled ?? this.soundEnabled,
       displayName: displayName ?? this.displayName,
       portraitAsset: portraitAsset ?? this.portraitAsset,
       profileStats: profileStats ?? this.profileStats,
+      progression: progression ?? this.progression,
+      onlineProgression: onlineProgression ?? this.onlineProgression,
+      onlineProgressionUserID:
+          onlineProgressionUserID ?? this.onlineProgressionUserID,
       favoriteSetup: favoriteSetup ?? this.favoriteSetup,
       lastStartedSetup: lastStartedSetup ?? this.lastStartedSetup,
     );
@@ -572,9 +631,14 @@ class KolkhozAppSettings {
       'confirm-new-game': confirmNewGame,
       'confirm-main-menu': confirmMainMenu,
       'show-invalid-tap-hints': showInvalidTapHints,
+      'sound-enabled': soundEnabled,
       'display-name': displayName,
       'portrait-asset': portraitAsset,
       'profile-stats': profileStats.toJson(),
+      'progression': progression.toJson(),
+      'online-progression': onlineProgression.toJson(),
+      if (onlineProgressionUserID != null)
+        'online-progression-user-id': onlineProgressionUserID,
       if (favoriteSetup != null) 'favorite-setup': favoriteSetup!.toJson(),
       if (lastStartedSetup != null)
         'last-started-setup': lastStartedSetup!.toJson(),
@@ -595,6 +659,7 @@ class KolkhozAppSettings {
       confirmNewGame: json['confirm-new-game'] as bool? ?? true,
       confirmMainMenu: json['confirm-main-menu'] as bool? ?? true,
       showInvalidTapHints: json['show-invalid-tap-hints'] as bool? ?? true,
+      soundEnabled: json['sound-enabled'] as bool? ?? true,
       displayName: displayName == null || displayName.isEmpty
           ? defaultProfileDisplayName
           : displayName,
@@ -602,6 +667,9 @@ class KolkhozAppSettings {
           ? portraitAsset!
           : defaultProfilePortraitAsset,
       profileStats: KolkhozProfileStats.fromJson(json['profile-stats']),
+      progression: ProgressionState.fromJson(json['progression']),
+      onlineProgression: ProgressionState.fromJson(json['online-progression']),
+      onlineProgressionUserID: json['online-progression-user-id'] as String?,
       favoriteSetup: KolkhozFavoriteSetup.fromJson(json['favorite-setup']),
       lastStartedSetup: KolkhozFavoriteSetup.fromJson(
         json['last-started-setup'],

@@ -20,6 +20,7 @@ import 'package:kolkhoz_app/src/controller_display.dart';
 import 'package:kolkhoz_app/src/design_tokens.dart';
 import 'package:kolkhoz_app/src/engine_action_projection.dart';
 import 'package:kolkhoz_app/src/game_constants.dart';
+import 'package:kolkhoz_app/src/game_sound.dart';
 import 'package:kolkhoz_app/src/game_ui_state.dart';
 import 'package:kolkhoz_app/src/hot_seat_display.dart';
 import 'package:kolkhoz_app/src/kolkhoz_app.dart';
@@ -60,6 +61,72 @@ void main() {
 
   test('online gameplay fallback refreshes once per second', () {
     expect(onlineGameRefreshInterval, const Duration(seconds: 1));
+  });
+
+  test('game sound cues follow authoritative action and phase transitions', () {
+    final trick = runtimeModelWith(
+      phase: phaseTrick,
+      selection: SelectionState.empty,
+      jobs: runtimeModel().table.jobs,
+    );
+    final assignment = runtimeModelWith(
+      phase: phaseAssignment,
+      selection: SelectionState.empty,
+      jobs: runtimeModel().table.jobs,
+    );
+    final requisition = runtimeModelWith(
+      phase: phaseRequisition,
+      selection: SelectionState.empty,
+      jobs: runtimeModel().table.jobs,
+    );
+    const play = EngineAction(
+      kind: actionPlayCard,
+      playerID: 0,
+      card: EngineCard(suit: 'wheat', value: 9),
+    );
+    const assign = EngineAction(
+      kind: actionAssign,
+      playerID: 0,
+      card: EngineCard(suit: 'wheat', value: 9),
+      targetSuit: 'wheat',
+    );
+
+    expect(
+      gameSoundCueForTransition(
+        previous: trick,
+        next: trick,
+        previousActionCount: 0,
+        actions: const [play],
+      ),
+      GameSoundCue.cardPlay,
+    );
+    expect(
+      gameSoundCueForTransition(
+        previous: trick,
+        next: assignment,
+        previousActionCount: 0,
+        actions: const [play],
+      ),
+      GameSoundCue.trickWin,
+    );
+    expect(
+      gameSoundCueForTransition(
+        previous: assignment,
+        next: assignment,
+        previousActionCount: 0,
+        actions: const [assign],
+      ),
+      GameSoundCue.assignment,
+    );
+    expect(
+      gameSoundCueForTransition(
+        previous: assignment,
+        next: requisition,
+        previousActionCount: 1,
+        actions: const [assign],
+      ),
+      GameSoundCue.requisition,
+    );
   });
 
   test('kolkhoz default includes saboteur without a duplicate preset', () {
@@ -153,6 +220,7 @@ void main() {
       confirmNewGame: false,
       confirmMainMenu: false,
       showInvalidTapHints: false,
+      soundEnabled: false,
       displayName: 'Nadia',
       portraitAsset: 'worker3',
       profileStats: KolkhozProfileStats(
@@ -195,6 +263,7 @@ void main() {
     expect(restored.confirmNewGame, isFalse);
     expect(restored.confirmMainMenu, isFalse);
     expect(restored.showInvalidTapHints, isFalse);
+    expect(restored.soundEnabled, isFalse);
     expect(restored.displayName, 'Nadia');
     expect(restored.portraitAsset, 'worker3');
     expect(restored.profileStats.offlinePlays, 12);
@@ -6141,6 +6210,8 @@ TableViewModel runtimeModelWith({
   required String phase,
   required SelectionState selection,
   required List<Job> jobs,
+  int? year,
+  GameResult? gameResult,
   int? currentPlayerID,
   List<Seat>? seats,
   Trick? trick,
@@ -6151,7 +6222,7 @@ TableViewModel runtimeModelWith({
   return TableViewModel(
     viewer: base.viewer,
     table: TableState(
-      year: base.table.year,
+      year: year ?? base.table.year,
       phase: phase,
       phasePrompt: base.table.phasePrompt,
       currentPlayerID: currentPlayerID ?? base.table.currentPlayerID,
@@ -6165,7 +6236,7 @@ TableViewModel runtimeModelWith({
       requisitionEvents: base.table.requisitionEvents,
       exiledByYear: base.table.exiledByYear,
       scoreboard: base.table.scoreboard,
-      gameResult: base.table.gameResult,
+      gameResult: gameResult ?? base.table.gameResult,
     ),
     panels: base.panels,
     selection: selection,

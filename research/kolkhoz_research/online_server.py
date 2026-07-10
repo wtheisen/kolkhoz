@@ -47,6 +47,7 @@ except ImportError:  # pragma: no cover - depends on the local Python install
 
 PLAYER_COUNT = 4
 SUIT_COUNT = 4
+WRECKER_SUIT = 4
 MAX_YEARS = 5
 MAX_CARDS = 80
 MAX_STACKS = 16
@@ -3218,6 +3219,11 @@ class KolkhozOnlineSessionService:
             for player_id, score in enumerate(scores)
         ]
         ranks = _score_ranks(rating_scores)
+        saboteur_exiled = any(
+            int(state.exiled[year].cards[index].suit) == WRECKER_SUIT
+            for year in range(MAX_YEARS + 1)
+            for index in range(int(state.exiled[year].count))
+        )
         results = [
             {
                 "player_id": player_id,
@@ -3226,6 +3232,22 @@ class KolkhozOnlineSessionService:
                 "score": scores[player_id],
                 "rank": ranks[player_id],
                 "won": player_id == winner_id,
+                "margin": scores[player_id]
+                - max(
+                    score
+                    for other_player_id, score in enumerate(scores)
+                    if other_player_id != player_id
+                ),
+                "medals": int(state.players[player_id].plot_medals)
+                + int(state.players[player_id].medals),
+                "full_five_year_game": int(state.variants.max_years) >= 5,
+                "saboteur_exiled": saboteur_exiled,
+                "exiled_plot_cards": sum(
+                    1
+                    for index in range(int(state.requisition_event_count))
+                    if int(state.requisition_events[index].player_id) == player_id
+                    and int(state.requisition_events[index].message_kind) == 1
+                ),
             }
             for player_id in range(PLAYER_COUNT)
         ]
