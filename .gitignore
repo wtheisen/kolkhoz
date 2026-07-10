@@ -17,6 +17,7 @@ research/runs/
 research/logs/
 research/.build/
 research/.venv/
+.venv/
 research/__pycache__/
 research/history/current_experiment.json
 *.pyc
