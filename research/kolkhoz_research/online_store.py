@@ -109,262 +109,7 @@ def seat_token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-class OnlineSessionStore:
-    def close(self) -> None:
-        pass
-
-    def create_session(
-        self,
-        *,
-        session_id: str,
-        invite_code: str,
-        seed: int,
-        variants: dict[str, object],
-        controllers: list[str],
-        ranked: bool,
-        browser_joinable: bool,
-        occupied_seats: set[int],
-        seat_tokens: dict[int, str],
-        seat_user_ids: dict[int, str],
-        action_log_count: int,
-        created_at: float,
-        expires_at: float,
-        policy_model_sha: str | None,
-        created_by_user_id: str | None,
-    ) -> None:
-        pass
-
-    def join_seat(
-        self,
-        *,
-        session_id: str,
-        player_id: int,
-        seat_token: str,
-        user_id: str | None,
-        updated_at: float,
-        expires_at: float,
-    ) -> None:
-        pass
-
-    def append_action(
-        self,
-        *,
-        session_id: str,
-        revision: int,
-        player_id: int,
-        action: dict[str, object],
-        updated_at: float,
-        expires_at: float,
-    ) -> None:
-        pass
-
-    def append_reaction(
-        self,
-        *,
-        session_id: str,
-        revision: int,
-        player_id: int,
-        reaction_id: str,
-        year: int,
-        phase: int,
-        created_at: float,
-        expires_at: float,
-    ) -> None:
-        pass
-
-    def load_session(self, session_id_or_invite: str) -> dict[str, object] | None:
-        return None
-
-    def touch_session(
-        self,
-        *,
-        session_id: str,
-        updated_at: float,
-        expires_at: float,
-    ) -> None:
-        pass
-
-    def update_turn_state(
-        self,
-        *,
-        session_id: str,
-        turn_player_id: int | None,
-        turn_deadline_at: float | None,
-        updated_at: float,
-        expires_at: float,
-    ) -> None:
-        pass
-
-    def update_lobby_state(
-        self,
-        *,
-        session_id: str,
-        started: bool,
-        lobby_countdown_ends_at: float | None,
-        updated_at: float,
-        expires_at: float,
-    ) -> None:
-        pass
-
-    def touch_seat(
-        self,
-        *,
-        session_id: str,
-        player_id: int,
-        updated_at: float,
-        expires_at: float,
-    ) -> None:
-        pass
-
-    def record_seat_timeout(
-        self,
-        *,
-        session_id: str,
-        player_id: int,
-        timeouts: int,
-        autopilot: bool,
-        updated_at: float,
-        expires_at: float,
-        revision: int,
-    ) -> None:
-        pass
-
-    def online_ban_for_user(
-        self,
-        *,
-        user_id: str,
-        checked_at: float,
-    ) -> dict[str, object] | None:
-        return None
-
-    def abandon_seat(
-        self,
-        *,
-        session_id: str,
-        player_id: int,
-        user_id: str | None,
-        updated_at: float,
-        expires_at: float,
-        revision: int,
-    ) -> dict[str, object] | None:
-        return None
-
-    def leave_lobby_seat(
-        self,
-        *,
-        session_id: str,
-        player_id: int,
-        updated_at: float,
-        expires_at: float,
-        revision: int,
-    ) -> None:
-        pass
-
-    def expire_session(
-        self,
-        *,
-        session_id: str,
-        updated_at: float,
-        expires_at: float,
-    ) -> None:
-        pass
-
-    def abandon_active_sessions(self, *, updated_at: float) -> None:
-        pass
-
-    def finish_session(
-        self,
-        *,
-        session_id: str,
-        results: list[dict[str, object]],
-        ranked: bool,
-        updated_at: float,
-        expires_at: float,
-    ) -> None:
-        pass
-
-    def profiles_for_user_ids(
-        self,
-        user_ids: list[str],
-    ) -> dict[str, dict[str, object]]:
-        return {}
-
-    def profiles_for_ai_controllers(
-        self,
-        controllers: list[str],
-    ) -> dict[str, dict[str, object]]:
-        return {}
-
-    def ensure_comrade_code(
-        self,
-        *,
-        user_id: str,
-        display_name: str,
-        updated_at: float,
-    ) -> str:
-        return _fallback_comrade_code(user_id)
-
-    def comrades_for_user(
-        self,
-        *,
-        user_id: str,
-    ) -> dict[str, object]:
-        return {
-            "user_id": user_id,
-            "comrade_code": _fallback_comrade_code(user_id),
-            "comrades": [],
-            "incoming_requests": [],
-            "outgoing_requests": [],
-        }
-
-    def send_comrade_request_by_code(
-        self,
-        *,
-        user_id: str,
-        comrade_code: str,
-        updated_at: float,
-    ) -> dict[str, object]:
-        raise ValueError("comrade profiles are not configured")
-
-    def send_comrade_request_to_user(
-        self,
-        *,
-        user_id: str,
-        comrade_user_id: str,
-        updated_at: float,
-    ) -> dict[str, object]:
-        raise ValueError("comrade profiles are not configured")
-
-    def respond_to_comrade_request(
-        self,
-        *,
-        user_id: str,
-        requester_user_id: str,
-        accept: bool,
-        updated_at: float,
-    ) -> dict[str, object] | None:
-        raise ValueError("comrade profiles are not configured")
-
-    def remove_comrade(
-        self,
-        *,
-        user_id: str,
-        comrade_user_id: str,
-    ) -> None:
-        pass
-
-    def create_profile_bot_profiles(
-        self,
-        *,
-        count: int,
-        exclude_user_ids: set[str],
-        target_rating: int,
-        updated_at: float,
-    ) -> list[dict[str, object]]:
-        return []
-
-
-class PostgresOnlineSessionStore(OnlineSessionStore):
+class PostgresOnlineSessionStore:
     def __init__(self, database_url: str) -> None:
         try:
             import psycopg
@@ -381,106 +126,92 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
             database_url,
             autocommit=True,
             prepare_threshold=None,
+            connect_timeout=5,
+            keepalives=1,
+            keepalives_idle=5,
+            keepalives_interval=2,
+            keepalives_count=2,
+            tcp_user_timeout=5000,
+            options=(
+                "-c statement_timeout=5000 "
+                "-c lock_timeout=3000 "
+                "-c idle_in_transaction_session_timeout=5000"
+            ),
         )
         self._lock = threading.RLock()
-        self._profile_stats_has_split_columns = self._has_columns(
-            "profile_stats",
-            {"casual_games", "casual_wins", "ranked_games", "ranked_wins"},
-        )
-        self._profile_stats_has_casual_rating_columns = self._has_columns(
-            "profile_stats",
-            {
-                "casual_rating",
-                "casual_peak_rating",
-                "casual_rating_games",
-                "casual_rating_mu",
-                "casual_rating_sigma",
-            },
-        )
-        self._ai_profile_stats_has_split_columns = self._has_columns(
-            "ai_profile_stats",
-            {"casual_games", "casual_wins", "ranked_games", "ranked_wins"},
-        )
-        self._ai_profile_stats_has_casual_rating_columns = self._has_columns(
-            "ai_profile_stats",
-            {
-                "casual_rating",
-                "casual_peak_rating",
-                "casual_rating_games",
-                "casual_rating_mu",
-                "casual_rating_sigma",
-            },
-        )
-        self._has_user_comrades_table = self._has_table("user_comrades")
-        self._has_user_comrade_requests_table = self._has_table(
-            "user_comrade_requests",
-        )
-        self._has_profile_progression_table = self._has_table(
-            "profile_progression"
-        ) and self._has_table("profile_progression_events")
+        self._require_current_schema()
 
     def close(self) -> None:
         with self._lock:
             self._connection.close()
 
-    def _has_columns(self, table_name: str, column_names: set[str]) -> bool:
+    def _require_current_schema(self) -> None:
+        required = {
+            "profile_stats": {
+                "casual_games",
+                "casual_wins",
+                "ranked_games",
+                "ranked_wins",
+                "casual_rating",
+                "casual_peak_rating",
+                "casual_rating_games",
+                "casual_rating_mu",
+                "casual_rating_sigma",
+            },
+            "ai_profile_stats": {
+                "casual_games",
+                "casual_wins",
+                "ranked_games",
+                "ranked_wins",
+                "casual_rating",
+                "casual_peak_rating",
+                "casual_rating_games",
+                "casual_rating_mu",
+                "casual_rating_sigma",
+            },
+        }
         with self._connection.cursor() as cursor:
-            cursor.execute(
-                """
-                select column_name
-                  from information_schema.columns
-                 where table_schema = 'public'
-                   and table_name = %s
-                   and column_name = any(%s::text[])
-                """,
-                (table_name, sorted(column_names)),
-            )
-            found_columns = {str(row[0]) for row in cursor.fetchall()}
-            return column_names.issubset(found_columns)
+            for table_name, columns in required.items():
+                cursor.execute(
+                    """
+                    select column_name
+                      from information_schema.columns
+                     where table_schema = 'public' and table_name = %s
+                    """,
+                    (table_name,),
+                )
+                found = {str(row[0]) for row in cursor.fetchall()}
+                missing = columns - found
+                if missing:
+                    raise RuntimeError(
+                        f"database schema is outdated: {table_name} is missing "
+                        f"{', '.join(sorted(missing))}"
+                    )
+            for table_name in (
+                "user_comrades",
+                "user_comrade_requests",
+                "profile_progression",
+                "profile_progression_events",
+            ):
+                cursor.execute("select to_regclass(%s)", (f"public.{table_name}",))
+                row = cursor.fetchone()
+                if row is None or row[0] is None:
+                    raise RuntimeError(
+                        f"database schema is outdated: missing public.{table_name}"
+                    )
 
-    def _has_table(self, table_name: str) -> bool:
-        with self._connection.cursor() as cursor:
-            cursor.execute("select to_regclass(%s)", (f"public.{table_name}",))
-            row = cursor.fetchone()
-            return row is not None and row[0] is not None
-
-    def _split_stats_select_sql(self, alias: str, *, ai: bool = False) -> str:
-        has_split_columns = (
-            self._ai_profile_stats_has_split_columns
-            if ai
-            else self._profile_stats_has_split_columns
-        )
-        if has_split_columns:
-            return f"""
+    def _split_stats_select_sql(self, alias: str) -> str:
+        return f"""
                     {alias}.casual_games,
                     {alias}.casual_wins,
                     {alias}.ranked_games,
                     {alias}.ranked_wins"""
-        online_games = f"coalesce({alias}.online_games, 0)"
-        online_wins = f"coalesce({alias}.online_wins, 0)"
-        rating_games = f"coalesce({alias}.rating_games, 0)"
-        ranked_wins = f"least({online_wins}, {rating_games})"
-        return f"""
-                    greatest({online_games} - {rating_games}, 0) as casual_games,
-                    greatest({online_wins} - {ranked_wins}, 0) as casual_wins,
-                    {rating_games} as ranked_games,
-                    {ranked_wins} as ranked_wins"""
 
-    def _casual_rating_select_sql(self, alias: str, *, ai: bool = False) -> str:
-        has_casual_rating_columns = (
-            self._ai_profile_stats_has_casual_rating_columns
-            if ai
-            else self._profile_stats_has_casual_rating_columns
-        )
-        if has_casual_rating_columns:
-            return f"""
+    def _casual_rating_select_sql(self, alias: str) -> str:
+        return f"""
                     {alias}.casual_rating,
                     {alias}.casual_peak_rating,
                     {alias}.casual_rating_games"""
-        return """
-                    1000 as casual_rating,
-                    1000 as casual_peak_rating,
-                    0 as casual_rating_games"""
 
     def create_session(
         self,
@@ -842,9 +573,7 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
     ) -> None:
         now = _pg_timestamp(updated_at)
         deadline = (
-            _pg_timestamp(turn_deadline_at)
-            if turn_deadline_at is not None
-            else None
+            _pg_timestamp(turn_deadline_at) if turn_deadline_at is not None else None
         )
         with self._lock, self._connection.cursor() as cursor:
             cursor.execute(
@@ -1037,7 +766,9 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                 if row is not None:
                     penalty = {
                         "strikes": row[0],
-                        "banned_until": row[1].timestamp() if row[1] is not None else None,
+                        "banned_until": row[1].timestamp()
+                        if row[1] is not None
+                        else None,
                     }
             self._touch_session(cursor, session_id, now, expires_at)
             self._insert_update(cursor, session_id, revision, "abandoned", now)
@@ -1200,14 +931,13 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     """,
                     (user_id,),
                 )
-                if self._has_profile_progression_table:
-                    self._record_online_progression(
-                        cursor,
-                        session_id=session_id,
-                        user_id=user_id,
-                        result=result,
-                        updated_at=now,
-                    )
+                self._record_online_progression(
+                    cursor,
+                    session_id=session_id,
+                    user_id=user_id,
+                    result=result,
+                    updated_at=now,
+                )
             ai_results = _aggregate_ai_results(results)
             for ai_key in ai_results:
                 cursor.execute(
@@ -1219,11 +949,7 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     """,
                     (ai_key, AI_PROFILES[ai_key]),
                 )
-            update_casual_rating = (
-                not ranked
-                and self._profile_stats_has_casual_rating_columns
-                and self._ai_profile_stats_has_casual_rating_columns
-            )
+            update_casual_rating = not ranked
             if ranked or update_casual_rating:
                 ratings = _load_ratings(
                     cursor,
@@ -1248,127 +974,55 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     mu = output.mu
                     sigma = output.sigma
                     rating = output.display_rating
-                if (
-                    self._profile_stats_has_split_columns
-                    and self._profile_stats_has_casual_rating_columns
-                ):
-                    cursor.execute(
-                        """
-                        update public.profile_stats
-                           set games_played = games_played + 1,
-                               wins_total = wins_total + %s,
-                               online_games = online_games + 1,
-                               online_wins = online_wins + %s,
-                               casual_games = casual_games + %s,
-                               casual_wins = casual_wins + %s,
-                               ranked_games = ranked_games + %s,
-                               ranked_wins = ranked_wins + %s,
-                               casual_rating = coalesce(%s, casual_rating),
-                               casual_peak_rating = greatest(casual_peak_rating, coalesce(%s, casual_rating)),
-                               casual_rating_games = casual_rating_games + %s,
-                               casual_rating_mu = coalesce(%s, casual_rating_mu),
-                               casual_rating_sigma = coalesce(%s, casual_rating_sigma),
-                               casual_rating_version = case when %s then 2 else casual_rating_version end,
-                               rating = coalesce(%s, rating),
-                               peak_rating = greatest(peak_rating, coalesce(%s, rating)),
-                               rating_games = rating_games + %s,
-                               rating_mu = coalesce(%s, rating_mu),
-                               rating_sigma = coalesce(%s, rating_sigma),
-                               rating_version = case when %s then 2 else rating_version end,
-                               updated_at = %s
-                         where user_id = %s
-                        """,
-                        (
-                            1 if won else 0,
-                            1 if won else 0,
-                            0 if ranked else 1,
-                            0 if ranked or not won else 1,
-                            1 if ranked else 0,
-                            1 if ranked and won else 0,
-                            None if ranked else rating,
-                            None if ranked else rating,
-                            0 if ranked else 1,
-                            None if ranked else mu,
-                            None if ranked else sigma,
-                            not ranked,
-                            rating if ranked else None,
-                            rating if ranked else None,
-                            1 if ranked else 0,
-                            mu if ranked else None,
-                            sigma if ranked else None,
-                            ranked,
-                            now,
-                            user_id,
-                        ),
-                    )
-                elif self._profile_stats_has_split_columns:
-                    cursor.execute(
-                        """
-                        update public.profile_stats
-                           set games_played = games_played + 1,
-                               wins_total = wins_total + %s,
-                               online_games = online_games + 1,
-                               online_wins = online_wins + %s,
-                               casual_games = casual_games + %s,
-                               casual_wins = casual_wins + %s,
-                               ranked_games = ranked_games + %s,
-                               ranked_wins = ranked_wins + %s,
-                               rating = coalesce(%s, rating),
-                               peak_rating = greatest(peak_rating, coalesce(%s, rating)),
-                               rating_games = rating_games + %s,
-                               rating_mu = coalesce(%s, rating_mu),
-                               rating_sigma = coalesce(%s, rating_sigma),
-                               rating_version = case when %s then 2 else rating_version end,
-                               updated_at = %s
-                         where user_id = %s
-                        """,
-                        (
-                            1 if won else 0,
-                            1 if won else 0,
-                            0 if ranked else 1,
-                            0 if ranked or not won else 1,
-                            1 if ranked else 0,
-                            1 if ranked and won else 0,
-                            rating,
-                            rating,
-                            1 if ranked else 0,
-                            mu,
-                            sigma,
-                            ranked,
-                            now,
-                            user_id,
-                        ),
-                    )
-                else:
-                    cursor.execute(
-                        """
-                        update public.profile_stats
-                           set games_played = games_played + 1,
-                               wins_total = wins_total + %s,
-                               online_games = online_games + 1,
-                               online_wins = online_wins + %s,
-                               rating = coalesce(%s, rating),
-                               peak_rating = greatest(peak_rating, coalesce(%s, rating)),
-                               rating_games = rating_games + %s,
-                               rating_mu = coalesce(%s, rating_mu),
-                               rating_sigma = coalesce(%s, rating_sigma),
-                               rating_version = case when %s then 2 else rating_version end,
-                               updated_at = %s
-                         where user_id = %s
-                        """,
-                        (
-                            1 if won else 0,
-                            1 if won else 0,
-                            rating,
-                            rating,
-                            1 if ranked else 0,
-                            mu,
-                            sigma,
-                            ranked,
-                            now,
-                            user_id,
-                        ),
-                    )
+                cursor.execute(
+                    """
+                    update public.profile_stats
+                       set games_played = games_played + 1,
+                           wins_total = wins_total + %s,
+                           online_games = online_games + 1,
+                           online_wins = online_wins + %s,
+                           casual_games = casual_games + %s,
+                           casual_wins = casual_wins + %s,
+                           ranked_games = ranked_games + %s,
+                           ranked_wins = ranked_wins + %s,
+                           casual_rating = coalesce(%s, casual_rating),
+                           casual_peak_rating = greatest(casual_peak_rating, coalesce(%s, casual_rating)),
+                           casual_rating_games = casual_rating_games + %s,
+                           casual_rating_mu = coalesce(%s, casual_rating_mu),
+                           casual_rating_sigma = coalesce(%s, casual_rating_sigma),
+                           casual_rating_version = case when %s then 2 else casual_rating_version end,
+                           rating = coalesce(%s, rating),
+                           peak_rating = greatest(peak_rating, coalesce(%s, rating)),
+                           rating_games = rating_games + %s,
+                           rating_mu = coalesce(%s, rating_mu),
+                           rating_sigma = coalesce(%s, rating_sigma),
+                           rating_version = case when %s then 2 else rating_version end,
+                           updated_at = %s
+                     where user_id = %s
+                    """,
+                    (
+                        1 if won else 0,
+                        1 if won else 0,
+                        0 if ranked else 1,
+                        0 if ranked or not won else 1,
+                        1 if ranked else 0,
+                        1 if ranked and won else 0,
+                        None if ranked else rating,
+                        None if ranked else rating,
+                        0 if ranked else 1,
+                        None if ranked else mu,
+                        None if ranked else sigma,
+                        not ranked,
+                        rating if ranked else None,
+                        rating if ranked else None,
+                        1 if ranked else 0,
+                        mu if ranked else None,
+                        sigma if ranked else None,
+                        ranked,
+                        now,
+                        user_id,
+                    ),
+                )
             for ai_key, result in ai_results.items():
                 won = bool(result.get("won"))
                 output = rating_outputs.get(_ai_rating_key(ai_key))
@@ -1382,127 +1036,55 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     mu = output.mu
                     sigma = output.sigma
                     rating = output.display_rating
-                if (
-                    self._ai_profile_stats_has_split_columns
-                    and self._ai_profile_stats_has_casual_rating_columns
-                ):
-                    cursor.execute(
-                        """
-                        update public.ai_profile_stats
-                           set games_played = games_played + 1,
-                               wins_total = wins_total + %s,
-                               online_games = online_games + 1,
-                               online_wins = online_wins + %s,
-                               casual_games = casual_games + %s,
-                               casual_wins = casual_wins + %s,
-                               ranked_games = ranked_games + %s,
-                               ranked_wins = ranked_wins + %s,
-                               casual_rating = coalesce(%s, casual_rating),
-                               casual_peak_rating = greatest(casual_peak_rating, coalesce(%s, casual_rating)),
-                               casual_rating_games = casual_rating_games + %s,
-                               casual_rating_mu = coalesce(%s, casual_rating_mu),
-                               casual_rating_sigma = coalesce(%s, casual_rating_sigma),
-                               casual_rating_version = case when %s then 2 else casual_rating_version end,
-                               rating = coalesce(%s, rating),
-                               peak_rating = greatest(peak_rating, coalesce(%s, rating)),
-                               rating_games = rating_games + %s,
-                               rating_mu = coalesce(%s, rating_mu),
-                               rating_sigma = coalesce(%s, rating_sigma),
-                               rating_version = case when %s then 2 else rating_version end,
-                               updated_at = %s
-                         where ai_key = %s
-                        """,
-                        (
-                            1 if won else 0,
-                            1 if won else 0,
-                            0 if ranked else 1,
-                            0 if ranked or not won else 1,
-                            1 if ranked else 0,
-                            1 if ranked and won else 0,
-                            None if ranked else rating,
-                            None if ranked else rating,
-                            0 if ranked else 1,
-                            None if ranked else mu,
-                            None if ranked else sigma,
-                            not ranked,
-                            rating if ranked else None,
-                            rating if ranked else None,
-                            1 if ranked else 0,
-                            mu if ranked else None,
-                            sigma if ranked else None,
-                            ranked,
-                            now,
-                            ai_key,
-                        ),
-                    )
-                elif self._ai_profile_stats_has_split_columns:
-                    cursor.execute(
-                        """
-                        update public.ai_profile_stats
-                           set games_played = games_played + 1,
-                               wins_total = wins_total + %s,
-                               online_games = online_games + 1,
-                               online_wins = online_wins + %s,
-                               casual_games = casual_games + %s,
-                               casual_wins = casual_wins + %s,
-                               ranked_games = ranked_games + %s,
-                               ranked_wins = ranked_wins + %s,
-                               rating = coalesce(%s, rating),
-                               peak_rating = greatest(peak_rating, coalesce(%s, rating)),
-                               rating_games = rating_games + %s,
-                               rating_mu = coalesce(%s, rating_mu),
-                               rating_sigma = coalesce(%s, rating_sigma),
-                               rating_version = case when %s then 2 else rating_version end,
-                               updated_at = %s
-                         where ai_key = %s
-                        """,
-                        (
-                            1 if won else 0,
-                            1 if won else 0,
-                            0 if ranked else 1,
-                            0 if ranked or not won else 1,
-                            1 if ranked else 0,
-                            1 if ranked and won else 0,
-                            rating,
-                            rating,
-                            1 if ranked else 0,
-                            mu,
-                            sigma,
-                            ranked,
-                            now,
-                            ai_key,
-                        ),
-                    )
-                else:
-                    cursor.execute(
-                        """
-                        update public.ai_profile_stats
-                           set games_played = games_played + 1,
-                               wins_total = wins_total + %s,
-                               online_games = online_games + 1,
-                               online_wins = online_wins + %s,
-                               rating = coalesce(%s, rating),
-                               peak_rating = greatest(peak_rating, coalesce(%s, rating)),
-                               rating_games = rating_games + %s,
-                               rating_mu = coalesce(%s, rating_mu),
-                               rating_sigma = coalesce(%s, rating_sigma),
-                               rating_version = case when %s then 2 else rating_version end,
-                               updated_at = %s
-                         where ai_key = %s
-                        """,
-                        (
-                            1 if won else 0,
-                            1 if won else 0,
-                            rating,
-                            rating,
-                            1 if ranked else 0,
-                            mu,
-                            sigma,
-                            ranked,
-                            now,
-                            ai_key,
-                        ),
-                    )
+                cursor.execute(
+                    """
+                    update public.ai_profile_stats
+                       set games_played = games_played + 1,
+                           wins_total = wins_total + %s,
+                           online_games = online_games + 1,
+                           online_wins = online_wins + %s,
+                           casual_games = casual_games + %s,
+                           casual_wins = casual_wins + %s,
+                           ranked_games = ranked_games + %s,
+                           ranked_wins = ranked_wins + %s,
+                           casual_rating = coalesce(%s, casual_rating),
+                           casual_peak_rating = greatest(casual_peak_rating, coalesce(%s, casual_rating)),
+                           casual_rating_games = casual_rating_games + %s,
+                           casual_rating_mu = coalesce(%s, casual_rating_mu),
+                           casual_rating_sigma = coalesce(%s, casual_rating_sigma),
+                           casual_rating_version = case when %s then 2 else casual_rating_version end,
+                           rating = coalesce(%s, rating),
+                           peak_rating = greatest(peak_rating, coalesce(%s, rating)),
+                           rating_games = rating_games + %s,
+                           rating_mu = coalesce(%s, rating_mu),
+                           rating_sigma = coalesce(%s, rating_sigma),
+                           rating_version = case when %s then 2 else rating_version end,
+                           updated_at = %s
+                     where ai_key = %s
+                    """,
+                    (
+                        1 if won else 0,
+                        1 if won else 0,
+                        0 if ranked else 1,
+                        0 if ranked or not won else 1,
+                        1 if ranked else 0,
+                        1 if ranked and won else 0,
+                        None if ranked else rating,
+                        None if ranked else rating,
+                        0 if ranked else 1,
+                        None if ranked else mu,
+                        None if ranked else sigma,
+                        not ranked,
+                        rating if ranked else None,
+                        rating if ranked else None,
+                        1 if ranked else 0,
+                        mu if ranked else None,
+                        sigma if ranked else None,
+                        ranked,
+                        now,
+                        ai_key,
+                    ),
+                )
             self._insert_update(cursor, session_id, None, "finished", now)
 
     def _record_online_progression(
@@ -1644,8 +1226,8 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     rating,
                     peak_rating,
                     rating_games,
-{self._split_stats_select_sql("ai_profile_stats", ai=True)},
-{self._casual_rating_select_sql("ai_profile_stats", ai=True)}
+{self._split_stats_select_sql("ai_profile_stats")},
+{self._casual_rating_select_sql("ai_profile_stats")}
                   from public.ai_profile_stats
                  where ai_key = any(%s::text[])
                 """,
@@ -1827,89 +1409,6 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
         rating_sigma: float,
         updated_at: datetime,
     ) -> None:
-        if (
-            self._profile_stats_has_split_columns
-            and self._profile_stats_has_casual_rating_columns
-        ):
-            cursor.execute(
-                """
-                insert into public.profile_stats (
-                    user_id,
-                    rating,
-                    peak_rating,
-                    rating_games,
-                    rating_mu,
-                    rating_sigma,
-                    rating_version,
-                    casual_rating,
-                    casual_peak_rating,
-                    casual_rating_games,
-                    casual_rating_mu,
-                    casual_rating_sigma,
-                    casual_rating_version,
-                    casual_games,
-                    casual_wins,
-                    ranked_games,
-                    ranked_wins,
-                    updated_at
-                )
-                values (%s, %s, %s, 0, %s, %s, 2, %s, %s, 0, %s, %s, 2, 0, 0, 0, 0, %s)
-                on conflict (user_id) do update
-                    set rating = excluded.rating,
-                        peak_rating = greatest(profile_stats.peak_rating, excluded.peak_rating),
-                        rating_mu = excluded.rating_mu,
-                        rating_sigma = excluded.rating_sigma,
-                        rating_version = 2,
-                        casual_rating = excluded.casual_rating,
-                        casual_peak_rating = greatest(profile_stats.casual_peak_rating, excluded.casual_peak_rating),
-                        casual_rating_mu = excluded.casual_rating_mu,
-                        casual_rating_sigma = excluded.casual_rating_sigma,
-                        casual_rating_version = 2,
-                        updated_at = excluded.updated_at
-                """,
-                (
-                    user_id,
-                    rating,
-                    rating,
-                    rating_mu,
-                    rating_sigma,
-                    rating,
-                    rating,
-                    rating_mu,
-                    rating_sigma,
-                    updated_at,
-                ),
-            )
-            return
-        if self._profile_stats_has_split_columns:
-            cursor.execute(
-                """
-                insert into public.profile_stats (
-                    user_id,
-                    rating,
-                    peak_rating,
-                    rating_games,
-                    rating_mu,
-                    rating_sigma,
-                    rating_version,
-                    casual_games,
-                    casual_wins,
-                    ranked_games,
-                    ranked_wins,
-                    updated_at
-                )
-                values (%s, %s, %s, 0, %s, %s, 2, 0, 0, 0, 0, %s)
-                on conflict (user_id) do update
-                    set rating = excluded.rating,
-                        peak_rating = greatest(profile_stats.peak_rating, excluded.peak_rating),
-                        rating_mu = excluded.rating_mu,
-                        rating_sigma = excluded.rating_sigma,
-                        rating_version = 2,
-                        updated_at = excluded.updated_at
-                """,
-                (user_id, rating, rating, rating_mu, rating_sigma, updated_at),
-            )
-            return
         cursor.execute(
             """
             insert into public.profile_stats (
@@ -1920,19 +1419,46 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                 rating_mu,
                 rating_sigma,
                 rating_version,
+                casual_rating,
+                casual_peak_rating,
+                casual_rating_games,
+                casual_rating_mu,
+                casual_rating_sigma,
+                casual_rating_version,
+                casual_games,
+                casual_wins,
+                ranked_games,
+                ranked_wins,
                 updated_at
             )
-            values (%s, %s, %s, 0, %s, %s, 2, %s)
+            values (%s, %s, %s, 0, %s, %s, 2, %s, %s, 0, %s, %s, 2, 0, 0, 0, 0, %s)
             on conflict (user_id) do update
                 set rating = excluded.rating,
                     peak_rating = greatest(profile_stats.peak_rating, excluded.peak_rating),
                     rating_mu = excluded.rating_mu,
                     rating_sigma = excluded.rating_sigma,
                     rating_version = 2,
+                    casual_rating = excluded.casual_rating,
+                    casual_peak_rating = greatest(profile_stats.casual_peak_rating, excluded.casual_peak_rating),
+                    casual_rating_mu = excluded.casual_rating_mu,
+                    casual_rating_sigma = excluded.casual_rating_sigma,
+                    casual_rating_version = 2,
                     updated_at = excluded.updated_at
             """,
-            (user_id, rating, rating, rating_mu, rating_sigma, updated_at),
+            (
+                user_id,
+                rating,
+                rating,
+                rating_mu,
+                rating_sigma,
+                rating,
+                rating,
+                rating_mu,
+                rating_sigma,
+                updated_at,
+            ),
         )
+        return
 
     def ensure_comrade_code(
         self,
@@ -1973,105 +1499,101 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
             comrades: list[dict[str, object]] = []
             incoming: list[dict[str, object]] = []
             outgoing: list[dict[str, object]] = []
-            if self._has_user_comrades_table:
-                cursor.execute(
-                    f"""
-                    select
-                        profiles.user_id::text,
-                        profiles.display_name,
-                        profiles.avatar_url,
-                        profiles.comrade_code,
-                        profile_stats.games_played,
-                        profile_stats.wins_total,
-                        profile_stats.offline_games,
-                        profile_stats.offline_wins,
-                        profile_stats.online_games,
-                        profile_stats.online_wins,
-                        profile_stats.rating,
-                        profile_stats.peak_rating,
-                        profile_stats.rating_games,
+            cursor.execute(
+                f"""
+                select
+                    profiles.user_id::text,
+                    profiles.display_name,
+                    profiles.avatar_url,
+                    profiles.comrade_code,
+                    profile_stats.games_played,
+                    profile_stats.wins_total,
+                    profile_stats.offline_games,
+                    profile_stats.offline_wins,
+                    profile_stats.online_games,
+                    profile_stats.online_wins,
+                    profile_stats.rating,
+                    profile_stats.peak_rating,
+                    profile_stats.rating_games,
 {self._split_stats_select_sql("profile_stats")},
 {self._casual_rating_select_sql("profile_stats")}
-                      from public.user_comrades
-                      join public.profiles
-                        on profiles.user_id = user_comrades.comrade_user_id
-                      left join public.profile_stats
-                        on profile_stats.user_id = profiles.user_id
-                     where user_comrades.user_id = %s
-                     order by lower(profiles.display_name), profiles.comrade_code
-                    """,
-                    (user_id,),
-                )
-                comrades = [
-                    self._comrade_profile_json(row) for row in cursor.fetchall()
-                ]
-            if self._has_user_comrade_requests_table:
-                cursor.execute(
-                    f"""
-                    select
-                        profiles.user_id::text,
-                        profiles.display_name,
-                        profiles.avatar_url,
-                        profiles.comrade_code,
-                        profile_stats.games_played,
-                        profile_stats.wins_total,
-                        profile_stats.offline_games,
-                        profile_stats.offline_wins,
-                        profile_stats.online_games,
-                        profile_stats.online_wins,
-                        profile_stats.rating,
-                        profile_stats.peak_rating,
-                        profile_stats.rating_games,
+                  from public.user_comrades
+                  join public.profiles
+                    on profiles.user_id = user_comrades.comrade_user_id
+                  left join public.profile_stats
+                    on profile_stats.user_id = profiles.user_id
+                 where user_comrades.user_id = %s
+                 order by lower(profiles.display_name), profiles.comrade_code
+                """,
+                (user_id,),
+            )
+            comrades = [self._comrade_profile_json(row) for row in cursor.fetchall()]
+            cursor.execute(
+                f"""
+                select
+                    profiles.user_id::text,
+                    profiles.display_name,
+                    profiles.avatar_url,
+                    profiles.comrade_code,
+                    profile_stats.games_played,
+                    profile_stats.wins_total,
+                    profile_stats.offline_games,
+                    profile_stats.offline_wins,
+                    profile_stats.online_games,
+                    profile_stats.online_wins,
+                    profile_stats.rating,
+                    profile_stats.peak_rating,
+                    profile_stats.rating_games,
 {self._split_stats_select_sql("profile_stats")},
 {self._casual_rating_select_sql("profile_stats")},
-                        user_comrade_requests.created_at
-                      from public.user_comrade_requests
-                      join public.profiles
-                        on profiles.user_id = user_comrade_requests.requester_user_id
-                      left join public.profile_stats
-                        on profile_stats.user_id = profiles.user_id
-                     where user_comrade_requests.addressee_user_id = %s
-                     order by user_comrade_requests.created_at desc
-                    """,
-                    (user_id,),
-                )
-                incoming = [
-                    self._comrade_profile_json(row, requested_at_index=20)
-                    for row in cursor.fetchall()
-                ]
-                cursor.execute(
-                    f"""
-                    select
-                        profiles.user_id::text,
-                        profiles.display_name,
-                        profiles.avatar_url,
-                        profiles.comrade_code,
-                        profile_stats.games_played,
-                        profile_stats.wins_total,
-                        profile_stats.offline_games,
-                        profile_stats.offline_wins,
-                        profile_stats.online_games,
-                        profile_stats.online_wins,
-                        profile_stats.rating,
-                        profile_stats.peak_rating,
-                        profile_stats.rating_games,
+                    user_comrade_requests.created_at
+                  from public.user_comrade_requests
+                  join public.profiles
+                    on profiles.user_id = user_comrade_requests.requester_user_id
+                  left join public.profile_stats
+                    on profile_stats.user_id = profiles.user_id
+                 where user_comrade_requests.addressee_user_id = %s
+                 order by user_comrade_requests.created_at desc
+                """,
+                (user_id,),
+            )
+            incoming = [
+                self._comrade_profile_json(row, requested_at_index=20)
+                for row in cursor.fetchall()
+            ]
+            cursor.execute(
+                f"""
+                select
+                    profiles.user_id::text,
+                    profiles.display_name,
+                    profiles.avatar_url,
+                    profiles.comrade_code,
+                    profile_stats.games_played,
+                    profile_stats.wins_total,
+                    profile_stats.offline_games,
+                    profile_stats.offline_wins,
+                    profile_stats.online_games,
+                    profile_stats.online_wins,
+                    profile_stats.rating,
+                    profile_stats.peak_rating,
+                    profile_stats.rating_games,
 {self._split_stats_select_sql("profile_stats")},
 {self._casual_rating_select_sql("profile_stats")},
-                        user_comrade_requests.created_at
-                      from public.user_comrade_requests
-                      join public.profiles
-                        on profiles.user_id = user_comrade_requests.addressee_user_id
-                      left join public.profile_stats
-                        on profile_stats.user_id = profiles.user_id
-                     where user_comrade_requests.requester_user_id = %s
-                     order by user_comrade_requests.created_at desc
-                    """,
-                    (user_id,),
-                )
-                outgoing = [
-                    self._comrade_profile_json(row, requested_at_index=20)
-                    for row in cursor.fetchall()
-                ]
+                    user_comrade_requests.created_at
+                  from public.user_comrade_requests
+                  join public.profiles
+                    on profiles.user_id = user_comrade_requests.addressee_user_id
+                  left join public.profile_stats
+                    on profile_stats.user_id = profiles.user_id
+                 where user_comrade_requests.requester_user_id = %s
+                 order by user_comrade_requests.created_at desc
+                """,
+                (user_id,),
+            )
+            outgoing = [
+                self._comrade_profile_json(row, requested_at_index=20)
+                for row in cursor.fetchall()
+            ]
             return {
                 "user_id": user_id,
                 "comrade_code": code,

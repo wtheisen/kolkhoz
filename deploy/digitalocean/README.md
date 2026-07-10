@@ -20,6 +20,11 @@ systemctl restart kolkhoz-online.service
 systemctl status kolkhoz-online.service
 ```
 
+Use the same bootstrap command for updates. It fast-forwards the configured Git ref,
+installs dependencies, builds the C engine, runs the server contract smoke test, installs
+the systemd unit, and restarts only after those steps pass. Do not copy individual source
+files into `/opt/kolkhoz`; `/health` reports the deployed Git and engine hashes.
+
 `/etc/kolkhoz-online.env` must contain:
 
 ```bash
@@ -39,7 +44,7 @@ online.kolkhoz.williamtheisen.com {
 ```
 
 Create an `A` record for `online.kolkhoz.williamtheisen.com` pointing at the Droplet
-public IPv4 address, then use this URL in the Flutter app's online server field:
+public IPv4 address. The production Flutter client uses:
 
 ```text
 https://online.kolkhoz.williamtheisen.com

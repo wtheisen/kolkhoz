@@ -38,6 +38,10 @@ git pull --ff-only origin "$repo_ref"
 python3 -m venv "$app_dir/.venv"
 "$app_dir/.venv/bin/python" -m pip install --upgrade pip
 "$app_dir/.venv/bin/python" -m pip install -r "$app_dir/deploy/digitalocean/requirements-online.txt"
+"$app_dir/.venv/bin/python" -c \
+  'from research.kolkhoz_research.c_engine import build_shared_library; build_shared_library(force=True)'
+"$app_dir/.venv/bin/python" -m unittest \
+  research.tests.test_online_server.OnlineServerTests.test_service_uses_current_engine_and_flutter_json_contract
 
 if [[ ! -f "$env_file" ]]; then
   install -m 0600 -o root -g root /dev/null "$env_file"
@@ -54,6 +58,11 @@ chown -R kolkhoz:kolkhoz "$app_dir"
 
 systemctl daemon-reload
 systemctl enable kolkhoz-online.service
+if grep -Eq '^(KOLKHOZ_SUPABASE_URL|KOLKHOZ_SUPABASE_PUBLISHABLE_KEY|KOLKHOZ_ONLINE_DATABASE_URL)=$' "$env_file"; then
+  echo "Fill in $env_file, then rerun this script to deploy." >&2
+  exit 0
+fi
+systemctl restart kolkhoz-online.service
 
 echo "Bootstrap complete."
-echo "Edit $env_file, then run: systemctl restart kolkhoz-online.service"
+echo "Kolkhoz online is running from $(git rev-parse HEAD)."

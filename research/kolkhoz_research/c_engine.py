@@ -17,6 +17,11 @@ OBJECT_SCALAR_COUNT = 8
 ACTION_SCALAR_COUNT = 32
 STATE_INPUT_SIZE = 200
 MAX_OBJECT_TOKENS = 256
+PLAYER_COUNT = 4
+SUIT_COUNT = 4
+MAX_YEARS = 5
+MAX_CARDS = 80
+MAX_STACKS = 16
 
 
 class KCVariants(ctypes.Structure):
@@ -58,6 +63,99 @@ class KCAction(ctypes.Structure):
 class KCControllers(ctypes.Structure):
     _fields_ = [
         ("seats", ctypes.c_int32 * 4),
+    ]
+
+
+class KCCardList(ctypes.Structure):
+    _fields_ = [
+        ("cards", KCCard * MAX_CARDS),
+        ("count", ctypes.c_int32),
+    ]
+
+
+class KCPlotStack(ctypes.Structure):
+    _fields_ = [
+        ("revealed", KCCard * MAX_CARDS),
+        ("revealed_count", ctypes.c_int32),
+        ("hidden", KCCard * MAX_CARDS),
+        ("hidden_count", ctypes.c_int32),
+    ]
+
+
+class KCPlayer(ctypes.Structure):
+    _fields_ = [
+        ("id", ctypes.c_int32),
+        ("is_human", ctypes.c_bool),
+        ("hand", KCCardList),
+        ("plot_revealed", KCCardList),
+        ("plot_hidden", KCCardList),
+        ("plot_medals", ctypes.c_int32),
+        ("stacks", KCPlotStack * MAX_STACKS),
+        ("stack_count", ctypes.c_int32),
+        ("brigade_leader", ctypes.c_bool),
+        ("has_won_trick_this_year", ctypes.c_bool),
+        ("medals", ctypes.c_int32),
+    ]
+
+
+class KCTrickPlay(ctypes.Structure):
+    _fields_ = [
+        ("player_id", ctypes.c_int32),
+        ("card", KCCard),
+    ]
+
+
+class KCRequisitionEvent(ctypes.Structure):
+    _fields_ = [
+        ("player_id", ctypes.c_int32),
+        ("suit", ctypes.c_int32),
+        ("card", KCCard),
+        ("message_kind", ctypes.c_int32),
+    ]
+
+
+class KCEngineSnapshot(ctypes.Structure):
+    _fields_ = [
+        ("rng_state", ctypes.c_uint64),
+        ("variants", KCVariants),
+        ("players", KCPlayer * PLAYER_COUNT),
+        ("lead", ctypes.c_int32),
+        ("year", ctypes.c_int32),
+        ("trump", ctypes.c_int32),
+        ("controllers", KCControllers),
+        ("job_piles", KCCardList * SUIT_COUNT),
+        ("revealed_jobs", KCCard * SUIT_COUNT),
+        ("has_revealed_job", ctypes.c_bool * SUIT_COUNT),
+        ("claimed_jobs", ctypes.c_bool * SUIT_COUNT),
+        ("work_hours", ctypes.c_int32 * SUIT_COUNT),
+        ("job_buckets", KCCardList * SUIT_COUNT),
+        ("job_bucket_tricks", (ctypes.c_int32 * MAX_CARDS) * SUIT_COUNT),
+        ("current_trick", KCTrickPlay * PLAYER_COUNT),
+        ("current_trick_count", ctypes.c_int32),
+        ("last_trick", KCTrickPlay * PLAYER_COUNT),
+        ("last_trick_count", ctypes.c_int32),
+        ("last_winner", ctypes.c_int32),
+        ("trick_count", ctypes.c_int32),
+        ("exiled", KCCardList * (MAX_YEARS + 1)),
+        ("is_famine", ctypes.c_bool),
+        ("phase", ctypes.c_int32),
+        ("current_player", ctypes.c_int32),
+        ("trump_selector", ctypes.c_int32),
+        ("pending_assignment_targets", ctypes.c_int32 * PLAYER_COUNT),
+        ("requisition_events", KCRequisitionEvent * MAX_CARDS),
+        ("requisition_event_count", ctypes.c_int32),
+        ("game_scores", ctypes.c_int32 * PLAYER_COUNT),
+        ("winner_id", ctypes.c_int32),
+        ("accumulated_job_cards", KCCardList * SUIT_COUNT),
+        ("drunkard_replacements", KCCardList),
+        ("swap_confirmed", ctypes.c_bool * PLAYER_COUNT),
+        ("swap_count", ctypes.c_bool * PLAYER_COUNT),
+        ("has_last_swap", ctypes.c_bool),
+        ("last_swap_player_id", ctypes.c_int32),
+        ("last_swap_plot_zone", ctypes.c_int32),
+        ("last_swap_plot_index", ctypes.c_int32),
+        ("last_swap_hand_index", ctypes.c_int32),
+        ("last_swap_new_plot_card", KCCard),
     ]
 
 
@@ -333,7 +431,9 @@ def build_shared_library(force: bool = False) -> Path:
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     output = shared_library_path()
     sources = _engine_sources()
-    source_mtime = max([ENGINE_H.stat().st_mtime, *(source.stat().st_mtime for source in sources)])
+    source_mtime = max(
+        [ENGINE_H.stat().st_mtime, *(source.stat().st_mtime for source in sources)]
+    )
     if output.exists() and not force and output.stat().st_mtime >= source_mtime:
         return output
 
@@ -388,7 +488,11 @@ class CEngine:
             ctypes.c_void_p,
         ]
         self.lib.kc_engine_sample_determinization.restype = ctypes.c_bool
-        self.lib.kc_engine_init.argtypes = [ctypes.c_void_p, ctypes.c_uint64, KCVariants]
+        self.lib.kc_engine_init.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_uint64,
+            KCVariants,
+        ]
         self.lib.kc_engine_init.restype = None
         self.lib.kc_engine_init_with_controllers.argtypes = [
             ctypes.c_void_p,
@@ -473,7 +577,10 @@ class CEngine:
             KCDenseObjectTokens,
         ]
         self.lib.kc_engine_object_token_dense_features.restype = ctypes.c_int32
-        self.lib.kc_engine_heuristic_policy_action.argtypes = [ctypes.c_void_p, ctypes.POINTER(KCAction)]
+        self.lib.kc_engine_heuristic_policy_action.argtypes = [
+            ctypes.c_void_p,
+            ctypes.POINTER(KCAction),
+        ]
         self.lib.kc_engine_heuristic_policy_action.restype = ctypes.c_bool
         self.lib.kc_engine_waiting_for_external_action.argtypes = [ctypes.c_void_p]
         self.lib.kc_engine_waiting_for_external_action.restype = ctypes.c_bool
@@ -517,7 +624,9 @@ class CEngine:
         return variants
 
     def run_smoke_game(self, seed: int) -> KCGameRunResult:
-        return self.lib.kc_run_benchmark_game(ctypes.c_uint64(seed), self.kolkhoz_variants())
+        return self.lib.kc_run_benchmark_game(
+            ctypes.c_uint64(seed), self.kolkhoz_variants()
+        )
 
     def new_engine(
         self,
@@ -601,9 +710,13 @@ class CEngine:
     def winner_id(self, pointer: ctypes.c_void_p) -> int:
         return int(self.lib.kc_engine_winner_id(pointer))
 
-    def legal_actions(self, pointer: ctypes.c_void_p, max_actions: int = 256) -> list[KCAction]:
+    def legal_actions(
+        self, pointer: ctypes.c_void_p, max_actions: int = 256
+    ) -> list[KCAction]:
         actions = (KCAction * max_actions)()
-        count = self.lib.kc_engine_legal_actions(pointer, actions, ctypes.c_int32(max_actions))
+        count = self.lib.kc_engine_legal_actions(
+            pointer, actions, ctypes.c_int32(max_actions)
+        )
         return [actions[index] for index in range(int(count))]
 
     def apply_action(self, pointer: ctypes.c_void_p, action: KCAction) -> None:
@@ -810,10 +923,14 @@ class CEngine:
         self.apply_ai_action(pointer, action)
 
     def final_scores(self, pointer: ctypes.c_void_p) -> list[int]:
-        return [int(self.lib.kc_final_score(pointer, player_id)) for player_id in range(4)]
+        return [
+            int(self.lib.kc_final_score(pointer, player_id)) for player_id in range(4)
+        ]
 
     def total_medals(self, pointer: ctypes.c_void_p) -> list[int]:
-        return [int(self.lib.kc_total_medals(pointer, player_id)) for player_id in range(4)]
+        return [
+            int(self.lib.kc_total_medals(pointer, player_id)) for player_id in range(4)
+        ]
 
     def run_policy_matchup_game(
         self,
@@ -858,3 +975,7 @@ class CEngine:
             header_sha256=_sha256(ENGINE_H),
             library_path=os.fspath(self.library_path),
         )
+
+    @staticmethod
+    def snapshot(pointer: ctypes.c_void_p) -> KCEngineSnapshot:
+        return ctypes.cast(pointer, ctypes.POINTER(KCEngineSnapshot)).contents
