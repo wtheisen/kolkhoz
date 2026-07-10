@@ -36,6 +36,8 @@ echo "Deploying Kolkhoz to iOS device $DEVICE_ID in profile mode."
 echo "Do not use debug mode for physical iPhone home-screen installs."
 
 "$FLUTTER" build ios --profile -d "$DEVICE_ID" "${DART_DEFINES[@]}"
-"$FLUTTER" install --profile -d "$DEVICE_ID"
+xcrun devicectl device install app \
+  --device "$DEVICE_ID" \
+  "$APP_DIR/build/ios/iphoneos/Runner.app"
 
-echo "Installed profile build on $DEVICE_ID."
+echo "Installed profile build in place on $DEVICE_ID."
