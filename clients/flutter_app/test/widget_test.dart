@@ -42,6 +42,16 @@ import 'package:kolkhoz_app/src/table_projection_helpers.dart';
 import 'package:kolkhoz_app/src/trump_actions.dart';
 import 'package:kolkhoz_app/src/tutorial_display.dart';
 
+Finder findAppText(String text, {bool skipOffstage = true}) {
+  return find.byWidgetPredicate(
+    (widget) =>
+        (widget is Text && widget.data == text) ||
+        (widget is PixelText && widget.text == text) ||
+        (widget is EditableText && widget.controller.text == text),
+    skipOffstage: skipOffstage,
+  );
+}
+
 void main() {
   test('completed games return to the lobby section they launched from', () {
     expect(KolkhozGameLaunchOrigin.created.returnsToJoinGame, isFalse);
@@ -307,15 +317,15 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Open confirmation'));
+    await tester.tap(findAppText('Open confirmation'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Main menu?'), findsOneWidget);
+    expect(findAppText('Main menu?'), findsOneWidget);
     final dialog = tester.widget<AlertDialog>(find.byType(AlertDialog));
     expect(dialog.backgroundColor, lightDesignTokens.colors.panel);
     expect(dialog.titleTextStyle?.color, lightDesignTokens.colors.gold);
     expect(dialog.contentTextStyle?.color, lightDesignTokens.colors.cream);
-    await tester.tap(find.text('Main menu'));
+    await tester.tap(findAppText('Main menu'));
     await tester.pumpAndSettle();
 
     expect(confirmed, isTrue);
@@ -1161,7 +1171,7 @@ void main() {
     expect(find.byType(PlotOverviewView), findsOneWidget);
     expect(find.byType(OpponentPlotPanel), findsNWidgets(3));
     expect(find.byType(LocalPlotColumn), findsNWidgets(2));
-    expect(find.text('PRIVATE PLOT'), findsNothing);
+    expect(findAppText('PRIVATE PLOT'), findsNothing);
     final opponentPanels = find.byType(OpponentPlotPanel);
     final opponentTop = tester.getTopLeft(opponentPanels.at(0)).dy;
     expect(tester.getTopLeft(opponentPanels.at(1)).dy, opponentTop);
@@ -1210,7 +1220,7 @@ void main() {
       ),
     );
 
-    expect(find.text('REQUISITION'), findsNothing);
+    expect(findAppText('REQUISITION'), findsNothing);
     expect(find.byType(PlotOverviewView), findsOneWidget);
     expect(find.byType(OpponentPlotPanel), findsNWidgets(3));
     expect(find.byType(LocalPlotColumn), findsNWidgets(2));
@@ -1651,8 +1661,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Year 1'), findsOneWidget);
-    expect(find.text('Planning'), findsOneWidget);
+    expect(findAppText('Year 1'), findsOneWidget);
+    expect(findAppText('Planning'), findsOneWidget);
     expect(
       findAssetImage('ios_resources/Icons/icon-year-1.png'),
       findsOneWidget,
@@ -1663,9 +1673,9 @@ void main() {
     );
     expect(find.byType(PortraitFrame), findsOneWidget);
     expect(model.table.seats[0].name, 'Mira Petrov');
-    expect(find.text('Mira Petrov'), findsOneWidget);
-    expect(find.text('played'), findsOneWidget);
-    expect(find.text('10'), findsOneWidget);
+    expect(findAppText('Mira Petrov'), findsOneWidget);
+    expect(findAppText('played'), findsOneWidget);
+    expect(findAppText('10'), findsOneWidget);
     expect(
       findAssetImage('ios_resources/Icons/icon-sunflower.png'),
       findsOneWidget,
@@ -2418,7 +2428,7 @@ void main() {
       find.byKey(const Key('pending-trick-card-preview')),
     );
     expect(opacity.opacity, pendingTrickPreviewOpacity);
-    expect(find.text('YOUR TURN'), findsNothing);
+    expect(findAppText('YOUR TURN'), findsNothing);
     final previewSize = tester.getSize(
       find.byKey(const Key('pending-trick-card-preview')),
     );
@@ -2547,7 +2557,7 @@ void main() {
     );
 
     expect(
-      find.text('Remember, you must follow suit if able.'),
+      findAppText('Remember, you must follow suit if able.'),
       findsOneWidget,
     );
     expect(
@@ -2869,14 +2879,13 @@ void main() {
       ).height,
       greaterThan(defaultDesignTokens.card.large.height),
     );
-    expect(
-      assignedJobCardSizeForRows(
-        availableSize: const Size(420, 260),
-        rows: splitRoundRows,
-        tokens: defaultDesignTokens,
-      ),
-      defaultDesignTokens.card.medium,
+    final assignedCardSize = assignedJobCardSizeForRows(
+      availableSize: const Size(420, 260),
+      rows: splitRoundRows,
+      tokens: defaultDesignTokens,
     );
+    expect(assignedCardSize.width, defaultDesignTokens.card.medium.width);
+    expect(assignedCardSize.height, defaultDesignTokens.card.medium.height);
     final jobWithPendingAssignment = Job(
       suit: 'wheat',
       hours: 11,
@@ -3401,7 +3410,7 @@ void main() {
       ),
     );
 
-    expect(find.text('17/40'), findsOneWidget);
+    expect(findAppText('17/40'), findsOneWidget);
   });
 
   testWidgets('job gauge marks a pile containing the saboteur', (tester) async {
@@ -3444,7 +3453,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.byType(MiniRewardCard), findsNothing);
-    expect(find.text('21/40'), findsOneWidget);
+    expect(findAppText('21/40'), findsOneWidget);
   });
 
   testWidgets('job gauge delta waits for assignment flight to finish', (
@@ -3476,31 +3485,31 @@ void main() {
     await tester.pumpWidget(gaugeWithHours(17));
     await tester.pumpWidget(gaugeWithHours(25));
 
-    expect(find.text('25/40'), findsOneWidget);
-    expect(find.text('+7'), findsNothing);
-    expect(find.text('+8'), findsNothing);
+    expect(findAppText('25/40'), findsOneWidget);
+    expect(findAppText('+7'), findsNothing);
+    expect(findAppText('+8'), findsNothing);
 
     await tester.pump(
       jobGaugeDeltaRevealDelay(GameAnimationSpeed.normal) -
           const Duration(milliseconds: 1),
     );
-    expect(find.text('+7'), findsNothing);
-    expect(find.text('+8'), findsNothing);
+    expect(findAppText('+7'), findsNothing);
+    expect(findAppText('+8'), findsNothing);
 
     await tester.pump(const Duration(milliseconds: 1));
-    expect(find.text('+7'), findsOneWidget);
-    expect(find.text('+8'), findsNothing);
+    expect(findAppText('+7'), findsOneWidget);
+    expect(findAppText('+8'), findsNothing);
 
     await tester.pump(jobGaugeDeltaRevealStagger);
-    expect(find.text('+7'), findsOneWidget);
-    expect(find.text('+8'), findsOneWidget);
+    expect(findAppText('+7'), findsOneWidget);
+    expect(findAppText('+8'), findsOneWidget);
 
     await tester.pump(jobGaugeDeltaDuration + jobGaugeDeltaRevealStagger);
-    expect(find.text('+7'), findsNothing);
-    expect(find.text('+8'), findsNothing);
+    expect(findAppText('+7'), findsNothing);
+    expect(findAppText('+8'), findsNothing);
 
     await tester.pumpWidget(gaugeWithHours(40, claimed: true));
-    expect(find.text('40/40'), findsOneWidget);
+    expect(findAppText('40/40'), findsOneWidget);
   });
 
   test('AI card flights originate from the player info card', () {
@@ -3759,7 +3768,7 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Settings'));
 
     expect(calls, ['language', 'appearance', 'settings']);
-    expect(find.text('STANDARD'), findsNothing);
+    expect(findAppText('STANDARD'), findsNothing);
   });
 
   testWidgets('custom lobby allows selecting the number of years', (
@@ -3854,7 +3863,7 @@ void main() {
       ),
     );
 
-    expect(find.text('CARD BACKS'), findsOneWidget);
+    expect(findAppText('CARD BACKS'), findsOneWidget);
     expect(find.bySemanticsLabel('Classic'), findsOneWidget);
     expect(find.bySemanticsLabel('Harvest'), findsOneWidget);
     expect(find.bySemanticsLabel('Granary'), findsOneWidget);
@@ -3995,13 +4004,13 @@ void main() {
         ),
       );
 
-      expect(find.text('START GAME'), findsNothing);
-      expect(find.text('HOST GAME'), findsNothing);
-      expect(find.text('INVITE CODE'), findsOneWidget);
+      expect(findAppText('START GAME'), findsNothing);
+      expect(findAppText('HOST GAME'), findsNothing);
+      expect(findAppText('INVITE CODE'), findsOneWidget);
 
-      await tester.tap(find.text('CREATE GAME'));
-      await tester.tap(find.text('JOIN GAME').first);
-      await tester.tap(find.text('HOW TO PLAY'));
+      await tester.tap(findAppText('CREATE GAME'));
+      await tester.tap(findAppText('JOIN GAME').first);
+      await tester.tap(findAppText('HOW TO PLAY'));
 
       expect(calls, ['offline', 'online', 'rules']);
 
@@ -4038,16 +4047,18 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('ADD PLAYERS'));
+      await tester.tap(findAppText('ADD PLAYERS'));
       await tester.pumpAndSettle();
-      expect(find.text('52 CARDS / 5 YEARS'), findsNothing);
+      expect(findAppText('52 CARDS / 5 YEARS'), findsNothing);
       expect(find.byTooltip('Kolkhoz'), findsOneWidget);
       expect(find.byTooltip('52 Card Deck'), findsOneWidget);
       expect(find.byTooltip('5 Year Plan'), findsOneWidget);
       expect(find.byTooltip('Exchange Soap for an Awl'), findsOneWidget);
       expect(find.byTooltip('Enemy of the People'), findsOneWidget);
-      final backCenter = tester.getCenter(find.text('BACK TO SETUP')).dy;
-      final startCenter = tester.getCenter(find.text('START OFFLINE GAME')).dy;
+      final backCenter = tester.getCenter(findAppText('BACK TO SETUP')).dy;
+      final startCenter = tester
+          .getCenter(findAppText('START OFFLINE GAME'))
+          .dy;
       expect((backCenter - startCenter).abs(), lessThan(8));
 
       await tester.tap(find.bySemanticsLabel('P2 Hard'));
@@ -4058,8 +4069,8 @@ void main() {
       await tester.ensureVisible(find.bySemanticsLabel('P4 Hard'));
       await tester.tap(find.bySemanticsLabel('P4 Hard'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('START OFFLINE GAME'));
-      await tester.tap(find.text('START OFFLINE GAME'));
+      await tester.ensureVisible(findAppText('START OFFLINE GAME'));
+      await tester.tap(findAppText('START OFFLINE GAME'));
 
       expect(calls, ['offline', 'online', 'rules', 'start']);
 
@@ -4096,9 +4107,9 @@ void main() {
         ),
       );
 
-      expect(find.text('RULES'), findsNothing);
-      expect(find.text('HOW TO PLAY'), findsWidgets);
-      await tester.tap(find.text('TUTORIAL'));
+      expect(findAppText('RULES'), findsNothing);
+      expect(findAppText('HOW TO PLAY'), findsWidgets);
+      await tester.tap(findAppText('TUTORIAL'));
 
       expect(calls, ['offline', 'online', 'rules', 'start', 'tutorial']);
     },
@@ -4162,18 +4173,18 @@ void main() {
       ),
     );
 
-    expect(find.text('Signed in as mira@example.com'), findsOneWidget);
-    expect(find.text('Profile loaded.'), findsNothing);
-    expect(find.text('SIGN OUT'), findsOneWidget);
-    expect(find.text('DISPLAY NAME'), findsNothing);
-    expect(find.text('STATS'), findsOneWidget);
-    expect(find.text('OFFLINE'), findsOneWidget);
-    expect(find.text('Casual'), findsOneWidget);
-    expect(find.text('Ranked'), findsOneWidget);
-    expect(find.text('RATING'), findsNWidgets(2));
-    expect(find.text('1048'), findsOneWidget);
-    expect(find.text('1125'), findsOneWidget);
-    expect(find.text('Mira'), findsWidgets);
+    expect(findAppText('Signed in as mira@example.com'), findsOneWidget);
+    expect(findAppText('Profile loaded.'), findsNothing);
+    expect(findAppText('SIGN OUT'), findsOneWidget);
+    expect(findAppText('DISPLAY NAME'), findsNothing);
+    expect(findAppText('STATS'), findsOneWidget);
+    expect(findAppText('OFFLINE'), findsOneWidget);
+    expect(findAppText('Casual'), findsOneWidget);
+    expect(findAppText('Ranked'), findsOneWidget);
+    expect(findAppText('RATING'), findsNWidgets(2));
+    expect(findAppText('1048'), findsOneWidget);
+    expect(findAppText('1125'), findsOneWidget);
+    expect(findAppText('Mira'), findsWidgets);
 
     final displayNameField = find.byWidgetPredicate(
       (widget) => widget is TextField && widget.controller?.text == 'Mira',
@@ -4184,8 +4195,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.bySemanticsLabel('worker3'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('SIGN OUT'));
-    await tester.tap(find.text('SIGN OUT'));
+    await tester.ensureVisible(findAppText('SIGN OUT'));
+    await tester.tap(findAppText('SIGN OUT'));
     await tester.pump();
 
     expect(displayName, 'Nadia');
@@ -4235,9 +4246,9 @@ void main() {
       ),
     );
 
-    expect(find.text('STATS'), findsNothing);
-    expect(find.text('Mira'), findsNothing);
-    expect(find.text('1125'), findsNothing);
+    expect(findAppText('STATS'), findsNothing);
+    expect(findAppText('Mira'), findsNothing);
+    expect(findAppText('1125'), findsNothing);
     expect(find.bySemanticsLabel('worker1'), findsNothing);
     expect(find.byType(TextField), findsNWidgets(3));
   });
@@ -4308,7 +4319,7 @@ void main() {
     await tester.tap(commandButton('Create'));
     await tester.pump();
 
-    expect(find.text('Passwords do not match.'), findsOneWidget);
+    expect(findAppText('Passwords do not match.'), findsOneWidget);
     expect(signUpEmail, isNull);
 
     await tester.enterText(textFieldWithLabel('CONFIRM PASSWORD'), 'tractor-1');
@@ -4365,11 +4376,11 @@ void main() {
       ),
     );
 
-    expect(find.text('HUMAN'), findsNothing);
-    await tester.tap(find.text('ADD PLAYERS'));
+    expect(findAppText('HUMAN'), findsNothing);
+    await tester.tap(findAppText('ADD PLAYERS'));
     await tester.pumpAndSettle();
-    expect(find.text('Mira'), findsOneWidget);
-    expect(find.text('Ranked 1125  Casual 1048'), findsOneWidget);
+    expect(findAppText('Mira'), findsOneWidget);
+    expect(findAppText('Ranked 1125  Casual 1048'), findsOneWidget);
     expect(findAssetImage('ios_resources/worker4.png'), findsWidgets);
     await tester.tap(find.bySemanticsLabel('P2 Easy'));
     await tester.pumpAndSettle();
@@ -4441,7 +4452,7 @@ void main() {
 
     expect(saveCalls, 1);
     expect(useCalls, 1);
-    await tester.tap(find.text('ADD PLAYERS'));
+    await tester.tap(findAppText('ADD PLAYERS'));
     await tester.pumpAndSettle();
     expect(find.bySemanticsLabel('P2 Easy'), findsOneWidget);
   });
@@ -4503,12 +4514,12 @@ void main() {
       ),
     );
 
-    expect(find.text('ADD PLAYERS'), findsNothing);
-    expect(find.text('START OFFLINE GAME'), findsOneWidget);
-    expect(find.text('PRIVATE'), findsOneWidget);
+    expect(findAppText('ADD PLAYERS'), findsNothing);
+    expect(findAppText('START OFFLINE GAME'), findsOneWidget);
+    expect(findAppText('PRIVATE'), findsOneWidget);
     expect(find.bySemanticsLabel('P2 Easy'), findsOneWidget);
 
-    await tester.tap(find.text('START OFFLINE GAME'));
+    await tester.tap(findAppText('START OFFLINE GAME'));
     await tester.pump();
 
     expect(starts, 1);
@@ -4608,38 +4619,38 @@ void main() {
       ),
     );
 
-    expect(find.text('ADD PLAYERS'), findsOneWidget);
-    expect(find.text('START OFFLINE GAME'), findsNothing);
+    expect(findAppText('ADD PLAYERS'), findsOneWidget);
+    expect(findAppText('START OFFLINE GAME'), findsNothing);
 
-    await tester.tap(find.text('ADD PLAYERS'));
+    await tester.tap(findAppText('ADD PLAYERS'));
     await tester.pumpAndSettle();
-    expect(find.text('START OFFLINE GAME'), findsOneWidget);
-    expect(find.text('VISIBILITY'), findsOneWidget);
-    expect(find.text('PUBLIC'), findsOneWidget);
+    expect(findAppText('START OFFLINE GAME'), findsOneWidget);
+    expect(findAppText('VISIBILITY'), findsOneWidget);
+    expect(findAppText('PUBLIC'), findsOneWidget);
 
-    await tester.tap(find.text('PUBLIC'));
+    await tester.tap(findAppText('PUBLIC'));
     await tester.pump();
-    expect(find.text('PUBLIC'), findsOneWidget);
-    expect(find.text('PRIVATE'), findsNothing);
+    expect(findAppText('PUBLIC'), findsOneWidget);
+    expect(findAppText('PRIVATE'), findsNothing);
 
     await tester.tap(find.bySemanticsLabel('P2 Online'));
     await tester.pumpAndSettle();
-    expect(find.text('START ONLINE GAME'), findsOneWidget);
+    expect(findAppText('START ONLINE GAME'), findsOneWidget);
     final p3Hotseat = find.bySemanticsLabel('P3 Hotseat');
     expect(p3Hotseat, findsOneWidget);
     expect(
       tester.getSemantics(p3Hotseat).flagsCollection.isEnabled.toBoolOrNull(),
       isFalse,
     );
-    await tester.tap(find.text('PUBLIC'));
+    await tester.tap(findAppText('PUBLIC'));
     await tester.pump();
-    expect(find.text('PRIVATE'), findsOneWidget);
+    expect(findAppText('PRIVATE'), findsOneWidget);
 
-    await tester.tap(find.text('JOIN GAME'));
+    await tester.tap(findAppText('JOIN GAME'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('CREATE GAME'));
+    await tester.tap(findAppText('CREATE GAME'));
     await tester.pumpAndSettle();
-    expect(find.text('START ONLINE GAME'), findsOneWidget);
+    expect(findAppText('START ONLINE GAME'), findsOneWidget);
 
     await tester.ensureVisible(find.bySemanticsLabel('P3 Hard'));
     await tester.tap(find.bySemanticsLabel('P3 Hard'));
@@ -4650,13 +4661,13 @@ void main() {
 
     expect(changedControllers, isNotNull);
     expect(changedControllers![1], KolkhozPlayerController.human);
-    expect(find.text('START ONLINE GAME'), findsOneWidget);
-    expect(find.text('RANKED'), findsNothing);
-    expect(find.text('CASUAL'), findsNothing);
-    expect(find.text('PRIVATE'), findsOneWidget);
+    expect(findAppText('START ONLINE GAME'), findsOneWidget);
+    expect(findAppText('RANKED'), findsNothing);
+    expect(findAppText('CASUAL'), findsNothing);
+    expect(findAppText('PRIVATE'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('START ONLINE GAME'));
-    await tester.tap(find.text('START ONLINE GAME'));
+    await tester.ensureVisible(findAppText('START ONLINE GAME'));
+    await tester.tap(findAppText('START ONLINE GAME'));
     await tester.pump();
 
     expect(hostedControllers, isNotNull);
@@ -4669,11 +4680,11 @@ void main() {
     expect(rememberedSeats, ['local', 'online', 'hardAI', 'hardAI']);
     await tester.pumpAndSettle();
     expect(showingOnline, isFalse);
-    expect(find.text('YOUR INVITE CODE'), findsNothing);
+    expect(findAppText('YOUR INVITE CODE'), findsNothing);
     expect(find.bySemanticsLabel('INVITE CODE ABCDE'), findsOneWidget);
     expect(find.bySemanticsLabel('Waiting for players'), findsWidgets);
     expect(find.textContaining('Searching for Player'), findsOneWidget);
-    expect(find.text('Mira'), findsOneWidget);
+    expect(findAppText('Mira'), findsOneWidget);
   });
 
   testWidgets('online ban state does not disable the create-game button', (
@@ -4716,7 +4727,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('ADD PLAYERS'));
+    await tester.tap(findAppText('ADD PLAYERS'));
     await tester.pumpAndSettle();
     await tester.tap(find.bySemanticsLabel('P2 Online'));
     await tester.pumpAndSettle();
@@ -4726,21 +4737,21 @@ void main() {
     await tester.ensureVisible(find.bySemanticsLabel('P4 Hard'));
     await tester.tap(find.bySemanticsLabel('P4 Hard'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('START ONLINE GAME'));
-    await tester.tap(find.text('START ONLINE GAME'));
+    await tester.ensureVisible(findAppText('START ONLINE GAME'));
+    await tester.tap(findAppText('START ONLINE GAME'));
     await tester.pump();
 
     expect(hostCalls, 1);
     expect(
-      find.text('Sent north: online play is locked for this account.'),
+      findAppText('Sent north: online play is locked for this account.'),
       findsOneWidget,
     );
     expect(
-      find.text('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
+      findAppText('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
       findsNothing,
     );
 
-    await tester.tap(find.text('START ONLINE GAME'));
+    await tester.tap(findAppText('START ONLINE GAME'));
     await tester.pump();
 
     expect(hostCalls, 2);
@@ -4784,9 +4795,12 @@ void main() {
       ),
     );
 
-    expect(find.text('Demo mode: 2-year Kolkhoz with easy AI.'), findsNothing);
-    expect(find.text('DEMO MODE'), findsOneWidget);
-    expect(find.text('2-year Kolkhoz with easy AI'), findsOneWidget);
+    expect(
+      findAppText('Demo mode: 2-year Kolkhoz with easy AI.'),
+      findsNothing,
+    );
+    expect(findAppText('DEMO MODE'), findsOneWidget);
+    expect(findAppText('2-year Kolkhoz with easy AI'), findsOneWidget);
     expect(
       find.byWidgetPredicate(
         (widget) => widget is PixelText && widget.text == '52 CARD DECK',
@@ -4806,7 +4820,7 @@ void main() {
 
     expect(presetChanges, 0);
     expect(controllerChanges, 0);
-    expect(find.text('MEDIUM'), findsNothing);
+    expect(findAppText('MEDIUM'), findsNothing);
   });
 
   testWidgets('online lobby shows readable connection failures', (
@@ -4847,16 +4861,16 @@ void main() {
       ),
     );
 
-    expect(find.text('YOUR INVITE CODE'), findsOneWidget);
-    expect(find.text('ABCDE'), findsOneWidget);
-    expect(find.text('COPY CODE'), findsOneWidget);
+    expect(findAppText('YOUR INVITE CODE'), findsOneWidget);
+    expect(findAppText('ABCDE'), findsOneWidget);
+    expect(findAppText('COPY CODE'), findsOneWidget);
 
     await tester.pumpAndSettle();
-    await tester.tap(find.text('ASSIGN GAME'));
+    await tester.tap(findAppText('ASSIGN GAME'));
     await tester.pump();
 
     expect(
-      find.text('Could not reach the online server. Try again in a moment.'),
+      findAppText('Could not reach the online server. Try again in a moment.'),
       findsOneWidget,
     );
     expect(find.textContaining('SocketException'), findsNothing);
@@ -4916,11 +4930,11 @@ void main() {
 
       expect(find.bySemanticsLabel(RegExp(r'Mira')), findsOneWidget);
       expect(find.bySemanticsLabel(RegExp(r'ABCDE - Mira')), findsNothing);
-      expect(find.text('ABCDE'), findsNothing);
-      expect(find.text('16 Citizens Online'), findsOneWidget);
-      expect(find.text('Refresh in 15s'), findsOneWidget);
-      expect(find.text('RANKED'), findsNothing);
-      expect(find.text('COMRADES'), findsNothing);
+      expect(findAppText('ABCDE'), findsNothing);
+      expect(findAppText('16 Citizens Online'), findsOneWidget);
+      expect(findAppText('Refresh in 15s'), findsOneWidget);
+      expect(findAppText('RANKED'), findsNothing);
+      expect(findAppText('COMRADES'), findsNothing);
       expect(find.byTooltip('Ranked'), findsOneWidget);
       expect(find.byTooltip('Casual'), findsOneWidget);
       expect(find.byTooltip('Comrade'), findsOneWidget);
@@ -4933,14 +4947,14 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text('1 open'), findsNothing);
+      expect(findAppText('1 open'), findsNothing);
       expect(find.textContaining('Learning Table'), findsNothing);
       expect(
         httpClient.requests.map((request) => request.route),
         contains('GET /sessions'),
       );
 
-      await tester.tap(find.text('ASSIGN GAME'));
+      await tester.tap(findAppText('ASSIGN GAME'));
       await tester.pump();
 
       expect(matchmakeCalled, isTrue);
@@ -4996,10 +5010,10 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('No open games'), findsOneWidget);
-    expect(find.text('16 Citizens Online'), findsOneWidget);
-    expect(find.text('Refresh in 15s'), findsOneWidget);
-    expect(find.text('ASSIGN GAME'), findsOneWidget);
+    expect(findAppText('No open games'), findsOneWidget);
+    expect(findAppText('16 Citizens Online'), findsOneWidget);
+    expect(findAppText('Refresh in 15s'), findsOneWidget);
+    expect(findAppText('ASSIGN GAME'), findsOneWidget);
 
     final inviteField = find.byWidgetPredicate(
       (widget) =>
@@ -5008,10 +5022,10 @@ void main() {
     await tester.enterText(inviteField, 'abcde');
     await tester.pump();
 
-    expect(find.text('ASSIGN GAME'), findsNothing);
-    expect(find.text('JOIN GAME'), findsWidgets);
+    expect(findAppText('ASSIGN GAME'), findsNothing);
+    expect(findAppText('JOIN GAME'), findsWidgets);
 
-    await tester.tap(find.text('JOIN GAME').last);
+    await tester.tap(findAppText('JOIN GAME').last);
     await tester.pump();
 
     expect(joinedInviteCode, 'abcde');
@@ -5069,23 +5083,23 @@ void main() {
     expect(find.bySemanticsLabel(RegExp(r'Mira')), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp(r'ABCDE - Mira')), findsNothing);
 
-    await tester.tap(find.text('ASSIGN GAME'));
+    await tester.tap(findAppText('ASSIGN GAME'));
     await tester.pump();
 
     expect(matchmakeCalls, 1);
     expect(joinedInviteCode, isNull);
     expect(
-      find.text('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
+      findAppText('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
       findsOneWidget,
     );
     expect(
-      find.text('Sent north: online play is locked for this account.'),
+      findAppText('Sent north: online play is locked for this account.'),
       findsOneWidget,
     );
     expect(find.bySemanticsLabel(RegExp(r'ABCDE - Mira')), findsNothing);
 
     await tester.tap(
-      find.text('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
+      findAppText('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
       warnIfMissed: false,
     );
     await tester.pump();
@@ -5100,18 +5114,18 @@ void main() {
     await tester.enterText(inviteField, 'abcde');
     await tester.pump();
 
-    expect(find.text('JOIN GAME'), findsWidgets);
+    expect(findAppText('JOIN GAME'), findsWidgets);
     expect(
-      find.text('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
+      findAppText('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
       findsNothing,
     );
     expect(
-      find.text('Sent north: online play is locked for this account.'),
+      findAppText('Sent north: online play is locked for this account.'),
       findsOneWidget,
     );
     expect(find.bySemanticsLabel(RegExp(r'ABCDE - Mira')), findsNothing);
 
-    await tester.tap(find.text('JOIN GAME').last);
+    await tester.tap(findAppText('JOIN GAME').last);
     await tester.pump();
 
     expect(matchmakeCalls, 1);
@@ -5165,11 +5179,11 @@ void main() {
 
     expect(find.bySemanticsLabel(RegExp(r'ABCDE - Mira')), findsNothing);
     expect(
-      find.text('Sent north: online play is locked for this account.'),
+      findAppText('Sent north: online play is locked for this account.'),
       findsOneWidget,
     );
     expect(
-      find.text('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
+      findAppText('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
       findsOneWidget,
     );
 
@@ -5179,7 +5193,7 @@ void main() {
     );
     await tester.enterText(inviteField, 'abcde');
     await tester.pump();
-    await tester.tap(find.text('JOIN GAME').last);
+    await tester.tap(findAppText('JOIN GAME').last);
     await tester.pump();
 
     expect(joinedInviteCode, 'abcde');
@@ -5252,12 +5266,12 @@ void main() {
       ),
     );
 
-    expect(find.text('YOUR INVITE CODE'), findsOneWidget);
-    expect(find.text('ABCDE'), findsWidgets);
-    expect(find.text('Mira'), findsOneWidget);
-    expect(find.text('Nadia'), findsOneWidget);
+    expect(findAppText('YOUR INVITE CODE'), findsOneWidget);
+    expect(findAppText('ABCDE'), findsWidgets);
+    expect(findAppText('Mira'), findsOneWidget);
+    expect(findAppText('Nadia'), findsOneWidget);
     expect(find.textContaining('Searching for Player'), findsOneWidget);
-    expect(find.text('KICK'), findsOneWidget);
+    expect(findAppText('KICK'), findsOneWidget);
     expect(find.byKey(const Key('online-waiting-cancel')), findsOneWidget);
     expect(find.bySemanticsLabel('Waiting for players'), findsWidgets);
 
@@ -5266,7 +5280,7 @@ void main() {
 
     expect(cancelCalls, 1);
 
-    await tester.tap(find.text('KICK'));
+    await tester.tap(findAppText('KICK'));
     await tester.pump();
 
     expect(kickedPlayerID, 1);
@@ -5346,16 +5360,16 @@ void main() {
       ),
     );
 
-    expect(find.text('WELCOME TO THE COLLECTIVE'), findsOneWidget);
+    expect(findAppText('WELCOME TO THE COLLECTIVE'), findsOneWidget);
     expect(find.byKey(const ValueKey('tutorial-dot-0')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('tutorial-next')));
     await tester.pump();
-    expect(find.text('READ THE WORK BOARD'), findsOneWidget);
+    expect(findAppText('READ THE WORK BOARD'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('tutorial-back')));
     await tester.pump();
-    expect(find.text('WELCOME TO THE COLLECTIVE'), findsOneWidget);
+    expect(findAppText('WELCOME TO THE COLLECTIVE'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('tutorial-close')));
     expect(closed, isTrue);
@@ -5385,12 +5399,12 @@ void main() {
       await tester.tap(find.byKey(const Key('tutorial-next')));
       await tester.pump();
     }
-    expect(find.text('PLAY A CARD'), findsOneWidget);
+    expect(findAppText('PLAY A CARD'), findsOneWidget);
 
     // A card lands on the table: the step should advance on its own.
     await tester.pumpWidget(wrap(runtimeModelWithTrickPlay()));
     await tester.pump();
-    expect(find.text('TAKING THE TRICK'), findsOneWidget);
+    expect(findAppText('TAKING THE TRICK'), findsOneWidget);
 
     // Let the celebration flash timer finish so no timers are pending.
     await tester.pump(const Duration(milliseconds: 1700));
@@ -5413,23 +5427,23 @@ void main() {
     );
 
     await tester.pumpWidget(wrap(runtimeModel()));
-    expect(find.text('WELCOME TO THE COLLECTIVE'), findsOneWidget);
+    expect(findAppText('WELCOME TO THE COLLECTIVE'), findsOneWidget);
 
     // Selecting a trick card folds the panel into the corner badge.
     await tester.pumpWidget(wrap(runtimeModelWithSelectedHandCard()));
     await tester.pump();
-    expect(find.text('WELCOME TO THE COLLECTIVE'), findsNothing);
+    expect(findAppText('WELCOME TO THE COLLECTIVE'), findsNothing);
     expect(find.byKey(const Key('tutorial-expand')), findsOneWidget);
 
     // The badge can be re-opened manually.
     await tester.tap(find.byKey(const Key('tutorial-expand')));
     await tester.pump();
-    expect(find.text('WELCOME TO THE COLLECTIVE'), findsOneWidget);
+    expect(findAppText('WELCOME TO THE COLLECTIVE'), findsOneWidget);
 
     // Clearing the pending play keeps the panel open.
     await tester.pumpWidget(wrap(runtimeModel()));
     await tester.pump();
-    expect(find.text('WELCOME TO THE COLLECTIVE'), findsOneWidget);
+    expect(findAppText('WELCOME TO THE COLLECTIVE'), findsOneWidget);
     expect(find.byKey(const Key('tutorial-expand')), findsNothing);
   });
 
@@ -5478,7 +5492,7 @@ void main() {
       ),
     );
 
-    expect(find.text('ДОБРО ПОЖАЛОВАТЬ В КОЛХОЗ'), findsOneWidget);
+    expect(findAppText('ДОБРО ПОЖАЛОВАТЬ В КОЛХОЗ'), findsOneWidget);
     expect(find.textContaining('Это настоящая игра, товарищ'), findsOneWidget);
     expect(
       find.byWidgetPredicate(
@@ -5579,9 +5593,9 @@ void main() {
 
     expect(find.byType(Dialog), findsNothing);
     expect(find.byKey(const Key('player-info-panel-0')), findsOneWidget);
-    expect(find.text('PLAYER'), findsOneWidget);
-    expect(find.text('SCORE'), findsOneWidget);
-    expect(find.text('HAND'), findsOneWidget);
+    expect(findAppText('PLAYER'), findsOneWidget);
+    expect(findAppText('SCORE'), findsOneWidget);
+    expect(findAppText('HAND'), findsOneWidget);
   });
 
   test('brigade display helpers project column geometry', () {
@@ -5609,7 +5623,7 @@ void main() {
         playerPanelHeight: 106.6324,
         playObjectHeight: 349.533,
       ),
-      closeTo(494.1654, 0.0001),
+      closeTo(480.1654, 0.0001),
     );
     expect(
       brigadePanelHeightForWidth(
@@ -5618,19 +5632,19 @@ void main() {
         minCardWidth: 70,
         cardAspectRatio: 1.42,
       ),
-      closeTo(502.1654, 0.0001),
+      closeTo(488.1654, 0.0001),
     );
     expect(
       brigadePlayObjectMaxHeight(360, 106.6324),
-      closeTo(215.3676, 0.0001),
+      closeTo(229.3676, 0.0001),
     );
     expect(
       brigadePlayObjectFittingWidth(
         desiredWidth: 246.15,
-        maxHeight: 215.3676,
+        maxHeight: 229.3676,
         aspectRatio: 1.42,
       ),
-      closeTo(151.6673, 0.0001),
+      closeTo(161.5265, 0.0001),
     );
   });
 
