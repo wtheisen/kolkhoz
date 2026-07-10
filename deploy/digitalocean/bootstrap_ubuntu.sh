@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_url="${KOLKHOZ_REPO_URL:-https://github.com/wtheisen/kolkhoz.git}"
-repo_ref="${KOLKHOZ_REPO_REF:-main}"
+repo_ref="${KOLKHOZ_REPO_REF:-master}"
 app_dir="${KOLKHOZ_APP_DIR:-/opt/kolkhoz}"
 service_file="/etc/systemd/system/kolkhoz-online.service"
 env_file="/etc/kolkhoz-online.env"
