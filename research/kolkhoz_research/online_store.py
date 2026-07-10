@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from .ratings import DEFAULT_MU, DEFAULT_SIGMA, RatingInput, rate_multiplayer
+from .progression import evaluate_online_progression
 
 
 AI_PROFILES = {
@@ -376,7 +377,11 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
 
         self._psycopg = psycopg
         self._jsonb = Jsonb
-        self._connection = psycopg.connect(database_url, autocommit=True)
+        self._connection = psycopg.connect(
+            database_url,
+            autocommit=True,
+            prepare_threshold=None,
+        )
         self._lock = threading.RLock()
         self._profile_stats_has_split_columns = self._has_columns(
             "profile_stats",
@@ -410,6 +415,9 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
         self._has_user_comrade_requests_table = self._has_table(
             "user_comrade_requests",
         )
+        self._has_profile_progression_table = self._has_table(
+            "profile_progression"
+        ) and self._has_table("profile_progression_events")
 
     def close(self) -> None:
         with self._lock:
@@ -1192,6 +1200,14 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     """,
                     (user_id,),
                 )
+                if self._has_profile_progression_table:
+                    self._record_online_progression(
+                        cursor,
+                        session_id=session_id,
+                        user_id=user_id,
+                        result=result,
+                        updated_at=now,
+                    )
             ai_results = _aggregate_ai_results(results)
             for ai_key in ai_results:
                 cursor.execute(
@@ -1488,6 +1504,65 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                         ),
                     )
             self._insert_update(cursor, session_id, None, "finished", now)
+
+    def _record_online_progression(
+        self,
+        cursor: Any,
+        *,
+        session_id: str,
+        user_id: str,
+        result: dict[str, object],
+        updated_at: datetime,
+    ) -> None:
+        cursor.execute(
+            """
+            insert into public.profile_progression_events (session_id, user_id)
+            values (%s, %s)
+            on conflict (session_id, user_id) do nothing
+            returning user_id
+            """,
+            (session_id, user_id),
+        )
+        if cursor.fetchone() is None:
+            return
+        cursor.execute(
+            """
+            select progress, completed, unlocks
+              from public.profile_progression
+             where user_id = %s
+             for update
+            """,
+            (user_id,),
+        )
+        row = cursor.fetchone()
+        current = None
+        if row is not None:
+            current = {
+                "progress": row[0] or {},
+                "completed": row[1] or [],
+                "unlocks": row[2] or [],
+            }
+        progression = evaluate_online_progression(current, result)
+        cursor.execute(
+            """
+            insert into public.profile_progression (
+                user_id, progress, completed, unlocks, updated_at
+            )
+            values (%s, %s, %s, %s, %s)
+            on conflict (user_id) do update
+               set progress = excluded.progress,
+                   completed = excluded.completed,
+                   unlocks = excluded.unlocks,
+                   updated_at = excluded.updated_at
+            """,
+            (
+                user_id,
+                self._jsonb(progression["progress"]),
+                progression["completed"],
+                progression["unlocks"],
+                updated_at,
+            ),
+        )
 
     def profiles_for_user_ids(
         self,

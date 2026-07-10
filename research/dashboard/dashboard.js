@@ -123,6 +123,39 @@ function when(value) {
   return date.toLocaleString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", month: "short", day: "numeric" });
 }
 
+function renderOnlineSmoke(smoke) {
+  const button = document.getElementById("runOnlineSmoke");
+  const summary = document.getElementById("onlineSmokeSummary");
+  const runs = document.getElementById("onlineSmokeRuns");
+  if (!button || !summary || !runs) return;
+  button.disabled = Boolean(smoke?.running);
+  button.textContent = smoke?.running ? "Game running…" : "Run test game";
+  const latest = smoke?.latest;
+  summary.textContent = smoke?.running
+    ? "An authenticated production game is in progress."
+    : latest
+      ? `${latest.status === "passed" ? "Latest run passed" : "Latest run failed"} ${when(latest.finishedAt)} in ${fmtNumber(latest.durationSeconds, 1)}s.`
+      : "No production smoke runs recorded.";
+  runs.innerHTML = (smoke?.runs || []).slice(0, 8).map((run) => `
+    <div class="smoke-run ${run.status || "unknown"}">
+      <strong>${run.status || "unknown"}</strong>
+      <span>${when(run.finishedAt)}</span>
+      <span>${run.actionsSubmitted ?? "-"} actions</span>
+      <span>${run.sessionID ? String(run.sessionID).slice(0, 8) : run.error || "-"}</span>
+    </div>
+  `).join("");
+}
+
+async function runOnlineSmoke() {
+  const button = document.getElementById("runOnlineSmoke");
+  if (button) button.disabled = true;
+  try {
+    await fetch("/api/online-smoke/run", { method: "POST" });
+  } finally {
+    refresh();
+  }
+}
+
 function architectureLabel(model) {
   if (!model) return "unknown";
   const layers = Array.isArray(model.layers) && model.layers.length ? ` ${model.layers.join("x")}` : "";
@@ -1555,6 +1588,7 @@ async function refresh() {
     updatedEl.textContent = `Updated ${when(payload.generated_at)}`;
     renderCurrent(payload.current);
     renderCounts(payload.counts || {});
+    renderOnlineSmoke(payload.online_smoke || {});
     renderLatestBenchmark(payload.benchmarks || [], payload.current);
     renderTrainingEval(payload.current);
     renderTrainingEvalList(payload.current);
@@ -1574,3 +1608,4 @@ async function refresh() {
 attachCurveZoomControls();
 refresh();
 setInterval(refresh, 5000);
+document.getElementById("runOnlineSmoke")?.addEventListener("click", runOnlineSmoke);

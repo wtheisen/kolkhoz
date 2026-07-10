@@ -95,6 +95,7 @@ enum KolkhozText {
   kolkhozappWilliamTheisen,
   kolkhozappProfile,
   kolkhozappSettings,
+  kolkhozappProgress,
   kolkhozappCouldNotReachTheOnlineServerTryAgainInAMom,
   kolkhozappOnlineRequestFailedTryAgain,
   kolkhozappDemoMode2YearKolkhozWithEasyAi,
@@ -582,6 +583,7 @@ const Map<KolkhozText, ({String en, String ru})> kolkhozText = {
   ),
   KolkhozText.kolkhozappProfile: (en: 'Profile', ru: 'Профиль'),
   KolkhozText.kolkhozappSettings: (en: 'SETTINGS', ru: 'НАСТРОЙКИ'),
+  KolkhozText.kolkhozappProgress: (en: 'PROGRESS', ru: 'ПРОГРЕСС'),
   KolkhozText.kolkhozappCouldNotReachTheOnlineServerTryAgainInAMom: (
     en: 'Could not reach the online server. Try again in a moment.',
     ru: 'Не удалось подключиться к серверу. Повторите попытку чуть позже.',

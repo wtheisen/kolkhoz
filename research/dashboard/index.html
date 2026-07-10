@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Kolkhoz Research Dashboard</title>
     <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="/dashboard.css?v=20260706-margin-shape">
+    <link rel="stylesheet" href="/dashboard.css?v=20260710-online-smoke">
   </head>
   <body>
     <main class="shell">
@@ -75,6 +75,18 @@
       </section>
 
       <section class="counts" id="counts"></section>
+
+      <section class="smoke-panel">
+        <div class="panel-head">
+          <div>
+            <p class="label">Production verification</p>
+            <h2>Authenticated bot game</h2>
+          </div>
+          <button id="runOnlineSmoke" class="smoke-button" type="button">Run test game</button>
+        </div>
+        <p id="onlineSmokeSummary" class="smoke-summary">No production smoke runs recorded.</p>
+        <div id="onlineSmokeRuns" class="smoke-runs"></div>
+      </section>
 
       <section id="distillPanel" class="curve-panel distill-panel">
         <div class="panel-head">
@@ -319,6 +331,6 @@
         </article>
       </section>
     </main>
-    <script src="/dashboard.js?v=20260706-margin-shape"></script>
+    <script src="/dashboard.js?v=20260710-online-smoke"></script>
   </body>
 </html>

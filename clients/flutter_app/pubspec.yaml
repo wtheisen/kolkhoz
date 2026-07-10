@@ -28,6 +28,7 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  audioplayers: ^6.8.1
   ffi: ^2.1.4
   flutter:
     sdk: flutter
@@ -62,6 +63,7 @@ flutter:
     - ios_resources/Cards/
     - ios_resources/Embellishments/
     - ios_resources/Fonts/Bitmap/
+    - assets/audio/
     - assets/policies/current_best_policy.json
     - assets/policies/medium_policy.json
     - assets/policies/hard_policy.json

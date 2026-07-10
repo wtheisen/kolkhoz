@@ -118,6 +118,12 @@ class OptionsPanel extends StatefulWidget {
     this.onLanguageToggle,
     this.onAppearanceToggle,
     this.onCardBackChanged,
+    this.unlockedCardBacks = const {
+      KolkhozCardBack.classic,
+      KolkhozCardBack.harvest,
+      KolkhozCardBack.granary,
+      KolkhozCardBack.winter,
+    },
     super.key,
   });
 
@@ -140,6 +146,7 @@ class OptionsPanel extends StatefulWidget {
   final VoidCallback? onLanguageToggle;
   final VoidCallback? onAppearanceToggle;
   final ValueChanged<KolkhozCardBack>? onCardBackChanged;
+  final Set<KolkhozCardBack> unlockedCardBacks;
 
   @override
   State<OptionsPanel> createState() => _OptionsPanelState();
@@ -747,10 +754,18 @@ class OptionsDisplayControls extends StatelessWidget {
     required this.appearance,
     this.cardBack = KolkhozCardBack.classic,
     this.animationSpeed = defaultGameAnimationSpeed,
+    this.soundEnabled = true,
+    this.onSoundEnabledChanged,
     this.onAnimationSpeedChanged,
     this.onLanguageToggle,
     this.onAppearanceToggle,
     this.onCardBackChanged,
+    this.unlockedCardBacks = const {
+      KolkhozCardBack.classic,
+      KolkhozCardBack.harvest,
+      KolkhozCardBack.granary,
+      KolkhozCardBack.winter,
+    },
     super.key,
   });
 
@@ -759,10 +774,13 @@ class OptionsDisplayControls extends StatelessWidget {
   final KolkhozAppearance appearance;
   final KolkhozCardBack cardBack;
   final GameAnimationSpeed animationSpeed;
+  final bool soundEnabled;
+  final ValueChanged<bool>? onSoundEnabledChanged;
   final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
   final VoidCallback? onLanguageToggle;
   final VoidCallback? onAppearanceToggle;
   final ValueChanged<KolkhozCardBack>? onCardBackChanged;
+  final Set<KolkhozCardBack> unlockedCardBacks;
 
   @override
   Widget build(BuildContext context) {
@@ -793,6 +811,21 @@ class OptionsDisplayControls extends StatelessWidget {
                 tokens: tokens,
                 onPressed: onAppearanceToggle,
               ),
+              OptionsChromeToggle(
+                iconPath:
+                    'ios_resources/Icons/icon-sound-${soundEnabled ? 'on' : 'off'}.png',
+                label: language == KolkhozLanguage.en
+                    ? soundEnabled
+                          ? 'Mute sound cues'
+                          : 'Enable sound cues'
+                    : soundEnabled
+                    ? 'Выключить звуковые сигналы'
+                    : 'Включить звуковые сигналы',
+                tokens: tokens,
+                onPressed: onSoundEnabledChanged == null
+                    ? null
+                    : () => onSoundEnabledChanged!(!soundEnabled),
+              ),
             ],
           ),
         ),
@@ -809,6 +842,7 @@ class OptionsDisplayControls extends StatelessWidget {
           tokens: tokens,
           language: language,
           onChanged: onCardBackChanged,
+          unlockedCardBacks: unlockedCardBacks,
         ),
       ],
     );
@@ -821,6 +855,12 @@ class OptionsCardBackPicker extends StatelessWidget {
     required this.tokens,
     required this.language,
     this.onChanged,
+    this.unlockedCardBacks = const {
+      KolkhozCardBack.classic,
+      KolkhozCardBack.harvest,
+      KolkhozCardBack.granary,
+      KolkhozCardBack.winter,
+    },
     super.key,
   });
 
@@ -828,6 +868,7 @@ class OptionsCardBackPicker extends StatelessWidget {
   final DesignTokens tokens;
   final KolkhozLanguage language;
   final ValueChanged<KolkhozCardBack>? onChanged;
+  final Set<KolkhozCardBack> unlockedCardBacks;
 
   @override
   Widget build(BuildContext context) {
@@ -849,9 +890,11 @@ class OptionsCardBackPicker extends StatelessWidget {
               OptionsCardBackButton(
                 cardBack: cardBack,
                 selected: selected == cardBack,
+                unlocked: unlockedCardBacks.contains(cardBack),
                 tokens: tokens,
                 language: language,
-                onPressed: onChanged == null
+                onPressed:
+                    onChanged == null || !unlockedCardBacks.contains(cardBack)
                     ? null
                     : () => onChanged!(cardBack),
               ),
@@ -866,6 +909,7 @@ class OptionsCardBackButton extends StatelessWidget {
   const OptionsCardBackButton({
     required this.cardBack,
     required this.selected,
+    this.unlocked = true,
     required this.tokens,
     required this.language,
     this.onPressed,
@@ -874,13 +918,15 @@ class OptionsCardBackButton extends StatelessWidget {
 
   final KolkhozCardBack cardBack;
   final bool selected;
+  final bool unlocked;
   final DesignTokens tokens;
   final KolkhozLanguage language;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final label = cardBack.label(language);
+    final cardBackLabel = cardBack.label(language);
+    final label = unlocked ? cardBackLabel : '$cardBackLabel (locked)';
     final borderColor = selected
         ? tokens.colors.gold
         : tokens.colors.gold.withValues(alpha: 0.32);
@@ -889,7 +935,7 @@ class OptionsCardBackButton extends StatelessWidget {
       button: true,
       selected: selected,
       enabled: onPressed != null,
-      label: label,
+      label: cardBackLabel,
       child: ExcludeSemantics(
         child: Tooltip(
           message: label,
@@ -909,10 +955,28 @@ class OptionsCardBackButton extends StatelessWidget {
                   height: optionsCardBackPreviewHeight,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(3),
-                    child: Image.asset(
-                      cardBack.assetPath,
-                      fit: BoxFit.cover,
-                      filterQuality: FilterQuality.none,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.asset(
+                          cardBack.assetPath,
+                          fit: BoxFit.cover,
+                          filterQuality: FilterQuality.none,
+                          color: unlocked
+                              ? null
+                              : tokens.colors.black.withValues(alpha: 0.58),
+                          colorBlendMode: unlocked ? null : BlendMode.srcATop,
+                        ),
+                        if (!unlocked)
+                          Center(
+                            child: Image.asset(
+                              'ios_resources/Icons/icon-lock.png',
+                              width: 20,
+                              height: 20,
+                              filterQuality: FilterQuality.none,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),

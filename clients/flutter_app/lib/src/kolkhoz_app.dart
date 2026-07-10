@@ -14,11 +14,15 @@ import 'app_text.dart';
 import 'c_engine_bridge.dart';
 import 'design_tokens.dart';
 import 'game_constants.dart';
+import 'game_sound.dart';
 import 'board_view.dart';
 import 'live_game_store.dart';
 import 'online_game_models.dart';
 import 'pixel_text.dart';
 import 'player_profile_panel.dart';
+import 'progression/progression.dart';
+import 'progression/progression_notice.dart';
+import 'progression/progression_overview.dart';
 import 'render_model.dart';
 import 'rule_content.dart';
 import 'supabase_config.dart';
@@ -105,6 +109,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   static const onlineInvitePollInterval = Duration(seconds: 5);
 
   final navigatorKey = GlobalKey<NavigatorState>();
+  final gameSounds = GameSoundController();
   late final LiveGameStore store;
   late final KolkhozAppSettingsStore settingsStore;
   StreamSubscription<AuthState>? supabaseAuthSubscription;
@@ -122,6 +127,8 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   final Set<String> dismissedInviteSessionIDs = {};
   String? activeInviteDialogSessionID;
   String? recordedGameStatsKey;
+  TableViewModel? previousSoundModel;
+  int previousSoundActionCount = 0;
   bool showingLobby = true;
   bool showingRules = false;
   bool showingOnline = false;
@@ -132,6 +139,8 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   bool showingTutorial = false;
   String? foremanHint;
   Timer? foremanHintTimer;
+  Timer? progressionNoticeTimer;
+  String? progressionNotice;
   KolkhozGamePreset selectedPreset = KolkhozGamePreset.kolkhoz;
   KolkhozGameVariants customVariants = KolkhozGameVariants.kolkhoz;
   List<KolkhozPlayerController> playerControllers = List.of(
@@ -139,6 +148,13 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   );
 
   bool get demoMode => supabaseCurrentUser == null;
+
+  ProgressionState get effectiveProgression => mergeProgressionStates(
+    settings.progression,
+    settings.onlineProgressionUserID == supabaseCurrentUser?.id
+        ? settings.onlineProgression
+        : const ProgressionState(),
+  );
 
   KolkhozGameVariants get activeVariants {
     if (demoMode) {
@@ -159,6 +175,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     settingsStore = KolkhozAppSettingsStore.defaultStore();
     settings = settingsStore.load();
+    gameSounds.enabled = settings.soundEnabled;
     final lastStartedSetup = settings.lastStartedSetup;
     if (lastStartedSetup != null) {
       selectedPreset = presetForVariants(lastStartedSetup.variants);
@@ -182,11 +199,13 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     foremanHintTimer?.cancel();
+    progressionNoticeTimer?.cancel();
     cloudProfileSyncTimer?.cancel();
     onlinePresenceTimer?.cancel();
     onlineInviteTimer?.cancel();
     supabaseAuthSubscription?.cancel();
     store.removeListener(handleStoreChanged);
+    unawaited(gameSounds.dispose());
     KolkhozSupabaseRuntime.instance.removeListener(
       handleSupabaseRuntimeChanged,
     );
@@ -253,6 +272,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
               confirmNewGame: settings.confirmNewGame,
               confirmMainMenu: settings.confirmMainMenu,
               showInvalidTapHints: settings.showInvalidTapHints,
+              soundEnabled: settings.soundEnabled,
               showingRules: showingRules,
               showingOnline: showingOnline,
               showingProfile: showingProfile,
@@ -263,6 +283,13 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
               displayName: settings.displayName,
               portraitAsset: settings.portraitAsset,
               profileStats: settings.profileStats,
+              progression: effectiveProgression,
+              unlockedCardBacks: {
+                for (final cardBack in KolkhozCardBack.values)
+                  if (isCardBackUnlocked(effectiveProgression, cardBack) ||
+                      cardBack == settings.cardBack)
+                    cardBack,
+              },
               favoriteSetup: settings.favoriteSetup,
               lastStartedSetup: settings.lastStartedSetup,
               comradesSummary: comradesSummary,
@@ -334,6 +361,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
               onConfirmNewGameChanged: setConfirmNewGame,
               onConfirmMainMenuChanged: setConfirmMainMenu,
               onShowInvalidTapHintsChanged: setShowInvalidTapHints,
+              onSoundEnabledChanged: setSoundEnabled,
               onRulesPressed: () {
                 setState(() {
                   showingRules = true;
@@ -477,6 +505,18 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
                     ),
                   ),
                 ),
+              if (progressionNotice != null && !showingTutorial)
+                Positioned(
+                  key: const ValueKey('progression-notice'),
+                  top: 18,
+                  right: 18,
+                  child: SafeArea(
+                    child: ProgressionNotice(
+                      message: progressionNotice!,
+                      tokens: tokens,
+                    ),
+                  ),
+                ),
               if (showingTutorial)
                 Positioned.fill(
                   key: const ValueKey('tutorial-overlay'),
@@ -536,6 +576,18 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
 
   void handleStoreChanged() {
     final model = store.model;
+    if (model != null) {
+      final actions = store.gameLogActions;
+      final cue = gameSoundCueForTransition(
+        previous: previousSoundModel,
+        next: model,
+        previousActionCount: previousSoundActionCount,
+        actions: actions,
+      );
+      previousSoundModel = model;
+      previousSoundActionCount = actions.length;
+      unawaited(gameSounds.play(cue));
+    }
     final result = model?.table.gameResult;
     if (model == null || result == null) {
       recordedGameStatsKey = null;
@@ -562,6 +614,24 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     recordCompletedGameStats(
       online: false,
       won: result.winnerSeatID == playerID,
+      progressionSummary: ProgressionGameSummary(
+        won: result.winnerSeatID == playerID,
+        score: finalScoreForSeat(result.scores, playerID),
+        fullFiveYearGame: store.currentVariants.maxYears >= 5,
+        margin:
+            finalScoreForSeat(result.scores, playerID) -
+            result.scores
+                .where((score) => score.seatID != playerID)
+                .map(finalScoreValue)
+                .fold<int>(0, math.max),
+        medals: seatByID(model, playerID)?.medals ?? 0,
+        exiledPlotCards: model.table.requisitionEvents
+            .where((event) => event.seatID == playerID && event.card != null)
+            .length,
+        saboteurExiled: model.table.exiledByYear.values
+            .expand((cards) => cards)
+            .any((card) => card.suit == 'wrecker'),
+      ),
     );
   }
 
@@ -861,6 +931,10 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   }
 
   void setCardBack(KolkhozCardBack value) {
+    if (!isCardBackUnlocked(effectiveProgression, value) &&
+        value != settings.cardBack) {
+      return;
+    }
     setState(() {
       settings = settings.copyWith(cardBack: value);
       settingsStore.save(settings);
@@ -888,6 +962,14 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     });
   }
 
+  void setSoundEnabled(bool value) {
+    setState(() {
+      settings = settings.copyWith(soundEnabled: value);
+      gameSounds.enabled = value;
+    });
+    settingsStore.save(settings);
+  }
+
   void setDisplayName(String value) {
     final next = settings.copyWith(displayName: value);
     setState(() => settings = next);
@@ -897,6 +979,10 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
 
   void setPortraitAsset(String value) {
     if (!profilePortraitAssets.contains(value)) {
+      return;
+    }
+    if (!isProfilePortraitUnlocked(effectiveProgression, value) &&
+        value != settings.portraitAsset) {
       return;
     }
     final next = settings.copyWith(portraitAsset: value);
@@ -1122,23 +1208,51 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
           .select()
           .eq('user_id', user.id)
           .maybeSingle();
+      final progression = await client
+          .from('profile_progression')
+          .select('progress, completed, unlocks')
+          .eq('user_id', user.id)
+          .maybeSingle();
       if (profile == null) {
         await syncCloudProfile();
         return;
       }
       final displayName = profile['display_name'] as String?;
       final avatarURL = profile['avatar_url'] as String?;
+      final previousCompleted = effectiveProgression.completed;
+      final loadedOnlineProgression = ProgressionState.fromJson(progression);
+      final loadedProgression = mergeProgressionStates(
+        settings.progression,
+        loadedOnlineProgression,
+      );
       final next = settings.copyWith(
         displayName: displayName == null || displayName.trim().isEmpty
             ? settings.displayName
             : displayName,
-        portraitAsset: profilePortraitAssets.contains(avatarURL)
-            ? avatarURL!
+        portraitAsset:
+            profilePortraitAssets.contains(avatarURL) &&
+                isProfilePortraitUnlocked(loadedProgression, avatarURL!)
+            ? avatarURL
             : settings.portraitAsset,
         profileStats: profileStatsFromSupabaseJson(stats),
+        onlineProgression: loadedOnlineProgression,
+        onlineProgressionUserID: user.id,
       );
       settings = next;
       settingsStore.save(next);
+      if (store.isOnlineGame && store.model?.table.gameResult != null) {
+        final nextCompleted = effectiveProgression.completed;
+        final newlyCompleted = progressionDefinitions
+            .where(
+              (definition) =>
+                  nextCompleted.contains(definition.id) &&
+                  !previousCompleted.contains(definition.id),
+            )
+            .toList();
+        if (newlyCompleted.isNotEmpty) {
+          showProgressionNotice(newlyCompleted);
+        }
+      }
       if (mounted) {
         setState(() {
           cloudAuthMessage = settings.language.t(
@@ -1226,17 +1340,44 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     }
   }
 
-  void recordCompletedGameStats({required bool online, required bool won}) {
+  void recordCompletedGameStats({
+    required bool online,
+    required bool won,
+    ProgressionGameSummary? progressionSummary,
+  }) {
     final nextStats = settings.profileStats.recordResult(
       online: online,
       won: won,
     );
-    final next = settings.copyWith(profileStats: nextStats);
+    final update = progressionSummary == null
+        ? null
+        : evaluateProgression(settings.progression, progressionSummary);
+    final next = settings.copyWith(
+      profileStats: nextStats,
+      progression: update?.state,
+    );
     setState(() => settings = next);
     settingsStore.save(next);
+    if (update != null && update.newCompletions.isNotEmpty) {
+      showProgressionNotice(update.newCompletions);
+    }
     if (!online) {
       unawaited(recordOfflineResultInCloud(won));
     }
+  }
+
+  void showProgressionNotice(List<ProgressionDefinition> completions) {
+    progressionNoticeTimer?.cancel();
+    final latest = completions.last;
+    final reward = latest.reward == null ? '' : ' • ${latest.reward} unlocked';
+    setState(() {
+      progressionNotice = '${latest.title} complete$reward';
+    });
+    progressionNoticeTimer = Timer(const Duration(seconds: 6), () {
+      if (mounted) {
+        setState(() => progressionNotice = null);
+      }
+    });
   }
 
   String get normalizedDisplayName {
@@ -1500,6 +1641,7 @@ class StandaloneLobby extends StatelessWidget {
     this.confirmNewGame = true,
     this.confirmMainMenu = true,
     this.showInvalidTapHints = true,
+    this.soundEnabled = true,
     required this.showingRules,
     required this.showingOnline,
     required this.onHostOnline,
@@ -1517,6 +1659,7 @@ class StandaloneLobby extends StatelessWidget {
     this.onConfirmNewGameChanged,
     this.onConfirmMainMenuChanged,
     this.onShowInvalidTapHintsChanged,
+    this.onSoundEnabledChanged,
     required this.onRulesPressed,
     required this.onOfflinePressed,
     required this.onOnlinePressed,
@@ -1532,6 +1675,13 @@ class StandaloneLobby extends StatelessWidget {
     this.displayName = defaultProfileDisplayName,
     this.portraitAsset = defaultProfilePortraitAsset,
     this.profileStats = defaultProfileStats,
+    this.progression = const ProgressionState(),
+    this.unlockedCardBacks = const {
+      KolkhozCardBack.classic,
+      KolkhozCardBack.harvest,
+      KolkhozCardBack.granary,
+      KolkhozCardBack.winter,
+    },
     this.favoriteSetup,
     this.lastStartedSetup,
     this.comradesSummary = const OnlineComradesResponse(),
@@ -1572,6 +1722,7 @@ class StandaloneLobby extends StatelessWidget {
   final bool confirmNewGame;
   final bool confirmMainMenu;
   final bool showInvalidTapHints;
+  final bool soundEnabled;
   final bool showingRules;
   final bool showingOnline;
   final bool showingProfile;
@@ -1582,6 +1733,8 @@ class StandaloneLobby extends StatelessWidget {
   final String displayName;
   final String portraitAsset;
   final KolkhozProfileStats profileStats;
+  final ProgressionState progression;
+  final Set<KolkhozCardBack> unlockedCardBacks;
   final KolkhozFavoriteSetup? favoriteSetup;
   final KolkhozFavoriteSetup? lastStartedSetup;
   final OnlineComradesResponse comradesSummary;
@@ -1630,6 +1783,7 @@ class StandaloneLobby extends StatelessWidget {
   final ValueChanged<bool>? onConfirmNewGameChanged;
   final ValueChanged<bool>? onConfirmMainMenuChanged;
   final ValueChanged<bool>? onShowInvalidTapHintsChanged;
+  final ValueChanged<bool>? onSoundEnabledChanged;
   final VoidCallback onRulesPressed;
   final VoidCallback onOfflinePressed;
   final VoidCallback onOnlinePressed;
@@ -1762,6 +1916,7 @@ class StandaloneLobby extends StatelessWidget {
                   confirmNewGame: confirmNewGame,
                   confirmMainMenu: confirmMainMenu,
                   showInvalidTapHints: showInvalidTapHints,
+                  soundEnabled: soundEnabled,
                   showingRules: showingRules,
                   showingOnline: showingOnline,
                   showingProfile: showingProfile,
@@ -1772,6 +1927,8 @@ class StandaloneLobby extends StatelessWidget {
                   displayName: displayName,
                   portraitAsset: portraitAsset,
                   profileStats: profileStats,
+                  progression: progression,
+                  unlockedCardBacks: unlockedCardBacks,
                   favoriteSetup: favoriteSetup,
                   lastStartedSetup: lastStartedSetup,
                   comradesSummary: comradesSummary,
@@ -1799,6 +1956,7 @@ class StandaloneLobby extends StatelessWidget {
                   onConfirmNewGameChanged: onConfirmNewGameChanged,
                   onConfirmMainMenuChanged: onConfirmMainMenuChanged,
                   onShowInvalidTapHintsChanged: onShowInvalidTapHintsChanged,
+                  onSoundEnabledChanged: onSoundEnabledChanged,
                   onLanguageToggle: onLanguageToggle,
                   onAppearanceToggle: onAppearanceToggle,
                   onCardBackChanged: onCardBackChanged,
@@ -2379,6 +2537,7 @@ class _LobbyPanel extends StatelessWidget {
     this.confirmNewGame = true,
     this.confirmMainMenu = true,
     this.showInvalidTapHints = true,
+    this.soundEnabled = true,
     required this.showingRules,
     required this.showingOnline,
     required this.showingProfile,
@@ -2389,6 +2548,8 @@ class _LobbyPanel extends StatelessWidget {
     required this.displayName,
     required this.portraitAsset,
     required this.profileStats,
+    required this.progression,
+    required this.unlockedCardBacks,
     required this.favoriteSetup,
     required this.lastStartedSetup,
     required this.comradesSummary,
@@ -2416,6 +2577,7 @@ class _LobbyPanel extends StatelessWidget {
     this.onConfirmNewGameChanged,
     this.onConfirmMainMenuChanged,
     this.onShowInvalidTapHintsChanged,
+    this.onSoundEnabledChanged,
     required this.onLanguageToggle,
     required this.onAppearanceToggle,
     required this.onCardBackChanged,
@@ -2446,6 +2608,7 @@ class _LobbyPanel extends StatelessWidget {
   final bool confirmNewGame;
   final bool confirmMainMenu;
   final bool showInvalidTapHints;
+  final bool soundEnabled;
   final bool showingRules;
   final bool showingOnline;
   final bool showingProfile;
@@ -2456,6 +2619,8 @@ class _LobbyPanel extends StatelessWidget {
   final String displayName;
   final String portraitAsset;
   final KolkhozProfileStats profileStats;
+  final ProgressionState progression;
+  final Set<KolkhozCardBack> unlockedCardBacks;
   final KolkhozFavoriteSetup? favoriteSetup;
   final KolkhozFavoriteSetup? lastStartedSetup;
   final OnlineComradesResponse comradesSummary;
@@ -2506,6 +2671,7 @@ class _LobbyPanel extends StatelessWidget {
   final ValueChanged<bool>? onConfirmNewGameChanged;
   final ValueChanged<bool>? onConfirmMainMenuChanged;
   final ValueChanged<bool>? onShowInvalidTapHintsChanged;
+  final ValueChanged<bool>? onSoundEnabledChanged;
   final VoidCallback onLanguageToggle;
   final VoidCallback onAppearanceToggle;
   final ValueChanged<KolkhozCardBack>? onCardBackChanged;
@@ -2583,9 +2749,12 @@ class _LobbyPanel extends StatelessWidget {
               confirmNewGame: confirmNewGame,
               confirmMainMenu: confirmMainMenu,
               showInvalidTapHints: showInvalidTapHints,
+              soundEnabled: soundEnabled,
               displayName: displayName,
               portraitAsset: portraitAsset,
               profileStats: profileStats,
+              progression: progression,
+              unlockedCardBacks: unlockedCardBacks,
               comradesSummary: comradesSummary,
               cloudConfigured: cloudConfigured,
               cloudReady: cloudReady,
@@ -2601,6 +2770,7 @@ class _LobbyPanel extends StatelessWidget {
               onConfirmNewGameChanged: onConfirmNewGameChanged,
               onConfirmMainMenuChanged: onConfirmMainMenuChanged,
               onShowInvalidTapHintsChanged: onShowInvalidTapHintsChanged,
+              onSoundEnabledChanged: onSoundEnabledChanged,
               onLanguageToggle: onLanguageToggle,
               onAppearanceToggle: onAppearanceToggle,
               onCardBackChanged: onCardBackChanged,
@@ -2643,6 +2813,7 @@ class _LobbyPanel extends StatelessWidget {
 
 enum KolkhozSettingsTab {
   profile,
+  progress,
   comrades,
   assist,
   display,
@@ -2651,6 +2822,7 @@ enum KolkhozSettingsTab {
   String title(KolkhozLanguage language) {
     return switch (this) {
       KolkhozSettingsTab.profile => language.t(KolkhozText.kolkhozappProfile),
+      KolkhozSettingsTab.progress => language.t(KolkhozText.kolkhozappProgress),
       KolkhozSettingsTab.comrades => language.t(KolkhozText.kolkhozappComrades),
       KolkhozSettingsTab.assist => OptionsMenuTab.assist.title(language),
       KolkhozSettingsTab.display => OptionsMenuTab.display.title(language),
@@ -2661,6 +2833,7 @@ enum KolkhozSettingsTab {
   String get iconAsset {
     return switch (this) {
       KolkhozSettingsTab.profile => 'ios_resources/Icons/icon-profile.png',
+      KolkhozSettingsTab.progress => 'ios_resources/Icons/icon-medal-star.png',
       KolkhozSettingsTab.comrades =>
         'ios_resources/Icons/icon-friends-list.png',
       KolkhozSettingsTab.assist => OptionsMenuTab.assist.iconAsset,
@@ -2680,9 +2853,12 @@ class _SettingsPanel extends StatefulWidget {
     required this.confirmNewGame,
     required this.confirmMainMenu,
     required this.showInvalidTapHints,
+    required this.soundEnabled,
     required this.displayName,
     required this.portraitAsset,
     required this.profileStats,
+    required this.progression,
+    required this.unlockedCardBacks,
     required this.comradesSummary,
     required this.cloudConfigured,
     required this.cloudReady,
@@ -2698,6 +2874,7 @@ class _SettingsPanel extends StatefulWidget {
     required this.onConfirmNewGameChanged,
     required this.onConfirmMainMenuChanged,
     required this.onShowInvalidTapHintsChanged,
+    required this.onSoundEnabledChanged,
     required this.onLanguageToggle,
     required this.onAppearanceToggle,
     required this.onCardBackChanged,
@@ -2718,9 +2895,12 @@ class _SettingsPanel extends StatefulWidget {
   final bool confirmNewGame;
   final bool confirmMainMenu;
   final bool showInvalidTapHints;
+  final bool soundEnabled;
   final String displayName;
   final String portraitAsset;
   final KolkhozProfileStats profileStats;
+  final ProgressionState progression;
+  final Set<KolkhozCardBack> unlockedCardBacks;
   final OnlineComradesResponse comradesSummary;
   final bool cloudConfigured;
   final bool cloudReady;
@@ -2736,6 +2916,7 @@ class _SettingsPanel extends StatefulWidget {
   final ValueChanged<bool>? onConfirmNewGameChanged;
   final ValueChanged<bool>? onConfirmMainMenuChanged;
   final ValueChanged<bool>? onShowInvalidTapHintsChanged;
+  final ValueChanged<bool>? onSoundEnabledChanged;
   final VoidCallback onLanguageToggle;
   final VoidCallback onAppearanceToggle;
   final ValueChanged<KolkhozCardBack>? onCardBackChanged;
@@ -2770,6 +2951,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
         displayName: widget.displayName,
         portraitAsset: widget.portraitAsset,
         profileStats: widget.profileStats,
+        progression: widget.progression,
         cloudConfigured: widget.cloudConfigured,
         cloudReady: widget.cloudReady,
         cloudSignedIn: widget.cloudSignedIn,
@@ -2783,6 +2965,10 @@ class _SettingsPanelState extends State<_SettingsPanel> {
         onCloudSignUp: widget.onCloudSignUp,
         onCloudResetPassword: widget.onCloudResetPassword,
         onCloudSignOut: widget.onCloudSignOut,
+      ),
+      KolkhozSettingsTab.progress => ProgressionOverview(
+        state: widget.progression,
+        tokens: widget.tokens,
       ),
       KolkhozSettingsTab.comrades => _ComradesSettingsPanel(
         tokens: widget.tokens,
@@ -2832,10 +3018,13 @@ class _SettingsPanelState extends State<_SettingsPanel> {
           appearance: widget.appearance,
           cardBack: widget.cardBack,
           animationSpeed: widget.animationSpeed,
+          soundEnabled: widget.soundEnabled,
+          onSoundEnabledChanged: widget.onSoundEnabledChanged,
           onAnimationSpeedChanged: widget.onAnimationSpeedChanged,
           onLanguageToggle: widget.onLanguageToggle,
           onAppearanceToggle: widget.onAppearanceToggle,
           onCardBackChanged: widget.onCardBackChanged,
+          unlockedCardBacks: widget.unlockedCardBacks,
         ),
       ),
       KolkhozSettingsTab.rules => SingleChildScrollView(
@@ -2856,26 +3045,30 @@ class _SettingsPanelState extends State<_SettingsPanel> {
         LayoutBuilder(
           builder: (context, constraints) {
             const spacing = optionsMenuTabSpacing;
-            final tabWidth =
-                (constraints.maxWidth -
-                    spacing * (KolkhozSettingsTab.values.length - 1)) /
-                KolkhozSettingsTab.values.length;
+            final tabWidth = math.max(
+              92.0,
+              (constraints.maxWidth - spacing * 4) / 5,
+            );
             final tabHeight = (tabWidth * 0.30).clamp(38.0, 52.0);
-            return Row(
-              spacing: spacing,
-              children: [
-                for (final tab in KolkhozSettingsTab.values)
-                  Expanded(
-                    child: _SettingsTabButton(
-                      tokens: widget.tokens,
-                      label: tab.title(widget.language),
-                      iconAsset: tab.iconAsset,
-                      selected: selectedTab == tab,
-                      height: tabHeight,
-                      onPressed: () => setState(() => selectedTab = tab),
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                spacing: spacing,
+                children: [
+                  for (final tab in KolkhozSettingsTab.values)
+                    SizedBox(
+                      width: tabWidth,
+                      child: _SettingsTabButton(
+                        tokens: widget.tokens,
+                        label: tab.title(widget.language),
+                        iconAsset: tab.iconAsset,
+                        selected: selectedTab == tab,
+                        height: tabHeight,
+                        onPressed: () => setState(() => selectedTab = tab),
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             );
           },
         ),
@@ -5550,6 +5743,7 @@ class _ProfilePanel extends StatefulWidget {
     required this.displayName,
     required this.portraitAsset,
     required this.profileStats,
+    required this.progression,
     required this.cloudConfigured,
     required this.cloudReady,
     required this.cloudSignedIn,
@@ -5570,6 +5764,7 @@ class _ProfilePanel extends StatefulWidget {
   final String displayName;
   final String portraitAsset;
   final KolkhozProfileStats profileStats;
+  final ProgressionState progression;
   final bool cloudConfigured;
   final bool cloudReady;
   final bool cloudSignedIn;
@@ -5659,7 +5854,14 @@ class _ProfilePanelState extends State<_ProfilePanel> {
                   tokens: widget.tokens,
                   asset: asset,
                   selected: widget.portraitAsset == asset,
-                  onPressed: () => Navigator.of(context).pop(asset),
+                  unlocked: isProfilePortraitUnlocked(
+                    widget.progression,
+                    asset,
+                  ),
+                  onPressed:
+                      isProfilePortraitUnlocked(widget.progression, asset)
+                      ? () => Navigator.of(context).pop(asset)
+                      : null,
                 ),
             ],
           ),
@@ -6992,12 +7194,14 @@ class _ProfilePortraitChoice extends StatelessWidget {
     required this.tokens,
     required this.asset,
     required this.selected,
+    required this.unlocked,
     required this.onPressed,
   });
 
   final DesignTokens tokens;
   final String asset;
   final bool selected;
+  final bool unlocked;
   final VoidCallback? onPressed;
 
   @override
@@ -7008,12 +7212,28 @@ class _ProfilePortraitChoice extends StatelessWidget {
       child: Semantics(
         button: true,
         selected: selected,
-        label: asset,
-        child: PlayerProfilePortraitImage(
-          tokens: tokens,
-          asset: asset,
-          size: 58,
-          selected: selected,
+        enabled: unlocked,
+        label: unlocked ? asset : '$asset (locked)',
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Opacity(
+              opacity: unlocked ? 1 : 0.42,
+              child: PlayerProfilePortraitImage(
+                tokens: tokens,
+                asset: asset,
+                size: 58,
+                selected: selected,
+              ),
+            ),
+            if (!unlocked)
+              Image.asset(
+                'ios_resources/Icons/icon-lock.png',
+                width: 22,
+                height: 22,
+                filterQuality: FilterQuality.none,
+              ),
+          ],
         ),
       ),
     );

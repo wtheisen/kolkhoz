@@ -1,0 +1,35 @@
+name: Production online smoke
+
+on:
+  schedule:
+    - cron: "17 11 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-online-smoke
+  cancel-in-progress: false
+
+jobs:
+  authenticated-game:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Play authenticated production game
+        env:
+          KOLKHOZ_SUPABASE_URL: ${{ secrets.KOLKHOZ_SUPABASE_URL }}
+          KOLKHOZ_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.KOLKHOZ_SUPABASE_PUBLISHABLE_KEY }}
+          KOLKHOZ_SMOKE_PASSWORD: ${{ secrets.KOLKHOZ_SMOKE_PASSWORD }}
+        run: python3 research/scripts/run_authenticated_online_smoke.py
+
+      - name: Upload smoke result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: online-smoke-result
+          path: research/logs/online_smoke.jsonl
+          if-no-files-found: warn
