@@ -10,6 +10,7 @@ import 'package:kolkhoz_app/src/app_settings.dart';
 import 'package:kolkhoz_app/src/app_text.dart';
 import 'package:kolkhoz_app/src/assignment_display.dart';
 import 'package:kolkhoz_app/src/board_view.dart';
+import 'package:kolkhoz_app/src/board/game_log_panel.dart';
 import 'package:kolkhoz_app/src/brigade_display.dart';
 import 'package:kolkhoz_app/src/card_art_display.dart';
 import 'package:kolkhoz_app/src/card_display.dart';
@@ -42,6 +43,10 @@ import 'package:kolkhoz_app/src/trump_actions.dart';
 import 'package:kolkhoz_app/src/tutorial_display.dart';
 
 void main() {
+  test('online gameplay fallback refreshes once per second', () {
+    expect(onlineGameRefreshInterval, const Duration(seconds: 1));
+  });
+
   test('kolkhoz default includes saboteur without a duplicate preset', () {
     expect(KolkhozGameVariants.kolkhoz.wreckerCard, isTrue);
     final englishPresetLabels = KolkhozGamePreset.values
@@ -353,12 +358,16 @@ void main() {
             tokens: tokens,
             metrics: metrics,
             language: KolkhozLanguage.ru,
-            appearance: KolkhozAppearance.dark,
+            year: 2,
           ),
         ),
       ),
     );
 
+    expect(
+      findAssetImage('ios_resources/Icons/icon-year-2.png'),
+      findsOneWidget,
+    );
     expect(findAssetImage('ios_resources/Icons/icon-menu.png'), findsOneWidget);
     expect(
       findAssetImage('ios_resources/Icons/icon-brigade.png'),
@@ -370,7 +379,12 @@ void main() {
       findsOneWidget,
     );
     expect(findAssetImage('ios_resources/Icons/icon-plot.png'), findsOneWidget);
-    expect(find.byType(RailButton), findsNWidgets(7));
+    expect(
+      findAssetImage('ios_resources/Icons/icon-game-log.png'),
+      findsOneWidget,
+    );
+    expect(find.byType(RailStatusIcon), findsOneWidget);
+    expect(find.byType(RailButton), findsNWidgets(6));
   });
 
   testWidgets('left rail reports selected panel', (tester) async {
@@ -380,7 +394,6 @@ void main() {
       tokens,
     );
     String? selectedPanel;
-    final utilityCalls = <String>[];
 
     await tester.pumpWidget(
       MaterialApp(
@@ -393,20 +406,25 @@ void main() {
             tokens: tokens,
             metrics: metrics,
             language: KolkhozLanguage.en,
-            appearance: KolkhozAppearance.dark,
+            year: 3,
             onPanelSelected: (panel) => selectedPanel = panel,
-            onLanguageToggle: () => utilityCalls.add('language'),
-            onAppearanceToggle: () => utilityCalls.add('appearance'),
           ),
         ),
       ),
     );
 
     await tester.tap(find.byTooltip('Cellar'));
-    await tester.tap(find.byTooltip('Switch to Russian'));
-    await tester.tap(find.byTooltip('Switch to light mode'));
     expect(selectedPanel, panelPlot);
-    expect(utilityCalls, ['language', 'appearance']);
+    expect(find.byTooltip('Switch to Russian'), findsNothing);
+    expect(find.byTooltip('Switch to light mode'), findsNothing);
+    expect(
+      tester.getTopLeft(find.byTooltip('Year 3')).dy,
+      lessThan(tester.getTopLeft(find.byTooltip('Brigade')).dy),
+    );
+    expect(
+      tester.getBottomLeft(find.byTooltip('Menu')).dy,
+      greaterThan(tester.getBottomLeft(find.byTooltip('Cellar')).dy),
+    );
   });
 
   testWidgets('left rail exposes semantic buttons', (tester) async {
@@ -428,7 +446,7 @@ void main() {
             tokens: tokens,
             metrics: metrics,
             language: KolkhozLanguage.en,
-            appearance: KolkhozAppearance.dark,
+            year: 4,
             onPanelSelected: (panel) => selectedPanel = panel,
           ),
         ),
@@ -937,6 +955,12 @@ void main() {
       base.table.seats[2],
       base.table.seats[3],
     ];
+    const gameOverScores = [
+      Score(seatID: 0, visibleScore: 30, finalScore: 30),
+      Score(seatID: 1, visibleScore: 10, finalScore: 10),
+      Score(seatID: 2, visibleScore: 40, finalScore: 40),
+      Score(seatID: 3, visibleScore: 20, finalScore: 20),
+    ];
     final model = TableViewModel(
       viewer: base.viewer,
       table: TableState(
@@ -953,13 +977,16 @@ void main() {
         lastTrick: base.table.lastTrick,
         requisitionEvents: base.table.requisitionEvents,
         exiledByYear: base.table.exiledByYear,
-        scoreboard: base.table.scoreboard,
-        gameResult: base.table.gameResult,
+        scoreboard: gameOverScores,
+        gameResult: const GameResult(winnerSeatID: 2, scores: gameOverScores),
       ),
       panels: base.panels,
       selection: base.selection,
       legalActions: base.legalActions,
     );
+    final gameOverWinnerID =
+        model.table.gameResult?.winnerSeatID ??
+        inferredWinnerID(model.table.scoreboard);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -984,8 +1011,9 @@ void main() {
       find.byKey(const Key('game-over-copy-result-button')),
       findsOneWidget,
     );
-    expect(find.byType(PlotRowsView), findsOneWidget);
-    expect(find.byType(PlotPlayerRow), findsNWidgets(4));
+    expect(find.byType(PlotOverviewView), findsOneWidget);
+    expect(find.byType(OpponentPlotPanel), findsNWidgets(3));
+    expect(find.byType(LocalPlotColumn), findsNWidgets(2));
     expect(
       find.byWidgetPredicate(
         (widget) =>
@@ -1001,32 +1029,62 @@ void main() {
       ),
       findsNothing,
     );
-    final rowSections = tester
-        .widgetList<PlotRowCardSection>(find.byType(PlotRowCardSection))
+    final opponentSections = tester
+        .widgetList<OpponentPlotMiniSection>(
+          find.byType(OpponentPlotMiniSection),
+        )
         .toList();
-    expect(rowSections[2].value, 12);
-    expect(rowSections[3].value, 12);
+    expect(opponentSections.first.value, '12');
+    expect(opponentSections.first.hidden, isFalse);
     expect(find.byType(GameOverFinalScoreStrip), findsOneWidget);
+    expect(find.byType(PanelTitleRow), findsNothing);
+    final scoreTiles = tester
+        .widgetList<GameOverFinalScorePill>(find.byType(GameOverFinalScorePill))
+        .toList();
+    expect(
+      scoreTiles.map((tile) => tile.score),
+      orderedEquals([10, 20, 30, 40]),
+    );
+    final winnerTile = find.byKey(Key('game-over-score-$gameOverWinnerID'));
+    expect(
+      find.descendant(
+        of: winnerTile,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is ChromeButtonBackground &&
+              widget.asset == chromeButtonPrimaryAsset,
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: winnerTile,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Image &&
+              widget.image is AssetImage &&
+              (widget.image as AssetImage).assetName ==
+                  'ios_resources/Icons/icon-medal-star.png',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is ChromeButtonBackground &&
+            widget.asset == chromeButtonSecondaryAsset,
+      ),
+      findsNWidgets(3),
+    );
     expect(find.byType(HandTray), findsNothing);
     expect(
       tester.getSize(find.byType(GameOverPlotPanel)).height,
       greaterThan(520 - metrics.topInfoHeight - metrics.handTrayHeight),
     );
     expect(
-      gameOverPlotCardSize(tokens.card.large, const Size(420, 360), 2).width,
-      greaterThan(tokens.card.large.width),
-    );
-    expect(
-      plotRowCardSize(
-        tokens.card.large,
-        const Size(420, 64),
-        2,
-        prominent: false,
-      ).height,
-      lessThanOrEqualTo(64 * plotRowCardHeightFillCompact),
-    );
-    expect(
-      gameOverPlotItemCount(
+      plotOverviewItemCount(
         [
           testCard(id: 'wheat-10', suit: 'wheat', value: 10),
           testCard(id: 'potato-7', suit: 'potato', value: 7),
@@ -1040,7 +1098,7 @@ void main() {
       ),
       4,
     );
-    expect(gameOverPlotCardOverlap(tokens.card.large.width), lessThan(0));
+    expect(plotOverviewCardOverlap(tokens.card.large.width), lessThan(0));
 
     await tester.tap(find.byKey(const Key('game-over-copy-result-button')));
     expect(calls, ['copy']);
@@ -1090,11 +1148,7 @@ void main() {
         home: SizedBox(
           width: 1048,
           height: 420,
-          child: PlotPanel(
-            model: model,
-            tokens: defaultDesignTokens,
-            language: KolkhozLanguage.en,
-          ),
+          child: PlotPanel(model: model, tokens: defaultDesignTokens),
         ),
       ),
     );
@@ -1102,7 +1156,7 @@ void main() {
     expect(find.byType(PlotOverviewView), findsOneWidget);
     expect(find.byType(OpponentPlotPanel), findsNWidgets(3));
     expect(find.byType(LocalPlotColumn), findsNWidgets(2));
-    expect(find.byType(PlotRowsView), findsNothing);
+    expect(find.text('PRIVATE PLOT'), findsNothing);
     final opponentPanels = find.byType(OpponentPlotPanel);
     final opponentTop = tester.getTopLeft(opponentPanels.at(0)).dy;
     expect(tester.getTopLeft(opponentPanels.at(1)).dy, opponentTop);
@@ -1111,6 +1165,50 @@ void main() {
       tester.getTopLeft(find.byType(LocalPlotColumn).first).dy,
       greaterThan(opponentTop),
     );
+    final opponentHeight = tester
+        .getSize(find.byType(OpponentPlotPanel).first)
+        .height;
+    final overviewHeight = tester.getSize(find.byType(PlotOverviewView)).height;
+    final localTop = tester.getTopLeft(find.byType(LocalPlotColumn).first).dy;
+    final localHeight = tester
+        .getSize(find.byType(LocalPlotColumn).first)
+        .height;
+    expect(
+      opponentHeight,
+      closeTo(
+        (overviewHeight - (localTop - opponentTop - opponentHeight)) *
+            defaultDesignTokens.layout.plot.opponentHeightFraction,
+        1,
+      ),
+    );
+    expect(localHeight, closeTo(opponentHeight, 1));
+    expect(localTop - opponentTop, greaterThan(opponentHeight));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('requisition uses the normal plot overview layout', (
+    tester,
+  ) async {
+    final model = runtimeModelWith(
+      phase: phaseRequisition,
+      selection: SelectionState.empty,
+      jobs: runtimeModel().table.jobs,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 1048,
+          height: 420,
+          child: PlotPanel(model: model, tokens: defaultDesignTokens),
+        ),
+      ),
+    );
+
+    expect(find.text('REQUISITION'), findsNothing);
+    expect(find.byType(PlotOverviewView), findsOneWidget);
+    expect(find.byType(OpponentPlotPanel), findsNWidgets(3));
+    expect(find.byType(LocalPlotColumn), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });
 
@@ -1186,11 +1284,7 @@ void main() {
         home: SizedBox(
           width: 1048,
           height: 420,
-          child: PlotPanel(
-            model: model,
-            tokens: defaultDesignTokens,
-            language: KolkhozLanguage.en,
-          ),
+          child: PlotPanel(model: model, tokens: defaultDesignTokens),
         ),
       ),
     );
@@ -1459,6 +1553,118 @@ void main() {
     expect(model.table.seats[1].hiddenHandCount, 0);
     expect(model.table.jobs.first.reward?.id, 'wheat-9');
     expect(model.legalActions.single.engineAction.suit, 'wheat');
+  });
+
+  test('online job cards preserve assignment trick rows', () {
+    final json = onlineUpdateJson();
+    final snapshot = json['snapshot'] as Map<String, Object?>;
+    snapshot['jobBuckets'] = onlineSuitCardsJson(
+      cardsBySuit: {
+        0: [
+          {...onlineCardJson(0, 9), 'assignmentRound': 3},
+        ],
+      },
+    );
+
+    final update = OnlineSessionUpdate.fromJson(json);
+    final model = OnlineTableProjection(
+      update: update,
+      playerID: 0,
+      legalActions: const [],
+    ).project();
+
+    final assignedCard = model.table.jobs
+        .firstWhere((job) => job.suit == 'wheat')
+        .assignedCards
+        .single;
+    expect(assignedCard.assignmentRound, 3);
+  });
+
+  test('online update carries authoritative lobby countdown state', () {
+    final json = onlineUpdateJson();
+    json['started'] = false;
+    json['lobbyCountdownEndsAt'] =
+        DateTime.now().millisecondsSinceEpoch / 1000 + 30;
+
+    final update = OnlineSessionUpdate.fromJson(json);
+
+    expect(update.started, isFalse);
+    expect(update.lobbyCountdownSeconds, inInclusiveRange(29, 30));
+  });
+
+  testWidgets('game log groups actions and reactions by year and phase', (
+    tester,
+  ) async {
+    final json = onlineUpdateJson();
+    json['gameLogActions'] = [
+      const OnlineEngineAction(
+        kind: kcActionSetTrump,
+        playerID: 0,
+        suit: 0,
+      ).toJson(),
+      const OnlineEngineAction(
+        kind: kcActionPlayCard,
+        playerID: 0,
+        card: OnlineEngineCard(suit: 1, value: 10),
+      ).toJson(),
+    ];
+    json['playerProfiles'] = [
+      {'playerID': 0, 'displayName': 'Mira Petrov', 'avatarURL': 'worker3'},
+    ];
+    json['reactions'] = [
+      {
+        'revision': 1,
+        'playerID': 1,
+        'reactionID': 'medal',
+        'year': 1,
+        'phase': kcPhasePlanning,
+        'createdAt': 1.0,
+      },
+    ];
+    final update = OnlineSessionUpdate.fromJson(json);
+    final model = OnlineTableProjection(
+      update: update,
+      playerID: 0,
+      legalActions: update.legalActions,
+    ).project();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 600,
+          height: 400,
+          child: GameLogPanel(
+            model: model,
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
+            actions: update.gameLogActions
+                .map((action) => action.engineAction)
+                .toList(),
+            reactions: update.reactions,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Year 1'), findsOneWidget);
+    expect(find.text('Planning'), findsOneWidget);
+    expect(
+      findAssetImage('ios_resources/Icons/icon-year-1.png'),
+      findsOneWidget,
+    );
+    expect(
+      findAssetImage('ios_resources/Icons/icon-crop-seal.png'),
+      findsOneWidget,
+    );
+    expect(find.byType(PortraitFrame), findsOneWidget);
+    expect(model.table.seats[0].name, 'Mira Petrov');
+    expect(find.text('Mira Petrov'), findsOneWidget);
+    expect(find.text('played'), findsOneWidget);
+    expect(find.text('10'), findsOneWidget);
+    expect(
+      findAssetImage('ios_resources/Icons/icon-sunflower.png'),
+      findsOneWidget,
+    );
   });
 
   test('online swap projection hides raw swap combinations until selected', () {
@@ -1940,6 +2146,22 @@ void main() {
       ),
     );
 
+    final handCard = find.byKey(const Key('hand-card-wheat-11'));
+    expect(handCard, findsOneWidget);
+    expect(find.byKey(const Key('hand-console')), findsOneWidget);
+    expect(find.byKey(const Key('hand-console-primary')), findsOneWidget);
+    expect(find.byKey(const Key('hand-console-secondary')), findsOneWidget);
+    expect(tester.getSemantics(handCard).label, 'J Wheat, playable');
+    final cardControl = tester.widget<HandCardControl>(
+      find.byType(HandCardControl),
+    );
+    expect(cardControl.card.selected, isFalse);
+    final focusable = tester.widget<FocusableActionDetector>(
+      find.byType(FocusableActionDetector),
+    );
+    expect(focusable.mouseCursor, SystemMouseCursors.click);
+    expect(focusable.actions, contains(ActivateIntent));
+
     await tester.tap(find.byType(GameCard));
     expect(selectedCardID, 'wheat-11');
     expect(confirmedAction, isNull);
@@ -1966,8 +2188,203 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byType(ActionIconButton));
+    final selectedControl = tester.widget<HandCardControl>(
+      find.byType(HandCardControl),
+    );
+    expect(selectedControl.card.selected, isTrue);
+    final selectedSlide = tester.widget<AnimatedSlide>(
+      find.descendant(
+        of: find.byType(HandCardControl),
+        matching: find.byType(AnimatedSlide),
+      ),
+    );
+    expect(selectedSlide.offset.dy, lessThan(0));
+    expect(tester.getSemantics(handCard).label, 'J Wheat, selected');
+    final selectedGameCard = tester.widget<GameCard>(find.byType(GameCard));
+    expect(
+      selectedGameCard.selectedColorOverride,
+      defaultDesignTokens.colors.goldBright,
+    );
+    expect(
+      selectedGameCard.highlightColorOverride,
+      defaultDesignTokens.colors.goldBright,
+    );
+
+    final primaryButton = tester.widget<ActionIconButton>(
+      find.byKey(const Key('hand-console-primary')),
+    );
+    final secondaryButton = tester.widget<ActionIconButton>(
+      find.byKey(const Key('hand-console-secondary')),
+    );
+    expect(primaryButton.label, 'Confirm');
+    expect(primaryButton.onPressed, isNotNull);
+    expect(secondaryButton.label, 'Undo');
+    expect(secondaryButton.onPressed, isNotNull);
+
+    await tester.tap(find.byKey(const Key('hand-console-primary')));
     expect(confirmedAction, same(playAction));
+  });
+
+  testWidgets('game log keeps the hand console read only', (tester) async {
+    final playAction = testLegalAction(
+      kind: actionPlayCard,
+      label: 'Play',
+      engineAction: const EngineAction(
+        kind: actionPlayCard,
+        playerID: 0,
+        card: EngineCard(suit: 'wheat', value: 11),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 520,
+          height: 180,
+          child: HandTray(
+            model: runtimeModelWith(
+              phase: phaseTrick,
+              selection: SelectionState.empty.copyWith(handCardID: 'wheat-11'),
+              jobs: runtimeModel().table.jobs,
+              legalActions: [playAction],
+            ),
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
+            visibleTrayHeight: 150,
+            onAction: (_) {},
+            onTrickHandCardTap: (_) {},
+            contentOverride: const SizedBox(key: Key('game-log-reactions')),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('game-log-reactions')), findsOneWidget);
+    expect(find.byKey(const Key('hand-console')), findsOneWidget);
+    expect(
+      tester
+          .widget<ActionIconButton>(
+            find.byKey(const Key('hand-console-primary')),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<ActionIconButton>(
+            find.byKey(const Key('hand-console-secondary')),
+          )
+          .onPressed,
+      isNull,
+    );
+  });
+
+  test('hand console status stays concise when tray height is compact', () {
+    final waitingModel = runtimeModelWith(
+      phase: phaseTrick,
+      selection: SelectionState.empty,
+      jobs: runtimeModel().table.jobs,
+      currentPlayerID: 1,
+    );
+    final assignmentModel = runtimeModelWith(
+      phase: phaseAssignment,
+      selection: SelectionState.empty,
+      jobs: runtimeModel().table.jobs,
+      lastTrick: const Trick(plays: [], winnerSeatID: 0),
+    );
+
+    expect(
+      handConsoleStatus(waitingModel, KolkhozLanguage.en, compact: false),
+      'Waiting for Bot to play',
+    );
+    expect(
+      handConsoleStatus(waitingModel, KolkhozLanguage.en, compact: true),
+      'Waiting for Bot',
+    );
+    expect(
+      handConsoleStatus(assignmentModel, KolkhozLanguage.en, compact: false),
+      'Assign the trick',
+    );
+  });
+
+  test('swap console confirms only before selection or after staged swap', () {
+    final confirmAction = testLegalAction(
+      kind: actionConfirmSwap,
+      label: 'Confirm',
+    );
+    final swapAction = testLegalAction(kind: actionSwap, label: 'Swap');
+    final undoAction = testLegalAction(kind: actionUndoSwap, label: 'Undo');
+    TableViewModel swapModel(List<LegalAction> actions) => runtimeModelWith(
+      phase: phaseSwap,
+      selection: SelectionState.empty,
+      jobs: runtimeModel().table.jobs,
+      legalActions: actions,
+    );
+
+    expect(handConsoleConfirmAction(swapModel([confirmAction])), confirmAction);
+    expect(
+      handConsoleConfirmAction(swapModel([swapAction, confirmAction])),
+      isNull,
+    );
+    expect(
+      handConsoleSecondaryAction(swapModel([swapAction, confirmAction])),
+      swapAction,
+    );
+    expect(
+      handConsoleConfirmAction(swapModel([undoAction, confirmAction])),
+      confirmAction,
+    );
+    expect(
+      handConsoleSecondaryAction(swapModel([undoAction, confirmAction])),
+      undoAction,
+    );
+  });
+
+  testWidgets('requisition console confirms left and opens North right', (
+    tester,
+  ) async {
+    LegalAction? confirmedAction;
+    String? selectedPanel;
+    final continueAction = testLegalAction(
+      kind: actionContinueAfterRequisition,
+      label: 'Continue',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 520,
+          height: 180,
+          child: HandTray(
+            model: runtimeModelWith(
+              phase: phaseRequisition,
+              selection: SelectionState.empty,
+              jobs: runtimeModel().table.jobs,
+              legalActions: [continueAction],
+            ),
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
+            visibleTrayHeight: 150,
+            onAction: (action) => confirmedAction = action,
+            onPanelSelected: (panel) => selectedPanel = panel,
+          ),
+        ),
+      ),
+    );
+
+    final primary = tester.widget<ActionIconButton>(
+      find.byKey(const Key('hand-console-primary')),
+    );
+    final secondary = tester.widget<ActionIconButton>(
+      find.byKey(const Key('hand-console-secondary')),
+    );
+    expect(primary.label, 'Continue');
+    expect(secondary.label, 'The North');
+
+    await tester.tap(find.byKey(const Key('hand-console-primary')));
+    expect(confirmedAction, same(continueAction));
+    await tester.tap(find.byKey(const Key('hand-console-secondary')));
+    expect(selectedPanel, panelNorth);
   });
 
   testWidgets('brigade shows selected trick card as a pending play preview', (
@@ -1996,6 +2413,11 @@ void main() {
       find.byKey(const Key('pending-trick-card-preview')),
     );
     expect(opacity.opacity, pendingTrickPreviewOpacity);
+    expect(find.text('YOUR TURN'), findsNothing);
+    final previewSize = tester.getSize(
+      find.byKey(const Key('pending-trick-card-preview')),
+    );
+    expect(previewSize.width, greaterThan(130));
   });
 
   testWidgets('invalid trick hand-card taps can show a Foreman hint', (
@@ -2158,24 +2580,21 @@ void main() {
   );
 
   test('hand display helpers own tray layout policy', () {
-    final padding = handTrayOuterPadding(trailing: 20);
     final metrics = ResponsiveBoardMetrics(
       tokens: defaultDesignTokens,
       scale: 1,
       margin: 0,
     );
 
-    expect(padding.left, 0);
-    expect(padding.right, 36);
-    expect(metrics.handTrayLayoutHeightForBoardHeight(420), 52);
-    expect(metrics.handTrayLayoutHeightForBoardHeight(620), 172);
+    expect(metrics.handTrayLayoutHeightForBoardHeight(420), 64);
+    expect(metrics.handTrayLayoutHeightForBoardHeight(620), 184);
     expect(metrics.handTrayLayoutHeightForBoardHeight(970), 390);
     expect(metrics.handTrayLayoutHeightForBoardHeight(1400), 390);
-    expect(metrics.handTrayVisibleHeightForBoardHeight(420), 66);
-    expect(metrics.handTrayVisibleHeightForBoardHeight(620), 186);
+    expect(metrics.handTrayVisibleHeightForBoardHeight(420), 78);
+    expect(metrics.handTrayVisibleHeightForBoardHeight(620), 198);
     expect(metrics.handTrayVisibleHeightForBoardHeight(970), 404);
     expect(metrics.handTrayVisibleHeightForBoardHeight(1400), 404);
-    expect(metrics.handTrayHeightForVisibleHeight(66), 52);
+    expect(metrics.handTrayHeightForVisibleHeight(66), 64);
     expect(metrics.handTrayHeightForVisibleHeight(186), 172);
     expect(handTrayCardScale(66, defaultDesignTokens.card.large), 1);
     expect(
@@ -2187,29 +2606,21 @@ void main() {
       closeTo(1.7907, 0.001),
     );
     expect(handTrayCardScale(404, defaultDesignTokens.card.large), 3);
-    expect(
-      handTrayCardScale(
-        404,
-        defaultDesignTokens.card.large,
-        availableWidth: 390,
-        cardCount: 5,
-      ),
-      1,
-    );
-    expect(
-      handTrayCardScale(
-        404,
-        defaultDesignTokens.card.large,
-        availableWidth: 120,
-        cardCount: 5,
-      ),
-      handTrayCardMinScale,
-    );
+    final cardWidth = defaultDesignTokens.card.large.width;
+    final fittedStride = handTrayCardStride(390, cardWidth, 5);
+    final narrowStride = handTrayCardStride(120, cardWidth, 5);
+    expect(fittedStride, cardWidth + handTrayCardSpacing);
+    expect(narrowStride, cardWidth * handTrayCardMinimumExposedFraction);
+    expect(handTrayCardRailWidth(cardWidth, narrowStride, 5), greaterThan(120));
+    expect(handConsoleButtonScale(78), 1);
+    expect(handConsoleButtonScale(150), 1);
     expect(
       scaledHandTrayCardSize(defaultDesignTokens.card.large, 404).height,
       closeTo(298.2, 0.001),
     );
     expect(handTrayActionIconSize, lessThan(handTrayActionButtonSize));
+    expect(handTrayActionButtonSize, metrics.railButtonSize);
+    expect(handTrayActionIconSize, metrics.railIconSize);
     expect(handTrayActionBarPadding, lessThan(handTrayActionButtonSize));
   });
 
@@ -2317,6 +2728,79 @@ void main() {
     expect(assignmentCommandBarVisible(aiAssignment), isFalse);
     expect(assignmentControlCards(remoteAssignment), isNotEmpty);
     expect(assignmentCommandBarVisible(remoteAssignment), isFalse);
+    final cardWidth = defaultDesignTokens.card.large.width;
+    expect(handTrayAssignmentCardStride(cardWidth), lessThan(cardWidth));
+    expect(handTrayAssignmentBarWidth(cardWidth, 4), lessThan(290));
+  });
+
+  testWidgets('assignment cards use the same responsive size as hand cards', (
+    tester,
+  ) async {
+    final card = testCard(id: 'wheat-9', suit: 'wheat', value: 9);
+    const visibleHeight = 150.0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 300,
+          height: 180,
+          child: AssignmentCommandBar(
+            cards: [card],
+            selectedCardID: null,
+            trump: 'wheat',
+            tokens: defaultDesignTokens,
+            visibleTrayHeight: visibleHeight,
+          ),
+        ),
+      ),
+    );
+
+    final expected = scaledHandTrayCardSize(
+      defaultDesignTokens.card.large,
+      visibleHeight,
+    );
+    final assignmentCard = tester.widget<GameCard>(find.byType(GameCard));
+    expect(assignmentCard.sizeOverride?.width, expected.width);
+    expect(assignmentCard.sizeOverride?.height, expected.height);
+  });
+
+  testWidgets('hand and assignment cards share one vertical baseline', (
+    tester,
+  ) async {
+    final base = runtimeModel();
+    final assignmentCard = testCard(id: 'beet-10', suit: 'beet', value: 10);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 900,
+          height: 180,
+          child: HandTray(
+            model: runtimeModelWith(
+              phase: phaseAssignment,
+              selection: SelectionState.empty,
+              jobs: base.table.jobs,
+              lastTrick: Trick(
+                plays: [TrickPlay(seatID: 1, card: assignmentCard)],
+                winnerSeatID: 0,
+              ),
+            ),
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
+            visibleTrayHeight: 150,
+          ),
+        ),
+      ),
+    );
+
+    final handCardID = base.table.seats.first.hand.first.id;
+    final handCard = find.byWidgetPredicate(
+      (widget) => widget is GameCard && widget.card.id == handCardID,
+    );
+    final assignment = find.byWidgetPredicate(
+      (widget) => widget is GameCard && widget.card.id == assignmentCard.id,
+    );
+    expect(tester.getTopLeft(handCard).dy, tester.getTopLeft(assignment).dy);
   });
 
   test('job display helpers order jobs and size tiles', () {
@@ -2369,6 +2853,10 @@ void main() {
       ['wheat-6'],
       ['wheat-7', 'wheat-8'],
     ]);
+    final thirdRoundRows = assignedJobTrickRows([
+      testCard(id: 'wheat-9', suit: 'wheat', value: 9, assignmentRound: 3),
+    ]);
+    expect(thirdRoundRows.map((row) => row.length), [0, 0, 1]);
     expect(
       assignedJobCardRowsContentSize(
         rows: splitRoundRows,
@@ -2382,7 +2870,7 @@ void main() {
         rows: splitRoundRows,
         tokens: defaultDesignTokens,
       ),
-      defaultDesignTokens.card.large,
+      defaultDesignTokens.card.medium,
     );
     final jobWithPendingAssignment = Job(
       suit: 'wheat',
@@ -2428,6 +2916,53 @@ void main() {
       ),
       defaultDesignTokens.card.small,
     );
+  });
+
+  testWidgets('job cards fit narrow columns and retain trick row offsets', (
+    tester,
+  ) async {
+    final cards = [
+      for (var index = 0; index < 4; index += 1)
+        testCard(
+          id: 'wheat-${index + 6}',
+          suit: 'wheat',
+          value: index + 6,
+          assignmentRound: 3,
+        ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Center(
+          child: SizedBox(
+            width: 120,
+            height: 180,
+            child: AssignedJobCardStack(
+              cards: cards,
+              tokens: defaultDesignTokens,
+              trump: null,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final stackRect = tester.getRect(find.byType(AssignedJobCardStack));
+    final cardFinders = [
+      for (final card in cards)
+        find.byKey(ValueKey('assigned-job-card-${card.id}')),
+    ];
+    for (final cardFinder in cardFinders) {
+      final cardRect = tester.getRect(cardFinder);
+      expect(cardRect.left, greaterThanOrEqualTo(stackRect.left));
+      expect(cardRect.right, lessThanOrEqualTo(stackRect.right));
+      expect(cardRect.height, lessThan(defaultDesignTokens.card.large.height));
+    }
+    expect(
+      tester.getTopLeft(cardFinders.first).dy - stackRect.top,
+      greaterThan(tester.getSize(cardFinders.first).height),
+    );
+    expect(tester.takeException(), isNull);
   });
 
   test('plot display helpers hide exiled cards and project selection', () {
@@ -2556,12 +3091,70 @@ void main() {
   test('north display helpers keep requisition scroll height bounded', () {
     expect(
       northCardScrollHeight(columnHeight: 80, headerHeight: northHeaderHeight),
-      northCardScrollMinHeight,
+      30,
     );
     expect(
       northCardScrollHeight(columnHeight: 180, headerHeight: northHeaderHeight),
       130,
     );
+  });
+
+  testWidgets('short north panel keeps five columns within its height', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 640,
+          height: 120,
+          child: NorthPanel(
+            model: runtimeModel(),
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(NorthYearColumn), findsNWidgets(5));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('north cards fill their column width and scroll vertically', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Center(
+          child: SizedBox(
+            width: 100,
+            height: 160,
+            child: NorthCardScrollRegion(
+              child: NorthCardStack(
+                cards: [
+                  testCard(id: 'wheat-6', suit: 'wheat', value: 6),
+                  testCard(id: 'wheat-7', suit: 'wheat', value: 7),
+                  testCard(id: 'wheat-8', suit: 'wheat', value: 8),
+                ],
+                tokens: defaultDesignTokens,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('north-card-wheat-6'))).width,
+      100,
+    );
+    await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -80));
+    await tester.pump();
+    expect(
+      tester.state<ScrollableState>(find.byType(Scrollable)).position.pixels,
+      greaterThan(0),
+    );
+    expect(tester.takeException(), isNull);
   });
 
   test('options display helpers clamp menu spacing', () {
@@ -2796,7 +3389,7 @@ void main() {
             highlighted: false,
           ),
           highlighted: false,
-          width: 118,
+          width: 101,
           height: 38,
           tokens: defaultDesignTokens,
         ),
@@ -2804,6 +3397,49 @@ void main() {
     );
 
     expect(find.text('17/40'), findsOneWidget);
+  });
+
+  testWidgets('job gauge marks a pile containing the saboteur', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: JobGauge(
+          job: Job(
+            suit: 'wheat',
+            hours: 21,
+            requiredHours: jobRequiredHours,
+            claimed: false,
+            reward: testCard(id: 'wheat-1', suit: 'wheat', value: 1),
+            assignedCards: [
+              testCard(id: 'wrecker-14', suit: wreckerSuit, value: 14),
+            ],
+            validAssignmentTarget: false,
+            highlighted: false,
+          ),
+          highlighted: false,
+          width: 101,
+          height: 38,
+          tokens: defaultDesignTokens,
+        ),
+      ),
+    );
+
+    final saboteurIcon = tester.widget<Image>(
+      find.byKey(const ValueKey('job-gauge-wrecker-wheat')),
+    );
+    expect(
+      (saboteurIcon.image as AssetImage).assetName,
+      'ios_resources/Icons/icon-variant-saboteur.png',
+    );
+    expect(
+      find.byKey(const ValueKey('job-gauge-reward-wheat')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('job-gauge-reward-suit-wheat')),
+      findsOneWidget,
+    );
+    expect(find.byType(MiniRewardCard), findsNothing);
+    expect(find.text('21/40'), findsOneWidget);
   });
 
   testWidgets('job gauge delta waits for assignment flight to finish', (
@@ -3119,6 +3755,57 @@ void main() {
 
     expect(calls, ['language', 'appearance', 'settings']);
     expect(find.text('STANDARD'), findsNothing);
+  });
+
+  testWidgets('custom lobby allows selecting the number of years', (
+    tester,
+  ) async {
+    KolkhozGameVariants? changedVariants;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 844,
+          height: 390,
+          child: StandaloneLobby(
+            tokens: lightDesignTokens,
+            language: KolkhozLanguage.en,
+            appearance: KolkhozAppearance.light,
+            onStart: () {},
+            selectedPreset: KolkhozGamePreset.custom,
+            customVariants: KolkhozGameVariants.kolkhoz,
+            playerControllers: KolkhozPlayerController.defaultControllers,
+            showingRules: false,
+            showingOnline: false,
+            onHostOnline: (_, _, _, _, _) async => 'session',
+            onJoinOnline: (_, _, _) async {},
+            onEnterOnlineGame: () {},
+            onPresetChanged: (_) {},
+            onCustomVariantsChanged: (variants) {
+              changedVariants = variants;
+            },
+            onPlayerControllersChanged: (_) {},
+            onRulesPressed: () {},
+            onOfflinePressed: () {},
+            onOnlinePressed: () {},
+            onTutorialPressed: () {},
+            onLanguageToggle: () {},
+            onAppearanceToggle: () {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.bySemanticsLabel('5 Year Plan'));
+    await tester.pump();
+    expect(find.bySemanticsLabel('1 Year Plan'), findsOneWidget);
+    expect(find.bySemanticsLabel('2 Year Plan'), findsOneWidget);
+    expect(find.bySemanticsLabel('3 Year Plan'), findsOneWidget);
+    expect(find.bySemanticsLabel('4 Year Plan'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('2 Year Plan'));
+
+    expect(changedVariants?.maxYears, 2);
   });
 
   testWidgets('lobby settings display tab exposes card back choices', (
@@ -3871,6 +4558,7 @@ void main() {
                     ranked = rankedValue;
                     expect(browserJoinableValue, isFalse);
                     final updateJson = onlineUpdateJson();
+                    updateJson['started'] = false;
                     updateJson['controllers'] = [
                       'human',
                       'human',
@@ -4492,13 +5180,14 @@ void main() {
     expect(joinedInviteCode, 'abcde');
   });
 
-  testWidgets('online waiting room shows invite code and joined profiles', (
+  testWidgets('online waiting room holds joined players through countdown', (
     tester,
   ) async {
     var enterCalls = 0;
     var cancelCalls = 0;
     int? kickedPlayerID;
     final updateJson = onlineUpdateJson();
+    updateJson['started'] = false;
     updateJson['controllers'] = ['human', 'human', 'human', 'neuralAI'];
     updateJson['playerProfiles'] = [
       {
@@ -4587,6 +5276,8 @@ void main() {
         'stats': {'rating': 990},
       },
     ];
+    updateJson['lobbyCountdownEndsAt'] =
+        DateTime.now().millisecondsSinceEpoch / 1000 + 30;
     await tester.pumpWidget(
       MaterialApp(
         home: SizedBox(
@@ -4624,10 +5315,11 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.tap(find.text('JOIN GAME').last);
-    await tester.pump();
 
-    expect(enterCalls, 1);
+    expect(find.textContaining('Game starts in'), findsWidgets);
+    expect(find.byKey(const Key('waiting-room-countdown')), findsOneWidget);
+    expect(find.byKey(const Key('waiting-room-enter-game')), findsNothing);
+    expect(enterCalls, 0);
   });
 
   testWidgets('tutorial walkthrough advances, backs up, and closes', (

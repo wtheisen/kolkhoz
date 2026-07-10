@@ -18,14 +18,12 @@ class PlotPanel extends StatelessWidget {
   const PlotPanel({
     required this.model,
     required this.tokens,
-    required this.language,
     this.onPlotCardTap,
     super.key,
   });
 
   final TableViewModel model;
   final DesignTokens tokens;
-  final KolkhozLanguage language;
   final void Function(String cardID, String zone)? onPlotCardTap;
 
   @override
@@ -36,42 +34,11 @@ class PlotPanel extends StatelessWidget {
         return CommandPanelSurface(
           tokens: tokens,
           padding: EdgeInsets.all(metrics.padding),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                height: model.table.phase == phaseRequisition ? 58 : 54,
-                child: PanelTitleRow(
-                  title: model.table.phase == phaseRequisition
-                      ? language.t(KolkhozText.boardPlotpanelRequisition)
-                      : language.t(KolkhozText.boardPlotpanelPrivatePlot),
-                  subtitle: plotHeaderSubtitle(model, language),
-                  iconPath: model.table.phase == phaseRequisition
-                      ? 'ios_resources/Icons/icon-requisition-north.png'
-                      : 'ios_resources/Icons/icon-plot.png',
-                  urgent: model.table.phase == phaseRequisition,
-                  tokens: tokens,
-                ),
-              ),
-              SizedBox(height: metrics.spacing),
-              Expanded(
-                child: model.table.phase == phaseRequisition
-                    ? PlotRowsView(
-                        model: model,
-                        metrics: metrics,
-                        tokens: tokens,
-                        language: language,
-                        prominent: false,
-                        onPlotCardTap: onPlotCardTap,
-                      )
-                    : PlotOverviewView(
-                        model: model,
-                        metrics: metrics,
-                        tokens: tokens,
-                        onPlotCardTap: onPlotCardTap,
-                      ),
-              ),
-            ],
+          child: PlotOverviewView(
+            model: model,
+            metrics: metrics,
+            tokens: tokens,
+            onPlotCardTap: onPlotCardTap,
           ),
         );
       },
@@ -87,6 +54,7 @@ class GameOverPlotPanel extends StatelessWidget {
     this.onNewGame,
     this.onReturnToLobby,
     this.onCopyGameResult,
+    this.onSaveGameLog,
     this.returnsToLobby = false,
     super.key,
   });
@@ -97,6 +65,7 @@ class GameOverPlotPanel extends StatelessWidget {
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
   final VoidCallback? onCopyGameResult;
+  final VoidCallback? onSaveGameLog;
   final bool returnsToLobby;
 
   @override
@@ -104,13 +73,6 @@ class GameOverPlotPanel extends StatelessWidget {
     final scores = model.table.gameResult?.scores ?? model.table.scoreboard;
     final winnerID =
         model.table.gameResult?.winnerSeatID ?? inferredWinnerID(scores);
-    final winnerScore = finalScoreForSeat(scores, winnerID);
-    final winnerName = model.table.seats
-        .firstWhere(
-          (seat) => seat.id == winnerID,
-          orElse: () => model.table.seats.first,
-        )
-        .name;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -121,26 +83,11 @@ class GameOverPlotPanel extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                height: gameOverPlotHeaderHeight,
-                child: PanelTitleRow(
-                  title: language.t(KolkhozText.boardPlotpanelGameOver),
-                  subtitle: language.t(
-                    KolkhozText.boardPlotpanelWinnerWinnernameWinnerscore,
-                    {'winnerName': winnerName, 'winnerScore': winnerScore},
-                  ),
-                  iconPath: 'ios_resources/Icons/icon-medal-star.png',
-                  tokens: tokens,
-                ),
-              ),
-              SizedBox(height: metrics.spacing),
               Expanded(
-                child: PlotRowsView(
+                child: PlotOverviewView(
                   model: model,
                   metrics: metrics,
                   tokens: tokens,
-                  language: language,
-                  prominent: true,
                   onPlotCardTap: null,
                 ),
               ),
@@ -158,18 +105,24 @@ class GameOverPlotPanel extends StatelessWidget {
                         tokens: tokens,
                       ),
                     ),
-                    SizedBox(
-                      width: gameOverCopyResultButtonWidth,
-                      child: ChromeAssetButton.command(
-                        label: language.t(KolkhozText.kolkhozappCopyResult),
-                        prominent: false,
-                        tokens: tokens,
+                    Tooltip(
+                      message: language.t(KolkhozText.kolkhozappCopyResult),
+                      child: IconButton(
+                        key: const Key('game-over-copy-result-button'),
                         onPressed: onCopyGameResult,
-                        height: gameOverPlotFooterHeight,
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        textSize: PixelTextSize.caption,
-                        expandLabel: false,
-                        surfaceKey: const Key('game-over-copy-result-button'),
+                        color: tokens.colors.cream,
+                        icon: const Icon(Icons.copy),
+                      ),
+                    ),
+                    Tooltip(
+                      message: language == KolkhozLanguage.en
+                          ? 'Save Log'
+                          : 'Сохранить журнал',
+                      child: IconButton(
+                        key: const Key('game-over-save-log-button'),
+                        onPressed: onSaveGameLog,
+                        color: tokens.colors.gold,
+                        icon: const Icon(Icons.save_alt),
                       ),
                     ),
                     ChromeAssetButton.command(
@@ -217,10 +170,27 @@ class GameOverFinalScoreStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sortedSeats = seats.toList(growable: false)
+      ..sort((a, b) {
+        final scoreComparison = finalScoreForSeat(
+          scores,
+          a.id,
+        ).compareTo(finalScoreForSeat(scores, b.id));
+        if (scoreComparison != 0) {
+          return scoreComparison;
+        }
+        if (a.id == winnerID) {
+          return 1;
+        }
+        if (b.id == winnerID) {
+          return -1;
+        }
+        return a.id.compareTo(b.id);
+      });
     return Row(
       spacing: gameOverScoreStripSpacing,
       children: [
-        for (final seat in seats)
+        for (final seat in sortedSeats)
           Expanded(
             child: GameOverFinalScorePill(
               seat: seat,
@@ -250,93 +220,56 @@ class GameOverFinalScorePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = winner
-        ? tokens.colors.gold.withValues(alpha: 0.74)
-        : tokens.colors.steel.withValues(alpha: 0.44);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: tokens.colors.black.withValues(alpha: winner ? 0.26 : 0.16),
-        borderRadius: BorderRadius.circular(tokens.radius.sm),
-        border: Border.all(color: borderColor, width: winner ? 1.5 : 1),
-      ),
-      child: Row(
-        spacing: 5,
-        children: [
-          Expanded(
-            child: PixelText(
-              seat.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              size: PixelTextSize.caption2,
-              variant: winner
-                  ? PixelTextVariant.heavy
-                  : PixelTextVariant.regular,
-              color: winner ? tokens.colors.gold : tokens.colors.cream,
-            ),
-          ),
-          PixelText(
-            '$score',
-            size: PixelTextSize.caption,
-            variant: PixelTextVariant.heavy,
-            color: winner ? tokens.colors.gold : tokens.colors.cream,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-const gameOverPlotHeaderHeight = 58.0;
-const gameOverPlotFooterHeight = 40.0;
-const gameOverCopyResultButtonWidth = 112.0;
-const gameOverPrimaryActionButtonWidth = 154.0;
-const gameOverScoreStripSpacing = 6.0;
-
-class PlotRowsView extends StatelessWidget {
-  const PlotRowsView({
-    required this.model,
-    required this.metrics,
-    required this.tokens,
-    required this.language,
-    required this.prominent,
-    this.onPlotCardTap,
-    super.key,
-  });
-
-  final TableViewModel model;
-  final PlotPanelMetrics metrics;
-  final DesignTokens tokens;
-  final KolkhozLanguage language;
-  final bool prominent;
-  final void Function(String cardID, String zone)? onPlotCardTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final hiddenExiledCardIDs = hiddenExiledPlotCardIDs(model);
-    final exiledCardIDs = requisitionExiledCardIDs(model);
-    final viewer = localSeat(model);
-    return Column(
-      spacing: metrics.spacing,
+    final textColor = winner ? tokens.colors.onAccent : tokens.colors.cardInk;
+    return Stack(
+      key: Key('game-over-score-${seat.id}'),
+      fit: StackFit.expand,
       children: [
-        for (final seat in model.table.seats)
-          Expanded(
-            child: PlotPlayerRow(
-              seat: seat,
-              viewerSeatID: viewer.id,
-              model: model,
-              metrics: metrics,
-              tokens: tokens,
-              hiddenExiledCardIDs: hiddenExiledCardIDs,
-              exiledCardIDs: exiledCardIDs,
-              prominent: prominent,
-              onPlotCardTap: onPlotCardTap,
-            ),
+        ChromeButtonBackground(
+          asset: winner ? chromeButtonPrimaryAsset : chromeButtonSecondaryAsset,
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          child: Row(
+            spacing: 5,
+            children: [
+              if (winner)
+                Image.asset(
+                  'ios_resources/Icons/icon-medal-star.png',
+                  width: gameOverScoreMedalSize,
+                  height: gameOverScoreMedalSize,
+                  filterQuality: FilterQuality.none,
+                ),
+              Expanded(
+                child: PixelText(
+                  seat.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  size: PixelTextSize.caption2,
+                  variant: winner
+                      ? PixelTextVariant.heavy
+                      : PixelTextVariant.regular,
+                  color: textColor,
+                ),
+              ),
+              PixelText(
+                '$score',
+                size: PixelTextSize.caption,
+                variant: PixelTextVariant.heavy,
+                color: textColor,
+              ),
+            ],
           ),
+        ),
       ],
     );
   }
 }
+
+const gameOverPlotFooterHeight = 40.0;
+const gameOverPrimaryActionButtonWidth = 154.0;
+const gameOverScoreStripSpacing = 6.0;
+const gameOverScoreMedalSize = 18.0;
 
 class PlotOverviewView extends StatelessWidget {
   const PlotOverviewView({
@@ -369,18 +302,41 @@ class PlotOverviewView extends StatelessWidget {
       hiddenExiledCardIDs,
     );
     final selectable = model.table.phase == phaseSwap;
+    final revealOpponentCellars = model.table.phase == phaseGameOver;
     return LayoutBuilder(
       builder: (context, constraints) {
         final opponentCount = otherSeats.length;
-        final availableForOpponents = math.max(
+        final plotRowsHeight = math.max(
           0.0,
-          constraints.maxHeight - metrics.spacing - plotLocalAreaMinHeight,
+          constraints.maxHeight - (otherSeats.isEmpty ? 0 : metrics.spacing),
         );
         final opponentHeight = opponentCount == 0
             ? 0.0
-            : math.min(metrics.opponentHeight, availableForOpponents);
+            : plotRowsHeight * tokens.layout.plot.opponentHeightFraction;
+        final localHeight = math.max(0.0, plotRowsHeight - opponentHeight);
+        final opponentPanelWidth = opponentCount == 0
+            ? 0.0
+            : math.max(
+                0.0,
+                (constraints.maxWidth - metrics.spacing * (opponentCount - 1)) /
+                    opponentCount,
+              );
+        final opponentCardFrameHeight = math.min(
+          opponentHeight * plotOpponentCardHeightFraction,
+          opponentPanelWidth *
+              plotOpponentCardWidthFraction *
+              tokens.card.aspectRatio,
+        );
         final opponentMetrics = metrics.copyWith(
           opponentHeight: opponentHeight,
+          opponentCardScale: opponentCardFrameHeight / tokens.card.small.height,
+          opponentCardFrameWidth:
+              opponentCardFrameHeight / tokens.card.aspectRatio,
+          opponentCardFrameHeight: opponentCardFrameHeight,
+          portraitSize: math.min(
+            opponentHeight * plotOpponentPortraitHeightFraction,
+            opponentPanelWidth * plotOpponentPortraitWidthFraction,
+          ),
         );
 
         return Column(
@@ -400,12 +356,14 @@ class PlotOverviewView extends StatelessWidget {
                           tokens: tokens,
                           exiledCardIDs: exiledCardIDs,
                           hiddenExiledCardIDs: hiddenExiledCardIDs,
+                          revealCellarCards: revealOpponentCellars,
                         ),
                       ),
                   ],
                 ),
               ),
-            Expanded(
+            SizedBox(
+              height: localHeight,
               child: Row(
                 spacing: metrics.spacing,
                 children: [
@@ -456,314 +414,7 @@ class PlotOverviewView extends StatelessWidget {
   }
 }
 
-class PlotPlayerRow extends StatelessWidget {
-  const PlotPlayerRow({
-    required this.seat,
-    required this.viewerSeatID,
-    required this.model,
-    required this.metrics,
-    required this.tokens,
-    required this.hiddenExiledCardIDs,
-    required this.exiledCardIDs,
-    required this.prominent,
-    this.denseCards = false,
-    this.onPlotCardTap,
-    super.key,
-  });
-
-  final Seat seat;
-  final int viewerSeatID;
-  final TableViewModel model;
-  final PlotPanelMetrics metrics;
-  final DesignTokens tokens;
-  final Set<String> hiddenExiledCardIDs;
-  final Set<String> exiledCardIDs;
-  final bool prominent;
-  final bool denseCards;
-  final void Function(String cardID, String zone)? onPlotCardTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final viewerRow = seat.id == viewerSeatID;
-    final revealCellarCards = viewerRow || model.table.phase == phaseGameOver;
-    final hiddenCards = visiblePlotCards(seat.plot.hidden, hiddenExiledCardIDs);
-    final revealedCards = visiblePlotCards(
-      seat.plot.revealed,
-      hiddenExiledCardIDs,
-    );
-    final selectable = viewerRow && model.table.phase == phaseSwap;
-    final playerWidth = prominent
-        ? denseCards
-              ? plotRowPlayerWidthProminent
-              : plotRowPlayerWidthProminent
-        : plotRowPlayerWidthCompact;
-    return Container(
-      padding: EdgeInsets.all(metrics.panelPadding),
-      decoration: BoxDecoration(
-        color: tokens.colors.black.withValues(alpha: viewerRow ? 0.2 : 0.14),
-        borderRadius: BorderRadius.circular(tokens.radius.sm),
-        border: Border.all(
-          color: viewerRow
-              ? tokens.colors.gold.withValues(alpha: 0.42)
-              : tokens.colors.steel.withValues(alpha: 0.5),
-        ),
-      ),
-      child: Row(
-        spacing: metrics.spacing,
-        children: [
-          SizedBox(
-            width: playerWidth,
-            child: PlotRowPlayerBadge(
-              seat: seat,
-              tokens: tokens,
-              prominent: prominent,
-            ),
-          ),
-          Expanded(
-            child: PlotRowCardSection(
-              title: 'Cellar',
-              iconPath: 'ios_resources/Icons/icon-cellar.png',
-              cards: hiddenCards,
-              stacks: const [],
-              hiddenCards: !revealCellarCards,
-              value: model.table.phase == phaseGameOver
-                  ? plotCardsValue(hiddenCards)
-                  : hiddenCards.length,
-              selectable: selectable,
-              selectedCardID: model.selection.plotCardID,
-              zone: plotZoneHidden,
-              exiledCardIDs: exiledCardIDs,
-              metrics: metrics,
-              tokens: tokens,
-              prominent: prominent,
-              denseCards: denseCards,
-              onPlotCardTap: onPlotCardTap,
-            ),
-          ),
-          Expanded(
-            child: PlotRowCardSection(
-              title: 'Plot',
-              iconPath: 'ios_resources/Icons/icon-plot.png',
-              cards: revealedCards,
-              stacks: seat.plot.stacks,
-              hiddenCards: false,
-              value: plotSectionValue(revealedCards, seat.plot.stacks),
-              selectable: selectable,
-              selectedCardID: model.selection.plotCardID,
-              zone: plotZoneRevealed,
-              exiledCardIDs: exiledCardIDs,
-              metrics: metrics,
-              tokens: tokens,
-              prominent: prominent,
-              denseCards: denseCards,
-              onPlotCardTap: onPlotCardTap,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class PlotRowPlayerBadge extends StatelessWidget {
-  const PlotRowPlayerBadge({
-    required this.seat,
-    required this.tokens,
-    required this.prominent,
-    super.key,
-  });
-
-  final Seat seat;
-  final DesignTokens tokens;
-  final bool prominent;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final portraitSize = math.min(
-          constraints.maxHeight * (prominent ? 0.64 : 0.54),
-          prominent ? 76.0 : 52.0,
-        );
-        return Row(
-          spacing: prominent ? 8 : 6,
-          children: [
-            SizedBox(
-              width: portraitSize,
-              height: portraitSize,
-              child: PortraitFrame(
-                seat: seat,
-                tokens: tokens,
-                width: portraitSize,
-                height: portraitSize,
-              ),
-            ),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 3,
-                children: [
-                  PixelText(
-                    seat.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    size: prominent
-                        ? PixelTextSize.caption
-                        : PixelTextSize.caption2,
-                    variant: PixelTextVariant.heavy,
-                    color: tokens.colors.cream,
-                  ),
-                  PixelText(
-                    '${seat.visibleScore}',
-                    size: PixelTextSize.caption2,
-                    variant: PixelTextVariant.heavy,
-                    color: tokens.colors.gold,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class PlotRowCardSection extends StatelessWidget {
-  const PlotRowCardSection({
-    required this.title,
-    required this.iconPath,
-    required this.cards,
-    required this.stacks,
-    required this.hiddenCards,
-    required this.value,
-    required this.selectable,
-    required this.selectedCardID,
-    required this.zone,
-    required this.exiledCardIDs,
-    required this.metrics,
-    required this.tokens,
-    required this.prominent,
-    required this.denseCards,
-    this.onPlotCardTap,
-    super.key,
-  });
-
-  final String title;
-  final String iconPath;
-  final List<TableCard> cards;
-  final List<PlotStackState> stacks;
-  final bool hiddenCards;
-  final int value;
-  final bool selectable;
-  final String? selectedCardID;
-  final String zone;
-  final Set<String> exiledCardIDs;
-  final PlotPanelMetrics metrics;
-  final DesignTokens tokens;
-  final bool prominent;
-  final bool denseCards;
-  final void Function(String cardID, String zone)? onPlotCardTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      spacing: metrics.spacing,
-      children: [
-        SizedBox(
-          width: prominent ? 84 : 68,
-          child: Row(
-            spacing: 5,
-            children: [
-              Image.asset(
-                iconPath,
-                width: metrics.headerIconSize,
-                height: metrics.headerIconSize,
-                filterQuality: FilterQuality.none,
-              ),
-              Expanded(
-                child: PixelText(
-                  title.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  size: PixelTextSize.caption2,
-                  variant: PixelTextVariant.heavy,
-                  color: selectable ? tokens.colors.gold : tokens.colors.cream,
-                ),
-              ),
-              PixelText(
-                '$value',
-                size: PixelTextSize.caption2,
-                color: tokens.colors.smoke,
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final itemCount = gameOverPlotItemCount(cards, stacks);
-              final cardSize = plotRowCardSize(
-                tokens.card.large,
-                constraints.biggest,
-                itemCount,
-                prominent: prominent,
-                dense: denseCards,
-              );
-              final items = plotRowCardItems(
-                cards: cards,
-                stacks: stacks,
-                hiddenCards: hiddenCards,
-                cardSize: cardSize,
-                selectedCardID: selectedCardID,
-                selectable: selectable,
-                zone: zone,
-                exiledCardIDs: exiledCardIDs,
-                tokens: tokens,
-                onPlotCardTap: onPlotCardTap,
-              );
-              return Align(
-                alignment: Alignment.centerLeft,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: OverlappedCardRow(
-                    itemWidth: cardSize.width,
-                    itemHeight: cardSize.height,
-                    spacing: gameOverPlotCardOverlap(
-                      cardSize.width,
-                      dense: denseCards,
-                    ),
-                    children: items.isEmpty
-                        ? [
-                            SizedBox(
-                              width: cardSize.width,
-                              height: cardSize.height,
-                              child: Center(
-                                child: PixelText(
-                                  '-',
-                                  size: PixelTextSize.title,
-                                  variant: PixelTextVariant.heavy,
-                                  color: tokens.colors.smoke.withValues(
-                                    alpha: 0.72,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ]
-                        : items,
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-List<Widget> plotRowCardItems({
+List<Widget> plotOverviewCardItems({
   required List<TableCard> cards,
   required List<PlotStackState> stacks,
   required bool hiddenCards,
@@ -934,70 +585,34 @@ class ScaledHighlightableCardBack extends StatelessWidget {
   }
 }
 
-TokenCardSize gameOverPlotCardSize(
+TokenCardSize plotOverviewCardSize(
   TokenCardSize base,
   Size available,
   int itemCount,
 ) {
-  return plotRowCardSize(
-    base,
-    available,
-    itemCount,
-    prominent: true,
-    dense: false,
-  );
-}
-
-TokenCardSize plotRowCardSize(
-  TokenCardSize base,
-  Size available,
-  int itemCount, {
-  required bool prominent,
-  bool dense = false,
-}) {
   final availableWidth = available.width.isFinite
       ? available.width
-      : (prominent
-            ? plotRowFallbackWidthProminent
-            : plotRowFallbackWidthCompact);
+      : plotOverviewFallbackWidth;
   final rawAvailableHeight = available.height.isFinite
       ? available.height
-      : (prominent
-            ? plotRowFallbackHeightProminent
-            : plotRowFallbackHeightCompact);
-  final availableHeight = math.min(
-    rawAvailableHeight,
-    prominent ? plotRowHeightCapProminent : plotRowHeightCapCompact,
-  );
+      : plotOverviewFallbackHeight;
+  final availableHeight = math.min(rawAvailableHeight, plotOverviewHeightCap);
   final maxByHeight =
-      (availableHeight *
-          (dense
-              ? plotGridCardHeightFill
-              : prominent
-              ? plotRowCardHeightFillProminent
-              : plotRowCardHeightFillCompact)) /
-      base.height;
-  final overlapFraction = dense
-      ? plotGridCardOverlapFraction
-      : gameOverPlotCardOverlapFraction;
-  final overlappedWidthUnits = 1 + (itemCount - 1) * (1 - overlapFraction);
+      (availableHeight * plotOverviewCardHeightFill) / base.height;
+  final overlappedWidthUnits =
+      1 + (itemCount - 1) * (1 - plotOverviewCardOverlapFraction);
   final maxByWidth =
       (availableWidth * 0.86) / (base.width * overlappedWidthUnits);
-  final minScale = dense
-      ? plotGridCardScaleMin
-      : prominent
-      ? gameOverPlotCardScaleMin
-      : plotRowCardScaleMin;
-  final heightAwareMinScale = math.min(minScale, maxByHeight);
+  final heightAwareMinScale = math.min(plotOverviewCardScaleMin, maxByHeight);
   final scale = clampDouble(
     math.min(maxByHeight, maxByWidth),
     heightAwareMinScale,
-    prominent ? gameOverPlotCardScaleMax : plotRowCardScaleMax,
+    plotOverviewCardScaleMax,
   );
   return scaledPlotCardSize(base, scale);
 }
 
-int gameOverPlotItemCount(List<TableCard> cards, List<PlotStackState> stacks) {
+int plotOverviewItemCount(List<TableCard> cards, List<PlotStackState> stacks) {
   final stackCards = stacks.fold<int>(0, (count, stack) {
     final revealedCount = stack.revealed.length > 2 ? 2 : stack.revealed.length;
     return count + revealedCount + (stack.hidden.isEmpty ? 0 : 1);
@@ -1022,46 +637,27 @@ TokenCardSize scaledPlotCardSize(TokenCardSize base, double scale) {
   );
 }
 
-double gameOverPlotCardLeadingPadding(double cardWidth) =>
-    clampDouble(cardWidth * 0.16, 12, 22);
-
-double gameOverPlotCardOverlap(double cardWidth, {bool dense = false}) {
-  final overlapFraction = dense
-      ? plotGridCardOverlapFraction
-      : gameOverPlotCardOverlapFraction;
-  final overlapMax = dense
-      ? plotGridCardOverlapMax
-      : gameOverPlotCardOverlapMax;
+double plotOverviewCardOverlap(double cardWidth) {
   return -clampDouble(
-    cardWidth * overlapFraction,
-    gameOverPlotCardOverlapMin,
-    overlapMax,
+    cardWidth * plotOverviewCardOverlapFraction,
+    plotOverviewCardOverlapMin,
+    plotOverviewCardOverlapMax,
   );
 }
 
-const gameOverPlotCardScaleMin = 0.88;
-const gameOverPlotCardScaleMax = 1.45;
-const plotRowCardScaleMin = 0.42;
-const plotRowCardScaleMax = 1.35;
-const plotGridCardScaleMin = 0.62;
-const plotRowCardHeightFillCompact = 0.92;
-const plotRowCardHeightFillProminent = 0.74;
-const plotGridCardHeightFill = 0.84;
-const gameOverPlotCardOverlapFraction = 0.18;
-const plotGridCardOverlapFraction = 0.34;
-const gameOverPlotCardOverlapMin = 18.0;
-const gameOverPlotCardOverlapMax = 36.0;
-const plotGridCardOverlapMax = 48.0;
-const plotRowPlayerWidthCompact = 116.0;
-const plotRowPlayerWidthProminent = 150.0;
-const plotRowFallbackWidthCompact = 260.0;
-const plotRowFallbackWidthProminent = 420.0;
-const plotRowFallbackHeightCompact = 72.0;
-const plotRowFallbackHeightProminent = 128.0;
-const plotRowHeightCapCompact = 86.0;
-const plotRowHeightCapProminent = 150.0;
-const plotLocalAreaMinHeight = 140.0;
-const plotOpponentRowHeightMin = 56.0;
+const plotOverviewCardScaleMin = 0.88;
+const plotOverviewCardScaleMax = 1.45;
+const plotOverviewCardHeightFill = 0.74;
+const plotOverviewCardOverlapFraction = 0.18;
+const plotOverviewCardOverlapMin = 18.0;
+const plotOverviewCardOverlapMax = 36.0;
+const plotOverviewFallbackWidth = 420.0;
+const plotOverviewFallbackHeight = 128.0;
+const plotOverviewHeightCap = 150.0;
+const plotOpponentCardHeightFraction = 0.48;
+const plotOpponentCardWidthFraction = 0.22;
+const plotOpponentPortraitHeightFraction = 0.42;
+const plotOpponentPortraitWidthFraction = 0.18;
 
 class PlotPanelMetrics {
   const PlotPanelMetrics({
@@ -1071,7 +667,6 @@ class PlotPanelMetrics {
     required this.opponentCardScale,
     required this.opponentCardFrameWidth,
     required this.opponentCardFrameHeight,
-    required this.opponentVisibleCardCount,
     required this.portraitSize,
     required this.panelPadding,
     required this.headerIconSize,
@@ -1083,31 +678,28 @@ class PlotPanelMetrics {
     final shorter = size.shortestSide;
     final plot = tokens.layout.plot;
     final spacing = clampDouble(shorter * 0.02, 7, 10);
-    final opponentHeight = clampDouble(
-      size.height * 0.18,
-      plot.opponentHeightMin,
-      plot.opponentHeightMax,
-    );
+    final opponentHeight = size.height * plot.opponentHeightFraction;
     final panelPadding = clampDouble(shorter * 0.018, 7, 8);
-    final portraitMaxForRow = opponentHeight - (panelPadding * 2) - 3.0 - 20.0;
-    final portraitMax = math.min(
-      plot.portraitSizeMax,
-      math.max(30.0, portraitMaxForRow),
+    final estimatedOpponentPanelWidth = size.width / 3;
+    final opponentCardFrameHeight = math.min(
+      opponentHeight * plotOpponentCardHeightFraction,
+      estimatedOpponentPanelWidth *
+          plotOpponentCardWidthFraction *
+          tokens.card.aspectRatio,
     );
-    final portraitMin = math.min(plot.portraitSizeMin, portraitMax);
+    final opponentCardScale =
+        opponentCardFrameHeight / tokens.card.small.height;
     return PlotPanelMetrics(
       spacing: spacing,
       padding: clampDouble(shorter * 0.025, 8, 12),
       opponentHeight: opponentHeight,
-      opponentCardScale: clampDouble(size.width * 0.001, 0.68, 0.76),
-      opponentCardFrameWidth: clampDouble(size.width * 0.04, 25, 29),
-      opponentCardFrameHeight: clampDouble(size.height * 0.10, 38, 44),
-      opponentVisibleCardCount: clampDouble(
-        size.width / 190,
-        plot.opponentVisibleCardCountMin,
-        plot.opponentVisibleCardCountMax,
-      ).toInt(),
-      portraitSize: clampDouble(size.width * 0.055, portraitMin, portraitMax),
+      opponentCardScale: opponentCardScale,
+      opponentCardFrameWidth: opponentCardFrameHeight / tokens.card.aspectRatio,
+      opponentCardFrameHeight: opponentCardFrameHeight,
+      portraitSize: math.min(
+        opponentHeight * plotOpponentPortraitHeightFraction,
+        estimatedOpponentPanelWidth * plotOpponentPortraitWidthFraction,
+      ),
       panelPadding: panelPadding,
       headerIconSize: clampDouble(size.width * 0.026, 17, 20),
       columnCardSpacing: clampDouble(-size.width * 0.04, -30, -24),
@@ -1121,7 +713,6 @@ class PlotPanelMetrics {
   final double opponentCardScale;
   final double opponentCardFrameWidth;
   final double opponentCardFrameHeight;
-  final int opponentVisibleCardCount;
   final double portraitSize;
   final double panelPadding;
   final double headerIconSize;
@@ -1135,7 +726,6 @@ class PlotPanelMetrics {
     double? opponentCardScale,
     double? opponentCardFrameWidth,
     double? opponentCardFrameHeight,
-    int? opponentVisibleCardCount,
     double? portraitSize,
     double? panelPadding,
     double? headerIconSize,
@@ -1151,8 +741,6 @@ class PlotPanelMetrics {
           opponentCardFrameWidth ?? this.opponentCardFrameWidth,
       opponentCardFrameHeight:
           opponentCardFrameHeight ?? this.opponentCardFrameHeight,
-      opponentVisibleCardCount:
-          opponentVisibleCardCount ?? this.opponentVisibleCardCount,
       portraitSize: portraitSize ?? this.portraitSize,
       panelPadding: panelPadding ?? this.panelPadding,
       headerIconSize: headerIconSize ?? this.headerIconSize,
@@ -1170,6 +758,7 @@ class OpponentPlotPanel extends StatelessWidget {
     required this.tokens,
     required this.exiledCardIDs,
     required this.hiddenExiledCardIDs,
+    this.revealCellarCards = false,
     super.key,
   });
 
@@ -1178,6 +767,7 @@ class OpponentPlotPanel extends StatelessWidget {
   final DesignTokens tokens;
   final Set<String> exiledCardIDs;
   final Set<String> hiddenExiledCardIDs;
+  final bool revealCellarCards;
 
   @override
   Widget build(BuildContext context) {
@@ -1200,12 +790,13 @@ class OpponentPlotPanel extends StatelessWidget {
           border: Border.all(color: tokens.colors.steel.withValues(alpha: 0.5)),
         ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: metrics.spacing * 0.75,
           children: [
             SizedBox(
               width: metrics.portraitSize + 12,
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 spacing: 3,
                 children: [
                   SizedBox(
@@ -1248,14 +839,17 @@ class OpponentPlotPanel extends StatelessWidget {
             ),
             Expanded(
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 spacing: metrics.spacing * 0.5,
                 children: [
                   Expanded(
                     child: OpponentPlotMiniSection(
                       iconPath: 'ios_resources/Icons/icon-cellar.png',
-                      value: '${visibleHiddenCards.length}',
+                      value: revealCellarCards
+                          ? '${plotCardsValue(visibleHiddenCards)}'
+                          : '${visibleHiddenCards.length}',
                       cards: visibleHiddenCards,
-                      hidden: true,
+                      hidden: !revealCellarCards,
                       metrics: metrics,
                       tokens: tokens,
                       exiledCardIDs: exiledCardIDs,
@@ -1478,14 +1072,13 @@ class LocalPlotColumn extends StatelessWidget {
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final itemCount = gameOverPlotItemCount(cards, stacks);
-                final cardSize = plotRowCardSize(
+                final itemCount = plotOverviewItemCount(cards, stacks);
+                final cardSize = plotOverviewCardSize(
                   tokens.card.large,
                   constraints.biggest,
                   itemCount,
-                  prominent: true,
                 );
-                final cardWidgets = plotRowCardItems(
+                final cardWidgets = plotOverviewCardItems(
                   cards: cards,
                   stacks: stacks,
                   hiddenCards: hiddenCards,
@@ -1527,7 +1120,7 @@ class LocalPlotColumn extends StatelessWidget {
                     child: OverlappedCardRow(
                       itemWidth: cardSize.width,
                       itemHeight: cardSize.height,
-                      spacing: gameOverPlotCardOverlap(cardSize.width),
+                      spacing: plotOverviewCardOverlap(cardSize.width),
                       children: children,
                     ),
                   ),

@@ -27,12 +27,14 @@ const panelBrigade = 'brigade';
 const panelJobs = 'jobs';
 const panelPlot = 'plot';
 const panelNorth = 'north';
+const panelLog = 'log';
 const panelOptions = 'options';
 const availableGamePanels = [
   panelBrigade,
   panelJobs,
   panelPlot,
   panelNorth,
+  panelLog,
   panelOptions,
 ];
 

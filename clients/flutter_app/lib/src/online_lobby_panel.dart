@@ -335,8 +335,7 @@ class _OnlinePanelState extends State<_OnlinePanel> {
         onCopyInviteCode: widget.hostedInviteCode == null
             ? null
             : () => copyInviteCode(widget.hostedInviteCode!),
-        canKickPlayers:
-            widget.showHostedInviteCode && onlineUpdate.actionLogCount == 0,
+        canKickPlayers: widget.showHostedInviteCode && !onlineUpdate.started,
         onKickPlayer: widget.onKickOnlinePlayer,
         onEnterOnlineGame: widget.onEnterOnlineGame,
         onCancelOnlineGame: widget.onCancelOnlineGame,
@@ -670,9 +669,13 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
     final presenceBySeat = <int, OnlineSeatPresence>{
       for (final presence in update.seatPresence) presence.playerID: presence,
     };
-    final tableReady = !_onlineWaitingRoomHasOpenHumanSeats(update);
-    final status = tableReady
+    final countdownSeconds = update.lobbyCountdownSeconds;
+    final status = update.started
         ? language.t(KolkhozText.kolkhozappJoinGame)
+        : countdownSeconds != null
+        ? language.t(KolkhozText.kolkhozappGameStartsInValue1s, {
+            'value1': countdownSeconds,
+          })
         : language.t(KolkhozText.kolkhozappWaitingForPlayers);
     final subtitle =
         inviteCode ??
@@ -833,7 +836,8 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
           _WaitingRoomEnterButton(
             tokens: tokens,
             language: language,
-            tableReady: tableReady,
+            tableReady: update.started,
+            waitingLabel: status,
             height: 46,
             onPressed: onEnterOnlineGame,
           ),
@@ -842,24 +846,12 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
   }
 }
 
-bool _onlineWaitingRoomHasOpenHumanSeats(OnlineSessionUpdate update) {
-  final profilesBySeat = <int, OnlinePlayerProfile>{
-    for (final profile in update.playerProfiles) profile.playerID: profile,
-  };
-  for (var index = 0; index < update.controllers.length; index += 1) {
-    if (update.controllers[index] == KolkhozPlayerController.human &&
-        !profilesBySeat.containsKey(index)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 class _WaitingRoomEnterButton extends StatelessWidget {
   const _WaitingRoomEnterButton({
     required this.tokens,
     required this.language,
     required this.tableReady,
+    required this.waitingLabel,
     required this.height,
     required this.onPressed,
   });
@@ -867,6 +859,7 @@ class _WaitingRoomEnterButton extends StatelessWidget {
   final DesignTokens tokens;
   final KolkhozLanguage language;
   final bool tableReady;
+  final String waitingLabel;
   final double height;
   final VoidCallback onPressed;
 
@@ -874,6 +867,7 @@ class _WaitingRoomEnterButton extends StatelessWidget {
   Widget build(BuildContext context) {
     if (tableReady) {
       return SizedBox(
+        key: const Key('waiting-room-enter-game'),
         width: double.infinity,
         height: height,
         child: ChromeAssetButton.command(
@@ -887,9 +881,10 @@ class _WaitingRoomEnterButton extends StatelessWidget {
       );
     }
     return Semantics(
+      key: const Key('waiting-room-countdown'),
       button: true,
       enabled: false,
-      label: language.t(KolkhozText.kolkhozappWaitingForPlayers),
+      label: waitingLabel,
       child: ExcludeSemantics(
         child: Opacity(
           opacity: 0.86,
@@ -917,9 +912,7 @@ class _WaitingRoomEnterButton extends StatelessWidget {
                         ),
                         Flexible(
                           child: _AnimatedEllipsisLabel(
-                            label: language.t(
-                              KolkhozText.kolkhozappWaitingForPlayers,
-                            ),
+                            label: waitingLabel,
                             builder: (label) => ChromeScaledLabel(
                               label,
                               color: tokens.colors.onAccent,

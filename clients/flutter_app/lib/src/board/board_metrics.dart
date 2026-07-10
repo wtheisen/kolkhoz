@@ -41,7 +41,7 @@ class ResponsiveBoardMetrics {
 
   double get playAreaHorizontalPadding => tokens.spacing.md;
 
-  double get panelContentBottomPadding => 10;
+  double get panelContentBottomPadding => 4;
 
   double get railHorizontalPadding => _boardRailHorizontalPadding;
 

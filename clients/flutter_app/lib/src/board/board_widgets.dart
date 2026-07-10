@@ -986,11 +986,15 @@ class KolkhozScrollbar extends StatefulWidget {
     required this.tokens,
     required this.childBuilder,
     this.orientation,
+    this.thumbVisibility = true,
+    this.trackVisibility = true,
     super.key,
   });
 
   final DesignTokens tokens;
   final ScrollbarOrientation? orientation;
+  final bool thumbVisibility;
+  final bool trackVisibility;
   final Widget Function(BuildContext context, ScrollController controller)
   childBuilder;
 
@@ -1017,8 +1021,8 @@ class _KolkhozScrollbarState extends State<KolkhozScrollbar> {
   Widget build(BuildContext context) {
     return ScrollbarTheme(
       data: ScrollbarThemeData(
-        thumbVisibility: const WidgetStatePropertyAll(true),
-        trackVisibility: const WidgetStatePropertyAll(true),
+        thumbVisibility: WidgetStatePropertyAll(widget.thumbVisibility),
+        trackVisibility: WidgetStatePropertyAll(widget.trackVisibility),
         thickness: const WidgetStatePropertyAll(5),
         radius: const Radius.circular(3),
         thumbColor: WidgetStatePropertyAll(
@@ -1033,8 +1037,8 @@ class _KolkhozScrollbarState extends State<KolkhozScrollbar> {
       ),
       child: Scrollbar(
         controller: controller,
-        thumbVisibility: true,
-        trackVisibility: true,
+        thumbVisibility: widget.thumbVisibility,
+        trackVisibility: widget.trackVisibility,
         scrollbarOrientation: widget.orientation,
         child: widget.childBuilder(context, controller),
       ),
@@ -1197,6 +1201,8 @@ class GameCard extends StatelessWidget {
     this.highlightGlowEnabled = true,
     this.highlightedStrokeWidthOverride,
     this.highlightedBorderRadiusOverride,
+    this.selectedColorOverride,
+    this.selectedStrokeWidthOverride,
     this.sizeOverride,
     this.motionTracked = true,
     super.key,
@@ -1210,6 +1216,8 @@ class GameCard extends StatelessWidget {
   final bool highlightGlowEnabled;
   final double? highlightedStrokeWidthOverride;
   final double? highlightedBorderRadiusOverride;
+  final Color? selectedColorOverride;
+  final double? selectedStrokeWidthOverride;
   final TokenCardSize? sizeOverride;
   final bool motionTracked;
 
@@ -1223,12 +1231,12 @@ class GameCard extends StatelessWidget {
         : null;
     final highlightGlow = highlightGlowEnabled ? highlightColor : null;
     final highlightBorder = card.selected
-        ? tokens.colors.green
+        ? selectedColorOverride ?? tokens.colors.green
         : card.highlighted
         ? highlightColor
         : null;
     final highlightBorderWidth = card.selected
-        ? tokens.stroke.active
+        ? selectedStrokeWidthOverride ?? tokens.stroke.active
         : card.highlighted
         ? highlightedStrokeWidthOverride ?? tokens.stroke.active
         : 0.0;
@@ -1540,18 +1548,21 @@ class CardCenterFace extends StatelessWidget {
         trump != null && (card.suit == trump || card.suit == wreckerSuit);
     if (size.width <= tokens.card.small.width + 0.1) {
       return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          spacing: 2,
-          children: [
-            SuitMark(suit: card.suit, tokens: tokens, size: 14),
-            PixelText(
-              cardRankDisplayLabel(card),
-              size: PixelTextSize.caption2,
-              variant: PixelTextVariant.heavy,
-              color: countsAsTrump ? tokens.colors.red : tokens.colors.cream,
-            ),
-          ],
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 2,
+            children: [
+              SuitMark(suit: card.suit, tokens: tokens, size: 14),
+              PixelText(
+                cardRankDisplayLabel(card),
+                size: PixelTextSize.caption2,
+                variant: PixelTextVariant.heavy,
+                color: countsAsTrump ? tokens.colors.red : tokens.colors.cream,
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -1762,11 +1773,11 @@ class ProgressBar extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final clampedValue = clampDouble(value, 0, 1);
-          final fillWidth = clampedValue <= 0
+          final fillWidth = clampedValue <= 0 || constraints.maxWidth <= 0
               ? 0.0
               : clampDouble(
                   constraints.maxWidth * clampedValue,
-                  4.0,
+                  math.min(4.0, constraints.maxWidth),
                   constraints.maxWidth,
                 );
           return DecoratedBox(

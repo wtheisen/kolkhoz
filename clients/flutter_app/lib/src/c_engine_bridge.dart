@@ -191,7 +191,7 @@ class KolkhozCEngineBridge {
     KCVariantsNative,
     KCControllersNative,
   )
-  _engineInitWithControllers;
+  _engineInitWithControllersStepwise;
   late final void Function(Pointer<KCVariantsNative>) _variantsKolkhoz;
   late final void Function(Pointer<KCControllersNative>)
   _controllersAllExternal;
@@ -265,6 +265,8 @@ class KolkhozCEngineBridge {
   late final int Function(Pointer<KCEngine>, int, int, int, int) _applyAssign;
   late final int Function(Pointer<KCEngine>, int, int) _applySimple;
   late final int Function(Pointer<KCEngine>) _stepAutomatic;
+  late final bool Function(Pointer<KCEngine>, Pointer<KCActionNative>)
+  _heuristicAction;
   late final int Function(Pointer<KCEngine>, KCPolicyModelBufferNative)
   _stepPolicyAutomatic;
   late final bool Function(
@@ -296,7 +298,7 @@ class KolkhozCEngineBridge {
       final nativeControllers = arena<KCControllersNative>();
       _writeVariants(nativeVariants.ref, variants);
       _writeControllers(nativeControllers, controllers);
-      _engineInitWithControllers(
+      _engineInitWithControllersStepwise(
         engine,
         seed ?? DateTime.now().millisecondsSinceEpoch,
         nativeVariants.ref,
@@ -566,6 +568,19 @@ class KolkhozCEngineBridge {
 
   int stepAutomatic(Pointer<KCEngine> engine) => _stepAutomatic(engine);
 
+  CEngineActionValue? heuristicAction(Pointer<KCEngine> engine) {
+    final arena = Arena();
+    try {
+      final selected = arena<KCActionNative>();
+      if (!_heuristicAction(engine, selected)) {
+        return null;
+      }
+      return _actionValue(selected.ref);
+    } finally {
+      arena.releaseAll();
+    }
+  }
+
   int stepPolicyAutomatic(
     Pointer<KCEngine> engine,
     KCPolicyModelBufferNative model,
@@ -617,7 +632,7 @@ class KolkhozCEngineBridge {
           Void Function(Pointer<KCEngine>, Pointer<KCEngine>),
           void Function(Pointer<KCEngine>, Pointer<KCEngine>)
         >('kc_engine_clone');
-    _engineInitWithControllers = _lib
+    _engineInitWithControllersStepwise = _lib
         .lookupFunction<
           Void Function(
             Pointer<KCEngine>,
@@ -631,7 +646,7 @@ class KolkhozCEngineBridge {
             KCVariantsNative,
             KCControllersNative,
           )
-        >('kc_engine_init_with_controllers');
+        >('kc_engine_init_with_controllers_stepwise');
     _variantsKolkhoz = _lib
         .lookupFunction<
           Void Function(Pointer<KCVariantsNative>),
@@ -738,6 +753,11 @@ class KolkhozCEngineBridge {
           int Function(Pointer<KCEngine>, int, int)
         >('kc_engine_apply_simple');
     _stepAutomatic = _int0('kc_engine_step_automatic');
+    _heuristicAction = _lib
+        .lookupFunction<
+          Bool Function(Pointer<KCEngine>, Pointer<KCActionNative>),
+          bool Function(Pointer<KCEngine>, Pointer<KCActionNative>)
+        >('kc_engine_heuristic_action');
     _stepPolicyAutomatic = _lib
         .lookupFunction<
           Int32 Function(Pointer<KCEngine>, KCPolicyModelBufferNative),
@@ -760,7 +780,7 @@ class KolkhozCEngineBridge {
         .lookupFunction<
           Int32 Function(Pointer<KCEngine>, KCActionNative),
           int Function(Pointer<KCEngine>, KCActionNative)
-        >('kc_engine_apply_ai_action');
+        >('kc_engine_apply_ai_action_stepwise');
     _applySetTrumpManual = _lib
         .lookupFunction<
           Int32 Function(Pointer<KCEngine>, Int32, Int32),

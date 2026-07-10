@@ -8,10 +8,15 @@ import 'render_model.dart';
 import 'saved_game_store.dart';
 
 class OnlineEngineCard {
-  const OnlineEngineCard({required this.suit, required this.value});
+  const OnlineEngineCard({
+    required this.suit,
+    required this.value,
+    this.assignmentRound,
+  });
 
   final int suit;
   final int value;
+  final int? assignmentRound;
 
   bool get isValid =>
       (suit >= 0 && suit < 4 && value > 0) || (suit == 4 && value == 14);
@@ -24,6 +29,7 @@ class OnlineEngineCard {
     return OnlineEngineCard(
       suit: json['suit'] as int,
       value: json['value'] as int,
+      assignmentRound: json['assignmentRound'] as int?,
     );
   }
 }
@@ -312,6 +318,9 @@ class OnlineComradeProfile {
     this.avatarURL,
     this.comradeCode,
     this.requestedAt,
+    this.isOnline = false,
+    this.inGame = false,
+    this.inLobby = false,
     this.stats = defaultProfileStats,
   });
 
@@ -320,6 +329,9 @@ class OnlineComradeProfile {
   final String? avatarURL;
   final String? comradeCode;
   final DateTime? requestedAt;
+  final bool isOnline;
+  final bool inGame;
+  final bool inLobby;
   final KolkhozProfileStats stats;
 
   String get displayLabel {
@@ -340,6 +352,9 @@ class OnlineComradeProfile {
       avatarURL: json['avatarURL'] as String?,
       comradeCode: json['comradeCode'] as String?,
       requestedAt: _dateTimeFromEpochSeconds(json['requestedAt']),
+      isOnline: json['isOnline'] as bool? ?? false,
+      inGame: json['inGame'] as bool? ?? false,
+      inLobby: json['inLobby'] as bool? ?? false,
       stats: profileStatsFromSupabaseJson(json['stats']),
     );
   }
@@ -498,6 +513,7 @@ class OnlineEngineSnapshot {
 class OnlineSessionUpdate {
   const OnlineSessionUpdate({
     required this.sessionID,
+    this.seed,
     required this.inviteCode,
     required this.viewerID,
     required this.actionLogCount,
@@ -511,10 +527,15 @@ class OnlineSessionUpdate {
     this.seatPresence = const [],
     this.turnPlayerID,
     this.turnDeadlineAt,
+    this.started = true,
+    this.lobbyCountdownEndsAt,
+    this.gameLogActions = const [],
+    this.reactions = const [],
     required this.snapshot,
   });
 
   final String sessionID;
+  final int? seed;
   final String inviteCode;
   final int? viewerID;
   final int actionLogCount;
@@ -528,11 +549,25 @@ class OnlineSessionUpdate {
   final List<OnlineSeatPresence> seatPresence;
   final int? turnPlayerID;
   final double? turnDeadlineAt;
+  final bool started;
+  final double? lobbyCountdownEndsAt;
+  final List<OnlineEngineAction> gameLogActions;
+  final List<OnlineReaction> reactions;
   final OnlineEngineSnapshot snapshot;
+
+  int? get lobbyCountdownSeconds {
+    final deadline = lobbyCountdownEndsAt;
+    if (deadline == null || started) {
+      return null;
+    }
+    final remaining = deadline - DateTime.now().millisecondsSinceEpoch / 1000;
+    return remaining.ceil().clamp(0, 30).toInt();
+  }
 
   static OnlineSessionUpdate fromJson(Map<String, Object?> json) {
     return OnlineSessionUpdate(
       sessionID: json['sessionID'] as String,
+      seed: json['seed'] as int?,
       inviteCode: json['inviteCode'] as String? ?? json['sessionID'] as String,
       viewerID: json['viewerID'] as int?,
       actionLogCount: json['actionLogCount'] as int,
@@ -558,6 +593,16 @@ class OnlineSessionUpdate {
       ],
       turnPlayerID: json['turnPlayerID'] as int?,
       turnDeadlineAt: (json['turnDeadlineAt'] as num?)?.toDouble(),
+      started: json['started'] as bool? ?? true,
+      lobbyCountdownEndsAt: (json['lobbyCountdownEndsAt'] as num?)?.toDouble(),
+      gameLogActions: [
+        for (final value in _objectList(json['gameLogActions'] ?? const []))
+          OnlineEngineAction.fromJson(_objectMap(value)),
+      ],
+      reactions: [
+        for (final value in _objectList(json['reactions'] ?? const []))
+          OnlineReaction.fromJson(_objectMap(value)),
+      ],
       snapshot: OnlineEngineSnapshot.fromJson(_objectMap(json['snapshot'])),
     );
   }
@@ -565,6 +610,7 @@ class OnlineSessionUpdate {
   OnlineSessionUpdate copyWith({List<OnlineEngineAction>? legalActions}) {
     return OnlineSessionUpdate(
       sessionID: sessionID,
+      seed: seed,
       inviteCode: inviteCode,
       viewerID: viewerID,
       actionLogCount: actionLogCount,
@@ -578,7 +624,40 @@ class OnlineSessionUpdate {
       seatPresence: seatPresence,
       turnPlayerID: turnPlayerID,
       turnDeadlineAt: turnDeadlineAt,
+      started: started,
+      lobbyCountdownEndsAt: lobbyCountdownEndsAt,
+      gameLogActions: gameLogActions,
+      reactions: reactions,
       snapshot: snapshot,
+    );
+  }
+}
+
+class OnlineReaction {
+  const OnlineReaction({
+    required this.revision,
+    required this.playerID,
+    required this.reactionID,
+    required this.year,
+    required this.phase,
+    required this.createdAt,
+  });
+
+  final int revision;
+  final int playerID;
+  final String reactionID;
+  final int year;
+  final int phase;
+  final double createdAt;
+
+  static OnlineReaction fromJson(Map<String, Object?> json) {
+    return OnlineReaction(
+      revision: json['revision'] as int,
+      playerID: json['playerID'] as int,
+      reactionID: json['reactionID'] as String,
+      year: json['year'] as int,
+      phase: json['phase'] as int,
+      createdAt: (json['createdAt'] as num).toDouble(),
     );
   }
 }
@@ -694,6 +773,8 @@ class OnlineSessionListing {
     this.seatPresence = const [],
     this.turnPlayerID,
     this.turnDeadlineAt,
+    this.started = true,
+    this.lobbyCountdownEndsAt,
     required this.actionLogCount,
     required this.createdAt,
     required this.expiresAt,
@@ -710,6 +791,8 @@ class OnlineSessionListing {
   final List<OnlineSeatPresence> seatPresence;
   final int? turnPlayerID;
   final double? turnDeadlineAt;
+  final bool started;
+  final double? lobbyCountdownEndsAt;
   final int actionLogCount;
   final double createdAt;
   final double expiresAt;
@@ -730,8 +813,7 @@ class OnlineSessionListing {
     if (seatPresence.isNotEmpty) {
       return seatPresence
           .where(
-            (presence) =>
-                presence.connected && isHumanSeat(presence.playerID),
+            (presence) => presence.connected && isHumanSeat(presence.playerID),
           )
           .length;
     }
@@ -760,7 +842,73 @@ class OnlineSessionListing {
       ],
       turnPlayerID: json['turnPlayerID'] as int?,
       turnDeadlineAt: (json['turnDeadlineAt'] as num?)?.toDouble(),
+      started: json['started'] as bool? ?? true,
+      lobbyCountdownEndsAt: (json['lobbyCountdownEndsAt'] as num?)?.toDouble(),
       actionLogCount: json['actionLogCount'] as int,
+      createdAt: (json['createdAt'] as num).toDouble(),
+      expiresAt: (json['expiresAt'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+}
+
+class OnlineSessionInvite {
+  const OnlineSessionInvite({
+    required this.sessionID,
+    required this.openSeats,
+    required this.occupiedSeats,
+    required this.controllers,
+    required this.playerProfiles,
+    required this.hostProfile,
+    this.ranked = false,
+    this.browserJoinable = false,
+    this.started = false,
+    this.lobbyCountdownEndsAt,
+    required this.createdAt,
+    required this.expiresAt,
+  });
+
+  final String sessionID;
+  final List<int> openSeats;
+  final List<int> occupiedSeats;
+  final List<KolkhozPlayerController> controllers;
+  final List<OnlinePlayerProfile> playerProfiles;
+  final OnlinePlayerProfile? hostProfile;
+  final bool ranked;
+  final bool browserJoinable;
+  final bool started;
+  final double? lobbyCountdownEndsAt;
+  final double createdAt;
+  final double expiresAt;
+
+  String get hostDisplayName {
+    final trimmed = hostProfile?.displayName?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) {
+      return trimmed;
+    }
+    return 'Comrade';
+  }
+
+  static OnlineSessionInvite fromJson(Map<String, Object?> json) {
+    final hostProfileJson = json['hostProfile'];
+    return OnlineSessionInvite(
+      sessionID: json['sessionID'] as String,
+      openSeats: _ints(json['openSeats']),
+      occupiedSeats: _ints(json['occupiedSeats']),
+      controllers: KolkhozPlayerController.normalized([
+        for (final value in _objectList(json['controllers']))
+          controllerFromJson(value),
+      ]),
+      playerProfiles: [
+        for (final value in _objectList(json['playerProfiles'] ?? const []))
+          OnlinePlayerProfile.fromJson(_objectMap(value)),
+      ],
+      hostProfile: hostProfileJson is Map
+          ? OnlinePlayerProfile.fromJson(_objectMap(hostProfileJson))
+          : null,
+      ranked: json['ranked'] as bool? ?? false,
+      browserJoinable: json['browserJoinable'] as bool? ?? false,
+      started: json['started'] as bool? ?? false,
+      lobbyCountdownEndsAt: (json['lobbyCountdownEndsAt'] as num?)?.toDouble(),
       createdAt: (json['createdAt'] as num).toDouble(),
       expiresAt: (json['expiresAt'] as num?)?.toDouble() ?? 0.0,
     );
@@ -804,6 +952,14 @@ class KolkhozOnlineClient {
   Future<OnlineSessionListing> fetchSession(String sessionID) async {
     final decoded = await _send(method: 'GET', path: 'sessions/$sessionID');
     return OnlineSessionListing.fromJson(_objectMap(decoded));
+  }
+
+  Future<List<OnlineSessionInvite>> fetchSessionInvites() async {
+    final decoded = await _send(method: 'GET', path: 'sessions/invites');
+    return [
+      for (final value in _objectList(decoded))
+        OnlineSessionInvite.fromJson(_objectMap(value)),
+    ];
   }
 
   Future<OnlineServerStatus> fetchServerStatus() async {
@@ -884,6 +1040,25 @@ class KolkhozOnlineClient {
     }
     final json = await _sendJson(method: 'POST', path: 'sessions', body: body);
     return OnlineSessionResponse.fromJson(json);
+  }
+
+  Future<void> inviteSessionComrades({
+    required String sessionID,
+    required List<String> userIDs,
+  }) async {
+    await _sendJson(
+      method: 'POST',
+      path: 'sessions/$sessionID/invites',
+      body: {'userIDs': userIDs},
+    );
+  }
+
+  Future<void> declineSessionInvite(String sessionID) async {
+    await _sendJson(
+      method: 'POST',
+      path: 'sessions/$sessionID/invites/decline',
+      body: {'sessionID': sessionID},
+    );
   }
 
   Future<OnlineSessionResponse> joinSession({
@@ -991,6 +1166,21 @@ class KolkhozOnlineClient {
         'actionLogCount': actionLogCount,
         'action': OnlineEngineAction.fromEngineAction(action).toJson(),
       },
+    );
+    return OnlineSessionUpdate.fromJson(json);
+  }
+
+  Future<OnlineSessionUpdate> submitReaction({
+    required String sessionID,
+    required int playerID,
+    required String seatToken,
+    required String reactionID,
+  }) async {
+    final json = await _sendJson(
+      method: 'POST',
+      path: 'sessions/$sessionID/reactions',
+      headers: {_seatTokenHeader: seatToken},
+      body: {'playerID': playerID, 'reactionID': reactionID},
     );
     return OnlineSessionUpdate.fromJson(json);
   }

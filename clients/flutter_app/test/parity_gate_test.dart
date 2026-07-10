@@ -3,6 +3,7 @@ import 'dart:ffi';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolkhoz_app/src/c_engine_action_codec.dart';
 import 'package:kolkhoz_app/src/c_engine_bridge.dart';
+import 'package:kolkhoz_app/src/engine_action_projection.dart';
 import 'package:kolkhoz_app/src/game_constants.dart';
 import 'package:kolkhoz_app/src/game_ui_state.dart';
 import 'package:kolkhoz_app/src/online_game_models.dart';
@@ -20,6 +21,13 @@ void main() {
     );
   });
 
+  test('requisition event messages match C engine event kinds', () {
+    expect(requisitionMessage(1), 'Card sent north.');
+    expect(requisitionMessage(2), 'No matching card found.');
+    expect(requisitionMessage(3), 'Drunkard exiled.');
+    expect(requisitionMessage(4), 'Protected from requisition.');
+  });
+
   test('two-year variant ends after the second year', () {
     withEngine(seed: 20260708, variants: KolkhozGameVariants.demoKolkhoz, (
       bridge,
@@ -33,24 +41,60 @@ void main() {
     });
   });
 
-  test('fixed opening seed projects the canonical Flutter table state', () {
-    withEngine(seed: 20260703, variants: KolkhozGameVariants.kolkhoz, (
-      bridge,
-      engine,
-    ) {
-      final model = project(bridge, engine);
+  test('fixed opening seed starts before automatic AI actions', () {
+    withEngine(
+      seed: 20260703,
+      variants: KolkhozGameVariants.kolkhoz,
+      drainOpeningAutomatic: false,
+      (bridge, engine) {
+        final model = project(bridge, engine);
 
-      expect(
-        openingFingerprint(model),
-        '''
-year=1 phase=trick current=0 trump=beet viewer=0 privacy=none
-seats=0:human:hand=beet-10,potato-8,sunflower-8,wheat-12,wheat-6:hidden=0:score=0|1:heuristicAI:hand=beet-13,potato-11,potato-6,sunflower-6,wheat-8:hidden=5:score=0|2:heuristicAI:hand=beet-12,beet-6,beet-9,sunflower-13,wheat-9:hidden=5:score=0|3:heuristicAI:hand=potato-9,sunflower-10,sunflower-11,wheat-10:hidden=4:score=0
+        expect(
+          openingFingerprint(model),
+          '''
+year=1 phase=planning current=2 trump=null viewer=0 privacy=none
+seats=0:human:hand=beet-10,potato-8,sunflower-8,wheat-12,wheat-6:hidden=0:score=0|1:heuristicAI:hand=beet-13,potato-11,potato-6,sunflower-6,wheat-8:hidden=5:score=0|2:heuristicAI:hand=beet-12,beet-6,beet-9,sunflower-13,wheat-9:hidden=5:score=0|3:heuristicAI:hand=potato-9,sunflower-10,sunflower-11,sunflower-9,wheat-10:hidden=5:score=0
 jobs=beet:beet-2:0:false|potato:potato-2:0:false|sunflower:sunflower-3:0:false|wheat:wheat-1:0:false
-actions=playCard:0:sunflower-8
+actions=
 '''
-            .trim(),
-      );
-    });
+              .trim(),
+        );
+      },
+    );
+  });
+
+  test('easy AI opening actions advance one animation step at a time', () {
+    withEngine(
+      seed: 20260703,
+      variants: KolkhozGameVariants.kolkhoz,
+      drainOpeningAutomatic: false,
+      (bridge, engine) {
+        var model = project(bridge, engine);
+        expect(model.table.phase, phasePlanning);
+        expect(model.table.currentPlayerID, 2);
+        expect(model.table.trick.plays, isEmpty);
+
+        final trumpAction = bridge.heuristicAction(engine);
+        expect(trumpAction, isNotNull);
+        expect(trumpAction!.kind, kcActionSetTrump);
+        expect(bridge.applyAIAction(engine, trumpAction), 0);
+
+        model = project(bridge, engine);
+        expect(model.table.phase, phaseTrick);
+        expect(model.table.currentPlayerID, 3);
+        expect(model.table.trump, 'beet');
+        expect(model.table.trick.plays, isEmpty);
+
+        final cardAction = bridge.heuristicAction(engine);
+        expect(cardAction, isNotNull);
+        expect(cardAction!.kind, kcActionPlayCard);
+        expect(bridge.applyAIAction(engine, cardAction), 0);
+
+        model = project(bridge, engine);
+        expect(model.table.currentPlayerID, 0);
+        expect(model.table.trick.plays, hasLength(1));
+      },
+    );
   });
 
   test('kolkhoz default deals a 14-value all-suit saboteur card', () {
@@ -62,6 +106,7 @@ actions=playCard:0:sunflower-8
         controllers: const [...fixtureControllers],
       );
       try {
+        drainToFixtureAction(bridge, engine);
         final model = project(bridge, engine);
         final viewerSeat = model.table.seats.firstWhere(
           (seat) => seat.id == model.viewer.seatID,
@@ -223,9 +268,9 @@ actions=playCard:0:sunflower-8
         expect(
           gameOverFingerprint(model, appliedActions),
           '''
-actions=44 winner=3
-scores=0:visible=4:final=27|1:visible=11:final=24|2:visible=8:final=19|3:visible=10:final=37
-exiled=1:beet-3,wheat-10,wheat-4|2:potato-1|3:sunflower-3,sunflower-4,wheat-12,wheat-2,wheat-6|4:beet-12,beet-4,sunflower-2,sunflower-7,sunflower-8,wheat-13,wheat-7|5:potato-2,potato-7,sunflower-1,sunflower-9,wheat-1,wheat-11
+actions=40 winner=3
+scores=0:visible=0:final=23|1:visible=11:final=24|2:visible=8:final=19|3:visible=10:final=37
+exiled=1:beet-3,wheat-10,wheat-4|2:potato-1,potato-4|3:sunflower-3,sunflower-4,wheat-12,wheat-2,wheat-6|4:beet-12,beet-4,sunflower-2,sunflower-7,sunflower-8,wheat-13,wheat-7|5:potato-2,potato-7,sunflower-1,sunflower-9,wheat-1,wheat-11
 '''
               .trim(),
         );
@@ -307,7 +352,7 @@ stacks=2:0:revealed=beet-8:hidden=beet-11,beet-9,wheat-11,wheat-12,wheat-9|2:1:r
       expect(
         variantFingerprint(result.model, result.appliedActions),
         '''
-actions=44 winner=2
+actions=36 winner=2
 scores=0:visible=8:final=15|1:visible=0:final=0|2:visible=0:final=18|3:visible=0:final=8
 exiled=1:sunflower-13|2:beet-7,potato-13,potato-7|3:potato-11|4:wheat-12,wheat-13,wheat-7,wheat-9|5:beet-11,potato-1,potato-12,potato-6,potato-9,wheat-10,wheat-11
 claimed=sunflower
@@ -333,7 +378,7 @@ visible=0:8:0|1:0:0|2:0:1|3:0:2
         expect(
           variantFingerprint(result.model, result.appliedActions),
           '''
-actions=59 winner=3
+actions=55 winner=3
 scores=0:visible=11:final=28|1:visible=8:final=19|2:visible=12:final=12|3:visible=11:final=32
 exiled=1:wheat-10,wheat-13|2:beet-7,wheat-12|3:beet-13,beet-8,sunflower-13,sunflower-3|4:beet-12,sunflower-10,sunflower-6,sunflower-8,wheat-6,wheat-7,wheat-9|5:sunflower-2,wheat-8
 claimed=potato
@@ -385,6 +430,7 @@ void withEngine(
   void Function(KolkhozCEngineBridge bridge, Pointer<KCEngine> engine) body, {
   required int seed,
   required KolkhozGameVariants variants,
+  bool drainOpeningAutomatic = true,
 }) {
   final bridge = KolkhozCEngineBridge();
   final engine = bridge.newEngine(
@@ -393,10 +439,25 @@ void withEngine(
     controllers: const [...fixtureControllers],
   );
   try {
+    if (drainOpeningAutomatic) {
+      drainToFixtureAction(bridge, engine);
+    }
     body(bridge, engine);
   } finally {
     bridge.freeEngine(engine);
   }
+}
+
+void drainToFixtureAction(
+  KolkhozCEngineBridge bridge,
+  Pointer<KCEngine> engine,
+) {
+  var guard = 0;
+  while (project(bridge, engine).legalActions.isEmpty && guard < 32) {
+    expect(bridge.stepAutomatic(engine), greaterThan(0));
+    guard += 1;
+  }
+  expect(guard, lessThan(32));
 }
 
 TableViewModel project(KolkhozCEngineBridge bridge, Pointer<KCEngine> engine) {
@@ -419,6 +480,7 @@ void withRestoredEngine(
     controllers: payload.controllers,
   );
   try {
+    drainToFixtureAction(bridge, engine);
     for (final action in payload.actions) {
       final cAction = cEngineAction(action);
       expect(cAction, isNotNull);

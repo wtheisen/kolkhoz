@@ -20,3 +20,6 @@ research/.venv/
 research/__pycache__/
 research/history/current_experiment.json
 *.pyc
+
+# Generated Flutter layout screenshots (keep the workflow README tracked)
+clients/flutter_app/test/layout_goldens/*.png

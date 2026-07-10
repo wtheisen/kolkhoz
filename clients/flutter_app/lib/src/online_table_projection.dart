@@ -177,7 +177,11 @@ class OnlineTableProjection {
       claimedForSuit: (suit) => snapshot.claimedJobs.contains(suit),
       rewardForSuit: (suit) => firstCardForSuit(snapshot.revealedJobs, suit),
       assignedCardsForSuit: (suit) => [
-        ...cards(cardsForSuit(snapshot.jobBuckets, suit)),
+        for (final card in cardsForSuit(snapshot.jobBuckets, suit))
+          projectOnlineCard(
+            card.valueObject,
+            assignmentRound: card.assignmentRound,
+          ),
         ...pendingAssignmentCards(suit),
       ],
     );
@@ -187,7 +191,11 @@ class OnlineTableProjection {
     return [
       for (final assignment in snapshot.pendingAssignments)
         if (assignment.targetSuit == targetSuit)
-          projectOnlineCard(assignment.card.valueObject, pending: true),
+          projectOnlineCard(
+            assignment.card.valueObject,
+            pending: true,
+            assignmentRound: snapshot.trickCount,
+          ),
     ];
   }
 
@@ -281,11 +289,13 @@ class OnlineTableProjection {
     EngineCardValue card, {
     bool highlighted = false,
     bool pending = false,
+    int? assignmentRound,
   }) {
     return projectCard(
       card,
       highlighted: highlighted,
       pending: pending,
+      assignmentRound: assignmentRound,
       nomenclature: isNomenclatureFace(card, update.variants, snapshot.trump),
     );
   }

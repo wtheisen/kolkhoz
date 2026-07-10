@@ -1,5 +1,3 @@
-import 'app_settings.dart';
-import 'app_text.dart';
 import 'card_display.dart';
 import 'game_constants.dart';
 import 'render_model.dart';
@@ -46,16 +44,4 @@ TableCard selectedPlotCard(TableCard card, String? selectedCardID) {
     return card;
   }
   return cardWithSelection(card, selected: true);
-}
-
-String plotHeaderSubtitle(TableViewModel model, KolkhozLanguage language) {
-  if (model.table.phase != phaseRequisition) {
-    return language.t(
-      KolkhozText.plotdisplayOtherStoresAboveActivePlayerSCellarBelow,
-    );
-  }
-  if (model.table.requisitionEvents.isEmpty) {
-    return language.t(KolkhozText.plotdisplayAllJobsComplete);
-  }
-  return language.t(KolkhozText.plotdisplayAuditComplete);
 }

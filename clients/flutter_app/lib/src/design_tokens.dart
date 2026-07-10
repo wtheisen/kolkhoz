@@ -117,7 +117,7 @@ const defaultDesignTokens = DesignTokens(
       railWidthFactor: 0.07,
       railSeparatorWidth: 4,
       playAreaSeparatorThickness: 4,
-      handTrayHeight: 52,
+      handTrayHeight: 64,
       minimumContentWidth: 280,
       minimumContentHeight: 240,
     ),
@@ -154,14 +154,7 @@ const defaultDesignTokens = DesignTokens(
       assignmentMinTileHeight: 88,
       overviewMinTileHeight: 106,
     ),
-    plot: PlotLayoutTokens(
-      opponentHeightMin: 70,
-      opponentHeightMax: 82,
-      opponentVisibleCardCountMin: 3,
-      opponentVisibleCardCountMax: 4,
-      portraitSizeMin: 34,
-      portraitSizeMax: 42,
-    ),
+    plot: PlotLayoutTokens(opponentHeightFraction: 0.5),
   ),
 );
 
@@ -493,21 +486,9 @@ class JobsLayoutTokens {
 }
 
 class PlotLayoutTokens {
-  const PlotLayoutTokens({
-    required this.opponentHeightMin,
-    required this.opponentHeightMax,
-    required this.opponentVisibleCardCountMin,
-    required this.opponentVisibleCardCountMax,
-    required this.portraitSizeMin,
-    required this.portraitSizeMax,
-  });
+  const PlotLayoutTokens({required this.opponentHeightFraction});
 
-  final double opponentHeightMin;
-  final double opponentHeightMax;
-  final double opponentVisibleCardCountMin;
-  final double opponentVisibleCardCountMax;
-  final double portraitSizeMin;
-  final double portraitSizeMax;
+  final double opponentHeightFraction;
 }
 
 Color suitColor(DesignTokens tokens, String suit) {

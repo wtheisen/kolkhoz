@@ -11,29 +11,38 @@ import '../chrome_button.dart';
 import '../design_tokens.dart';
 import '../game_constants.dart';
 import '../lower_bar_actions.dart';
+import '../pixel_text.dart';
 import '../render_model.dart';
 import '../table_display.dart';
 import 'board_widgets.dart';
 
 const handTrayOuterSpacing = 8.0;
 const handTrayZoneHorizontalPadding = 6.0;
-const handTrayZoneSpacing = 6.0;
-const handTrayIconFrameWidth = 34.0;
-const handTrayIconSize = 32.0;
 const handTrayCardSpacing = 10.0;
 const handTrayCardYOffset = 8.0;
-const handTrayAssignmentWidth = 290.0;
+const handTrayCardMinimumExposedFraction = 0.42;
+const handTrayCardMinimumExposedWidth = 28.0;
+const handTrayCardSelectedLiftFraction = 0.07;
+const handTrayCardHoverScale = 1.025;
+const handTrayCardAnimationDuration = Duration(milliseconds: 150);
 const handTrayAssignmentDividerWidth = 2.0;
+const handTrayAssignmentDividerSpacing = 10.0;
 const handTrayAssignmentDividerTopMargin = 5.0;
-const handTrayAssignmentCardsYOffset = 4.0;
-const handTrayActionButtonSize = 48.0;
-const handTrayActionIconSize = 34.0;
+const handTrayAssignmentCardOverlapFraction = 0.38;
+const handTrayAssignmentBaselineCorrection = 1.0;
+const handTrayActionButtonSize = 42.0;
+const handTrayActionIconSize = 28.0;
 const handTrayActionSpacing = 8.0;
 const handTrayActionBarPadding = 6.0;
+const handConsoleWidth = 106.0;
+const handConsoleStatusHeight = 34.0;
+const handConsoleCompactStatusHeight = 18.0;
+const handConsoleRowSpacing = 4.0;
+const handConsoleCompactHeightBreakpoint = 94.0;
+const handConsoleMinimumButtonScale = 0.6;
 const handTraySwapHighlightStrokeWidth = 2.0;
 const handTraySwapHighlightCornerRadius = 7.0;
 const handTrayCardHeightFillFactor = 1.0;
-const handTrayCardMinScale = 0.65;
 const handTrayCardMaxScale = 3.0;
 
 bool handCardCanReceiveTap(TableViewModel model, TableCard card) {
@@ -74,6 +83,134 @@ LegalAction? selectedHandCardPlayAction(TableViewModel model) {
     }
   }
   return null;
+}
+
+LegalAction? handConsoleLegalAction(TableViewModel model, Set<String> kinds) {
+  for (final action in model.legalActions) {
+    if (kinds.contains(action.kind)) {
+      return action;
+    }
+  }
+  return null;
+}
+
+LegalAction? handConsoleConfirmAction(TableViewModel model) {
+  return switch (model.table.phase) {
+    phaseTrick => selectedHandCardPlayAction(model),
+    phaseSwap =>
+      handConsoleLegalAction(model, {actionSwap}) == null
+          ? handConsoleLegalAction(model, {actionConfirmSwap})
+          : null,
+    phaseAssignment => handConsoleLegalAction(model, {actionSubmitAssignments}),
+    phaseRequisition => handConsoleLegalAction(model, {
+      actionContinueAfterRequisition,
+    }),
+    _ => null,
+  };
+}
+
+LegalAction? handConsoleSecondaryAction(TableViewModel model) {
+  if (model.table.phase != phaseSwap) {
+    return null;
+  }
+  return handConsoleLegalAction(model, {actionUndoSwap}) ??
+      handConsoleLegalAction(model, {actionSwap});
+}
+
+bool handConsoleSeatIsLocal(Seat? seat) {
+  return seat != null && (seat.isViewer || isLocalHumanSeat(seat));
+}
+
+String handConsoleWaitingStatus(
+  Seat? seat,
+  KolkhozLanguage language, {
+  required bool compact,
+  required KolkhozText detailedKey,
+}) {
+  if (seat == null) {
+    return language.t(KolkhozText.boardviewWait);
+  }
+  final name = seatDisplayName(seat, language: language);
+  return language.t(
+    compact ? KolkhozText.handConsoleWaitingForValue1 : detailedKey,
+    {'value1': name},
+  );
+}
+
+String handConsoleStatus(
+  TableViewModel model,
+  KolkhozLanguage language, {
+  required bool compact,
+}) {
+  final currentSeat = seatByID(model, model.table.currentPlayerID);
+  return switch (model.table.phase) {
+    phasePlanning =>
+      handConsoleSeatIsLocal(currentSeat)
+          ? language.t(KolkhozText.boardviewChooseTrump)
+          : handConsoleWaitingStatus(
+              currentSeat,
+              language,
+              compact: true,
+              detailedKey: KolkhozText.handConsoleWaitingForValue1,
+            ),
+    phaseSwap =>
+      handConsoleSeatIsLocal(currentSeat)
+          ? compact
+                ? language.t(KolkhozText.boardviewYourTurn)
+                : language.t(KolkhozText.handConsoleChooseSwap)
+          : handConsoleWaitingStatus(
+              currentSeat,
+              language,
+              compact: compact,
+              detailedKey: KolkhozText.handConsoleWaitingForValue1ToSwap,
+            ),
+    phaseTrick =>
+      handConsoleSeatIsLocal(currentSeat)
+          ? compact
+                ? language.t(KolkhozText.boardviewYourTurn)
+                : language.t(KolkhozText.handConsoleYourTurnToPlay)
+          : handConsoleWaitingStatus(
+              currentSeat,
+              language,
+              compact: compact,
+              detailedKey: KolkhozText.handConsoleWaitingForValue1ToPlay,
+            ),
+    phaseAssignment => () {
+      final winnerID = model.table.lastTrick.winnerSeatID;
+      final winner = winnerID == null ? null : seatByID(model, winnerID);
+      return handConsoleSeatIsLocal(winner)
+          ? language.t(KolkhozText.handConsoleAssignTrick)
+          : handConsoleWaitingStatus(
+              winner,
+              language,
+              compact: compact,
+              detailedKey: KolkhozText.handConsoleWaitingForValue1ToAssign,
+            );
+    }(),
+    phaseRequisition => language.t(
+      compact
+          ? KolkhozText.phaseRequisition
+          : KolkhozText.handConsoleReviewRequisition,
+    ),
+    _ => model.table.phasePrompt.title,
+  };
+}
+
+double handConsoleButtonScale(double visibleTrayHeight) {
+  if (visibleTrayHeight >= handConsoleCompactHeightBreakpoint) {
+    return 1;
+  }
+  final availableButtonHeight =
+      visibleTrayHeight -
+      handTrayActionBarPadding * 2 -
+      2 -
+      handConsoleCompactStatusHeight -
+      handConsoleRowSpacing;
+  return clampDouble(
+    availableButtonHeight / handTrayActionButtonSize,
+    handConsoleMinimumButtonScale,
+    1,
+  );
 }
 
 bool assignmentCommandBarVisible(TableViewModel model) {
@@ -146,62 +283,91 @@ Color? handTrayHighlightColor(
   return null;
 }
 
-EdgeInsets handTrayOuterPadding({required double trailing}) {
-  return EdgeInsets.only(right: trailing + 16);
-}
-
-double handTrayCardScale(
-  double visibleTrayHeight,
-  TokenCardSize cardSize, {
-  double? availableWidth,
-  int cardCount = 0,
-}) {
-  final heightScale = clampDouble(
+double handTrayCardScale(double visibleTrayHeight, TokenCardSize cardSize) {
+  return clampDouble(
     (visibleTrayHeight * handTrayCardHeightFillFactor - handTrayCardYOffset) /
         cardSize.height,
     1,
-    handTrayCardMaxScale,
-  );
-  if (availableWidth == null || cardCount <= 0) {
-    return heightScale;
-  }
-  final spacingWidth = math.max(0, cardCount - 1) * handTrayCardSpacing;
-  final widthScale =
-      (availableWidth - spacingWidth) / (cardSize.width * cardCount);
-  return clampDouble(
-    math.min(heightScale, widthScale),
-    handTrayCardMinScale,
     handTrayCardMaxScale,
   );
 }
 
 TokenCardSize scaledHandTrayCardSize(
   TokenCardSize cardSize,
-  double visibleTrayHeight, {
-  double? availableWidth,
-  int cardCount = 0,
-}) {
-  final scale = handTrayCardScale(
-    visibleTrayHeight,
-    cardSize,
-    availableWidth: availableWidth,
-    cardCount: cardCount,
-  );
+  double visibleTrayHeight,
+) {
+  final scale = handTrayCardScale(visibleTrayHeight, cardSize);
   return scaledHandTrayCardSizeForScale(cardSize, scale);
 }
 
-TokenCardSize fittedHandTrayCardSize(
-  TokenCardSize cardSize,
-  double visibleTrayHeight,
+double handTrayCardStride(
   double availableWidth,
+  double cardWidth,
   int cardCount,
 ) {
-  return scaledHandTrayCardSize(
-    cardSize,
-    visibleTrayHeight,
-    availableWidth: availableWidth,
-    cardCount: cardCount,
+  if (cardCount <= 1) {
+    return cardWidth;
+  }
+  final fullySpacedStride = cardWidth + handTrayCardSpacing;
+  final fittedStride = (availableWidth - cardWidth) / (cardCount - 1);
+  final minimumStride = math.max(
+    handTrayCardMinimumExposedWidth,
+    cardWidth * handTrayCardMinimumExposedFraction,
   );
+  return clampDouble(fittedStride, minimumStride, fullySpacedStride);
+}
+
+double handTrayCardRailWidth(double cardWidth, double stride, int cardCount) {
+  if (cardCount <= 0) {
+    return 0;
+  }
+  return cardWidth + math.max(0, cardCount - 1) * stride;
+}
+
+double handTrayAssignmentCardStride(double cardWidth) {
+  return cardWidth * (1 - handTrayAssignmentCardOverlapFraction);
+}
+
+double handTrayAssignmentRailWidth(double cardWidth, int cardCount) {
+  if (cardCount <= 0) {
+    return 0;
+  }
+  return cardWidth +
+      math.max(0, cardCount - 1) * handTrayAssignmentCardStride(cardWidth);
+}
+
+double handTrayAssignmentBarWidth(double cardWidth, int cardCount) {
+  return handTrayAssignmentDividerWidth +
+      handTrayAssignmentDividerSpacing +
+      handTrayAssignmentRailWidth(cardWidth, cardCount);
+}
+
+String handCardAccessibilityLabel(
+  TableCard card,
+  KolkhozLanguage language, {
+  required bool playable,
+  required bool selected,
+  required bool unavailable,
+}) {
+  final suit = card.suit == wreckerSuit
+      ? language == KolkhozLanguage.en
+            ? 'Wrecker'
+            : 'Вредитель'
+      : language.suitName(card.suit);
+  final state = selected
+      ? language == KolkhozLanguage.en
+            ? ', selected'
+            : ', выбрана'
+      : playable
+      ? language == KolkhozLanguage.en
+            ? ', playable'
+            : ', можно сыграть'
+      : unavailable
+      ? language == KolkhozLanguage.en
+            ? ', unavailable'
+            : ', нельзя сыграть'
+      : '';
+  return '${card.rank} $suit$state';
 }
 
 TokenCardSize scaledHandTrayCardSizeForScale(
@@ -235,9 +401,11 @@ class HandTray extends StatelessWidget {
     this.onTrickHandCardTap,
     this.onAssignmentCardTap,
     this.onInvalidHandCardTap,
+    this.onPanelSelected,
     this.canUndo = false,
     this.onUndo,
     this.planningTrumpFocusedSuit,
+    this.contentOverride,
     super.key,
   });
 
@@ -250,9 +418,11 @@ class HandTray extends StatelessWidget {
   final ValueChanged<String>? onTrickHandCardTap;
   final ValueChanged<String>? onAssignmentCardTap;
   final VoidCallback? onInvalidHandCardTap;
+  final ValueChanged<String>? onPanelSelected;
   final bool canUndo;
   final VoidCallback? onUndo;
   final String? planningTrumpFocusedSuit;
+  final Widget? contentOverride;
 
   @override
   Widget build(BuildContext context) {
@@ -260,307 +430,485 @@ class HandTray extends StatelessWidget {
     final hand = localPlayer.hand.toList(growable: false)
       ..sort(compareCardsForHand);
     final assignmentCards = assignmentControlCards(model);
-    final lowerBarActions = model.legalActions
-        .where((action) => lowerBarActionKinds.contains(action.kind))
-        .toList(growable: false);
     final selectedPlayAction = selectedHandCardPlayAction(model);
+    final consoleActionsEnabled = contentOverride == null;
     final showAssignmentCommandBar =
-        assignmentCards.isNotEmpty && assignmentCommandBarVisible(model);
-    return Padding(
-      padding: handTrayOuterPadding(
-        trailing: tokens.spacing.handTrayHorizontalTrailing,
+        contentOverride == null &&
+        assignmentCards.isNotEmpty &&
+        assignmentCommandBarVisible(model);
+    final confirmAction = handConsoleConfirmAction(model);
+    final primaryLabel = model.table.phase == phaseRequisition
+        ? language.t(
+            model.table.year >= finalGameYear
+                ? KolkhozText.lowerbaractionsFinish
+                : KolkhozText.handConsoleContinue,
+          )
+        : language.t(KolkhozText.lowerbaractionsConfirm);
+    final primaryCommand = HandTrayCommand(
+      label: primaryLabel,
+      iconAsset: 'icon-toolbar-confirm.png',
+      prominent: true,
+      onPressed:
+          !consoleActionsEnabled || confirmAction == null || onAction == null
+          ? null
+          : () => onAction!(confirmAction),
+    );
+    final swapSecondaryAction = handConsoleSecondaryAction(model);
+    final secondaryCommand = switch (model.table.phase) {
+      phaseTrick => HandTrayCommand(
+        label: language.t(KolkhozText.boardHandtrayUndo),
+        iconAsset: 'icon-toolbar-undo.png',
+        prominent: false,
+        onPressed:
+            !consoleActionsEnabled ||
+                selectedPlayAction == null ||
+                onTrickHandCardTap == null
+            ? null
+            : () => onTrickHandCardTap!(model.selection.handCardID!),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: handTrayOuterSpacing,
-        children: [
-          Expanded(
-            child: Container(
-              height: visibleTrayHeight,
-              padding: const EdgeInsets.symmetric(
-                horizontal: handTrayZoneHorizontalPadding,
+      phaseSwap => HandTrayCommand(
+        label: swapSecondaryAction == null
+            ? language.t(KolkhozText.lowerbaractionsSwap)
+            : lowerBarActionLabel(
+                swapSecondaryAction,
+                tableYear: model.table.year,
+                language: language,
               ),
-              decoration: BoxDecoration(
-                color: tokens.colors.black.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(tokens.radius.sm),
-                border: Border.all(
-                  color: tokens.colors.steel.withValues(alpha: 0.32),
+        iconAsset: swapSecondaryAction == null
+            ? 'icon-toolbar-swap.png'
+            : lowerBarActionIconAsset(swapSecondaryAction),
+        prominent: false,
+        onPressed:
+            !consoleActionsEnabled ||
+                swapSecondaryAction == null ||
+                onAction == null
+            ? null
+            : () => onAction!(swapSecondaryAction),
+      ),
+      phaseAssignment => HandTrayCommand(
+        label: language.t(KolkhozText.boardHandtrayUndo),
+        iconAsset: 'icon-toolbar-undo.png',
+        prominent: false,
+        onPressed: consoleActionsEnabled && canUndo ? onUndo : null,
+      ),
+      phaseRequisition => HandTrayCommand(
+        label: language.t(KolkhozText.boardBoardrailTheNorth),
+        iconAsset: 'icon-north.png',
+        prominent: false,
+        onPressed: !consoleActionsEnabled || onPanelSelected == null
+            ? null
+            : () => onPanelSelected!(panelNorth),
+      ),
+      _ => HandTrayCommand(
+        label: language.t(KolkhozText.boardHandtrayUndo),
+        iconAsset: 'icon-toolbar-undo.png',
+        prominent: false,
+      ),
+    };
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: handTrayOuterSpacing,
+      children: [
+        Expanded(
+          child:
+              contentOverride ??
+              Container(
+                height: visibleTrayHeight,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: handTrayZoneHorizontalPadding,
                 ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: handTrayZoneSpacing,
-                children: [
-                  SizedBox(
-                    width: handTrayIconFrameWidth,
-                    height: visibleTrayHeight,
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: Image.asset(
-                        'ios_resources/Icons/icon-hand.png',
-                        width: handTrayIconSize,
-                        filterQuality: FilterQuality.none,
-                      ),
-                    ),
+                decoration: BoxDecoration(
+                  color: tokens.colors.black.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(tokens.radius.sm),
+                  border: Border.all(
+                    color: tokens.colors.steel.withValues(alpha: 0.32),
                   ),
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final largeCardSize = fittedHandTrayCardSize(
-                          tokens.card.large,
-                          visibleTrayHeight,
-                          constraints.maxWidth,
-                          hand.length,
-                        );
-                        return KolkhozScrollbar(
-                          tokens: tokens,
-                          orientation: ScrollbarOrientation.bottom,
-                          childBuilder: (context, scrollController) => SingleChildScrollView(
-                            controller: scrollController,
-                            scrollDirection: Axis.horizontal,
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final largeCardSize = scaledHandTrayCardSize(
+                      tokens.card.large,
+                      visibleTrayHeight,
+                    );
+                    final cardStride = handTrayCardStride(
+                      constraints.maxWidth,
+                      largeCardSize.width,
+                      hand.length,
+                    );
+                    final railWidth = handTrayCardRailWidth(
+                      largeCardSize.width,
+                      cardStride,
+                      hand.length,
+                    );
+                    return KolkhozScrollbar(
+                      tokens: tokens,
+                      orientation: ScrollbarOrientation.bottom,
+                      thumbVisibility: false,
+                      trackVisibility: false,
+                      childBuilder: (context, scrollController) => SingleChildScrollView(
+                        controller: scrollController,
+                        scrollDirection: Axis.horizontal,
+                        clipBehavior: Clip.none,
+                        child: SizedBox(
+                          width: math.max(constraints.maxWidth, railWidth),
+                          height: visibleTrayHeight,
+                          child: Stack(
                             clipBehavior: Clip.none,
-                            child: SizedBox(
-                              height: visibleTrayHeight,
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                spacing: handTrayCardSpacing,
-                                children: [
-                                  for (final card in hand)
-                                    Builder(
-                                      builder: (context) {
-                                        final playAction = handCardPlayAction(
-                                          model,
-                                          card,
-                                        );
-                                        final onTap = switch (model
-                                            .table
-                                            .phase) {
-                                          phaseTrick =>
-                                            playAction != null &&
-                                                    onTrickHandCardTap != null
-                                                ? () => onTrickHandCardTap!(
-                                                    card.id,
-                                                  )
-                                                : handCardCanShowInvalidHint(
-                                                    model,
-                                                    card,
-                                                  )
-                                                ? onInvalidHandCardTap
-                                                : null,
-                                          phaseSwap =>
-                                            onSwapHandCardTap == null
-                                                ? null
-                                                : () => onSwapHandCardTap!(
-                                                    card.id,
-                                                  ),
-                                          _ => null,
-                                        };
-                                        return NaturalSizeViewport(
-                                          width: largeCardSize.width,
-                                          height: visibleTrayHeight,
-                                          naturalWidth: largeCardSize.width,
-                                          naturalHeight: largeCardSize.height,
-                                          clipBehavior: Clip.none,
-                                          child: Transform.translate(
-                                            offset: const Offset(
-                                              0,
-                                              handTrayCardYOffset,
-                                            ),
-                                            child: GestureDetector(
-                                              behavior: HitTestBehavior.opaque,
-                                              onTap:
-                                                  handCardCanReceiveTap(
-                                                        model,
-                                                        card,
-                                                      ) ||
-                                                      handCardCanShowInvalidHint(
-                                                        model,
-                                                        card,
-                                                      )
-                                                  ? onTap
-                                                  : null,
-                                              child: GameCard(
-                                                card: handTrayCard(
+                            children: [
+                              for (final (index, card) in hand.indexed)
+                                Positioned(
+                                  left: index * cardStride,
+                                  top: 0,
+                                  child: Builder(
+                                    builder: (context) {
+                                      final playAction = handCardPlayAction(
+                                        model,
+                                        card,
+                                      );
+                                      final onTap = switch (model.table.phase) {
+                                        phaseTrick =>
+                                          playAction != null &&
+                                                  onTrickHandCardTap != null
+                                              ? () =>
+                                                    onTrickHandCardTap!(card.id)
+                                              : handCardCanShowInvalidHint(
+                                                  model,
+                                                  card,
+                                                )
+                                              ? onInvalidHandCardTap
+                                              : null,
+                                        phaseSwap =>
+                                          onSwapHandCardTap == null
+                                              ? null
+                                              : () =>
+                                                    onSwapHandCardTap!(card.id),
+                                        _ => null,
+                                      };
+                                      final displayCard = handTrayCard(
+                                        model,
+                                        card,
+                                        planningTrumpFocusedSuit:
+                                            planningTrumpFocusedSuit,
+                                      );
+                                      final playable =
+                                          switch (model.table.phase) {
+                                            phaseTrick => playAction != null,
+                                            phaseSwap => card.highlighted,
+                                            _ => displayCard.highlighted,
+                                          };
+                                      final invalid =
+                                          playAction == null &&
+                                          handCardCanShowInvalidHint(
+                                            model,
+                                            card,
+                                          );
+                                      final actionable =
+                                          switch (model.table.phase) {
+                                            phaseTrick =>
+                                              playAction != null || invalid,
+                                            phaseSwap => card.highlighted,
+                                            _ => false,
+                                          };
+                                      return NaturalSizeViewport(
+                                        width: largeCardSize.width,
+                                        height: visibleTrayHeight,
+                                        naturalWidth: largeCardSize.width,
+                                        naturalHeight: largeCardSize.height,
+                                        clipBehavior: Clip.none,
+                                        child: Transform.translate(
+                                          offset: const Offset(
+                                            0,
+                                            handTrayCardYOffset,
+                                          ),
+                                          child: HandCardControl(
+                                            card: displayCard,
+                                            tokens: tokens,
+                                            language: language,
+                                            trump: model.table.trump,
+                                            size: largeCardSize,
+                                            playable: playable,
+                                            unavailable: invalid,
+                                            onTap: actionable ? onTap : null,
+                                            highlightColor:
+                                                handTrayHighlightColor(
                                                   model,
                                                   card,
                                                   planningTrumpFocusedSuit:
                                                       planningTrumpFocusedSuit,
+                                                  swapHighlightColor:
+                                                      tokens.colors.red,
+                                                  playableHighlightColor:
+                                                      tokens.colors.green,
                                                 ),
-                                                tokens: tokens,
-                                                trump: model.table.trump,
-                                                sizeOverride: largeCardSize,
-                                                highlightColorOverride:
-                                                    handTrayHighlightColor(
-                                                      model,
-                                                      card,
-                                                      planningTrumpFocusedSuit:
-                                                          planningTrumpFocusedSuit,
-                                                      swapHighlightColor:
-                                                          tokens.colors.red,
-                                                      playableHighlightColor:
-                                                          tokens.colors.green,
-                                                    ),
-                                                highlightGlowEnabled:
-                                                    model.table.phase !=
-                                                    phaseSwap,
-                                                highlightedStrokeWidthOverride:
-                                                    model.table.phase ==
-                                                        phaseSwap
-                                                    ? handTraySwapHighlightStrokeWidth
-                                                    : null,
-                                                highlightedBorderRadiusOverride:
-                                                    model.table.phase ==
-                                                        phaseSwap
-                                                    ? handTraySwapHighlightCornerRadius
-                                                    : null,
-                                              ),
-                                            ),
+                                            highlightGlowEnabled:
+                                                model.table.phase != phaseSwap,
+                                            highlightedStrokeWidth:
+                                                model.table.phase == phaseSwap
+                                                ? handTraySwapHighlightStrokeWidth
+                                                : null,
+                                            highlightedBorderRadius:
+                                                model.table.phase == phaseSwap
+                                                ? handTraySwapHighlightCornerRadius
+                                                : null,
                                           ),
-                                        );
-                                      },
-                                    ),
-                                ],
-                              ),
-                            ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                            ],
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
+        ),
+        if (showAssignmentCommandBar)
+          AssignmentCommandBar(
+            cards: assignmentCards,
+            selectedCardID: model.selection.assignmentCardID,
+            trump: model.table.trump,
+            tokens: tokens,
+            visibleTrayHeight: visibleTrayHeight,
+            onCardTap: onAssignmentCardTap,
+          ),
+        HandConsole(
+          status: handConsoleStatus(
+            model,
+            language,
+            compact: visibleTrayHeight < handConsoleCompactHeightBreakpoint,
+          ),
+          primary: primaryCommand,
+          secondary: secondaryCommand,
+          tokens: tokens,
+          visibleTrayHeight: visibleTrayHeight,
+        ),
+      ],
+    );
+  }
+}
+
+class HandCardControl extends StatefulWidget {
+  const HandCardControl({
+    required this.card,
+    required this.tokens,
+    required this.language,
+    required this.size,
+    required this.playable,
+    required this.unavailable,
+    this.trump,
+    this.highlightColor,
+    this.highlightGlowEnabled = true,
+    this.highlightedStrokeWidth,
+    this.highlightedBorderRadius,
+    this.onTap,
+    super.key,
+  });
+
+  final TableCard card;
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final TokenCardSize size;
+  final bool playable;
+  final bool unavailable;
+  final String? trump;
+  final Color? highlightColor;
+  final bool highlightGlowEnabled;
+  final double? highlightedStrokeWidth;
+  final double? highlightedBorderRadius;
+  final VoidCallback? onTap;
+
+  @override
+  State<HandCardControl> createState() => _HandCardControlState();
+}
+
+class _HandCardControlState extends State<HandCardControl> {
+  bool hovered = false;
+  bool focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final actionable = widget.onTap != null;
+    final emphasized = actionable && (hovered || focused);
+    final label = handCardAccessibilityLabel(
+      widget.card,
+      widget.language,
+      playable: widget.playable,
+      selected: widget.card.selected,
+      unavailable: widget.unavailable,
+    );
+    final card = AnimatedSlide(
+      offset: widget.card.selected
+          ? const Offset(0, -handTrayCardSelectedLiftFraction)
+          : Offset.zero,
+      duration: handTrayCardAnimationDuration,
+      curve: Curves.easeOutCubic,
+      child: AnimatedScale(
+        scale: emphasized ? handTrayCardHoverScale : 1,
+        duration: handTrayCardAnimationDuration,
+        curve: Curves.easeOutCubic,
+        child: AnimatedOpacity(
+          opacity: widget.unavailable ? 0.58 : 1,
+          duration: handTrayCardAnimationDuration,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(cardViewCornerRadius),
+              boxShadow: emphasized
+                  ? [
+                      BoxShadow(
+                        color: widget.tokens.colors.cream.withValues(
+                          alpha: 0.24,
+                        ),
+                        blurRadius: 8,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: GameCard(
+              card: widget.card,
+              tokens: widget.tokens,
+              trump: widget.trump,
+              sizeOverride: widget.size,
+              highlightColorOverride: widget.card.selected
+                  ? widget.tokens.colors.goldBright
+                  : widget.highlightColor,
+              highlightGlowEnabled: widget.highlightGlowEnabled,
+              highlightedStrokeWidthOverride: widget.highlightedStrokeWidth,
+              highlightedBorderRadiusOverride: widget.highlightedBorderRadius,
+              selectedColorOverride: widget.tokens.colors.goldBright,
+              selectedStrokeWidthOverride: widget.tokens.stroke.active,
             ),
           ),
-          if (showAssignmentCommandBar)
-            AssignmentCommandBar(
-              cards: assignmentCards,
-              selectedCardID: model.selection.assignmentCardID,
-              trump: model.table.trump,
-              tokens: tokens,
-              visibleTrayHeight: visibleTrayHeight,
-              onCardTap: onAssignmentCardTap,
-            )
-          else if (selectedPlayAction != null ||
-              lowerBarActions.isNotEmpty ||
-              canUndo)
-            ActionCommandBar(
-              actions: lowerBarActions,
-              selectedPlayAction: selectedPlayAction,
-              tableYear: model.table.year,
-              tokens: tokens,
-              language: language,
-              visibleTrayHeight: visibleTrayHeight,
-              onAction: onAction,
-              canUndo: canUndo,
-              onUndo: onUndo,
+        ),
+      ),
+    );
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        key: Key('hand-card-${widget.card.id}'),
+        container: true,
+        button: actionable,
+        enabled: actionable,
+        selected: widget.card.selected,
+        label: label,
+        onTap: widget.onTap,
+        child: ExcludeSemantics(
+          child: FocusableActionDetector(
+            enabled: actionable,
+            mouseCursor: actionable
+                ? SystemMouseCursors.click
+                : SystemMouseCursors.basic,
+            onShowHoverHighlight: (value) => setState(() => hovered = value),
+            onShowFocusHighlight: (value) => setState(() => focused = value),
+            actions: {
+              ActivateIntent: CallbackAction<ActivateIntent>(
+                onInvoke: (_) {
+                  widget.onTap?.call();
+                  return null;
+                },
+              ),
+            },
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onTap,
+              child: card,
             ),
-          if (showAssignmentCommandBar && canUndo)
-            ActionCommandBar(
-              actions: const [],
-              tableYear: model.table.year,
-              tokens: tokens,
-              language: language,
-              visibleTrayHeight: visibleTrayHeight,
-              canUndo: canUndo,
-              onUndo: onUndo,
-              onAction: onAction,
-            ),
-        ],
+          ),
+        ),
       ),
     );
   }
 }
 
-class ActionCommandBar extends StatelessWidget {
-  const ActionCommandBar({
-    required this.actions,
-    this.selectedPlayAction,
-    required this.tableYear,
+class HandConsole extends StatelessWidget {
+  const HandConsole({
+    required this.status,
+    required this.primary,
+    required this.secondary,
     required this.tokens,
-    required this.language,
     required this.visibleTrayHeight,
-    this.canUndo = false,
-    this.onUndo,
-    this.onAction,
     super.key,
   });
 
-  final List<LegalAction> actions;
-  final LegalAction? selectedPlayAction;
-  final int tableYear;
+  final String status;
+  final HandTrayCommand primary;
+  final HandTrayCommand secondary;
   final DesignTokens tokens;
-  final KolkhozLanguage language;
   final double visibleTrayHeight;
-  final bool canUndo;
-  final VoidCallback? onUndo;
-  final ValueChanged<LegalAction>? onAction;
 
   @override
   Widget build(BuildContext context) {
-    final orderedActions = actions.toList(growable: false)
-      ..sort(compareLowerBarActions);
-    final selectedPlayAction = this.selectedPlayAction;
-    final commands = [
-      if (canUndo)
-        HandTrayCommand(
-          label: language.t(KolkhozText.boardHandtrayUndo),
-          iconAsset: 'icon-toolbar-undo.png',
-          prominent: false,
-          onPressed: onUndo,
-        ),
-      if (selectedPlayAction != null)
-        HandTrayCommand(
-          label: language.t(KolkhozText.boardHandtrayPlay),
-          iconAsset: 'icon-toolbar-play.png',
-          prominent: true,
-          onPressed: onAction == null
-              ? null
-              : () => onAction!(selectedPlayAction),
-        )
-      else
-        for (final action in orderedActions)
-          HandTrayCommand(
-            label: lowerBarActionLabel(
-              action,
-              tableYear: tableYear,
-              language: language,
-            ),
-            iconAsset: lowerBarActionIconAsset(action),
-            prominent: isProminentLowerBarAction(action),
-            onPressed: onAction == null ? null : () => onAction!(action),
-          ),
-    ];
-    return SizedBox(
-      width: actionBarWidth(commands.length),
+    final compact = visibleTrayHeight < handConsoleCompactHeightBreakpoint;
+    final buttonScale = handConsoleButtonScale(visibleTrayHeight);
+    final statusHeight = compact
+        ? handConsoleCompactStatusHeight
+        : handConsoleStatusHeight;
+    return Container(
+      key: const Key('hand-console'),
+      width: handConsoleWidth,
       height: visibleTrayHeight,
-      child: Padding(
-        padding: const EdgeInsets.all(6),
-        child: Center(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            spacing: 8,
+      padding: const EdgeInsets.all(handTrayActionBarPadding),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(tokens.radius.sm),
+        border: Border.all(color: tokens.colors.steel.withValues(alpha: 0.42)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        spacing: handConsoleRowSpacing,
+        children: [
+          Container(
+            key: const Key('hand-console-status'),
+            width: double.infinity,
+            height: statusHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: tokens.colors.iron,
+              borderRadius: BorderRadius.circular(tokens.radius.xs),
+              border: Border.all(
+                color: tokens.colors.gold.withValues(alpha: 0.54),
+              ),
+            ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: PixelText(
+                status,
+                size: compact ? PixelTextSize.caption2 : PixelTextSize.caption,
+                variant: PixelTextVariant.heavy,
+                color: tokens.colors.cream,
+              ),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            spacing: handTrayActionSpacing,
             children: [
-              for (final command in commands)
-                ActionIconButton(
-                  label: command.label,
-                  iconAsset: command.iconAsset,
-                  tokens: tokens,
-                  prominent: command.prominent,
-                  onPressed: command.onPressed,
-                ),
+              ActionIconButton(
+                key: const Key('hand-console-primary'),
+                label: primary.label,
+                iconAsset: primary.iconAsset,
+                tokens: tokens,
+                prominent: primary.prominent,
+                scale: buttonScale,
+                onPressed: primary.onPressed,
+              ),
+              ActionIconButton(
+                key: const Key('hand-console-secondary'),
+                label: secondary.label,
+                iconAsset: secondary.iconAsset,
+                tokens: tokens,
+                prominent: secondary.prominent,
+                scale: buttonScale,
+                onPressed: secondary.onPressed,
+              ),
             ],
           ),
-        ),
+        ],
       ),
     );
-  }
-
-  double actionBarWidth(int commandCount) {
-    final visibleCommands = math.max(1, commandCount);
-    return handTrayActionBarPadding * 2 +
-        visibleCommands * handTrayActionButtonSize +
-        math.max(0, visibleCommands - 1) * handTrayActionSpacing;
   }
 }
 
@@ -598,13 +946,21 @@ class AssignmentCommandBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mediumCardSize = tokens.card.medium;
+    final assignmentCardSize = scaledHandTrayCardSize(
+      tokens.card.large,
+      visibleTrayHeight,
+    );
+    final cardStride = handTrayAssignmentCardStride(assignmentCardSize.width);
+    final railWidth = handTrayAssignmentRailWidth(
+      assignmentCardSize.width,
+      cards.length,
+    );
     return SizedBox(
-      width: handTrayAssignmentWidth,
+      width: handTrayAssignmentBarWidth(assignmentCardSize.width, cards.length),
       height: visibleTrayHeight,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: 10,
+        spacing: handTrayAssignmentDividerSpacing,
         children: [
           Container(
             width: handTrayAssignmentDividerWidth,
@@ -624,27 +980,35 @@ class AssignmentCommandBar extends StatelessWidget {
               ),
             ),
           ),
-          Expanded(
+          SizedBox(
+            width: railWidth,
             child: Transform.translate(
-              offset: const Offset(0, handTrayAssignmentCardsYOffset),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 8,
+              offset: const Offset(
+                0,
+                handTrayCardYOffset + handTrayAssignmentBaselineCorrection,
+              ),
+              child: Stack(
+                alignment: Alignment.topRight,
+                clipBehavior: Clip.none,
                 children: [
-                  for (final card in cards)
-                    NaturalSizeViewport(
-                      width: mediumCardSize.width,
-                      height: visibleTrayHeight,
-                      naturalWidth: mediumCardSize.width,
-                      naturalHeight: mediumCardSize.height,
-                      clipBehavior: Clip.none,
-                      child: AssignmentCommandCard(
-                        card: card,
-                        tokens: tokens,
-                        trump: trump,
-                        selected: card.id == selectedCardID,
-                        sizeOverride: mediumCardSize,
-                        onTap: () => onCardTap?.call(card.id),
+                  for (final (index, card) in cards.indexed)
+                    Positioned(
+                      right: (cards.length - index - 1) * cardStride,
+                      top: 0,
+                      child: NaturalSizeViewport(
+                        width: assignmentCardSize.width,
+                        height: visibleTrayHeight,
+                        naturalWidth: assignmentCardSize.width,
+                        naturalHeight: assignmentCardSize.height,
+                        clipBehavior: Clip.none,
+                        child: AssignmentCommandCard(
+                          card: card,
+                          tokens: tokens,
+                          trump: trump,
+                          selected: card.id == selectedCardID,
+                          sizeOverride: assignmentCardSize,
+                          onTap: () => onCardTap?.call(card.id),
+                        ),
                       ),
                     ),
                 ],

@@ -170,10 +170,10 @@ int? nullablePlayerID(int value) => value >= 0 ? value : null;
 
 String requisitionMessage(int kind) {
   return switch (kind) {
-    1 => 'Protected from requisition.',
-    2 => 'Drunkard exiled.',
-    3 => 'Card sent north.',
-    4 => 'No matching card found.',
+    1 => 'Card sent north.',
+    2 => 'No matching card found.',
+    3 => 'Drunkard exiled.',
+    4 => 'Protected from requisition.',
     _ => 'Requisition resolved.',
   };
 }

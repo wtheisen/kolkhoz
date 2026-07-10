@@ -14,6 +14,7 @@ import 'render_model.dart';
 import 'design_tokens.dart';
 import 'game_constants.dart';
 import 'hot_seat_display.dart';
+import 'online_game_models.dart';
 import 'phase_display.dart';
 import 'pixel_text.dart';
 import 'player_panel_display.dart';
@@ -25,6 +26,7 @@ import 'board/board_chrome.dart';
 import 'board/board_metrics.dart';
 import 'board/board_rail.dart';
 import 'board/board_widgets.dart';
+import 'board/game_log_panel.dart';
 import 'board/hand_tray.dart';
 import 'board/jobs_panel.dart';
 import 'board/north_panel.dart';
@@ -91,6 +93,13 @@ class KolkhozBoard extends StatelessWidget {
     this.onNewGame,
     this.onReturnToLobby,
     this.onCopyGameResult,
+    this.onSaveGameLog,
+    this.gameLogActions = const [],
+    this.gameReactions = const [],
+    this.hasUnreadLogMessages = false,
+    this.canSendReaction = false,
+    this.onReaction,
+    this.activeReaction,
     this.gameOverReturnsToLobby = false,
     this.onTutorial,
     this.animationSpeed = defaultGameAnimationSpeed,
@@ -130,6 +139,13 @@ class KolkhozBoard extends StatelessWidget {
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
   final VoidCallback? onCopyGameResult;
+  final VoidCallback? onSaveGameLog;
+  final List<EngineAction> gameLogActions;
+  final List<OnlineReaction> gameReactions;
+  final bool hasUnreadLogMessages;
+  final bool canSendReaction;
+  final ValueChanged<String>? onReaction;
+  final OnlineReaction? activeReaction;
   final bool gameOverReturnsToLobby;
   final VoidCallback? onTutorial;
   final GameAnimationSpeed animationSpeed;
@@ -229,6 +245,13 @@ class KolkhozBoard extends StatelessWidget {
                                   onNewGame: onNewGame,
                                   onReturnToLobby: onReturnToLobby,
                                   onCopyGameResult: onCopyGameResult,
+                                  onSaveGameLog: onSaveGameLog,
+                                  gameLogActions: gameLogActions,
+                                  gameReactions: gameReactions,
+                                  hasUnreadLogMessages: hasUnreadLogMessages,
+                                  canSendReaction: canSendReaction,
+                                  onReaction: onReaction,
+                                  activeReaction: activeReaction,
                                   gameOverReturnsToLobby:
                                       gameOverReturnsToLobby,
                                   onTutorial: onTutorial,
@@ -270,10 +293,10 @@ class KolkhozBoard extends StatelessWidget {
                                         tokens: tokens,
                                         metrics: metrics,
                                         language: language,
-                                        appearance: appearance,
+                                        year: model.table.year,
+                                        hasUnreadLogMessages:
+                                            hasUnreadLogMessages,
                                         onPanelSelected: onPanelSelected,
-                                        onLanguageToggle: onLanguageToggle,
-                                        onAppearanceToggle: onAppearanceToggle,
                                       ),
                                     ),
                                     BoardSeparator(
@@ -302,6 +325,12 @@ class KolkhozBoard extends StatelessWidget {
                                         onNewGame: onNewGame,
                                         onReturnToLobby: onReturnToLobby,
                                         onCopyGameResult: onCopyGameResult,
+                                        onSaveGameLog: onSaveGameLog,
+                                        gameLogActions: gameLogActions,
+                                        gameReactions: gameReactions,
+                                        canSendReaction: canSendReaction,
+                                        onReaction: onReaction,
+                                        activeReaction: activeReaction,
                                         gameOverReturnsToLobby:
                                             gameOverReturnsToLobby,
                                         onTutorial: onTutorial,
@@ -380,6 +409,13 @@ class CompactBoardShell extends StatelessWidget {
     this.onNewGame,
     this.onReturnToLobby,
     this.onCopyGameResult,
+    this.onSaveGameLog,
+    this.gameLogActions = const [],
+    this.gameReactions = const [],
+    this.hasUnreadLogMessages = false,
+    this.canSendReaction = false,
+    this.onReaction,
+    this.activeReaction,
     this.gameOverReturnsToLobby = false,
     this.onTutorial,
     this.animationSpeed = defaultGameAnimationSpeed,
@@ -419,6 +455,13 @@ class CompactBoardShell extends StatelessWidget {
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
   final VoidCallback? onCopyGameResult;
+  final VoidCallback? onSaveGameLog;
+  final List<EngineAction> gameLogActions;
+  final List<OnlineReaction> gameReactions;
+  final bool hasUnreadLogMessages;
+  final bool canSendReaction;
+  final ValueChanged<String>? onReaction;
+  final OnlineReaction? activeReaction;
   final bool gameOverReturnsToLobby;
   final VoidCallback? onTutorial;
   final GameAnimationSpeed animationSpeed;
@@ -460,6 +503,12 @@ class CompactBoardShell extends StatelessWidget {
             onNewGame: onNewGame,
             onReturnToLobby: onReturnToLobby,
             onCopyGameResult: onCopyGameResult,
+            onSaveGameLog: onSaveGameLog,
+            gameLogActions: gameLogActions,
+            gameReactions: gameReactions,
+            canSendReaction: canSendReaction,
+            onReaction: onReaction,
+            activeReaction: activeReaction,
             gameOverReturnsToLobby: gameOverReturnsToLobby,
             onTutorial: onTutorial,
             animationSpeed: animationSpeed,
@@ -490,10 +539,9 @@ class CompactBoardShell extends StatelessWidget {
           tokens: tokens,
           metrics: metrics,
           language: language,
-          appearance: appearance,
+          year: model.table.year,
+          hasUnreadLogMessages: hasUnreadLogMessages,
           onPanelSelected: onPanelSelected,
-          onLanguageToggle: onLanguageToggle,
-          onAppearanceToggle: onAppearanceToggle,
         ),
       ],
     );
@@ -700,6 +748,12 @@ class BoardPlayArea extends StatelessWidget {
     this.onNewGame,
     this.onReturnToLobby,
     this.onCopyGameResult,
+    this.onSaveGameLog,
+    this.gameLogActions = const [],
+    this.gameReactions = const [],
+    this.canSendReaction = false,
+    this.onReaction,
+    this.activeReaction,
     this.gameOverReturnsToLobby = false,
     this.onTutorial,
     this.animationSpeed = defaultGameAnimationSpeed,
@@ -740,6 +794,12 @@ class BoardPlayArea extends StatelessWidget {
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
   final VoidCallback? onCopyGameResult;
+  final VoidCallback? onSaveGameLog;
+  final List<EngineAction> gameLogActions;
+  final List<OnlineReaction> gameReactions;
+  final bool canSendReaction;
+  final ValueChanged<String>? onReaction;
+  final OnlineReaction? activeReaction;
   final bool gameOverReturnsToLobby;
   final VoidCallback? onTutorial;
   final GameAnimationSpeed animationSpeed;
@@ -831,6 +891,10 @@ class BoardPlayArea extends StatelessWidget {
                         onNewGame: onNewGame,
                         onReturnToLobby: onReturnToLobby,
                         onCopyGameResult: onCopyGameResult,
+                        onSaveGameLog: onSaveGameLog,
+                        gameLogActions: gameLogActions,
+                        gameReactions: gameReactions,
+                        activeReaction: activeReaction,
                         gameOverReturnsToLobby: gameOverReturnsToLobby,
                         onTutorial: onTutorial,
                         animationSpeed: animationSpeed,
@@ -908,12 +972,21 @@ class BoardPlayArea extends StatelessWidget {
                               planningTrumpFocusedSuit:
                                   planningTrumpFocusedSuit,
                               onAction: onAction,
+                              onPanelSelected: onPanelSelected,
                               onSwapHandCardTap: onSwapHandCardTap,
                               onTrickHandCardTap: onTrickHandCardTap,
                               onAssignmentCardTap: onAssignmentCardTap,
                               onInvalidHandCardTap: onInvalidHandCardTap,
                               canUndo: canUndo,
                               onUndo: onUndo,
+                              contentOverride: model.panels.active == panelLog
+                                  ? ReactionTray(
+                                      tokens: tokens,
+                                      language: language,
+                                      enabled: canSendReaction,
+                                      onReaction: onReaction,
+                                    )
+                                  : null,
                             ),
                           ),
                         ),
@@ -1062,11 +1135,6 @@ class TopInfoStrip extends StatelessWidget {
             topInfo.rowSpacingMin,
             topInfo.rowSpacingMax,
           );
-          final yearWidth = clampDouble(
-            constraints.maxWidth * topInfo.yearWidthFactor,
-            topInfo.yearWidthMin,
-            topInfo.yearWidthMax,
-          );
           final gaugeWidth = clampDouble(
             constraints.maxWidth * topInfo.gaugeWidthFactor,
             topInfo.gaugeWidthMin,
@@ -1105,17 +1173,6 @@ class TopInfoStrip extends StatelessWidget {
                 Row(
                   spacing: rowSpacing,
                   children: [
-                    SizedBox(
-                      width: yearWidth,
-                      child: TopInfoCell(
-                        icon: 'icon-year-${model.table.year.clamp(1, 5)}.png',
-                        value: '',
-                        iconSize: gaugeHeight * 1.3,
-                        contentSpacing: rowSpacing,
-                        height: metrics.topInfoHeight,
-                        tokens: tokens,
-                      ),
-                    ),
                     const Spacer(),
                     SizedBox(
                       width: scoreGroupWidth,
@@ -1342,8 +1399,12 @@ class _JobGaugeState extends State<JobGauge> {
     final tokens = widget.tokens;
     final height = widget.height;
     final width = widget.width;
+    final rewardMarkerWidth =
+        height * tokens.layout.topInfo.rewardMarkerHeightMultiplier + 3;
+    final containsWrecker = jobContainsWrecker(job);
+    final wreckerIconSize = height * 0.4;
     final markerWidth =
-        height * tokens.layout.topInfo.rewardMarkerHeightMultiplier;
+        rewardMarkerWidth + (containsWrecker ? wreckerIconSize + 2 : 0);
     const contentSpacing = 4.0;
     final contentWidth = width - markerWidth - contentSpacing;
     final displayedHours = displayedJobHours(job);
@@ -1368,8 +1429,12 @@ class _JobGaugeState extends State<JobGauge> {
                   width: markerWidth,
                   height: height,
                   child: Center(
-                    child: job.claimed
-                        ? Image.asset(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      spacing: containsWrecker ? 2 : 0,
+                      children: [
+                        if (job.claimed)
+                          Image.asset(
                             'ios_resources/Icons/icon-check.png',
                             width:
                                 height *
@@ -1379,18 +1444,45 @@ class _JobGaugeState extends State<JobGauge> {
                                 tokens.layout.topInfo.checkIconHeightMultiplier,
                             filterQuality: FilterQuality.none,
                           )
-                        : job.reward == null
-                        ? EmptyRewardMarker(
+                        else if (job.reward == null)
+                          EmptyRewardMarker(
                             size: 34,
                             checkSize: topInfoEmptyRewardCheckSize,
                             tokens: tokens,
                           )
-                        : MiniRewardCard(
-                            card: job.reward!,
-                            claimed: job.claimed,
-                            height: height * 0.84,
-                            tokens: tokens,
+                        else
+                          Row(
+                            key: ValueKey('job-gauge-reward-${job.suit}'),
+                            mainAxisSize: MainAxisSize.min,
+                            spacing: 2,
+                            children: [
+                              PixelText(
+                                job.reward!.rank,
+                                size: PixelTextSize.caption,
+                                variant: PixelTextVariant.heavy,
+                                color: tokens.colors.cardInk,
+                              ),
+                              SuitMark(
+                                key: ValueKey(
+                                  'job-gauge-reward-suit-${job.suit}',
+                                ),
+                                suit: job.reward!.suit,
+                                tokens: tokens,
+                                size: height * 0.4,
+                              ),
+                            ],
                           ),
+                        if (containsWrecker)
+                          Image.asset(
+                            'ios_resources/Icons/icon-variant-saboteur.png',
+                            key: ValueKey('job-gauge-wrecker-${job.suit}'),
+                            width: wreckerIconSize,
+                            height: wreckerIconSize,
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.none,
+                          ),
+                      ],
+                    ),
                   ),
                 ),
                 SizedBox(
@@ -1525,6 +1617,10 @@ class ActivePanelView extends StatelessWidget {
     this.onNewGame,
     this.onReturnToLobby,
     this.onCopyGameResult,
+    this.onSaveGameLog,
+    this.gameLogActions = const [],
+    this.gameReactions = const [],
+    this.activeReaction,
     this.gameOverReturnsToLobby = false,
     this.onTutorial,
     this.animationSpeed = defaultGameAnimationSpeed,
@@ -1558,6 +1654,10 @@ class ActivePanelView extends StatelessWidget {
   final VoidCallback? onNewGame;
   final VoidCallback? onReturnToLobby;
   final VoidCallback? onCopyGameResult;
+  final VoidCallback? onSaveGameLog;
+  final List<EngineAction> gameLogActions;
+  final List<OnlineReaction> gameReactions;
+  final OnlineReaction? activeReaction;
   final bool gameOverReturnsToLobby;
   final VoidCallback? onTutorial;
   final GameAnimationSpeed animationSpeed;
@@ -1592,10 +1692,19 @@ class ActivePanelView extends StatelessWidget {
         onNewGame: onNewGame,
         onReturnToLobby: onReturnToLobby,
         onCopyGameResult: onCopyGameResult,
+        onSaveGameLog: onSaveGameLog,
         returnsToLobby: gameOverReturnsToLobby,
       );
     }
     switch (model.panels.active) {
+      case panelLog:
+        return GameLogPanel(
+          model: model,
+          tokens: tokens,
+          language: language,
+          actions: gameLogActions,
+          reactions: gameReactions,
+        );
       case panelJobs:
         return JobsPanel(
           model: model,
@@ -1607,7 +1716,6 @@ class ActivePanelView extends StatelessWidget {
         return PlotPanel(
           model: model,
           tokens: tokens,
-          language: language,
           onPlotCardTap: onPlotCardTap,
         );
       case panelNorth:
@@ -1639,6 +1747,7 @@ class ActivePanelView extends StatelessWidget {
           model: model,
           tokens: tokens,
           language: language,
+          activeReaction: activeReaction,
           compact: compact,
           planningTrumpFocusedSuit: planningTrumpFocusedSuit,
           currentProfileUserID: currentProfileUserID,
@@ -1657,6 +1766,7 @@ class BrigadePanel extends StatefulWidget {
     required this.model,
     required this.tokens,
     required this.language,
+    this.activeReaction,
     this.compact = false,
     this.planningTrumpFocusedSuit,
     this.currentProfileUserID,
@@ -1671,6 +1781,7 @@ class BrigadePanel extends StatefulWidget {
   final TableViewModel model;
   final DesignTokens tokens;
   final KolkhozLanguage language;
+  final OnlineReaction? activeReaction;
   final bool compact;
   final String? planningTrumpFocusedSuit;
   final String? currentProfileUserID;
@@ -1759,6 +1870,7 @@ class _BrigadePanelState extends State<BrigadePanel> {
             model: model,
             tokens: tokens,
             language: language,
+            activeReaction: widget.activeReaction,
             planningTrumpFocusedSuit: widget.planningTrumpFocusedSuit,
             inspectedSeatID: inspectedSeatID,
             onInspectSeat: togglePlayerInspect,
@@ -1815,6 +1927,7 @@ class _BrigadePanelState extends State<BrigadePanel> {
                         phase: model.table.phase,
                         tokens: tokens,
                         language: language,
+                        activeReaction: widget.activeReaction,
                         inspecting: inspectedSeatID == playerOrder[index].id,
                         onInspectSeat: togglePlayerInspect,
                         currentProfileUserID: widget.currentProfileUserID,
@@ -1853,6 +1966,7 @@ class CompactBrigadeGrid extends StatelessWidget {
     required this.model,
     required this.tokens,
     required this.language,
+    this.activeReaction,
     this.planningTrumpFocusedSuit,
     this.inspectedSeatID,
     this.onInspectSeat,
@@ -1870,6 +1984,7 @@ class CompactBrigadeGrid extends StatelessWidget {
   final TableViewModel model;
   final DesignTokens tokens;
   final KolkhozLanguage language;
+  final OnlineReaction? activeReaction;
   final String? planningTrumpFocusedSuit;
   final int? inspectedSeatID;
   final ValueChanged<int>? onInspectSeat;
@@ -1997,6 +2112,7 @@ class CompactBrigadeGrid extends StatelessWidget {
       phase: model.table.phase,
       tokens: tokens,
       language: language,
+      activeReaction: activeReaction,
       inspecting: inspectedSeatID == seat.id,
       onInspectSeat: onInspectSeat,
       currentProfileUserID: currentProfileUserID,
@@ -2056,6 +2172,7 @@ class BrigadePlayerColumn extends StatelessWidget {
     required this.phase,
     required this.tokens,
     required this.language,
+    this.activeReaction,
     this.inspecting = false,
     this.onInspectSeat,
     this.currentProfileUserID,
@@ -2081,6 +2198,7 @@ class BrigadePlayerColumn extends StatelessWidget {
   final String phase;
   final DesignTokens tokens;
   final KolkhozLanguage language;
+  final OnlineReaction? activeReaction;
   final bool inspecting;
   final ValueChanged<int>? onInspectSeat;
   final String? currentProfileUserID;
@@ -2190,6 +2308,9 @@ class BrigadePlayerColumn extends StatelessWidget {
                         height: playerPanelHeight,
                         maxTricks: maxTricks,
                         language: language,
+                        reaction: activeReaction?.playerID == seat.id
+                            ? activeReaction
+                            : null,
                         onInspect: onInspectSeat == null
                             ? null
                             : () => onInspectSeat!(seat.id),
@@ -2250,18 +2371,27 @@ class PendingTrickPreview extends StatelessWidget {
           height: height,
           tokens: tokens,
           language: language,
+          showPrompt: false,
         ),
-        Opacity(
-          key: const Key('pending-trick-card-preview'),
-          opacity: pendingTrickPreviewOpacity,
-          child: FittedBox(
-            fit: BoxFit.contain,
-            child: GameCard(
-              card: card,
-              tokens: tokens,
-              trump: trump,
-              sizeOverride: tokens.card.large,
-              motionTracked: false,
+        Positioned.fill(
+          child: Center(
+            child: FractionallySizedBox(
+              widthFactor: pendingTrickPreviewScale,
+              heightFactor: pendingTrickPreviewScale,
+              child: Opacity(
+                key: const Key('pending-trick-card-preview'),
+                opacity: pendingTrickPreviewOpacity,
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  child: GameCard(
+                    card: card,
+                    tokens: tokens,
+                    trump: trump,
+                    sizeOverride: tokens.card.large,
+                    motionTracked: false,
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -2271,6 +2401,7 @@ class PendingTrickPreview extends StatelessWidget {
 }
 
 const pendingTrickPreviewOpacity = 0.46;
+const pendingTrickPreviewScale = 0.84;
 
 class PlayerBadge extends StatelessWidget {
   const PlayerBadge({
@@ -2278,6 +2409,7 @@ class PlayerBadge extends StatelessWidget {
     required this.tokens,
     required this.active,
     required this.language,
+    this.reaction,
     this.width = 178,
     this.height = 40,
     this.maxTricks = 4,
@@ -2289,6 +2421,7 @@ class PlayerBadge extends StatelessWidget {
   final DesignTokens tokens;
   final bool active;
   final KolkhozLanguage language;
+  final OnlineReaction? reaction;
   final double width;
   final double height;
   final int maxTricks;
@@ -2370,6 +2503,29 @@ class PlayerBadge extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (reaction != null)
+                      Positioned(
+                        key: ValueKey(
+                          'portrait-reaction-${reaction!.revision}',
+                        ),
+                        left: portraitLeft,
+                        top: portraitTop,
+                        width: portraitSize,
+                        height: portraitSize,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: tokens.colors.black.withValues(alpha: 0.62),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.all(portraitSize * 0.18),
+                            child: Image.asset(
+                              'ios_resources/Icons/${reactionAsset(reaction!.reactionID)}',
+                              filterQuality: FilterQuality.none,
+                            ),
+                          ),
+                        ),
+                      ),
                     Positioned(
                       left: contentLeft,
                       top: nameTop,
@@ -2981,6 +3137,7 @@ class CardSlot extends StatelessWidget {
     required this.height,
     required this.tokens,
     required this.language,
+    this.showPrompt = true,
     super.key,
   });
 
@@ -2990,6 +3147,7 @@ class CardSlot extends StatelessWidget {
   final double height;
   final DesignTokens tokens;
   final KolkhozLanguage language;
+  final bool showPrompt;
 
   @override
   Widget build(BuildContext context) {
@@ -3013,7 +3171,7 @@ class CardSlot extends StatelessWidget {
         width: width,
         height: height,
         child: Center(
-          child: active
+          child: active && showPrompt
               ? PixelText(
                   human
                       ? language.t(KolkhozText.boardviewYourTurn)

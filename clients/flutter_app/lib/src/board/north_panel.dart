@@ -11,12 +11,8 @@ import '../render_model.dart';
 import 'board_widgets.dart';
 
 const northColumnVerticalInset = 24.0;
-const northColumnMinHeight = 120.0;
 const northHeaderHeight = 34.0;
-const northCardScrollMinHeight = 70.0;
 const northCardScrollReservedHeight = 16.0;
-const northCardStackBottomPadding = 20.0;
-const northCardStackSpacing = -58.0;
 const northEmptyYearMinHeight = 80.0;
 const northEmptyYearSpacing = 32.0;
 
@@ -25,7 +21,7 @@ double northCardScrollHeight({
   required double headerHeight,
 }) {
   return math.max(
-    northCardScrollMinHeight,
+    0,
     columnHeight - headerHeight - northCardScrollReservedHeight,
   );
 }
@@ -72,11 +68,10 @@ class NorthPanel extends StatelessWidget {
           LayoutBuilder(
             builder: (context, constraints) {
               const spacing = 10.0;
-              final columnHeight =
-                  (constraints.maxHeight - northColumnVerticalInset).clamp(
-                    northColumnMinHeight,
-                    double.infinity,
-                  );
+              final columnHeight = math.max(
+                0.0,
+                constraints.maxHeight - northColumnVerticalInset,
+              );
               const headerHeight = northHeaderHeight;
               final cardScrollHeight = northCardScrollHeight(
                 columnHeight: columnHeight,
@@ -176,7 +171,6 @@ class NorthYearColumn extends StatelessWidget {
               height: cardScrollHeight,
               child: ClipRect(
                 child: NorthCardScrollRegion(
-                  scrollable: cards.length > 2,
                   child: cards.isEmpty
                       ? NorthEmptyYear(current: current, tokens: tokens)
                       : NorthCardStack(cards: cards, tokens: tokens),
@@ -191,21 +185,14 @@ class NorthYearColumn extends StatelessWidget {
 }
 
 class NorthCardScrollRegion extends StatelessWidget {
-  const NorthCardScrollRegion({
-    required this.child,
-    required this.scrollable,
-    super.key,
-  });
+  const NorthCardScrollRegion({required this.child, super.key});
 
   final Widget child;
-  final bool scrollable;
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      physics: scrollable
-          ? const ClampingScrollPhysics()
-          : const NeverScrollableScrollPhysics(),
+      physics: const ClampingScrollPhysics(),
       child: child,
     );
   }
@@ -219,18 +206,35 @@ class NorthCardStack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NegativeSpacingColumn(
-      spacing: northCardStackSpacing,
-      itemHeight: tokens.card.medium.height,
-      bottomPadding: northCardStackBottomPadding,
-      children: [
-        for (final card in cards)
-          GameCard(
-            card: card,
-            tokens: tokens,
-            sizeOverride: tokens.card.medium,
-          ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = constraints.maxWidth;
+        final cardScale = cardWidth / tokens.card.large.width;
+        final cardHeight = tokens.card.large.height * cardScale;
+        return Column(
+          spacing: cardWidth * 0.06,
+          children: [
+            for (final card in cards)
+              NaturalSizeViewport(
+                key: ValueKey('north-card-${card.id}'),
+                width: cardWidth,
+                height: cardHeight,
+                naturalWidth: tokens.card.large.width,
+                naturalHeight: tokens.card.large.height,
+                child: Transform.scale(
+                  alignment: Alignment.topLeft,
+                  scale: cardScale,
+                  child: GameCard(
+                    card: card,
+                    tokens: tokens,
+                    sizeOverride: tokens.card.large,
+                  ),
+                ),
+              ),
+            SizedBox(height: cardWidth * 0.1),
+          ],
+        );
+      },
     );
   }
 }

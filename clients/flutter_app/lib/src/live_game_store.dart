@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ffi';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -21,6 +23,8 @@ import 'table_view_projection.dart';
 bool actionCapturesUndoSnapshot(String actionKind) {
   return actionKind == actionAssign;
 }
+
+const onlineGameRefreshInterval = Duration(seconds: 1);
 
 class LiveGameStore extends ChangeNotifier {
   LiveGameStore({
@@ -78,6 +82,9 @@ class LiveGameStore extends ChangeNotifier {
   bool _onlineActionRefreshInFlight = false;
   Timer? _onlineUpdateQueueTimer;
   final List<OnlineActionUpdate> _onlineUpdateQueue = [];
+  Timer? _reactionFlashTimer;
+  OnlineReaction? _activeReaction;
+  bool _hasUnreadReactions = false;
   Timer? _automaticStepTimer;
   TableViewModel? model;
   Pointer<KCEngine>? _engine;
@@ -172,6 +179,9 @@ class LiveGameStore extends ChangeNotifier {
 
   void setActivePanel(String panel) {
     uiState = uiState.togglePanel(panel);
+    if (panel == panelLog) {
+      _hasUnreadReactions = false;
+    }
     _sync();
   }
 
@@ -198,6 +208,55 @@ class LiveGameStore extends ChangeNotifier {
   String? get onlineInviteCode => _online?.inviteCode;
   int? get onlinePlayerID => _online?.playerID;
   OnlineSessionUpdate? get onlineUpdate => _online?.update;
+  List<EngineAction> get gameLogActions => _online == null
+      ? List.unmodifiable(actionLog)
+      : [
+          for (final action in _online!.update.gameLogActions)
+            action.engineAction,
+        ];
+  List<OnlineReaction> get gameReactions =>
+      List.unmodifiable(_online?.update.reactions ?? const []);
+  OnlineReaction? get activeReaction => _activeReaction;
+  bool get hasUnreadReactions => _hasUnreadReactions;
+  bool get canSendReaction => _online?.update.started ?? false;
+
+  Future<File> saveGameLog() async {
+    final base = KolkhozAutosaveStore.defaultFile().parent;
+    final directory = Directory('${base.path}/match-logs');
+    await directory.create(recursive: true);
+    final timestamp = DateTime.now().toUtc().toIso8601String().replaceAll(
+      ':',
+      '-',
+    );
+    final file = File('${directory.path}/kolkhoz-match-$timestamp.json');
+    final reactions = gameReactions;
+    await file.writeAsString(
+      const JsonEncoder.withIndent('  ').convert({
+        'version': 1,
+        'savedAt': DateTime.now().toUtc().toIso8601String(),
+        'seed': currentSeed,
+        'variants': variantsToJson(currentVariants),
+        'controllers': controllers
+            .map((controller) => controller.name)
+            .toList(),
+        'actions': gameLogActions.map(engineActionToJson).toList(),
+        'reactions': [
+          for (final reaction in reactions)
+            {
+              'revision': reaction.revision,
+              'playerID': reaction.playerID,
+              'reactionID': reaction.reactionID,
+              'year': reaction.year,
+              'phase': reaction.phase,
+              'createdAt': reaction.createdAt,
+            },
+        ],
+      }),
+      flush: true,
+    );
+    return file;
+  }
+
   bool get onlineWaitingForPlayers {
     final update = _online?.update;
     if (update == null) {
@@ -353,7 +412,7 @@ class LiveGameStore extends ChangeNotifier {
         targetPlayerID: playerID,
         seatToken: online.seatToken,
       );
-      online.update = update;
+      _acceptOnlineUpdate(online, update);
       online.legalActions = update.legalActions;
       error = null;
       _sync();
@@ -389,7 +448,7 @@ class LiveGameStore extends ChangeNotifier {
         playerID: online.playerID,
         seatToken: online.seatToken,
       );
-      online.update = update;
+      _acceptOnlineUpdate(online, update);
       online.legalActions = update.legalActions;
       error = null;
       _sync();
@@ -443,6 +502,28 @@ class LiveGameStore extends ChangeNotifier {
     }
     uiState = uiState.selectTrickHandCard(cardID);
     _sync();
+  }
+
+  Future<void> sendReaction(String reactionID) async {
+    final online = _online;
+    if (online == null || !online.update.started) {
+      return;
+    }
+    try {
+      final update = await online.client.submitReaction(
+        sessionID: online.sessionID,
+        playerID: online.playerID,
+        seatToken: online.seatToken,
+        reactionID: reactionID,
+      );
+      _acceptOnlineUpdate(online, update);
+      online.legalActions = update.legalActions;
+      error = null;
+      _sync();
+    } catch (exception) {
+      error = '$exception';
+      notifyListeners();
+    }
   }
 
   void _clearSelectionAfter(String actionKind) {
@@ -527,7 +608,10 @@ class LiveGameStore extends ChangeNotifier {
       seatToken: seatToken,
       update: update,
     );
+    _activeReaction = null;
+    _hasUnreadReactions = false;
     currentVariants = update.variants;
+    currentSeed = update.seed ?? currentSeed;
     controllers = update.controllers;
     restoredSavedGame = false;
     uiState = const GameUiState();
@@ -544,6 +628,10 @@ class LiveGameStore extends ChangeNotifier {
     _onlineRefreshTimer = null;
     _clearOnlineUpdateQueue();
     _clearOnlineRealtime();
+    _reactionFlashTimer?.cancel();
+    _reactionFlashTimer = null;
+    _activeReaction = null;
+    _hasUnreadReactions = false;
     _online = null;
   }
 
@@ -590,7 +678,7 @@ class LiveGameStore extends ChangeNotifier {
     }
     final result = _currentAutomaticSeatUsesNeural(engine)
         ? _stepNeuralAutomatic(engine, _currentAutomaticController(engine))
-        : bridge.stepAutomatic(engine);
+        : _stepHeuristicAutomatic(engine);
     if (result < 0) {
       error = 'Automatic move rejected ($result)';
       notifyListeners();
@@ -626,7 +714,23 @@ class LiveGameStore extends ChangeNotifier {
       _scheduleAutomaticStep();
       return 0;
     }
-    return bridge.stepAutomatic(engine);
+    return _stepHeuristicAutomatic(engine);
+  }
+
+  int _stepHeuristicAutomatic(Pointer<KCEngine> engine) {
+    if (bridge.phase(engine) == kcPhasePlanning && bridge.isFamine(engine)) {
+      return bridge.stepAutomatic(engine);
+    }
+    final action = bridge.heuristicAction(engine);
+    if (action == null) {
+      return 0;
+    }
+    final error = bridge.applyAIAction(engine, action);
+    if (error != 0) {
+      return -error;
+    }
+    actionLog = [...actionLog, engineActionFromCValue(action)];
+    return 1;
   }
 
   bool _currentAutomaticSeatUsesNeural(Pointer<KCEngine> engine) {
@@ -736,7 +840,7 @@ class LiveGameStore extends ChangeNotifier {
 
   void _startOnlinePolling() {
     _onlineRefreshTimer?.cancel();
-    _onlineRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+    _onlineRefreshTimer = Timer.periodic(onlineGameRefreshInterval, (_) {
       unawaited(refreshOnlineGame());
     });
   }
@@ -851,7 +955,7 @@ class LiveGameStore extends ChangeNotifier {
         afterRevision: beforeRevision,
       );
       if (!queued) {
-        online.update = update;
+        _acceptOnlineUpdate(online, update);
         online.legalActions = update.legalActions;
         _sync();
       }
@@ -911,7 +1015,7 @@ class LiveGameStore extends ChangeNotifier {
     final update = hasPendingUpdates
         ? next.update.copyWith(legalActions: const [])
         : next.update;
-    online.update = update;
+    _acceptOnlineUpdate(online, update);
     online.legalActions = update.legalActions;
     error = null;
     _sync();
@@ -936,6 +1040,37 @@ class LiveGameStore extends ChangeNotifier {
     _onlineUpdateQueueTimer = null;
     _onlineUpdateQueue.clear();
     _onlineActionRefreshInFlight = false;
+  }
+
+  void _acceptOnlineUpdate(
+    OnlineGameRuntime online,
+    OnlineSessionUpdate update,
+  ) {
+    final previousRevision = online.update.reactions.isEmpty
+        ? 0
+        : online.update.reactions.last.revision;
+    online.update = update;
+    final newRemoteReactions = update.reactions.where(
+      (reaction) =>
+          reaction.revision > previousRevision &&
+          reaction.playerID != online.playerID,
+    );
+    if (newRemoteReactions.isEmpty) {
+      return;
+    }
+    final latest = newRemoteReactions.last;
+    _activeReaction = latest;
+    if (uiState.activePanel != panelLog) {
+      _hasUnreadReactions = true;
+    }
+    _reactionFlashTimer?.cancel();
+    _reactionFlashTimer = Timer(const Duration(seconds: 3), () {
+      _reactionFlashTimer = null;
+      _activeReaction = null;
+      if (!_disposed) {
+        notifyListeners();
+      }
+    });
   }
 
   Future<void> _leaveOnlineGame(OnlineGameRuntime online) async {
@@ -1014,13 +1149,10 @@ class LiveGameStore extends ChangeNotifier {
   ) {
     if (action.playerID >= 0 &&
         action.playerID < restoredControllers.length &&
-        (restoredControllers[action.playerID] ==
-                KolkhozPlayerController.mediumAI ||
-            restoredControllers[action.playerID] ==
-                KolkhozPlayerController.neuralAI)) {
+        restoredControllers[action.playerID] != KolkhozPlayerController.human) {
       return bridge.applyAIAction(engine, action);
     }
-    return bridge.apply(engine, action);
+    return bridge.applyManual(engine, action);
   }
 
   void _saveAutosave() {
@@ -1078,6 +1210,8 @@ class LiveGameStore extends ChangeNotifier {
     _onlineRefreshTimer = null;
     _clearOnlineUpdateQueue();
     _clearOnlineRealtime();
+    _reactionFlashTimer?.cancel();
+    _reactionFlashTimer = null;
     super.dispose();
   }
 }

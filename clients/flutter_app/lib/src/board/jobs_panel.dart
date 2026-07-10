@@ -22,8 +22,8 @@ const jobsTileHeaderSpacing = 8.0;
 const jobsTileContentGap = 7.0;
 const jobsTileEmptyPromptMinHeight = 42.0;
 const jobsAssignedCardsPerRow = 4;
-const jobsAssignedCardHorizontalOverlapFactor = 0.18;
-const jobsAssignedCardVerticalOverlapFactor = 0.14;
+const jobsAssignedCardHorizontalOverlapFactor = 0.52;
+const jobsAssignedCardVerticalOverlapFactor = 0.28;
 
 List<Job> jobsInDisplayOrder(List<Job> jobs) {
   final jobsBySuit = {for (final job in jobs) job.suit: job};
@@ -141,7 +141,27 @@ int displayedJobHours(Job job) {
   return job.hours + pendingAssignedJobHours(job);
 }
 
+bool jobContainsWrecker(Job job) {
+  return job.assignedCards.any((card) => card.suit == wreckerSuit);
+}
+
 List<List<TableCard>> assignedJobTrickRows(List<TableCard> cards) {
+  final assignedRounds = cards
+      .map((card) => card.assignmentRound)
+      .whereType<int>()
+      .where((round) => round > 0)
+      .toList(growable: false);
+  if (assignedRounds.length == cards.length && assignedRounds.isNotEmpty) {
+    final rows = List.generate(
+      assignedRounds.reduce(math.max),
+      (_) => <TableCard>[],
+    );
+    for (final card in cards) {
+      rows[card.assignmentRound! - 1].add(card);
+    }
+    return rows;
+  }
+
   final rows = <List<TableCard>>[];
   var currentRow = <TableCard>[];
   int? currentRound;
@@ -193,22 +213,36 @@ TokenCardSize assignedJobCardSizeForRows({
   required List<List<TableCard>> rows,
   required DesignTokens tokens,
 }) {
-  for (final size in [
-    tokens.card.large,
-    tokens.card.medium,
-    tokens.card.small,
-  ]) {
-    final contentSize = assignedJobCardRowsContentSize(
-      rows: rows,
-      cardSize: size,
-    );
-    if ((contentSize.width <= availableSize.width &&
-            contentSize.height <= availableSize.height) ||
-        size == tokens.card.small) {
-      return size;
-    }
-  }
-  return tokens.card.small;
+  final base = tokens.card.medium;
+  final contentSize = assignedJobCardRowsContentSize(
+    rows: rows,
+    cardSize: base,
+  );
+  final widthScale = contentSize.width == 0 || !availableSize.width.isFinite
+      ? 1.0
+      : availableSize.width / contentSize.width;
+  final heightScale = contentSize.height == 0 || !availableSize.height.isFinite
+      ? 1.0
+      : availableSize.height / contentSize.height;
+  final scale = math.min(1.0, math.min(widthScale, heightScale));
+  return scaledAssignedJobCardSize(base, math.max(0.01, scale));
+}
+
+TokenCardSize scaledAssignedJobCardSize(TokenCardSize base, double scale) {
+  return TokenCardSize(
+    width: base.width * scale,
+    height: base.height * scale,
+    faceInset: base.faceInset * scale,
+    cornerWidth: base.cornerWidth * scale,
+    cornerHeight: base.cornerHeight * scale,
+    cornerRankFontSize: base.cornerRankFontSize * scale,
+    cornerSuitSize: base.cornerSuitSize * scale,
+    topCornerRankSuitSpacing: base.topCornerRankSuitSpacing * scale,
+    bottomCornerRankSuitSpacing: base.bottomCornerRankSuitSpacing * scale,
+    topCornerSuitXOffset: base.topCornerSuitXOffset * scale,
+    bottomCornerSuitXOffset: base.bottomCornerSuitXOffset * scale,
+    pipSize: base.pipSize * scale,
+  );
 }
 
 class JobsPanel extends StatelessWidget {
@@ -395,37 +429,51 @@ class _JobTileState extends State<JobTile> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      spacing: jobsTileHeaderSpacing,
-                      children: [
-                        job.reward == null
-                            ? EmptyRewardMarker(size: 34, tokens: tokens)
-                            : MiniRewardCard(
-                                card: job.reward!,
-                                claimed: job.claimed,
-                                height: 34,
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final compactHeader = constraints.maxWidth < 140;
+                        final rewardHeight = compactHeader ? 28.0 : 34.0;
+                        return Row(
+                          spacing: compactHeader ? 4 : jobsTileHeaderSpacing,
+                          children: [
+                            job.reward == null
+                                ? EmptyRewardMarker(
+                                    size: rewardHeight,
+                                    tokens: tokens,
+                                  )
+                                : MiniRewardCard(
+                                    card: job.reward!,
+                                    claimed: job.claimed,
+                                    height: rewardHeight,
+                                    tokens: tokens,
+                                  ),
+                            Expanded(
+                              child: ProgressBar(
+                                value: progress,
+                                complete: job.claimed,
                                 tokens: tokens,
                               ),
-                        Expanded(
-                          child: ProgressBar(
-                            value: progress,
-                            complete: job.claimed,
-                            tokens: tokens,
-                          ),
-                        ),
-                        PixelText(
-                          job.claimed
-                              ? widget.language.t(
-                                  KolkhozText.boardJobspanelDone,
-                                )
-                              : '$displayHours/${job.requiredHours}',
-                          size: PixelTextSize.headline,
-                          variant: PixelTextVariant.heavy,
-                          color: job.claimed
-                              ? tokens.colors.green
-                              : tokens.colors.gold,
-                        ),
-                      ],
+                            ),
+                            Flexible(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: PixelText(
+                                  job.claimed
+                                      ? widget.language.t(
+                                          KolkhozText.boardJobspanelDone,
+                                        )
+                                      : '$displayHours/${job.requiredHours}',
+                                  size: PixelTextSize.headline,
+                                  variant: PixelTextVariant.heavy,
+                                  color: job.claimed
+                                      ? tokens.colors.green
+                                      : tokens.colors.gold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: jobsTileContentGap),
                     Expanded(
@@ -519,6 +567,7 @@ class AssignedJobCardStack extends StatelessWidget {
                     ),
                     top: rowIndex * assignedJobCardVerticalStep(cardSize),
                     child: JobBucketCard(
+                      key: ValueKey('assigned-job-card-${card.id}'),
                       card: card,
                       tokens: tokens,
                       trump: trump,

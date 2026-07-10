@@ -53,6 +53,13 @@ class PixelText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cached = PixelFontAtlasCache.instance.get(
+      variant: variant,
+      size: size,
+    );
+    if (cached != null) {
+      return _paint(cached);
+    }
     return FutureBuilder<PixelFontAtlas>(
       future: PixelFontAtlasCache.instance.load(variant: variant, size: size),
       builder: (context, snapshot) {
@@ -73,18 +80,20 @@ class PixelText extends StatelessWidget {
             ),
           );
         }
-        return _PixelTextPaint(
-          text: text,
-          atlas: atlas,
-          color: color,
-          textAlign: textAlign,
-          maxLines: maxLines,
-          overflow: overflow,
-          softWrap: softWrap,
-        );
+        return _paint(atlas);
       },
     );
   }
+
+  Widget _paint(PixelFontAtlas atlas) => _PixelTextPaint(
+    text: text,
+    atlas: atlas,
+    color: color,
+    textAlign: textAlign,
+    maxLines: maxLines,
+    overflow: overflow,
+    softWrap: softWrap,
+  );
 }
 
 class _PixelTextPaint extends StatelessWidget {
@@ -209,15 +218,40 @@ class PixelFontAtlasCache {
 
   static final instance = PixelFontAtlasCache._();
 
-  final _atlases = <String, Future<PixelFontAtlas>>{};
+  final _atlases = <String, PixelFontAtlas>{};
+  final _loads = <String, Future<PixelFontAtlas>>{};
+
+  void resetForTesting() {
+    _atlases.clear();
+    _loads.clear();
+  }
+
+  PixelFontAtlas? get({
+    required PixelTextVariant variant,
+    required PixelTextSize size,
+  }) {
+    return _atlases[_name(variant, size)];
+  }
 
   Future<PixelFontAtlas> load({
     required PixelTextVariant variant,
     required PixelTextSize size,
   }) {
-    final name = 'handjet-${variant.assetCode}-${size.value}px';
-    return _atlases.putIfAbsent(name, () => PixelFontAtlas.load(name));
+    final name = _name(variant, size);
+    final cached = _atlases[name];
+    if (cached != null) {
+      return Future.value(cached);
+    }
+    return _loads.putIfAbsent(name, () async {
+      final atlas = await PixelFontAtlas.load(name);
+      _atlases[name] = atlas;
+      _loads.remove(name);
+      return atlas;
+    });
   }
+
+  String _name(PixelTextVariant variant, PixelTextSize size) =>
+      'handjet-${variant.assetCode}-${size.value}px';
 }
 
 class PixelFontAtlas {

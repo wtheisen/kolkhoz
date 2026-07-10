@@ -19,10 +19,9 @@ class BoardRail extends StatelessWidget {
     required this.tokens,
     required this.metrics,
     required this.language,
-    required this.appearance,
+    required this.year,
+    this.hasUnreadLogMessages = false,
     this.onPanelSelected,
-    this.onLanguageToggle,
-    this.onAppearanceToggle,
     super.key,
   });
 
@@ -31,10 +30,9 @@ class BoardRail extends StatelessWidget {
   final DesignTokens tokens;
   final ResponsiveBoardMetrics metrics;
   final KolkhozLanguage language;
-  final KolkhozAppearance appearance;
+  final int year;
+  final bool hasUnreadLogMessages;
   final ValueChanged<String>? onPanelSelected;
-  final VoidCallback? onLanguageToggle;
-  final VoidCallback? onAppearanceToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -44,10 +42,9 @@ class BoardRail extends StatelessWidget {
       tokens: tokens,
       metrics: metrics,
       language: language,
-      appearance: appearance,
+      year: year,
+      hasUnreadLogMessages: hasUnreadLogMessages,
       onPanelSelected: onPanelSelected,
-      onLanguageToggle: onLanguageToggle,
-      onAppearanceToggle: onAppearanceToggle,
     );
     return Container(
       color: tokens.colors.table,
@@ -55,7 +52,18 @@ class BoardRail extends StatelessWidget {
         horizontal: metrics.railHorizontalPadding,
         vertical: metrics.railVerticalPadding,
       ),
-      child: Column(spacing: metrics.railSpacing, children: buttons),
+      child: Column(
+        children: [
+          buttons.first,
+          for (final button in buttons.skip(1).take(buttons.length - 2))
+            Padding(
+              padding: EdgeInsets.only(top: metrics.railSpacing),
+              child: button,
+            ),
+          const Spacer(),
+          buttons.last,
+        ],
+      ),
     );
   }
 }
@@ -67,10 +75,9 @@ class CompactBoardToolbar extends StatefulWidget {
     required this.tokens,
     required this.metrics,
     required this.language,
-    required this.appearance,
+    required this.year,
+    this.hasUnreadLogMessages = false,
     this.onPanelSelected,
-    this.onLanguageToggle,
-    this.onAppearanceToggle,
     super.key,
   });
 
@@ -79,10 +86,9 @@ class CompactBoardToolbar extends StatefulWidget {
   final DesignTokens tokens;
   final ResponsiveBoardMetrics metrics;
   final KolkhozLanguage language;
-  final KolkhozAppearance appearance;
+  final int year;
+  final bool hasUnreadLogMessages;
   final ValueChanged<String>? onPanelSelected;
-  final VoidCallback? onLanguageToggle;
-  final VoidCallback? onAppearanceToggle;
 
   @override
   State<CompactBoardToolbar> createState() => _CompactBoardToolbarState();
@@ -99,10 +105,9 @@ class _CompactBoardToolbarState extends State<CompactBoardToolbar> {
       tokens: widget.tokens,
       metrics: widget.metrics,
       language: widget.language,
-      appearance: widget.appearance,
+      year: widget.year,
+      hasUnreadLogMessages: widget.hasUnreadLogMessages,
       onPanelSelected: widget.onPanelSelected,
-      onLanguageToggle: widget.onLanguageToggle,
-      onAppearanceToggle: widget.onAppearanceToggle,
     );
     return Container(
       height: expanded
@@ -146,7 +151,7 @@ class _CompactBoardToolbarState extends State<CompactBoardToolbar> {
                             label: compactToolbarLabelForIndex(
                               index,
                               widget.language,
-                              widget.appearance,
+                              widget.year,
                             ),
                             tokens: widget.tokens,
                             child: buttons[index],
@@ -199,16 +204,16 @@ class CompactToolbarButtonLabel extends StatelessWidget {
 String compactToolbarLabelForIndex(
   int index,
   KolkhozLanguage language,
-  KolkhozAppearance appearance,
+  int year,
 ) {
   return switch (index) {
-    0 => language.t(KolkhozText.boardOptionspanelMenu),
-    1 => language.t(KolkhozText.boardBoardrailBoard),
+    0 => language.t(KolkhozText.lowerbaractionsYearValue1, {'value1': year}),
+    1 => language.t(KolkhozText.boardBoardrailBrigade),
     2 => language.t(KolkhozText.boardBoardrailJobs),
-    3 => language.t(KolkhozText.boardBoardrailNorth),
+    3 => language.t(KolkhozText.boardBoardrailTheNorth),
     4 => language.t(KolkhozText.boardBoardrailCellar),
-    5 => language.t(KolkhozText.boardBoardrailLang),
-    6 => appearance.label(language),
+    5 => language == KolkhozLanguage.en ? 'Log' : 'Журнал',
+    6 => language.t(KolkhozText.boardOptionspanelMenu),
     _ => '',
   };
 }
@@ -219,21 +224,18 @@ List<Widget> boardRailButtons({
   required DesignTokens tokens,
   required ResponsiveBoardMetrics metrics,
   required KolkhozLanguage language,
-  required KolkhozAppearance appearance,
+  required int year,
+  bool hasUnreadLogMessages = false,
   ValueChanged<String>? onPanelSelected,
-  VoidCallback? onLanguageToggle,
-  VoidCallback? onAppearanceToggle,
 }) {
   return [
-    RailButton(
-      asset: 'icon-menu.png',
-      active: activePanel == panelOptions,
-      action: false,
-      label: language.t(KolkhozText.boardOptionspanelMenu),
-      muted: activePanel != panelOptions,
+    RailStatusIcon(
+      asset: 'icon-year-${year.clamp(1, 5)}.png',
+      label: language.t(KolkhozText.lowerbaractionsYearValue1, {
+        'value1': year,
+      }),
       tokens: tokens,
       metrics: metrics,
-      onTap: () => onPanelSelected?.call(panelOptions),
     ),
     RailButton(
       asset: 'icon-brigade.png',
@@ -277,24 +279,75 @@ List<Widget> boardRailButtons({
       onTap: () => onPanelSelected?.call(panelPlot),
     ),
     RailButton(
-      asset: language.toggleIconAsset,
-      active: false,
+      asset: 'icon-game-log.png',
+      active: activePanel == panelLog,
       action: false,
-      label: language.toggleTitle,
+      label: language == KolkhozLanguage.en ? 'Game Log' : 'Журнал игры',
+      muted: activePanel != panelLog,
+      unread: hasUnreadLogMessages,
       tokens: tokens,
       metrics: metrics,
-      onTap: onLanguageToggle,
+      onTap: () => onPanelSelected?.call(panelLog),
     ),
     RailButton(
-      asset: appearance.toggleIconAsset,
-      active: false,
+      asset: 'icon-menu.png',
+      active: activePanel == panelOptions,
       action: false,
-      label: appearance.toggleTitle(language),
+      label: language.t(KolkhozText.boardOptionspanelMenu),
+      muted: activePanel != panelOptions,
       tokens: tokens,
       metrics: metrics,
-      onTap: onAppearanceToggle,
+      onTap: () => onPanelSelected?.call(panelOptions),
     ),
   ];
+}
+
+class RailStatusIcon extends StatelessWidget {
+  const RailStatusIcon({
+    required this.asset,
+    required this.label,
+    required this.tokens,
+    required this.metrics,
+    super.key,
+  });
+
+  final String asset;
+  final String label;
+  final DesignTokens tokens;
+  final ResponsiveBoardMetrics metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        container: true,
+        image: true,
+        label: label,
+        child: ExcludeSemantics(
+          child: SizedBox(
+            width: metrics.railButtonSize,
+            height: metrics.railButtonSize,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                const Positioned.fill(
+                  child: ChromeButtonBackground(
+                    asset: 'ios_resources/ui-nav-button-inactive.png',
+                  ),
+                ),
+                ChromeAssetIcon(
+                  asset: 'ios_resources/Icons/$asset',
+                  width: metrics.railIconSize,
+                  height: metrics.railIconSize,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class RailButton extends StatelessWidget {
@@ -306,6 +359,7 @@ class RailButton extends StatelessWidget {
     required this.tokens,
     required this.metrics,
     this.muted = false,
+    this.unread = false,
     this.motionKey,
     this.onTap,
     super.key,
@@ -318,6 +372,7 @@ class RailButton extends StatelessWidget {
   final DesignTokens tokens;
   final ResponsiveBoardMetrics metrics;
   final bool muted;
+  final bool unread;
   final String? motionKey;
   final VoidCallback? onTap;
 
@@ -390,6 +445,21 @@ class RailButton extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (unread)
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: Container(
+                            key: const Key('game-log-unread-dot'),
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: tokens.colors.redBright,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: tokens.colors.cream),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),

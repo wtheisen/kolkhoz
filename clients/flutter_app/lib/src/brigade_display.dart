@@ -12,13 +12,13 @@ const brigadeColumnPadding = EdgeInsets.only(
   left: 8,
   top: 6,
   right: 8,
-  bottom: 10,
+  bottom: 4,
 );
 const brigadePlayerPanelAspectRatio = 672 / 262;
 const brigadePlayerPanelHeightMin = 42.0;
 const brigadePlayObjectWidthFactor = 0.9;
 const brigadePlayAreaTopInset = 10.0;
-const brigadeColumnContentBottomPadding = 12.0;
+const brigadeColumnContentBottomPadding = 4.0;
 
 double brigadeColumnSpacing(double width) {
   return clampDouble(
