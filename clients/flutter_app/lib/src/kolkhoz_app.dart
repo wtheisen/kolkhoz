@@ -92,6 +92,13 @@ class KolkhozApp extends StatefulWidget {
   State<KolkhozApp> createState() => _KolkhozAppState();
 }
 
+enum KolkhozGameLaunchOrigin {
+  created,
+  joined;
+
+  bool get returnsToJoinGame => this == KolkhozGameLaunchOrigin.joined;
+}
+
 class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   static const foremanHintDuration = Duration(seconds: 3);
   static const onlinePresenceHeartbeatInterval = Duration(seconds: 15);
@@ -121,6 +128,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   bool showingProfile = false;
   KolkhozSettingsTab selectedSettingsTab = KolkhozSettingsTab.profile;
   bool onlineSessionCreatedByLocalPlayer = false;
+  KolkhozGameLaunchOrigin gameLaunchOrigin = KolkhozGameLaunchOrigin.created;
   bool showingTutorial = false;
   String? foremanHint;
   Timer? foremanHintTimer;
@@ -279,6 +287,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
                   controllers: controllers,
                 );
                 setState(() {
+                  gameLaunchOrigin = KolkhozGameLaunchOrigin.created;
                   onlineSessionCreatedByLocalPlayer = false;
                   showingLobby = false;
                 });
@@ -412,7 +421,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
                   canSendReaction: store.canSendReaction,
                   onReaction: store.sendReaction,
                   activeReaction: store.activeReaction,
-                  gameOverReturnsToLobby: store.isOnlineGame,
+                  gameOverReturnsToLobby: true,
                   onTutorial: showTutorial,
                   animationSpeed: store.animationSpeed,
                   onAnimationSpeedChanged: store.setAnimationSpeed,
@@ -558,6 +567,10 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
 
   Future<void> requestNewGameFromBoard() async {
     clearForemanHint();
+    if (store.model?.table.phase == phaseGameOver) {
+      returnToLobby();
+      return;
+    }
     if (settings.confirmNewGame) {
       final confirmed = await confirmGameControl(
         title: settings.language.t(KolkhozText.kolkhozappNewGame),
@@ -600,6 +613,9 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     store.leaveOnlineGame();
     setState(() {
       onlineSessionCreatedByLocalPlayer = false;
+      showingRules = false;
+      showingOnline = gameLaunchOrigin.returnsToJoinGame;
+      showingProfile = false;
       showingLobby = true;
     });
   }
@@ -1280,6 +1296,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
       browserJoinable: browserJoinable,
     );
     setState(() {
+      gameLaunchOrigin = KolkhozGameLaunchOrigin.created;
       showingRules = false;
       showingOnline = false;
       showingProfile = false;
@@ -1320,6 +1337,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
       preferredPlayerID: preferredPlayerID,
     );
     setState(() {
+      gameLaunchOrigin = KolkhozGameLaunchOrigin.joined;
       showingRules = false;
       showingOnline = true;
       showingProfile = false;
@@ -1346,6 +1364,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
       comradesOnly: comradesOnly,
     );
     setState(() {
+      gameLaunchOrigin = KolkhozGameLaunchOrigin.joined;
       showingRules = false;
       showingOnline = true;
       showingProfile = false;

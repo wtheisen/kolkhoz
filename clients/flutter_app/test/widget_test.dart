@@ -43,6 +43,11 @@ import 'package:kolkhoz_app/src/trump_actions.dart';
 import 'package:kolkhoz_app/src/tutorial_display.dart';
 
 void main() {
+  test('completed games return to the lobby section they launched from', () {
+    expect(KolkhozGameLaunchOrigin.created.returnsToJoinGame, isFalse);
+    expect(KolkhozGameLaunchOrigin.joined.returnsToJoinGame, isTrue);
+  });
+
   test('online gameplay fallback refreshes once per second', () {
     expect(onlineGameRefreshInterval, const Duration(seconds: 1));
   });
