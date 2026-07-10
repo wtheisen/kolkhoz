@@ -7,6 +7,8 @@ import html
 import json
 import mimetypes
 import os
+import subprocess
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -18,6 +20,49 @@ from .history import CURRENT_EXPERIMENT_PATH, HISTORY_PATH, REPO_ROOT, STATE_ROO
 
 DASHBOARD_DIR = REPO_ROOT / "research/dashboard"
 RUNNING_STALE_SECONDS = 180
+ONLINE_SMOKE_LOG = REPO_ROOT / "research/logs/online_smoke.jsonl"
+ONLINE_SMOKE_RUNNER = REPO_ROOT / "research/scripts/run_authenticated_online_smoke.sh"
+_online_smoke_lock = threading.Lock()
+_online_smoke_process: subprocess.Popen[bytes] | None = None
+
+
+def _online_smoke_runs(limit: int = 20) -> list[dict[str, Any]]:
+    if not ONLINE_SMOKE_LOG.exists():
+        return []
+    try:
+        lines = ONLINE_SMOKE_LOG.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    runs: list[dict[str, Any]] = []
+    for line in lines[-limit:]:
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, dict):
+            runs.append(value)
+    return list(reversed(runs))
+
+
+def _online_smoke_status() -> dict[str, Any]:
+    with _online_smoke_lock:
+        running = _online_smoke_process is not None and _online_smoke_process.poll() is None
+    runs = _online_smoke_runs()
+    return {"running": running, "latest": runs[0] if runs else None, "runs": runs}
+
+
+def _start_online_smoke() -> bool:
+    global _online_smoke_process
+    with _online_smoke_lock:
+        if _online_smoke_process is not None and _online_smoke_process.poll() is None:
+            return False
+        _online_smoke_process = subprocess.Popen(
+            [str(ONLINE_SMOKE_RUNNER)],
+            cwd=REPO_ROOT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    return True
 
 
 def _allowed_data_roots() -> list[Path]:
@@ -604,6 +649,7 @@ def dashboard_payload() -> dict[str, Any]:
             "history": _repo_relative(HISTORY_PATH),
             "current": _repo_relative(CURRENT_EXPERIMENT_PATH),
         },
+        "online_smoke": _online_smoke_status(),
     }
 
 
@@ -621,6 +667,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/login":
             self._handle_login()
+            return
+        if not self._is_authorized():
+            self._send_auth_required(include_body=True)
+            return
+        if parsed.path == "/api/online-smoke/run":
+            started = _start_online_smoke()
+            self._send_json(
+                {"started": started, **_online_smoke_status()},
+                include_body=True,
+                status=202 if started else 409,
+            )
             return
         self.send_error(404)
 
@@ -873,9 +930,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if include_body:
             self.wfile.write(body)
 
-    def _send_json(self, payload: dict[str, Any], *, include_body: bool) -> None:
+    def _send_json(
+        self,
+        payload: dict[str, Any],
+        *,
+        include_body: bool,
+        status: int = 200,
+    ) -> None:
         data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
-        self.send_response(200)
+        self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(data)))

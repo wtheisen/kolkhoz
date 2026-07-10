@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  engine-and-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check C engine
+        run: >-
+          clang -std=c11 -I engine/KolkhozCEngine/include -fsyntax-only
+          engine/KolkhozCEngine/KolkhozCEngine.c
+      - name: Test online progression and smoke tooling
+        run: >-
+          python3 -m unittest
+          research.tests.test_progression
+          research.tests.test_online_server
+          research.tests.test_online_smoke
+          research.tests.test_dashboard_smoke
+
+  flutter:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: clients/flutter_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: ./tool/build_c_engine_macos.sh
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build macos --debug

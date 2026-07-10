@@ -187,6 +187,54 @@ h2 {
   border-color: #bcd1b7;
 }
 
+.smoke-panel {
+  order: 4;
+  margin: 18px 0;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.smoke-button {
+  min-height: 38px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--blue);
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.smoke-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.smoke-summary {
+  color: var(--muted);
+}
+
+.smoke-runs {
+  display: grid;
+  gap: 6px;
+}
+
+.smoke-run {
+  display: grid;
+  grid-template-columns: 72px 1fr 90px minmax(100px, 1fr);
+  gap: 12px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--line);
+  background: var(--paper);
+  font-size: 13px;
+}
+
+.smoke-run.passed { border-left-color: #4f7e55; }
+.smoke-run.failed { border-left-color: #a9493d; }
+
 .status-pill.eval {
   color: #563a83;
   background: #efe9fb;
@@ -1316,6 +1364,20 @@ td {
 }
 
 @media (max-width: 640px) {
+  .smoke-panel {
+    padding: 14px;
+  }
+
+  .smoke-run {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 10px;
+  }
+
+  .smoke-run span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
   .shell {
     padding: 16px;
   }
