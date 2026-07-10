@@ -418,6 +418,11 @@ List<PlayerProfileStatGroup> kolkhozProfileStatGroups({
       label: language.t(KolkhozText.kolkhozappCasual),
       stats: [
         PlayerProfileStat(
+          label: language.t(KolkhozText.kolkhozappRating),
+          value: stats.casualRating.toString(),
+          prominent: true,
+        ),
+        PlayerProfileStat(
           label: language.t(KolkhozText.kolkhozappGames),
           value: stats.casualPlays.toString(),
         ),
@@ -571,7 +576,9 @@ class _PlayerProfileStatGroupCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: kolkhozFontStyle.copyWith(
-              color: tokens.colors.creamDim.withValues(alpha: 0.76),
+              color: prominent
+                  ? tokens.colors.activeSurfaceTextMuted
+                  : tokens.colors.creamDim.withValues(alpha: 0.76),
               fontSize: 11,
               fontWeight: FontWeight.w600,
             ),
@@ -580,6 +587,7 @@ class _PlayerProfileStatGroupCard extends StatelessWidget {
             _PlayerProfileStatRow(
               tokens: tokens,
               stat: stat,
+              prominentGroup: prominent,
               showLabel: group.stats.length > 1 || group.label != stat.label,
             ),
         ],
@@ -592,18 +600,25 @@ class _PlayerProfileStatRow extends StatelessWidget {
   const _PlayerProfileStatRow({
     required this.tokens,
     required this.stat,
+    required this.prominentGroup,
     required this.showLabel,
   });
 
   final DesignTokens tokens;
   final PlayerProfileStat stat;
+  final bool prominentGroup;
   final bool showLabel;
 
   @override
   Widget build(BuildContext context) {
-    final valueColor = stat.prominent
+    final valueColor = prominentGroup
+        ? tokens.colors.activeSurfaceText
+        : stat.prominent
         ? tokens.colors.gold
         : tokens.colors.cream;
+    final labelColor = prominentGroup
+        ? tokens.colors.activeSurfaceTextMuted
+        : tokens.colors.creamDim.withValues(alpha: 0.76);
     return Row(
       children: [
         if (showLabel)
@@ -613,7 +628,7 @@ class _PlayerProfileStatRow extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: kolkhozFontStyle.copyWith(
-                color: tokens.colors.creamDim.withValues(alpha: 0.76),
+                color: labelColor,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),

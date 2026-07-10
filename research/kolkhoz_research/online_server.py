@@ -56,6 +56,7 @@ DEFAULT_SESSION_TTL_SECONDS = 30 * 60
 PERSISTED_TOUCH_INTERVAL_SECONDS = 60
 DEFAULT_TURN_SECONDS = 90
 PRESENCE_GRACE_SECONDS = 20
+ONLINE_PRESENCE_SECONDS = 60
 TIMEOUTS_BEFORE_AUTOPILOT = 2
 DEFAULT_BACKGROUND_TICK_SECONDS = 1.0
 BOT_LOBBY_SEED_INTERVAL_SECONDS = 15 * 60
@@ -68,6 +69,7 @@ DEFAULT_MATCHMAKING_RATING = 1000
 MATCHMAKING_IDEAL_RATING_DELTA = 300
 MATCHMAKING_ACCEPTABLE_RATING_DELTA = 600
 PROFILE_BOT_TARGET_WAIT_SECONDS = 90
+POSTGRES_BIGINT_MAX = (1 << 63) - 1
 DEFAULT_ONLINE_POLICY_PATH = REPO_ROOT / "clients/flutter_app/assets/policies/hard_policy.json"
 DEFAULT_ONLINE_POLICY_PATHS = {
     "mediumAI": REPO_ROOT / "clients/flutter_app/assets/policies/medium_policy.json",
@@ -456,10 +458,24 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
         service = self.server.service
         if method == "GET" and parts == ["health"]:
             return {"status": "ok"}
+        if method == "POST" and parts == ["presence"]:
+            authorization = _authorization_header(headers)
+            user_id = (
+                service.user_id_from_authorization(authorization)
+                if authorization is not None
+                else None
+            )
+            service.mark_online_presence(user_id=user_id)
+            return service.metrics_snapshot()
         if method == "GET" and parts == ["metrics"]:
             return service.metrics_snapshot()
+        authorization = _authorization_header(headers)
+        user_id = (
+            service.user_id_from_authorization(authorization)
+            if authorization is not None
+            else None
+        )
         if len(parts) >= 1 and parts[0] == "comrades":
-            user_id = service.user_id_from_authorization(_authorization_header(headers))
             if method == "GET" and len(parts) == 1:
                 return service.comrades(user_id=user_id)
             if method == "POST" and len(parts) == 1:
@@ -469,25 +485,11 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
             if method == "POST" and len(parts) == 2 and parts[1] == "remove":
                 return service.remove_comrade(body, user_id=user_id)
         if method == "GET" and parts == ["sessions"]:
-            return service.list_sessions(
-                user_id=service.user_id_from_authorization(
-                    _authorization_header(headers),
-                ),
-            )
+            return service.list_sessions(user_id=user_id)
         if method == "POST" and parts == ["sessions"]:
-            return service.create_session(
-                body,
-                user_id=service.user_id_from_authorization(
-                    _authorization_header(headers),
-                ),
-            )
+            return service.create_session(body, user_id=user_id)
         if method == "POST" and parts == ["sessions", "matchmake"]:
-            return service.matchmake_session(
-                body,
-                user_id=service.user_id_from_authorization(
-                    _authorization_header(headers),
-                ),
-            )
+            return service.matchmake_session(body, user_id=user_id)
         if len(parts) >= 2 and parts[0] == "sessions":
             session_id = parts[1]
             if method == "GET" and len(parts) == 2:
@@ -496,9 +498,7 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
                 return service.join_session(
                     session_id,
                     body,
-                    user_id=service.user_id_from_authorization(
-                        _authorization_header(headers),
-                    ),
+                    user_id=user_id,
                 )
             if (
                 method == "POST"
@@ -510,9 +510,7 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
                     session_id,
                     _parse_int(parts[3], "playerID"),
                     _seat_token(headers, query, body),
-                    user_id=service.user_id_from_authorization(
-                        _authorization_header(headers),
-                    ),
+                    user_id=user_id,
                 )
             if (
                 method == "POST"
@@ -525,18 +523,14 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
                     _parse_int(parts[3], "playerID"),
                     body,
                     _seat_token(headers, query, body),
-                    user_id=service.user_id_from_authorization(
-                        _authorization_header(headers),
-                    ),
+                    user_id=user_id,
                 )
             if method == "GET" and len(parts) == 3 and parts[2] == "state":
                 return service.update(
                     session_id,
                     _optional_int_query(query, "viewerID"),
                     _seat_token(headers, query, body),
-                    user_id=service.user_id_from_authorization(
-                        _authorization_header(headers),
-                    ),
+                    user_id=user_id,
                 )
             if method == "GET" and len(parts) == 3 and parts[2] == "actions":
                 return service.action_updates(
@@ -544,9 +538,7 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
                     _optional_int_query(query, "viewerID"),
                     _required_int_query(query, "afterRevision"),
                     _seat_token(headers, query, body),
-                    user_id=service.user_id_from_authorization(
-                        _authorization_header(headers),
-                    ),
+                    user_id=user_id,
                 )
             if (
                 method == "GET"
@@ -558,18 +550,14 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
                     session_id,
                     _parse_int(parts[3], "playerID"),
                     _seat_token(headers, query, body),
-                    user_id=service.user_id_from_authorization(
-                        _authorization_header(headers),
-                    ),
+                    user_id=user_id,
                 )
             if method == "POST" and len(parts) == 3 and parts[2] == "actions":
                 return service.submit_action(
                     session_id,
                     body,
                     _seat_token(headers, query, body),
-                    user_id=service.user_id_from_authorization(
-                        _authorization_header(headers),
-                    ),
+                    user_id=user_id,
                 )
         raise OnlineServerError(HTTPStatus.NOT_FOUND, "route not found")
 
@@ -824,6 +812,7 @@ class KolkhozOnlineSessionService:
         self._background_thread: threading.Thread | None = None
         self._lock = threading.RLock()
         self._policy_lock = threading.RLock()
+        self._online_presence: dict[str, float] = {}
         self.metrics = OnlineServerMetrics()
         self.population_handler = (
             OnlinePopulationHandler(self) if population_enabled else None
@@ -926,13 +915,26 @@ class KolkhozOnlineSessionService:
     def metrics_snapshot(self) -> dict[str, object]:
         return self.metrics.snapshot(self)
 
+    def mark_online_presence(
+        self,
+        *,
+        user_id: str | None,
+    ) -> None:
+        key = _online_presence_key(user_id)
+        if key is None:
+            return
+        with self._lock:
+            self._online_presence[key] = time.time()
+
     def metrics_state(self) -> dict[str, object]:
         with self._lock:
             sessions = list(self._sessions.values())
+            self._prune_online_presence_locked()
+            connected_online_clients = len(self._online_presence)
         now = time.time()
         active_sessions = len(sessions)
         active_seats = sum(len(hosted.occupied_seats) for hosted in sessions)
-        connected_human_seats = sum(
+        connected_seated_human_seats = sum(
             1
             for hosted in sessions
             for player_id in hosted.occupied_seats
@@ -952,14 +954,23 @@ class KolkhozOnlineSessionService:
         return {
             "activeSessions": active_sessions,
             "activeSeats": active_seats,
-            "connectedHumanSeats": connected_human_seats,
+            "connectedHumanSeats": connected_online_clients,
+            "connectedSeatedHumanSeats": connected_seated_human_seats,
             "profiledBotSeats": len(SERVER_BOT_PROFILES),
-            "citizensOnline": connected_human_seats + len(SERVER_BOT_PROFILES),
+            "citizensOnline": connected_online_clients + len(SERVER_BOT_PROFILES),
             "actionCacheEntries": action_cache_entries,
             "actionCacheViewerSnapshots": action_cache_viewer_snapshots,
             "populationEnabled": self.population_handler is not None,
             "storeConfigured": self.store is not None,
         }
+
+    def _prune_online_presence_locked(self) -> None:
+        cutoff = time.time() - ONLINE_PRESENCE_SECONDS
+        expired = [
+            key for key, last_seen in self._online_presence.items() if last_seen < cutoff
+        ]
+        for key in expired:
+            del self._online_presence[key]
 
     def create_session(
         self,
@@ -1345,7 +1356,7 @@ class KolkhozOnlineSessionService:
                 ).hexdigest()[:16],
                 16,
             )
-            seed &= (1 << 64) - 1
+            seed &= POSTGRES_BIGINT_MAX
             session_id = str(uuid.uuid4())
             invite_code = self._generate_invite_code()
             variants = _normalize_variants(None)
@@ -2921,6 +2932,26 @@ class KolkhozOnlineSessionService:
             self._policy_models[controller] = model
             return model
 
+    def _policy_action_for_controller(
+        self,
+        hosted: HostedSession,
+        player_id: int,
+        controller_name: str,
+    ) -> KCAction | None:
+        if not hasattr(self.engine, "policy_action"):
+            return None
+        state = _engine_state(hosted.engine_pointer)
+        original_controller = int(state.controllers.seats[player_id])
+        effective_controller = CONTROLLER_CODES[controller_name]
+        state.controllers.seats[player_id] = effective_controller
+        try:
+            return self.engine.policy_action(
+                hosted.engine_pointer,
+                self._policy_model_buffer(controller_name),
+            )
+        finally:
+            state.controllers.seats[player_id] = original_controller
+
     def _advance_automatic_turns(
         self,
         hosted: HostedSession,
@@ -2995,9 +3026,10 @@ class KolkhozOnlineSessionService:
                     if status == 0:
                         return
                     continue
-                action = self.engine.policy_action(
-                    hosted.engine_pointer,
-                    self._policy_model_buffer(controller_name),
+                action = self._policy_action_for_controller(
+                    hosted,
+                    player_id,
+                    controller_name,
                 )
                 if action is None:
                     actions = self._legal_actions_for_player(hosted, player_id)
@@ -3607,6 +3639,12 @@ def _authorization_header(headers: object) -> str | None:
         return None
     value = header_get("Authorization")
     return str(value) if value else None
+
+
+def _online_presence_key(user_id: str | None) -> str | None:
+    if user_id:
+        return f"user:{user_id}"
+    return None
 
 
 def _session_lookup_is_invite_code(value: str) -> bool:

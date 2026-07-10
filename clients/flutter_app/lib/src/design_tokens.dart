@@ -269,6 +269,10 @@ class TokenColors {
   final Color cardInk;
   final double cardStrokeOpacity;
   final Map<String, Color> suits;
+
+  Color get activeSurfaceText => onAccent;
+
+  Color get activeSurfaceTextMuted => onAccent.withValues(alpha: 0.82);
 }
 
 class TokenSpacing {

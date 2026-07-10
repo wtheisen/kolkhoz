@@ -357,9 +357,29 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
             "profile_stats",
             {"casual_games", "casual_wins", "ranked_games", "ranked_wins"},
         )
+        self._profile_stats_has_casual_rating_columns = self._has_columns(
+            "profile_stats",
+            {
+                "casual_rating",
+                "casual_peak_rating",
+                "casual_rating_games",
+                "casual_rating_mu",
+                "casual_rating_sigma",
+            },
+        )
         self._ai_profile_stats_has_split_columns = self._has_columns(
             "ai_profile_stats",
             {"casual_games", "casual_wins", "ranked_games", "ranked_wins"},
+        )
+        self._ai_profile_stats_has_casual_rating_columns = self._has_columns(
+            "ai_profile_stats",
+            {
+                "casual_rating",
+                "casual_peak_rating",
+                "casual_rating_games",
+                "casual_rating_mu",
+                "casual_rating_sigma",
+            },
         )
         self._has_user_comrades_table = self._has_table("user_comrades")
         self._has_user_comrade_requests_table = self._has_table(
@@ -412,6 +432,22 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     greatest({online_wins} - {ranked_wins}, 0) as casual_wins,
                     {rating_games} as ranked_games,
                     {ranked_wins} as ranked_wins"""
+
+    def _casual_rating_select_sql(self, alias: str, *, ai: bool = False) -> str:
+        has_casual_rating_columns = (
+            self._ai_profile_stats_has_casual_rating_columns
+            if ai
+            else self._profile_stats_has_casual_rating_columns
+        )
+        if has_casual_rating_columns:
+            return f"""
+                    {alias}.casual_rating,
+                    {alias}.casual_peak_rating,
+                    {alias}.casual_rating_games"""
+        return """
+                    1000 as casual_rating,
+                    1000 as casual_peak_rating,
+                    0 as casual_rating_games"""
 
     def create_session(
         self,
@@ -1080,8 +1116,18 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     """,
                     (ai_key, AI_PROFILES[ai_key]),
                 )
-            if ranked:
-                ratings = _load_ratings(cursor, human_results, ai_results)
+            update_casual_rating = (
+                not ranked
+                and self._profile_stats_has_casual_rating_columns
+                and self._ai_profile_stats_has_casual_rating_columns
+            )
+            if ranked or update_casual_rating:
+                ratings = _load_ratings(
+                    cursor,
+                    human_results,
+                    ai_results,
+                    casual=not ranked,
+                )
                 rating_inputs = _rating_inputs(human_results, ai_results, ratings)
                 rating_outputs = rate_multiplayer(rating_inputs)
             else:
@@ -1092,18 +1138,67 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                 won = bool(result.get("won"))
                 key = _user_rating_key(user_id)
                 output = rating_outputs.get(key)
-                if not ranked:
-                    mu = None
-                    sigma = None
-                    rating = None
-                elif output is None:
+                if output is None:
                     mu, sigma = ratings.get(key, (DEFAULT_MU, DEFAULT_SIGMA))
                     rating = None
                 else:
                     mu = output.mu
                     sigma = output.sigma
                     rating = output.display_rating
-                if self._profile_stats_has_split_columns:
+                if (
+                    self._profile_stats_has_split_columns
+                    and self._profile_stats_has_casual_rating_columns
+                ):
+                    cursor.execute(
+                        """
+                        update public.profile_stats
+                           set games_played = games_played + 1,
+                               wins_total = wins_total + %s,
+                               online_games = online_games + 1,
+                               online_wins = online_wins + %s,
+                               casual_games = casual_games + %s,
+                               casual_wins = casual_wins + %s,
+                               ranked_games = ranked_games + %s,
+                               ranked_wins = ranked_wins + %s,
+                               casual_rating = coalesce(%s, casual_rating),
+                               casual_peak_rating = greatest(casual_peak_rating, coalesce(%s, casual_rating)),
+                               casual_rating_games = casual_rating_games + %s,
+                               casual_rating_mu = coalesce(%s, casual_rating_mu),
+                               casual_rating_sigma = coalesce(%s, casual_rating_sigma),
+                               casual_rating_version = case when %s then 2 else casual_rating_version end,
+                               rating = coalesce(%s, rating),
+                               peak_rating = greatest(peak_rating, coalesce(%s, rating)),
+                               rating_games = rating_games + %s,
+                               rating_mu = coalesce(%s, rating_mu),
+                               rating_sigma = coalesce(%s, rating_sigma),
+                               rating_version = case when %s then 2 else rating_version end,
+                               updated_at = %s
+                         where user_id = %s
+                        """,
+                        (
+                            1 if won else 0,
+                            1 if won else 0,
+                            0 if ranked else 1,
+                            0 if ranked or not won else 1,
+                            1 if ranked else 0,
+                            1 if ranked and won else 0,
+                            None if ranked else rating,
+                            None if ranked else rating,
+                            0 if ranked else 1,
+                            None if ranked else mu,
+                            None if ranked else sigma,
+                            not ranked,
+                            rating if ranked else None,
+                            rating if ranked else None,
+                            1 if ranked else 0,
+                            mu if ranked else None,
+                            sigma if ranked else None,
+                            ranked,
+                            now,
+                            user_id,
+                        ),
+                    )
+                elif self._profile_stats_has_split_columns:
                     cursor.execute(
                         """
                         update public.profile_stats
@@ -1174,11 +1269,7 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
             for ai_key, result in ai_results.items():
                 won = bool(result.get("won"))
                 output = rating_outputs.get(_ai_rating_key(ai_key))
-                if not ranked:
-                    mu = None
-                    sigma = None
-                    rating = None
-                elif output is None:
+                if output is None:
                     mu, sigma = ratings.get(
                         _ai_rating_key(ai_key),
                         (DEFAULT_MU, DEFAULT_SIGMA),
@@ -1188,7 +1279,60 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     mu = output.mu
                     sigma = output.sigma
                     rating = output.display_rating
-                if self._ai_profile_stats_has_split_columns:
+                if (
+                    self._ai_profile_stats_has_split_columns
+                    and self._ai_profile_stats_has_casual_rating_columns
+                ):
+                    cursor.execute(
+                        """
+                        update public.ai_profile_stats
+                           set games_played = games_played + 1,
+                               wins_total = wins_total + %s,
+                               online_games = online_games + 1,
+                               online_wins = online_wins + %s,
+                               casual_games = casual_games + %s,
+                               casual_wins = casual_wins + %s,
+                               ranked_games = ranked_games + %s,
+                               ranked_wins = ranked_wins + %s,
+                               casual_rating = coalesce(%s, casual_rating),
+                               casual_peak_rating = greatest(casual_peak_rating, coalesce(%s, casual_rating)),
+                               casual_rating_games = casual_rating_games + %s,
+                               casual_rating_mu = coalesce(%s, casual_rating_mu),
+                               casual_rating_sigma = coalesce(%s, casual_rating_sigma),
+                               casual_rating_version = case when %s then 2 else casual_rating_version end,
+                               rating = coalesce(%s, rating),
+                               peak_rating = greatest(peak_rating, coalesce(%s, rating)),
+                               rating_games = rating_games + %s,
+                               rating_mu = coalesce(%s, rating_mu),
+                               rating_sigma = coalesce(%s, rating_sigma),
+                               rating_version = case when %s then 2 else rating_version end,
+                               updated_at = %s
+                         where ai_key = %s
+                        """,
+                        (
+                            1 if won else 0,
+                            1 if won else 0,
+                            0 if ranked else 1,
+                            0 if ranked or not won else 1,
+                            1 if ranked else 0,
+                            1 if ranked and won else 0,
+                            None if ranked else rating,
+                            None if ranked else rating,
+                            0 if ranked else 1,
+                            None if ranked else mu,
+                            None if ranked else sigma,
+                            not ranked,
+                            rating if ranked else None,
+                            rating if ranked else None,
+                            1 if ranked else 0,
+                            mu if ranked else None,
+                            sigma if ranked else None,
+                            ranked,
+                            now,
+                            ai_key,
+                        ),
+                    )
+                elif self._ai_profile_stats_has_split_columns:
                     cursor.execute(
                         """
                         update public.ai_profile_stats
@@ -1280,7 +1424,8 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     profile_stats.rating,
                     profile_stats.peak_rating,
                     profile_stats.rating_games,
-{self._split_stats_select_sql("profile_stats")}
+{self._split_stats_select_sql("profile_stats")},
+{self._casual_rating_select_sql("profile_stats")}
                   from public.profiles
                   left join public.profile_stats
                     on profile_stats.user_id = profiles.user_id
@@ -1308,6 +1453,9 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                         "casual_wins": row[13] or 0,
                         "ranked_games": row[14] or 0,
                         "ranked_wins": row[15] or 0,
+                        "casual_rating": row[16] or 1000,
+                        "casual_peak_rating": row[17] or 1000,
+                        "casual_rating_games": row[18] or 0,
                     },
                 }
             return profiles
@@ -1334,7 +1482,8 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     rating,
                     peak_rating,
                     rating_games,
-{self._split_stats_select_sql("ai_profile_stats", ai=True)}
+{self._split_stats_select_sql("ai_profile_stats", ai=True)},
+{self._casual_rating_select_sql("ai_profile_stats", ai=True)}
                   from public.ai_profile_stats
                  where ai_key = any(%s::text[])
                 """,
@@ -1359,6 +1508,9 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                         "casual_wins": row[10] or 0,
                         "ranked_games": row[11] or 0,
                         "ranked_wins": row[12] or 0,
+                        "casual_rating": row[13] or 1000,
+                        "casual_peak_rating": row[14] or 1000,
+                        "casual_rating_games": row[15] or 0,
                     },
                 }
             return profiles
@@ -1494,6 +1646,9 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                         "rating": target_rating,
                         "peak_rating": target_rating,
                         "rating_games": 0,
+                        "casual_rating": target_rating,
+                        "casual_peak_rating": target_rating,
+                        "casual_rating_games": 0,
                     },
                 }
                 created.append(profile)
@@ -1510,6 +1665,60 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
         rating_sigma: float,
         updated_at: datetime,
     ) -> None:
+        if (
+            self._profile_stats_has_split_columns
+            and self._profile_stats_has_casual_rating_columns
+        ):
+            cursor.execute(
+                """
+                insert into public.profile_stats (
+                    user_id,
+                    rating,
+                    peak_rating,
+                    rating_games,
+                    rating_mu,
+                    rating_sigma,
+                    rating_version,
+                    casual_rating,
+                    casual_peak_rating,
+                    casual_rating_games,
+                    casual_rating_mu,
+                    casual_rating_sigma,
+                    casual_rating_version,
+                    casual_games,
+                    casual_wins,
+                    ranked_games,
+                    ranked_wins,
+                    updated_at
+                )
+                values (%s, %s, %s, 0, %s, %s, 2, %s, %s, 0, %s, %s, 2, 0, 0, 0, 0, %s)
+                on conflict (user_id) do update
+                    set rating = excluded.rating,
+                        peak_rating = greatest(profile_stats.peak_rating, excluded.peak_rating),
+                        rating_mu = excluded.rating_mu,
+                        rating_sigma = excluded.rating_sigma,
+                        rating_version = 2,
+                        casual_rating = excluded.casual_rating,
+                        casual_peak_rating = greatest(profile_stats.casual_peak_rating, excluded.casual_peak_rating),
+                        casual_rating_mu = excluded.casual_rating_mu,
+                        casual_rating_sigma = excluded.casual_rating_sigma,
+                        casual_rating_version = 2,
+                        updated_at = excluded.updated_at
+                """,
+                (
+                    user_id,
+                    rating,
+                    rating,
+                    rating_mu,
+                    rating_sigma,
+                    rating,
+                    rating,
+                    rating_mu,
+                    rating_sigma,
+                    updated_at,
+                ),
+            )
+            return
         if self._profile_stats_has_split_columns:
             cursor.execute(
                 """
@@ -1619,7 +1828,8 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                         profile_stats.rating,
                         profile_stats.peak_rating,
                         profile_stats.rating_games,
-{self._split_stats_select_sql("profile_stats")}
+{self._split_stats_select_sql("profile_stats")},
+{self._casual_rating_select_sql("profile_stats")}
                       from public.user_comrades
                       join public.profiles
                         on profiles.user_id = user_comrades.comrade_user_id
@@ -1651,6 +1861,7 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                         profile_stats.peak_rating,
                         profile_stats.rating_games,
 {self._split_stats_select_sql("profile_stats")},
+{self._casual_rating_select_sql("profile_stats")},
                         user_comrade_requests.created_at
                       from public.user_comrade_requests
                       join public.profiles
@@ -1663,7 +1874,7 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     (user_id,),
                 )
                 incoming = [
-                    self._comrade_profile_json(row, requested_at_index=17)
+                    self._comrade_profile_json(row, requested_at_index=20)
                     for row in cursor.fetchall()
                 ]
                 cursor.execute(
@@ -1683,6 +1894,7 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                         profile_stats.peak_rating,
                         profile_stats.rating_games,
 {self._split_stats_select_sql("profile_stats")},
+{self._casual_rating_select_sql("profile_stats")},
                         user_comrade_requests.created_at
                       from public.user_comrade_requests
                       join public.profiles
@@ -1695,7 +1907,7 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                     (user_id,),
                 )
                 outgoing = [
-                    self._comrade_profile_json(row, requested_at_index=17)
+                    self._comrade_profile_json(row, requested_at_index=20)
                     for row in cursor.fetchall()
                 ]
             return {
@@ -1921,7 +2133,8 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                 profile_stats.rating,
                 profile_stats.peak_rating,
                 profile_stats.rating_games,
-{self._split_stats_select_sql("profile_stats")}
+{self._split_stats_select_sql("profile_stats")},
+{self._casual_rating_select_sql("profile_stats")}
               from public.profiles
               left join public.profile_stats
                 on profile_stats.user_id = profiles.user_id
@@ -1959,6 +2172,9 @@ class PostgresOnlineSessionStore(OnlineSessionStore):
                 "casual_wins": row[14] or 0,
                 "ranked_games": row[15] or 0,
                 "ranked_wins": row[16] or 0,
+                "casual_rating": row[17] or 1000,
+                "casual_peak_rating": row[18] or 1000,
+                "casual_rating_games": row[19] or 0,
             },
         }
         if requested_at_index is not None and row[requested_at_index] is not None:
@@ -2055,8 +2271,14 @@ def _load_ratings(
     cursor: Any,
     human_results: list[dict[str, object]],
     ai_results: dict[str, dict[str, object]],
+    *,
+    casual: bool = False,
 ) -> dict[str, tuple[float, float]]:
     ratings: dict[str, tuple[float, float]] = {}
+    user_mu_column = "casual_rating_mu" if casual else "rating_mu"
+    user_sigma_column = "casual_rating_sigma" if casual else "rating_sigma"
+    ai_mu_column = "casual_rating_mu" if casual else "rating_mu"
+    ai_sigma_column = "casual_rating_sigma" if casual else "rating_sigma"
     user_ids = sorted(
         {
             str(result["user_id"])
@@ -2066,8 +2288,8 @@ def _load_ratings(
     )
     if user_ids:
         cursor.execute(
-            """
-            select user_id::text, rating_mu, rating_sigma
+            f"""
+            select user_id::text, {user_mu_column}, {user_sigma_column}
               from public.profile_stats
              where user_id = any(%s::uuid[])
             """,
@@ -2081,8 +2303,8 @@ def _load_ratings(
     ai_keys = sorted(ai_results)
     if ai_keys:
         cursor.execute(
-            """
-            select ai_key, rating_mu, rating_sigma
+            f"""
+            select ai_key, {ai_mu_column}, {ai_sigma_column}
               from public.ai_profile_stats
              where ai_key = any(%s::text[])
             """,

@@ -85,7 +85,7 @@ bool assignmentCommandBarVisible(TableViewModel model) {
     return false;
   }
   final winner = seatByID(model, winnerID);
-  return winner != null && isHumanControlledSeat(winner);
+  return winner != null && winner.isViewer && isHumanControlledSeat(winner);
 }
 
 bool handCardMatchesPlanningTrumpFocus(

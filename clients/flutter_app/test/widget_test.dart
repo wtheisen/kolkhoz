@@ -30,6 +30,7 @@ import 'package:kolkhoz_app/src/panel_title_display.dart';
 import 'package:kolkhoz_app/src/phase_display.dart';
 import 'package:kolkhoz_app/src/pixel_text.dart';
 import 'package:kolkhoz_app/src/policy_model.dart';
+import 'package:kolkhoz_app/src/player_profile_panel.dart';
 import 'package:kolkhoz_app/src/player_panel_display.dart';
 import 'package:kolkhoz_app/src/plot_display.dart';
 import 'package:kolkhoz_app/src/render_model.dart';
@@ -139,6 +140,7 @@ void main() {
         offlineWins: 8,
         onlinePlays: 4,
         onlineWins: 1,
+        casualRating: 1048,
         rating: 1125,
         totalWins: 9,
         totalLosses: 7,
@@ -151,6 +153,17 @@ void main() {
           KolkhozPlayerController.mediumAI,
           KolkhozPlayerController.neuralAI,
         ],
+      ),
+      lastStartedSetup: KolkhozFavoriteSetup(
+        variants: KolkhozGameVariants.campStyle,
+        controllers: [
+          KolkhozPlayerController.human,
+          KolkhozPlayerController.human,
+          KolkhozPlayerController.mediumAI,
+          KolkhozPlayerController.neuralAI,
+        ],
+        lobbySeats: ['local', 'online', 'mediumAI', 'hardAI'],
+        browserJoinable: false,
       ),
     );
 
@@ -168,6 +181,7 @@ void main() {
     expect(restored.profileStats.offlineWins, 8);
     expect(restored.profileStats.onlinePlays, 4);
     expect(restored.profileStats.onlineWins, 1);
+    expect(restored.profileStats.casualRating, 1048);
     expect(restored.profileStats.rating, 1125);
     expect(restored.profileStats.totalWins, 9);
     expect(restored.profileStats.totalLosses, 7);
@@ -177,6 +191,14 @@ void main() {
       restored.favoriteSetup!.controllers[1],
       KolkhozPlayerController.heuristicAI,
     );
+    expect(restored.lastStartedSetup, isNotNull);
+    expect(restored.lastStartedSetup!.variants.northernStyle, isTrue);
+    expect(
+      restored.lastStartedSetup!.controllers[1],
+      KolkhozPlayerController.human,
+    );
+    expect(restored.lastStartedSetup!.lobbySeats[1], 'online');
+    expect(restored.lastStartedSetup!.browserJoinable, isFalse);
     expect(const KolkhozAppSettings().confirmNewGame, isTrue);
     expect(const KolkhozAppSettings().confirmMainMenu, isTrue);
     expect(const KolkhozAppSettings().showInvalidTapHints, isTrue);
@@ -190,6 +212,45 @@ void main() {
       defaultProfilePortraitAsset,
     );
     expect(const KolkhozAppSettings().profileStats.rating, 1000);
+    expect(const KolkhozAppSettings().profileStats.casualRating, 1000);
+  });
+
+  test('profile stats track casual and ranked ratings separately', () {
+    const stats = KolkhozProfileStats(casualRating: 1000, rating: 1200);
+
+    final casualWin = stats.recordResult(online: true, won: true);
+    expect(casualWin.casualRating, 1016);
+    expect(casualWin.rating, 1200);
+    expect(casualWin.casualPlays, 1);
+    expect(casualWin.rankedPlays, 0);
+
+    final rankedLoss = stats.recordResult(
+      online: true,
+      won: false,
+      ranked: true,
+    );
+    expect(rankedLoss.casualRating, 1000);
+    expect(rankedLoss.rating, 1184);
+    expect(rankedLoss.casualPlays, 0);
+    expect(rankedLoss.rankedPlays, 1);
+  });
+
+  test('profile stats parse casual rating from server json', () {
+    final stats = profileStatsFromSupabaseJson({
+      'casual_games': 3,
+      'casual_wins': 2,
+      'casual_rating': 1088,
+      'ranked_games': 4,
+      'ranked_wins': 1,
+      'rating': 1172,
+      'games_played': 7,
+      'wins_total': 3,
+    });
+
+    expect(stats.casualPlays, 3);
+    expect(stats.casualRating, 1088);
+    expect(stats.rankedPlays, 4);
+    expect(stats.rating, 1172);
   });
 
   testWidgets('card back scope drives hidden card art', (tester) async {
@@ -832,10 +893,72 @@ void main() {
       const Size(900, 520),
       tokens,
     );
-    final model = runtimeModelWith(
+    final base = runtimeModelWith(
       phase: phaseGameOver,
       selection: SelectionState.empty,
       jobs: runtimeModel().table.jobs,
+    );
+    final opponentCellarCard = testCard(
+      id: 'sunflower-12-game-over',
+      suit: 'sunflower',
+      value: 12,
+      rank: 'Q',
+    );
+    final opponentPlotCard = testCard(
+      id: 'wheat-3-game-over',
+      suit: 'wheat',
+      value: 3,
+    );
+    final opponentStackRevealedCard = testCard(
+      id: 'beet-4-game-over',
+      suit: 'beet',
+      value: 4,
+    );
+    final opponentStackHiddenCard = testCard(
+      id: 'potato-5-game-over',
+      suit: 'potato',
+      value: 5,
+    );
+    final seats = [
+      base.table.seats[0],
+      seatWithPlot(
+        base.table.seats[1],
+        PlotState(
+          revealed: [opponentPlotCard],
+          hidden: [opponentCellarCard],
+          stacks: [
+            PlotStackState(
+              revealed: [opponentStackRevealedCard],
+              hidden: [opponentStackHiddenCard],
+            ),
+          ],
+        ),
+      ),
+      base.table.seats[2],
+      base.table.seats[3],
+    ];
+    final model = TableViewModel(
+      viewer: base.viewer,
+      table: TableState(
+        year: base.table.year,
+        phase: base.table.phase,
+        phasePrompt: base.table.phasePrompt,
+        currentPlayerID: base.table.currentPlayerID,
+        trump: base.table.trump,
+        isFamine: base.table.isFamine,
+        maxTricks: base.table.maxTricks,
+        seats: seats,
+        jobs: base.table.jobs,
+        trick: base.table.trick,
+        lastTrick: base.table.lastTrick,
+        requisitionEvents: base.table.requisitionEvents,
+        exiledByYear: base.table.exiledByYear,
+        scoreboard: base.table.scoreboard,
+        gameResult: base.table.gameResult,
+      ),
+      panels: base.panels,
+      selection: base.selection,
+      legalActions: base.legalActions,
     );
 
     await tester.pumpWidget(
@@ -863,6 +986,26 @@ void main() {
     );
     expect(find.byType(PlotRowsView), findsOneWidget);
     expect(find.byType(PlotPlayerRow), findsNWidgets(4));
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is GameCard && widget.card.id == opponentCellarCard.id,
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is ScaledHighlightableCardBack &&
+            widget.card.id == opponentCellarCard.id,
+      ),
+      findsNothing,
+    );
+    final rowSections = tester
+        .widgetList<PlotRowCardSection>(find.byType(PlotRowCardSection))
+        .toList();
+    expect(rowSections[2].value, 12);
+    expect(rowSections[3].value, 12);
     expect(find.byType(GameOverFinalScoreStrip), findsOneWidget);
     expect(find.byType(HandTray), findsNothing);
     expect(
@@ -980,6 +1123,13 @@ void main() {
       jobs: runtimeModel().table.jobs,
     );
     final localHiddenCard = testCard(id: 'beet-8', suit: 'beet', value: 8);
+    final localHiddenCard2 = testCard(id: 'potato-7', suit: 'potato', value: 7);
+    final localRevealedCard = testCard(id: 'wheat-6', suit: 'wheat', value: 6);
+    final localStackCard = testCard(
+      id: 'sunflower-5',
+      suit: 'sunflower',
+      value: 5,
+    );
     final opponentHiddenCard = testCard(
       id: 'potato-9',
       suit: 'potato',
@@ -989,9 +1139,11 @@ void main() {
       seatWithPlot(
         base.table.seats[0],
         PlotState(
-          revealed: const [],
-          hidden: [localHiddenCard],
-          stacks: const [],
+          revealed: [localRevealedCard],
+          hidden: [localHiddenCard, localHiddenCard2],
+          stacks: [
+            PlotStackState(revealed: [localStackCard], hidden: const []),
+          ],
         ),
       ),
       seatWithPlot(
@@ -1064,6 +1216,11 @@ void main() {
       ),
       findsNothing,
     );
+    final localColumns = tester
+        .widgetList<LocalPlotColumn>(find.byType(LocalPlotColumn))
+        .toList();
+    expect(localColumns[0].value, 2);
+    expect(localColumns[1].value, 11);
   });
 
   testWidgets('planning trump chooser animates AI selector focus', (
@@ -1405,6 +1562,7 @@ void main() {
       controllers: KolkhozPlayerController.defaultControllers,
       ranked: false,
     );
+    final heartbeat = await client.sendPresenceHeartbeat();
     final sessions = await client.fetchSessions();
     final status = await client.fetchServerStatus();
     final matched = await client.matchmakeSession(rankedOnly: true);
@@ -1426,6 +1584,7 @@ void main() {
     expect(created.seatToken, 'seat-token-0');
     expect(httpClient.requests.map((request) => request.route), [
       'POST /sessions',
+      'POST /presence',
       'GET /sessions',
       'GET /metrics',
       'POST /sessions/matchmake',
@@ -1433,12 +1592,14 @@ void main() {
       'GET /sessions/11111111-1111-1111-1111-111111111111/players/0/actions',
       'POST /sessions/11111111-1111-1111-1111-111111111111/actions',
     ]);
-    expect(sessions.single.openSeats, [1]);
+    expect(sessions, hasLength(2));
+    expect(sessions.first.openSeats, [1]);
+    expect(heartbeat.citizensOnline, 16);
     expect(status.citizensOnline, 16);
     expect(matched.playerID, 1);
-    expect(sessions.single.expiresAt, 3601.0);
+    expect(sessions.first.expiresAt, 3601.0);
     expect(session.occupiedSeats, [0, 1]);
-    expect(httpClient.requests[3].headers['X-Kolkhoz-Seat-Token'], [
+    expect(httpClient.requests[6].headers['X-Kolkhoz-Seat-Token'], [
       'seat-token-0',
     ]);
     expect(httpClient.requests.last.headers['X-Kolkhoz-Seat-Token'], [
@@ -1454,6 +1615,13 @@ void main() {
       kcActionSetTrump,
     );
     expect(jsonDecode(httpClient.requests.last.body)['actionLogCount'], 0);
+  });
+
+  test('online realtime refreshes keep the newest pending revision', () {
+    expect(newestOnlineRevision(1, 3), 3);
+    expect(newestOnlineRevision(5, 3), 5);
+    expect(newestOnlineRevision(null, 3), isNull);
+    expect(newestOnlineRevision(5, null), isNull);
   });
 
   test('runtime model is direct Dart state', () {
@@ -2089,6 +2257,9 @@ void main() {
     );
 
     expect(assignmentControlCards(model).map((card) => card.id), ['beet-10']);
+    expect(visibleAssignmentTrick(model).plays.map((play) => play.card.id), [
+      'beet-10',
+    ]);
     expect(
       assignmentControlCards(
         runtimeModelWith(
@@ -2123,9 +2294,29 @@ void main() {
         winnerSeatID: 1,
       ),
     );
+    final remoteAssignment = runtimeModelWith(
+      phase: phaseAssignment,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+      seats: [
+        base.table.seats[0],
+        seatWithController(
+          base.table.seats[1],
+          controller: controllerRemoteHuman,
+        ),
+        base.table.seats[2],
+        base.table.seats[3],
+      ],
+      lastTrick: Trick(
+        plays: [TrickPlay(seatID: 1, card: wheat9)],
+        winnerSeatID: 1,
+      ),
+    );
 
     expect(assignmentCommandBarVisible(humanAssignment), isTrue);
     expect(assignmentCommandBarVisible(aiAssignment), isFalse);
+    expect(assignmentControlCards(remoteAssignment), isNotEmpty);
+    expect(assignmentCommandBarVisible(remoteAssignment), isFalse);
   });
 
   test('job display helpers order jobs and size tiles', () {
@@ -2482,6 +2673,110 @@ void main() {
     expect(cards['wheat-11']?.rank, 'J');
   });
 
+  testWidgets('card motion layer draws hand-to-trick flights', (tester) async {
+    final before = runtimeModel();
+    final playedCard = before.table.seats[0].hand.single;
+    final after = runtimeModelWith(
+      phase: phaseTrick,
+      selection: SelectionState.empty,
+      jobs: before.table.jobs,
+      seats: [
+        seatWithHand(before.table.seats[0], const []),
+        before.table.seats[1],
+        before.table.seats[2],
+        before.table.seats[3],
+      ],
+      trick: Trick(
+        plays: [TrickPlay(seatID: 0, card: playedCard)],
+        winnerSeatID: null,
+      ),
+    );
+
+    var currentModel = before;
+    late StateSetter setMotionState;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            setMotionState = setState;
+            return SizedBox(
+              width: 420,
+              height: 280,
+              child: CardMotionLayer(
+                model: currentModel,
+                tokens: defaultDesignTokens,
+                speed: GameAnimationSpeed.normal,
+                child: _CardMotionTestBoard(model: currentModel),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    setMotionState(() {
+      currentModel = after;
+    });
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(FlyingCard), findsOneWidget);
+  });
+
+  testWidgets('card motion layer draws redacted remote trick flights', (
+    tester,
+  ) async {
+    final before = runtimeModel();
+    final remoteCard = testCard(id: 'sunflower-7', suit: 'sunflower', value: 7);
+    final after = runtimeModelWith(
+      phase: phaseTrick,
+      selection: SelectionState.empty,
+      jobs: before.table.jobs,
+      trick: Trick(
+        plays: [TrickPlay(seatID: 2, card: remoteCard)],
+        winnerSeatID: null,
+      ),
+    );
+
+    var currentModel = before;
+    late StateSetter setMotionState;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            setMotionState = setState;
+            return SizedBox(
+              width: 420,
+              height: 280,
+              child: CardMotionLayer(
+                model: currentModel,
+                tokens: defaultDesignTokens,
+                speed: GameAnimationSpeed.normal,
+                child: _CardMotionTestBoard(model: currentModel),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    setMotionState(() {
+      currentModel = after;
+    });
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(FlyingCard), findsOneWidget);
+  });
+
   testWidgets('top job gauge includes pending assignment hours', (
     tester,
   ) async {
@@ -2812,6 +3107,7 @@ void main() {
             onTutorialPressed: () {},
             onLanguageToggle: () => calls.add('language'),
             onAppearanceToggle: () => calls.add('appearance'),
+            onSettingsPressed: () => calls.add('settings'),
           ),
         ),
       ),
@@ -2819,9 +3115,154 @@ void main() {
 
     await tester.tap(find.bySemanticsLabel('Language'));
     await tester.tap(find.bySemanticsLabel('Theme'));
+    await tester.tap(find.bySemanticsLabel('Settings'));
 
-    expect(calls, ['language', 'appearance']);
+    expect(calls, ['language', 'appearance', 'settings']);
     expect(find.text('STANDARD'), findsNothing);
+  });
+
+  testWidgets('lobby settings display tab exposes card back choices', (
+    tester,
+  ) async {
+    KolkhozCardBack? selectedCardBack;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 844,
+          height: 520,
+          child: StandaloneLobby(
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
+            appearance: KolkhozAppearance.dark,
+            cardBack: KolkhozCardBack.classic,
+            onStart: () {},
+            selectedPreset: KolkhozGamePreset.kolkhoz,
+            customVariants: KolkhozGameVariants.kolkhoz,
+            playerControllers: KolkhozPlayerController.defaultControllers,
+            showingRules: false,
+            showingOnline: false,
+            showingProfile: true,
+            initialSettingsTab: KolkhozSettingsTab.display,
+            onHostOnline: (_, _, _, _, _) async => 'session',
+            onJoinOnline: (_, _, _) async {},
+            onEnterOnlineGame: () {},
+            onPresetChanged: (_) {},
+            onCustomVariantsChanged: (_) {},
+            onPlayerControllersChanged: (_) {},
+            onRulesPressed: () {},
+            onOfflinePressed: () {},
+            onOnlinePressed: () {},
+            onTutorialPressed: () {},
+            onLanguageToggle: () {},
+            onAppearanceToggle: () {},
+            onCardBackChanged: (cardBack) => selectedCardBack = cardBack,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('CARD BACKS'), findsOneWidget);
+    expect(find.bySemanticsLabel('Classic'), findsOneWidget);
+    expect(find.bySemanticsLabel('Harvest'), findsOneWidget);
+    expect(find.bySemanticsLabel('Granary'), findsOneWidget);
+    expect(find.bySemanticsLabel('Winter'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Granary'));
+    await tester.pump();
+
+    expect(selectedCardBack, KolkhozCardBack.granary);
+  });
+
+  testWidgets('light active variant rows use high contrast text', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 844,
+          height: 390,
+          child: StandaloneLobby(
+            tokens: lightDesignTokens,
+            language: KolkhozLanguage.en,
+            appearance: KolkhozAppearance.light,
+            onStart: () {},
+            selectedPreset: KolkhozGamePreset.custom,
+            customVariants: KolkhozGameVariants.kolkhoz,
+            playerControllers: KolkhozPlayerController.defaultControllers,
+            showingRules: false,
+            showingOnline: false,
+            onHostOnline: (_, controllers, enterImmediately, _, _) async =>
+                'session',
+            onJoinOnline: (_, _, _) async {},
+            onEnterOnlineGame: () {},
+            onPresetChanged: (_) {},
+            onCustomVariantsChanged: (_) {},
+            onPlayerControllersChanged: (_) {},
+            onRulesPressed: () {},
+            onOfflinePressed: () {},
+            onOnlinePressed: () {},
+            onTutorialPressed: () {},
+            onLanguageToggle: () {},
+            onAppearanceToggle: () {},
+          ),
+        ),
+      ),
+    );
+
+    final swapDescription = KolkhozLanguage.en.t(
+      KolkhozText.variantSwapDescription,
+    );
+    final swapBodyFinder = find.byWidgetPredicate(
+      (widget) =>
+          widget is PixelText &&
+          widget.text == swapDescription &&
+          widget.color == lightDesignTokens.colors.activeSurfaceText,
+    );
+
+    expect(swapBodyFinder, findsOneWidget);
+  });
+
+  testWidgets('light prominent profile stat tiles use high contrast text', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 320,
+          child: PlayerProfileStatsGrid(
+            tokens: lightDesignTokens,
+            groups: const [
+              PlayerProfileStatGroup(
+                label: 'Ranked',
+                stats: [
+                  PlayerProfileStat(
+                    label: 'RATING',
+                    value: '1842',
+                    prominent: true,
+                  ),
+                  PlayerProfileStat(label: 'games', value: '3'),
+                  PlayerProfileStat(label: 'wins', value: '2'),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.widget<Text>(find.text('Ranked')).style?.color,
+      lightDesignTokens.colors.activeSurfaceTextMuted,
+    );
+    expect(
+      tester.widget<Text>(find.text('games')).style?.color,
+      lightDesignTokens.colors.activeSurfaceTextMuted,
+    );
+    expect(
+      tester.widget<Text>(find.text('1842')).style?.color,
+      lightDesignTokens.colors.activeSurfaceText,
+    );
   });
 
   testWidgets(
@@ -2905,6 +3346,27 @@ void main() {
         ),
       );
 
+      await tester.tap(find.text('ADD PLAYERS'));
+      await tester.pumpAndSettle();
+      expect(find.text('52 CARDS / 5 YEARS'), findsNothing);
+      expect(find.byTooltip('Kolkhoz'), findsOneWidget);
+      expect(find.byTooltip('52 Card Deck'), findsOneWidget);
+      expect(find.byTooltip('5 Year Plan'), findsOneWidget);
+      expect(find.byTooltip('Exchange Soap for an Awl'), findsOneWidget);
+      expect(find.byTooltip('Enemy of the People'), findsOneWidget);
+      final backCenter = tester.getCenter(find.text('BACK TO SETUP')).dy;
+      final startCenter = tester.getCenter(find.text('START OFFLINE GAME')).dy;
+      expect((backCenter - startCenter).abs(), lessThan(8));
+
+      await tester.tap(find.bySemanticsLabel('P2 Hard'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.bySemanticsLabel('P3 Hard'));
+      await tester.tap(find.bySemanticsLabel('P3 Hard'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.bySemanticsLabel('P4 Hard'));
+      await tester.tap(find.bySemanticsLabel('P4 Hard'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('START OFFLINE GAME'));
       await tester.tap(find.text('START OFFLINE GAME'));
 
       expect(calls, ['offline', 'online', 'rules', 'start']);
@@ -2953,6 +3415,7 @@ void main() {
   testWidgets('profile panel edits display name and portrait', (tester) async {
     String? displayName;
     String? portraitAsset;
+    var signedOut = false;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -2974,6 +3437,7 @@ void main() {
             cloudReady: true,
             cloudSignedIn: true,
             cloudEmail: 'mira@example.com',
+            cloudAuthMessage: 'Profile loaded.',
             displayName: 'Mira',
             portraitAsset: 'worker1',
             profileStats: const KolkhozProfileStats(
@@ -2981,6 +3445,7 @@ void main() {
               offlineWins: 8,
               onlinePlays: 4,
               onlineWins: 1,
+              casualRating: 1048,
               rating: 1125,
               totalWins: 9,
               totalLosses: 7,
@@ -2999,17 +3464,22 @@ void main() {
             onAppearanceToggle: () {},
             onDisplayNameChanged: (value) => displayName = value,
             onPortraitChanged: (value) => portraitAsset = value,
+            onCloudSignOut: () async => signedOut = true,
           ),
         ),
       ),
     );
 
+    expect(find.text('Signed in as mira@example.com'), findsOneWidget);
+    expect(find.text('Profile loaded.'), findsNothing);
+    expect(find.text('SIGN OUT'), findsOneWidget);
     expect(find.text('DISPLAY NAME'), findsNothing);
     expect(find.text('STATS'), findsOneWidget);
     expect(find.text('OFFLINE'), findsOneWidget);
     expect(find.text('Casual'), findsOneWidget);
     expect(find.text('Ranked'), findsOneWidget);
-    expect(find.text('RATING'), findsOneWidget);
+    expect(find.text('RATING'), findsNWidgets(2));
+    expect(find.text('1048'), findsOneWidget);
     expect(find.text('1125'), findsOneWidget);
     expect(find.text('Mira'), findsWidgets);
 
@@ -3022,9 +3492,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.bySemanticsLabel('worker3'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('SIGN OUT'));
+    await tester.tap(find.text('SIGN OUT'));
+    await tester.pump();
 
     expect(displayName, 'Nadia');
     expect(portraitAsset, 'worker3');
+    expect(signedOut, isTrue);
   });
 
   testWidgets('profile panel hides player card and stats while signed out', (
@@ -3171,6 +3645,12 @@ void main() {
             selectedPreset: KolkhozGamePreset.kolkhoz,
             customVariants: KolkhozGameVariants.kolkhoz,
             playerControllers: KolkhozPlayerController.defaultControllers,
+            displayName: 'Mira',
+            portraitAsset: 'worker4',
+            profileStats: const KolkhozProfileStats(
+              casualRating: 1048,
+              rating: 1125,
+            ),
             showingRules: false,
             showingOnline: false,
             onHostOnline: (_, controllers, enterImmediately, _, _) async =>
@@ -3194,9 +3674,12 @@ void main() {
     );
 
     expect(find.text('HUMAN'), findsNothing);
-    await tester.tap(find.bySemanticsLabel('P2 Hard'));
+    await tester.tap(find.text('ADD PLAYERS'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('EASY'));
+    expect(find.text('Mira'), findsOneWidget);
+    expect(find.text('Ranked 1125  Casual 1048'), findsOneWidget);
+    expect(findAssetImage('ios_resources/worker4.png'), findsWidgets);
+    await tester.tap(find.bySemanticsLabel('P2 Easy'));
     await tester.pumpAndSettle();
 
     expect(changedControllers, isNotNull);
@@ -3266,17 +3749,18 @@ void main() {
 
     expect(saveCalls, 1);
     expect(useCalls, 1);
+    await tester.tap(find.text('ADD PLAYERS'));
+    await tester.pumpAndSettle();
     expect(find.bySemanticsLabel('P2 Easy'), findsOneWidget);
   });
 
-  testWidgets('create lobby can mark seats online and wait after hosting', (
+  testWidgets('lobby resumes last started setup on seat screen', (
     tester,
   ) async {
-    List<KolkhozPlayerController>? changedControllers;
-    List<KolkhozPlayerController>? hostedControllers;
-    bool? enterImmediately;
-    bool? ranked;
-    var enterCalls = 0;
+    var starts = 0;
+    List<KolkhozPlayerController>? rememberedControllers;
+    List<String>? rememberedSeats;
+    bool? rememberedVisibility;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -3287,33 +3771,35 @@ void main() {
             tokens: lightDesignTokens,
             language: KolkhozLanguage.en,
             appearance: KolkhozAppearance.light,
-            onStart: () {},
+            onStart: () => starts += 1,
             selectedPreset: KolkhozGamePreset.kolkhoz,
             customVariants: KolkhozGameVariants.kolkhoz,
             playerControllers: KolkhozPlayerController.defaultControllers,
+            lastStartedSetup: const KolkhozFavoriteSetup(
+              variants: KolkhozGameVariants.kolkhoz,
+              controllers: [
+                KolkhozPlayerController.human,
+                KolkhozPlayerController.heuristicAI,
+                KolkhozPlayerController.mediumAI,
+                KolkhozPlayerController.neuralAI,
+              ],
+              lobbySeats: ['local', 'easyAI', 'mediumAI', 'hardAI'],
+              browserJoinable: false,
+            ),
             showingRules: false,
             showingOnline: false,
-            onHostOnline:
-                (
-                  _,
-                  controllers,
-                  enterImmediatelyValue,
-                  rankedValue,
-                  browserJoinableValue,
-                ) async {
-                  hostedControllers = controllers;
-                  enterImmediately = enterImmediatelyValue;
-                  ranked = rankedValue;
-                  expect(browserJoinableValue, isTrue);
-                  return 'session';
-                },
+            onHostOnline: (_, controllers, enterImmediately, _, _) async =>
+                'session',
             onJoinOnline: (_, _, _) async {},
-            onEnterOnlineGame: () => enterCalls += 1,
+            onEnterOnlineGame: () {},
+            onRememberStartedSetup: (controllers, lobbySeats, browserJoinable) {
+              rememberedControllers = controllers;
+              rememberedSeats = lobbySeats;
+              rememberedVisibility = browserJoinable;
+            },
             onPresetChanged: (_) {},
             onCustomVariantsChanged: (_) {},
-            onPlayerControllersChanged: (controllers) {
-              changedControllers = controllers;
-            },
+            onPlayerControllersChanged: (_) {},
             onRulesPressed: () {},
             onOfflinePressed: () {},
             onOnlinePressed: () {},
@@ -3325,11 +3811,148 @@ void main() {
       ),
     );
 
+    expect(find.text('ADD PLAYERS'), findsNothing);
     expect(find.text('START OFFLINE GAME'), findsOneWidget);
+    expect(find.text('PRIVATE'), findsOneWidget);
+    expect(find.bySemanticsLabel('P2 Easy'), findsOneWidget);
 
-    await tester.tap(find.bySemanticsLabel('P2 Hard'));
+    await tester.tap(find.text('START OFFLINE GAME'));
+    await tester.pump();
+
+    expect(starts, 1);
+    expect(rememberedControllers, isNotNull);
+    expect(rememberedControllers![1], KolkhozPlayerController.heuristicAI);
+    expect(rememberedSeats, ['local', 'easyAI', 'mediumAI', 'hardAI']);
+    expect(rememberedVisibility, isFalse);
+  });
+
+  testWidgets('create lobby can mark seats online and wait after hosting', (
+    tester,
+  ) async {
+    List<KolkhozPlayerController>? changedControllers;
+    List<KolkhozPlayerController>? hostedControllers;
+    bool? enterImmediately;
+    bool? ranked;
+    var enterCalls = 0;
+    var showingOnline = false;
+    String? hostedInviteCode;
+    OnlineSessionUpdate? hostedUpdate;
+    List<String>? rememberedSeats;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) => SizedBox(
+            width: 844,
+            height: 390,
+            child: StandaloneLobby(
+              tokens: lightDesignTokens,
+              language: KolkhozLanguage.en,
+              appearance: KolkhozAppearance.light,
+              onStart: () {},
+              selectedPreset: KolkhozGamePreset.kolkhoz,
+              customVariants: KolkhozGameVariants.kolkhoz,
+              playerControllers: KolkhozPlayerController.defaultControllers,
+              showingRules: false,
+              showingOnline: showingOnline,
+              hostedInviteCode: hostedInviteCode,
+              onlineSessionUpdate: hostedUpdate,
+              showHostedInviteCode: hostedInviteCode != null,
+              onHostOnline:
+                  (
+                    _,
+                    controllers,
+                    enterImmediatelyValue,
+                    rankedValue,
+                    browserJoinableValue,
+                  ) async {
+                    hostedControllers = controllers;
+                    enterImmediately = enterImmediatelyValue;
+                    ranked = rankedValue;
+                    expect(browserJoinableValue, isFalse);
+                    final updateJson = onlineUpdateJson();
+                    updateJson['controllers'] = [
+                      'human',
+                      'human',
+                      'neuralAI',
+                      'neuralAI',
+                    ];
+                    updateJson['playerProfiles'] = [
+                      {
+                        'playerID': 0,
+                        'userID': '11111111-1111-1111-1111-111111111111',
+                        'displayName': 'Mira',
+                        'avatarURL': 'worker3',
+                        'stats': {'online_games': 4, 'online_wins': 2},
+                      },
+                    ];
+                    setState(() {
+                      hostedInviteCode = 'ABCDE';
+                      hostedUpdate = OnlineSessionUpdate.fromJson(updateJson);
+                    });
+                    return 'session';
+                  },
+              onJoinOnline: (_, _, _) async {},
+              onEnterOnlineGame: () => enterCalls += 1,
+              onRememberStartedSetup: (_, lobbySeats, browserJoinable) {
+                rememberedSeats = lobbySeats;
+                expect(browserJoinable, isFalse);
+              },
+              onPresetChanged: (_) {},
+              onCustomVariantsChanged: (_) {},
+              onPlayerControllersChanged: (controllers) {
+                changedControllers = controllers;
+              },
+              onRulesPressed: () {},
+              onOfflinePressed: () => setState(() => showingOnline = false),
+              onOnlinePressed: () => setState(() => showingOnline = true),
+              onTutorialPressed: () {},
+              onLanguageToggle: () {},
+              onAppearanceToggle: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('ADD PLAYERS'), findsOneWidget);
+    expect(find.text('START OFFLINE GAME'), findsNothing);
+
+    await tester.tap(find.text('ADD PLAYERS'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('ONLINE'));
+    expect(find.text('START OFFLINE GAME'), findsOneWidget);
+    expect(find.text('VISIBILITY'), findsOneWidget);
+    expect(find.text('PUBLIC'), findsOneWidget);
+
+    await tester.tap(find.text('PUBLIC'));
+    await tester.pump();
+    expect(find.text('PUBLIC'), findsOneWidget);
+    expect(find.text('PRIVATE'), findsNothing);
+
+    await tester.tap(find.bySemanticsLabel('P2 Online'));
+    await tester.pumpAndSettle();
+    expect(find.text('START ONLINE GAME'), findsOneWidget);
+    final p3Hotseat = find.bySemanticsLabel('P3 Hotseat');
+    expect(p3Hotseat, findsOneWidget);
+    expect(
+      tester.getSemantics(p3Hotseat).flagsCollection.isEnabled.toBoolOrNull(),
+      isFalse,
+    );
+    await tester.tap(find.text('PUBLIC'));
+    await tester.pump();
+    expect(find.text('PRIVATE'), findsOneWidget);
+
+    await tester.tap(find.text('JOIN GAME'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('CREATE GAME'));
+    await tester.pumpAndSettle();
+    expect(find.text('START ONLINE GAME'), findsOneWidget);
+
+    await tester.ensureVisible(find.bySemanticsLabel('P3 Hard'));
+    await tester.tap(find.bySemanticsLabel('P3 Hard'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.bySemanticsLabel('P4 Hard'));
+    await tester.tap(find.bySemanticsLabel('P4 Hard'));
     await tester.pumpAndSettle();
 
     expect(changedControllers, isNotNull);
@@ -3337,8 +3960,9 @@ void main() {
     expect(find.text('START ONLINE GAME'), findsOneWidget);
     expect(find.text('RANKED'), findsNothing);
     expect(find.text('CASUAL'), findsNothing);
-    expect(find.text('BROWSER'), findsOneWidget);
+    expect(find.text('PRIVATE'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('START ONLINE GAME'));
     await tester.tap(find.text('START ONLINE GAME'));
     await tester.pump();
 
@@ -3349,6 +3973,14 @@ void main() {
     expect(enterImmediately, isFalse);
     expect(ranked, isFalse);
     expect(enterCalls, 0);
+    expect(rememberedSeats, ['local', 'online', 'hardAI', 'hardAI']);
+    await tester.pumpAndSettle();
+    expect(showingOnline, isFalse);
+    expect(find.text('YOUR INVITE CODE'), findsNothing);
+    expect(find.bySemanticsLabel('INVITE CODE ABCDE'), findsOneWidget);
+    expect(find.bySemanticsLabel('Waiting for players'), findsWidgets);
+    expect(find.textContaining('Searching for Player'), findsOneWidget);
+    expect(find.text('Mira'), findsOneWidget);
   });
 
   testWidgets('online ban state does not disable the create-game button', (
@@ -3391,10 +4023,17 @@ void main() {
       ),
     );
 
-    await tester.tap(find.bySemanticsLabel('P2 Hard'));
+    await tester.tap(find.text('ADD PLAYERS'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('ONLINE'));
+    await tester.tap(find.bySemanticsLabel('P2 Online'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.bySemanticsLabel('P3 Hard'));
+    await tester.tap(find.bySemanticsLabel('P3 Hard'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.bySemanticsLabel('P4 Hard'));
+    await tester.tap(find.bySemanticsLabel('P4 Hard'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('START ONLINE GAME'));
     await tester.tap(find.text('START ONLINE GAME'));
     await tester.pump();
 
@@ -3457,19 +4096,19 @@ void main() {
     expect(find.text('2-year Kolkhoz with easy AI'), findsOneWidget);
     expect(
       find.byWidgetPredicate(
-        (widget) =>
-            widget is Image &&
-            widget.image is AssetImage &&
-            (widget.image as AssetImage).assetName ==
-                'ios_resources/Icons/icon-year-2.png',
+        (widget) => widget is PixelText && widget.text == '52 CARD DECK',
       ),
       findsOneWidget,
     );
-    expect(find.text('52 CARDS / 2 YEARS'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is PixelText && widget.text == '2 YEAR PLAN',
+      ),
+      findsOneWidget,
+    );
     expect(KolkhozGameVariants.demoKolkhoz.wreckerCard, isTrue);
 
     await tester.tap(find.bySemanticsLabel('Little Kolkhoz'));
-    await tester.tap(find.bySemanticsLabel('P2 Easy'));
     await tester.pumpAndSettle();
 
     expect(presetChanges, 0);
@@ -3582,9 +4221,26 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.bySemanticsLabel('ABCDE - Mira'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp(r'Mira')), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp(r'ABCDE - Mira')), findsNothing);
+      expect(find.text('ABCDE'), findsNothing);
       expect(find.text('16 Citizens Online'), findsOneWidget);
-      expect(find.text('1 open'), findsOneWidget);
+      expect(find.text('Refresh in 15s'), findsOneWidget);
+      expect(find.text('RANKED'), findsNothing);
+      expect(find.text('COMRADES'), findsNothing);
+      expect(find.byTooltip('Ranked'), findsOneWidget);
+      expect(find.byTooltip('Casual'), findsOneWidget);
+      expect(find.byTooltip('Comrade'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byTooltip('Casual'),
+          matching: findAssetImage(
+            'ios_resources/Icons/icon-foreman-misha.png',
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('1 open'), findsNothing);
       expect(find.textContaining('Learning Table'), findsNothing);
       expect(
         httpClient.requests.map((request) => request.route),
@@ -3595,7 +4251,7 @@ void main() {
       await tester.pump();
 
       expect(matchmakeCalled, isTrue);
-      expect(matchmakeRankedOnly, isFalse);
+      expect(matchmakeRankedOnly, isTrue);
       expect(matchmakeComradesOnly, isFalse);
     },
   );
@@ -3603,7 +4259,7 @@ void main() {
   testWidgets('online lobby invite code entry changes assign action to join', (
     tester,
   ) async {
-    final httpClient = FakeOnlineHttpClient();
+    final httpClient = EmptySessionsFakeOnlineHttpClient();
     String? joinedInviteCode;
 
     await tester.pumpWidget(
@@ -3647,8 +4303,10 @@ void main() {
 
     await tester.pumpAndSettle();
 
+    expect(find.text('No open games'), findsOneWidget);
+    expect(find.text('16 Citizens Online'), findsOneWidget);
+    expect(find.text('Refresh in 15s'), findsOneWidget);
     expect(find.text('ASSIGN GAME'), findsOneWidget);
-    expect(find.text('JOIN GAME'), findsNothing);
 
     final inviteField = find.byWidgetPredicate(
       (widget) =>
@@ -3658,9 +4316,9 @@ void main() {
     await tester.pump();
 
     expect(find.text('ASSIGN GAME'), findsNothing);
-    expect(find.text('JOIN GAME'), findsOneWidget);
+    expect(find.text('JOIN GAME'), findsWidgets);
 
-    await tester.tap(find.text('JOIN GAME'));
+    await tester.tap(find.text('JOIN GAME').last);
     await tester.pump();
 
     expect(joinedInviteCode, 'abcde');
@@ -3715,7 +4373,8 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.bySemanticsLabel('ABCDE - Mira'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp(r'Mira')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp(r'ABCDE - Mira')), findsNothing);
 
     await tester.tap(find.text('ASSIGN GAME'));
     await tester.pump();
@@ -3730,7 +4389,7 @@ void main() {
       find.text('Sent north: online play is locked for this account.'),
       findsOneWidget,
     );
-    expect(find.bySemanticsLabel('ABCDE - Mira'), findsNothing);
+    expect(find.bySemanticsLabel(RegExp(r'ABCDE - Mira')), findsNothing);
 
     await tester.tap(
       find.text('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
@@ -3748,7 +4407,7 @@ void main() {
     await tester.enterText(inviteField, 'abcde');
     await tester.pump();
 
-    expect(find.text('JOIN GAME'), findsOneWidget);
+    expect(find.text('JOIN GAME'), findsWidgets);
     expect(
       find.text('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
       findsNothing,
@@ -3757,9 +4416,9 @@ void main() {
       find.text('Sent north: online play is locked for this account.'),
       findsOneWidget,
     );
-    expect(find.bySemanticsLabel('ABCDE - Mira'), findsNothing);
+    expect(find.bySemanticsLabel(RegExp(r'ABCDE - Mira')), findsNothing);
 
-    await tester.tap(find.text('JOIN GAME'));
+    await tester.tap(find.text('JOIN GAME').last);
     await tester.pump();
 
     expect(matchmakeCalls, 1);
@@ -3811,7 +4470,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.bySemanticsLabel('ABCDE - Mira'), findsNothing);
+    expect(find.bySemanticsLabel(RegExp(r'ABCDE - Mira')), findsNothing);
     expect(
       find.text('Sent north: online play is locked for this account.'),
       findsOneWidget,
@@ -3827,7 +4486,7 @@ void main() {
     );
     await tester.enterText(inviteField, 'abcde');
     await tester.pump();
-    await tester.tap(find.text('JOIN GAME'));
+    await tester.tap(find.text('JOIN GAME').last);
     await tester.pump();
 
     expect(joinedInviteCode, 'abcde');
@@ -3903,9 +4562,10 @@ void main() {
     expect(find.text('ABCDE'), findsWidgets);
     expect(find.text('Mira'), findsOneWidget);
     expect(find.text('Nadia'), findsOneWidget);
-    expect(find.text('OPEN'), findsOneWidget);
+    expect(find.textContaining('Searching for Player'), findsOneWidget);
     expect(find.text('KICK'), findsOneWidget);
     expect(find.byKey(const Key('online-waiting-cancel')), findsOneWidget);
+    expect(find.bySemanticsLabel('Waiting for players'), findsWidgets);
 
     await tester.tap(find.byKey(const Key('online-waiting-cancel')));
     await tester.pump();
@@ -3917,6 +4577,53 @@ void main() {
 
     expect(kickedPlayerID, 1);
 
+    updateJson['playerProfiles'] = [
+      ...(updateJson['playerProfiles'] as List<Object?>),
+      {
+        'playerID': 2,
+        'userID': '33333333-3333-4333-8333-333333333333',
+        'displayName': 'Oksana',
+        'avatarURL': 'worker3',
+        'stats': {'rating': 990},
+      },
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 844,
+          height: 390,
+          child: StandaloneLobby(
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
+            appearance: KolkhozAppearance.dark,
+            onStart: () {},
+            selectedPreset: KolkhozGamePreset.kolkhoz,
+            customVariants: KolkhozGameVariants.kolkhoz,
+            playerControllers: KolkhozPlayerController.defaultControllers,
+            showingRules: false,
+            showingOnline: true,
+            hostedInviteCode: 'ABCDE',
+            onlineSessionUpdate: OnlineSessionUpdate.fromJson(updateJson),
+            showHostedInviteCode: true,
+            onHostOnline: (_, _, _, _, _) async => 'session',
+            onJoinOnline: (_, _, _) async {},
+            onKickOnlinePlayer: (playerID) async => kickedPlayerID = playerID,
+            onEnterOnlineGame: () => enterCalls += 1,
+            onCancelOnlineGame: () => cancelCalls += 1,
+            onPresetChanged: (_) {},
+            onCustomVariantsChanged: (_) {},
+            onPlayerControllersChanged: (_) {},
+            onRulesPressed: () {},
+            onOfflinePressed: () {},
+            onOnlinePressed: () {},
+            onTutorialPressed: () {},
+            onLanguageToggle: () {},
+            onAppearanceToggle: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
     await tester.tap(find.text('JOIN GAME').last);
     await tester.pump();
 
@@ -4724,6 +5431,8 @@ TableViewModel runtimeModelWith({
   required SelectionState selection,
   required List<Job> jobs,
   int? currentPlayerID,
+  List<Seat>? seats,
+  Trick? trick,
   Trick? lastTrick,
   List<LegalAction>? legalActions,
 }) {
@@ -4738,9 +5447,9 @@ TableViewModel runtimeModelWith({
       trump: base.table.trump,
       isFamine: base.table.isFamine,
       maxTricks: base.table.maxTricks,
-      seats: base.table.seats,
+      seats: seats ?? base.table.seats,
       jobs: jobs,
-      trick: base.table.trick,
+      trick: trick ?? base.table.trick,
       lastTrick: lastTrick ?? base.table.lastTrick,
       requisitionEvents: base.table.requisitionEvents,
       exiledByYear: base.table.exiledByYear,
@@ -4750,6 +5459,42 @@ TableViewModel runtimeModelWith({
     panels: base.panels,
     selection: selection,
     legalActions: legalActions ?? base.legalActions,
+  );
+}
+
+Seat seatWithHand(Seat seat, List<TableCard> hand) {
+  return Seat(
+    id: seat.id,
+    name: seat.name,
+    controller: seat.controller,
+    portraitAsset: seat.portraitAsset,
+    isViewer: seat.isViewer,
+    isCurrentTurn: seat.isCurrentTurn,
+    isBrigadeLeader: seat.isBrigadeLeader,
+    hand: hand,
+    hiddenHandCount: seat.hiddenHandCount,
+    plot: seat.plot,
+    medals: seat.medals,
+    visibleScore: seat.visibleScore,
+    statusText: seat.statusText,
+  );
+}
+
+Seat seatWithController(Seat seat, {required String controller}) {
+  return Seat(
+    id: seat.id,
+    name: seat.name,
+    controller: controller,
+    portraitAsset: seat.portraitAsset,
+    isViewer: seat.isViewer,
+    isCurrentTurn: seat.isCurrentTurn,
+    isBrigadeLeader: seat.isBrigadeLeader,
+    hand: seat.hand,
+    hiddenHandCount: seat.hiddenHandCount,
+    plot: seat.plot,
+    medals: seat.medals,
+    visibleScore: seat.visibleScore,
+    statusText: seat.statusText,
   );
 }
 
@@ -4886,6 +5631,55 @@ Finder findAssetImage(String assetName) {
         widget.image is AssetImage &&
         (widget.image as AssetImage).assetName == assetName,
   );
+}
+
+class _CardMotionTestBoard extends StatelessWidget {
+  const _CardMotionTestBoard({required this.model});
+
+  final TableViewModel model;
+
+  @override
+  Widget build(BuildContext context) {
+    final hand = model.table.seats[0].hand;
+    final trick = model.table.trick.plays;
+    final handCard = hand.isEmpty ? null : hand.first;
+    final trickPlay = trick.isEmpty ? null : trick.first;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          left: 24,
+          top: 208,
+          child: MotionTrackedRegion(
+            motionKey: playerCardMotionSourceKey(2),
+            child: const SizedBox(width: 96, height: 42),
+          ),
+        ),
+        if (handCard != null)
+          Positioned(
+            left: 24,
+            top: 24,
+            child: GameCard(
+              card: handCard,
+              tokens: defaultDesignTokens,
+              trump: model.table.trump,
+              sizeOverride: defaultDesignTokens.card.small,
+            ),
+          ),
+        if (trickPlay != null)
+          Positioned(
+            left: 260,
+            top: 96,
+            child: GameCard(
+              card: trickPlay.card,
+              tokens: defaultDesignTokens,
+              trump: model.table.trump,
+              sizeOverride: defaultDesignTokens.card.small,
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 Map<String, Object?> onlineUpdateJson({int viewerID = 0}) {
@@ -5047,6 +5841,17 @@ class FakeOnlineHttpClient implements HttpClient {
         'update': onlineUpdateJson(viewerID: 1),
       });
     }
+    if (method == 'POST' && uri.path == '/presence') {
+      return FakeOnlineHttpClientResponse.json({
+        'service': {
+          'activeSessions': 1,
+          'activeSeats': 3,
+          'connectedHumanSeats': 1,
+          'profiledBotSeats': 15,
+          'citizensOnline': 16,
+        },
+      });
+    }
     if (method == 'GET' && uri.path == '/sessions') {
       return FakeOnlineHttpClientResponse.json([
         {
@@ -5068,7 +5873,42 @@ class FakeOnlineHttpClient implements HttpClient {
           'createdAt': 1.0,
           'expiresAt': 3601.0,
         },
+        {
+          'sessionID': '22222222-2222-2222-2222-222222222222',
+          'inviteCode': 'FGHIJ',
+          'openSeats': [2],
+          'occupiedSeats': [0, 1],
+          'controllers': ['human', 'human', 'human', 'heuristicAI'],
+          'playerProfiles': [
+            {
+              'playerID': 0,
+              'userID': '22222222-2222-2222-2222-222222222222',
+              'displayName': 'Oleg',
+              'avatarURL': 'worker2',
+              'stats': {'online_games': 1, 'online_wins': 0},
+            },
+          ],
+          'ranked': false,
+          'actionLogCount': 3,
+          'createdAt': 2.0,
+          'expiresAt': 3602.0,
+        },
       ]);
+    }
+    if (method == 'GET' && uri.path == '/comrades') {
+      return FakeOnlineHttpClientResponse.json({
+        'userID': 'current-user',
+        'comradeCode': 'SELF',
+        'comrades': [
+          {
+            'userID': '11111111-1111-1111-1111-111111111111',
+            'displayName': 'Mira',
+            'avatarURL': 'worker3',
+            'comradeCode': 'MIRA',
+            'stats': {'online_games': 4, 'online_wins': 2},
+          },
+        ],
+      });
     }
     if (method == 'GET' && uri.path == '/metrics') {
       return FakeOnlineHttpClientResponse.json({
@@ -5123,6 +5963,29 @@ class FakeOnlineHttpClient implements HttpClient {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class EmptySessionsFakeOnlineHttpClient extends FakeOnlineHttpClient {
+  @override
+  FakeOnlineHttpClientResponse route(
+    String method,
+    Uri uri,
+    String body,
+    Map<String, List<Object>> headers,
+  ) {
+    if (method == 'GET' && uri.path == '/sessions') {
+      requests.add(
+        FakeOnlineRequestRecord(
+          method: method,
+          uri: uri,
+          body: body,
+          headers: headers,
+        ),
+      );
+      return FakeOnlineHttpClientResponse.json([]);
+    }
+    return super.route(method, uri, body, headers);
+  }
 }
 
 class BannedSessionsFakeOnlineHttpClient extends FakeOnlineHttpClient {

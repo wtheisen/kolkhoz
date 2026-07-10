@@ -73,6 +73,8 @@ class LiveGameStore extends ChangeNotifier {
   Timer? _onlineRefreshTimer;
   RealtimeChannel? _onlineRealtimeChannel;
   bool _onlineRealtimeRefreshInFlight = false;
+  bool _onlineRealtimeRefreshPending = false;
+  int? _pendingOnlineRealtimeRevision;
   bool _onlineActionRefreshInFlight = false;
   Timer? _onlineUpdateQueueTimer;
   final List<OnlineActionUpdate> _onlineUpdateQueue = [];
@@ -767,14 +769,36 @@ class LiveGameStore extends ChangeNotifier {
 
   Future<void> _refreshOnlineGameFromRealtime(int? revision) async {
     if (_onlineRealtimeRefreshInFlight) {
+      _rememberPendingOnlineRealtimeRefresh(revision);
       return;
     }
     _onlineRealtimeRefreshInFlight = true;
+    var targetRevision = revision;
     try {
-      await _refreshOnlineGame(minimumRevision: revision);
+      while (!_disposed) {
+        await _refreshOnlineGame(minimumRevision: targetRevision);
+        if (!_onlineRealtimeRefreshPending) {
+          break;
+        }
+        targetRevision = _pendingOnlineRealtimeRevision;
+        _onlineRealtimeRefreshPending = false;
+        _pendingOnlineRealtimeRevision = null;
+      }
     } finally {
       _onlineRealtimeRefreshInFlight = false;
     }
+  }
+
+  void _rememberPendingOnlineRealtimeRefresh(int? revision) {
+    if (!_onlineRealtimeRefreshPending) {
+      _onlineRealtimeRefreshPending = true;
+      _pendingOnlineRealtimeRevision = revision;
+      return;
+    }
+    _pendingOnlineRealtimeRevision = newestOnlineRevision(
+      _pendingOnlineRealtimeRevision,
+      revision,
+    );
   }
 
   int? _revisionFromRealtimePayload(PostgresChangePayload payload) {
@@ -800,6 +824,8 @@ class LiveGameStore extends ChangeNotifier {
     final channel = _onlineRealtimeChannel;
     _onlineRealtimeChannel = null;
     _onlineRealtimeRefreshInFlight = false;
+    _onlineRealtimeRefreshPending = false;
+    _pendingOnlineRealtimeRevision = null;
     if (channel != null) {
       unawaited(KolkhozSupabaseRuntime.instance.client?.removeChannel(channel));
     }
@@ -1093,4 +1119,11 @@ class OnlineGameRuntime {
   final String seatToken;
   OnlineSessionUpdate update;
   List<OnlineEngineAction> legalActions;
+}
+
+int? newestOnlineRevision(int? current, int? incoming) {
+  if (current == null || incoming == null) {
+    return null;
+  }
+  return incoming > current ? incoming : current;
 }

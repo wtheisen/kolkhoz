@@ -21,6 +21,7 @@ from research.kolkhoz_research.online_server import (
     KolkhozOnlineSessionService,
     OnlineServerError,
     PHASE_GAME_OVER,
+    POSTGRES_BIGINT_MAX,
 )
 from research.kolkhoz_research.model import PolicyArtifact
 from research.kolkhoz_research.online_store import (
@@ -253,6 +254,22 @@ class OnlineServerTests(unittest.TestCase):
             self.service.session_listing(casual["sessionID"])["openSeats"],
             [1],
         )
+
+    def test_population_session_seed_fits_postgres_bigint(self) -> None:
+        store = FakeOnlineStore()
+        service = KolkhozOnlineSessionService(self.engine, store=store)
+        try:
+            service.create_population_session(
+                bot_profiles=[SERVER_BOT_PROFILES[0]],
+                open_human_seats=3,
+                ranked=True,
+                now=1_700_000_000.125,
+                population_kind="rating_seed",
+            )
+        finally:
+            service.close()
+
+        self.assertLessEqual(store.created["seed"], POSTGRES_BIGINT_MAX)
 
     def test_service_matchmaking_ranked_filter_seeds_lobby_when_none_available(
         self,
@@ -1804,6 +1821,89 @@ class OnlineServerTests(unittest.TestCase):
         self.assertEqual(len(hosted.action_log), 1)
         self.assertNotIn(0, hosted.bot_action_ready_at)
 
+    def test_profile_bot_policy_uses_effective_controller_for_human_seat(self) -> None:
+        class FakeEngine:
+            def __init__(self) -> None:
+                self.waiting = 1
+                self.policy_action_value = make_action(4, 1)
+                self.fallback_action = make_action(9, 1)
+                self.applied: list[object] = []
+                self.policy_calls = 0
+
+            def waiting_player(self, pointer: object) -> int:
+                return self.waiting
+
+            def policy_action(self, pointer: object, model: object):
+                self.policy_calls += 1
+                state = ctypes.cast(
+                    pointer,
+                    ctypes.POINTER(KCEngineSnapshot),
+                ).contents
+                if state.controllers.seats[1] != 2:
+                    return None
+                return self.policy_action_value
+
+            def legal_actions(self, pointer: object) -> list[object]:
+                return [self.fallback_action]
+
+            def apply_ai_action(self, pointer: object, action: object) -> None:
+                self.applied.append(action)
+                self.waiting = 0
+
+            def free_engine(self, pointer: object) -> None:
+                pass
+
+        state = KCEngineSnapshot()
+        state.controllers.seats[1] = 0
+        engine = FakeEngine()
+        service = KolkhozOnlineSessionService(  # type: ignore[arg-type]
+            engine,
+            session_ttl_seconds=0,
+            policy_artifact=PolicyArtifact.scratch(
+                hidden_layers=[1],
+                seed=1,
+                scale=0.01,
+            ),
+        )
+        service._cache_action_update = lambda *args, **kwargs: None  # type: ignore[method-assign]
+        hosted = HostedSession(
+            session_id="11111111-1111-1111-1111-111111111111",
+            invite_code="ABCDE",
+            engine_pointer=ctypes.cast(ctypes.pointer(state), ctypes.c_void_p),
+            seed=123,
+            variants=kolkhoz_variants(),
+            controllers=["human", "human", "human", "human"],
+            ranked=True,
+            browser_joinable=True,
+            population_kind="open_lobby_seed",
+            occupied_seats={1},
+            seat_tokens={1: "seat-1"},
+            seat_token_hashes={1: seat_token_hash("seat-1")},
+            seat_user_ids={1: "00000000-0000-4000-8000-000000000301"},
+            server_bot_controllers={1: "neuralAI"},
+            bot_action_ready_at={1: 0.0},
+            created_by_user_id=None,
+            action_log=[],
+            action_update_cache=[],
+            created_at=0.0,
+            last_seen_at=0.0,
+            last_persisted_touch_at=0.0,
+            seat_last_seen_at={1: 0.0},
+            seat_timeouts={},
+            autopilot_seats=set(),
+            abandoned_seats=set(),
+            turn_player_id=None,
+            turn_deadline_at=None,
+        )
+        try:
+            service._advance_automatic_turns(hosted, now=1.0)
+        finally:
+            service.close()
+
+        self.assertEqual(engine.policy_calls, 1)
+        self.assertEqual(engine.applied, [engine.policy_action_value])
+        self.assertEqual(state.controllers.seats[1], 0)
+
     def test_http_routes_match_flutter_client_paths(self) -> None:
         server = KolkhozOnlineHTTPServer(("127.0.0.1", 0), self.service)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -1890,13 +1990,54 @@ class OnlineServerTests(unittest.TestCase):
         self.assertEqual(metrics["service"]["activeSessions"], 1)
         self.assertGreaterEqual(metrics["service"]["activeSeats"], 3)
         self.assertEqual(metrics["service"]["profiledBotSeats"], 15)
-        self.assertGreaterEqual(metrics["service"]["citizensOnline"], 16)
+        self.assertEqual(metrics["service"]["connectedHumanSeats"], 0)
+        self.assertEqual(metrics["service"]["citizensOnline"], 15)
         self.assertGreaterEqual(metrics["process"]["activeThreads"], 1)
         self.assertIn("GET /health", metrics["routes"])
         self.assertIn("POST /sessions", metrics["routes"])
         self.assertIn("GET /sessions/{session}/state", metrics["routes"])
         self.assertEqual(metrics["routeStatuses"]["GET /health 200"], 1)
         self.assertGreaterEqual(metrics["sessionLockWaits"]["request"]["count"], 1)
+
+    def test_http_presence_counts_only_authenticated_heartbeats(self) -> None:
+        user_id = "11111111-1111-1111-1111-111111111111"
+
+        class FakeAuthVerifier:
+            def user_id_from_authorization(self, authorization: str | None) -> str | None:
+                return user_id if authorization == "Bearer user-token" else None
+
+        service = KolkhozOnlineSessionService(
+            self.engine,
+            auth_verifier=FakeAuthVerifier(),  # type: ignore[arg-type]
+        )
+        server = KolkhozOnlineHTTPServer(("127.0.0.1", 0), service)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            base_url = f"http://127.0.0.1:{server.server_port}"
+            anonymous = request_json("POST", f"{base_url}/presence")
+            first = request_json(
+                "POST",
+                f"{base_url}/presence",
+                headers={"Authorization": "Bearer user-token"},
+            )
+            second = request_json(
+                "POST",
+                f"{base_url}/presence",
+                headers={"Authorization": "Bearer user-token"},
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+            service.close()
+
+        self.assertEqual(anonymous["service"]["connectedHumanSeats"], 0)
+        self.assertEqual(anonymous["service"]["citizensOnline"], 15)
+        self.assertEqual(first["service"]["connectedHumanSeats"], 1)
+        self.assertEqual(first["service"]["citizensOnline"], 16)
+        self.assertEqual(second["service"]["connectedHumanSeats"], 1)
+        self.assertEqual(second["service"]["citizensOnline"], 16)
 
     def test_online_load_test_runs_synthetic_players(self) -> None:
         server = KolkhozOnlineHTTPServer(("127.0.0.1", 0), self.service)

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show clampDouble, lerpDouble;
 
@@ -92,25 +91,27 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
     final nextZones = cardMotionZones(widget.model);
     final previousCards = cardMotionCards(oldWidget.model);
     final nextCards = cardMotionCards(widget.model);
+    final previousRects = Map<String, Rect>.of(_controller.previousRects);
     _afterCardLayout(() {
+      final currentRects = Map<String, Rect>.of(_controller.currentRects);
       _startFlights(
         previousModel: oldWidget.model,
         previousZones: previousZones,
         nextZones: nextZones,
         previousCards: previousCards,
         nextCards: nextCards,
+        previousRects: previousRects,
+        currentRects: currentRects,
       );
       _controller.commitFrame();
     });
   }
 
   void _afterCardLayout(VoidCallback action) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      scheduleMicrotask(() {
-        if (mounted) {
-          action();
-        }
-      });
+    WidgetsBinding.instance.endOfFrame.then((_) {
+      if (mounted) {
+        action();
+      }
     });
   }
 
@@ -120,17 +121,17 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
     required Map<String, String> nextZones,
     required Map<String, TableCard> previousCards,
     required Map<String, TableCard> nextCards,
+    required Map<String, Rect> previousRects,
+    required Map<String, Rect> currentRects,
   }) {
     if (widget.speed.cardFlightDuration == Duration.zero) {
       return;
     }
-    final previousRects = _controller.previousRects;
-    final currentRects = _controller.currentRects;
     final newFlights = <CardFlight>[];
     for (final entry in nextZones.entries) {
       final cardID = entry.key;
       final previousZone = previousZones[cardID];
-      if (previousZone == null || previousZone == entry.value) {
+      if (previousZone == entry.value) {
         continue;
       }
       final to = cardFlightDestinationRect(
@@ -143,14 +144,21 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
       if (to == null) {
         continue;
       }
-      var sourceRect = cardFlightSourceRect(
-        cardID: cardID,
-        previousZone: previousZone,
-        nextZone: entry.value,
-        previousRects: previousRects,
-        model: previousModel,
-        tokens: widget.tokens,
-      );
+      var sourceRect = previousZone == null
+          ? newTrickCardFallbackSourceRect(
+              nextZone: entry.value,
+              previousRects: previousRects,
+              model: previousModel,
+              tokens: widget.tokens,
+            )
+          : cardFlightSourceRect(
+              cardID: cardID,
+              previousZone: previousZone,
+              nextZone: entry.value,
+              previousRects: previousRects,
+              model: previousModel,
+              tokens: widget.tokens,
+            );
       sourceRect ??= cardFlightFallbackSourceRect(
         previousZone: previousZone,
         nextZone: entry.value,
@@ -625,12 +633,14 @@ Rect? cardFlightSourceRect({
 
 Rect? cardFlightDestinationRect({
   required String cardID,
-  required String previousZone,
+  required String? previousZone,
   required String nextZone,
   required Map<String, Rect> currentRects,
   required DesignTokens tokens,
 }) {
-  if (previousZone.startsWith('plot:') && nextZone.startsWith('exiled:')) {
+  if (previousZone != null &&
+      previousZone.startsWith('plot:') &&
+      nextZone.startsWith('exiled:')) {
     return northCardMotionTargetRect(
       currentRects: currentRects,
       tokens: tokens,
@@ -642,7 +652,7 @@ Rect? cardFlightDestinationRect({
       currentRects: currentRects,
       tokens: tokens,
     );
-    if (previousZone.startsWith('trick:')) {
+    if (previousZone != null && previousZone.startsWith('trick:')) {
       return gaugeRect ?? currentRects[cardID];
     }
     return currentRects[cardID] ?? gaugeRect;
@@ -673,11 +683,14 @@ Rect? jobGaugeCardMotionTargetRect({
 }
 
 Rect? cardFlightFallbackSourceRect({
-  required String previousZone,
+  required String? previousZone,
   required String nextZone,
   required Map<String, Rect> currentRects,
   required DesignTokens tokens,
 }) {
+  if (previousZone == null) {
+    return null;
+  }
   if (!previousZone.startsWith('plot:') ||
       !(nextZone.startsWith('exiled:') ||
           nextZone == cardMotionNorthExileZone)) {
@@ -694,6 +707,23 @@ Rect? cardFlightFallbackSourceRect({
   final size = Size(tokens.card.small.width, tokens.card.small.height);
   final topLeft = plotRect.center - Offset(size.width / 2, size.height / 2);
   return topLeft & size;
+}
+
+Rect? newTrickCardFallbackSourceRect({
+  required String nextZone,
+  required Map<String, Rect> previousRects,
+  required TableViewModel model,
+  required DesignTokens tokens,
+}) {
+  final seatID = zoneSeatID(nextZone, 'trick');
+  if (seatID == null || motionSeatIsViewer(model, seatID)) {
+    return null;
+  }
+  return playerCardMotionSourceRect(
+    seatID: seatID,
+    previousRects: previousRects,
+    tokens: tokens,
+  );
 }
 
 Rect? northCardMotionTargetRect({
@@ -781,10 +811,17 @@ const northCardMotionTargetKey = 'north-exile-target';
 const cardMotionNorthExileZone = 'north-exile';
 
 double cardFlightDurationScale({
-  required String previousZone,
+  required String? previousZone,
   required String nextZone,
   required TableViewModel model,
 }) {
+  if (previousZone == null) {
+    final seatID = zoneSeatID(nextZone, 'trick');
+    if (seatID != null && !motionSeatIsViewer(model, seatID)) {
+      return playerInfoCardFlightDurationScale;
+    }
+    return 1;
+  }
   if (previousZone.startsWith('plot:') &&
       (nextZone.startsWith('exiled:') ||
           nextZone == cardMotionNorthExileZone)) {
@@ -1423,7 +1460,11 @@ class CardCornerIndex extends StatelessWidget {
       height: rankHeight,
       child: Align(
         alignment: top ? Alignment.centerLeft : Alignment.centerRight,
-        child: rankContent,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: top ? Alignment.centerLeft : Alignment.centerRight,
+          child: rankContent,
+        ),
       ),
     );
     final suit = Transform.translate(

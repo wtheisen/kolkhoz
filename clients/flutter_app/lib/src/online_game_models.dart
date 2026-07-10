@@ -811,6 +811,11 @@ class KolkhozOnlineClient {
     return OnlineServerStatus.fromJson(_objectMap(decoded));
   }
 
+  Future<OnlineServerStatus> sendPresenceHeartbeat() async {
+    final decoded = await _send(method: 'POST', path: 'presence');
+    return OnlineServerStatus.fromJson(_objectMap(decoded));
+  }
+
   Future<OnlineComradesResponse> fetchComrades() async {
     final decoded = await _send(method: 'GET', path: 'comrades');
     return OnlineComradesResponse.fromJson(_objectMap(decoded));

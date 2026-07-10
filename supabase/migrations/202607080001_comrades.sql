@@ -6,6 +6,9 @@ update public.profiles
  where comrade_code is null;
 
 alter table public.profiles
+    drop constraint if exists profiles_comrade_code_not_blank;
+
+alter table public.profiles
     add constraint profiles_comrade_code_not_blank
     check (comrade_code is null or length(trim(comrade_code)) >= 5);
 

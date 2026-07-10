@@ -414,7 +414,7 @@ class PlotOverviewView extends StatelessWidget {
                       title: 'Cellar',
                       iconPath: 'ios_resources/Icons/icon-cellar.png',
                       cards: viewerHiddenCards,
-                      hiddenCount: viewerHiddenCards.length,
+                      value: viewerHiddenCards.length,
                       hidden: true,
                       hiddenCards: false,
                       selectable: selectable,
@@ -432,7 +432,10 @@ class PlotOverviewView extends StatelessWidget {
                       iconPath: 'ios_resources/Icons/icon-plot.png',
                       cards: viewerRevealedCards,
                       stacks: viewer.plot.stacks,
-                      hiddenCount: viewerRevealedCards.length,
+                      value: plotSectionValue(
+                        viewerRevealedCards,
+                        viewer.plot.stacks,
+                      ),
                       hidden: false,
                       selectable: selectable,
                       selectedCardID: model.selection.plotCardID,
@@ -482,6 +485,7 @@ class PlotPlayerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final viewerRow = seat.id == viewerSeatID;
+    final revealCellarCards = viewerRow || model.table.phase == phaseGameOver;
     final hiddenCards = visiblePlotCards(seat.plot.hidden, hiddenExiledCardIDs);
     final revealedCards = visiblePlotCards(
       seat.plot.revealed,
@@ -521,8 +525,10 @@ class PlotPlayerRow extends StatelessWidget {
               iconPath: 'ios_resources/Icons/icon-cellar.png',
               cards: hiddenCards,
               stacks: const [],
-              hiddenCards: !viewerRow,
-              hiddenCount: hiddenCards.length,
+              hiddenCards: !revealCellarCards,
+              value: model.table.phase == phaseGameOver
+                  ? plotCardsValue(hiddenCards)
+                  : hiddenCards.length,
               selectable: selectable,
               selectedCardID: model.selection.plotCardID,
               zone: plotZoneHidden,
@@ -541,7 +547,7 @@ class PlotPlayerRow extends StatelessWidget {
               cards: revealedCards,
               stacks: seat.plot.stacks,
               hiddenCards: false,
-              hiddenCount: revealedCards.length,
+              value: plotSectionValue(revealedCards, seat.plot.stacks),
               selectable: selectable,
               selectedCardID: model.selection.plotCardID,
               zone: plotZoneRevealed,
@@ -631,7 +637,7 @@ class PlotRowCardSection extends StatelessWidget {
     required this.cards,
     required this.stacks,
     required this.hiddenCards,
-    required this.hiddenCount,
+    required this.value,
     required this.selectable,
     required this.selectedCardID,
     required this.zone,
@@ -649,7 +655,7 @@ class PlotRowCardSection extends StatelessWidget {
   final List<TableCard> cards;
   final List<PlotStackState> stacks;
   final bool hiddenCards;
-  final int hiddenCount;
+  final int value;
   final bool selectable;
   final String? selectedCardID;
   final String zone;
@@ -687,9 +693,7 @@ class PlotRowCardSection extends StatelessWidget {
                 ),
               ),
               PixelText(
-                stacks.isEmpty
-                    ? '$hiddenCount'
-                    : '$hiddenCount+${stacks.length}',
+                '$value',
                 size: PixelTextSize.caption2,
                 color: tokens.colors.smoke,
               ),
@@ -1404,7 +1408,7 @@ class LocalPlotColumn extends StatelessWidget {
     required this.iconPath,
     required this.cards,
     this.stacks = const [],
-    required this.hiddenCount,
+    required this.value,
     required this.hidden,
     bool? hiddenCards,
     required this.selectable,
@@ -1420,7 +1424,7 @@ class LocalPlotColumn extends StatelessWidget {
   final String iconPath;
   final List<TableCard> cards;
   final List<PlotStackState> stacks;
-  final int hiddenCount;
+  final int value;
   final bool hidden;
   final bool hiddenCards;
   final bool selectable;
@@ -1465,9 +1469,7 @@ class LocalPlotColumn extends StatelessWidget {
               ),
               const Spacer(),
               PixelText(
-                stacks.isEmpty
-                    ? '$hiddenCount'
-                    : '$hiddenCount+${stacks.length}',
+                '$value',
                 size: PixelTextSize.caption2,
                 color: tokens.colors.smoke,
               ),
@@ -1537,6 +1539,19 @@ class LocalPlotColumn extends StatelessWidget {
       ),
     );
   }
+}
+
+int plotSectionValue(List<TableCard> cards, List<PlotStackState> stacks) {
+  return plotCardsValue(cards) +
+      stacks.fold<int>(
+        0,
+        (sum, stack) =>
+            sum + plotCardsValue(stack.revealed) + plotCardsValue(stack.hidden),
+      );
+}
+
+int plotCardsValue(Iterable<TableCard> cards) {
+  return cards.fold<int>(0, (sum, card) => sum + card.value);
 }
 
 class PlotStackMini extends StatelessWidget {

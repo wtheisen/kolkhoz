@@ -90,14 +90,16 @@ class KolkhozApp extends StatefulWidget {
   State<KolkhozApp> createState() => _KolkhozAppState();
 }
 
-class _KolkhozAppState extends State<KolkhozApp> {
+class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   static const foremanHintDuration = Duration(seconds: 3);
+  static const onlinePresenceHeartbeatInterval = Duration(seconds: 15);
 
   final navigatorKey = GlobalKey<NavigatorState>();
   late final LiveGameStore store;
   late final KolkhozAppSettingsStore settingsStore;
   StreamSubscription<AuthState>? supabaseAuthSubscription;
   Timer? cloudProfileSyncTimer;
+  Timer? onlinePresenceTimer;
   KolkhozAppSettings settings = const KolkhozAppSettings();
   bool cloudAuthBusy = false;
   String? cloudAuthMessage;
@@ -110,6 +112,7 @@ class _KolkhozAppState extends State<KolkhozApp> {
   bool showingRules = false;
   bool showingOnline = false;
   bool showingProfile = false;
+  KolkhozSettingsTab selectedSettingsTab = KolkhozSettingsTab.profile;
   bool onlineSessionCreatedByLocalPlayer = false;
   bool showingTutorial = false;
   String? foremanHint;
@@ -138,27 +141,54 @@ class _KolkhozAppState extends State<KolkhozApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     settingsStore = KolkhozAppSettingsStore.defaultStore();
     settings = settingsStore.load();
+    final lastStartedSetup = settings.lastStartedSetup;
+    if (lastStartedSetup != null) {
+      selectedPreset = presetForVariants(lastStartedSetup.variants);
+      customVariants = lastStartedSetup.variants;
+      playerControllers = KolkhozPlayerController.normalized(
+        lastStartedSetup.controllers,
+      );
+    }
     store = LiveGameStore(onlineAccessTokenProvider: supabaseAccessToken);
     store.addListener(handleStoreChanged);
-    playerControllers = List.of(store.controllers);
+    if (lastStartedSetup == null) {
+      playerControllers = List.of(store.controllers);
+    }
     KolkhozSupabaseRuntime.instance.addListener(handleSupabaseRuntimeChanged);
     KolkhozSupabaseRuntime.instance.start();
     attachSupabaseAuthSubscription();
+    startOnlinePresenceHeartbeat();
   }
 
   @override
   void dispose() {
     foremanHintTimer?.cancel();
     cloudProfileSyncTimer?.cancel();
+    onlinePresenceTimer?.cancel();
     supabaseAuthSubscription?.cancel();
     store.removeListener(handleStoreChanged);
     KolkhozSupabaseRuntime.instance.removeListener(
       handleSupabaseRuntimeChanged,
     );
+    WidgetsBinding.instance.removeObserver(this);
     store.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      startOnlinePresenceHeartbeat();
+      return;
+    }
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      onlinePresenceTimer?.cancel();
+      onlinePresenceTimer = null;
+    }
   }
 
   @override
@@ -203,6 +233,7 @@ class _KolkhozAppState extends State<KolkhozApp> {
               showingRules: showingRules,
               showingOnline: showingOnline,
               showingProfile: showingProfile,
+              initialSettingsTab: selectedSettingsTab,
               hostedInviteCode: store.onlineInviteCode,
               onlineSessionUpdate: store.onlineUpdate,
               showHostedInviteCode: onlineSessionCreatedByLocalPlayer,
@@ -210,6 +241,7 @@ class _KolkhozAppState extends State<KolkhozApp> {
               portraitAsset: settings.portraitAsset,
               profileStats: settings.profileStats,
               favoriteSetup: settings.favoriteSetup,
+              lastStartedSetup: settings.lastStartedSetup,
               comradesSummary: comradesSummary,
               cloudConfigured: KolkhozSupabaseRuntime.instance.isConfigured,
               cloudReady: KolkhozSupabaseRuntime.instance.isReady,
@@ -225,15 +257,17 @@ class _KolkhozAppState extends State<KolkhozApp> {
               onEnterOnlineGame: enterOnlineGame,
               onCancelOnlineGame: returnToLobby,
               onStart: () {
+                final controllers = activePlayerControllers;
                 store.newGame(
                   variants: activeVariants,
-                  controllers: activePlayerControllers,
+                  controllers: controllers,
                 );
                 setState(() {
                   onlineSessionCreatedByLocalPlayer = false;
                   showingLobby = false;
                 });
               },
+              onRememberStartedSetup: rememberStartedSetup,
               onPresetChanged: (preset) {
                 if (demoMode) {
                   return;
@@ -301,6 +335,15 @@ class _KolkhozAppState extends State<KolkhozApp> {
                   showingRules = false;
                   showingOnline = false;
                   showingProfile = true;
+                  selectedSettingsTab = KolkhozSettingsTab.profile;
+                });
+              },
+              onSettingsPressed: () {
+                setState(() {
+                  showingRules = false;
+                  showingOnline = false;
+                  showingProfile = true;
+                  selectedSettingsTab = KolkhozSettingsTab.display;
                 });
               },
               onDisplayNameChanged: setDisplayName,
@@ -613,6 +656,25 @@ class _KolkhozAppState extends State<KolkhozApp> {
     setState(() => foremanHint = null);
   }
 
+  void startOnlinePresenceHeartbeat() {
+    if (onlinePresenceTimer != null) {
+      return;
+    }
+    unawaited(sendOnlinePresenceHeartbeat());
+    onlinePresenceTimer = Timer.periodic(
+      onlinePresenceHeartbeatInterval,
+      (_) => unawaited(sendOnlinePresenceHeartbeat()),
+    );
+  }
+
+  Future<void> sendOnlinePresenceHeartbeat() async {
+    try {
+      await onlineClient().sendPresenceHeartbeat();
+    } catch (_) {
+      // Presence is best effort; gameplay and account flows handle real errors.
+    }
+  }
+
   void toggleLanguage() {
     setState(() {
       settings = settings.copyWith(language: settings.language.next);
@@ -687,6 +749,26 @@ class _KolkhozAppState extends State<KolkhozApp> {
     showForemanHintMessage(
       settings.language.t(KolkhozText.kolkhozappFavoriteSaved),
     );
+  }
+
+  void rememberStartedSetup(
+    List<KolkhozPlayerController> controllers,
+    List<String> lobbySeats,
+    bool browserJoinable,
+  ) {
+    if (demoMode) {
+      return;
+    }
+    final next = settings.copyWith(
+      lastStartedSetup: KolkhozFavoriteSetup(
+        variants: activeVariants,
+        controllers: KolkhozPlayerController.normalized(controllers),
+        lobbySeats: lobbySeats,
+        browserJoinable: browserJoinable,
+      ),
+    );
+    settings = next;
+    settingsStore.save(next);
   }
 
   void useFavoriteSetup() {
@@ -1042,7 +1124,7 @@ class _KolkhozAppState extends State<KolkhozApp> {
     );
     setState(() {
       showingRules = false;
-      showingOnline = true;
+      showingOnline = false;
       showingProfile = false;
       showingLobby = !enterImmediately;
       onlineSessionCreatedByLocalPlayer = true;
@@ -1233,6 +1315,7 @@ class StandaloneLobby extends StatelessWidget {
     required this.showingOnline,
     required this.onHostOnline,
     required this.onJoinOnline,
+    this.onRememberStartedSetup,
     this.onMatchmakeOnline,
     this.onKickOnlinePlayer,
     required this.onEnterOnlineGame,
@@ -1252,6 +1335,7 @@ class StandaloneLobby extends StatelessWidget {
     required this.onAppearanceToggle,
     this.onCardBackChanged,
     this.showingProfile = false,
+    this.initialSettingsTab = KolkhozSettingsTab.profile,
     this.hostedInviteCode,
     this.onlineSessionUpdate,
     this.showHostedInviteCode = false,
@@ -1259,6 +1343,7 @@ class StandaloneLobby extends StatelessWidget {
     this.portraitAsset = defaultProfilePortraitAsset,
     this.profileStats = defaultProfileStats,
     this.favoriteSetup,
+    this.lastStartedSetup,
     this.comradesSummary = const OnlineComradesResponse(),
     this.cloudConfigured = false,
     this.cloudReady = false,
@@ -1268,6 +1353,7 @@ class StandaloneLobby extends StatelessWidget {
     this.cloudAuthMessage,
     this.cloudAuthIsError = false,
     this.onProfilePressed,
+    this.onSettingsPressed,
     this.onDisplayNameChanged,
     this.onPortraitChanged,
     this.onSaveFavoriteSetup,
@@ -1299,6 +1385,7 @@ class StandaloneLobby extends StatelessWidget {
   final bool showingRules;
   final bool showingOnline;
   final bool showingProfile;
+  final KolkhozSettingsTab initialSettingsTab;
   final String? hostedInviteCode;
   final OnlineSessionUpdate? onlineSessionUpdate;
   final bool showHostedInviteCode;
@@ -1306,6 +1393,7 @@ class StandaloneLobby extends StatelessWidget {
   final String portraitAsset;
   final KolkhozProfileStats profileStats;
   final KolkhozFavoriteSetup? favoriteSetup;
+  final KolkhozFavoriteSetup? lastStartedSetup;
   final OnlineComradesResponse comradesSummary;
   final bool cloudConfigured;
   final bool cloudReady;
@@ -1328,6 +1416,12 @@ class StandaloneLobby extends StatelessWidget {
     int? preferredPlayerID,
   )
   onJoinOnline;
+  final void Function(
+    List<KolkhozPlayerController> controllers,
+    List<String> lobbySeats,
+    bool browserJoinable,
+  )?
+  onRememberStartedSetup;
   final Future<String> Function(
     Uri baseURL,
     bool rankedOnly,
@@ -1352,6 +1446,7 @@ class StandaloneLobby extends StatelessWidget {
   final VoidCallback onAppearanceToggle;
   final ValueChanged<KolkhozCardBack>? onCardBackChanged;
   final VoidCallback? onProfilePressed;
+  final VoidCallback? onSettingsPressed;
   final ValueChanged<String>? onDisplayNameChanged;
   final ValueChanged<String>? onPortraitChanged;
   final VoidCallback? onSaveFavoriteSetup;
@@ -1451,6 +1546,7 @@ class StandaloneLobby extends StatelessWidget {
                   onOfflinePressed: onOfflinePressed,
                   onOnlinePressed: onOnlinePressed,
                   onProfilePressed: onProfilePressed,
+                  onSettingsPressed: onSettingsPressed,
                   onRulesPressed: onRulesPressed,
                   onLanguageToggle: onLanguageToggle,
                   onAppearanceToggle: onAppearanceToggle,
@@ -1477,6 +1573,7 @@ class StandaloneLobby extends StatelessWidget {
                   showingRules: showingRules,
                   showingOnline: showingOnline,
                   showingProfile: showingProfile,
+                  initialSettingsTab: initialSettingsTab,
                   hostedInviteCode: hostedInviteCode,
                   onlineSessionUpdate: onlineSessionUpdate,
                   showHostedInviteCode: showHostedInviteCode,
@@ -1484,6 +1581,7 @@ class StandaloneLobby extends StatelessWidget {
                   portraitAsset: portraitAsset,
                   profileStats: profileStats,
                   favoriteSetup: favoriteSetup,
+                  lastStartedSetup: lastStartedSetup,
                   comradesSummary: comradesSummary,
                   cloudConfigured: cloudConfigured,
                   cloudReady: cloudReady,
@@ -1496,6 +1594,7 @@ class StandaloneLobby extends StatelessWidget {
                   onStart: onStart,
                   onHostOnline: onHostOnline,
                   onJoinOnline: onJoinOnline,
+                  onRememberStartedSetup: onRememberStartedSetup,
                   onMatchmakeOnline: onMatchmakeOnline,
                   onKickOnlinePlayer: onKickOnlinePlayer,
                   onEnterOnlineGame: onEnterOnlineGame,
@@ -1580,6 +1679,7 @@ class _LobbyTitleColumn extends StatelessWidget {
     required this.onOfflinePressed,
     required this.onOnlinePressed,
     required this.onProfilePressed,
+    required this.onSettingsPressed,
     required this.onRulesPressed,
     required this.onLanguageToggle,
     required this.onAppearanceToggle,
@@ -1602,6 +1702,7 @@ class _LobbyTitleColumn extends StatelessWidget {
   final VoidCallback onOfflinePressed;
   final VoidCallback onOnlinePressed;
   final VoidCallback? onProfilePressed;
+  final VoidCallback? onSettingsPressed;
   final VoidCallback onRulesPressed;
   final VoidCallback onLanguageToggle;
   final VoidCallback onAppearanceToggle;
@@ -1657,6 +1758,7 @@ class _LobbyTitleColumn extends StatelessWidget {
               onOfflinePressed: onOfflinePressed,
               onOnlinePressed: onOnlinePressed,
               onProfilePressed: onProfilePressed,
+              onSettingsPressed: onSettingsPressed,
               onRulesPressed: onRulesPressed,
               onLanguageToggle: onLanguageToggle,
               onAppearanceToggle: onAppearanceToggle,
@@ -1697,6 +1799,7 @@ class _LobbyButtonStack extends StatelessWidget {
     required this.onOfflinePressed,
     required this.onOnlinePressed,
     required this.onProfilePressed,
+    required this.onSettingsPressed,
     required this.onRulesPressed,
     required this.onLanguageToggle,
     required this.onAppearanceToggle,
@@ -1719,6 +1822,7 @@ class _LobbyButtonStack extends StatelessWidget {
   final VoidCallback onOfflinePressed;
   final VoidCallback onOnlinePressed;
   final VoidCallback? onProfilePressed;
+  final VoidCallback? onSettingsPressed;
   final VoidCallback onRulesPressed;
   final VoidCallback onLanguageToggle;
   final VoidCallback onAppearanceToggle;
@@ -1844,7 +1948,7 @@ class _LobbyButtonStack extends StatelessWidget {
                 prominent: showingProfile,
                 size: iconSize,
                 badgeCount: comradeRequestCount,
-                onPressed: onProfilePressed,
+                onPressed: onSettingsPressed ?? onProfilePressed,
               ),
             ];
             if (useGrid) {
@@ -1990,7 +2094,7 @@ class _LobbyIconButton extends StatelessWidget {
                     child: Text(
                       badgeCount > 9 ? '9+' : '$badgeCount',
                       style: kolkhozFontStyle.copyWith(
-                        color: tokens.colors.cream,
+                        color: tokens.colors.activeSurfaceText,
                         fontSize: 10,
                         fontWeight: FontWeight.w900,
                         height: 1,
@@ -2066,6 +2170,7 @@ class _LobbyPanel extends StatelessWidget {
     required this.showingRules,
     required this.showingOnline,
     required this.showingProfile,
+    required this.initialSettingsTab,
     required this.hostedInviteCode,
     required this.onlineSessionUpdate,
     required this.showHostedInviteCode,
@@ -2073,6 +2178,7 @@ class _LobbyPanel extends StatelessWidget {
     required this.portraitAsset,
     required this.profileStats,
     required this.favoriteSetup,
+    required this.lastStartedSetup,
     required this.comradesSummary,
     required this.cloudConfigured,
     required this.cloudReady,
@@ -2085,6 +2191,7 @@ class _LobbyPanel extends StatelessWidget {
     required this.onStart,
     required this.onHostOnline,
     required this.onJoinOnline,
+    required this.onRememberStartedSetup,
     required this.onMatchmakeOnline,
     required this.onKickOnlinePlayer,
     required this.onEnterOnlineGame,
@@ -2129,6 +2236,7 @@ class _LobbyPanel extends StatelessWidget {
   final bool showingRules;
   final bool showingOnline;
   final bool showingProfile;
+  final KolkhozSettingsTab initialSettingsTab;
   final String? hostedInviteCode;
   final OnlineSessionUpdate? onlineSessionUpdate;
   final bool showHostedInviteCode;
@@ -2136,6 +2244,7 @@ class _LobbyPanel extends StatelessWidget {
   final String portraitAsset;
   final KolkhozProfileStats profileStats;
   final KolkhozFavoriteSetup? favoriteSetup;
+  final KolkhozFavoriteSetup? lastStartedSetup;
   final OnlineComradesResponse comradesSummary;
   final bool cloudConfigured;
   final bool cloudReady;
@@ -2160,6 +2269,12 @@ class _LobbyPanel extends StatelessWidget {
     int? preferredPlayerID,
   )
   onJoinOnline;
+  final void Function(
+    List<KolkhozPlayerController> controllers,
+    List<String> lobbySeats,
+    bool browserJoinable,
+  )?
+  onRememberStartedSetup;
   final Future<String> Function(
     Uri baseURL,
     bool rankedOnly,
@@ -2193,10 +2308,44 @@ class _LobbyPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final creatingGame = !showingProfile && !showingOnline && !showingRules;
+    final variantPanel = _VariantPanel(
+      tokens: tokens,
+      language: language,
+      selectedPreset: selectedPreset,
+      customVariants: customVariants,
+      playerControllers: playerControllers,
+      demoMode: demoMode,
+      variants: variants,
+      displayName: displayName,
+      portraitAsset: portraitAsset,
+      profileStats: profileStats,
+      favoriteSetup: favoriteSetup,
+      lastStartedSetup: lastStartedSetup,
+      compactRail: compactRail,
+      onStart: onStart,
+      onHostOnline: onHostOnline,
+      onRememberStartedSetup: onRememberStartedSetup,
+      hostedInviteCode: hostedInviteCode,
+      onlineSessionUpdate: onlineSessionUpdate,
+      showHostedInviteCode: showHostedInviteCode,
+      onKickOnlinePlayer: onKickOnlinePlayer,
+      onEnterOnlineGame: onEnterOnlineGame,
+      onCancelOnlineGame: onCancelOnlineGame,
+      onPresetChanged: onPresetChanged,
+      onCustomVariantsChanged: onCustomVariantsChanged,
+      onPlayerControllersChanged: onPlayerControllersChanged,
+      onSaveFavoriteSetup: onSaveFavoriteSetup,
+      onUseFavoriteSetup: onUseFavoriteSetup,
+    );
     return _PanelSurface(
       tokens: tokens,
-      child: showingProfile
-          ? _SettingsPanel(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Offstage(offstage: !creatingGame, child: variantPanel),
+          if (showingProfile)
+            _SettingsPanel(
               tokens: tokens,
               language: language,
               appearance: appearance,
@@ -2216,6 +2365,7 @@ class _LobbyPanel extends StatelessWidget {
               cloudAuthBusy: cloudAuthBusy,
               cloudAuthMessage: cloudAuthMessage,
               cloudAuthIsError: cloudAuthIsError,
+              initialTab: initialSettingsTab,
               onStart: onStart,
               onTutorialPressed: onTutorialPressed,
               onAnimationSpeedChanged: onAnimationSpeedChanged,
@@ -2233,8 +2383,8 @@ class _LobbyPanel extends StatelessWidget {
               onCloudSignOut: onCloudSignOut,
               onComradesChanged: onComradesChanged,
             )
-          : showingOnline
-          ? _OnlinePanel(
+          else if (showingOnline)
+            _OnlinePanel(
               tokens: tokens,
               language: language,
               hostedInviteCode: hostedInviteCode,
@@ -2250,30 +2400,14 @@ class _LobbyPanel extends StatelessWidget {
               onComradeRequestToUser: onComradeRequestToUser,
               onlineClientFactory: onlineClientFactory,
             )
-          : showingRules
-          ? _RulesPanel(
+          else if (showingRules)
+            _RulesPanel(
               tokens: tokens,
               language: language,
               onTutorialPressed: onTutorialPressed,
-            )
-          : _VariantPanel(
-              tokens: tokens,
-              language: language,
-              selectedPreset: selectedPreset,
-              customVariants: customVariants,
-              playerControllers: playerControllers,
-              demoMode: demoMode,
-              variants: variants,
-              favoriteSetup: favoriteSetup,
-              compactRail: compactRail,
-              onStart: onStart,
-              onHostOnline: onHostOnline,
-              onPresetChanged: onPresetChanged,
-              onCustomVariantsChanged: onCustomVariantsChanged,
-              onPlayerControllersChanged: onPlayerControllersChanged,
-              onSaveFavoriteSetup: onSaveFavoriteSetup,
-              onUseFavoriteSetup: onUseFavoriteSetup,
             ),
+        ],
+      ),
     );
   }
 }
@@ -2305,7 +2439,7 @@ class _PanelSurface extends StatelessWidget {
   }
 }
 
-enum _SettingsTab {
+enum KolkhozSettingsTab {
   profile,
   comrades,
   assist,
@@ -2314,21 +2448,22 @@ enum _SettingsTab {
 
   String title(KolkhozLanguage language) {
     return switch (this) {
-      _SettingsTab.profile => language.t(KolkhozText.kolkhozappProfile),
-      _SettingsTab.comrades => language.t(KolkhozText.kolkhozappComrades),
-      _SettingsTab.assist => OptionsMenuTab.assist.title(language),
-      _SettingsTab.display => OptionsMenuTab.display.title(language),
-      _SettingsTab.rules => OptionsMenuTab.rules.title(language),
+      KolkhozSettingsTab.profile => language.t(KolkhozText.kolkhozappProfile),
+      KolkhozSettingsTab.comrades => language.t(KolkhozText.kolkhozappComrades),
+      KolkhozSettingsTab.assist => OptionsMenuTab.assist.title(language),
+      KolkhozSettingsTab.display => OptionsMenuTab.display.title(language),
+      KolkhozSettingsTab.rules => OptionsMenuTab.rules.title(language),
     };
   }
 
   String get iconAsset {
     return switch (this) {
-      _SettingsTab.profile => 'ios_resources/Icons/icon-profile.png',
-      _SettingsTab.comrades => 'ios_resources/Icons/icon-friends-list.png',
-      _SettingsTab.assist => OptionsMenuTab.assist.iconAsset,
-      _SettingsTab.display => OptionsMenuTab.display.iconAsset,
-      _SettingsTab.rules => OptionsMenuTab.rules.iconAsset,
+      KolkhozSettingsTab.profile => 'ios_resources/Icons/icon-profile.png',
+      KolkhozSettingsTab.comrades =>
+        'ios_resources/Icons/icon-friends-list.png',
+      KolkhozSettingsTab.assist => OptionsMenuTab.assist.iconAsset,
+      KolkhozSettingsTab.display => OptionsMenuTab.display.iconAsset,
+      KolkhozSettingsTab.rules => OptionsMenuTab.rules.iconAsset,
     };
   }
 }
@@ -2354,6 +2489,7 @@ class _SettingsPanel extends StatefulWidget {
     required this.cloudAuthBusy,
     required this.cloudAuthMessage,
     required this.cloudAuthIsError,
+    required this.initialTab,
     required this.onStart,
     required this.onTutorialPressed,
     required this.onAnimationSpeedChanged,
@@ -2391,6 +2527,7 @@ class _SettingsPanel extends StatefulWidget {
   final bool cloudAuthBusy;
   final String? cloudAuthMessage;
   final bool cloudAuthIsError;
+  final KolkhozSettingsTab initialTab;
   final VoidCallback onStart;
   final VoidCallback onTutorialPressed;
   final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
@@ -2413,11 +2550,19 @@ class _SettingsPanel extends StatefulWidget {
 }
 
 class _SettingsPanelState extends State<_SettingsPanel> {
-  _SettingsTab selectedTab = _SettingsTab.profile;
+  late KolkhozSettingsTab selectedTab = widget.initialTab;
+
+  @override
+  void didUpdateWidget(covariant _SettingsPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTab != widget.initialTab) {
+      selectedTab = widget.initialTab;
+    }
+  }
 
   Widget _tabBody() {
     return switch (selectedTab) {
-      _SettingsTab.profile => _ProfilePanel(
+      KolkhozSettingsTab.profile => _ProfilePanel(
         tokens: widget.tokens,
         language: widget.language,
         displayName: widget.displayName,
@@ -2437,7 +2582,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
         onCloudResetPassword: widget.onCloudResetPassword,
         onCloudSignOut: widget.onCloudSignOut,
       ),
-      _SettingsTab.comrades => _ComradesSettingsPanel(
+      KolkhozSettingsTab.comrades => _ComradesSettingsPanel(
         tokens: widget.tokens,
         language: widget.language,
         comradesSummary: widget.comradesSummary,
@@ -2453,7 +2598,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
         onCloudResetPassword: widget.onCloudResetPassword,
         onComradesChanged: widget.onComradesChanged,
       ),
-      _SettingsTab.assist => SingleChildScrollView(
+      KolkhozSettingsTab.assist => SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           spacing: 12,
@@ -2478,7 +2623,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
           ],
         ),
       ),
-      _SettingsTab.display => SingleChildScrollView(
+      KolkhozSettingsTab.display => SingleChildScrollView(
         child: OptionsDisplayControls(
           tokens: widget.tokens,
           language: widget.language,
@@ -2491,7 +2636,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
           onCardBackChanged: widget.onCardBackChanged,
         ),
       ),
-      _SettingsTab.rules => SingleChildScrollView(
+      KolkhozSettingsTab.rules => SingleChildScrollView(
         child: OptionsMenuRules(
           tokens: widget.tokens,
           language: widget.language,
@@ -2511,13 +2656,13 @@ class _SettingsPanelState extends State<_SettingsPanel> {
             const spacing = optionsMenuTabSpacing;
             final tabWidth =
                 (constraints.maxWidth -
-                    spacing * (_SettingsTab.values.length - 1)) /
-                _SettingsTab.values.length;
+                    spacing * (KolkhozSettingsTab.values.length - 1)) /
+                KolkhozSettingsTab.values.length;
             final tabHeight = (tabWidth * 0.30).clamp(38.0, 52.0);
             return Row(
               spacing: spacing,
               children: [
-                for (final tab in _SettingsTab.values)
+                for (final tab in KolkhozSettingsTab.values)
                   Expanded(
                     child: _SettingsTabButton(
                       tokens: widget.tokens,
@@ -2619,10 +2764,21 @@ class _VariantPanel extends StatefulWidget {
     required this.playerControllers,
     required this.demoMode,
     required this.variants,
+    required this.displayName,
+    required this.portraitAsset,
+    required this.profileStats,
     required this.favoriteSetup,
+    required this.lastStartedSetup,
     required this.compactRail,
     required this.onStart,
     required this.onHostOnline,
+    required this.onRememberStartedSetup,
+    required this.hostedInviteCode,
+    required this.onlineSessionUpdate,
+    required this.showHostedInviteCode,
+    required this.onKickOnlinePlayer,
+    required this.onEnterOnlineGame,
+    required this.onCancelOnlineGame,
     required this.onPresetChanged,
     required this.onCustomVariantsChanged,
     required this.onPlayerControllersChanged,
@@ -2637,7 +2793,11 @@ class _VariantPanel extends StatefulWidget {
   final List<KolkhozPlayerController> playerControllers;
   final bool demoMode;
   final KolkhozGameVariants variants;
+  final String displayName;
+  final String portraitAsset;
+  final KolkhozProfileStats profileStats;
   final KolkhozFavoriteSetup? favoriteSetup;
+  final KolkhozFavoriteSetup? lastStartedSetup;
   final bool compactRail;
   final VoidCallback onStart;
   final Future<String> Function(
@@ -2648,6 +2808,18 @@ class _VariantPanel extends StatefulWidget {
     bool browserJoinable,
   )
   onHostOnline;
+  final void Function(
+    List<KolkhozPlayerController> controllers,
+    List<String> lobbySeats,
+    bool browserJoinable,
+  )?
+  onRememberStartedSetup;
+  final String? hostedInviteCode;
+  final OnlineSessionUpdate? onlineSessionUpdate;
+  final bool showHostedInviteCode;
+  final Future<void> Function(int playerID)? onKickOnlinePlayer;
+  final VoidCallback onEnterOnlineGame;
+  final VoidCallback? onCancelOnlineGame;
   final ValueChanged<KolkhozGamePreset> onPresetChanged;
   final ValueChanged<KolkhozGameVariants> onCustomVariantsChanged;
   final ValueChanged<List<KolkhozPlayerController>> onPlayerControllersChanged;
@@ -2660,6 +2832,7 @@ class _VariantPanel extends StatefulWidget {
 
 class _VariantPanelState extends State<_VariantPanel> {
   late List<_LobbySeatChoice> seatChoices;
+  bool showingSeatLobby = false;
   bool startingOnline = false;
   bool browserJoinable = true;
   String? onlineStatus;
@@ -2669,15 +2842,36 @@ class _VariantPanelState extends State<_VariantPanel> {
   @override
   void initState() {
     super.initState();
-    seatChoices = _LobbySeatChoice.fromControllers(widget.playerControllers);
+    seatChoices = _initialSeatChoices();
+    browserJoinable = widget.lastStartedSetup?.browserJoinable ?? true;
+    showingSeatLobby = widget.lastStartedSetup != null && !widget.demoMode;
   }
 
   @override
   void didUpdateWidget(covariant _VariantPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!seatChoices.contains(_LobbySeatChoice.online)) {
-      seatChoices = _LobbySeatChoice.fromControllers(widget.playerControllers);
+    if (widget.demoMode && !oldWidget.demoMode) {
+      showingSeatLobby = false;
     }
+    if (widget.lastStartedSetup != oldWidget.lastStartedSetup &&
+        widget.lastStartedSetup != null &&
+        !showingSeatLobby &&
+        !widget.demoMode) {
+      seatChoices = _initialSeatChoices();
+      browserJoinable = widget.lastStartedSetup!.browserJoinable;
+      showingSeatLobby = true;
+    }
+  }
+
+  List<_LobbySeatChoice> _initialSeatChoices() {
+    final lastStartedSetup = widget.lastStartedSetup;
+    if (lastStartedSetup == null || widget.demoMode) {
+      return _LobbySeatChoice.emptySetupChoices();
+    }
+    return _LobbySeatChoice.fromStoredValues(
+      lastStartedSetup.lobbySeats,
+      fallbackControllers: lastStartedSetup.controllers,
+    );
   }
 
   List<_LobbySeatChoice> get effectiveSeatChoices {
@@ -2695,6 +2889,9 @@ class _VariantPanelState extends State<_VariantPanel> {
 
   bool get hasOnlineSeats =>
       effectiveSeatChoices.contains(_LobbySeatChoice.online);
+
+  bool get hasUnassignedSeats =>
+      effectiveSeatChoices.contains(_LobbySeatChoice.empty);
 
   void setSeatChoice(int playerID, _LobbySeatChoice choice) {
     final next = List<_LobbySeatChoice>.of(effectiveSeatChoices);
@@ -2716,6 +2913,8 @@ class _VariantPanelState extends State<_VariantPanel> {
 
   Future<void> startGame() async {
     if (!hasOnlineSeats) {
+      rememberEffectiveSetup();
+      widget.onPlayerControllersChanged(effectiveControllers);
       widget.onStart();
       return;
     }
@@ -2736,6 +2935,7 @@ class _VariantPanelState extends State<_VariantPanel> {
         false,
         browserJoinable,
       );
+      rememberEffectiveSetup();
     } catch (exception) {
       if (!mounted) {
         return;
@@ -2752,6 +2952,14 @@ class _VariantPanelState extends State<_VariantPanel> {
     }
   }
 
+  void rememberEffectiveSetup() {
+    widget.onRememberStartedSetup?.call(
+      effectiveControllers,
+      _LobbySeatChoice.storedValues(effectiveSeatChoices),
+      browserJoinable,
+    );
+  }
+
   void useFavoriteSetup() {
     final favorite = widget.favoriteSetup;
     if (favorite == null || widget.demoMode) {
@@ -2766,8 +2974,27 @@ class _VariantPanelState extends State<_VariantPanel> {
     widget.onUseFavoriteSetup?.call();
   }
 
+  Future<void> copyHostedInviteCode(String inviteCode) async {
+    await Clipboard.setData(ClipboardData(text: inviteCode));
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      onlineStatus = widget.language.t(KolkhozText.kolkhozappCopied);
+      onlineStatusIsError = false;
+      onlineStatusDisablesAction = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (showingSeatLobby && !widget.demoMode) {
+      return _buildLobbyStep();
+    }
+    return _buildSetupStep();
+  }
+
+  Widget _buildSetupStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 10,
@@ -2779,15 +3006,37 @@ class _VariantPanelState extends State<_VariantPanel> {
           compact: widget.compactRail,
           onPresetChanged: widget.demoMode ? null : widget.onPresetChanged,
         ),
-        if (!widget.demoMode)
-          _FavoriteSetupActions(
-            tokens: widget.tokens,
-            language: widget.language,
-            hasFavorite: widget.favoriteSetup != null,
-            compact: widget.compactRail,
-            onSave: widget.onSaveFavoriteSetup,
-            onUse: useFavoriteSetup,
-          ),
+        _GoldDivider(tokens: widget.tokens),
+        Expanded(child: _VariantOptionsScroll(panel: widget)),
+        if (widget.demoMode)
+          _primaryCommandButton(
+            label: widget.language.t(KolkhozText.kolkhozappStartDemo),
+            iconAsset: 'ios_resources/Icons/icon-demo.png',
+            onPressed: startGame,
+          )
+        else
+          _setupCommandRow(),
+      ],
+    );
+  }
+
+  Widget _buildLobbyStep() {
+    final hostedOnlineUpdate = widget.showHostedInviteCode
+        ? widget.onlineSessionUpdate
+        : null;
+    if (hostedOnlineUpdate != null) {
+      return _buildHostedOnlineLobbyStep(hostedOnlineUpdate);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 10,
+      children: [
+        _PresetSummaryStrip(
+          tokens: widget.tokens,
+          language: widget.language,
+          variants: widget.variants,
+          compact: widget.compactRail,
+        ),
         if (onlineStatus != null &&
             (!onlineStatusIsError || !onlineStatusDisablesAction))
           _OnlineStatusBanner(
@@ -2804,150 +3053,476 @@ class _VariantPanelState extends State<_VariantPanel> {
               child: Padding(
                 padding: const EdgeInsets.only(right: 10, bottom: 18),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   spacing: 10,
                   children: [
-                    if (widget.selectedPreset == KolkhozGamePreset.custom &&
-                        !widget.demoMode)
-                      _CustomVariantOptions(
-                        tokens: widget.tokens,
-                        language: widget.language,
-                        variants: widget.customVariants,
-                        compact: widget.compactRail,
-                        onChanged: widget.onCustomVariantsChanged,
-                      )
-                    else
-                      _PresetSummary(
-                        tokens: widget.tokens,
-                        language: widget.language,
-                        variants: widget.variants,
-                        demoMode: widget.demoMode,
-                        compact: widget.compactRail,
-                      ),
+                    _SeatLobbyEditor(
+                      tokens: widget.tokens,
+                      language: widget.language,
+                      choices: effectiveSeatChoices,
+                      displayName: widget.displayName,
+                      portraitAsset: widget.portraitAsset,
+                      profileStats: widget.profileStats,
+                      onChanged: widget.demoMode ? null : setSeatChoice,
+                      compact: widget.compactRail,
+                    ),
                   ],
                 ),
               ),
             ),
           ),
         ),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final showsBrowserJoinableToggle =
-                hasOnlineSeats && !widget.demoMode;
-            final inlineCompactControls =
-                widget.compactRail &&
-                constraints.maxWidth >=
-                    (showsBrowserJoinableToggle ? 560.0 : 410.0);
-            final compactWidth = showsBrowserJoinableToggle
-                ? 620.0
-                : widget.compactRail
-                ? 500.0
-                : 540.0;
-            final compact =
-                !inlineCompactControls && constraints.maxWidth < compactWidth;
-            final controlHeight = widget.compactRail ? 50.0 : 56.0;
-            final seats = _SeatQuickControls(
-              tokens: widget.tokens,
-              language: widget.language,
-              choices: effectiveSeatChoices,
-              onChanged: widget.demoMode ? null : setSeatChoice,
-              compact: widget.compactRail,
-            );
-            final browserJoinableToggle = showsBrowserJoinableToggle
-                ? _BrowserJoinableToggle(
-                    tokens: widget.tokens,
-                    language: widget.language,
-                    browserJoinable: browserJoinable,
-                    onChanged: (value) =>
-                        setState(() => browserJoinable = value),
-                  )
-                : null;
-            Widget startButton({double? width}) {
-              final buttonShowsBan =
-                  onlineStatus != null && onlineStatusDisablesAction;
-              return SizedBox(
-                width: width,
-                height: controlHeight,
-                child: ChromeAssetButton.command(
-                  width: double.infinity,
-                  padding: widget.compactRail
-                      ? const EdgeInsets.symmetric(horizontal: 8)
-                      : null,
-                  label: buttonShowsBan
-                      ? onlineStatus!
-                      : startingOnline
-                      ? widget.language.t(KolkhozText.kolkhozappWorking)
-                      : widget.demoMode
-                      ? widget.language.t(KolkhozText.kolkhozappStartDemo)
-                      : hasOnlineSeats
-                      ? widget.language.t(KolkhozText.kolkhozappStartOnlineGame)
-                      : widget.language.t(
-                          KolkhozText.kolkhozappStartOfflineGame,
-                        ),
-                  prominent: true,
-                  tokens: widget.tokens,
-                  onPressed: startingOnline || buttonShowsBan
-                      ? null
-                      : startGame,
-                  enabled: !buttonShowsBan,
-                  disabledOpacity: 0.72,
-                  iconAsset: buttonShowsBan
-                      ? 'ios_resources/Icons/icon-warning.png'
-                      : widget.demoMode
-                      ? 'ios_resources/Icons/icon-demo.png'
-                      : 'ios_resources/Icons/icon-create-game.png',
-                  iconSize: widget.compactRail ? 22 : 28,
-                  textSize: widget.compactRail
-                      ? PixelTextSize.headline
-                      : PixelTextSize.title,
-                  expandLabel: false,
-                ),
-              );
-            }
+        _lobbyCommandRow(),
+      ],
+    );
+  }
 
-            if (inlineCompactControls) {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  seats,
-                  if (browserJoinableToggle != null) ...[
-                    const SizedBox(width: 8),
-                    browserJoinableToggle,
-                  ],
-                  const SizedBox(width: 8),
-                  Expanded(child: startButton()),
-                ],
-              );
-            }
-            final stackedStartButton = startButton(
-              width: compact ? double.infinity : 220,
-            );
-            if (compact) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                spacing: 8,
-                children: [
-                  Center(child: seats),
-                  if (browserJoinableToggle != null)
-                    Center(child: browserJoinableToggle),
-                  stackedStartButton,
-                ],
-              );
-            }
-            return Row(
-              children: [
-                seats,
-                if (browserJoinableToggle != null) ...[
-                  const SizedBox(width: 10),
-                  browserJoinableToggle,
-                ],
-                const Spacer(),
-                stackedStartButton,
-              ],
-            );
-          },
+  Widget _lobbyCommandRow() {
+    final height = widget.compactRail ? 50.0 : 56.0;
+    return Row(
+      spacing: 8,
+      children: [
+        SizedBox(
+          width: widget.compactRail ? 154 : 190,
+          child: _backToSetupButton(height: height),
+        ),
+        _BrowserJoinableToggle(
+          tokens: widget.tokens,
+          language: widget.language,
+          browserJoinable: browserJoinable,
+          enabled: hasOnlineSeats,
+          onChanged: (value) => setState(() => browserJoinable = value),
+        ),
+        Expanded(
+          child: _primaryCommandButton(
+            label: _startButtonLabel(),
+            iconAsset: _startButtonIconAsset(),
+            onPressed:
+                startingOnline || _startButtonShowsBan() || hasUnassignedSeats
+                ? null
+                : startGame,
+            enabled: !_startButtonShowsBan() && !hasUnassignedSeats,
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _backToSetupButton({
+    required double height,
+    Key? key,
+    VoidCallback? onPressed,
+  }) {
+    return SizedBox(
+      height: height,
+      child: ChromeAssetButton.command(
+        key: key,
+        label: widget.language.t(KolkhozText.kolkhozappBackToSetup),
+        prominent: false,
+        tokens: widget.tokens,
+        iconAsset: 'ios_resources/Icons/icon-toolbar-undo.png',
+        iconSize: widget.compactRail ? 18 : 22,
+        textSize: widget.compactRail
+            ? PixelTextSize.caption
+            : PixelTextSize.headline,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        expandLabel: false,
+        onPressed: onPressed ?? () => setState(() => showingSeatLobby = false),
+      ),
+    );
+  }
+
+  Widget _buildHostedOnlineLobbyStep(OnlineSessionUpdate update) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 10,
+      children: [
+        _PresetSummaryStrip(
+          tokens: widget.tokens,
+          language: widget.language,
+          variants: widget.variants,
+          compact: widget.compactRail,
+        ),
+        if (onlineStatus != null)
+          _OnlineStatusBanner(
+            tokens: widget.tokens,
+            message: onlineStatus!,
+            isError: onlineStatusIsError,
+          ),
+        _GoldDivider(tokens: widget.tokens),
+        Expanded(
+          child: _OnlineWaitingRoomPanel(
+            tokens: widget.tokens,
+            language: widget.language,
+            update: update,
+            inviteCode: widget.hostedInviteCode,
+            onCopyInviteCode: widget.hostedInviteCode == null
+                ? null
+                : () =>
+                      unawaited(copyHostedInviteCode(widget.hostedInviteCode!)),
+            showHeaderCancel: false,
+            showInviteCard: false,
+            showJoinButton: false,
+            canKickPlayers: update.actionLogCount == 0,
+            onKickPlayer: widget.onKickOnlinePlayer,
+            onEnterOnlineGame: widget.onEnterOnlineGame,
+            onCancelOnlineGame: widget.onCancelOnlineGame,
+          ),
+        ),
+        _hostedLobbyCommandRow(update),
+      ],
+    );
+  }
+
+  Widget _hostedLobbyCommandRow(OnlineSessionUpdate update) {
+    final height = widget.compactRail ? 50.0 : 56.0;
+    final tableReady = !_onlineWaitingRoomHasOpenHumanSeats(update);
+    return Row(
+      spacing: 8,
+      children: [
+        SizedBox(
+          width: widget.compactRail ? 154 : 190,
+          child: _backToSetupButton(
+            height: height,
+            key: const Key('hosted-online-back-to-setup'),
+            onPressed:
+                widget.onCancelOnlineGame ??
+                () => setState(() => showingSeatLobby = false),
+          ),
+        ),
+        if (widget.hostedInviteCode != null)
+          SizedBox(
+            width: widget.compactRail ? 134 : 164,
+            child: _HostedInviteCodeFooterButton(
+              tokens: widget.tokens,
+              language: widget.language,
+              inviteCode: widget.hostedInviteCode!,
+              height: height,
+              onCopy: () =>
+                  unawaited(copyHostedInviteCode(widget.hostedInviteCode!)),
+            ),
+          ),
+        Expanded(
+          child: _WaitingRoomEnterButton(
+            tokens: widget.tokens,
+            language: widget.language,
+            tableReady: tableReady,
+            height: height,
+            onPressed: widget.onEnterOnlineGame,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _primaryCommandButton({
+    required String label,
+    required String iconAsset,
+    required VoidCallback? onPressed,
+    bool enabled = true,
+  }) {
+    return SizedBox(
+      height: widget.compactRail ? 50.0 : 56.0,
+      child: ChromeAssetButton.command(
+        width: double.infinity,
+        padding: widget.compactRail
+            ? const EdgeInsets.symmetric(horizontal: 8)
+            : null,
+        label: label,
+        prominent: true,
+        tokens: widget.tokens,
+        onPressed: onPressed,
+        enabled: enabled,
+        disabledOpacity: 0.72,
+        iconAsset: iconAsset,
+        iconSize: widget.compactRail ? 22 : 28,
+        textSize: widget.compactRail
+            ? PixelTextSize.headline
+            : PixelTextSize.title,
+        expandLabel: false,
+      ),
+    );
+  }
+
+  Widget _setupCommandRow() {
+    final height = widget.compactRail ? 50.0 : 56.0;
+    final secondaryTextSize = widget.compactRail
+        ? PixelTextSize.caption
+        : PixelTextSize.headline;
+    return Row(
+      spacing: 8,
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: height,
+            child: ChromeAssetButton.command(
+              label: widget.language.t(KolkhozText.kolkhozappSaveFavorite),
+              prominent: false,
+              tokens: widget.tokens,
+              onPressed: widget.onSaveFavoriteSetup,
+              textSize: secondaryTextSize,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              expandLabel: false,
+              surfaceKey: const Key('save-favorite-setup-button'),
+            ),
+          ),
+        ),
+        Expanded(
+          child: SizedBox(
+            height: height,
+            child: ChromeAssetButton.command(
+              label: widget.language.t(KolkhozText.kolkhozappUseFavorite),
+              prominent: false,
+              tokens: widget.tokens,
+              onPressed: widget.favoriteSetup != null ? useFavoriteSetup : null,
+              enabled: widget.favoriteSetup != null,
+              textSize: secondaryTextSize,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              expandLabel: false,
+              surfaceKey: const Key('use-favorite-setup-button'),
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 2,
+          child: SizedBox(
+            height: height,
+            child: ChromeAssetButton.command(
+              width: double.infinity,
+              label: widget.language.t(KolkhozText.kolkhozappContinueToLobby),
+              prominent: true,
+              tokens: widget.tokens,
+              onPressed: () => setState(() => showingSeatLobby = true),
+              iconAsset: 'ios_resources/Icons/icon-add-friend.png',
+              iconSize: widget.compactRail ? 22 : 28,
+              textSize: widget.compactRail
+                  ? PixelTextSize.headline
+                  : PixelTextSize.title,
+              padding: widget.compactRail
+                  ? const EdgeInsets.symmetric(horizontal: 8)
+                  : null,
+              expandLabel: false,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  bool _startButtonShowsBan() {
+    return onlineStatus != null && onlineStatusDisablesAction;
+  }
+
+  String _startButtonLabel() {
+    if (_startButtonShowsBan()) {
+      return onlineStatus!;
+    }
+    if (startingOnline) {
+      return widget.language.t(KolkhozText.kolkhozappWorking);
+    }
+    if (hasOnlineSeats) {
+      return widget.language.t(KolkhozText.kolkhozappStartOnlineGame);
+    }
+    return widget.language.t(KolkhozText.kolkhozappStartOfflineGame);
+  }
+
+  String _startButtonIconAsset() {
+    if (_startButtonShowsBan()) {
+      return 'ios_resources/Icons/icon-warning.png';
+    }
+    return 'ios_resources/Icons/icon-create-game.png';
+  }
+}
+
+class _VariantOptionsScroll extends StatelessWidget {
+  const _VariantOptionsScroll({required this.panel});
+
+  final _VariantPanel panel;
+
+  @override
+  Widget build(BuildContext context) {
+    return KolkhozScrollbar(
+      tokens: panel.tokens,
+      childBuilder: (context, scrollController) => SingleChildScrollView(
+        controller: scrollController,
+        child: Padding(
+          padding: const EdgeInsets.only(right: 10, bottom: 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 10,
+            children: [
+              if (panel.selectedPreset == KolkhozGamePreset.custom &&
+                  !panel.demoMode)
+                _CustomVariantOptions(
+                  tokens: panel.tokens,
+                  language: panel.language,
+                  variants: panel.customVariants,
+                  compact: panel.compactRail,
+                  onChanged: panel.onCustomVariantsChanged,
+                )
+              else
+                _PresetSummary(
+                  tokens: panel.tokens,
+                  language: panel.language,
+                  variants: panel.variants,
+                  demoMode: panel.demoMode,
+                  compact: panel.compactRail,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PresetSummaryStrip extends StatelessWidget {
+  const _PresetSummaryStrip({
+    required this.tokens,
+    required this.language,
+    required this.variants,
+    required this.compact,
+  });
+
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final KolkhozGameVariants variants;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final yearIcon = variants.maxYears.clamp(1, 5).toInt();
+    final majorPreset = presetForVariants(variants);
+    final icons = [
+      if (majorPreset.iconAsset != null)
+        _VariantHeaderIconData(
+          label: presetTitle(majorPreset, language),
+          iconAsset: majorPreset.iconAsset!,
+          showLabel: true,
+        ),
+      _VariantHeaderIconData(
+        label: language.t(KolkhozText.variantValue1CardDeck, {
+          'value1': variants.deckType,
+        }),
+        iconAsset:
+            'ios_resources/Icons/icon-variant-deck-${variants.deckType}.png',
+      ),
+      _VariantHeaderIconData(
+        label: language.t(KolkhozText.variantValue1YearPlan, {
+          'value1': variants.maxYears,
+        }),
+        iconAsset: 'ios_resources/Icons/icon-year-$yearIcon.png',
+      ),
+      for (final row in _VariantRowData.enabledRows(variants))
+        _VariantHeaderIconData(
+          label: row.localizedTitle(language),
+          iconAsset: row.iconAsset,
+        ),
+    ];
+    return Align(
+      alignment: Alignment.center,
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        runAlignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: compact ? 5 : 7,
+        runSpacing: compact ? 5 : 7,
+        children: [
+          for (final icon in icons)
+            _VariantHeaderIconChip(
+              label: icon.label,
+              iconAsset: icon.iconAsset,
+              showLabel: icon.showLabel,
+              tokens: tokens,
+              compact: compact,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VariantHeaderIconData {
+  const _VariantHeaderIconData({
+    required this.label,
+    required this.iconAsset,
+    this.showLabel = false,
+  });
+
+  final String label;
+  final String iconAsset;
+  final bool showLabel;
+}
+
+class _VariantHeaderIconChip extends StatelessWidget {
+  const _VariantHeaderIconChip({
+    required this.label,
+    required this.iconAsset,
+    required this.showLabel,
+    required this.tokens,
+    required this.compact,
+  });
+
+  final String label;
+  final String iconAsset;
+  final bool showLabel;
+  final DesignTokens tokens;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final width = showLabel
+        ? (compact ? 128.0 : 154.0)
+        : (compact ? 42.0 : 48.0);
+    final height = compact ? 38.0 : 44.0;
+    final iconSize = showLabel
+        ? (compact ? 25.0 : 29.0)
+        : (compact ? 28.0 : 33.0);
+    return Semantics(
+      image: true,
+      label: label,
+      child: ExcludeSemantics(
+        child: Tooltip(
+          message: label,
+          child: SizedBox(
+            width: width,
+            height: height,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                const Positioned.fill(
+                  child: ChromeButtonBackground(
+                    asset: chromeButtonPrimaryAsset,
+                  ),
+                ),
+                if (showLabel)
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      spacing: compact ? 5 : 7,
+                      children: [
+                        _VariantIcon(iconAsset, size: iconSize),
+                        Expanded(
+                          child: ChromeScaledLabel(
+                            label,
+                            color: tokens.colors.onAccent,
+                            size: compact
+                                ? PixelTextSize.caption2
+                                : PixelTextSize.caption,
+                            uppercase: false,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  _VariantIcon(iconAsset, size: iconSize),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -3019,102 +3594,301 @@ class _PresetSelector extends StatelessWidget {
   }
 }
 
-class _FavoriteSetupActions extends StatelessWidget {
-  const _FavoriteSetupActions({
-    required this.tokens,
-    required this.language,
-    required this.hasFavorite,
-    required this.compact,
-    required this.onSave,
-    required this.onUse,
-  });
-
-  final DesignTokens tokens;
-  final KolkhozLanguage language;
-  final bool hasFavorite;
-  final bool compact;
-  final VoidCallback? onSave;
-  final VoidCallback? onUse;
-
-  @override
-  Widget build(BuildContext context) {
-    final buttonHeight = compact ? 32.0 : 36.0;
-    final buttonTextSize = compact
-        ? PixelTextSize.caption2
-        : PixelTextSize.caption;
-    return Row(
-      spacing: 8,
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: buttonHeight,
-            child: ChromeAssetButton.command(
-              label: language.t(KolkhozText.kolkhozappSaveFavorite),
-              prominent: false,
-              tokens: tokens,
-              onPressed: onSave,
-              textSize: buttonTextSize,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              expandLabel: false,
-              surfaceKey: const Key('save-favorite-setup-button'),
-            ),
-          ),
-        ),
-        Expanded(
-          child: SizedBox(
-            height: buttonHeight,
-            child: ChromeAssetButton.command(
-              label: language.t(KolkhozText.kolkhozappUseFavorite),
-              prominent: false,
-              tokens: tokens,
-              onPressed: hasFavorite ? onUse : null,
-              enabled: hasFavorite,
-              textSize: buttonTextSize,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              expandLabel: false,
-              surfaceKey: const Key('use-favorite-setup-button'),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SeatQuickControls extends StatelessWidget {
-  const _SeatQuickControls({
+class _SeatLobbyEditor extends StatelessWidget {
+  const _SeatLobbyEditor({
     required this.tokens,
     required this.language,
     required this.choices,
+    required this.displayName,
+    required this.portraitAsset,
+    required this.profileStats,
     required this.onChanged,
-    this.compact = false,
+    required this.compact,
   });
 
   final DesignTokens tokens;
   final KolkhozLanguage language;
   final List<_LobbySeatChoice> choices;
+  final String displayName;
+  final String portraitAsset;
+  final KolkhozProfileStats profileStats;
   final void Function(int playerID, _LobbySeatChoice choice)? onChanged;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final normalized = _LobbySeatChoice.normalized(choices);
-    return Row(
-      spacing: 8,
-      children: [
-        for (var playerID = 0; playerID < kolkhozPlayerCount; playerID += 1)
-          _SeatQuickButton(
-            tokens: tokens,
-            language: language,
-            playerID: playerID,
-            choice: normalized[playerID],
-            options: _LobbySeatChoice.optionsForPlayer(playerID, normalized),
-            compact: compact,
-            onChanged: onChanged == null || playerID == 0
-                ? null
-                : (choice) => onChanged!(playerID, choice),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columnCount = constraints.maxWidth >= 660 && !compact
+            ? 4
+            : constraints.maxWidth >= 430
+            ? 2
+            : 1;
+        const spacing = 8.0;
+        final columnWidth =
+            (constraints.maxWidth - spacing * (columnCount - 1)) / columnCount;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (var playerID = 0; playerID < kolkhozPlayerCount; playerID += 1)
+              SizedBox(
+                width: columnWidth,
+                child: _SeatLobbyColumn(
+                  tokens: tokens,
+                  language: language,
+                  playerID: playerID,
+                  choice: normalized[playerID],
+                  displayName: displayName,
+                  portraitAsset: portraitAsset,
+                  profileStats: profileStats,
+                  choices: normalized,
+                  options: _LobbySeatChoice.optionsForPlayer(playerID),
+                  onChanged: onChanged == null || playerID == 0
+                      ? null
+                      : (choice) => onChanged!(playerID, choice),
+                  compact: compact,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SeatLobbyColumn extends StatelessWidget {
+  const _SeatLobbyColumn({
+    required this.tokens,
+    required this.language,
+    required this.playerID,
+    required this.choice,
+    required this.displayName,
+    required this.portraitAsset,
+    required this.profileStats,
+    required this.choices,
+    required this.options,
+    required this.onChanged,
+    required this.compact,
+  });
+
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final int playerID;
+  final _LobbySeatChoice choice;
+  final String displayName;
+  final String portraitAsset;
+  final KolkhozProfileStats profileStats;
+  final List<_LobbySeatChoice> choices;
+  final List<_LobbySeatChoice> options;
+  final ValueChanged<_LobbySeatChoice>? onChanged;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final playerLabel = language.t(KolkhozText.kolkhozappPValue1, {
+      'value1': playerID + 1,
+    });
+    final localProfile = playerID == 0 && choice == _LobbySeatChoice.local;
+    final occupantLabel = localProfile
+        ? displayName
+        : choice.shortTitle(language);
+    final subtitle = localProfile
+        ? _profileRatingSummary(language, profileStats)
+        : choice == _LobbySeatChoice.empty
+        ? language.t(KolkhozText.kolkhozappOpen)
+        : choice.shortTitle(language);
+    final semanticLabel = '$playerLabel $occupantLabel';
+    final card = PlayerProfilePanel(
+      tokens: tokens,
+      displayName: occupantLabel,
+      portraitAsset: localProfile
+          ? portraitAsset
+          : _seatPortraitAsset(playerID, choice),
+      seatLabel: playerLabel,
+      subtitle: subtitle,
+      subtitleIconAsset: localProfile ? null : choice.iconAsset,
+      portraitSize: compact ? 42 : 48,
+      minHeight: compact ? 78 : 92,
+      active: playerID == 0,
+      muted: choice == _LobbySeatChoice.empty,
+    );
+    if (onChanged != null) {
+      final visibleOptions = options
+          .where((option) => option != _LobbySeatChoice.empty)
+          .toList();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: compact ? 6 : 8,
+        children: [
+          ExcludeSemantics(child: card),
+          for (final option in visibleOptions)
+            _SeatChoiceOptionButton(
+              tokens: tokens,
+              language: language,
+              playerLabel: playerLabel,
+              option: option,
+              selected: option == choice,
+              enabled: _LobbySeatChoice.isOptionEnabledForPlayer(
+                playerID,
+                choices,
+                option,
+              ),
+              compact: compact,
+              onPressed: () => onChanged!(option),
+            ),
+        ],
+      );
+    }
+    return Semantics(
+      button: true,
+      enabled: onChanged != null,
+      label: semanticLabel,
+      child: ExcludeSemantics(
+        child: Tooltip(
+          message: semanticLabel,
+          child: PopupMenuButton<_LobbySeatChoice>(
+            tooltip: semanticLabel,
+            enabled: onChanged != null,
+            offset: const Offset(0, -172),
+            color: tokens.colors.panel,
+            surfaceTintColor: Colors.transparent,
+            elevation: 8,
+            onSelected: onChanged,
+            itemBuilder: (context) => [
+              for (final option in options)
+                PopupMenuItem(
+                  value: option,
+                  enabled: _LobbySeatChoice.isOptionEnabledForPlayer(
+                    playerID,
+                    choices,
+                    option,
+                  ),
+                  child: Row(
+                    spacing: 8,
+                    children: [
+                      _AssetIcon(
+                        option.iconAsset,
+                        size: 24,
+                        opacity: option == choice ? 1 : 0.72,
+                      ),
+                      Text(
+                        option.shortTitle(language).toUpperCase(),
+                        style: kolkhozFontStyle.copyWith(
+                          color: option == choice
+                              ? tokens.colors.goldBright
+                              : _LobbySeatChoice.isOptionEnabledForPlayer(
+                                  playerID,
+                                  choices,
+                                  option,
+                                )
+                              ? tokens.colors.creamDim
+                              : tokens.colors.creamDim.withValues(alpha: 0.48),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+            child: card,
           ),
-      ],
+        ),
+      ),
+    );
+  }
+
+  String _seatPortraitAsset(int playerID, _LobbySeatChoice choice) {
+    if (choice == _LobbySeatChoice.empty) {
+      return 'worker${playerID + 1}';
+    }
+    final iconAsset = choice.iconAsset;
+    const prefix = 'ios_resources/';
+    const suffix = '.png';
+    if (iconAsset.startsWith(prefix) && iconAsset.endsWith(suffix)) {
+      return iconAsset.substring(
+        prefix.length,
+        iconAsset.length - suffix.length,
+      );
+    }
+    return 'worker${playerID + 1}';
+  }
+}
+
+class _SeatChoiceOptionButton extends StatelessWidget {
+  const _SeatChoiceOptionButton({
+    required this.tokens,
+    required this.language,
+    required this.playerLabel,
+    required this.option,
+    required this.selected,
+    required this.enabled,
+    required this.compact,
+    required this.onPressed,
+  });
+
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final String playerLabel;
+  final _LobbySeatChoice option;
+  final bool selected;
+  final bool enabled;
+  final bool compact;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = option.shortTitle(language);
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: '$playerLabel $label',
+      child: ExcludeSemantics(
+        child: Tooltip(
+          message: label,
+          child: Opacity(
+            opacity: enabled ? 1 : 0.54,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: enabled ? onPressed : null,
+              child: SizedBox(
+                height: compact ? 34 : 38,
+                child: _VariantRowBackground(
+                  tokens: tokens,
+                  active: selected,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 8 : 10,
+                    vertical: compact ? 6 : 7,
+                  ),
+                  child: Row(
+                    spacing: 8,
+                    children: [
+                      _AssetIcon(
+                        option.iconAsset,
+                        size: compact ? 20 : 24,
+                        opacity: selected ? 1 : 0.82,
+                      ),
+                      Expanded(
+                        child: ChromeScaledLabel(
+                          label,
+                          color: selected
+                              ? tokens.colors.activeSurfaceText
+                              : tokens.colors.cardInk,
+                          size: compact
+                              ? PixelTextSize.caption2
+                              : PixelTextSize.caption,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -3124,12 +3898,14 @@ class _BrowserJoinableToggle extends StatelessWidget {
     required this.tokens,
     required this.language,
     required this.browserJoinable,
+    required this.enabled,
     required this.onChanged,
   });
 
   final DesignTokens tokens;
   final KolkhozLanguage language;
   final bool browserJoinable;
+  final bool enabled;
   final ValueChanged<bool> onChanged;
 
   @override
@@ -3142,7 +3918,7 @@ class _BrowserJoinableToggle extends StatelessWidget {
       title: language.t(KolkhozText.kolkhozappAccess),
       label: label,
       selected: browserJoinable,
-      enabled: true,
+      enabled: enabled,
       iconAsset: browserJoinable
           ? 'ios_resources/Icons/icon-online.png'
           : 'ios_resources/Icons/icon-lock.png',
@@ -3173,7 +3949,7 @@ class _OnlineGameOptionToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foreground = selected
-        ? tokens.colors.onAccent
+        ? tokens.colors.activeSurfaceText
         : tokens.colors.cardInk;
     return Semantics(
       button: true,
@@ -3251,136 +4027,49 @@ class _OnlineGameOptionToggle extends StatelessWidget {
   }
 }
 
-class _SeatQuickButton extends StatelessWidget {
-  const _SeatQuickButton({
-    required this.tokens,
-    required this.language,
-    required this.playerID,
-    required this.choice,
-    required this.options,
-    required this.onChanged,
-    this.compact = false,
-  });
-
-  final DesignTokens tokens;
-  final KolkhozLanguage language;
-  final int playerID;
-  final _LobbySeatChoice choice;
-  final List<_LobbySeatChoice> options;
-  final ValueChanged<_LobbySeatChoice>? onChanged;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final active = choice.isHumanSeat;
-    final label = language.t(KolkhozText.kolkhozappPValue1, {
-      'value1': playerID + 1,
-    });
-    final occupantLabel = playerID == 0 && choice == _LobbySeatChoice.local
-        ? language.t(KolkhozText.tabledisplayYou)
-        : choice.shortTitle(language);
-    return Semantics(
-      button: true,
-      label: '$label $occupantLabel',
-      child: ExcludeSemantics(
-        child: Tooltip(
-          message: '$label $occupantLabel',
-          child: PopupMenuButton<_LobbySeatChoice>(
-            tooltip: '$label $occupantLabel',
-            enabled: onChanged != null,
-            offset: const Offset(0, -158),
-            color: tokens.colors.panel,
-            surfaceTintColor: Colors.transparent,
-            elevation: 8,
-            onSelected: onChanged,
-            itemBuilder: (context) => [
-              for (final option in options)
-                PopupMenuItem(
-                  value: option,
-                  child: Row(
-                    spacing: 8,
-                    children: [
-                      _AssetIcon(
-                        option.iconAsset,
-                        size: 24,
-                        opacity: option == choice ? 1 : 0.72,
-                      ),
-                      Text(
-                        option.shortTitle(language).toUpperCase(),
-                        style: kolkhozFontStyle.copyWith(
-                          color: option == choice
-                              ? tokens.colors.goldBright
-                              : tokens.colors.creamDim,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-            child: SizedBox(
-              width: compact ? 52 : 66,
-              height: compact ? 50 : 62,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Positioned.fill(
-                    child: ChromeButtonBackground(
-                      asset: active
-                          ? chromeButtonPrimaryAsset
-                          : chromeButtonSecondaryAsset,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(7, 6, 7, 7),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      spacing: 2,
-                      children: [
-                        _AssetIcon(
-                          choice.iconAsset,
-                          size: compact ? 24 : 30,
-                          opacity: active ? 1 : 0.82,
-                        ),
-                        SizedBox(
-                          width: double.infinity,
-                          height: compact ? 12 : 15,
-                          child: ChromeScaledLabel(
-                            occupantLabel,
-                            color: active
-                                ? tokens.colors.onAccent
-                                : tokens.colors.cardInk,
-                            size: compact
-                                ? PixelTextSize.xSmall
-                                : PixelTextSize.caption2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 enum _LobbySeatChoice {
+  empty,
   local,
   online,
   easyAI,
   mediumAI,
   hardAI;
 
+  static List<_LobbySeatChoice> emptySetupChoices() {
+    return const [
+      _LobbySeatChoice.local,
+      _LobbySeatChoice.empty,
+      _LobbySeatChoice.empty,
+      _LobbySeatChoice.empty,
+    ];
+  }
+
   static List<_LobbySeatChoice> fromControllers(
     List<KolkhozPlayerController> controllers,
   ) {
     final normalized = KolkhozPlayerController.normalized(controllers);
     return [for (final controller in normalized) fromController(controller)];
+  }
+
+  static List<_LobbySeatChoice> fromStoredValues(
+    List<String> values, {
+    required List<KolkhozPlayerController> fallbackControllers,
+  }) {
+    if (values.isEmpty) {
+      return fromControllers(fallbackControllers);
+    }
+    try {
+      return withExclusiveHumanMode(
+        normalized([
+          for (final value in values)
+            _LobbySeatChoice.values.firstWhere(
+              (choice) => choice.name == value,
+            ),
+        ]),
+      );
+    } catch (_) {
+      return fromControllers(fallbackControllers);
+    }
   }
 
   static _LobbySeatChoice fromController(KolkhozPlayerController controller) {
@@ -3399,7 +4088,8 @@ enum _LobbySeatChoice {
           ? choices[index]
           : fromController(KolkhozPlayerController.defaultControllers[index]),
     );
-    if (normalized.first == _LobbySeatChoice.online) {
+    if (normalized.first == _LobbySeatChoice.empty ||
+        normalized.first == _LobbySeatChoice.online) {
       normalized[0] = _LobbySeatChoice.local;
     }
     if (!normalized.any((choice) => choice == _LobbySeatChoice.local)) {
@@ -3408,30 +4098,40 @@ enum _LobbySeatChoice {
     return normalized;
   }
 
-  static List<_LobbySeatChoice> optionsForPlayer(
-    int playerID,
-    List<_LobbySeatChoice> choices,
-  ) {
+  static List<_LobbySeatChoice> optionsForPlayer(int playerID) {
     if (playerID == 0) {
       return const [local];
+    }
+    return const [
+      _LobbySeatChoice.local,
+      _LobbySeatChoice.online,
+      _LobbySeatChoice.easyAI,
+      _LobbySeatChoice.mediumAI,
+      _LobbySeatChoice.hardAI,
+      _LobbySeatChoice.empty,
+    ];
+  }
+
+  static bool isOptionEnabledForPlayer(
+    int playerID,
+    List<_LobbySeatChoice> choices,
+    _LobbySeatChoice option,
+  ) {
+    if (playerID == 0) {
+      return option == _LobbySeatChoice.local;
+    }
+    if (option != _LobbySeatChoice.local && option != _LobbySeatChoice.online) {
+      return true;
     }
     final normalized = _LobbySeatChoice.normalized(choices);
     final otherSeats = [
       for (var index = 1; index < kolkhozPlayerCount; index += 1)
         if (index != playerID) normalized[index],
     ];
-    final hotseatActive = otherSeats.contains(_LobbySeatChoice.local);
-    final onlineActive = otherSeats.contains(_LobbySeatChoice.online);
-    final humanOptions = onlineActive
-        ? const [_LobbySeatChoice.online]
-        : hotseatActive
-        ? const [_LobbySeatChoice.local]
-        : const [_LobbySeatChoice.local, _LobbySeatChoice.online];
-    return humanOptions.followedBy(const [
-      _LobbySeatChoice.easyAI,
-      _LobbySeatChoice.mediumAI,
-      _LobbySeatChoice.hardAI,
-    ]).toList();
+    if (option == _LobbySeatChoice.local) {
+      return !otherSeats.contains(_LobbySeatChoice.online);
+    }
+    return !otherSeats.contains(_LobbySeatChoice.local);
   }
 
   static List<_LobbySeatChoice> withExclusiveHumanMode(
@@ -3460,7 +4160,7 @@ enum _LobbySeatChoice {
           (choice == _LobbySeatChoice.local &&
               chosenHumanMode == _LobbySeatChoice.online);
       if (incompatible) {
-        normalized[index] = _LobbySeatChoice.hardAI;
+        normalized[index] = _LobbySeatChoice.empty;
       }
     }
     return normalized;
@@ -3474,12 +4174,17 @@ enum _LobbySeatChoice {
     ]);
   }
 
+  static List<String> storedValues(List<_LobbySeatChoice> choices) {
+    return [for (final choice in normalized(choices)) choice.name];
+  }
+
   bool get isHumanSeat {
     return this == _LobbySeatChoice.local || this == _LobbySeatChoice.online;
   }
 
   KolkhozPlayerController get controller {
     return switch (this) {
+      _LobbySeatChoice.empty => KolkhozPlayerController.neuralAI,
       _LobbySeatChoice.local ||
       _LobbySeatChoice.online => KolkhozPlayerController.human,
       _LobbySeatChoice.easyAI => KolkhozPlayerController.heuristicAI,
@@ -3490,6 +4195,7 @@ enum _LobbySeatChoice {
 
   String shortTitle(KolkhozLanguage language) {
     return switch (this) {
+      _LobbySeatChoice.empty => language.t(KolkhozText.kolkhozappOpen),
       _LobbySeatChoice.local => language.t(KolkhozText.kolkhozappHotseat),
       _LobbySeatChoice.online => language.t(KolkhozText.kolkhozappOnline),
       _LobbySeatChoice.easyAI => KolkhozPlayerController.heuristicAI.shortTitle(
@@ -3506,6 +4212,7 @@ enum _LobbySeatChoice {
 
   String get iconAsset {
     return switch (this) {
+      _LobbySeatChoice.empty => 'ios_resources/Icons/icon-human-seat.png',
       _LobbySeatChoice.local =>
         'ios_resources/Icons/icon-controller-hotseat-player.png',
       _LobbySeatChoice.online =>
@@ -3640,7 +4347,7 @@ class _PresetSummaryState extends State<_PresetSummary> {
         final selectedRow = rows.isEmpty ? null : rows[selectedRowIndex];
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: widget.compact ? 8 : 10 + 6 * scale,
+          spacing: widget.compact ? 6 : 8 + 2 * scale,
           children: [
             _DeckSummary(
               tokens: widget.tokens,
@@ -3734,7 +4441,7 @@ class _CustomVariantOptionsState extends State<_CustomVariantOptions> {
         final deckSpacing = widget.compact ? 6.0 : 8.0;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: widget.compact ? 8 : 10 + 6 * scale,
+          spacing: widget.compact ? 6 : 8 + 2 * scale,
           children: [
             Row(
               spacing: widget.compact ? 6 : 6 + 4 * scale,
@@ -3842,36 +4549,77 @@ class _DeckSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    final yearIcon = maxYears.clamp(1, 5).toInt();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: compact ? 6 : 8 + 2 * scale,
+      children: [
+        _PresetFactPanel(
+          tokens: tokens,
+          label: language.t(KolkhozText.variantValue1CardDeck, {
+            'value1': deckType,
+          }),
+          iconAsset: 'ios_resources/Icons/icon-variant-deck-$deckType.png',
+          scale: scale,
+          compact: compact,
+        ),
+        _PresetFactPanel(
+          tokens: tokens,
+          label: language.t(KolkhozText.variantValue1YearPlan, {
+            'value1': maxYears,
+          }),
+          iconAsset: 'ios_resources/Icons/icon-year-$yearIcon.png',
+          scale: scale,
+          compact: compact,
+        ),
+      ],
+    );
+  }
+}
+
+class _PresetFactPanel extends StatelessWidget {
+  const _PresetFactPanel({
+    required this.tokens,
+    required this.label,
+    required this.iconAsset,
+    required this.scale,
+    required this.compact,
+  });
+
+  final DesignTokens tokens;
+  final String label;
+  final String iconAsset;
+  final double scale;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final titleSize = compact
+        ? PixelTextSize.headline
+        : _variantTitleTextSize(scale);
+    return _VariantRowBackground(
+      tokens: tokens,
+      active: true,
       padding: EdgeInsets.symmetric(
-        horizontal: compact ? 8 : 8 + 10 * scale,
-        vertical: compact ? 7 : 8 + 8 * scale,
-      ),
-      decoration: BoxDecoration(
-        color: tokens.colors.black.withValues(alpha: 0.32),
-        borderRadius: BorderRadius.circular(4),
+        horizontal: compact ? 12 : 16 + 12 * scale,
+        vertical: compact ? 9 : 13 + 12 * scale,
       ),
       child: Row(
-        spacing: 8,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        spacing: compact ? 10 : 12 + 8 * scale,
         children: [
-          Text(
-            language.t(KolkhozText.variantDeckLabel),
-            style: kolkhozFontStyle.copyWith(
-              color: tokens.colors.creamDim,
-              fontSize: compact ? 15 : 16 + 5 * scale,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          Text(
-            language.t(KolkhozText.kolkhozappDecktypeCardsMaxyearsYears, {
-              'deckType': deckType,
-              'maxYears': maxYears,
-            }),
-            style: kolkhozFontStyle.copyWith(
-              color: tokens.colors.gold,
-              fontSize: compact ? 16 : 17 + 6 * scale,
-              fontWeight: FontWeight.w900,
+          _VariantIcon(iconAsset, size: compact ? 40 : _variantIconSize(scale)),
+          Expanded(
+            child: _VariantPixelLine(
+              height: _pixelTextSlotHeight(titleSize),
+              child: PixelText(
+                label.toUpperCase(),
+                color: tokens.colors.activeSurfaceText,
+                size: titleSize,
+                variant: PixelTextVariant.heavy,
+                maxLines: 1,
+                overflow: TextOverflow.clip,
+              ),
             ),
           ),
         ],
@@ -4175,9 +4923,11 @@ class _VariantText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titleColor = active ? tokens.colors.onAccent : tokens.colors.cardInk;
+    final titleColor = active
+        ? tokens.colors.activeSurfaceText
+        : tokens.colors.cardInk;
     final bodyColor = active
-        ? tokens.colors.creamDim
+        ? tokens.colors.activeSurfaceText
         : tokens.colors.cardInk.withValues(alpha: 0.74);
     final titleSize = compact
         ? PixelTextSize.headline
@@ -4647,21 +5397,32 @@ class _CloudAuthPanelState extends State<_CloudAuthPanel> {
             fontWeight: FontWeight.w700,
           ),
         ),
-        _VariantRowBackground(
-          tokens: widget.tokens,
-          active: widget.signedIn,
-          child: Text(
-            status,
-            style: kolkhozFontStyle.copyWith(
-              color: widget.signedIn
-                  ? widget.tokens.colors.cream
-                  : widget.tokens.colors.creamDim,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+        if (widget.configured && widget.ready && widget.signedIn)
+          _SignedInAccountRow(
+            tokens: widget.tokens,
+            status: status,
+            signOutLabel: widget.busy
+                ? widget.language.t(KolkhozText.kolkhozappWorking)
+                : widget.language.t(KolkhozText.kolkhozappSignOut),
+            onSignOut: widget.busy || widget.onSignOut == null
+                ? null
+                : widget.onSignOut,
+          )
+        else
+          _VariantRowBackground(
+            tokens: widget.tokens,
+            active: false,
+            child: Text(
+              status,
+              style: kolkhozFontStyle.copyWith(
+                color: widget.tokens.colors.creamDim,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-        ),
-        if (widget.message != null)
+        if (widget.message != null &&
+            (!widget.signedIn || widget.messageIsError))
           _OnlineStatusBanner(
             tokens: widget.tokens,
             message: widget.message!,
@@ -4755,24 +5516,66 @@ class _CloudAuthPanelState extends State<_CloudAuthPanel> {
             ],
           ),
         ],
-        if (widget.configured && widget.ready && widget.signedIn)
-          Align(
-            alignment: Alignment.centerRight,
-            child: SizedBox(
-              width: 142,
-              height: 38,
-              child: ChromeAssetButton.command(
-                label: widget.busy
-                    ? widget.language.t(KolkhozText.kolkhozappWorking)
-                    : widget.language.t(KolkhozText.kolkhozappSignOut),
-                prominent: false,
-                tokens: widget.tokens,
-                onPressed: widget.busy || widget.onSignOut == null
-                    ? null
-                    : widget.onSignOut,
-              ),
+      ],
+    );
+  }
+}
+
+class _SignedInAccountRow extends StatelessWidget {
+  const _SignedInAccountRow({
+    required this.tokens,
+    required this.status,
+    required this.signOutLabel,
+    required this.onSignOut,
+  });
+
+  final DesignTokens tokens;
+  final String status;
+  final String signOutLabel;
+  final Future<void> Function()? onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      spacing: 8,
+      children: [
+        Expanded(
+          child: _VariantRowBackground(
+            tokens: tokens,
+            active: true,
+            child: Row(
+              spacing: 8,
+              children: [
+                const _AssetIcon(
+                  'ios_resources/Icons/icon-status-connected.png',
+                  size: 24,
+                ),
+                Expanded(
+                  child: Text(
+                    status,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: kolkhozFontStyle.copyWith(
+                      color: tokens.colors.activeSurfaceText,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
+        ),
+        SizedBox(
+          width: 142,
+          height: 42,
+          child: ChromeAssetButton.command(
+            label: signOutLabel,
+            prominent: false,
+            tokens: tokens,
+            onPressed: onSignOut,
+          ),
+        ),
       ],
     );
   }
@@ -5308,7 +6111,7 @@ class _ComradeRequestRow extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${language.t(KolkhozText.kolkhozappRating)} ${request.stats.rating}',
+                  _profileRatingSummary(language, request.stats),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: kolkhozFontStyle.copyWith(
@@ -5431,7 +6234,7 @@ class _ComradeRow extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${language.t(KolkhozText.kolkhozappRating)} ${comrade.stats.rating}',
+                  _profileRatingSummary(language, comrade.stats),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: kolkhozFontStyle.copyWith(
@@ -5459,6 +6262,14 @@ class _ComradeRow extends StatelessWidget {
       ),
     );
   }
+}
+
+String _profileRatingSummary(
+  KolkhozLanguage language,
+  KolkhozProfileStats stats,
+) {
+  return '${language.t(KolkhozText.kolkhozappRanked)} ${stats.rating}  '
+      '${language.t(KolkhozText.kolkhozappCasual)} ${stats.casualRating}';
 }
 
 class _ProfilePreview extends StatelessWidget {
@@ -5698,7 +6509,11 @@ class _OnlinePanel extends StatefulWidget {
 }
 
 class _OnlinePanelState extends State<_OnlinePanel> {
+  static const _browserRefreshInterval = Duration(seconds: 15);
+
   late final TextEditingController inviteController;
+  Timer? browserRefreshTimer;
+  int secondsUntilBrowserRefresh = _browserRefreshInterval.inSeconds;
   bool busy = false;
   String? status;
   bool statusIsError = false;
@@ -5710,8 +6525,6 @@ class _OnlinePanelState extends State<_OnlinePanel> {
   Set<String> outgoingComradeRequestUserIDs = const {};
   String? currentUserID;
   String? selectedSessionID;
-  bool rankedOnly = false;
-  bool comradesOnly = false;
 
   Future<void> copyInviteCode(String inviteCode) async {
     await Clipboard.setData(ClipboardData(text: inviteCode));
@@ -5731,10 +6544,14 @@ class _OnlinePanelState extends State<_OnlinePanel> {
     inviteController = TextEditingController();
     inviteController.addListener(_handleInviteCodeChanged);
     unawaited(refreshSessions());
+    browserRefreshTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      tickBrowserRefresh();
+    });
   }
 
   @override
   void dispose() {
+    browserRefreshTimer?.cancel();
     inviteController.removeListener(_handleInviteCodeChanged);
     inviteController.dispose();
     super.dispose();
@@ -5744,6 +6561,22 @@ class _OnlinePanelState extends State<_OnlinePanel> {
     if (mounted) {
       setState(() {});
     }
+  }
+
+  void tickBrowserRefresh() {
+    if (!mounted) {
+      return;
+    }
+    if (secondsUntilBrowserRefresh <= 1) {
+      setState(() {
+        secondsUntilBrowserRefresh = _browserRefreshInterval.inSeconds;
+      });
+      unawaited(refreshSessions());
+      return;
+    }
+    setState(() {
+      secondsUntilBrowserRefresh -= 1;
+    });
   }
 
   Future<void> refreshSessions() async {
@@ -5762,11 +6595,7 @@ class _OnlinePanelState extends State<_OnlinePanel> {
       selectedSessionID = _sessionStillOpen(selectedSessionID, openSessions)
           ? selectedSessionID
           : null;
-      status = sessions.isEmpty
-          ? widget.language.t(KolkhozText.kolkhozappNoOpenGames)
-          : widget.language.t(KolkhozText.kolkhozappValue1Open, {
-              'value1': sessions.length,
-            });
+      secondsUntilBrowserRefresh = _browserRefreshInterval.inSeconds;
       statusIsError = false;
       statusDisablesAction = false;
     });
@@ -5819,7 +6648,6 @@ class _OnlinePanelState extends State<_OnlinePanel> {
         outgoingComradeRequestUserIDs = {
           for (final request in response.outgoingRequests) request.userID,
         };
-        _clearSelectionIfFilteredOut();
       });
       widget.onComradesChanged?.call(response);
     } catch (_) {
@@ -5870,55 +6698,7 @@ class _OnlinePanelState extends State<_OnlinePanel> {
     });
   }
 
-  List<OnlineSessionListing> get filteredSessions {
-    return [
-      for (final session in openSessions)
-        if (_matchesRankedFilter(session) && _matchesComradesFilter(session))
-          session,
-    ];
-  }
-
-  bool _matchesRankedFilter(OnlineSessionListing session) {
-    return !rankedOnly || session.ranked;
-  }
-
-  bool _matchesComradesFilter(OnlineSessionListing session) {
-    if (!comradesOnly) {
-      return true;
-    }
-    return _sessionMatchesComradeFilter(session);
-  }
-
-  bool _sessionMatchesComradeFilter(OnlineSessionListing session) {
-    return session.playerProfiles.any((profile) {
-      final userID = profile.userID;
-      return userID != null && comradeUserIDs.contains(userID);
-    });
-  }
-
-  void toggleRankedFilter(bool value) {
-    setState(() {
-      rankedOnly = value;
-      _clearSelectionIfFilteredOut();
-    });
-  }
-
-  void toggleComradesFilter(bool value) {
-    setState(() {
-      comradesOnly = value;
-      _clearSelectionIfFilteredOut();
-    });
-  }
-
-  void _clearSelectionIfFilteredOut() {
-    final selected = selectedSessionID;
-    if (selected == null) {
-      return;
-    }
-    if (!filteredSessions.any((session) => session.sessionID == selected)) {
-      selectedSessionID = null;
-    }
-  }
+  List<OnlineSessionListing> get filteredSessions => openSessions;
 
   bool _sessionStillOpen(
     String? sessionID,
@@ -5953,8 +6733,8 @@ class _OnlinePanelState extends State<_OnlinePanel> {
     await runOnlineAction(() async {
       final inviteCode = await widget.onMatchmakeOnline!(
         _onlineServerURL,
-        rankedOnly,
-        comradesOnly,
+        true,
+        false,
       );
       status = widget.language.t(KolkhozText.kolkhozappJoinedValue1, {
         'value1': inviteCode,
@@ -6030,6 +6810,15 @@ class _OnlinePanelState extends State<_OnlinePanel> {
     final browserHiddenByBan = statusDisablesAction;
     final buttonShowsBan =
         status != null && statusDisablesAction && !hasInviteCode;
+    final citizensOnlineMessage = citizensOnline == null
+        ? null
+        : widget.language.t(KolkhozText.kolkhozappValue1CitizensOnline, {
+            'value1': citizensOnline!,
+          });
+    final refreshMessage = widget.language.t(
+      KolkhozText.kolkhozappRefreshInValue1s,
+      {'value1': secondsUntilBrowserRefresh},
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 10,
@@ -6060,16 +6849,16 @@ class _OnlinePanelState extends State<_OnlinePanel> {
                 ),
               ),
             ),
+            if (!browserHiddenByBan)
+              Expanded(
+                child: _OnlineBrowserFooter(
+                  tokens: widget.tokens,
+                  citizensOnlineMessage: citizensOnlineMessage,
+                  refreshMessage: refreshMessage,
+                ),
+              ),
           ],
         ),
-        if (citizensOnline != null)
-          _OnlineCitizensLine(
-            tokens: widget.tokens,
-            message: widget.language.t(
-              KolkhozText.kolkhozappValue1CitizensOnline,
-              {'value1': citizensOnline!},
-            ),
-          ),
         if (widget.hostedInviteCode != null)
           _HostedInviteCodeCard(
             tokens: widget.tokens,
@@ -6089,16 +6878,6 @@ class _OnlinePanelState extends State<_OnlinePanel> {
             ),
           )
         else ...[
-          _OpenSessionsToolbar(
-            tokens: widget.tokens,
-            language: widget.language,
-            busy: busy,
-            rankedOnly: rankedOnly,
-            comradesOnly: comradesOnly,
-            onRefresh: refreshSessions,
-            onRankedChanged: toggleRankedFilter,
-            onComradesChanged: toggleComradesFilter,
-          ),
           Expanded(
             child: _OpenSessionsList(
               tokens: widget.tokens,
@@ -6141,6 +6920,16 @@ class _OnlinePanelState extends State<_OnlinePanel> {
           child: Row(
             spacing: 10,
             children: [
+              SizedBox(
+                width: 112,
+                child: ChromeAssetButton.command(
+                  label: widget.language.t(KolkhozText.kolkhozappRefresh),
+                  prominent: false,
+                  tokens: widget.tokens,
+                  iconAsset: 'ios_resources/Icons/icon-status-connecting.png',
+                  onPressed: busy ? null : refreshSessions,
+                ),
+              ),
               Expanded(
                 child: _OnlineTextField(
                   tokens: widget.tokens,
@@ -6184,6 +6973,127 @@ class _OnlinePanelState extends State<_OnlinePanel> {
   }
 }
 
+class _HostedInviteCodeFooterButton extends StatelessWidget {
+  const _HostedInviteCodeFooterButton({
+    required this.tokens,
+    required this.language,
+    required this.inviteCode,
+    required this.height,
+    required this.onCopy,
+  });
+
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final String inviteCode;
+  final double height;
+  final VoidCallback onCopy;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: '${language.t(KolkhozText.kolkhozappInviteCode)} $inviteCode',
+      child: ExcludeSemantics(
+        child: Tooltip(
+          message: language.t(KolkhozText.kolkhozappCopyCode),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onCopy,
+            child: SizedBox(
+              height: height,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const Positioned.fill(
+                    child: ChromeButtonBackground(
+                      asset: chromeButtonSecondaryAsset,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 9),
+                    child: Row(
+                      spacing: 7,
+                      children: [
+                        const _AssetIcon(
+                          'ios_resources/Icons/icon-online.png',
+                          size: 22,
+                        ),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            spacing: 2,
+                            children: [
+                              ChromeScaledLabel(
+                                language.t(KolkhozText.kolkhozappInviteCode),
+                                color: tokens.colors.cardInk,
+                                size: PixelTextSize.xSmall,
+                                textAlign: TextAlign.start,
+                              ),
+                              ChromeScaledLabel(
+                                inviteCode,
+                                color: tokens.colors.cardInk,
+                                size: PixelTextSize.caption,
+                                textAlign: TextAlign.start,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const _AssetIcon(
+                          'ios_resources/Icons/icon-check.png',
+                          size: 18,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AnimatedEllipsisLabel extends StatefulWidget {
+  const _AnimatedEllipsisLabel({required this.label, required this.builder});
+
+  final String label;
+  final Widget Function(String label) builder;
+
+  @override
+  State<_AnimatedEllipsisLabel> createState() => _AnimatedEllipsisLabelState();
+}
+
+class _AnimatedEllipsisLabelState extends State<_AnimatedEllipsisLabel> {
+  Timer? timer;
+  int dotCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    timer = Timer.periodic(const Duration(milliseconds: 420), (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => dotCount = (dotCount + 1) % 4);
+    });
+  }
+
+  @override
+  void dispose() {
+    timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dots = List.filled(dotCount, '.').join();
+    return widget.builder('${widget.label}$dots');
+  }
+}
+
 class _OnlineWaitingRoomPanel extends StatelessWidget {
   const _OnlineWaitingRoomPanel({
     required this.tokens,
@@ -6191,6 +7101,9 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
     required this.update,
     required this.inviteCode,
     required this.onCopyInviteCode,
+    this.showHeaderCancel = true,
+    this.showInviteCard = true,
+    this.showJoinButton = true,
     required this.canKickPlayers,
     required this.onKickPlayer,
     required this.onEnterOnlineGame,
@@ -6202,6 +7115,9 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
   final OnlineSessionUpdate update;
   final String? inviteCode;
   final VoidCallback? onCopyInviteCode;
+  final bool showHeaderCancel;
+  final bool showInviteCard;
+  final bool showJoinButton;
   final bool canKickPlayers;
   final Future<void> Function(int playerID)? onKickPlayer;
   final VoidCallback onEnterOnlineGame;
@@ -6215,13 +7131,7 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
     final presenceBySeat = <int, OnlineSeatPresence>{
       for (final presence in update.seatPresence) presence.playerID: presence,
     };
-    final openHumanSeats = [
-      for (var index = 0; index < update.controllers.length; index += 1)
-        if (update.controllers[index] == KolkhozPlayerController.human &&
-            !profilesBySeat.containsKey(index))
-          index,
-    ];
-    final tableReady = openHumanSeats.isEmpty;
+    final tableReady = !_onlineWaitingRoomHasOpenHumanSeats(update);
     final status = tableReady
         ? language.t(KolkhozText.kolkhozappJoinGame)
         : language.t(KolkhozText.kolkhozappWaitingForPlayers);
@@ -6237,7 +7147,7 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
         Row(
           spacing: 8,
           children: [
-            if (onCancelOnlineGame != null)
+            if (showHeaderCancel && onCancelOnlineGame != null)
               Tooltip(
                 message: language.t(KolkhozText.kolkhozappCancel),
                 child: Semantics(
@@ -6302,7 +7212,7 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
             ),
           ],
         ),
-        if (inviteCode != null && onCopyInviteCode != null)
+        if (showInviteCard && inviteCode != null && onCopyInviteCode != null)
           _HostedInviteCodeCard(
             tokens: tokens,
             language: language,
@@ -6360,6 +7270,7 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
                           controller: update.controllers[index],
                           profile: profilesBySeat[index],
                           presence: presenceBySeat[index],
+                          ranked: update.ranked,
                           local: update.viewerID == index,
                           canKick:
                               canKickPlayers &&
@@ -6379,19 +7290,113 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
             },
           ),
         ),
-        SizedBox(
-          width: double.infinity,
-          height: 46,
-          child: ChromeAssetButton.command(
-            label: language.t(KolkhozText.kolkhozappJoinGame),
-            prominent: true,
+        if (showJoinButton)
+          _WaitingRoomEnterButton(
             tokens: tokens,
-            iconAsset: 'ios_resources/Icons/icon-join-game.png',
-            expandLabel: false,
+            language: language,
+            tableReady: tableReady,
+            height: 46,
             onPressed: onEnterOnlineGame,
           ),
-        ),
       ],
+    );
+  }
+}
+
+bool _onlineWaitingRoomHasOpenHumanSeats(OnlineSessionUpdate update) {
+  final profilesBySeat = <int, OnlinePlayerProfile>{
+    for (final profile in update.playerProfiles) profile.playerID: profile,
+  };
+  for (var index = 0; index < update.controllers.length; index += 1) {
+    if (update.controllers[index] == KolkhozPlayerController.human &&
+        !profilesBySeat.containsKey(index)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+class _WaitingRoomEnterButton extends StatelessWidget {
+  const _WaitingRoomEnterButton({
+    required this.tokens,
+    required this.language,
+    required this.tableReady,
+    required this.height,
+    required this.onPressed,
+  });
+
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final bool tableReady;
+  final double height;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    if (tableReady) {
+      return SizedBox(
+        width: double.infinity,
+        height: height,
+        child: ChromeAssetButton.command(
+          label: language.t(KolkhozText.kolkhozappJoinGame),
+          prominent: true,
+          tokens: tokens,
+          iconAsset: 'ios_resources/Icons/icon-join-game.png',
+          expandLabel: false,
+          onPressed: onPressed,
+        ),
+      );
+    }
+    return Semantics(
+      button: true,
+      enabled: false,
+      label: language.t(KolkhozText.kolkhozappWaitingForPlayers),
+      child: ExcludeSemantics(
+        child: Opacity(
+          opacity: 0.86,
+          child: SizedBox(
+            width: double.infinity,
+            height: height,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                const Positioned.fill(
+                  child: ChromeButtonBackground(
+                    asset: chromeButtonPrimaryAsset,
+                  ),
+                ),
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      spacing: 8,
+                      children: [
+                        const _AssetIcon(
+                          'ios_resources/Icons/icon-status-connecting.png',
+                          size: 22,
+                        ),
+                        Flexible(
+                          child: _AnimatedEllipsisLabel(
+                            label: language.t(
+                              KolkhozText.kolkhozappWaitingForPlayers,
+                            ),
+                            builder: (label) => ChromeScaledLabel(
+                              label,
+                              color: tokens.colors.onAccent,
+                              size: PixelTextSize.headline,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -6404,6 +7409,7 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
     required this.controller,
     required this.profile,
     required this.presence,
+    required this.ranked,
     required this.local,
     required this.canKick,
     required this.onKick,
@@ -6415,6 +7421,7 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
   final KolkhozPlayerController controller;
   final OnlinePlayerProfile? profile;
   final OnlineSeatPresence? presence;
+  final bool ranked;
   final bool local;
   final bool canKick;
   final VoidCallback? onKick;
@@ -6433,6 +7440,22 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
         'value1': playerID + 1,
       }),
       subtitle: _seatStatus(open, connected),
+      title: open
+          ? _AnimatedEllipsisLabel(
+              label: language.t(KolkhozText.kolkhozappSearchingForPlayer),
+              builder: (label) => Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: kolkhozFontStyle.copyWith(
+                  color: tokens.colors.creamDim.withValues(alpha: 0.74),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+              ),
+            )
+          : null,
       portraitSize: 48,
       minHeight: 92,
       active: local,
@@ -6465,7 +7488,7 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
     }
     if (profile != null) {
       return '${language.t(KolkhozText.kolkhozappRating)} '
-          '${profile!.stats.rating}';
+          '${profile!.stats.ratingForGameType(ranked: ranked)}';
     }
     return connected
         ? controller.shortTitle(language)
@@ -6793,63 +7816,138 @@ class _OpenSessionsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (sessions.isEmpty) {
-      return Align(
-        alignment: Alignment.topLeft,
-        child: _VariantRowBackground(
-          tokens: tokens,
-          active: false,
-          child: Text(
-            language.t(KolkhozText.kolkhozappNoOpenGames),
-            style: kolkhozFontStyle.copyWith(
-              color: tokens.colors.creamDim,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return ClipRect(
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: 7,
-          children: [
-            for (final session in sessions)
-              _OpenSessionRow(
-                tokens: tokens,
-                language: language,
-                session: session,
-                expanded: selectedSessionID == session.sessionID,
-                onToggle: () => onSelected(session),
-                currentUserID: currentUserID,
-                comradeUserIDs: comradeUserIDs,
-                incomingComradeRequestUserIDs: incomingComradeRequestUserIDs,
-                outgoingComradeRequestUserIDs: outgoingComradeRequestUserIDs,
-                onComradeRequestToUser: onComradeRequestToUser,
+    return SizedBox.expand(
+      child: _OpenSessionsChromeSurface(
+        padding: const EdgeInsets.all(18),
+        child: sessions.isEmpty
+            ? Align(
+                alignment: Alignment.topLeft,
+                child: Text(
+                  language.t(KolkhozText.kolkhozappNoOpenGames),
+                  style: kolkhozFontStyle.copyWith(
+                    color: tokens.colors.creamDim,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              )
+            : ClipRect(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 7,
+                    children: [
+                      for (final session in sessions)
+                        _OpenSessionRow(
+                          tokens: tokens,
+                          language: language,
+                          session: session,
+                          expanded: selectedSessionID == session.sessionID,
+                          onToggle: () => onSelected(session),
+                          currentUserID: currentUserID,
+                          comradeUserIDs: comradeUserIDs,
+                          incomingComradeRequestUserIDs:
+                              incomingComradeRequestUserIDs,
+                          outgoingComradeRequestUserIDs:
+                              outgoingComradeRequestUserIDs,
+                          onComradeRequestToUser: onComradeRequestToUser,
+                        ),
+                    ],
+                  ),
+                ),
               ),
-          ],
-        ),
       ),
     );
   }
 }
 
-class _OnlineCitizensLine extends StatelessWidget {
-  const _OnlineCitizensLine({required this.tokens, required this.message});
+class _OpenSessionsChromeSurface extends StatelessWidget {
+  const _OpenSessionsChromeSurface({
+    required this.padding,
+    required this.child,
+  });
+
+  final EdgeInsetsGeometry padding;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        const Positioned.fill(
+          child: ChromeButtonBackground(
+            asset: chromeButtonSecondaryAsset,
+            maxScale: 0.14,
+          ),
+        ),
+        Positioned.fill(
+          child: Padding(padding: padding, child: child),
+        ),
+      ],
+    );
+  }
+}
+
+class _OnlineBrowserFooter extends StatelessWidget {
+  const _OnlineBrowserFooter({
+    required this.tokens,
+    required this.citizensOnlineMessage,
+    required this.refreshMessage,
+  });
 
   final DesignTokens tokens;
-  final String message;
+  final String? citizensOnlineMessage;
+  final String refreshMessage;
 
   @override
   Widget build(BuildContext context) {
     return Row(
+      spacing: 12,
+      children: [
+        if (citizensOnlineMessage != null)
+          Expanded(
+            child: _OnlineBrowserFooterItem(
+              tokens: tokens,
+              iconAsset: 'ios_resources/Icons/icon-profile.png',
+              message: citizensOnlineMessage!,
+            ),
+          )
+        else
+          const Spacer(),
+        Expanded(
+          child: _OnlineBrowserFooterItem(
+            tokens: tokens,
+            iconAsset: 'ios_resources/Icons/icon-status-connecting.png',
+            message: refreshMessage,
+            alignment: MainAxisAlignment.end,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _OnlineBrowserFooterItem extends StatelessWidget {
+  const _OnlineBrowserFooterItem({
+    required this.tokens,
+    required this.iconAsset,
+    required this.message,
+    this.alignment = MainAxisAlignment.start,
+  });
+
+  final DesignTokens tokens;
+  final String iconAsset;
+  final String message;
+  final MainAxisAlignment alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: alignment,
       spacing: 6,
       children: [
-        const _AssetIcon('ios_resources/Icons/icon-profile.png', size: 18),
-        Expanded(
+        _AssetIcon(iconAsset, size: 18),
+        Flexible(
           child: Text(
             message,
             maxLines: 1,
@@ -6862,109 +7960,6 @@ class _OnlineCitizensLine extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _OpenSessionsToolbar extends StatelessWidget {
-  const _OpenSessionsToolbar({
-    required this.tokens,
-    required this.language,
-    required this.busy,
-    required this.rankedOnly,
-    required this.comradesOnly,
-    required this.onRefresh,
-    required this.onRankedChanged,
-    required this.onComradesChanged,
-  });
-
-  final DesignTokens tokens;
-  final KolkhozLanguage language;
-  final bool busy;
-  final bool rankedOnly;
-  final bool comradesOnly;
-  final VoidCallback onRefresh;
-  final ValueChanged<bool> onRankedChanged;
-  final ValueChanged<bool> onComradesChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Text(
-            language.t(KolkhozText.kolkhozappOpenGames),
-            style: kolkhozFontStyle.copyWith(
-              color: tokens.colors.gold,
-              fontSize: 13,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-        Row(
-          spacing: 6,
-          children: [
-            _OpenSessionsFilterButton(
-              tokens: tokens,
-              label: language.t(KolkhozText.kolkhozappRanked),
-              iconAsset: 'ios_resources/Icons/icon-medal-star.png',
-              selected: rankedOnly,
-              onChanged: onRankedChanged,
-            ),
-            _OpenSessionsFilterButton(
-              tokens: tokens,
-              label: language.t(KolkhozText.kolkhozappComrades),
-              iconAsset: 'ios_resources/Icons/icon-profile.png',
-              selected: comradesOnly,
-              onChanged: onComradesChanged,
-            ),
-          ],
-        ),
-        const SizedBox(width: 6),
-        SizedBox(
-          width: 112,
-          height: 34,
-          child: ChromeAssetButton.command(
-            label: language.t(KolkhozText.kolkhozappRefresh),
-            prominent: false,
-            tokens: tokens,
-            iconAsset: 'ios_resources/Icons/icon-status-connecting.png',
-            onPressed: busy ? null : onRefresh,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _OpenSessionsFilterButton extends StatelessWidget {
-  const _OpenSessionsFilterButton({
-    required this.tokens,
-    required this.label,
-    required this.iconAsset,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  final DesignTokens tokens;
-  final String label;
-  final String iconAsset;
-  final bool selected;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 104,
-      height: 34,
-      child: ChromeAssetButton.command(
-        label: label,
-        prominent: selected,
-        tokens: tokens,
-        iconAsset: iconAsset,
-        onPressed: () => onChanged(!selected),
-      ),
     );
   }
 }
@@ -7006,20 +8001,32 @@ class _OpenSessionRow extends StatelessWidget {
         .where((profile) => profile.playerID == 0)
         .firstOrNull;
     final hostName = hostProfile?.displayName?.trim();
-    final title = hostName == null || hostName.isEmpty
-        ? session.shortID
-        : '${session.shortID} - $hostName';
-    final titleColor = expanded ? tokens.colors.cream : tokens.colors.cardInk;
+    final gameType = session.ranked
+        ? language.t(KolkhozText.kolkhozappRanked)
+        : language.t(KolkhozText.kolkhozappCasual);
+    final title = hostName == null || hostName.isEmpty ? gameType : hostName;
+    final titleColor = expanded
+        ? tokens.colors.activeSurfaceText
+        : tokens.colors.cardInk;
     final bodyColor = expanded
-        ? tokens.colors.creamDim
+        ? tokens.colors.activeSurfaceTextMuted
         : tokens.colors.cardInk.withValues(alpha: 0.74);
+    final hasComrade = session.playerProfiles.any((profile) {
+      final userID = profile.userID;
+      return userID != null &&
+          userID != currentUserID &&
+          comradeUserIDs.contains(userID);
+    });
     return Column(
       spacing: 0,
       children: [
         Semantics(
           button: true,
           expanded: expanded,
-          label: title,
+          label:
+              '$title, '
+              '${session.ranked ? language.t(KolkhozText.kolkhozappRanked) : language.t(KolkhozText.kolkhozappCasual)}'
+              '${hasComrade ? ', ${language.t(KolkhozText.kolkhozappComrade)}' : ''}',
           child: ExcludeSemantics(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -7030,6 +8037,11 @@ class _OpenSessionRow extends StatelessWidget {
                 child: Row(
                   spacing: 10,
                   children: [
+                    _OpenSessionTypeBadge(
+                      tokens: tokens,
+                      language: language,
+                      ranked: session.ranked,
+                    ),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -7064,13 +8076,11 @@ class _OpenSessionRow extends StatelessWidget {
                         ],
                       ),
                     ),
-                    _AssetIcon(
-                      expanded
-                          ? 'ios_resources/Icons/icon-tutorial-cue-done.png'
-                          : 'ios_resources/Icons/icon-tutorial-cue-inspect.png',
-                      size: 30,
-                      opacity: expanded ? 1 : 0.82,
-                    ),
+                    if (hasComrade)
+                      _OpenSessionComradeBadge(
+                        tokens: tokens,
+                        language: language,
+                      ),
                   ],
                 ),
               ),
@@ -7083,7 +8093,7 @@ class _OpenSessionRow extends StatelessWidget {
             language: language,
             session: session,
             hostName: hostName == null || hostName.isEmpty
-                ? session.shortID
+                ? language.t(KolkhozText.kolkhozappWaiting)
                 : hostName,
             currentUserID: currentUserID,
             comradeUserIDs: comradeUserIDs,
@@ -7092,6 +8102,80 @@ class _OpenSessionRow extends StatelessWidget {
             onComradeRequestToUser: onComradeRequestToUser,
           ),
       ],
+    );
+  }
+}
+
+class _OpenSessionTypeBadge extends StatelessWidget {
+  const _OpenSessionTypeBadge({
+    required this.tokens,
+    required this.language,
+    required this.ranked,
+  });
+
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final bool ranked;
+
+  @override
+  Widget build(BuildContext context) {
+    return _OpenSessionBadgeIcon(
+      tokens: tokens,
+      label: ranked
+          ? language.t(KolkhozText.kolkhozappRanked)
+          : language.t(KolkhozText.kolkhozappCasual),
+      asset: ranked
+          ? 'ios_resources/Icons/icon-medal-star.png'
+          : 'ios_resources/Icons/icon-foreman-misha.png',
+    );
+  }
+}
+
+class _OpenSessionComradeBadge extends StatelessWidget {
+  const _OpenSessionComradeBadge({
+    required this.tokens,
+    required this.language,
+  });
+
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+
+  @override
+  Widget build(BuildContext context) {
+    return _OpenSessionBadgeIcon(
+      tokens: tokens,
+      label: language.t(KolkhozText.kolkhozappComrade),
+      asset: 'ios_resources/Icons/icon-comrade.png',
+    );
+  }
+}
+
+class _OpenSessionBadgeIcon extends StatelessWidget {
+  const _OpenSessionBadgeIcon({
+    required this.tokens,
+    required this.label,
+    required this.asset,
+  });
+
+  final DesignTokens tokens;
+  final String label;
+  final String asset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: label,
+      child: Container(
+        width: 28,
+        height: 28,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: tokens.colors.black.withValues(alpha: 0.18),
+          border: Border.all(color: tokens.colors.gold.withValues(alpha: 0.5)),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: _AssetIcon(asset, size: 19),
+      ),
     );
   }
 }
@@ -7128,7 +8212,8 @@ class _OpenSessionDetails extends StatelessWidget {
     };
     final ratings = [
       for (final seat in session.occupiedSeats)
-        profilesBySeat[seat]?.stats.rating ?? defaultProfileStats.rating,
+        profilesBySeat[seat]?.stats.ratingForGameType(ranked: session.ranked) ??
+            defaultProfileStats.ratingForGameType(ranked: session.ranked),
     ];
     final averageRating = ratings.isEmpty
         ? language.t(KolkhozText.kolkhozappWaiting)
@@ -7221,6 +8306,7 @@ class _OpenSessionDetails extends StatelessWidget {
                         playerID: index,
                         profile: profilesBySeat[index],
                         open: session.openSeats.contains(index),
+                        ranked: session.ranked,
                         currentTurn: session.turnPlayerID == index,
                         currentUserID: currentUserID,
                         comradeUserIDs: comradeUserIDs,
@@ -7260,6 +8346,7 @@ class _OpenSessionPlayerCard extends StatelessWidget {
     required this.playerID,
     required this.profile,
     required this.open,
+    required this.ranked,
     required this.currentTurn,
     required this.currentUserID,
     required this.comradeUserIDs,
@@ -7273,6 +8360,7 @@ class _OpenSessionPlayerCard extends StatelessWidget {
   final int playerID;
   final OnlinePlayerProfile? profile;
   final bool open;
+  final bool ranked;
   final bool currentTurn;
   final String? currentUserID;
   final Set<String> comradeUserIDs;
@@ -7293,7 +8381,9 @@ class _OpenSessionPlayerCard extends StatelessWidget {
               : language.t(KolkhozText.kolkhozappOpen)
         : name;
     final portraitAsset = profile?.portraitAsset ?? 'worker${playerID + 1}';
-    final rating = profile?.stats.rating ?? defaultProfileStats.rating;
+    final rating =
+        profile?.stats.ratingForGameType(ranked: ranked) ??
+        defaultProfileStats.ratingForGameType(ranked: ranked);
     final profileUserID = profile?.userID;
     final showComradeAction =
         occupied &&

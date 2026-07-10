@@ -14,6 +14,8 @@ enum KolkhozText {
   variantDeck52Cards,
   variantDeck36Cards,
   variantDeckLabel,
+  variantValue1CardDeck,
+  variantValue1YearPlan,
   variantNomenklaturaTitle,
   variantNomenklaturaDescription,
   variantSwapTitle,
@@ -100,6 +102,8 @@ enum KolkhozText {
   kolkhozappStartDemo,
   kolkhozappStartOnlineGame,
   kolkhozappStartOfflineGame,
+  kolkhozappContinueToLobby,
+  kolkhozappBackToSetup,
   kolkhozappSaveFavorite,
   kolkhozappUseFavorite,
   kolkhozappFavoriteSaved,
@@ -155,6 +159,8 @@ enum KolkhozText {
   kolkhozappWins,
   kolkhozappOnline2,
   kolkhozappOnWins,
+  kolkhozappCasualRating,
+  kolkhozappRankedRating,
   kolkhozappRating,
   kolkhozappCurrent,
   kolkhozappWins2,
@@ -164,6 +170,7 @@ enum KolkhozText {
   kolkhozappNoOpenGames,
   kolkhozappValue1Open,
   kolkhozappValue1CitizensOnline,
+  kolkhozappRefreshInValue1s,
   kolkhozappJoinedValue1,
   kolkhozappSentNorthOnlinePlayIsLockedForThisAccount,
   kolkhozappTheOnlineServerRejectedTheRequest,
@@ -172,6 +179,7 @@ enum KolkhozText {
   kolkhozappInviteCode,
   kolkhozappYourInviteCode,
   kolkhozappWaitingForPlayers,
+  kolkhozappSearchingForPlayer,
   kolkhozappCopyCode,
   kolkhozappCopyResult,
   kolkhozappCopied,
@@ -337,6 +345,14 @@ const Map<KolkhozText, ({String en, String ru})> kolkhozText = {
   KolkhozText.variantDeck52Cards: (en: '52 cards', ru: '52 карты'),
   KolkhozText.variantDeck36Cards: (en: '36 cards', ru: '36 карт'),
   KolkhozText.variantDeckLabel: (en: 'DECK', ru: 'КОЛОДА'),
+  KolkhozText.variantValue1CardDeck: (
+    en: '{value1} Card Deck',
+    ru: 'Колода {value1} карт',
+  ),
+  KolkhozText.variantValue1YearPlan: (
+    en: '{value1} Year Plan',
+    ru: 'План на {value1} лет',
+  ),
   KolkhozText.variantNomenklaturaTitle: (
     en: 'The Party lives by its own rules',
     ru: 'Номенклатура живёт по своим законам',
@@ -573,6 +589,14 @@ const Map<KolkhozText, ({String en, String ru})> kolkhozText = {
     en: 'Start Offline Game',
     ru: 'Начать офлайн',
   ),
+  KolkhozText.kolkhozappContinueToLobby: (
+    en: 'Add Players',
+    ru: 'Перейти в лобби',
+  ),
+  KolkhozText.kolkhozappBackToSetup: (
+    en: 'Back to Setup',
+    ru: 'Назад к настройке',
+  ),
   KolkhozText.kolkhozappSaveFavorite: (
     en: 'Save Favorite',
     ru: 'Сохранить любимую',
@@ -583,9 +607,9 @@ const Map<KolkhozText, ({String en, String ru})> kolkhozText = {
     ru: 'Любимая настройка сохранена',
   ),
   KolkhozText.kolkhozappRanked: (en: 'Ranked', ru: 'Рейтинг'),
-  KolkhozText.kolkhozappLocked: (en: 'Locked', ru: 'Закрыто'),
-  KolkhozText.kolkhozappBrowser: (en: 'Browser', ru: 'Список'),
-  KolkhozText.kolkhozappAccess: (en: 'ACCESS', ru: 'ДОСТУП'),
+  KolkhozText.kolkhozappLocked: (en: 'Private', ru: 'Частная'),
+  KolkhozText.kolkhozappBrowser: (en: 'Public', ru: 'Публичная'),
+  KolkhozText.kolkhozappAccess: (en: 'VISIBILITY', ru: 'ВИДИМОСТЬ'),
   KolkhozText.kolkhozappComrades: (en: 'Comrades', ru: 'Товарищи'),
   KolkhozText.kolkhozappYourComradeCode: (
     en: 'YOUR COMRADE CODE',
@@ -685,6 +709,14 @@ const Map<KolkhozText, ({String en, String ru})> kolkhozText = {
   KolkhozText.kolkhozappWins: (en: 'wins', ru: 'победы'),
   KolkhozText.kolkhozappOnline2: (en: 'ONLINE', ru: 'ОНЛАЙН'),
   KolkhozText.kolkhozappOnWins: (en: 'ON WINS', ru: 'ОНЛ ПОБ'),
+  KolkhozText.kolkhozappCasualRating: (
+    en: 'CASUAL RATING',
+    ru: 'КАЗУАЛ РЕЙТИНГ',
+  ),
+  KolkhozText.kolkhozappRankedRating: (
+    en: 'RANKED RATING',
+    ru: 'РЕЙТИНГОВЫЙ РЕЙТИНГ',
+  ),
   KolkhozText.kolkhozappRating: (en: 'RATING', ru: 'РЕЙТИНГ'),
   KolkhozText.kolkhozappCurrent: (en: 'current', ru: 'текущий'),
   KolkhozText.kolkhozappWins2: (en: 'WINS', ru: 'ПОБЕДЫ'),
@@ -702,6 +734,10 @@ const Map<KolkhozText, ({String en, String ru})> kolkhozText = {
   KolkhozText.kolkhozappValue1CitizensOnline: (
     en: '{value1} Citizens Online',
     ru: 'Граждан онлайн: {value1}',
+  ),
+  KolkhozText.kolkhozappRefreshInValue1s: (
+    en: 'Refresh in {value1}s',
+    ru: 'Обновление через {value1}с',
   ),
   KolkhozText.kolkhozappJoinedValue1: (
     en: 'Joined {value1}',
@@ -725,6 +761,10 @@ const Map<KolkhozText, ({String en, String ru})> kolkhozText = {
   KolkhozText.kolkhozappWaitingForPlayers: (
     en: 'Waiting for players',
     ru: 'Ожидание игроков',
+  ),
+  KolkhozText.kolkhozappSearchingForPlayer: (
+    en: 'Searching for Player',
+    ru: 'Поиск игрока',
   ),
   KolkhozText.kolkhozappCopyCode: (en: 'Copy Code', ru: 'Копировать код'),
   KolkhozText.kolkhozappCopyResult: (en: 'Copy Result', ru: 'Копировать итог'),

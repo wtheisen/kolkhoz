@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'animation_speed.dart';
 import 'app_settings.dart';
 import 'app_text.dart';
+import 'assignment_display.dart';
 import 'brigade_display.dart';
 import 'chrome_button.dart';
 import 'render_model.dart';
@@ -1709,7 +1710,7 @@ class _BrigadePanelState extends State<BrigadePanel> {
     final language = widget.language;
     final seats = model.table.seats;
     final trick = model.table.phase == phaseAssignment
-        ? model.table.lastTrick
+        ? visibleAssignmentTrick(model)
         : model.table.trick;
     return LayoutBuilder(
       builder: (context, constraints) {

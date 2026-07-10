@@ -126,9 +126,10 @@ class ChromeAssetIcon extends StatelessWidget {
 }
 
 class ChromeButtonBackground extends StatelessWidget {
-  const ChromeButtonBackground({required this.asset, super.key});
+  const ChromeButtonBackground({required this.asset, this.maxScale, super.key});
 
   final String asset;
+  final double? maxScale;
 
   @override
   Widget build(BuildContext context) {
@@ -152,7 +153,11 @@ class ChromeButtonBackground extends StatelessWidget {
           );
         }
         return CustomPaint(
-          painter: _ChromeNineSlicePainter(image: image, config: config),
+          painter: _ChromeNineSlicePainter(
+            image: image,
+            config: config,
+            maxScale: maxScale,
+          ),
         );
       },
     );
@@ -209,10 +214,15 @@ class _ChromeImageCache {
 }
 
 class _ChromeNineSlicePainter extends CustomPainter {
-  const _ChromeNineSlicePainter({required this.image, required this.config});
+  const _ChromeNineSlicePainter({
+    required this.image,
+    required this.config,
+    required this.maxScale,
+  });
 
   final ui.Image image;
   final ChromeNineSliceConfig config;
+  final double? maxScale;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -221,7 +231,11 @@ class _ChromeNineSlicePainter extends CustomPainter {
     }
     final imageWidth = image.width.toDouble();
     final imageHeight = image.height.toDouble();
-    final scale = math.min(size.width / imageWidth, size.height / imageHeight);
+    var scale = math.min(size.width / imageWidth, size.height / imageHeight);
+    final scaleLimit = maxScale;
+    if (scaleLimit != null) {
+      scale = math.min(scale, scaleLimit);
+    }
     final left = _scaledInset(config.left, scale, size.width);
     final right = _scaledInset(config.right, scale, size.width - left);
     final top = _scaledInset(config.top, scale, size.height);
@@ -396,7 +410,9 @@ class _ChromeNineSlicePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_ChromeNineSlicePainter oldDelegate) {
-    return image != oldDelegate.image || config != oldDelegate.config;
+    return image != oldDelegate.image ||
+        config != oldDelegate.config ||
+        maxScale != oldDelegate.maxScale;
   }
 }
 
