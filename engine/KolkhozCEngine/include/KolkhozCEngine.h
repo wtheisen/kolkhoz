@@ -327,6 +327,7 @@ typedef struct {
     int32_t last_winner;
     int32_t trick_count;
     KCCardList exiled[KC_MAX_YEARS + 1];
+    int32_t exiled_player_ids[KC_MAX_YEARS + 1][KC_MAX_CARDS];
     bool is_famine;
     int32_t phase;
     int32_t current_player;
@@ -422,6 +423,7 @@ KCCard kc_last_trick_card(const KCEngine *engine, int32_t index);
 int32_t kc_pending_assignment_target(const KCEngine *engine, int32_t index);
 int32_t kc_exiled_count(const KCEngine *engine, int32_t year);
 KCCard kc_exiled_card(const KCEngine *engine, int32_t year, int32_t index);
+int32_t kc_exiled_player(const KCEngine *engine, int32_t year, int32_t index);
 int32_t kc_requisition_event_count(const KCEngine *engine);
 int32_t kc_requisition_event_player(const KCEngine *engine, int32_t index);
 int32_t kc_requisition_event_suit(const KCEngine *engine, int32_t index);

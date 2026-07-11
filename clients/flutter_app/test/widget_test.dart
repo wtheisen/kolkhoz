@@ -798,6 +798,26 @@ class FakeOnlineHttpClient implements HttpClient {
         ],
       });
     }
+    if (method == 'GET' && uri.path == '/leaderboard') {
+      return FakeOnlineHttpClientResponse.json({
+        'players': [
+          {
+            'userID': 'leader-user',
+            'displayName': 'Leader',
+            'rank': 1,
+            'stats': {'online_games': 8, 'online_wins': 6},
+          },
+        ],
+      });
+    }
+    if (method == 'GET' && uri.path == '/profiles/profile-user') {
+      return FakeOnlineHttpClientResponse.json({
+        'userID': 'profile-user',
+        'displayName': 'Profile',
+        'rank': 4,
+        'stats': {'online_games': 5, 'online_wins': 3},
+      });
+    }
     if (method == 'GET' && uri.path == '/metrics') {
       return FakeOnlineHttpClientResponse.json({
         'service': {

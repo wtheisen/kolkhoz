@@ -128,6 +128,7 @@ class OnlinePlayerSnapshot {
     required this.hand,
     required this.revealedPlot,
     required this.hiddenPlot,
+    this.hiddenPlotCount,
     required this.medals,
     required this.bankedMedals,
     required this.brigadeLeader,
@@ -139,6 +140,9 @@ class OnlinePlayerSnapshot {
   final List<OnlineEngineCard> hand;
   final List<OnlineEngineCard> revealedPlot;
   final List<OnlineEngineCard> hiddenPlot;
+  final int? hiddenPlotCount;
+
+  int get effectiveHiddenPlotCount => hiddenPlotCount ?? hiddenPlot.length;
   final int medals;
   final int bankedMedals;
   final bool brigadeLeader;
@@ -151,6 +155,8 @@ class OnlinePlayerSnapshot {
       hand: _cards(json['hand']),
       revealedPlot: _cards(json['revealedPlot']),
       hiddenPlot: _cards(json['hiddenPlot']),
+      hiddenPlotCount:
+          json['hiddenPlotCount'] as int? ?? _cards(json['hiddenPlot']).length,
       medals: json['medals'] as int,
       bankedMedals: json['bankedMedals'] as int,
       brigadeLeader: json['brigadeLeader'] as bool,
@@ -164,15 +170,23 @@ class OnlinePlayerSnapshot {
 }
 
 class OnlinePlotStackSnapshot {
-  const OnlinePlotStackSnapshot({required this.revealed, required this.hidden});
+  const OnlinePlotStackSnapshot({
+    required this.revealed,
+    required this.hidden,
+    this.hiddenCount,
+  });
 
   final List<OnlineEngineCard> revealed;
   final List<OnlineEngineCard> hidden;
+  final int? hiddenCount;
+
+  int get effectiveHiddenCount => hiddenCount ?? hidden.length;
 
   static OnlinePlotStackSnapshot fromJson(Map<String, Object?> json) {
     return OnlinePlotStackSnapshot(
       revealed: _cards(json['revealed']),
       hidden: _cards(json['hidden']),
+      hiddenCount: json['hiddenCount'] as int? ?? _cards(json['hidden']).length,
     );
   }
 }
@@ -215,6 +229,20 @@ class OnlineSuitValueSnapshot {
     return OnlineSuitValueSnapshot(
       suit: json['suit'] as int,
       value: json['value'] as int,
+    );
+  }
+}
+
+class OnlineSuitPlayersSnapshot {
+  const OnlineSuitPlayersSnapshot({required this.suit, required this.values});
+
+  final int suit;
+  final List<int> values;
+
+  static OnlineSuitPlayersSnapshot fromJson(Map<String, Object?> json) {
+    return OnlineSuitPlayersSnapshot(
+      suit: json['suit'] as int,
+      values: _ints(json['values']),
     );
   }
 }
@@ -318,6 +346,7 @@ class OnlineComradeProfile {
     this.isOnline = false,
     this.inGame = false,
     this.inLobby = false,
+    this.rank,
     this.stats = defaultProfileStats,
   });
 
@@ -329,6 +358,7 @@ class OnlineComradeProfile {
   final bool isOnline;
   final bool inGame;
   final bool inLobby;
+  final int? rank;
   final KolkhozProfileStats stats;
 
   String get displayLabel {
@@ -352,6 +382,7 @@ class OnlineComradeProfile {
       isOnline: json['isOnline'] as bool? ?? false,
       inGame: json['inGame'] as bool? ?? false,
       inLobby: json['inLobby'] as bool? ?? false,
+      rank: json['rank'] as int?,
       stats: profileStatsFromSupabaseJson(json['stats']),
     );
   }
@@ -417,6 +448,7 @@ class OnlineEngineSnapshot {
     required this.lastTrick,
     required this.lastWinner,
     required this.exiled,
+    this.exiledPlayers = const [],
     required this.pendingAssignments,
     required this.requisitionEvents,
     required this.scores,
@@ -446,6 +478,7 @@ class OnlineEngineSnapshot {
   final List<OnlineTrickPlaySnapshot> lastTrick;
   final int lastWinner;
   final List<OnlineSuitCardsSnapshot> exiled;
+  final List<OnlineSuitPlayersSnapshot> exiledPlayers;
   final List<OnlineAssignmentSnapshot> pendingAssignments;
   final List<OnlineRequisitionSnapshot> requisitionEvents;
   final List<OnlineScoreSnapshot> scores;
@@ -488,6 +521,10 @@ class OnlineEngineSnapshot {
       ],
       lastWinner: json['lastWinner'] as int,
       exiled: _suitCards(json['exiled']),
+      exiledPlayers: [
+        for (final value in _objectList(json['exiledPlayers'] ?? const []))
+          OnlineSuitPlayersSnapshot.fromJson(_objectMap(value)),
+      ],
       pendingAssignments: [
         for (final value in _objectList(json['pendingAssignments']))
           OnlineAssignmentSnapshot.fromJson(_objectMap(value)),

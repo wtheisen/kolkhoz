@@ -1,0 +1,176 @@
+name: kolkhoz-staging
+
+x-server-common: &server-common
+  build:
+    context: ../../..
+    dockerfile: server/Dockerfile
+  restart: unless-stopped
+  environment: &server-environment
+    DATABASE_URL: postgresql://kolkhoz:${POSTGRES_PASSWORD:-staging-only-password}@postgres:5432/kolkhoz
+    REDIS_URL: redis://redis:6379/0
+    KOLKHOZ_HOST: 0.0.0.0
+    KOLKHOZ_PORT: 8787
+    KOLKHOZ_SHARDS: 8
+    KOLKHOZ_DB_POOL_SIZE: 8
+    KOLKHOZ_COMMAND_PARTITION_COUNT: 16
+    KOLKHOZ_COMMAND_PARTITION_CAPACITY: 10000
+    KOLKHOZ_COMMAND_TIMEOUT_SECONDS: 10
+    KOLKHOZ_REALTIME_BUFFER_SIZE: 64
+    KOLKHOZ_LOBBY_COUNTDOWN_SECONDS: 0
+    KOLKHOZ_RUN_LIFECYCLE_RECONCILER: "false"
+    KOLKHOZ_ENVIRONMENT: staging
+    KOLKHOZ_STAGING_STATIC_AUTH_TOKENS: '{"${KOLKHOZ_STAGING_HOST_TOKEN:-host-token}":"10000000-0000-4000-8000-000000000001","${KOLKHOZ_STAGING_GUEST_TOKEN:-guest-token}":"10000000-0000-4000-8000-000000000002"}'
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/ready', timeout=2).read()"]
+    interval: 5s
+    timeout: 3s
+    retries: 12
+    start_period: 20s
+  mem_limit: 768m
+  cpus: 1.0
+  pids_limit: 256
+  security_opt:
+    - no-new-privileges:true
+
+x-gateway-environment: &gateway-environment
+  <<: *server-environment
+  KOLKHOZ_RUN_COMMAND_WORKER: "false"
+  KOLKHOZ_RUN_DEADLINE_SCHEDULER: "false"
+  KOLKHOZ_RUN_POPULATION_SCHEDULER: "false"
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kolkhoz
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-staging-only-password}
+      POSTGRES_DB: kolkhoz
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../../../supabase:/schema/supabase:ro
+      - ../../:/schema/server:ro
+      - ./postgres/00-bootstrap.sql:/docker-entrypoint-initdb.d/00-bootstrap.sql:ro
+      - ./postgres/10-schema.sh:/docker-entrypoint-initdb.d/10-schema.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kolkhoz -d kolkhoz && psql -U kolkhoz -d kolkhoz -Atqc 'select count(*) from server_sessions' >/dev/null"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    mem_limit: 1g
+    cpus: 1.5
+    pids_limit: 256
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--maxmemory", "512mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+    mem_limit: 640m
+    cpus: 1.0
+    pids_limit: 128
+
+  gateway-a:
+    <<: *server-common
+    environment:
+      <<: *gateway-environment
+      KOLKHOZ_WORKER_ID: gateway-a
+    ports:
+      - "127.0.0.1:18787:8787"
+
+  gateway-b:
+    <<: *server-common
+    environment:
+      <<: *gateway-environment
+      KOLKHOZ_WORKER_ID: gateway-b
+    ports:
+      - "127.0.0.1:28787:8787"
+
+  worker-a:
+    <<: *server-common
+    environment:
+      <<: *server-environment
+      KOLKHOZ_WORKER_ID: worker-a
+      KOLKHOZ_COMMAND_PARTITIONS: 0,1,2,3,4,5,6,7
+      KOLKHOZ_RUN_COMMAND_WORKER: "true"
+      KOLKHOZ_RUN_DEADLINE_SCHEDULER: "false"
+      KOLKHOZ_RUN_POPULATION_SCHEDULER: "false"
+
+  worker-b:
+    <<: *server-common
+    environment:
+      <<: *server-environment
+      KOLKHOZ_WORKER_ID: worker-b
+      KOLKHOZ_COMMAND_PARTITIONS: 8,9,10,11,12,13,14,15
+      KOLKHOZ_RUN_COMMAND_WORKER: "true"
+      KOLKHOZ_RUN_DEADLINE_SCHEDULER: "false"
+      KOLKHOZ_RUN_POPULATION_SCHEDULER: "false"
+
+  deadline-scheduler:
+    <<: *server-common
+    environment:
+      <<: *server-environment
+      KOLKHOZ_WORKER_ID: deadline-runtime
+      KOLKHOZ_SCHEDULER_ID: deadline-staging
+      KOLKHOZ_RUN_COMMAND_WORKER: "false"
+      KOLKHOZ_RUN_DEADLINE_SCHEDULER: "true"
+      KOLKHOZ_RUN_POPULATION_SCHEDULER: "false"
+
+  population-scheduler:
+    <<: *server-common
+    environment:
+      <<: *server-environment
+      KOLKHOZ_WORKER_ID: population-runtime
+      KOLKHOZ_POPULATION_ID: population-staging
+      KOLKHOZ_RUN_COMMAND_WORKER: "false"
+      KOLKHOZ_RUN_DEADLINE_SCHEDULER: "false"
+      KOLKHOZ_RUN_POPULATION_SCHEDULER: "true"
+
+  lifecycle-reconciler:
+    <<: *server-common
+    environment:
+      <<: *server-environment
+      KOLKHOZ_WORKER_ID: lifecycle-runtime
+      KOLKHOZ_LIFECYCLE_ID: lifecycle-staging
+      KOLKHOZ_RUN_COMMAND_WORKER: "false"
+      KOLKHOZ_RUN_DEADLINE_SCHEDULER: "false"
+      KOLKHOZ_RUN_POPULATION_SCHEDULER: "false"
+      KOLKHOZ_RUN_LIFECYCLE_RECONCILER: "true"
+
+  load-balancer:
+    image: haproxy:3.0-alpine
+    restart: unless-stopped
+    depends_on:
+      gateway-a:
+        condition: service_healthy
+      gateway-b:
+        condition: service_healthy
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "127.0.0.1:18080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 128
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  postgres-data:
+  redis-data:

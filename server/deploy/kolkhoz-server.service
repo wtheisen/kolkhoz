@@ -1,0 +1,23 @@
+[Unit]
+Description=Kolkhoz partitioned online server
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kolkhoz
+Group=kolkhoz
+WorkingDirectory=/opt/kolkhoz
+EnvironmentFile=/etc/kolkhoz-server.env
+ExecStart=/opt/kolkhoz/.venv/bin/uvicorn server.kolkhoz_server.production:create_asgi_application --factory --host 127.0.0.1 --port 8787 --ws-ping-interval 20 --ws-ping-timeout 20
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths=/opt/kolkhoz/research/.build
+
+[Install]
+WantedBy=multi-user.target

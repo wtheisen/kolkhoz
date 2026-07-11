@@ -2062,6 +2062,8 @@ void registerStoreAndOnlineTests() {
     final heartbeat = await client.sendPresenceHeartbeat();
     final sessions = await client.fetchSessions();
     final status = await client.fetchServerStatus();
+    final leaderboard = await client.fetchLeaderboard();
+    final publicProfile = await client.fetchPublicProfile('profile-user');
     final matched = await client.matchmakeSession(rankedOnly: true);
     final session = await client.fetchSession(created.sessionID);
     final actions = await client.fetchLegalActions(
@@ -2084,6 +2086,8 @@ void registerStoreAndOnlineTests() {
       'POST /presence',
       'GET /sessions',
       'GET /metrics',
+      'GET /leaderboard',
+      'GET /profiles/profile-user',
       'POST /sessions/matchmake',
       'GET /sessions/11111111-1111-1111-1111-111111111111',
       'GET /sessions/11111111-1111-1111-1111-111111111111/players/0/actions',
@@ -2093,12 +2097,21 @@ void registerStoreAndOnlineTests() {
     expect(sessions.first.openSeats, [1]);
     expect(heartbeat.citizensOnline, 16);
     expect(status.citizensOnline, 16);
+    expect(leaderboard.single.rank, 1);
+    expect(leaderboard.single.displayName, 'Leader');
+    expect(publicProfile.userID, 'profile-user');
+    expect(publicProfile.rank, 4);
     expect(matched.playerID, 1);
     expect(sessions.first.expiresAt, 3601.0);
     expect(session.occupiedSeats, [0, 1]);
-    expect(httpClient.requests[6].headers['X-Kolkhoz-Seat-Token'], [
-      'seat-token-0',
-    ]);
+    expect(
+      httpClient.requests
+          .singleWhere(
+            (request) => request.route.endsWith('/players/0/actions'),
+          )
+          .headers['X-Kolkhoz-Seat-Token'],
+      ['seat-token-0'],
+    );
     expect(httpClient.requests.last.headers['X-Kolkhoz-Seat-Token'], [
       'seat-token-0',
     ]);
@@ -2119,5 +2132,202 @@ void registerStoreAndOnlineTests() {
     expect(newestOnlineRevision(5, 3), 5);
     expect(newestOnlineRevision(null, 3), isNull);
     expect(newestOnlineRevision(5, null), isNull);
+  });
+
+  test(
+    'realtime reconnect resumes after the latest accepted revision',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      final requestedUris = <Uri>[];
+      final reconnected = Completer<void>();
+      final openSockets = <WebSocket>[];
+      var connectionCount = 0;
+      server.listen((request) async {
+        final socket = await WebSocketTransformer.upgrade(request);
+        openSockets.add(socket);
+        connectionCount += 1;
+        if (connectionCount == 1) {
+          for (final revision in [4, 2, 4]) {
+            socket.add(
+              jsonEncode({
+                'type': 'state',
+                'update': onlineUpdateJson()..['actionLogCount'] = revision,
+              }),
+            );
+          }
+          await socket.close();
+        } else if (!reconnected.isCompleted) {
+          reconnected.complete();
+        }
+      });
+      addTearDown(() async {
+        for (final socket in openSockets) {
+          await socket.close();
+        }
+      });
+      final store = LiveGameStore(
+        autosaveEnabled: false,
+        onlineAccessTokenProvider: () async => 'access-token',
+        onlineHttpClient: FakeOnlineHttpClient(),
+        onlineRealtimeReconnectDelay: Duration.zero,
+        onlineWebSocketConnector: (uri, headers) {
+          requestedUris.add(uri);
+          return WebSocket.connect(
+            'ws://${server.address.address}:${server.port}',
+            headers: headers,
+          );
+        },
+      );
+      addTearDown(store.dispose);
+
+      await store.hostOnlineGame(
+        baseURL: Uri.parse('http://online.example'),
+        variants: KolkhozGameVariants.kolkhoz,
+        controllers: KolkhozPlayerController.defaultControllers,
+        ranked: false,
+        browserJoinable: false,
+      );
+      await reconnected.future.timeout(const Duration(seconds: 2));
+
+      expect(store.onlineUpdate!.actionLogCount, 4);
+      expect(requestedUris, hasLength(greaterThanOrEqualTo(2)));
+      expect(requestedUris[0].queryParameters['afterRevision'], '0');
+      expect(requestedUris[1].queryParameters['afterRevision'], '4');
+    },
+  );
+
+  test('disconnected realtime keeps durable polling active', () async {
+    final httpClient = FakeOnlineHttpClient();
+    final store = LiveGameStore(
+      autosaveEnabled: false,
+      onlineAccessTokenProvider: () async => 'access-token',
+      onlineHttpClient: httpClient,
+      onlineRealtimeReconnectDelay: const Duration(milliseconds: 50),
+      onlineWebSocketConnector: (_, _) async =>
+          throw const SocketException('offline'),
+    );
+    addTearDown(store.dispose);
+
+    await store.hostOnlineGame(
+      baseURL: Uri.parse('http://online.example'),
+      variants: KolkhozGameVariants.kolkhoz,
+      controllers: KolkhozPlayerController.defaultControllers,
+      ranked: false,
+      browserJoinable: false,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 1150));
+
+    expect(
+      httpClient.requests.where(
+        (request) =>
+            request.route ==
+            'GET /sessions/11111111-1111-1111-1111-111111111111/actions',
+      ),
+      isNotEmpty,
+    );
+  });
+
+  test('greenfield realtime URI preserves the durable revision cursor', () {
+    final secure = KolkhozOnlineClient(
+      Uri.parse('https://online.kolkhoz.example/api/'),
+    );
+    final insecure = KolkhozOnlineClient(Uri.parse('http://127.0.0.1:8787'));
+
+    expect(
+      secure
+          .realtimeURI(
+            sessionID: 'session with spaces',
+            playerID: 2,
+            afterRevision: 47,
+          )
+          .toString(),
+      'wss://online.kolkhoz.example/api/sessions/'
+      'session%20with%20spaces/realtime?viewerID=2&afterRevision=47',
+    );
+    expect(
+      insecure
+          .realtimeURI(sessionID: 'abc', playerID: 0, afterRevision: 0)
+          .scheme,
+      'ws',
+    );
+  });
+
+  test(
+    'greenfield realtime performs an authenticated websocket handshake',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      final requestSeen = Completer<HttpRequest>();
+      final serverDone = Completer<void>();
+      server.listen((request) async {
+        requestSeen.complete(request);
+        final socket = await WebSocketTransformer.upgrade(request);
+        serverDone.complete();
+        unawaited(socket.close());
+      });
+      final client = KolkhozOnlineClient(
+        Uri.parse('http://${server.address.address}:${server.port}'),
+        accessTokenProvider: () async => 'access-token',
+      );
+
+      final socket = await client.connectRealtime(
+        sessionID: 'session-id',
+        playerID: 3,
+        seatToken: 'seat-token',
+        afterRevision: 19,
+      );
+      socket.listen((_) {});
+      final request = await requestSeen.future;
+
+      expect(request.uri.path, '/sessions/session-id/realtime');
+      expect(request.uri.queryParameters, {
+        'viewerID': '3',
+        'afterRevision': '19',
+      });
+      expect(
+        request.headers.value(HttpHeaders.authorizationHeader),
+        'Bearer access-token',
+      );
+      expect(request.headers.value('X-Kolkhoz-Seat-Token'), 'seat-token');
+      await socket.close();
+      await serverDone.future;
+    },
+  );
+
+  test('greenfield realtime decodes state catch-up and committed frames', () {
+    final stateJson = onlineUpdateJson()..['actionLogCount'] = 7;
+    final state = OnlineRealtimeFrame.decode(
+      jsonEncode({'type': 'state', 'update': stateJson}),
+    );
+    final catchUp = OnlineRealtimeFrame.fromJson({
+      'type': 'catchUp',
+      'updates': {
+        'sessionID': '11111111-1111-1111-1111-111111111111',
+        'actionLogCount': 9,
+        'updates': <Object?>[],
+        'resyncUpdate': null,
+      },
+    });
+    final committed = OnlineRealtimeFrame.decode(
+      jsonEncode({
+        'type': 'committed',
+        'revision': 10,
+        'updates': {
+          'sessionID': '11111111-1111-1111-1111-111111111111',
+          'actionLogCount': 10,
+          'updates': <Object?>[],
+          'resyncUpdate': null,
+        },
+      }),
+    );
+
+    expect(state.type, 'state');
+    expect(state.update!.actionLogCount, 7);
+    expect(state.updates, isNull);
+    expect(catchUp.type, 'catchUp');
+    expect(catchUp.updates!.actionLogCount, 9);
+    expect(committed.type, 'committed');
+    expect(committed.updates!.actionLogCount, 10);
   });
 }
