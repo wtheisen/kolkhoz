@@ -16,7 +16,7 @@ status and remaining retirement blockers are listed separately below and in
 - [x] Expected-revision action commits and fenced PostgreSQL session leases
 - [x] Authoritative C-engine recovery by durable action replay
 - [x] Post-commit Redis publication and revision-based reconnect catch-up
-- [x] Flutter WebSocket migration contract with durable reconnect semantics
+- [x] Flutter WebSocket client with authenticated durable reconnect semantics
 - [x] One Redis subscription multiplexer per gateway with bounded client buffers
 - [x] Shared, bounded PostgreSQL connection pool
 - [x] ASGI HTTP/WebSocket process and deployment wiring
@@ -78,12 +78,10 @@ status and remaining retirement blockers are listed separately below and in
 - [x] Production startup fails closed when Supabase auth configuration is absent
 - [x] Atomic kick, last-seat leave/delete, abandonment, and finished-result transactions
 
-## Route inventory caveat
+## Flutter integration
 
-`GET /leaderboard` and `GET /profiles/{userID}` are in the greenfield canonical matrix,
-but were not routed by the audited legacy router. They are additive Flutter/public API
-operations, not evidence of parity for the 23 legacy-routed operations.
-
-The current Flutter app still consumes Supabase `game_updates`. The required transport
-migration is specified in `FLUTTER_REALTIME_MIGRATION.md`; the server intentionally does
-not dual-write the legacy Supabase session authority.
+Flutter uses the authenticated greenfield WebSocket for gameplay revisions and resumes
+from its latest accepted durable revision after disconnects. Stale and duplicate frames
+cannot move client state backwards. The existing HTTP poll remains active for lobby and
+reaction metadata, which do not yet have a separate durable realtime cursor. The server
+intentionally does not dual-write the legacy Supabase session authority.
