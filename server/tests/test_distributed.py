@@ -49,6 +49,9 @@ class FakeRedis:
         self.pubsub_calls += 1
         return self.subscription
 
+    def ping(self):
+        return True
+
 
 def test_redis_bus_preserves_event_identity_and_topic():
     redis = FakeRedis()
@@ -56,6 +59,7 @@ def test_redis_bus_preserves_event_identity_and_topic():
     message = RealtimeMessage("session:abc", "event-7", {"revision": 9})
 
     bus.publish(message)
+    bus.readiness_check()
     channel, body = redis.published[0]
     assert channel == "test:session:abc"
     redis.subscription.messages.append({"data": json.dumps(json.loads(body)).encode()})

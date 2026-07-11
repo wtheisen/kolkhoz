@@ -59,6 +59,16 @@ class TimeoutResult:
     forced_autopilot: bool
 
 
+@dataclass(frozen=True)
+class LifecycleIntent:
+    session_id: str
+    operation: str
+    seed: int | None
+    variants: JsonObject | None
+    controllers: list[str] | None
+    fencing_token: int
+
+
 class SeatUnavailable(RuntimeError):
     pass
 
@@ -138,6 +148,15 @@ class LobbyRepository(Protocol):
     ) -> list[DueTurn]: ...
     def consume_timeout(self, claim: DueTurn, *, now: float) -> TimeoutResult: ...
     def touch_seat(self, session_id: str, player_id: int, *, now: float) -> None: ...
+    def complete_lifecycle_intent(
+        self, session_id: str, operation: str, *, fencing_token: int | None = None
+    ) -> None: ...
+    def claim_lifecycle_intents(
+        self, *, owner: str, now: float, lease_seconds: float, limit: int
+    ) -> list[LifecycleIntent]: ...
+    def retry_lifecycle_intent(
+        self, intent: LifecycleIntent, *, now: float, delay_seconds: float
+    ) -> None: ...
 
 
 LOBBY_SCHEMA = """
@@ -214,6 +233,23 @@ create table if not exists server_reactions (
     created_at real not null,
     primary key (session_id, revision)
 );
+create table if not exists server_lifecycle_intents (
+    session_id text not null,
+    operation text not null check (operation in ('provision', 'delete')),
+    seed integer,
+    variants_json text,
+    controllers_json text,
+    state text not null default 'pending',
+    attempts integer not null default 0,
+    next_attempt_at real not null,
+    claim_owner text,
+    claim_until real,
+    fencing_token integer not null default 0,
+    primary key (session_id, operation)
+);
+create index if not exists server_lifecycle_pending_idx
+    on server_lifecycle_intents (next_attempt_at, session_id)
+    where state = 'pending';
 """
 
 
@@ -234,6 +270,7 @@ class SQLiteLobbyRepository:
 
     def create(self, record: SessionRecord, seats: list[SeatRecord]) -> None:
         with closing(self._connect()) as connection, connection:
+            connection.execute("begin immediate")
             connection.execute(
                 """
                 insert into server_sessions (
@@ -275,6 +312,20 @@ class SQLiteLobbyRepository:
                     )
                     for seat in seats
                 ],
+            )
+            connection.execute(
+                """insert into server_lifecycle_intents
+                       (session_id, operation, seed, variants_json, controllers_json,
+                        next_attempt_at)
+                     values (?, 'provision', ?, ?, ?, ?)
+                     on conflict (session_id, operation) do nothing""",
+                (
+                    record.session_id,
+                    record.seed,
+                    json.dumps(record.variants, sort_keys=True),
+                    json.dumps(record.controllers),
+                    record.created_at,
+                ),
             )
 
     def set_ranked(self, session_id: str, ranked: bool, *, now: float) -> None:
@@ -412,6 +463,14 @@ class SQLiteLobbyRepository:
             ).fetchone()
             if remaining is None:
                 connection.execute(
+                    """insert into server_lifecycle_intents
+                           (session_id, operation, next_attempt_at)
+                         values (?, 'delete', ?)
+                         on conflict (session_id, operation) do update
+                           set state = 'pending', next_attempt_at = excluded.next_attempt_at""",
+                    (session_id, now),
+                )
+                connection.execute(
                     "delete from server_sessions where session_id = ? and status = 'open'",
                     (session_id,),
                 )
@@ -502,6 +561,15 @@ class SQLiteLobbyRepository:
 
     def delete_session(self, session_id: str) -> None:
         with closing(self._connect()) as connection, connection:
+            connection.execute("begin immediate")
+            connection.execute(
+                """insert into server_lifecycle_intents
+                       (session_id, operation, next_attempt_at)
+                     values (?, 'delete', ?)
+                     on conflict (session_id, operation) do update
+                       set state = 'pending', next_attempt_at = excluded.next_attempt_at""",
+                (session_id, time.time()),
+            )
             connection.execute(
                 "delete from server_sessions where session_id = ?", (session_id,)
             )
@@ -941,6 +1009,76 @@ class SQLiteLobbyRepository:
             bool(row["autopilot"]),
         )
 
+    def complete_lifecycle_intent(
+        self, session_id: str, operation: str, *, fencing_token: int | None = None
+    ) -> None:
+        with closing(self._connect()) as connection:
+            connection.execute(
+                """delete from server_lifecycle_intents
+                    where session_id = ? and operation = ?
+                      and (? is null or fencing_token = ?)""",
+                (session_id, operation, fencing_token, fencing_token),
+            )
+
+    def claim_lifecycle_intents(
+        self, *, owner: str, now: float, lease_seconds: float, limit: int
+    ) -> list[LifecycleIntent]:
+        connection = self._connect()
+        try:
+            connection.execute("begin immediate")
+            rows = connection.execute(
+                """select session_id, operation, seed, variants_json, controllers_json,
+                          fencing_token
+                     from server_lifecycle_intents
+                    where state = 'pending' and next_attempt_at <= ?
+                      and (claim_until is null or claim_until <= ?)
+                    order by next_attempt_at, session_id limit ?""",
+                (now, now, limit),
+            ).fetchall()
+            values = []
+            for row in rows:
+                token = int(row[5]) + 1
+                connection.execute(
+                    """update server_lifecycle_intents
+                          set claim_owner = ?, claim_until = ?, fencing_token = ?,
+                              attempts = attempts + 1
+                        where session_id = ? and operation = ?""",
+                    (owner, now + lease_seconds, token, row[0], row[1]),
+                )
+                values.append(
+                    LifecycleIntent(
+                        str(row[0]),
+                        str(row[1]),
+                        None if row[2] is None else int(row[2]),
+                        None if row[3] is None else json.loads(row[3]),
+                        None if row[4] is None else json.loads(row[4]),
+                        token,
+                    )
+                )
+            connection.commit()
+            return values
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    def retry_lifecycle_intent(
+        self, intent: LifecycleIntent, *, now: float, delay_seconds: float
+    ) -> None:
+        with closing(self._connect()) as connection:
+            connection.execute(
+                """update server_lifecycle_intents
+                      set next_attempt_at = ?, claim_owner = null, claim_until = null
+                    where session_id = ? and operation = ? and fencing_token = ?""",
+                (
+                    now + delay_seconds,
+                    intent.session_id,
+                    intent.operation,
+                    intent.fencing_token,
+                ),
+            )
+
 
 class PostgresLobbyRepository:
     """Pooled PostgreSQL lobby metadata adapter.
@@ -969,7 +1107,7 @@ class PostgresLobbyRepository:
                 ) values (
                     %s::uuid, upper(%s), %s, %s, %s, %s, %s, %s, %s,
                     to_timestamp(%s), to_timestamp(%s), to_timestamp(%s),
-                    case when %s is null then null else to_timestamp(%s) end
+                    case when %s::double precision is null then null else to_timestamp(%s) end
                 )
                 """,
                 (
@@ -997,7 +1135,7 @@ class PostgresLobbyRepository:
                         token_hash, last_seen_at, timeouts, abandoned, autopilot
                     ) values (
                         %s::uuid, %s, %s, %s, %s, %s,
-                        case when %s is null then null else to_timestamp(%s) end,
+                        case when %s::double precision is null then null else to_timestamp(%s) end,
                         %s, %s, %s
                     )
                     """,
@@ -1015,6 +1153,19 @@ class PostgresLobbyRepository:
                         seat.autopilot,
                     ),
                 )
+            connection.execute(  # type: ignore[attr-defined]
+                """insert into server_lifecycle_intents
+                       (session_id, operation, seed, variants, controllers, next_attempt_at)
+                     values (%s::uuid, 'provision', %s, %s, %s, to_timestamp(%s))
+                     on conflict (session_id, operation) do nothing""",
+                (
+                    record.session_id,
+                    record.seed,
+                    self._jsonb(record.variants),
+                    self._jsonb(record.controllers),
+                    record.created_at,
+                ),
+            )
 
     def session(self, session_id_or_invite: str) -> SessionRecord:
         try:
@@ -1167,6 +1318,14 @@ class PostgresLobbyRepository:
                 (session_id,),
             ).fetchone()
             if deleted is not None:
+                connection.execute(  # type: ignore[attr-defined]
+                    """insert into server_lifecycle_intents
+                           (session_id, operation, next_attempt_at)
+                         values (%s::uuid, 'delete', to_timestamp(%s))
+                         on conflict (session_id, operation) do update
+                           set state = 'pending', next_attempt_at = excluded.next_attempt_at""",
+                    (session_id, now),
+                )
                 return True
             connection.execute(  # type: ignore[attr-defined]
                 "update server_sessions set updated_at = to_timestamp(%s) where session_id = %s::uuid",
@@ -1232,7 +1391,7 @@ class PostgresLobbyRepository:
                 """
                 update server_sessions
                    set status = %s, updated_at = to_timestamp(%s),
-                       lobby_countdown_ends_at = case when %s is null then null else to_timestamp(%s) end
+                       lobby_countdown_ends_at = case when %s::double precision is null then null else to_timestamp(%s) end
                  where session_id = %s::uuid
                 """,
                 (status, now, countdown_ends_at, countdown_ends_at, session_id),
@@ -1250,6 +1409,14 @@ class PostgresLobbyRepository:
 
     def delete_session(self, session_id: str) -> None:
         with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            connection.execute(  # type: ignore[attr-defined]
+                """insert into server_lifecycle_intents
+                       (session_id, operation, next_attempt_at)
+                     values (%s::uuid, 'delete', now())
+                     on conflict (session_id, operation) do update
+                       set state = 'pending', next_attempt_at = excluded.next_attempt_at""",
+                (session_id,),
+            )
             connection.execute(  # type: ignore[attr-defined]
                 "delete from server_sessions where session_id = %s::uuid", (session_id,)
             )
@@ -1541,7 +1708,7 @@ class PostgresLobbyRepository:
                 """
                 update server_sessions
                    set turn_player_id = %s,
-                       turn_deadline_at = case when %s is null then null else to_timestamp(%s) end,
+                       turn_deadline_at = case when %s::double precision is null then null else to_timestamp(%s) end,
                        updated_at = to_timestamp(%s), scheduler_claim_owner = null,
                        scheduler_claim_until = null
                  where session_id = %s::uuid
@@ -1689,3 +1856,66 @@ class PostgresLobbyRepository:
             bool(row[7]),  # type: ignore[index]
             bool(row[8]),  # type: ignore[index]
         )
+
+    def complete_lifecycle_intent(
+        self, session_id: str, operation: str, *, fencing_token: int | None = None
+    ) -> None:
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            connection.execute(  # type: ignore[attr-defined]
+                """delete from server_lifecycle_intents
+                    where session_id = %s::uuid and operation = %s
+                      and (%s::bigint is null or fencing_token = %s)""",
+                (session_id, operation, fencing_token, fencing_token),
+            )
+
+    def claim_lifecycle_intents(
+        self, *, owner: str, now: float, lease_seconds: float, limit: int
+    ) -> list[LifecycleIntent]:
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            rows = connection.execute(  # type: ignore[attr-defined]
+                """with due as (
+                       select session_id, operation from server_lifecycle_intents
+                        where state = 'pending' and next_attempt_at <= to_timestamp(%s)
+                          and (claim_until is null or claim_until <= to_timestamp(%s))
+                        order by next_attempt_at, session_id
+                        for update skip locked limit %s
+                   )
+                   update server_lifecycle_intents intents
+                      set claim_owner = %s,
+                          claim_until = to_timestamp(%s) + (%s * interval '1 second'),
+                          fencing_token = fencing_token + 1, attempts = attempts + 1
+                     from due where intents.session_id = due.session_id
+                               and intents.operation = due.operation
+                   returning intents.session_id::text, intents.operation, intents.seed,
+                             intents.variants, intents.controllers, intents.fencing_token""",
+                (now, now, limit, owner, now, lease_seconds),
+            ).fetchall()
+        return [
+            LifecycleIntent(
+                str(row[0]),
+                str(row[1]),
+                None if row[2] is None else int(row[2]),
+                None if row[3] is None else dict(row[3]),
+                None if row[4] is None else list(row[4]),
+                int(row[5]),
+            )
+            for row in rows
+        ]
+
+    def retry_lifecycle_intent(
+        self, intent: LifecycleIntent, *, now: float, delay_seconds: float
+    ) -> None:
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            connection.execute(  # type: ignore[attr-defined]
+                """update server_lifecycle_intents
+                      set next_attempt_at = to_timestamp(%s), claim_owner = null,
+                          claim_until = null
+                    where session_id = %s::uuid and operation = %s
+                      and fencing_token = %s""",
+                (
+                    now + delay_seconds,
+                    intent.session_id,
+                    intent.operation,
+                    intent.fencing_token,
+                ),
+            )

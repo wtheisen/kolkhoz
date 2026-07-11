@@ -10,6 +10,7 @@ game mutation so a crash between mutation and acknowledgement is harmless.
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 import uuid
@@ -17,7 +18,10 @@ import zlib
 from collections import deque
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
+
+if TYPE_CHECKING:
+    from .metrics import ServerMetrics
 
 
 JsonObject = dict[str, Any]
@@ -262,6 +266,7 @@ class RedisStreamsCommandBroker:
         max_attempts: int = 5,
         visibility_timeout_seconds: float = 30.0,
         result_ttl_seconds: int = 86_400,
+        metrics: ServerMetrics | None = None,
     ) -> None:
         self._client = client
         self._namespace = namespace.rstrip(":")
@@ -272,12 +277,21 @@ class RedisStreamsCommandBroker:
         self._result_ttl = result_ttl_seconds
         self._known_groups: set[int] = set()
         self._group_lock = threading.Lock()
+        self._metrics = metrics
 
     @classmethod
     def from_url(cls, url: str, **kwargs: Any) -> RedisStreamsCommandBroker:
         import redis
 
-        return cls(redis.Redis.from_url(url, decode_responses=True), **kwargs)
+        return cls(
+            redis.Redis.from_url(
+                url,
+                decode_responses=True,
+                socket_connect_timeout=0.5,
+                socket_timeout=0.5,
+            ),
+            **kwargs,
+        )
 
     def publish(self, command: GameCommand) -> None:
         partition = session_partition(command.session_id, self.partition_count)
@@ -288,9 +302,20 @@ class RedisStreamsCommandBroker:
                 1,
             )
         except Exception as error:
+            if self._metrics is not None:
+                self._metrics.increment("redis.command_errors")
+                self._metrics.gauge("redis.command_healthy", 0)
             raise CommandBackpressure("command broker rejected the command") from error
         if not accepted:
+            if self._metrics is not None:
+                self._metrics.increment("redis.command_backpressure")
             raise CommandBackpressure(f"command partition {partition} is full")
+        if self._metrics is not None:
+            self._metrics.gauge("redis.command_healthy", 1)
+
+    def readiness_check(self) -> None:
+        if not self._client.ping():
+            raise RuntimeError("Redis command broker ping failed")
 
     def receive(
         self, partition: int, consumer_id: str, timeout_seconds: float
@@ -318,12 +343,20 @@ class RedisStreamsCommandBroker:
         if not messages:
             return None
         delivery_id, fields = messages[0]
-        return CommandDelivery(
+        delivery = CommandDelivery(
             delivery_id=str(delivery_id),
             partition=partition,
             command=_decode_command(fields["command"]),
             attempts=int(fields.get("attempts", 1)),
         )
+        if self._metrics is not None:
+            self._metrics.observe(
+                "redis.command_lag",
+                max(0.0, time.time() - delivery.command.created_at)
+                if delivery.command.created_at
+                else 0.0,
+            )
+        return delivery
 
     def acknowledge(self, delivery: CommandDelivery) -> None:
         self._client.xack(
@@ -334,6 +367,8 @@ class RedisStreamsCommandBroker:
 
     def retry_or_dead_letter(self, delivery: CommandDelivery, error: str) -> bool:
         if delivery.attempts >= self._max_attempts:
+            if self._metrics is not None:
+                self._metrics.increment("redis.command_dlq")
             self._client.xadd(
                 f"{self._namespace}:dead-letter",
                 {
@@ -484,8 +519,21 @@ class CommandWorker:
         return False
 
     def run(self, poll_timeout_seconds: float = 1.0) -> None:
+        broker_unavailable = False
         while not self._stop.is_set():
-            self.run_once(poll_timeout_seconds)
+            try:
+                self.run_once(poll_timeout_seconds)
+                if broker_unavailable:
+                    logging.info("command broker receive recovered")
+                    broker_unavailable = False
+            except Exception:
+                # Redis interruption must not permanently remove this process's
+                # partition ownership. The broker client reconnects lazily on the
+                # next call; bound retry pressure while the dependency is down.
+                if not broker_unavailable:
+                    logging.exception("command broker receive failed; retrying")
+                    broker_unavailable = True
+                self._stop.wait(min(max(poll_timeout_seconds, 0.1), 1.0))
 
     def stop(self) -> None:
         self._stop.set()

@@ -53,9 +53,12 @@ That is a retirement blocker, documented in `PARITY_GAPS.md`.
 | `kolkhoz_server/ai.py` | Heuristic/policy automatic turns and shared model cache |
 | `kolkhoz_server/matchmaking.py`, `population.py` | Indexed matchmaking and independently leased bot-lobby population |
 | `kolkhoz_server/scheduler.py` | Indexed, lease-claimed turn deadlines and timeout/autopilot processing |
+| `kolkhoz_server/lifecycle.py` | Fenced provisioning/deletion saga reconciliation after process failure |
+| `kolkhoz_server/metrics.py`, `observability/` | Bounded Prometheus metrics, starter SLOs, and alerts |
 | `kolkhoz_server/production.py` | PostgreSQL/Redis composition and ASGI process lifecycle |
 | `*_schema.sql` | Event, lobby, lease, command, and population PostgreSQL schemas |
 | `deploy/` | Uvicorn/systemd environment, dependencies, and deployment guide |
+| `deploy/staging/` | Real multi-role Compose topology, smoke test, and chaos drill |
 | `tools/` | Disposable PostgreSQL schema smoke test and scale/failure harness |
 | `tests/` | Contracts, real C replay, concurrency, chaos, transport, and parity tests |
 

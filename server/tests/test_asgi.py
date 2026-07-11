@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import queue
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -79,6 +80,9 @@ class _Application:
             )
         raise ServerError(404, "route not found")
 
+    def metrics_state(self):
+        return {"activeSessions": 0}
+
     @staticmethod
     def _authenticate(request: Request) -> None:
         if request.headers.get("authorization") != "Bearer bearer":
@@ -123,6 +127,94 @@ def test_http_adapts_online_application_contract() -> None:
     asyncio.run(app(scope, incoming.get, _collector(sent)))
     assert sent[0]["status"] == 200
     assert json.loads(sent[1]["body"]) == {"status": "ok"}
+
+
+def test_prometheus_endpoint_preserves_plain_text_scrape_contract() -> None:
+    app = ASGIApplication(_Application(), _Bus())  # type: ignore[arg-type]
+    incoming = asyncio.Queue()
+    incoming.put_nowait({"type": "http.request", "body": b"", "more_body": False})
+    sent: list[dict[str, Any]] = []
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/metrics/prometheus",
+        "raw_path": b"/metrics/prometheus",
+        "query_string": b"",
+        "headers": [],
+    }
+    asyncio.run(app(scope, incoming.get, _collector(sent)))
+    assert sent[0]["status"] == 200
+    assert b"text/plain" in dict(sent[0]["headers"])[b"content-type"]
+    assert b"kolkhoz_uptime_seconds" in sent[1]["body"]
+
+
+def test_readiness_requires_all_dependencies_but_health_stays_live() -> None:
+    app = ASGIApplication(
+        _Application(),
+        _Bus(),  # type: ignore[arg-type]
+        readiness=lambda: {
+            "postgres": True,
+            "redisCommands": True,
+            "redisRealtime": True,
+        },
+    )
+
+    async def request(path: str):
+        incoming = asyncio.Queue()
+        incoming.put_nowait({"type": "http.request", "body": b"", "more_body": False})
+        sent: list[dict[str, Any]] = []
+        await app(
+            {
+                "type": "http",
+                "method": "GET",
+                "path": path,
+                "raw_path": path.encode(),
+                "query_string": b"",
+                "headers": [],
+            },
+            incoming.get,
+            _collector(sent),
+        )
+        return sent
+
+    ready = asyncio.run(request("/ready"))
+    health = asyncio.run(request("/health"))
+    assert ready[0]["status"] == 200
+    assert json.loads(ready[1]["body"])["status"] == "ready"
+    assert health[0]["status"] == 200
+
+
+def test_readiness_failure_and_timeout_return_503() -> None:
+    def slow_check():
+        time.sleep(0.05)
+        return {"postgres": True}
+
+    async def status(readiness, timeout=1.0):
+        app = ASGIApplication(
+            _Application(),
+            _Bus(),  # type: ignore[arg-type]
+            readiness=readiness,
+            readiness_timeout_seconds=timeout,
+        )
+        incoming = asyncio.Queue()
+        incoming.put_nowait({"type": "http.request", "body": b"", "more_body": False})
+        sent: list[dict[str, Any]] = []
+        await app(
+            {
+                "type": "http",
+                "method": "GET",
+                "path": "/ready",
+                "raw_path": b"/ready",
+                "query_string": b"",
+                "headers": [],
+            },
+            incoming.get,
+            _collector(sent),
+        )
+        return sent[0]["status"]
+
+    assert asyncio.run(status(lambda: {"postgres": False})) == 503
+    assert asyncio.run(status(slow_check, timeout=0.001)) == 503
 
 
 def test_websocket_sends_state_and_revision_catch_up() -> None:

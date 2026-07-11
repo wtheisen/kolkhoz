@@ -8,9 +8,12 @@ import time
 from contextlib import closing
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, Iterator, Protocol
+from typing import TYPE_CHECKING, Callable, Iterator, Protocol
 
 from .model import GameRecord, JsonObject, StoredEvent
+
+if TYPE_CHECKING:
+    from .metrics import ServerMetrics
 
 
 class RevisionConflict(RuntimeError):
@@ -86,7 +89,13 @@ class EventStore(Protocol):
 class ConnectionPool:
     """Small bounded DB-API pool with no global query lock."""
 
-    def __init__(self, connect: Callable[[], object], *, size: int = 8) -> None:
+    def __init__(
+        self,
+        connect: Callable[[], object],
+        *,
+        size: int = 8,
+        metrics: ServerMetrics | None = None,
+    ) -> None:
         if size < 1:
             raise ValueError("pool size must be positive")
         self._connect = connect
@@ -95,9 +104,11 @@ class ConnectionPool:
         self._creation_lock = threading.Lock()
         self._size = size
         self._closed = False
+        self._metrics = metrics
 
     @contextmanager
     def connection(self) -> Iterator[object]:
+        started = time.perf_counter()
         if self._closed:
             raise RuntimeError("connection pool is closed")
         try:
@@ -112,10 +123,43 @@ class ConnectionPool:
             if connection is None:
                 connection = self._available.get(timeout=5)
         try:
+            if self._metrics is not None:
+                self._metrics.observe(
+                    "store.pool_checkout", time.perf_counter() - started
+                )
+            operation_started = time.perf_counter()
             yield connection
+        except Exception:
+            if self._metrics is not None:
+                self._metrics.increment("store.errors")
+            raise
         finally:
+            if self._metrics is not None and "operation_started" in locals():
+                self._metrics.observe(
+                    "store.call", time.perf_counter() - operation_started
+                )
             if not self._closed:
-                self._available.put(connection)
+                # psycopg starts a transaction even for SELECT. Read repositories
+                # intentionally do not commit, so return every pooled connection to
+                # an idle boundary before another request checks it out. Without
+                # this, a later transaction becomes a savepoint and its writes are
+                # visible only on that one connection until shutdown rolls them back.
+                rollback = getattr(connection, "rollback", None)
+                try:
+                    if rollback is not None:
+                        rollback()
+                except Exception:
+                    # A broken connection must not poison the bounded pool. The
+                    # next checkout can create its replacement.
+                    try:
+                        connection.close()  # type: ignore[attr-defined]
+                    finally:
+                        with self._creation_lock:
+                            self._all.remove(connection)
+                    if self._metrics is not None:
+                        self._metrics.increment("store.connection_discarded")
+                else:
+                    self._available.put(connection)
 
     def close(self) -> None:
         self._closed = True

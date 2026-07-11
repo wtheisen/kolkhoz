@@ -5,10 +5,13 @@ import threading
 import time
 import uuid
 from collections.abc import Callable
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from .lobby import DueTurn, LobbyRepository, SeatUnavailable
 from .model import GameUpdate
+
+if TYPE_CHECKING:
+    from .metrics import ServerMetrics
 
 
 DEFAULT_TURN_SECONDS = 90.0
@@ -44,6 +47,7 @@ class DeadlineScheduler:
         claim_seconds: float = DEFAULT_CLAIM_SECONDS,
         batch_size: int = DEFAULT_BATCH_SIZE,
         clock: Callable[[], float] = time.time,
+        metrics: ServerMetrics | None = None,
     ) -> None:
         if turn_seconds <= 0 or claim_seconds <= 0 or batch_size <= 0:
             raise ValueError("scheduler durations and batch size must be positive")
@@ -56,8 +60,10 @@ class DeadlineScheduler:
         self.clock = clock
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self.metrics = metrics
 
     def run_once(self, *, now: float | None = None) -> int:
+        started = time.perf_counter()
         current = self.clock() if now is None else now
         claims = self.repository.claim_due_turns(
             owner=self.owner_id,
@@ -65,6 +71,14 @@ class DeadlineScheduler:
             lease_seconds=self.claim_seconds,
             limit=self.batch_size,
         )
+        if self.metrics is not None:
+            self.metrics.increment("scheduler.claims", len(claims))
+            self.metrics.gauge("scheduler.claim_batch", len(claims))
+            if claims:
+                self.metrics.gauge(
+                    "scheduler.lag_seconds",
+                    max(0.0, current - min(claim.deadline_at for claim in claims)),
+                )
         completed = 0
         for claim in claims:
             try:
@@ -76,6 +90,9 @@ class DeadlineScheduler:
                 continue
             except Exception:
                 logging.exception("deadline processing failed for %s", claim.session_id)
+        if self.metrics is not None:
+            self.metrics.increment("scheduler.completed", completed)
+            self.metrics.observe("scheduler.tick", time.perf_counter() - started)
         return completed
 
     def _process(self, claim: DueTurn, now: float) -> bool:

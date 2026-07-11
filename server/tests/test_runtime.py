@@ -123,6 +123,25 @@ class RuntimeTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
+    def test_create_is_idempotent_for_lifecycle_reconciliation(self) -> None:
+        runtime = GameRuntime(
+            SQLiteEventStore(self.database),
+            engine_factory=FakeEngineFactory(),
+            shard_count=1,
+        )
+        try:
+            first = runtime.create_game(
+                seed=9, variants={"controllers": ["human"] * 4}, session_id="same"
+            )
+            repeated = runtime.create_game(
+                seed=9, variants={"controllers": ["human"] * 4}, session_id="same"
+            )
+            self.assertEqual(repeated, first)
+            with self.assertRaisesRegex(ValueError, "different settings"):
+                runtime.create_game(seed=10, session_id="same")
+        finally:
+            runtime.close()
+
     def runtime(
         self, *, factory: FakeEngineFactory | None = None, shards: int = 4
     ) -> GameRuntime:
@@ -327,13 +346,37 @@ class ConnectionPoolTests(unittest.TestCase):
         barrier.wait()
         for thread in threads:
             thread.join()
+        self.assertTrue(all(connection.rollbacks == 1 for connection in created))
         pool.close()
         self.assertTrue(all(connection.closed for connection in created))
 
+    def test_pool_discards_connection_when_idle_rollback_fails(self) -> None:
+        created: list[FakeConnection] = []
+
+        def connect() -> FakeConnection:
+            connection = FakeConnection(fail_rollback=not created)
+            created.append(connection)
+            return connection
+
+        pool = ConnectionPool(connect, size=1)
+        with pool.connection():
+            pass
+        with pool.connection() as replacement:
+            self.assertIs(replacement, created[1])
+        self.assertTrue(created[0].closed)
+        pool.close()
+
 
 class FakeConnection:
-    def __init__(self) -> None:
+    def __init__(self, *, fail_rollback: bool = False) -> None:
         self.closed = False
+        self.rollbacks = 0
+        self.fail_rollback = fail_rollback
+
+    def rollback(self) -> None:
+        self.rollbacks += 1
+        if self.fail_rollback:
+            raise RuntimeError("connection lost")
 
     def close(self) -> None:
         self.closed = True

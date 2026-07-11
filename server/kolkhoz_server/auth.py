@@ -5,6 +5,7 @@ import os
 import ssl
 import threading
 import time
+import uuid
 from collections import OrderedDict
 from collections.abc import Callable
 from http import HTTPStatus
@@ -87,6 +88,24 @@ class StaticAuthVerifier:
         if token not in self.tokens:
             raise ServerError(HTTPStatus.UNAUTHORIZED, "invalid auth token")
         return self.tokens[token]
+
+
+class StagingAuthVerifier(StaticAuthVerifier):
+    """Static smoke tokens plus deterministic UUID identities for load tests."""
+
+    def user_id(self, authorization: str | None) -> str | None:
+        if authorization is not None and authorization.startswith("Bearer staging:"):
+            value = authorization.removeprefix("Bearer staging:").strip()
+            try:
+                parsed = uuid.UUID(value)
+            except ValueError as error:
+                raise ServerError(
+                    HTTPStatus.UNAUTHORIZED, "invalid auth token"
+                ) from error
+            if str(parsed) != value.lower():
+                raise ServerError(HTTPStatus.UNAUTHORIZED, "invalid auth token")
+            return str(parsed)
+        return super().user_id(authorization)
 
 
 class CachingAuthVerifier:

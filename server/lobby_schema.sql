@@ -129,6 +129,24 @@ create table if not exists server_reactions (
     primary key (session_id, revision)
 );
 
+create table if not exists server_lifecycle_intents (
+    session_id uuid not null,
+    operation text not null check (operation in ('provision', 'delete')),
+    seed bigint,
+    variants jsonb,
+    controllers jsonb,
+    state text not null default 'pending',
+    attempts integer not null default 0,
+    next_attempt_at timestamptz not null default now(),
+    claim_owner text,
+    claim_until timestamptz,
+    fencing_token bigint not null default 0,
+    primary key (session_id, operation)
+);
+create index if not exists server_lifecycle_pending_idx
+    on server_lifecycle_intents (next_attempt_at, session_id)
+    where state = 'pending';
+
 create index if not exists server_reactions_created_idx
     on server_reactions (session_id, created_at desc);
 

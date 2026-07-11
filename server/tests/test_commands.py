@@ -22,6 +22,7 @@ from server.kolkhoz_server.commands import (
     session_partition,
 )
 from server.kolkhoz_server.runtime import GameRuntime
+from server.kolkhoz_server.metrics import ServerMetrics
 from server.kolkhoz_server.store import RevisionConflict, SQLiteEventStore
 from server.kolkhoz_server.api import OnlineApplication, Request
 from server.kolkhoz_server.auth import StaticAuthVerifier
@@ -218,6 +219,9 @@ class FakeStreamsRedis:
     def get(self, key):
         return self.values.get(key)
 
+    def ping(self):
+        return True
+
 
 def test_redis_streams_adapter_routes_reclaims_and_deduplicates_results():
     redis = FakeStreamsRedis()
@@ -243,6 +247,34 @@ def test_redis_streams_adapter_routes_reclaims_and_deduplicates_results():
 
     assert duplicate == accepted
     assert broker.result(item.command_id) == accepted
+
+
+def test_redis_command_lag_and_health_are_observable_without_live_redis():
+    redis = FakeStreamsRedis()
+    metrics = ServerMetrics()
+    broker = RedisStreamsCommandBroker(
+        redis, namespace="metrics", partition_count=1, metrics=metrics
+    )
+    item = GameCommand(
+        "lagged",
+        "session-a",
+        "game.state",
+        {},
+        fencing_token=1,
+        created_at=time.time() - 2,
+    )
+    broker.publish(item)
+    broker.readiness_check()
+    assert broker.receive(0, "worker", 0) is not None
+
+    class Runtime:
+        @staticmethod
+        def metrics_state():
+            return {}
+
+    snapshot = metrics.snapshot(Runtime())
+    assert snapshot["gauges"]["redis.command_healthy"] == 1
+    assert snapshot["operations"]["redis.command_lag"]["p50Ms"] >= 1900
 
 
 def test_redis_streams_capacity_rejects_without_trimming_commands():
@@ -551,3 +583,30 @@ def test_autopilot_receipt_survives_crash_redelivery_and_runtime_restart():
             == "heuristicAI"
         )
         replacement.close()
+
+
+def test_worker_run_recovers_after_broker_receive_failure():
+    broker = InMemoryCommandBroker(partition_count=1)
+    worker = CommandWorker(
+        broker,
+        "worker-a",
+        (0,),
+        lambda item: CommandResult(item.command_id, item.session_id, True, {}),
+    )
+    attempts = 0
+
+    def receive(_timeout: float = 1.0) -> bool:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise TimeoutError("redis unavailable")
+        worker.stop()
+        return True
+
+    worker.run_once = receive  # type: ignore[method-assign]
+    thread = threading.Thread(target=worker.run, args=(0.001,))
+    thread.start()
+    thread.join(timeout=2)
+
+    assert not thread.is_alive()
+    assert attempts == 2

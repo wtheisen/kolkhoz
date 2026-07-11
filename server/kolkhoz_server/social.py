@@ -298,7 +298,7 @@ class PostgresSocialRepository:
                 (user_ids,),
             )
             profiles = [_profile(row) for row in cursor.fetchall()]
-        return {str(profile["user_id"]): profile for profile in profiles}
+        return {str(profile["userID"]): profile for profile in profiles}
 
     def profiles_for_ai_controllers(self, controllers: list[str]) -> dict[str, Profile]:
         keys = sorted({value for value in controllers if value != "human"})
@@ -307,7 +307,7 @@ class PostgresSocialRepository:
         with self._cursor() as cursor:
             cursor.execute(
                 """
-                select ai_key, display_name, avatar_url, games_played, wins_total,
+                select ai_key, display_name, null::text as avatar_url, games_played, wins_total,
                        online_games, online_wins, rating, peak_rating, rating_games,
                        casual_games, casual_wins, ranked_games, ranked_wins,
                        casual_rating, casual_peak_rating, casual_rating_games

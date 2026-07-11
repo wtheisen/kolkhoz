@@ -359,7 +359,7 @@ class PostgresPopulationRepository:
                     jsonb_build_object(
                         'variants', '{}'::jsonb,
                         'controllers', %s::jsonb,
-                        'populationKind', %s
+                        'populationKind', %s::text
                     ),
                     to_timestamp(%s), to_timestamp(%s)
                 )

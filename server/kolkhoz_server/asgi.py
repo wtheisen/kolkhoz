@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import time
 from http import HTTPStatus
 from collections.abc import Callable
 from typing import Any, Mapping
@@ -18,6 +20,7 @@ from .distributed import (
     RealtimeSubscriberOverflow,
 )
 from .errors import ServerError
+from .metrics import ServerMetrics
 from .store import GameNotFound, RevisionConflict
 
 
@@ -37,12 +40,18 @@ class ASGIApplication:
         connection_buffer_size: int = 64,
         max_message_bytes: int = 1_048_576,
         shutdown: Callable[[], None] | None = None,
+        metrics: ServerMetrics | None = None,
+        readiness: Callable[[], Mapping[str, bool]] | None = None,
+        readiness_timeout_seconds: float = 1.0,
     ) -> None:
         self.application = application
         self.realtime_bus = realtime_bus
         self.connection_buffer_size = connection_buffer_size
         self.max_message_bytes = max_message_bytes
         self.shutdown = shutdown
+        self.metrics = metrics or ServerMetrics()
+        self.readiness = readiness
+        self.readiness_timeout_seconds = readiness_timeout_seconds
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
         if scope["type"] == "http":
@@ -66,10 +75,56 @@ class ASGIApplication:
             if not message.get("more_body", False):
                 break
         method = scope["method"].upper()
+        route = _route_label(scope.get("path", "/"))
+        started = time.perf_counter()
+        status = int(HTTPStatus.INTERNAL_SERVER_ERROR)
         if method == "OPTIONS":
             await self._http_response(send, HTTPStatus.NO_CONTENT, None)
+            self.metrics.record_route(
+                method, route, HTTPStatus.NO_CONTENT, time.perf_counter() - started
+            )
             return
         try:
+            if scope.get("path") == "/metrics/prometheus":
+                body = self.metrics.prometheus(self.application).encode()
+                await self._raw_http_response(
+                    send,
+                    HTTPStatus.OK,
+                    body,
+                    b"text/plain; version=0.0.4; charset=utf-8",
+                )
+                status = int(HTTPStatus.OK)
+                return
+            if scope.get("path") == "/ready":
+                if self.readiness is None:
+                    raise ServerError(
+                        HTTPStatus.SERVICE_UNAVAILABLE,
+                        "readiness checks are not configured",
+                    )
+                try:
+                    checks = await asyncio.wait_for(
+                        asyncio.to_thread(self.readiness),
+                        timeout=self.readiness_timeout_seconds,
+                    )
+                except Exception as error:
+                    self.metrics.increment("readiness.failures")
+                    self.metrics.gauge("readiness.ready", 0)
+                    raise ServerError(
+                        HTTPStatus.SERVICE_UNAVAILABLE, "dependencies are unavailable"
+                    ) from error
+                if not checks or not all(checks.values()):
+                    self.metrics.increment("readiness.failures")
+                    self.metrics.gauge("readiness.ready", 0)
+                    raise ServerError(
+                        HTTPStatus.SERVICE_UNAVAILABLE, "dependencies are unavailable"
+                    )
+                self.metrics.increment("readiness.successes")
+                self.metrics.gauge("readiness.ready", 1)
+                await self._http_response(
+                    send, HTTPStatus.OK, {"status": "ready", "checks": checks}
+                )
+                status = int(HTTPStatus.OK)
+                return
             payload = json.loads(body or b"{}")
             if not isinstance(payload, dict):
                 payload = {}
@@ -78,21 +133,37 @@ class ASGIApplication:
                 Request(method, _target(scope), _headers(scope), payload),
             )
             await self._http_response(send, response.status, response.body)
+            status = int(response.status)
         except ServerError as error:
+            status = int(error.status)
             await self._http_response(send, error.status, {"error": error.message})
         except RevisionConflict as error:
+            status = int(HTTPStatus.CONFLICT)
             await self._http_response(
                 send,
                 HTTPStatus.CONFLICT,
                 {"error": str(error), "currentRevision": error.actual},
             )
         except GameNotFound:
+            status = int(HTTPStatus.NOT_FOUND)
             await self._http_response(
                 send, HTTPStatus.NOT_FOUND, {"error": "game not found"}
             )
-        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
+        except KeyError:
+            logging.exception("request failed due to missing internal key")
+            await self._http_response(
+                send,
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                {"error": "internal server error"},
+            )
+        except (json.JSONDecodeError, TypeError, ValueError) as error:
+            status = int(HTTPStatus.BAD_REQUEST)
             await self._http_response(
                 send, HTTPStatus.BAD_REQUEST, {"error": str(error)}
+            )
+        finally:
+            self.metrics.record_route(
+                method, route, status, time.perf_counter() - started
             )
 
     async def _websocket(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
@@ -120,6 +191,11 @@ class ASGIApplication:
 
         subscription = await asyncio.to_thread(
             self.realtime_bus.subscribe, f"session:{match}"
+        )
+        self.metrics.increment("realtime.connections")
+        self.metrics.gauge(
+            "realtime.subscribers",
+            float(getattr(self.realtime_bus, "local_subscriber_count", 0)),
         )
         try:
             state = await self._dispatch_get(
@@ -157,6 +233,10 @@ class ASGIApplication:
             await send({"type": "websocket.close", "code": 1008})
         finally:
             await asyncio.to_thread(subscription.close)
+            self.metrics.gauge(
+                "realtime.subscribers",
+                float(getattr(self.realtime_bus, "local_subscriber_count", 0)),
+            )
 
     async def _stream(
         self,
@@ -184,6 +264,7 @@ class ASGIApplication:
                 try:
                     message = await asyncio.to_thread(subscription.poll, 0.25)
                 except RealtimeSubscriberOverflow:
+                    self.metrics.increment("realtime.overflow")
                     overflow.set()
                     stop.set()
                     return
@@ -191,6 +272,7 @@ class ASGIApplication:
                     continue
                 result = buffer.enqueue(message)
                 if result in {EnqueueResult.FULL, EnqueueResult.OVERSIZED}:
+                    self.metrics.increment("realtime.overflow")
                     overflow.set()
                     stop.set()
                     return
@@ -253,6 +335,22 @@ class ASGIApplication:
         )
         await send({"type": "http.response.body", "body": body})
 
+    @staticmethod
+    async def _raw_http_response(
+        send: Any, status: int, body: bytes, content_type: bytes
+    ) -> None:
+        await send(
+            {
+                "type": "http.response.start",
+                "status": int(status),
+                "headers": [
+                    (b"content-type", content_type),
+                    (b"content-length", str(len(body)).encode()),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": body})
+
     async def _lifespan(self, receive: Any, send: Any) -> None:
         while True:
             message = await receive()
@@ -296,3 +394,10 @@ def _realtime_session_id(path: str) -> str | None:
     if len(parts) == 3 and parts[0] == "sessions" and parts[2] == "realtime":
         return parts[1]
     return None
+
+
+def _route_label(path: str) -> str:
+    parts = [part for part in path.split("/") if part]
+    if parts and parts[0] in {"sessions", "profiles"} and len(parts) > 1:
+        parts[1] = "{id}"
+    return "/" + "/".join(parts)

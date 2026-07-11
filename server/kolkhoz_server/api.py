@@ -226,6 +226,7 @@ class OnlineApplication:
                 variants={"variants": variants, "controllers": controllers},
                 session_id=record.session_id,
             )
+            self.lobby.complete_lifecycle_intent(record.session_id, "provision")
             record = self._sync_lobby(record.session_id)
         except Exception:
             self.lobby.delete_session(record.session_id)
@@ -562,6 +563,7 @@ class OnlineApplication:
             self.runtime.set_autopilot(record.session_id, player_id)
         if deleted:
             self.runtime.delete_game(record.session_id)
+            self.lobby.complete_lifecycle_intent(record.session_id, "delete")
         else:
             final_update = self._update(record.session_id, player_id)
         return {

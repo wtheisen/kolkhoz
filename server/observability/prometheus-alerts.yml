@@ -1,0 +1,30 @@
+groups:
+  - name: kolkhoz-server
+    rules:
+      - alert: KolkhozHighHttpErrorRate
+        expr: sum(rate(kolkhoz_http_requests_total{status=~"5.."}[5m])) / clamp_min(sum(rate(kolkhoz_http_requests_total[5m])), 1) > 0.01
+        for: 10m
+        labels: {severity: page}
+        annotations: {summary: "Kolkhoz HTTP 5xx exceeds 1% SLO"}
+      - alert: KolkhozCommandLag
+        expr: kolkhoz_redis_command_lag_seconds{quantile="0.95"} > 2
+        for: 5m
+        labels: {severity: page}
+        annotations: {summary: "Command p95 queue lag exceeds two seconds"}
+      - alert: KolkhozCommandDeadLetters
+        expr: increase(kolkhoz_redis_command_dlq_total[10m]) > 0
+        labels: {severity: page}
+        annotations: {summary: "A game command entered the dead-letter queue"}
+      - alert: KolkhozLeaseLossBurst
+        expr: increase(kolkhoz_lease_lost_total[5m]) > 10
+        labels: {severity: ticket}
+        annotations: {summary: "Session lease losses are elevated"}
+      - alert: KolkhozRealtimeOverflow
+        expr: increase(kolkhoz_realtime_overflow_total[5m]) > 5
+        labels: {severity: ticket}
+        annotations: {summary: "Realtime clients are falling behind"}
+      - alert: KolkhozSchedulerLag
+        expr: kolkhoz_scheduler_lag_seconds > 30
+        for: 5m
+        labels: {severity: page}
+        annotations: {summary: "Turn deadline scheduler is over 30 seconds late"}

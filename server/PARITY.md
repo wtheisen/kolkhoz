@@ -23,7 +23,8 @@ status and remaining retirement blockers are listed separately below and in
 - [x] Production engine mutations routed through the cross-host command transport
 - [x] Atomic durable receipts for create/action/delete/controller commands
 - [x] Clean, repeatable PostgreSQL bootstrap smoke gate
-- [ ] Deployed multi-process soak/failure-injection release gate
+- [x] Multi-process PostgreSQL/Redis/gateway/worker/scheduler failure-injection gate
+- [ ] Sustained 10K/100K staging soak and regional-failure release gate
 
 ## Public and authenticated routes
 

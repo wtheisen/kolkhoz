@@ -9,6 +9,7 @@ from concurrent.futures import Future, TimeoutError as FutureTimeout
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Callable, Mapping, TypeVar
+from typing import TYPE_CHECKING
 
 from .engine import EngineFactory, GameEngine, KolkhozCEngineFactory
 from .events import EventHub
@@ -18,6 +19,9 @@ from .store import EventStore
 from .updates import ShardUpdateBuffer
 from .distributed import SessionLease, SessionLeaseRepository
 from .errors import ServerError
+
+if TYPE_CHECKING:
+    from .metrics import ServerMetrics
 
 
 Result = TypeVar("Result")
@@ -41,6 +45,7 @@ class _Shard:
         leases: SessionLeaseRepository | None,
         owner_id: str,
         lease_ttl: timedelta,
+        metrics: ServerMetrics | None,
     ):
         self.index = index
         self.store = store
@@ -50,6 +55,7 @@ class _Shard:
         self.leases = leases
         self.owner_id = owner_id
         self.lease_ttl = lease_ttl
+        self.metrics = metrics
         self.session_leases: dict[str, SessionLease] = {}
         self.engines: dict[str, GameEngine] = {}
         self.automatic_states: dict[str, AutomaticState] = {}
@@ -112,7 +118,11 @@ class _Shard:
             lease = self.leases.acquire(session_id, self.owner_id, self.lease_ttl)
         if lease is None:
             self.session_leases.pop(session_id, None)
+            if self.metrics is not None:
+                self.metrics.increment("lease.lost")
             raise ServerError(503, "session is owned by another worker")
+        if self.metrics is not None:
+            self.metrics.increment("lease.acquired")
         self.session_leases[session_id] = lease
         return lease.fencing_token
 
@@ -156,6 +166,7 @@ class GameRuntime:
         lease_repository: SessionLeaseRepository | None = None,
         owner_id: str | None = None,
         lease_ttl_seconds: float = 15,
+        metrics: ServerMetrics | None = None,
     ) -> None:
         if shard_count < 1:
             raise ValueError("shard_count must be positive")
@@ -180,6 +191,7 @@ class GameRuntime:
                 lease_repository,
                 resolved_owner,
                 lease_ttl,
+                metrics,
             )
             for index in range(shard_count)
         ]
@@ -189,6 +201,9 @@ class GameRuntime:
         return int.from_bytes(digest, "big") % len(self._shards)
 
     def metrics_state(self) -> dict[str, object]:
+        for shard in self._shards:
+            if shard.metrics is not None:
+                shard.metrics.gauge(f"shard.queue.{shard.index}", shard.mailbox.qsize())
         advancer = self._shards[0].advancer if self._shards else None
         policy_sha = advancer.models.sha256() if advancer is not None else None
         return {
@@ -224,6 +239,8 @@ class GameRuntime:
         except queue.Full as error:
             with self._metrics_lock:
                 self._overload_rejections += 1
+            if shard.metrics is not None:
+                shard.metrics.increment("shard.overload")
             raise ServerError(503, "server is overloaded") from error
         try:
             return future.result(timeout=10)
@@ -253,7 +270,12 @@ class GameRuntime:
 
         def create(shard: _Shard, unused: GameEngine | None) -> GameUpdate:
             if unused is not None:
-                raise ValueError("session already loaded")
+                existing = shard.store.game(session_id)
+                if existing.seed != seed or existing.variants != variants:
+                    raise ValueError("session already exists with different settings")
+                return GameUpdate(
+                    session_id, existing.revision, unused.view(), event=None
+                )
             fencing_token = shard.ensure_lease(session_id)
             engine = shard.factory.create(seed, variants)
             receipt = _successful_receipt(

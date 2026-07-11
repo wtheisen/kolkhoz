@@ -25,3 +25,24 @@ This local harness deliberately excludes network, TLS, authentication,
 PostgreSQL, and WebSocket fanout. A production capacity claim requires a
 distributed test against the deployed stack and failure injection in its
 actual gateway, broker, worker, and database tiers.
+
+## Deployed staging load
+
+With `server/deploy/staging` running, exercise the real load balancer, ASGI
+gateways, Redis command/realtime planes, PostgreSQL repositories, C engine, and
+WebSockets:
+
+```bash
+python3 -m server.tools.distributed_load \
+  --base-url http://127.0.0.1:18080 \
+  --staging-identities 100 --staging-offset 100 \
+  --games 100 --concurrency 32 --actions-per-game 1 \
+  --websockets 25 --websocket-seconds 10 \
+  --output /tmp/kolkhoz-distributed-load.json
+```
+
+The staging bootstrap provides identities 1 through 1024. Use a fresh offset for
+repeated active-game runs. For non-staging deployments, pass `--identities` with a
+JSON list of bearer tokens or `{ "token", "deviceID" }` objects. The report labels
+this evidence `deployed-http-websocket-stack`; it still describes only the host and
+resource limits on which it was run.

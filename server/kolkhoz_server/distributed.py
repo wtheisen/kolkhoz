@@ -17,7 +17,10 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
+
+if TYPE_CHECKING:
+    from .metrics import ServerMetrics
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +62,7 @@ class RedisRealtimeBus:
         namespace: str = "kolkhoz:realtime",
         subscriber_buffer_size: int = 64,
         reconnect_delay_seconds: float = 0.05,
+        metrics: ServerMetrics | None = None,
     ) -> None:
         if subscriber_buffer_size <= 0:
             raise ValueError("subscriber_buffer_size must be positive")
@@ -71,15 +75,27 @@ class RedisRealtimeBus:
         self._commands: queue.Queue[tuple[str, str] | None] = queue.Queue()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._metrics = metrics
 
     @classmethod
     def from_url(
-        cls, url: str, *, namespace: str = "kolkhoz:realtime"
+        cls,
+        url: str,
+        *,
+        namespace: str = "kolkhoz:realtime",
+        metrics: ServerMetrics | None = None,
     ) -> RedisRealtimeBus:
         import redis
 
         return cls(
-            redis.Redis.from_url(url, decode_responses=True), namespace=namespace
+            redis.Redis.from_url(
+                url,
+                decode_responses=True,
+                socket_connect_timeout=0.5,
+                socket_timeout=0.5,
+            ),
+            namespace=namespace,
+            metrics=metrics,
         )
 
     def publish(self, message: RealtimeMessage) -> None:
@@ -93,6 +109,10 @@ class RedisRealtimeBus:
         )
         self._client.publish(self._channel(message.topic), body)
 
+    def readiness_check(self) -> None:
+        if not self._client.ping():
+            raise RuntimeError("Redis realtime ping failed")
+
     def subscribe(self, topic: str) -> RealtimeSubscription:
         channel = self._channel(topic)
         subscription = _MultiplexedSubscription(
@@ -104,6 +124,8 @@ class RedisRealtimeBus:
             subscribers = self._subscribers.setdefault(topic, set())
             first = not subscribers
             subscribers.add(subscription)
+            if self._metrics is not None:
+                self._metrics.gauge("realtime.subscribers", self.local_subscriber_count)
             self._ensure_reader_locked()
             if first:
                 self._commands.put(("subscribe", channel))
@@ -146,6 +168,8 @@ class RedisRealtimeBus:
             if not subscribers:
                 self._subscribers.pop(subscription.topic, None)
                 self._commands.put(("unsubscribe", self._channel(subscription.topic)))
+            if self._metrics is not None:
+                self._metrics.gauge("realtime.subscribers", self.local_subscriber_count)
 
     def _run(self) -> None:
         pubsub: Any | None = None
@@ -153,6 +177,8 @@ class RedisRealtimeBus:
             try:
                 if pubsub is None:
                     pubsub = self._client.pubsub(ignore_subscribe_messages=True)
+                    if self._metrics is not None:
+                        self._metrics.gauge("redis.realtime_healthy", 1)
                     with self._lock:
                         channels = [self._channel(topic) for topic in self._subscribers]
                     if channels:
@@ -162,6 +188,9 @@ class RedisRealtimeBus:
                 if raw is not None:
                     self._fan_out(raw)
             except Exception:
+                if self._metrics is not None:
+                    self._metrics.increment("realtime.reconnect")
+                    self._metrics.gauge("redis.realtime_healthy", 0)
                 if pubsub is not None:
                     try:
                         pubsub.close()
@@ -254,6 +283,8 @@ class _MultiplexedSubscription:
             while len(self._event_ids) > self._capacity * 4:
                 self._event_ids.popitem(last=False)
             if len(self._messages) >= self._capacity:
+                if self._bus._metrics is not None:
+                    self._bus._metrics.increment("realtime.overflow")
                 self._overflowed = True
                 self._closed = True
                 self._condition.notify_all()

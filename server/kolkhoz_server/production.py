@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from pathlib import Path
 
@@ -11,7 +12,7 @@ from research.kolkhoz_research.model import PolicyArtifact
 from .ai import AutomaticAdvancer, ModelCache
 from .api import OnlineApplication
 from .asgi import ASGIApplication
-from .auth import CachingAuthVerifier, SupabaseAuthVerifier
+from .auth import CachingAuthVerifier, StagingAuthVerifier, SupabaseAuthVerifier
 from .commands import (
     CommandClient,
     CommandWorker,
@@ -23,15 +24,39 @@ from .commands import (
 from .distributed import PostgresSessionLeaseRepository, RedisRealtimeBus
 from .events import EventHub
 from .lobby import PostgresLobbyRepository
+from .metrics import ServerMetrics
 from .population import PopulationScheduler, PostgresPopulationRepository
 from .runtime import GameRuntime
 from .results import PostgresResultsRepository
 from .scheduler import DeadlineScheduler
+from .lifecycle import LifecycleReconciler
 from .social import PostgresSocialRepository, SocialService
 from .store import ConnectionPool, PostgresEventStore
 
 
-def _production_auth_verifier() -> CachingAuthVerifier:
+def _production_auth_verifier() -> CachingAuthVerifier | StagingAuthVerifier:
+    static_tokens = os.environ.get("KOLKHOZ_STAGING_STATIC_AUTH_TOKENS")
+    if static_tokens is not None:
+        if os.environ.get("KOLKHOZ_ENVIRONMENT") != "staging":
+            raise RuntimeError(
+                "staging authentication requires KOLKHOZ_ENVIRONMENT=staging"
+            )
+        decoded = json.loads(static_tokens)
+        if (
+            not isinstance(decoded, dict)
+            or not decoded
+            or not all(
+                isinstance(token, str)
+                and token
+                and isinstance(user_id, str)
+                and user_id
+                for token, user_id in decoded.items()
+            )
+        ):
+            raise RuntimeError(
+                "KOLKHOZ_STAGING_STATIC_AUTH_TOKENS must be a non-empty JSON object"
+            )
+        return StagingAuthVerifier(decoded)
     verifier = SupabaseAuthVerifier.from_environment()
     if verifier is None:
         raise RuntimeError(
@@ -71,6 +96,7 @@ def create_asgi_application() -> ASGIApplication:
     if not database_url:
         parser.error("DATABASE_URL is required")
     auth_verifier = _production_auth_verifier()
+    metrics = ServerMetrics()
 
     try:
         import psycopg
@@ -86,6 +112,7 @@ def create_asgi_application() -> ASGIApplication:
             options="-c statement_timeout=5000 -c lock_timeout=3000",
         ),
         size=args.db_pool_size,
+        metrics=metrics,
     )
     store = PostgresEventStore(pool=pool)
     lobby = PostgresLobbyRepository(pool)
@@ -111,7 +138,7 @@ def create_asgi_application() -> ASGIApplication:
     redis_url = os.environ.get("REDIS_URL")
     if not redis_url:
         parser.error("REDIS_URL is required")
-    realtime_bus = RedisRealtimeBus.from_url(redis_url)
+    realtime_bus = RedisRealtimeBus.from_url(redis_url, metrics=metrics)
     local_runtime = GameRuntime(
         store,
         shard_count=args.shards,
@@ -120,6 +147,7 @@ def create_asgi_application() -> ASGIApplication:
         lease_repository=lease_repository,
         owner_id=os.environ.get("KOLKHOZ_WORKER_ID"),
         lease_ttl_seconds=float(os.environ.get("KOLKHOZ_LEASE_TTL_SECONDS", "15")),
+        metrics=metrics,
     )
     command_partitions = int(os.environ.get("KOLKHOZ_COMMAND_PARTITION_COUNT", "256"))
     command_broker = RedisStreamsCommandBroker.from_url(
@@ -132,6 +160,7 @@ def create_asgi_application() -> ASGIApplication:
         visibility_timeout_seconds=float(
             os.environ.get("KOLKHOZ_COMMAND_VISIBILITY_SECONDS", "30")
         ),
+        metrics=metrics,
     )
     assigned = os.environ.get("KOLKHOZ_COMMAND_PARTITIONS")
     partitions = (
@@ -162,12 +191,22 @@ def create_asgi_application() -> ASGIApplication:
         auth=auth_verifier,
         social=SocialService(social),
         results=results,
+        session_ttl_seconds=float(
+            os.environ.get("KOLKHOZ_SESSION_TTL_SECONDS", "1800")
+        ),
+        presence_ttl_seconds=float(
+            os.environ.get("KOLKHOZ_PRESENCE_TTL_SECONDS", "60")
+        ),
+        lobby_countdown_seconds=float(
+            os.environ.get("KOLKHOZ_LOBBY_COUNTDOWN_SECONDS", "30")
+        ),
     )
     scheduler = DeadlineScheduler(
         lobby,
         runtime,
         owner_id=os.environ.get("KOLKHOZ_SCHEDULER_ID"),
         batch_size=int(os.environ.get("KOLKHOZ_DEADLINE_BATCH_SIZE", "128")),
+        metrics=metrics,
     )
     if _enabled("KOLKHOZ_RUN_DEADLINE_SCHEDULER"):
         scheduler.start(
@@ -183,8 +222,19 @@ def create_asgi_application() -> ASGIApplication:
         population.start(
             interval_seconds=float(os.environ.get("KOLKHOZ_POPULATION_INTERVAL", "1"))
         )
+    lifecycle = LifecycleReconciler(
+        lobby,
+        runtime,
+        owner_id=os.environ.get("KOLKHOZ_LIFECYCLE_ID"),
+        batch_size=int(os.environ.get("KOLKHOZ_LIFECYCLE_BATCH_SIZE", "64")),
+    )
+    if _enabled("KOLKHOZ_RUN_LIFECYCLE_RECONCILER"):
+        lifecycle.start(
+            interval_seconds=float(os.environ.get("KOLKHOZ_LIFECYCLE_INTERVAL", "1"))
+        )
 
     def shutdown() -> None:
+        lifecycle.close()
         population.close()
         scheduler.close()
         if command_worker is not None:
@@ -192,6 +242,26 @@ def create_asgi_application() -> ASGIApplication:
         local_runtime.close()
         realtime_bus.close()
         pool.close()
+
+    def readiness() -> dict[str, bool]:
+        checks = {"postgres": False, "redisCommands": False, "redisRealtime": False}
+        try:
+            with pool.connection() as connection:
+                row = connection.execute("select 1").fetchone()  # type: ignore[attr-defined]
+                checks["postgres"] = row is not None and int(row[0]) == 1
+        except Exception:
+            pass
+        try:
+            command_broker.readiness_check()
+            checks["redisCommands"] = True
+        except Exception:
+            pass
+        try:
+            realtime_bus.readiness_check()
+            checks["redisRealtime"] = True
+        except Exception:
+            pass
+        return checks
 
     return ASGIApplication(
         application,
@@ -203,6 +273,11 @@ def create_asgi_application() -> ASGIApplication:
             os.environ.get("KOLKHOZ_REALTIME_MAX_MESSAGE_BYTES", "1048576")
         ),
         shutdown=shutdown,
+        metrics=metrics,
+        readiness=readiness,
+        readiness_timeout_seconds=float(
+            os.environ.get("KOLKHOZ_READINESS_TIMEOUT_SECONDS", "1")
+        ),
     )
 
 
