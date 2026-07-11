@@ -169,9 +169,7 @@ class ProjectionContractTests(unittest.TestCase):
             viewed = snapshot_json(self.engine, pointer, 0)
         finally:
             self.engine.free_engine(pointer)
-        self.assertEqual(
-            viewed["exiledPlayers"][2], {"suit": 2, "values": [1, 3]}
-        )
+        self.assertEqual(viewed["exiledPlayers"][2], {"suit": 2, "values": [1, 3]})
 
     def test_update_and_listing_keep_flutter_envelope_names(self) -> None:
         snapshot = {"phase": 2, "waitingPlayer": 0}

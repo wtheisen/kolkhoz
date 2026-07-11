@@ -323,7 +323,9 @@ def test_websocket_suppresses_duplicate_committed_notifications() -> None:
             incoming.put_nowait({"type": "websocket.disconnect"})
 
     async def scenario() -> None:
-        task = asyncio.create_task(app(_scope(b"viewerID=2&afterRevision=0"), incoming.get, send))
+        task = asyncio.create_task(
+            app(_scope(b"viewerID=2&afterRevision=0"), incoming.get, send)
+        )
         while not any(item.get("type") == "websocket.accept" for item in sent):
             await asyncio.sleep(0)
         application.revision = 1
