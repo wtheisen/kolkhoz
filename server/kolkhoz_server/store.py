@@ -44,6 +44,8 @@ class EventStore(Protocol):
         payload: JsonObject,
     ) -> StoredEvent: ...
 
+    def delete_game(self, session_id: str) -> None: ...
+
     def close(self) -> None: ...
 
 
@@ -230,11 +232,34 @@ class SQLiteEventStore:
     def close(self) -> None:
         pass
 
+    def delete_game(self, session_id: str) -> None:
+        with closing(self._connect()) as connection, connection:
+            connection.execute("delete from games where session_id = ?", (session_id,))
+
 
 class PostgresEventStore:
     """Pooled production event store using PostgreSQL as session authority."""
 
-    def __init__(self, database_url: str, *, pool_size: int = 8) -> None:
+    def __init__(
+        self,
+        database_url: str | None = None,
+        *,
+        pool_size: int = 8,
+        pool: ConnectionPool | None = None,
+    ) -> None:
+        if pool is not None:
+            self._pool = pool
+            self._owns_pool = False
+            try:
+                from psycopg.types.json import Jsonb
+            except ImportError as error:
+                raise RuntimeError(
+                    "PostgreSQL requires psycopg[binary]>=3.2"
+                ) from error
+            self._jsonb = Jsonb
+            return
+        if not database_url:
+            raise ValueError("database_url is required")
         try:
             import psycopg
             from psycopg.types.json import Jsonb
@@ -252,6 +277,7 @@ class PostgresEventStore:
             ),
             size=pool_size,
         )
+        self._owns_pool = True
 
     def create_game(
         self, session_id: str, seed: int, variants: JsonObject
@@ -336,4 +362,11 @@ class PostgresEventStore:
         return StoredEvent(session_id, revision, kind, dict(payload), created_at)
 
     def close(self) -> None:
-        self._pool.close()
+        if self._owns_pool:
+            self._pool.close()
+
+    def delete_game(self, session_id: str) -> None:
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            connection.execute(  # type: ignore[attr-defined]
+                "delete from server_games where session_id = %s::uuid", (session_id,)
+            )

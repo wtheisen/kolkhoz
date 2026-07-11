@@ -4,13 +4,50 @@ import tempfile
 import threading
 import time
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
 
 from server.kolkhoz_server.lobby import (
+    PostgresLobbyRepository,
     SeatRecord,
     SeatUnavailable,
     SQLiteLobbyRepository,
 )
+
+
+class FakeResult:
+    def __init__(self, *, row=None, rows=None) -> None:
+        self._row = row
+        self._rows = rows or []
+
+    def fetchone(self):
+        return self._row
+
+    def fetchall(self):
+        return self._rows
+
+
+class FakeConnection:
+    def __init__(self, responses) -> None:
+        self.responses = list(responses)
+        self.executions = []
+
+    @contextmanager
+    def transaction(self):
+        yield
+
+    def execute(self, sql, parameters):
+        self.executions.append((" ".join(sql.split()), parameters))
+        return self.responses.pop(0) if self.responses else FakeResult()
+
+
+class FakePool:
+    def __init__(self, connection) -> None:
+        self.value = connection
+
+    @contextmanager
+    def connection(self):
+        yield self.value
 
 
 class LobbyRepositoryTests(unittest.TestCase):
@@ -92,3 +129,85 @@ class LobbyRepositoryTests(unittest.TestCase):
         self.assertEqual(len(self.repository.invites_for_user("guest")), 1)
         self.repository.decline_invite(record.session_id, "guest")
         self.assertEqual(self.repository.invites_for_user("guest"), [])
+
+
+class PostgresLobbyRepositoryTests(unittest.TestCase):
+    @staticmethod
+    def repository(connection: FakeConnection) -> PostgresLobbyRepository:
+        repository = PostgresLobbyRepository.__new__(PostgresLobbyRepository)
+        repository._pool = FakePool(connection)
+        repository._jsonb = lambda value: value
+        return repository
+
+    def test_seat_claim_is_one_conditional_update_in_a_transaction(self) -> None:
+        connection = FakeConnection([FakeResult(row=(2,)), FakeResult()])
+        repository = self.repository(connection)
+
+        repository.occupy_seat(
+            "00000000-0000-0000-0000-000000000001",
+            2,
+            user_id="user-1",
+            token_hash="hash",
+            now=123.0,
+        )
+
+        claim_sql, claim_parameters = connection.executions[0]
+        self.assertIn("and controller = 'human' and not occupied", claim_sql)
+        self.assertIn("returning player_id", claim_sql)
+        self.assertEqual(claim_parameters[-1], 2)
+
+    def test_failed_conditional_seat_claim_reports_unavailable(self) -> None:
+        connection = FakeConnection([FakeResult(row=None)])
+        repository = self.repository(connection)
+
+        with self.assertRaises(SeatUnavailable):
+            repository.occupy_seat(
+                "00000000-0000-0000-0000-000000000001",
+                0,
+                user_id="user-1",
+                token_hash="hash",
+                now=123.0,
+            )
+
+    def test_reaction_revision_uses_atomic_session_counter(self) -> None:
+        connection = FakeConnection([FakeResult(row=(7,)), FakeResult()])
+        repository = self.repository(connection)
+
+        reaction = repository.append_reaction(
+            "00000000-0000-0000-0000-000000000001",
+            player_id=1,
+            reaction_id="wave",
+            year=2,
+            phase=3,
+            now=456.0,
+        )
+
+        revision_sql, _ = connection.executions[0]
+        self.assertIn("reaction_revision = reaction_revision + 1", revision_sql)
+        self.assertEqual(reaction["revision"], 7)
+
+    def test_open_listing_maps_json_and_epoch_columns(self) -> None:
+        row = (
+            "00000000-0000-0000-0000-000000000001",
+            "ABC234",
+            12,
+            {"wrecker": True},
+            ["human", "ai", "ai", "ai"],
+            False,
+            True,
+            "open",
+            "host",
+            1.0,
+            2.0,
+            3.0,
+            None,
+        )
+        connection = FakeConnection([FakeResult(rows=[row])])
+        repository = self.repository(connection)
+
+        records = repository.list_open(2.5)
+
+        self.assertEqual(records[0].invite_code, "ABC234")
+        self.assertEqual(records[0].variants, {"wrecker": True})
+        listing_sql, _ = connection.executions[0]
+        self.assertIn("exists ( select 1 from server_seats", listing_sql)

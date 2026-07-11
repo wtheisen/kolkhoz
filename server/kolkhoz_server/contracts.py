@@ -329,6 +329,7 @@ def player_to_json(player: KCPlayer, viewer_id: int | None) -> JsonObject:
         "hand": card_list_json(player.hand) if is_viewer else [],
         "revealedPlot": card_list_json(player.plot_revealed),
         "hiddenPlot": card_list_json(player.plot_hidden) if is_viewer else [],
+        "hiddenPlotCount": int(player.plot_hidden.count),
         "medals": int(player.medals),
         "bankedMedals": int(player.plot_medals),
         "brigadeLeader": bool(player.brigade_leader),
@@ -344,6 +345,7 @@ def stack_json(stack: KCPlotStack, is_viewer: bool) -> JsonObject:
     return {
         "revealed": cards_json(stack.revealed, stack.revealed_count),
         "hidden": cards_json(stack.hidden, stack.hidden_count) if is_viewer else [],
+        "hiddenCount": int(stack.hidden_count),
     }
 
 

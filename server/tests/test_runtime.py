@@ -10,6 +10,7 @@ import urllib.request
 from pathlib import Path
 
 from server.kolkhoz_server.events import EventHub
+from server.kolkhoz_server.ai import AutomaticAdvancer, ModelCache
 from server.kolkhoz_server.gateway import Gateway
 from server.kolkhoz_server.runtime import GameRuntime
 from server.kolkhoz_server.store import (
@@ -65,6 +66,50 @@ class FakeEngineFactory:
 
     def create(self, seed: int, variants: dict[str, object]) -> FakeEngine:
         return FakeEngine(seed, self.delay, self.tracker)
+
+
+class AutomaticFakeEngine(FakeEngine):
+    def __init__(
+        self, seed: int, controllers: list[str], tracker: EngineTracker
+    ) -> None:
+        super().__init__(seed, 0, tracker)
+        self.controllers = list(controllers)
+        self.waiting = 0
+
+    def apply(self, action: dict[str, object]) -> None:
+        super().apply(action)
+        self.waiting = 1
+
+    def waiting_player(self) -> int:
+        return self.waiting
+
+    def legal_actions(self) -> list[dict[str, object]]:
+        return [{"playerID": self.waiting, "delta": 10}]
+
+    def heuristic_action(self) -> dict[str, object]:
+        return self.legal_actions()[0]
+
+    def policy_action(self, model: object) -> dict[str, object]:
+        return self.legal_actions()[0]
+
+    def apply_ai_action(self, action: dict[str, object]) -> None:
+        FakeEngine.apply(self, action)
+        self.waiting = 0
+
+    def controller(self, player_id: int) -> str:
+        return self.controllers[player_id]
+
+    def set_controller(self, player_id: int, controller: str) -> None:
+        self.controllers[player_id] = controller
+
+
+class AutomaticFakeFactory:
+    def __init__(self) -> None:
+        self.tracker = EngineTracker()
+
+    def create(self, seed: int, variants: dict[str, object]) -> AutomaticFakeEngine:
+        controllers = variants.get("controllers", ["human"] * 4)
+        return AutomaticFakeEngine(seed, list(controllers), self.tracker)
 
 
 class RuntimeTests(unittest.TestCase):
@@ -186,6 +231,38 @@ class RuntimeTests(unittest.TestCase):
 
         self.assertEqual(event.revision, 1)
         self.assertEqual(event.payload, {"delta": 1})
+
+    def test_runtime_persists_automatic_actions_on_same_session_shard(self) -> None:
+        factory = AutomaticFakeFactory()
+        runtime = GameRuntime(
+            SQLiteEventStore(self.database),
+            engine_factory=factory,
+            shard_count=2,
+            automatic_advancer=AutomaticAdvancer(ModelCache({}, lambda path: object())),
+        )
+        try:
+            runtime.create_game(
+                seed=0,
+                session_id="automatic",
+                variants={"controllers": ["human", "heuristicAI", "human", "human"]},
+            )
+            runtime.submit_action(
+                "automatic",
+                expected_revision=0,
+                action={"playerID": 0, "delta": 1},
+            )
+            scheduled = runtime.advance_automatic("automatic", now=100)
+            applied = runtime.advance_automatic("automatic", now=110)
+            state = runtime.state("automatic")
+            events = runtime.events("automatic")
+        finally:
+            runtime.close()
+
+        self.assertEqual(scheduled, 0)
+        self.assertEqual(applied, 1)
+        self.assertEqual(state.revision, 2)
+        self.assertEqual(state.state["value"], 11)
+        self.assertEqual(events[-1].payload["source"], "automatic")
 
 
 class ConnectionPoolTests(unittest.TestCase):

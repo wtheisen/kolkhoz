@@ -163,6 +163,7 @@ class PostgresSocialRepository:
     ) -> None:
         if pool is not None:
             self._pool = pool
+            self._owns_pool = False
             return
         if not database_url:
             raise ValueError("database_url is required")
@@ -180,9 +181,11 @@ class PostgresSocialRepository:
             ),
             size=pool_size,
         )
+        self._owns_pool = True
 
     def close(self) -> None:
-        self._pool.close()
+        if self._owns_pool:
+            self._pool.close()
 
     @contextmanager
     def _cursor(self) -> Iterator[object]:

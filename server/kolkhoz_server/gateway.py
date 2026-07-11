@@ -9,8 +9,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from .runtime import GameRuntime
+from .errors import ServerError
 from .metrics import ServerMetrics
+from .runtime import GameRuntime
 from .store import GameNotFound, RevisionConflict, SQLiteEventStore
 
 
@@ -21,9 +22,11 @@ class Gateway(ThreadingHTTPServer):
         runtime: GameRuntime,
         *,
         metrics: ServerMetrics | None = None,
+        application: object | None = None,
     ) -> None:
         self.runtime = runtime
         self.metrics = metrics or ServerMetrics()
+        self.application = application
         super().__init__(address, GatewayHandler)
 
 
@@ -41,6 +44,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
         if parts == ["metrics"]:
             self._send(self.server.metrics.snapshot(self.server.runtime), HTTPStatus.OK)
             return
+        if self.server.application is not None:
+            self._application()
+            return
         if len(parts) == 2 and parts[0] == "games":
             self._respond(self.server.runtime.state(parts[1]))
             return
@@ -50,6 +56,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self._dispatch(self._post)
 
     def _post(self) -> None:
+        if self.server.application is not None:
+            self._application()
+            return
         parts = [part for part in urlsplit(self.path).path.split("/") if part]
         body = self._body()
         if parts == ["games"]:
@@ -93,6 +102,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
         except GameNotFound:
             status = int(HTTPStatus.NOT_FOUND)
             self._send({"error": "game not found"}, HTTPStatus.NOT_FOUND)
+        except ServerError as error:
+            status = int(error.status)
+            self._send({"error": error.message}, HTTPStatus(error.status))
         except (KeyError, TypeError, ValueError) as error:
             status = int(HTTPStatus.BAD_REQUEST)
             self._send({"error": str(error)}, HTTPStatus.BAD_REQUEST)
@@ -111,6 +123,19 @@ class GatewayHandler(BaseHTTPRequestHandler):
         length = int(self.headers.get("content-length", "0"))
         value = json.loads(self.rfile.read(length) or b"{}")
         return value if isinstance(value, dict) else {}
+
+    def _application(self) -> None:
+        from .api import Request
+
+        response = self.server.application.dispatch(  # type: ignore[attr-defined]
+            Request(
+                self.command,
+                self.path,
+                dict(self.headers.items()),
+                self._body(),
+            )
+        )
+        self._send(response.body, HTTPStatus(response.status))
 
     def _send(self, value: object, status: HTTPStatus) -> None:
         self._response_status = int(status)

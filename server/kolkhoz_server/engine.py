@@ -24,7 +24,20 @@ class KolkhozCEngineFactory:
         self._engine = CEngine()
 
     def create(self, seed: int, variants: JsonObject) -> GameEngine:
-        return KolkhozCEngine(self._engine, seed)
+        from .contracts import (
+            controllers_native,
+            normalize_controllers,
+            variants_native,
+        )
+
+        game_variants = variants.get("variants", variants)
+        controllers = normalize_controllers(variants.get("controllers"))
+        return KolkhozCEngine(
+            self._engine,
+            seed,
+            variants=variants_native(game_variants),  # type: ignore[arg-type]
+            controllers=controllers_native(controllers),
+        )
 
     def provenance(self) -> JsonObject:
         value = self._engine.provenance()
@@ -32,39 +45,65 @@ class KolkhozCEngineFactory:
 
 
 class KolkhozCEngine:
-    def __init__(self, engine: object, seed: int) -> None:
-        from research.kolkhoz_research.c_engine import KCControllers
-
+    def __init__(
+        self, engine: object, seed: int, *, variants: object, controllers: object
+    ) -> None:
         self._engine = engine
-        controllers = KCControllers()
-        for index in range(4):
-            controllers.seats[index] = 0
-        self._pointer = engine.new_engine(seed, controllers=controllers)
+        self._pointer = engine.new_engine(
+            seed, variants=variants, controllers=controllers
+        )
 
     def apply(self, action: JsonObject) -> None:
-        from research.kolkhoz_research.c_engine import KCAction, KCCard
+        from .contracts import action_from_json
 
-        def card(name: str) -> KCCard:
-            value = action.get(name)
-            if not isinstance(value, dict):
-                return KCCard(-1, 0)
-            return KCCard(int(value.get("suit", -1)), int(value.get("value", 0)))
-
-        native = KCAction(
-            int(action["kind"]),
-            int(action["playerID"]),
-            int(action.get("suit", -1)),
-            card("card"),
-            card("handCard"),
-            card("plotCard"),
-            int(action.get("plotZone", -1)),
-            int(action.get("targetSuit", -1)),
-        )
+        native = action_from_json(action)
         legal = self._engine.legal_actions(self._pointer)
         signature = self._signature(native)
         if not any(self._signature(candidate) == signature for candidate in legal):
             raise ValueError("illegal action")
         self._engine.apply_action(self._pointer, native)
+
+    def waiting_player(self) -> int:
+        return self._engine.waiting_player(self._pointer)
+
+    def legal_actions(self) -> list[JsonObject]:
+        return [
+            self._action_json(action)
+            for action in self._engine.legal_actions(self._pointer)
+        ]
+
+    def heuristic_action(self) -> JsonObject:
+        return self._action_json(self._engine.heuristic_action(self._pointer))
+
+    def policy_action(self, model: object) -> JsonObject:
+        action = self._engine.policy_action(self._pointer, model)
+        if action is None:
+            legal = self.legal_actions()
+            if not legal:
+                raise RuntimeError("policy controller has no legal action")
+            return legal[0]
+        return self._action_json(action)
+
+    def apply_ai_action(self, action: JsonObject) -> None:
+        from .contracts import action_from_json
+
+        self._engine.apply_ai_action(self._pointer, action_from_json(action))
+
+    def controller(self, player_id: int) -> str:
+        from .contracts import CONTROLLER_CODES
+
+        code = int(self._engine.snapshot(self._pointer).controllers.seats[player_id])
+        return next(
+            (name for name, value in CONTROLLER_CODES.items() if value == code),
+            "human",
+        )
+
+    def set_controller(self, player_id: int, controller: str) -> None:
+        from .contracts import CONTROLLER_CODES
+
+        self._engine.snapshot(self._pointer).controllers.seats[player_id] = (
+            CONTROLLER_CODES[controller]
+        )
 
     @staticmethod
     def _signature(action: object) -> tuple[int, ...]:
@@ -83,14 +122,12 @@ class KolkhozCEngine:
         )
 
     def view(self, viewer_id: int | None = None) -> JsonObject:
+        from .contracts import snapshot_json
+
         legal = self._engine.legal_actions(self._pointer)
-        return {
-            "year": self._engine.year(self._pointer),
-            "phase": self._engine.phase(self._pointer),
-            "waitingPlayerID": self._engine.waiting_player(self._pointer),
-            "winnerID": self._engine.winner_id(self._pointer),
-            "legalActions": [self._action_json(action) for action in legal],
-        }
+        value = snapshot_json(self._engine, self._pointer, viewer_id)
+        value["legalActions"] = [self._action_json(action) for action in legal]
+        return value
 
     @staticmethod
     def _action_json(action: object) -> JsonObject:
