@@ -114,7 +114,8 @@ install -o root -g redis -m 0640 "$here/redis-greenfield.conf" /etc/redis/kolkho
 install -o root -g root -m 0644 "$here/kolkhoz-greenfield-redis.service" /etc/systemd/system/kolkhoz-greenfield-redis.service
 install -o root -g root -m 0644 "$here/kolkhoz-greenfield.service" /etc/systemd/system/kolkhoz-greenfield.service
 systemctl daemon-reload
-systemctl enable --now kolkhoz-greenfield-redis.service
+systemctl enable kolkhoz-greenfield-redis.service
+systemctl restart kolkhoz-greenfield-redis.service
 systemctl enable --now kolkhoz-greenfield.service
 ready=false
 for _ in $(seq 1 30); do

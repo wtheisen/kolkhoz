@@ -30,6 +30,7 @@ assert "port 16379" in redis and "bind 127.0.0.1" in redis
 assert "maxmemory 64mb" in redis and "maxmemory-policy noeviction" in redis
 assert "maxclients 1000" in redis
 assert "CONFIG SET maxclients 1000" in redis_service
+assert "systemctl restart kolkhoz-greenfield-redis.service" in bootstrap
 assert "for _ in $(seq 1 30)" in bootstrap
 assert 'git -c safe.directory="$ROOT" -C "$ROOT"' in bootstrap
 print("DigitalOcean shadow package invariants valid")
