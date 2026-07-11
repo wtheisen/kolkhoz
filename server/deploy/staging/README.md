@@ -74,7 +74,7 @@ human identities: 1,000 games means 1,000 connected human players plus three AI 
 per game, not 4,000 human players.
 
 On the current 1-vCPU/1-GB VPS, only run the default 25-session smoke tier against a
-separately deployed, resource-capped shadow service on loopback port 18787:
+resource-capped production service on loopback port 18787:
 
 ```bash
 python3 benchmark_preflight.py --tier smoke
@@ -82,13 +82,13 @@ BENCHMARK_BASE_URL=http://127.0.0.1:18787 ./benchmark.sh
 ```
 
 This smoke tier checks correctness and basic latency; it is not capacity evidence.
-It does not start the 4+4 Compose topology and does not alter `/opt/kolkhoz` or the
-live service on port 8787. The package in `../digitalocean/` installs that shadow with
+It does not start the 4+4 Compose topology or alter the production Caddy route. The
+package in `../digitalocean/` installs the production service with
 systemd `CPUQuota`/`MemoryMax`, `/opt/kolkhoz-greenfield`, and a capped loopback Redis.
 It uses the existing Supabase database's additive `server_*` tables and production
 authentication; it does not seed synthetic identities. A session smoke therefore
 requires a private identity file containing real bearer tokens. Without one, limit the
-shadow verification to `/ready` and `/metrics/prometheus`.
+production verification to `/ready` and `/metrics/prometheus`.
 
 The ramp stops on load-tool errors, readiness loss, any command DLQ/shard-overload/store
 error counter, or a 2-second operation p95. A successful stage writes `results/N.json`;

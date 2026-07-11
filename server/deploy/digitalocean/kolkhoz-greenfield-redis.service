@@ -1,5 +1,5 @@
 [Unit]
-Description=Loopback Redis for Kolkhoz greenfield shadow
+Description=Loopback Redis for Kolkhoz online server
 After=network.target
 
 [Service]

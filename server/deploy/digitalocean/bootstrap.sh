@@ -2,9 +2,7 @@
 set -eu
 
 ROOT=/opt/kolkhoz-greenfield
-LIVE_ROOT=/opt/kolkhoz
-LIVE_ENV=/etc/kolkhoz-online.env
-SHADOW_ENV=/etc/kolkhoz-greenfield.env
+SERVER_ENV=/etc/kolkhoz-greenfield.env
 PORT=18787
 REDIS_PORT=16379
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -13,7 +11,7 @@ repo=
 ref=
 
 usage() { echo "usage: $0 --repo URL --ref COMMIT_OR_TAG [--apply]" >&2; exit 64; }
-git_shadow() { git -c safe.directory="$ROOT" -C "$ROOT" "$@"; }
+git_server() { git -c safe.directory="$ROOT" -C "$ROOT" "$@"; }
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --repo) [ "$#" -ge 2 ] || usage; repo=$2; shift 2 ;;
@@ -23,9 +21,8 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 [ -n "$repo" ] && [ -n "$ref" ] || usage
-[ "$ROOT" != "$LIVE_ROOT" ] || { echo "refusing live checkout path" >&2; exit 1; }
-[ -r "$LIVE_ENV" ] || { echo "missing $LIVE_ENV" >&2; exit 1; }
-grep -q '^KOLKHOZ_ONLINE_DATABASE_URL=' "$LIVE_ENV" || { echo "legacy database key missing" >&2; exit 1; }
+[ -r "$SERVER_ENV" ] || { echo "missing $SERVER_ENV" >&2; exit 1; }
+grep -q '^DATABASE_URL=' "$SERVER_ENV" || { echo "server database key missing" >&2; exit 1; }
 if ss -H -ltn "sport = :$PORT" | grep -q . && ! systemctl is-active --quiet kolkhoz-greenfield.service; then
   echo "refusing: 127.0.0.1:$PORT is already in use" >&2; exit 1
 fi
@@ -34,24 +31,24 @@ if ss -H -ltn "sport = :$REDIS_PORT" | grep -q . && ! systemctl is-active --quie
 fi
 if [ -e "$ROOT" ]; then
   [ -d "$ROOT/.git" ] || { echo "refusing non-git path $ROOT" >&2; exit 1; }
-  [ -z "$(git_shadow status --porcelain)" ] || { echo "refusing dirty shadow checkout" >&2; exit 1; }
-  actual=$(git_shadow remote get-url origin)
-  [ "$actual" = "$repo" ] || { echo "shadow remote mismatch" >&2; exit 1; }
+  [ -z "$(git_server status --porcelain)" ] || { echo "refusing dirty server checkout" >&2; exit 1; }
+  actual=$(git_server remote get-url origin)
+  [ "$actual" = "$repo" ] || { echo "server remote mismatch" >&2; exit 1; }
 fi
 
 if ! $apply; then
   echo "DRY RUN: would install redis-server, PostgreSQL client, Python venv, clang, and git"
-  echo "DRY RUN: would clone/update $repo at requested ref into $ROOT (never $LIVE_ROOT)"
-  echo "DRY RUN: would map the legacy database URL and Supabase auth into $SHADOW_ENV without displaying values"
-  echo "DRY RUN: would apply five additive greenfield schemas explicitly"
-  echo "DRY RUN: would install capped Redis on 127.0.0.1:$REDIS_PORT and shadow server on 127.0.0.1:$PORT"
+  echo "DRY RUN: would clone/update $repo at requested ref into $ROOT"
+  echo "DRY RUN: would read database and Supabase auth from $SERVER_ENV without displaying values"
+  echo "DRY RUN: would apply five server schemas explicitly"
+  echo "DRY RUN: would install capped Redis on 127.0.0.1:$REDIS_PORT and the server on 127.0.0.1:$PORT"
   exit 0
 fi
 [ "$(id -u)" -eq 0 ] || { echo "--apply must run as root" >&2; exit 1; }
 available_kb=$(awk '/^MemAvailable:/ { print $2 }' /proc/meminfo)
 free_kb=$(df -Pk /opt | awk 'NR == 2 { print $4 }')
-[ "${available_kb:-0}" -ge 358400 ] || { echo "refusing: shadow needs at least 350 MB MemAvailable" >&2; exit 1; }
-[ "${free_kb:-0}" -ge 2097152 ] || { echo "refusing: shadow needs at least 2 GB free under /opt" >&2; exit 1; }
+[ "${available_kb:-0}" -ge 358400 ] || { echo "refusing: server needs at least 350 MB MemAvailable" >&2; exit 1; }
+[ "${free_kb:-0}" -ge 2097152 ] || { echo "refusing: server needs at least 2 GB free under /opt" >&2; exit 1; }
 
 export DEBIAN_FRONTEND=noninteractive
 redis_was_installed=false
@@ -64,9 +61,9 @@ fi
 id kolkhoz-greenfield >/dev/null 2>&1 || useradd --system --home-dir "$ROOT" --shell /usr/sbin/nologin kolkhoz-greenfield
 systemctl stop kolkhoz-greenfield.service 2>/dev/null || true
 if [ ! -e "$ROOT" ]; then git clone --filter=blob:none "$repo" "$ROOT"; fi
-git_shadow fetch --tags --prune origin
-git_shadow checkout --detach "$ref"
-test "$(git_shadow rev-parse HEAD)" = "$(git_shadow rev-parse "$ref^{commit}")"
+git_server fetch --tags --prune origin
+git_server checkout --detach "$ref"
+test "$(git_server rev-parse HEAD)" = "$(git_server rev-parse "$ref^{commit}")"
 cd "$ROOT"
 python3 -m venv "$ROOT/.venv"
 "$ROOT/.venv/bin/pip" install --disable-pip-version-check -r "$ROOT/server/deploy/requirements.txt"
@@ -75,36 +72,10 @@ install -d -o kolkhoz-greenfield -g kolkhoz-greenfield "$ROOT/research/.build"
 chown -R kolkhoz-greenfield:kolkhoz-greenfield "$ROOT"
 
 umask 077
-database_url=$(sed -n 's/^KOLKHOZ_ONLINE_DATABASE_URL=//p' "$LIVE_ENV" | tail -n 1)
-supabase_url=$(sed -n 's/^KOLKHOZ_SUPABASE_URL=//p' "$LIVE_ENV" | tail -n 1)
-publishable=$(sed -n 's/^KOLKHOZ_SUPABASE_PUBLISHABLE_KEY=//p' "$LIVE_ENV" | tail -n 1)
-[ -n "$publishable" ] || publishable=$(sed -n 's/^KOLKHOZ_SUPABASE_ANON_KEY=//p' "$LIVE_ENV" | tail -n 1)
+database_url=$(sed -n 's/^DATABASE_URL=//p' "$SERVER_ENV" | tail -n 1)
+supabase_url=$(sed -n 's/^KOLKHOZ_SUPABASE_URL=//p' "$SERVER_ENV" | tail -n 1)
+publishable=$(sed -n 's/^KOLKHOZ_SUPABASE_PUBLISHABLE_KEY=//p' "$SERVER_ENV" | tail -n 1)
 [ -n "$database_url" ] && [ -n "$supabase_url" ] && [ -n "$publishable" ] || { echo "database/Supabase settings incomplete" >&2; exit 1; }
-{
-  printf 'DATABASE_URL=%s\n' "$database_url"
-  printf 'REDIS_URL=redis://127.0.0.1:%s/15\n' "$REDIS_PORT"
-  printf 'KOLKHOZ_SUPABASE_URL=%s\n' "$supabase_url"
-  printf 'KOLKHOZ_SUPABASE_PUBLISHABLE_KEY=%s\n' "$publishable"
-  cat <<'EOF'
-KOLKHOZ_HOST=127.0.0.1
-KOLKHOZ_PORT=18787
-KOLKHOZ_SHARDS=2
-KOLKHOZ_DB_POOL_SIZE=3
-KOLKHOZ_COMMAND_PARTITION_COUNT=16
-KOLKHOZ_COMMAND_PARTITION_CAPACITY=1000
-KOLKHOZ_AUTH_CACHE_CAPACITY=5000
-KOLKHOZ_WORKER_ID=digitalocean-shadow-combined
-KOLKHOZ_SCHEDULER_ID=digitalocean-shadow-deadline
-KOLKHOZ_POPULATION_ID=digitalocean-shadow-population
-KOLKHOZ_LIFECYCLE_ID=digitalocean-shadow-lifecycle
-KOLKHOZ_RUN_COMMAND_WORKER=true
-KOLKHOZ_RUN_DEADLINE_SCHEDULER=true
-KOLKHOZ_RUN_POPULATION_SCHEDULER=true
-KOLKHOZ_RUN_LIFECYCLE_RECONCILER=true
-EOF
-} >"$SHADOW_ENV"
-chmod 600 "$SHADOW_ENV"
-
 for schema in postgres_schema.sql lobby_schema.sql distributed_schema.sql command_schema.sql population_schema.sql; do
   DATABASE_URL="$database_url" psql "$database_url" -v ON_ERROR_STOP=1 -f "$ROOT/server/$schema" >/dev/null
 done
@@ -127,4 +98,4 @@ for _ in $(seq 1 30); do
 done
 $ready || { systemctl status kolkhoz-greenfield.service --no-pager >&2; exit 1; }
 curl --fail --silent --max-time 5 http://127.0.0.1:18787/metrics/prometheus | grep -q '^kolkhoz_uptime_seconds '
-echo "greenfield shadow ready on loopback port 18787"
+echo "Kolkhoz server ready on loopback port 18787"

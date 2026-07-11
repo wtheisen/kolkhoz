@@ -1,5 +1,5 @@
 [Unit]
-Description=Kolkhoz greenfield shadow server
+Description=Kolkhoz online server
 After=network-online.target kolkhoz-greenfield-redis.service
 Requires=kolkhoz-greenfield-redis.service
 Wants=network-online.target

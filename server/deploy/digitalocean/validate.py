@@ -8,8 +8,8 @@ redis = (root / "redis-greenfield.conf").read_text()
 redis_service = (root / "kolkhoz-greenfield-redis.service").read_text()
 
 assert "ROOT=/opt/kolkhoz-greenfield" in bootstrap
-assert "LIVE_ROOT=/opt/kolkhoz\n" in bootstrap
-assert "KOLKHOZ_ONLINE_DATABASE_URL" in bootstrap
+assert "SERVER_ENV=/etc/kolkhoz-greenfield.env" in bootstrap
+assert "KOLKHOZ_ONLINE_DATABASE_URL" not in bootstrap
 assert bootstrap.count("_schema.sql") == 5
 assert "--apply" in bootstrap and "DRY RUN:" in bootstrap
 assert bootstrap.index('cd "$ROOT"') < bootstrap.index(
@@ -33,4 +33,4 @@ assert "CONFIG SET maxclients 1000" in redis_service
 assert "systemctl restart kolkhoz-greenfield-redis.service" in bootstrap
 assert "for _ in $(seq 1 30)" in bootstrap
 assert 'git -c safe.directory="$ROOT" -C "$ROOT"' in bootstrap
-print("DigitalOcean shadow package invariants valid")
+print("DigitalOcean server package invariants valid")

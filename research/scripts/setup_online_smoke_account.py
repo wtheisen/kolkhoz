@@ -15,17 +15,15 @@ DISPLAY_NAME = "Codex Smoke Bot"
 
 
 def main() -> int:
-    database_url = os.environ.get("KOLKHOZ_ONLINE_DATABASE_URL", "").strip()
+    database_url = os.environ.get("DATABASE_URL", "").strip()
     password = sys.stdin.read().strip()
     if not database_url:
-        raise SystemExit("KOLKHOZ_ONLINE_DATABASE_URL is required")
+        raise SystemExit("DATABASE_URL is required")
     if not password:
         raise SystemExit("read the test-account password from stdin")
 
     app_metadata = json.dumps({"provider": "email", "providers": ["email"]})
-    user_metadata = json.dumps(
-        {"display_name": DISPLAY_NAME, "test_account": True}
-    )
+    user_metadata = json.dumps({"display_name": DISPLAY_NAME, "test_account": True})
     identity_data = json.dumps(
         {
             "sub": USER_ID,
