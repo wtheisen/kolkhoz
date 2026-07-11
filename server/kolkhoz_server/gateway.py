@@ -42,7 +42,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send(self.server.runtime.health_state(), HTTPStatus.OK)
             return
         if parts == ["metrics"]:
-            self._send(self.server.metrics.snapshot(self.server.runtime), HTTPStatus.OK)
+            metric_owner = self.server.application or self.server.runtime
+            self._send(self.server.metrics.snapshot(metric_owner), HTTPStatus.OK)
             return
         if self.server.application is not None:
             self._application()

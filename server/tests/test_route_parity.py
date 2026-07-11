@@ -59,6 +59,23 @@ class FakeSocialRepository:
     def public_profile(self, *, user_id: str) -> dict[str, object]:
         return self._profile(user_id, user_id.title(), 1100)
 
+    def profiles_for_user_ids(
+        self, user_ids: list[str]
+    ) -> dict[str, dict[str, object]]:
+        return {
+            user_id: self._profile(user_id, user_id.title(), 1100)
+            for user_id in user_ids
+        }
+
+    def profiles_for_ai_controllers(
+        self, controllers: list[str]
+    ) -> dict[str, dict[str, object]]:
+        return {
+            controller: self._profile(controller, controller, 1000)
+            for controller in controllers
+            if controller != "human"
+        }
+
     def comrades_for_user(self, *, user_id: str) -> dict[str, object]:
         return {
             "user_id": user_id,

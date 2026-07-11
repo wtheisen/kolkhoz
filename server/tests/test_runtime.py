@@ -7,10 +7,13 @@ import time
 import unittest
 import urllib.error
 import urllib.request
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from server.kolkhoz_server.events import EventHub
 from server.kolkhoz_server.ai import AutomaticAdvancer, ModelCache
+from server.kolkhoz_server.distributed import SessionLease
+from server.kolkhoz_server.errors import ServerError
 from server.kolkhoz_server.gateway import Gateway
 from server.kolkhoz_server.runtime import GameRuntime
 from server.kolkhoz_server.store import (
@@ -264,6 +267,37 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(state.state["value"], 11)
         self.assertEqual(events[-1].payload["source"], "automatic")
 
+    def test_distributed_lease_allows_only_one_mutating_runtime_owner(self) -> None:
+        leases = FakeLeaseRepository()
+        first = GameRuntime(
+            SQLiteEventStore(self.database),
+            engine_factory=FakeEngineFactory(),
+            shard_count=1,
+            lease_repository=leases,
+            owner_id="worker-a",
+        )
+        second = GameRuntime(
+            SQLiteEventStore(self.database),
+            engine_factory=FakeEngineFactory(),
+            shard_count=1,
+            lease_repository=leases,
+            owner_id="worker-b",
+        )
+        first.create_game(seed=0, session_id="leased")
+        try:
+            with self.assertRaisesRegex(ServerError, "another worker"):
+                second.submit_action("leased", expected_revision=0, action={"delta": 1})
+        finally:
+            first.close()
+        try:
+            accepted = second.submit_action(
+                "leased", expected_revision=0, action={"delta": 1}
+            )
+        finally:
+            second.close()
+
+        self.assertEqual(accepted.revision, 1)
+
 
 class ConnectionPoolTests(unittest.TestCase):
     def test_pool_allows_bounded_parallel_leases(self) -> None:
@@ -303,6 +337,47 @@ class FakeConnection:
 
     def close(self) -> None:
         self.closed = True
+
+
+class FakeLeaseRepository:
+    def __init__(self) -> None:
+        self.current: dict[str, SessionLease] = {}
+        self.tokens: dict[str, int] = {}
+
+    def acquire(
+        self, session_id: str, owner_id: str, ttl: timedelta
+    ) -> SessionLease | None:
+        existing = self.current.get(session_id)
+        if existing is not None and existing.owner_id != owner_id:
+            return None
+        token = self.tokens.get(session_id, 0) + int(existing is None)
+        self.tokens[session_id] = token
+        lease = SessionLease(
+            session_id,
+            owner_id,
+            token,
+            datetime.now(timezone.utc) + ttl,
+        )
+        self.current[session_id] = lease
+        return lease
+
+    def renew(self, lease: SessionLease, ttl: timedelta) -> SessionLease | None:
+        if self.current.get(lease.session_id) != lease:
+            return None
+        renewed = SessionLease(
+            lease.session_id,
+            lease.owner_id,
+            lease.fencing_token,
+            datetime.now(timezone.utc) + ttl,
+        )
+        self.current[lease.session_id] = renewed
+        return renewed
+
+    def release(self, lease: SessionLease) -> bool:
+        if self.current.get(lease.session_id) != lease:
+            return False
+        self.current.pop(lease.session_id)
+        return True
 
 
 class GatewayTests(unittest.TestCase):

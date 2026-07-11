@@ -17,6 +17,21 @@ from server.kolkhoz_server.store import SQLiteEventStore
 from server.tests.test_runtime import FakeEngineFactory
 
 
+class FakeResults:
+    def __init__(self) -> None:
+        self.abandoned: list[tuple[str, int]] = []
+
+    def abandon_seat(self, **values: object) -> dict[str, object]:
+        self.abandoned.append((str(values["session_id"]), int(values["player_id"])))
+        return {"strikes": 1, "banned_until": None}
+
+    def finish_session(self, **values: object) -> bool:
+        return True
+
+    def online_ban_for_user(self, **values: object) -> None:
+        return None
+
+
 class CompatibilityApiTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
@@ -31,6 +46,7 @@ class CompatibilityApiTests(unittest.TestCase):
             SQLiteLobbyRepository(database),
             auth=StaticAuthVerifier({"host-token": "host", "guest-token": "guest"}),
             lobby_countdown_seconds=0,
+            results=FakeResults(),
         )
         self.server = Gateway(
             ("127.0.0.1", 0), self.runtime, application=self.application
@@ -54,12 +70,15 @@ class CompatibilityApiTests(unittest.TestCase):
         *,
         bearer: str | None = None,
         seat_token: str | None = None,
+        device_id: str | None = None,
     ) -> tuple[int, object]:
         headers = {"content-type": "application/json"}
         if bearer:
             headers["authorization"] = f"Bearer {bearer}"
         if seat_token:
             headers["x-kolkhoz-seat-token"] = seat_token
+        if device_id:
+            headers["x-kolkhoz-device-id"] = device_id
         request = urllib.request.Request(
             self.base_url + path,
             data=None if body is None else json.dumps(body).encode(),
@@ -130,8 +149,23 @@ class CompatibilityApiTests(unittest.TestCase):
         _, signed_in_presence = self.request(
             "POST", "/presence", {}, bearer="host-token"
         )
-        self.assertEqual(anonymous_presence["citizensOnline"], 0)
-        self.assertEqual(signed_in_presence["citizensOnline"], 1)
+        self.assertEqual(anonymous_presence["service"]["citizensOnline"], 0)
+        self.assertEqual(signed_in_presence["service"]["citizensOnline"], 1)
+
+        leave_status, left = self.request(
+            "POST",
+            f"/sessions/{session_id}/players/1/leave",
+            {},
+            bearer="guest-token",
+            seat_token=joined["seatToken"],
+        )
+        self.assertEqual(leave_status, 200)
+        self.assertEqual(left["penalty"]["strikes"], 1)
+        guest_presence = next(
+            value for value in left["update"]["seatPresence"] if value["playerID"] == 1
+        )
+        self.assertTrue(guest_presence["abandoned"])
+        self.assertTrue(guest_presence["autopilot"])
 
     def test_auth_and_seat_conflicts_preserve_legacy_statuses(self) -> None:
         missing_auth, error = self.request("POST", "/sessions", {"seed": 1})
@@ -147,3 +181,33 @@ class CompatibilityApiTests(unittest.TestCase):
         )
         self.assertEqual(invalid_seat, 401)
         self.assertEqual(error["error"], "invalid seat token")
+
+    def test_active_sync_rejects_second_device_without_rotating_token(self) -> None:
+        _, created = self.request("POST", "/sessions", {"seed": 1}, bearer="host-token")
+        session_id = created["sessionID"]
+        status, synced = self.request(
+            "POST",
+            "/active-session/sync",
+            {},
+            bearer="host-token",
+            device_id="phone",
+        )
+        self.assertEqual(status, 200)
+
+        conflict, error = self.request(
+            "POST",
+            "/active-session/sync",
+            {},
+            bearer="host-token",
+            device_id="tablet",
+        )
+        self.assertEqual(conflict, 409)
+        self.assertIn("another device", error["error"])
+
+        still_valid, _ = self.request(
+            "GET",
+            f"/sessions/{session_id}/state?viewerID=0",
+            bearer="host-token",
+            seat_token=synced["seatToken"],
+        )
+        self.assertEqual(still_valid, 200)

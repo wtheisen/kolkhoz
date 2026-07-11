@@ -24,6 +24,12 @@ class SocialRepository(Protocol):
 
     def public_profile(self, *, user_id: str) -> Profile: ...
 
+    def profiles_for_user_ids(self, user_ids: list[str]) -> dict[str, Profile]: ...
+
+    def profiles_for_ai_controllers(
+        self, controllers: list[str]
+    ) -> dict[str, Profile]: ...
+
     def comrades_for_user(self, *, user_id: str) -> dict[str, object]: ...
 
     def send_comrade_request_by_code(
@@ -76,6 +82,55 @@ class SocialService:
                 for rank, profile in enumerate(self.repository.leaderboard(), start=1)
             ]
         }
+
+    def comrade_user_ids(self, user_id: str) -> set[str]:
+        value = self.repository.comrades_for_user(user_id=_required(user_id, "userID"))
+        comrades = value.get("comrades", [])
+        return {
+            str(profile.get("user_id") or profile.get("userID"))
+            for profile in comrades
+            if isinstance(profile, dict)
+            and (profile.get("user_id") or profile.get("userID"))
+        }
+
+    def player_profiles(
+        self, seats: list[object], controllers: list[str]
+    ) -> list[dict[str, object]]:
+        user_by_player = {
+            int(seat.player_id): str(seat.user_id)
+            for seat in seats
+            if getattr(seat, "user_id", None)
+        }
+        humans = self.repository.profiles_for_user_ids(
+            sorted(set(user_by_player.values()))
+        )
+        ai = self.repository.profiles_for_ai_controllers(controllers)
+        profiles: list[dict[str, object]] = []
+        for player_id, controller in enumerate(controllers):
+            user_id = user_by_player.get(player_id)
+            profile = humans.get(user_id, {}) if user_id else ai.get(controller, {})
+            stats = profile.get("stats")
+            display_name = profile.get("display_name", profile.get("displayName"))
+            if (
+                user_id is None
+                and isinstance(display_name, str)
+                and isinstance(stats, dict)
+            ):
+                rating = stats.get("rating")
+                if isinstance(rating, int):
+                    display_name = f"{display_name} {rating}"
+            profiles.append(
+                {
+                    "playerID": player_id,
+                    "userID": user_id,
+                    "displayName": display_name
+                    if isinstance(display_name, str)
+                    else None,
+                    "avatarURL": profile.get("avatar_url", profile.get("avatarURL")),
+                    "stats": stats if isinstance(stats, dict) else {},
+                }
+            )
+        return profiles
 
     def public_profile(self, user_id: str) -> dict[str, object]:
         return _public_profile_response(
@@ -230,6 +285,60 @@ class PostgresSocialRepository:
     def public_profile(self, *, user_id: str) -> Profile:
         with self._cursor() as cursor:
             return self._profile_for_user(cursor, user_id)
+
+    def profiles_for_user_ids(self, user_ids: list[str]) -> dict[str, Profile]:
+        if not user_ids:
+            return {}
+        with self._cursor() as cursor:
+            cursor.execute(
+                f"""select {_PROFILE_COLUMNS}
+                      from public.profiles p
+                      left join public.profile_stats s on s.user_id = p.user_id
+                     where p.user_id = any(%s::uuid[])""",
+                (user_ids,),
+            )
+            profiles = [_profile(row) for row in cursor.fetchall()]
+        return {str(profile["user_id"]): profile for profile in profiles}
+
+    def profiles_for_ai_controllers(self, controllers: list[str]) -> dict[str, Profile]:
+        keys = sorted({value for value in controllers if value != "human"})
+        if not keys:
+            return {}
+        with self._cursor() as cursor:
+            cursor.execute(
+                """
+                select ai_key, display_name, avatar_url, games_played, wins_total,
+                       online_games, online_wins, rating, peak_rating, rating_games,
+                       casual_games, casual_wins, ranked_games, ranked_wins,
+                       casual_rating, casual_peak_rating, casual_rating_games
+                  from public.ai_profile_stats where ai_key = any(%s)
+                """,
+                (keys,),
+            )
+            rows = cursor.fetchall()
+        return {
+            str(row[0]): {
+                "display_name": row[1],
+                "avatar_url": row[2],
+                "stats": {
+                    "games_played": row[3] or 0,
+                    "wins_total": row[4] or 0,
+                    "online_games": row[5] or 0,
+                    "online_wins": row[6] or 0,
+                    "rating": row[7] or 1000,
+                    "peak_rating": row[8] or 1000,
+                    "rating_games": row[9] or 0,
+                    "casual_games": row[10] or 0,
+                    "casual_wins": row[11] or 0,
+                    "ranked_games": row[12] or 0,
+                    "ranked_wins": row[13] or 0,
+                    "casual_rating": row[14] or 1000,
+                    "casual_peak_rating": row[15] or 1000,
+                    "casual_rating_games": row[16] or 0,
+                },
+            }
+            for row in rows
+        }
 
     def comrades_for_user(self, *, user_id: str) -> dict[str, object]:
         with self._cursor() as cursor:

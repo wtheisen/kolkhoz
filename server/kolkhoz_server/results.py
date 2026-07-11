@@ -115,6 +115,7 @@ class PostgresResultsRepository:
         if pool is not None:
             self._pool = pool
             self._json_value = json_value or (lambda value: value)
+            self._owns_pool = False
             return
         if not database_url:
             raise ValueError("database_url is required")
@@ -137,9 +138,11 @@ class PostgresResultsRepository:
             size=pool_size,
         )
         self._json_value = Jsonb
+        self._owns_pool = True
 
     def close(self) -> None:
-        self._pool.close()
+        if self._owns_pool:
+            self._pool.close()
 
     @contextmanager
     def _cursor(self) -> Iterator[object]:
@@ -177,9 +180,10 @@ class PostgresResultsRepository:
         penalty = None
         with self._cursor() as cursor:
             cursor.execute(
-                """update public.game_seats
+                """update server_seats
                       set abandoned = true, autopilot = true,
-                          disconnected_at = coalesce(disconnected_at, %s)
+                          timeouts = greatest(timeouts, 2),
+                          last_seen_at = %s
                     where session_id = %s and player_id = %s""",
                 (now, session_id, player_id),
             )
@@ -206,7 +210,7 @@ class PostgresResultsRepository:
                         ),
                     }
             cursor.execute(
-                """update public.game_sessions
+                """update server_sessions
                       set updated_at = %s, expires_at = %s
                     where session_id = %s""",
                 (now, _timestamp(expires_at), session_id),
@@ -227,7 +231,7 @@ class PostgresResultsRepository:
         now = _timestamp(updated_at)
         with self._cursor() as cursor:
             cursor.execute(
-                """update public.game_sessions
+                """update server_sessions
                       set status = 'finished', updated_at = %s, expires_at = %s
                     where session_id = %s and status <> 'finished'
                 returning session_id""",
@@ -314,7 +318,7 @@ class PostgresResultsRepository:
         updated_at: datetime,
     ) -> None:
         cursor.execute(
-            """insert into public.profile_progression_events (session_id, user_id)
+            """insert into server_progression_events (session_id, user_id)
                values (%s, %s) on conflict (session_id, user_id) do nothing
                returning user_id""",
             (session_id, user_id),
@@ -462,8 +466,8 @@ class PostgresResultsRepository:
         created_at: datetime,
     ) -> None:
         cursor.execute(
-            """insert into public.game_updates
-                      (session_id, revision, update_type, created_at)
+            """insert into server_session_updates
+                      (session_id, revision, kind, created_at)
                values (%s, %s, %s, %s)""",
             (session_id, revision, update_type, created_at),
         )

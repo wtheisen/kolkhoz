@@ -16,9 +16,10 @@ class EventHub:
     for currently connected gateways.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, realtime_bus: object | None = None) -> None:
         self._subscribers: dict[str, set[queue.Queue[StoredEvent]]] = defaultdict(set)
         self._lock = threading.Lock()
+        self._realtime_bus = realtime_bus
 
     @contextmanager
     def subscribe(self, session_id: str) -> Iterator[queue.Queue[StoredEvent]]:
@@ -44,3 +45,19 @@ class EventHub:
             except queue.Full:
                 # A slow gateway reconnects using its last durable revision.
                 pass
+        if self._realtime_bus is not None:
+            from .distributed import RealtimeMessage
+
+            self._realtime_bus.publish(  # type: ignore[attr-defined]
+                RealtimeMessage(
+                    topic=f"session:{event.session_id}",
+                    event_id=f"{event.session_id}:{event.revision}",
+                    payload={
+                        "sessionID": event.session_id,
+                        "revision": event.revision,
+                        "kind": event.kind,
+                        "payload": event.payload,
+                        "createdAt": event.created_at,
+                    },
+                )
+            )

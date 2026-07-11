@@ -18,7 +18,15 @@ create table if not exists server_sessions (
     updated_at timestamptz not null default now(),
     expires_at timestamptz not null,
     lobby_countdown_ends_at timestamptz,
+    turn_player_id smallint check (turn_player_id between 0 and 3),
+    turn_deadline_at timestamptz,
+    scheduler_claim_owner text,
+    scheduler_claim_until timestamptz,
+    scheduler_fencing_token bigint not null default 0,
     reaction_revision bigint not null default 0,
+    constraint server_sessions_turn_deadline_complete check (
+        (turn_player_id is null) = (turn_deadline_at is null)
+    ),
     constraint server_sessions_invite_code_upper check (invite_code = upper(invite_code))
 );
 
@@ -33,6 +41,9 @@ create index if not exists server_sessions_expiry_idx
 create index if not exists server_sessions_countdown_idx
     on server_sessions (lobby_countdown_ends_at, session_id)
     where status = 'open' and lobby_countdown_ends_at is not null;
+create index if not exists server_sessions_due_turn_idx
+    on server_sessions (turn_deadline_at, session_id)
+    where status = 'active' and turn_deadline_at is not null;
 
 create table if not exists server_seats (
     session_id uuid not null references server_sessions(session_id) on delete cascade,
@@ -57,6 +68,16 @@ create unique index if not exists server_active_user_seat_idx
 create index if not exists server_open_human_seat_idx
     on server_seats (session_id, player_id)
     where controller = 'human' and not occupied;
+
+-- Result/progression idempotency belongs to the greenfield session authority.
+-- Do not reuse public.profile_progression_events: its session foreign key points
+-- at the retired legacy public.game_sessions table.
+create table if not exists server_progression_events (
+    session_id uuid not null references server_sessions(session_id) on delete cascade,
+    user_id uuid not null references public.profiles(user_id) on delete cascade,
+    recorded_at timestamptz not null default now(),
+    primary key (session_id, user_id)
+);
 create index if not exists server_seat_heartbeat_idx
     on server_seats (last_seen_at, session_id)
     where occupied;
@@ -89,6 +110,9 @@ create table if not exists server_device_leases (
     primary key (user_id, device_id)
 );
 
+-- Acquisition is serialized per user with pg_advisory_xact_lock. A device may
+-- replace another device only after its last_seen_at exceeds the configured TTL.
+
 create index if not exists server_device_leases_session_idx
     on server_device_leases (session_id, last_seen_at desc);
 create index if not exists server_device_leases_expiry_idx
@@ -107,3 +131,14 @@ create table if not exists server_reactions (
 
 create index if not exists server_reactions_created_idx
     on server_reactions (session_id, created_at desc);
+
+create table if not exists server_session_updates (
+    update_id bigserial primary key,
+    session_id uuid not null references server_sessions(session_id) on delete cascade,
+    revision bigint,
+    kind text not null,
+    created_at timestamptz not null default now()
+);
+
+create index if not exists server_session_updates_stream_idx
+    on server_session_updates (session_id, update_id);

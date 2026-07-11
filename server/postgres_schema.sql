@@ -6,6 +6,7 @@ create table if not exists server_games (
     seed bigint not null,
     variants jsonb not null default '{}'::jsonb,
     revision bigint not null default 0,
+    fencing_token bigint not null default 0,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
 );

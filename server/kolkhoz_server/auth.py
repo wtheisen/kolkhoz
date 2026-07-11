@@ -3,6 +3,10 @@ from __future__ import annotations
 import json
 import os
 import ssl
+import threading
+import time
+from collections import OrderedDict
+from collections.abc import Callable
 from http import HTTPStatus
 from urllib import request as urlrequest
 from urllib.error import HTTPError, URLError
@@ -83,3 +87,44 @@ class StaticAuthVerifier:
         if token not in self.tokens:
             raise ServerError(HTTPStatus.UNAUTHORIZED, "invalid auth token")
         return self.tokens[token]
+
+
+class CachingAuthVerifier:
+    """Bound repeated bearer verification without an unbounded token cache."""
+
+    def __init__(
+        self,
+        verifier: SupabaseAuthVerifier,
+        *,
+        ttl_seconds: float = 30,
+        capacity: int = 100_000,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        if ttl_seconds <= 0 or capacity <= 0:
+            raise ValueError("auth cache TTL and capacity must be positive")
+        self._verifier = verifier
+        self._ttl = ttl_seconds
+        self._capacity = capacity
+        self._clock = clock
+        self._entries: OrderedDict[str, tuple[str, float]] = OrderedDict()
+        self._lock = threading.Lock()
+
+    def user_id(self, authorization: str | None) -> str | None:
+        if authorization is None:
+            return None
+        now = self._clock()
+        with self._lock:
+            cached = self._entries.get(authorization)
+            if cached is not None and cached[1] > now:
+                self._entries.move_to_end(authorization)
+                return cached[0]
+            self._entries.pop(authorization, None)
+        user_id = self._verifier.user_id(authorization)
+        if user_id is None:
+            return None
+        with self._lock:
+            self._entries[authorization] = (user_id, now + self._ttl)
+            self._entries.move_to_end(authorization)
+            while len(self._entries) > self._capacity:
+                self._entries.popitem(last=False)
+        return user_id

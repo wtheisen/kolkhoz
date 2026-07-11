@@ -27,6 +27,7 @@ class KolkhozCEngineFactory:
         from .contracts import (
             controllers_native,
             normalize_controllers,
+            normalize_variants,
             variants_native,
         )
 
@@ -35,7 +36,7 @@ class KolkhozCEngineFactory:
         return KolkhozCEngine(
             self._engine,
             seed,
-            variants=variants_native(game_variants),  # type: ignore[arg-type]
+            variants=variants_native(normalize_variants(game_variants)),
             controllers=controllers_native(controllers),
         )
 

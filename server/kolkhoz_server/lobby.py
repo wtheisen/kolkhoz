@@ -44,6 +44,21 @@ class SeatRecord:
     autopilot: bool
 
 
+@dataclass(frozen=True)
+class DueTurn:
+    session_id: str
+    player_id: int
+    deadline_at: float
+    claim_owner: str
+    fencing_token: int
+
+
+@dataclass(frozen=True)
+class TimeoutResult:
+    timeouts: int
+    forced_autopilot: bool
+
+
 class SeatUnavailable(RuntimeError):
     pass
 
@@ -63,6 +78,17 @@ class LobbyRepository(Protocol):
         now: float,
     ) -> None: ...
     def release_seat(self, session_id: str, player_id: int, *, now: float) -> None: ...
+    def release_seat_and_delete_if_empty(
+        self, session_id: str, player_id: int, *, now: float
+    ) -> bool: ...
+    def kick_seat(
+        self,
+        session_id: str,
+        target_player_id: int,
+        *,
+        host_user_id: str,
+        now: float,
+    ) -> None: ...
     def set_status(
         self,
         session_id: str,
@@ -87,7 +113,31 @@ class LobbyRepository(Protocol):
     def invites_for_user(self, user_id: str) -> list[SessionRecord]: ...
     def decline_invite(self, session_id: str, user_id: str) -> None: ...
     def mark_presence(self, user_id: str, *, now: float) -> None: ...
+    def acquire_device_lease(
+        self,
+        user_id: str,
+        device_id: str,
+        session_id: str,
+        *,
+        now: float,
+        ttl_seconds: float,
+    ) -> bool: ...
     def online_user_ids(self, *, since: float) -> set[str]: ...
+    def metrics_state(self, *, now: float, presence_since: float) -> JsonObject: ...
+    def set_turn_deadline(
+        self,
+        session_id: str,
+        player_id: int | None,
+        *,
+        deadline_at: float | None,
+        now: float,
+    ) -> None: ...
+    def turn_state(self, session_id: str) -> tuple[int | None, float | None]: ...
+    def claim_due_turns(
+        self, *, owner: str, now: float, lease_seconds: float, limit: int
+    ) -> list[DueTurn]: ...
+    def consume_timeout(self, claim: DueTurn, *, now: float) -> TimeoutResult: ...
+    def touch_seat(self, session_id: str, player_id: int, *, now: float) -> None: ...
 
 
 LOBBY_SCHEMA = """
@@ -104,10 +154,18 @@ create table if not exists server_sessions (
     created_at real not null,
     updated_at real not null,
     expires_at real not null,
-    lobby_countdown_ends_at real
+    lobby_countdown_ends_at real,
+    turn_player_id integer,
+    turn_deadline_at real,
+    scheduler_claim_owner text,
+    scheduler_claim_until real,
+    scheduler_fencing_token integer not null default 0
 );
 create index if not exists server_sessions_browser_idx
     on server_sessions (status, browser_joinable, expires_at, updated_at desc);
+create index if not exists server_sessions_due_turn_idx
+    on server_sessions (turn_deadline_at, session_id)
+    where status = 'active' and turn_deadline_at is not null;
 
 create table if not exists server_seats (
     session_id text not null references server_sessions(session_id) on delete cascade,
@@ -178,7 +236,11 @@ class SQLiteLobbyRepository:
         with closing(self._connect()) as connection, connection:
             connection.execute(
                 """
-                insert into server_sessions values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                insert into server_sessions (
+                    session_id, invite_code, seed, variants_json, controllers_json,
+                    ranked, browser_joinable, status, created_by_user_id, created_at,
+                    updated_at, expires_at, lobby_countdown_ends_at
+                ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record.session_id,
@@ -302,7 +364,9 @@ class SQLiteLobbyRepository:
             connection.close()
 
     def release_seat(self, session_id: str, player_id: int, *, now: float) -> None:
-        with closing(self._connect()) as connection, connection:
+        connection = self._connect()
+        try:
+            connection.execute("begin immediate")
             updated = connection.execute(
                 """
                 update server_seats
@@ -318,6 +382,105 @@ class SQLiteLobbyRepository:
                 "update server_sessions set updated_at = ? where session_id = ?",
                 (now, session_id),
             )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    def release_seat_and_delete_if_empty(
+        self, session_id: str, player_id: int, *, now: float
+    ) -> bool:
+        connection = self._connect()
+        try:
+            connection.execute("begin immediate")
+            updated = connection.execute(
+                """
+                update server_seats
+                   set occupied = 0, user_id = null, token_hash = null,
+                       last_seen_at = null, autopilot = 0, abandoned = 0
+                 where session_id = ? and player_id = ? and occupied = 1
+                """,
+                (session_id, player_id),
+            )
+            if updated.rowcount != 1:
+                raise SeatUnavailable(f"seat {player_id} is unavailable")
+            remaining = connection.execute(
+                "select 1 from server_seats where session_id = ? and occupied = 1 limit 1",
+                (session_id,),
+            ).fetchone()
+            if remaining is None:
+                connection.execute(
+                    "delete from server_sessions where session_id = ? and status = 'open'",
+                    (session_id,),
+                )
+                deleted = connection.total_changes > 1
+            else:
+                connection.execute(
+                    "update server_sessions set updated_at = ? where session_id = ?",
+                    (now, session_id),
+                )
+                deleted = False
+            connection.commit()
+            return deleted
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    def kick_seat(
+        self,
+        session_id: str,
+        target_player_id: int,
+        *,
+        host_user_id: str,
+        now: float,
+    ) -> None:
+        connection = self._connect()
+        try:
+            connection.execute("begin immediate")
+            updated = connection.execute(
+                """
+                update server_seats
+                   set occupied = 0, user_id = null, token_hash = null,
+                       last_seen_at = null, autopilot = 0, abandoned = 0
+                 where session_id = ? and player_id = ? and occupied = 1
+                   and exists (
+                       select 1 from server_sessions
+                        where session_id = ? and status = 'open'
+                          and created_by_user_id = ?
+                   )
+                """,
+                (session_id, target_player_id, session_id, host_user_id),
+            )
+            if updated.rowcount != 1:
+                raise SeatUnavailable(f"seat {target_player_id} is unavailable")
+            connection.execute(
+                "update server_sessions set updated_at = ? where session_id = ?",
+                (now, session_id),
+            )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    def abandon_seat(self, session_id: str, player_id: int, *, now: float) -> None:
+        with closing(self._connect()) as connection, connection:
+            updated = connection.execute(
+                """
+                update server_seats
+                   set abandoned = 1, autopilot = 1,
+                       timeouts = max(timeouts, 2), last_seen_at = ?
+                 where session_id = ? and player_id = ? and occupied = 1
+                """,
+                (now, session_id, player_id),
+            )
+            if updated.rowcount != 1:
+                raise SeatUnavailable(f"seat {player_id} is unavailable")
 
     def set_status(
         self,
@@ -435,6 +598,23 @@ class SQLiteLobbyRepository:
             if updated.rowcount != 1:
                 raise KeyError("session invite not found")
 
+    def invite_access(self, session_id: str, user_id: str) -> tuple[bool, bool]:
+        with closing(self._connect()) as connection:
+            rows = connection.execute(
+                "select user_id, declined from server_session_invites where session_id = ?",
+                (session_id,),
+            ).fetchall()
+        return bool(rows), any(
+            str(row["user_id"]) == user_id and not bool(row["declined"]) for row in rows
+        )
+
+    def consume_invite(self, session_id: str, user_id: str) -> None:
+        with closing(self._connect()) as connection, connection:
+            connection.execute(
+                "delete from server_session_invites where session_id = ? and user_id = ?",
+                (session_id, user_id),
+            )
+
     def mark_presence(self, user_id: str, *, now: float) -> None:
         with closing(self._connect()) as connection, connection:
             connection.execute(
@@ -445,12 +625,77 @@ class SQLiteLobbyRepository:
                 (user_id, now),
             )
 
+    def acquire_device_lease(
+        self,
+        user_id: str,
+        device_id: str,
+        session_id: str,
+        *,
+        now: float,
+        ttl_seconds: float,
+    ) -> bool:
+        cutoff = now - max(0.0, ttl_seconds)
+        with closing(self._connect()) as connection:
+            connection.execute("begin immediate")
+            conflict = connection.execute(
+                """
+                select 1 from server_device_leases
+                 where user_id = ? and session_id = ? and device_id <> ?
+                   and last_seen_at >= ?
+                 limit 1
+                """,
+                (user_id, session_id, device_id, cutoff),
+            ).fetchone()
+            if conflict is not None:
+                connection.rollback()
+                return False
+            connection.execute(
+                """
+                insert into server_device_leases values (?, ?, ?, ?)
+                on conflict(user_id, device_id) do update set
+                    session_id = excluded.session_id,
+                    last_seen_at = excluded.last_seen_at
+                """,
+                (user_id, device_id, session_id, now),
+            )
+            connection.execute(
+                """
+                delete from server_device_leases
+                 where user_id = ? and session_id = ? and device_id <> ?
+                   and last_seen_at < ?
+                """,
+                (user_id, session_id, device_id, cutoff),
+            )
+            connection.commit()
+            return True
+
     def online_user_ids(self, *, since: float) -> set[str]:
         with closing(self._connect()) as connection:
             rows = connection.execute(
                 "select user_id from server_presence where last_seen_at >= ?", (since,)
             ).fetchall()
         return {str(row[0]) for row in rows}
+
+    def metrics_state(self, *, now: float, presence_since: float) -> JsonObject:
+        with closing(self._connect()) as connection:
+            row = connection.execute(
+                """
+                select
+                    (select count(*) from server_sessions
+                      where status in ('open', 'active') and expires_at > ?),
+                    (select count(*) from server_seats where occupied = 1),
+                    (select count(*) from server_seats
+                      where occupied = 1 and abandoned = 0 and last_seen_at >= ?),
+                    (select count(*) from server_presence where last_seen_at >= ?)
+                """,
+                (now, presence_since, presence_since),
+            ).fetchone()
+        return {
+            "activeSessions": int(row[0]),
+            "activeSeats": int(row[1]),
+            "connectedSeatedHumanSeats": int(row[2]),
+            "citizensOnline": int(row[3]),
+        }
 
     def active_for_user(self, user_id: str) -> tuple[SessionRecord, SeatRecord] | None:
         with closing(self._connect()) as connection:
@@ -487,6 +732,150 @@ class SQLiteLobbyRepository:
             )
             if updated.rowcount != 1:
                 raise SeatUnavailable(f"seat {player_id} is unavailable")
+
+    def touch_seat(self, session_id: str, player_id: int, *, now: float) -> None:
+        with closing(self._connect()) as connection, connection:
+            updated = connection.execute(
+                """
+                update server_seats
+                   set last_seen_at = ?, autopilot = case when abandoned then autopilot else 0 end
+                 where session_id = ? and player_id = ? and occupied = 1
+                """,
+                (now, session_id, player_id),
+            )
+            if updated.rowcount != 1:
+                raise SeatUnavailable(f"seat {player_id} is unavailable")
+
+    def set_turn_deadline(
+        self,
+        session_id: str,
+        player_id: int | None,
+        *,
+        deadline_at: float | None,
+        now: float,
+    ) -> None:
+        if (player_id is None) != (deadline_at is None):
+            raise ValueError(
+                "player_id and deadline_at must both be set or both be null"
+            )
+        with closing(self._connect()) as connection, connection:
+            connection.execute(
+                """
+                update server_sessions
+                   set turn_player_id = ?, turn_deadline_at = ?, updated_at = ?,
+                       scheduler_claim_owner = null, scheduler_claim_until = null
+                 where session_id = ?
+                """,
+                (player_id, deadline_at, now, session_id),
+            )
+
+    def turn_state(self, session_id: str) -> tuple[int | None, float | None]:
+        with closing(self._connect()) as connection:
+            row = connection.execute(
+                "select turn_player_id, turn_deadline_at from server_sessions where session_id = ?",
+                (session_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(session_id)
+        return (
+            int(row["turn_player_id"]) if row["turn_player_id"] is not None else None,
+            float(row["turn_deadline_at"])
+            if row["turn_deadline_at"] is not None
+            else None,
+        )
+
+    def claim_due_turns(
+        self, *, owner: str, now: float, lease_seconds: float, limit: int
+    ) -> list[DueTurn]:
+        if not owner or lease_seconds <= 0 or limit <= 0:
+            raise ValueError("owner, lease_seconds, and limit must be positive")
+        connection = self._connect()
+        claimed: list[DueTurn] = []
+        try:
+            connection.execute("begin immediate")
+            rows = connection.execute(
+                """
+                select session_id, turn_player_id, turn_deadline_at
+                  from server_sessions
+                 where status = 'active' and turn_deadline_at <= ?
+                   and (scheduler_claim_until is null or scheduler_claim_until <= ?)
+                 order by turn_deadline_at, session_id limit ?
+                """,
+                (now, now, limit),
+            ).fetchall()
+            for row in rows:
+                token_row = connection.execute(
+                    """
+                    update server_sessions
+                       set scheduler_claim_owner = ?, scheduler_claim_until = ?,
+                           scheduler_fencing_token = scheduler_fencing_token + 1
+                     where session_id = ?
+                    returning scheduler_fencing_token
+                    """,
+                    (owner, now + lease_seconds, row["session_id"]),
+                ).fetchone()
+                claimed.append(
+                    DueTurn(
+                        str(row["session_id"]),
+                        int(row["turn_player_id"]),
+                        float(row["turn_deadline_at"]),
+                        owner,
+                        int(token_row[0]),
+                    )
+                )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+        return claimed
+
+    def consume_timeout(self, claim: DueTurn, *, now: float) -> TimeoutResult:
+        connection = self._connect()
+        try:
+            connection.execute("begin immediate")
+            valid = connection.execute(
+                """
+                update server_sessions
+                   set turn_player_id = null, turn_deadline_at = null,
+                       scheduler_claim_owner = null, scheduler_claim_until = null,
+                       updated_at = ?
+                 where session_id = ? and turn_player_id = ? and turn_deadline_at <= ?
+                   and scheduler_claim_owner = ? and scheduler_fencing_token = ?
+                returning session_id
+                """,
+                (
+                    now,
+                    claim.session_id,
+                    claim.player_id,
+                    now,
+                    claim.claim_owner,
+                    claim.fencing_token,
+                ),
+            ).fetchone()
+            if valid is None:
+                raise SeatUnavailable("stale timeout claim")
+            seat = connection.execute(
+                """
+                update server_seats
+                   set timeouts = timeouts + 1,
+                       autopilot = case when timeouts + 1 >= 2 then 1 else autopilot end,
+                       abandoned = case when timeouts + 1 >= 2 then 1 else abandoned end
+                 where session_id = ? and player_id = ? and occupied = 1
+                returning timeouts, autopilot
+                """,
+                (claim.session_id, claim.player_id),
+            ).fetchone()
+            if seat is None:
+                raise SeatUnavailable("timeout seat unavailable")
+            connection.commit()
+            return TimeoutResult(int(seat[0]), bool(seat[1]))
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
 
     @staticmethod
     def new_session(
@@ -749,6 +1138,87 @@ class PostgresLobbyRepository:
                 (now, session_id),
             )
 
+    def release_seat_and_delete_if_empty(
+        self, session_id: str, player_id: int, *, now: float
+    ) -> bool:
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            row = connection.execute(  # type: ignore[attr-defined]
+                """
+                update server_seats
+                   set occupied = false, user_id = null, token_hash = null,
+                       last_seen_at = null, autopilot = false, abandoned = false
+                 where session_id = %s::uuid and player_id = %s and occupied
+                returning player_id
+                """,
+                (session_id, player_id),
+            ).fetchone()
+            if row is None:
+                raise SeatUnavailable(f"seat {player_id} is unavailable")
+            deleted = connection.execute(  # type: ignore[attr-defined]
+                """
+                delete from server_sessions sessions
+                 where sessions.session_id = %s::uuid and sessions.status = 'open'
+                   and not exists (
+                       select 1 from server_seats seats
+                        where seats.session_id = sessions.session_id and seats.occupied
+                   )
+                returning session_id
+                """,
+                (session_id,),
+            ).fetchone()
+            if deleted is not None:
+                return True
+            connection.execute(  # type: ignore[attr-defined]
+                "update server_sessions set updated_at = to_timestamp(%s) where session_id = %s::uuid",
+                (now, session_id),
+            )
+            return False
+
+    def kick_seat(
+        self,
+        session_id: str,
+        target_player_id: int,
+        *,
+        host_user_id: str,
+        now: float,
+    ) -> None:
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            row = connection.execute(  # type: ignore[attr-defined]
+                """
+                update server_seats seats
+                   set occupied = false, user_id = null, token_hash = null,
+                       last_seen_at = null, autopilot = false, abandoned = false
+                  from server_sessions sessions
+                 where seats.session_id = %s::uuid and seats.player_id = %s
+                   and seats.occupied and sessions.session_id = seats.session_id
+                   and sessions.status = 'open'
+                   and sessions.created_by_user_id = %s
+                returning seats.player_id
+                """,
+                (session_id, target_player_id, host_user_id),
+            ).fetchone()
+            if row is None:
+                raise SeatUnavailable(f"seat {target_player_id} is unavailable")
+            connection.execute(  # type: ignore[attr-defined]
+                "update server_sessions set updated_at = to_timestamp(%s) where session_id = %s::uuid",
+                (now, session_id),
+            )
+
+    def abandon_seat(self, session_id: str, player_id: int, *, now: float) -> None:
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            row = connection.execute(  # type: ignore[attr-defined]
+                """
+                update server_seats
+                   set abandoned = true, autopilot = true,
+                       timeouts = greatest(timeouts, 2), last_seen_at = to_timestamp(%s)
+                 where session_id = %s::uuid and player_id = %s and occupied
+                returning player_id
+                """,
+                (now, session_id, player_id),
+            ).fetchone()
+            if row is None:
+                raise SeatUnavailable(f"seat {player_id} is unavailable")
+
     def set_status(
         self,
         session_id: str,
@@ -895,6 +1365,26 @@ class PostgresLobbyRepository:
             if row is None:
                 raise KeyError("session invite not found")
 
+    def invite_access(self, session_id: str, user_id: str) -> tuple[bool, bool]:
+        with self._pool.connection() as connection:
+            rows = connection.execute(  # type: ignore[attr-defined]
+                """
+                select user_id, declined from server_session_invites
+                 where session_id = %s::uuid
+                """,
+                (session_id,),
+            ).fetchall()
+        return bool(rows), any(
+            str(row[0]) == user_id and not bool(row[1]) for row in rows
+        )
+
+    def consume_invite(self, session_id: str, user_id: str) -> None:
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            connection.execute(  # type: ignore[attr-defined]
+                "delete from server_session_invites where session_id = %s::uuid and user_id = %s",
+                (session_id, user_id),
+            )
+
     def mark_presence(self, user_id: str, *, now: float) -> None:
         with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
             connection.execute(  # type: ignore[attr-defined]
@@ -906,6 +1396,52 @@ class PostgresLobbyRepository:
                 (user_id, now),
             )
 
+    def acquire_device_lease(
+        self,
+        user_id: str,
+        device_id: str,
+        session_id: str,
+        *,
+        now: float,
+        ttl_seconds: float,
+    ) -> bool:
+        cutoff = now - max(0.0, ttl_seconds)
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            connection.execute(  # type: ignore[attr-defined]
+                "select pg_advisory_xact_lock(hashtextextended(%s, 0))", (user_id,)
+            )
+            conflict = connection.execute(  # type: ignore[attr-defined]
+                """
+                select 1 from server_device_leases
+                 where user_id = %s and session_id = %s::uuid and device_id <> %s
+                   and last_seen_at >= to_timestamp(%s)
+                 limit 1
+                """,
+                (user_id, session_id, device_id, cutoff),
+            ).fetchone()
+            if conflict is not None:
+                return False
+            connection.execute(  # type: ignore[attr-defined]
+                """
+                insert into server_device_leases
+                    (user_id, device_id, session_id, last_seen_at)
+                values (%s, %s, %s::uuid, to_timestamp(%s))
+                on conflict(user_id, device_id) do update set
+                    session_id = excluded.session_id,
+                    last_seen_at = excluded.last_seen_at
+                """,
+                (user_id, device_id, session_id, now),
+            )
+            connection.execute(  # type: ignore[attr-defined]
+                """
+                delete from server_device_leases
+                 where user_id = %s and session_id = %s::uuid and device_id <> %s
+                   and last_seen_at < to_timestamp(%s)
+                """,
+                (user_id, session_id, device_id, cutoff),
+            )
+            return True
+
     def online_user_ids(self, *, since: float) -> set[str]:
         with self._pool.connection() as connection:
             rows = connection.execute(  # type: ignore[attr-defined]
@@ -913,6 +1449,28 @@ class PostgresLobbyRepository:
                 (since,),
             ).fetchall()
         return {str(row[0]) for row in rows}
+
+    def metrics_state(self, *, now: float, presence_since: float) -> JsonObject:
+        with self._pool.connection() as connection:
+            row = connection.execute(  # type: ignore[attr-defined]
+                """
+                select
+                    (select count(*) from server_sessions
+                      where status in ('open', 'active') and expires_at > to_timestamp(%s)),
+                    (select count(*) from server_seats where occupied),
+                    (select count(*) from server_seats
+                      where occupied and not abandoned and last_seen_at >= to_timestamp(%s)),
+                    (select count(*) from server_presence
+                      where last_seen_at >= to_timestamp(%s))
+                """,
+                (now, presence_since, presence_since),
+            ).fetchone()
+        return {
+            "activeSessions": int(row[0]),
+            "activeSeats": int(row[1]),
+            "connectedSeatedHumanSeats": int(row[2]),
+            "citizensOnline": int(row[3]),
+        }
 
     def active_for_user(self, user_id: str) -> tuple[SessionRecord, SeatRecord] | None:
         with self._pool.connection() as connection:
@@ -950,6 +1508,134 @@ class PostgresLobbyRepository:
             ).fetchone()
             if row is None:
                 raise SeatUnavailable(f"seat {player_id} is unavailable")
+
+    def touch_seat(self, session_id: str, player_id: int, *, now: float) -> None:
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            row = connection.execute(  # type: ignore[attr-defined]
+                """
+                update server_seats
+                   set last_seen_at = to_timestamp(%s),
+                       autopilot = case when abandoned then autopilot else false end
+                 where session_id = %s::uuid and player_id = %s and occupied
+                returning player_id
+                """,
+                (now, session_id, player_id),
+            ).fetchone()
+            if row is None:
+                raise SeatUnavailable(f"seat {player_id} is unavailable")
+
+    def set_turn_deadline(
+        self,
+        session_id: str,
+        player_id: int | None,
+        *,
+        deadline_at: float | None,
+        now: float,
+    ) -> None:
+        if (player_id is None) != (deadline_at is None):
+            raise ValueError(
+                "player_id and deadline_at must both be set or both be null"
+            )
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            connection.execute(  # type: ignore[attr-defined]
+                """
+                update server_sessions
+                   set turn_player_id = %s,
+                       turn_deadline_at = case when %s is null then null else to_timestamp(%s) end,
+                       updated_at = to_timestamp(%s), scheduler_claim_owner = null,
+                       scheduler_claim_until = null
+                 where session_id = %s::uuid
+                """,
+                (player_id, deadline_at, deadline_at, now, session_id),
+            )
+
+    def turn_state(self, session_id: str) -> tuple[int | None, float | None]:
+        with self._pool.connection() as connection:
+            row = connection.execute(  # type: ignore[attr-defined]
+                """
+                select turn_player_id, extract(epoch from turn_deadline_at)
+                  from server_sessions where session_id = %s::uuid
+                """,
+                (session_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(session_id)
+        return (
+            int(row[0]) if row[0] is not None else None,
+            float(row[1]) if row[1] is not None else None,
+        )
+
+    def claim_due_turns(
+        self, *, owner: str, now: float, lease_seconds: float, limit: int
+    ) -> list[DueTurn]:
+        if not owner or lease_seconds <= 0 or limit <= 0:
+            raise ValueError("owner, lease_seconds, and limit must be positive")
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            rows = connection.execute(  # type: ignore[attr-defined]
+                """
+                with due as (
+                    select session_id
+                      from server_sessions
+                     where status = 'active' and turn_deadline_at <= to_timestamp(%s)
+                       and (scheduler_claim_until is null
+                            or scheduler_claim_until <= to_timestamp(%s))
+                     order by turn_deadline_at, session_id
+                     for update skip locked limit %s
+                )
+                update server_sessions sessions
+                   set scheduler_claim_owner = %s,
+                       scheduler_claim_until = to_timestamp(%s) + (%s * interval '1 second'),
+                       scheduler_fencing_token = scheduler_fencing_token + 1
+                  from due where sessions.session_id = due.session_id
+                returning sessions.session_id::text, sessions.turn_player_id,
+                          extract(epoch from sessions.turn_deadline_at),
+                          sessions.scheduler_fencing_token
+                """,
+                (now, now, limit, owner, now, lease_seconds),
+            ).fetchall()
+        return [
+            DueTurn(str(row[0]), int(row[1]), float(row[2]), owner, int(row[3]))
+            for row in rows
+        ]
+
+    def consume_timeout(self, claim: DueTurn, *, now: float) -> TimeoutResult:
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            valid = connection.execute(  # type: ignore[attr-defined]
+                """
+                update server_sessions
+                   set turn_player_id = null, turn_deadline_at = null,
+                       scheduler_claim_owner = null, scheduler_claim_until = null,
+                       updated_at = to_timestamp(%s)
+                 where session_id = %s::uuid and turn_player_id = %s
+                   and turn_deadline_at <= to_timestamp(%s)
+                   and scheduler_claim_owner = %s and scheduler_fencing_token = %s
+                returning session_id
+                """,
+                (
+                    now,
+                    claim.session_id,
+                    claim.player_id,
+                    now,
+                    claim.claim_owner,
+                    claim.fencing_token,
+                ),
+            ).fetchone()
+            if valid is None:
+                raise SeatUnavailable("stale timeout claim")
+            seat = connection.execute(  # type: ignore[attr-defined]
+                """
+                update server_seats
+                   set timeouts = timeouts + 1,
+                       autopilot = case when timeouts + 1 >= 2 then true else autopilot end,
+                       abandoned = case when timeouts + 1 >= 2 then true else abandoned end
+                 where session_id = %s::uuid and player_id = %s and occupied
+                returning timeouts, autopilot
+                """,
+                (claim.session_id, claim.player_id),
+            ).fetchone()
+            if seat is None:
+                raise SeatUnavailable("timeout seat unavailable")
+            return TimeoutResult(int(seat[0]), bool(seat[1]))
 
     @staticmethod
     def new_session(

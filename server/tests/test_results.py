@@ -153,7 +153,7 @@ class ResultsRepositoryTests(unittest.TestCase):
         statements = "\n".join(sql for sql, _ in cursor.executions)
         self.assertIn("abandoned = true", statements)
         self.assertIn("online_abandon_strikes = online_abandon_strikes + 1", statements)
-        self.assertIn("insert into public.game_updates", statements)
+        self.assertIn("insert into server_session_updates", statements)
 
 
 if __name__ == "__main__":

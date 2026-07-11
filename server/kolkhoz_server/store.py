@@ -24,10 +24,23 @@ class GameNotFound(KeyError):
     pass
 
 
+class LeaseLost(RuntimeError):
+    pass
+
+
 class EventStore(Protocol):
     def create_game(
-        self, session_id: str, seed: int, variants: JsonObject
+        self,
+        session_id: str,
+        seed: int,
+        variants: JsonObject,
+        *,
+        command_id: str | None = None,
+        fencing_token: int | None = None,
+        command_result: JsonObject | None = None,
     ) -> GameRecord: ...
+
+    def command_receipt(self, command_id: str) -> JsonObject | None: ...
 
     def game(self, session_id: str) -> GameRecord: ...
 
@@ -42,9 +55,30 @@ class EventStore(Protocol):
         expected_revision: int,
         kind: str,
         payload: JsonObject,
+        fencing_token: int | None = None,
+        command_id: str | None = None,
+        command_result: JsonObject | None = None,
     ) -> StoredEvent: ...
 
-    def delete_game(self, session_id: str) -> None: ...
+    def delete_game(
+        self,
+        session_id: str,
+        *,
+        command_id: str | None = None,
+        fencing_token: int | None = None,
+        command_result: JsonObject | None = None,
+    ) -> None: ...
+
+    def set_controller_override(
+        self,
+        session_id: str,
+        player_id: int,
+        controller: str,
+        *,
+        fencing_token: int | None = None,
+        command_id: str | None = None,
+        command_result: JsonObject | None = None,
+    ) -> None: ...
 
     def close(self) -> None: ...
 
@@ -111,6 +145,14 @@ create table if not exists game_events (
     created_at real not null,
     primary key (session_id, revision)
 );
+
+create table if not exists game_command_receipts (
+    command_id text primary key,
+    session_id text not null,
+    fencing_token integer not null,
+    result_json text not null,
+    completed_at real not null
+);
 """
 
 
@@ -142,7 +184,14 @@ class SQLiteEventStore:
         return connection
 
     def create_game(
-        self, session_id: str, seed: int, variants: JsonObject
+        self,
+        session_id: str,
+        seed: int,
+        variants: JsonObject,
+        *,
+        command_id: str | None = None,
+        fencing_token: int | None = None,
+        command_result: JsonObject | None = None,
     ) -> GameRecord:
         now = time.time()
         with closing(self._connect()) as connection, connection:
@@ -150,7 +199,18 @@ class SQLiteEventStore:
                 "insert into games values (?, ?, ?, 0, ?, ?)",
                 (session_id, seed, json.dumps(variants, sort_keys=True), now, now),
             )
+            self._insert_sqlite_receipt(
+                connection, command_id, session_id, fencing_token, command_result, now
+            )
         return GameRecord(session_id, seed, dict(variants), 0)
+
+    def command_receipt(self, command_id: str) -> JsonObject | None:
+        with closing(self._connect()) as connection:
+            row = connection.execute(
+                "select result_json from game_command_receipts where command_id = ?",
+                (command_id,),
+            ).fetchone()
+        return json.loads(str(row["result_json"])) if row is not None else None
 
     def game(self, session_id: str) -> GameRecord:
         with closing(self._connect()) as connection:
@@ -196,6 +256,9 @@ class SQLiteEventStore:
         expected_revision: int,
         kind: str,
         payload: JsonObject,
+        fencing_token: int | None = None,
+        command_id: str | None = None,
+        command_result: JsonObject | None = None,
     ) -> StoredEvent:
         now = time.time()
         connection = self._connect()
@@ -221,6 +284,14 @@ class SQLiteEventStore:
                 "insert into game_events values (?, ?, ?, ?, ?)",
                 (session_id, revision, kind, json.dumps(payload, sort_keys=True), now),
             )
+            self._insert_sqlite_receipt(
+                connection,
+                command_id,
+                session_id,
+                fencing_token,
+                command_result,
+                now,
+            )
             connection.commit()
         except Exception:
             connection.rollback()
@@ -232,9 +303,92 @@ class SQLiteEventStore:
     def close(self) -> None:
         pass
 
-    def delete_game(self, session_id: str) -> None:
+    def delete_game(
+        self,
+        session_id: str,
+        *,
+        command_id: str | None = None,
+        fencing_token: int | None = None,
+        command_result: JsonObject | None = None,
+    ) -> None:
         with closing(self._connect()) as connection, connection:
             connection.execute("delete from games where session_id = ?", (session_id,))
+            self._insert_sqlite_receipt(
+                connection,
+                command_id,
+                session_id,
+                fencing_token,
+                command_result,
+                time.time(),
+            )
+
+    def set_controller_override(
+        self,
+        session_id: str,
+        player_id: int,
+        controller: str,
+        *,
+        fencing_token: int | None = None,
+        command_id: str | None = None,
+        command_result: JsonObject | None = None,
+    ) -> None:
+        connection = self._connect()
+        try:
+            connection.execute("begin immediate")
+            row = connection.execute(
+                "select variants_json from games where session_id = ?",
+                (session_id,),
+            ).fetchone()
+            if row is None:
+                raise GameNotFound(session_id)
+            variants = json.loads(str(row["variants_json"]))
+            controllers = list(variants.get("controllers") or ("human",) * 4)
+            if not 0 <= player_id < len(controllers):
+                raise ValueError("invalid player ID")
+            controllers[player_id] = controller
+            variants["controllers"] = controllers
+            connection.execute(
+                "update games set variants_json = ?, updated_at = ? where session_id = ?",
+                (json.dumps(variants, sort_keys=True), time.time(), session_id),
+            )
+            self._insert_sqlite_receipt(
+                connection,
+                command_id,
+                session_id,
+                fencing_token,
+                command_result,
+                time.time(),
+            )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    @staticmethod
+    def _insert_sqlite_receipt(
+        connection: sqlite3.Connection,
+        command_id: str | None,
+        session_id: str,
+        fencing_token: int | None,
+        command_result: JsonObject | None,
+        completed_at: float,
+    ) -> None:
+        if command_id is None:
+            return
+        if fencing_token is None or command_result is None:
+            raise ValueError("command receipt requires fencing token and result")
+        connection.execute(
+            "insert into game_command_receipts values (?, ?, ?, ?, ?)",
+            (
+                command_id,
+                session_id,
+                fencing_token,
+                json.dumps(command_result, sort_keys=True),
+                completed_at,
+            ),
+        )
 
 
 class PostgresEventStore:
@@ -280,7 +434,14 @@ class PostgresEventStore:
         self._owns_pool = True
 
     def create_game(
-        self, session_id: str, seed: int, variants: JsonObject
+        self,
+        session_id: str,
+        seed: int,
+        variants: JsonObject,
+        *,
+        command_id: str | None = None,
+        fencing_token: int | None = None,
+        command_result: JsonObject | None = None,
     ) -> GameRecord:
         with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
             connection.execute(  # type: ignore[attr-defined]
@@ -290,7 +451,18 @@ class PostgresEventStore:
                 """,
                 (session_id, seed, self._jsonb(variants)),
             )
+            self._insert_postgres_receipt(
+                connection, command_id, session_id, fencing_token, command_result
+            )
         return GameRecord(session_id, seed, dict(variants), 0)
+
+    def command_receipt(self, command_id: str) -> JsonObject | None:
+        with self._pool.connection() as connection:
+            row = connection.execute(  # type: ignore[attr-defined]
+                "select result_json from game_command_receipts where command_id = %s",
+                (command_id,),
+            ).fetchone()
+        return dict(row[0]) if row is not None else None
 
     def game(self, session_id: str) -> GameRecord:
         with self._pool.connection() as connection:
@@ -331,24 +503,44 @@ class PostgresEventStore:
         expected_revision: int,
         kind: str,
         payload: JsonObject,
+        fencing_token: int | None = None,
+        command_id: str | None = None,
+        command_result: JsonObject | None = None,
     ) -> StoredEvent:
         with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
             row = connection.execute(  # type: ignore[attr-defined]
                 """
                 update server_games
-                   set revision = revision + 1, updated_at = now()
+                   set revision = revision + 1,
+                       fencing_token = greatest(
+                           fencing_token, coalesce(%s, fencing_token)
+                       ),
+                       updated_at = now()
                  where session_id = %s::uuid and revision = %s
+                   and (%s is null or fencing_token <= %s)
                 returning revision, extract(epoch from updated_at)
                 """,
-                (session_id, expected_revision),
+                (
+                    fencing_token,
+                    session_id,
+                    expected_revision,
+                    fencing_token,
+                    fencing_token,
+                ),
             ).fetchone()
             if row is None:
                 current = connection.execute(  # type: ignore[attr-defined]
-                    "select revision from server_games where session_id = %s::uuid",
+                    "select revision, fencing_token from server_games where session_id = %s::uuid",
                     (session_id,),
                 ).fetchone()
                 if current is None:
                     raise GameNotFound(session_id)
+                if (
+                    int(current[0]) == expected_revision
+                    and fencing_token is not None
+                    and int(current[1]) > fencing_token
+                ):
+                    raise LeaseLost(f"stale fencing token for session {session_id}")
                 raise RevisionConflict(expected_revision, int(current[0]))
             revision, created_at = int(row[0]), float(row[1])
             connection.execute(  # type: ignore[attr-defined]
@@ -359,14 +551,102 @@ class PostgresEventStore:
                 """,
                 (session_id, revision, kind, self._jsonb(payload), created_at),
             )
+            self._insert_postgres_receipt(
+                connection, command_id, session_id, fencing_token, command_result
+            )
         return StoredEvent(session_id, revision, kind, dict(payload), created_at)
 
     def close(self) -> None:
         if self._owns_pool:
             self._pool.close()
 
-    def delete_game(self, session_id: str) -> None:
+    def delete_game(
+        self,
+        session_id: str,
+        *,
+        command_id: str | None = None,
+        fencing_token: int | None = None,
+        command_result: JsonObject | None = None,
+    ) -> None:
         with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
             connection.execute(  # type: ignore[attr-defined]
                 "delete from server_games where session_id = %s::uuid", (session_id,)
             )
+            self._insert_postgres_receipt(
+                connection, command_id, session_id, fencing_token, command_result
+            )
+
+    def set_controller_override(
+        self,
+        session_id: str,
+        player_id: int,
+        controller: str,
+        *,
+        fencing_token: int | None = None,
+        command_id: str | None = None,
+        command_result: JsonObject | None = None,
+    ) -> None:
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            row = connection.execute(  # type: ignore[attr-defined]
+                """
+                update server_games
+                   set variants = jsonb_set(
+                           variants,
+                           array['controllers', %s],
+                           to_jsonb(%s::text),
+                           false
+                       ),
+                       fencing_token = greatest(
+                           fencing_token, coalesce(%s, fencing_token)
+                       ),
+                       updated_at = now()
+                 where session_id = %s::uuid
+                   and (%s is null or fencing_token <= %s)
+                   and jsonb_typeof(variants->'controllers') = 'array'
+                   and jsonb_array_length(variants->'controllers') > %s
+                returning revision
+                """,
+                (
+                    str(player_id),
+                    controller,
+                    fencing_token,
+                    session_id,
+                    fencing_token,
+                    fencing_token,
+                    player_id,
+                ),
+            ).fetchone()
+            if row is None:
+                current = connection.execute(  # type: ignore[attr-defined]
+                    "select fencing_token from server_games where session_id = %s::uuid",
+                    (session_id,),
+                ).fetchone()
+                if current is None:
+                    raise GameNotFound(session_id)
+                if fencing_token is not None and int(current[0]) > fencing_token:
+                    raise LeaseLost(f"stale fencing token for session {session_id}")
+                raise ValueError("invalid player ID or missing controllers")
+            self._insert_postgres_receipt(
+                connection, command_id, session_id, fencing_token, command_result
+            )
+
+    def _insert_postgres_receipt(
+        self,
+        connection: object,
+        command_id: str | None,
+        session_id: str,
+        fencing_token: int | None,
+        command_result: JsonObject | None,
+    ) -> None:
+        if command_id is None:
+            return
+        if fencing_token is None or command_result is None:
+            raise ValueError("command receipt requires fencing token and result")
+        connection.execute(  # type: ignore[attr-defined]
+            """
+            insert into game_command_receipts
+                (command_id, session_id, fencing_token, result_json)
+            values (%s, %s, %s, %s)
+            """,
+            (command_id, session_id, fencing_token, self._jsonb(command_result)),
+        )

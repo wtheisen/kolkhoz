@@ -1,56 +1,109 @@
-# Kolkhoz Greenfield Server
+# Kolkhoz greenfield server
 
-This directory is an isolated implementation of the server shape intended for
-large concurrent populations. It does not import or wrap the legacy
-`online_server.py` or `online_store.py` runtime.
+This directory is the independent replacement for the legacy
+`research/kolkhoz_research/online_server.py` runtime. It preserves the Flutter-facing
+online API while replacing process-wide game locking with partitioned, single-owner
+execution. The authoritative game rules remain in the C engine.
 
-The hot path has four boundaries:
+The design target includes 10K, 100K, and eventually 1M concurrent connections. Those
+figures are capacity goals, not measured production results; see `PARITY_GAPS.md` and
+`tools/README.md` for the current evidence boundary.
 
-1. `gateway.py` accepts transport requests and contains no game rules.
-2. `runtime.py` hashes each session to one worker shard. A shard is a
-   single-threaded mailbox, so commands for one game are ordered without locks.
-3. `engine.py` adapts the authoritative C engine. An engine instance is owned by
-   one shard and can be rebuilt by replaying durable actions.
-4. `store.py` commits actions with an expected revision. Process memory is a
-   cache; SQLite is used for the executable vertical slice, while the contract
-   is deliberately compatible with a pooled PostgreSQL implementation.
+## Request and state flow
 
-`events.py` is the realtime boundary. Gateways subscribe to committed session
-events and can expose them through WebSockets or another push transport without
-coupling connections to game workers.
+1. `asgi.py` accepts compatibility HTTP requests and authenticated session WebSockets.
+2. `api.py` applies route/auth/session contracts without owning game rules.
+3. `runtime.py` hashes a session to a bounded, single-threaded mailbox. Commands for one
+   game are ordered; unrelated shards run concurrently.
+4. `engine.py` owns one authoritative C-engine instance per loaded game. Process memory
+   is a disposable cache rebuilt from `store.py`'s revisioned event log.
+5. PostgreSQL expected-revision writes and `distributed.py` lease fencing reject stale
+   owners. `events.py` publishes only committed revisions.
+6. Redis Pub/Sub wakes WebSocket gateways. `distributed.py` multiplexes subscriptions
+   through one reader per gateway and bounds each connection buffer; reconnects catch up
+   from durable revisions rather than trusting lossy Pub/Sub.
 
-## Run
+Incremental animation catch-up does not require a sticky gateway. For gaps within the
+32-action retention contract, any gateway deterministically replays the durable event
+log and applies its local viewer-specific projector after each requested revision. This
+keeps private snapshots isolated by viewer. Older gaps return one current full resync;
+the cache window and response size therefore remain bounded. This is deterministic
+replay, not a claim that long histories have constant replay cost; durable engine
+snapshots are a future optimization if game histories grow materially.
+
+`commands.py` implements the intended cross-host Redis Streams command plane, including
+partitioning, backpressure, retry, failover claim, result deduplication, and dead-letter
+handling. It is tested but is **not yet wired into `production.py`**, so production HTTP
+mutations still execute in the gateway's local runtime and rely on PostgreSQL leases.
+That is a retirement blocker, documented in `PARITY_GAPS.md`.
+
+## File layout
+
+| Path | Responsibility |
+|---|---|
+| `kolkhoz_server/asgi.py` | Production HTTP, WebSocket, CORS, reconnect/catch-up transport |
+| `kolkhoz_server/gateway.py` | Small threaded SQLite development/test gateway |
+| `kolkhoz_server/api.py`, `routes.py` | Flutter-compatible route dispatch and response contracts |
+| `kolkhoz_server/runtime.py`, `session.py` | Partitioned session ownership, bounded mailboxes, lifecycle model |
+| `kolkhoz_server/engine.py`, `contracts.py` | C-engine adapter, legal actions, privacy-safe projections |
+| `kolkhoz_server/store.py` | SQLite reference store, pooled PostgreSQL event store, revision CAS |
+| `kolkhoz_server/lobby.py`, `social.py`, `results.py` | Durable session/seat, profile/social, rating/progression read models |
+| `kolkhoz_server/distributed.py`, `events.py` | PostgreSQL leases/fencing, Redis realtime multiplexer, bounded buffers |
+| `kolkhoz_server/commands.py` | Redis Streams cross-host command transport primitives |
+| `kolkhoz_server/ai.py` | Heuristic/policy automatic turns and shared model cache |
+| `kolkhoz_server/matchmaking.py`, `population.py` | Indexed matchmaking and independently leased bot-lobby population |
+| `kolkhoz_server/scheduler.py` | Indexed, lease-claimed turn deadlines and timeout/autopilot processing |
+| `kolkhoz_server/production.py` | PostgreSQL/Redis composition and ASGI process lifecycle |
+| `*_schema.sql` | Event, lobby, lease, command, and population PostgreSQL schemas |
+| `deploy/` | Uvicorn/systemd environment, dependencies, and deployment guide |
+| `tools/` | Disposable PostgreSQL schema smoke test and scale/failure harness |
+| `tests/` | Contracts, real C replay, concurrency, chaos, transport, and parity tests |
+
+## Run locally
+
+The development gateway uses SQLite and legacy `/games` vertical-slice routes. It is
+not the production compatibility transport:
+
+```bash
+python3 -m server.kolkhoz_server.gateway \
+  --database /tmp/kolkhoz-server.sqlite3
+```
+
+Production is intended to use PostgreSQL, Redis, Supabase auth, all schemas, and
+Uvicorn. Follow `deploy/README.md`; the process entry point is:
+
+```bash
+python3 -m server.kolkhoz_server.production
+```
+
+Until the fail-closed auth startup gap in `PARITY_GAPS.md` is fixed, operators must set
+both `KOLKHOZ_SUPABASE_URL` and `KOLKHOZ_SUPABASE_PUBLISHABLE_KEY`; omitting them
+disables the verifier instead of refusing startup.
+
+The production WebSocket endpoint is:
+
+```text
+/sessions/{sessionID}/realtime?viewerID={playerID}&afterRevision={revision}
+```
+
+It requires bearer and seat-token headers. Slow/overflowing clients are closed and
+must reconnect with their last applied revision.
+
+## Verify
 
 From the repository root:
 
 ```bash
-python3 -m server.kolkhoz_server.gateway --database /tmp/kolkhoz-server.sqlite3
+ruff check server
+python3 -m unittest discover -s server/tests -q
+pytest -q server/tests
+server/tools/postgres_smoke.sh
+python3 -m server.tools.scale_harness \
+  --players 10000 --operations 1000 --concurrency 64
 ```
 
-Create and inspect a game:
-
-```bash
-curl -s -X POST http://127.0.0.1:8790/games \
-  -H 'content-type: application/json' \
-  -d '{"seed":42}'
-
-curl -s http://127.0.0.1:8790/games/GAME_ID
-```
-
-The action endpoint accepts the existing portable engine action JSON plus the
-client's expected revision:
-
-```text
-POST /games/{session_id}/actions
-{"expectedRevision": 0, "action": {...}}
-```
-
-## Verify
-
-```bash
-python3 -m unittest discover -s server/tests -v
-```
-
-The tests prove ordering within a game, concurrency across shards, optimistic
-revision conflicts, event delivery, and recovery by action replay after a
-runtime restart.
+The Python suites exercise route contracts, per-session ordering, concurrent shards,
+revision conflicts, lease fencing/takeover, bounded overload, viewer-safe incremental
+updates, Redis fanout behavior, deadline/population claims, command redelivery/DLQ, and
+real C-engine replay. The PostgreSQL smoke and scale harness have narrower scopes
+described in their own READMEs; passing them is not a 100K/1M production certification.

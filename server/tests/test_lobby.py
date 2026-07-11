@@ -4,7 +4,7 @@ import tempfile
 import threading
 import time
 import unittest
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from pathlib import Path
 
 from server.kolkhoz_server.lobby import (
@@ -123,12 +123,105 @@ class LobbyRepositoryTests(unittest.TestCase):
         self.repository.mark_presence("user-2", now=200)
         self.assertEqual(self.repository.online_user_ids(since=150), {"user-2"})
 
+    def test_fresh_device_lease_blocks_takeover_but_stale_lease_expires(self) -> None:
+        record = self.make_session()
+        self.assertTrue(
+            self.repository.acquire_device_lease(
+                "host", "phone", record.session_id, now=100, ttl_seconds=60
+            )
+        )
+        self.assertFalse(
+            self.repository.acquire_device_lease(
+                "host", "tablet", record.session_id, now=159, ttl_seconds=60
+            )
+        )
+        self.assertTrue(
+            self.repository.acquire_device_lease(
+                "host", "tablet", record.session_id, now=161, ttl_seconds=60
+            )
+        )
+
+    def test_concurrent_device_takeover_has_exactly_one_winner(self) -> None:
+        record = self.make_session()
+        barrier = threading.Barrier(3)
+        outcomes: list[bool] = []
+
+        def acquire(device_id: str) -> None:
+            barrier.wait()
+            outcomes.append(
+                self.repository.acquire_device_lease(
+                    "host", device_id, record.session_id, now=100, ttl_seconds=60
+                )
+            )
+
+        threads = [
+            threading.Thread(target=acquire, args=(value,)) for value in ("a", "b")
+        ]
+        for thread in threads:
+            thread.start()
+        barrier.wait()
+        for thread in threads:
+            thread.join()
+        self.assertCountEqual(outcomes, [True, False])
+
     def test_invite_decline_is_durable(self) -> None:
         record = self.make_session()
         self.repository.invite(record.session_id, {"guest"}, now=time.time())
         self.assertEqual(len(self.repository.invites_for_user("guest")), 1)
         self.repository.decline_invite(record.session_id, "guest")
         self.assertEqual(self.repository.invites_for_user("guest"), [])
+
+    def test_last_seat_release_deletes_lobby_in_same_transaction(self) -> None:
+        record = self.make_session()
+        self.repository.occupy_seat(
+            record.session_id,
+            0,
+            user_id="host",
+            token_hash="token",
+            now=100,
+        )
+
+        deleted = self.repository.release_seat_and_delete_if_empty(
+            record.session_id, 0, now=101
+        )
+
+        self.assertTrue(deleted)
+        with self.assertRaises(KeyError):
+            self.repository.session(record.session_id)
+        self.assertEqual(self.repository.seats(record.session_id), [])
+
+    def test_kick_rolls_back_seat_release_when_metadata_update_fails(self) -> None:
+        record = self.make_session()
+        self.repository.occupy_seat(
+            record.session_id,
+            0,
+            user_id="host",
+            token_hash="host-token",
+            now=100,
+        )
+        self.repository.occupy_seat(
+            record.session_id,
+            1,
+            user_id="guest",
+            token_hash="guest-token",
+            now=100,
+        )
+        with closing(self.repository._connect()) as connection, connection:
+            connection.execute(
+                """
+                create trigger fail_lifecycle_update before update on server_sessions
+                begin select raise(abort, 'injected failure'); end
+                """
+            )
+
+        with self.assertRaisesRegex(Exception, "injected failure"):
+            self.repository.kick_seat(
+                record.session_id, 1, host_user_id="host", now=101
+            )
+
+        guest = self.repository.seats(record.session_id)[1]
+        self.assertTrue(guest.occupied)
+        self.assertEqual(guest.user_id, "guest")
 
 
 class PostgresLobbyRepositoryTests(unittest.TestCase):
@@ -168,6 +261,22 @@ class PostgresLobbyRepositoryTests(unittest.TestCase):
                 token_hash="hash",
                 now=123.0,
             )
+
+    def test_device_lease_serializes_by_user_and_rejects_fresh_conflict(self) -> None:
+        connection = FakeConnection([FakeResult(), FakeResult(row=(1,))])
+        repository = self.repository(connection)
+
+        acquired = repository.acquire_device_lease(
+            "user-1",
+            "tablet",
+            "00000000-0000-0000-0000-000000000001",
+            now=123,
+            ttl_seconds=60,
+        )
+
+        self.assertFalse(acquired)
+        self.assertIn("pg_advisory_xact_lock", connection.executions[0][0])
+        self.assertIn("device_id <>", connection.executions[1][0])
 
     def test_reaction_revision_uses_atomic_session_counter(self) -> None:
         connection = FakeConnection([FakeResult(row=(7,)), FakeResult()])
@@ -211,3 +320,22 @@ class PostgresLobbyRepositoryTests(unittest.TestCase):
         self.assertEqual(records[0].variants, {"wrecker": True})
         listing_sql, _ = connection.executions[0]
         self.assertIn("exists ( select 1 from server_seats", listing_sql)
+
+    def test_kick_is_conditioned_on_open_session_and_host_in_one_statement(
+        self,
+    ) -> None:
+        connection = FakeConnection([FakeResult(row=(1,)), FakeResult()])
+        repository = self.repository(connection)
+
+        repository.kick_seat(
+            "00000000-0000-0000-0000-000000000001",
+            1,
+            host_user_id="host",
+            now=123,
+        )
+
+        kick_sql, parameters = connection.executions[0]
+        self.assertIn("from server_sessions sessions", kick_sql)
+        self.assertIn("sessions.status = 'open'", kick_sql)
+        self.assertIn("sessions.created_by_user_id = %s", kick_sql)
+        self.assertEqual(parameters[-1], "host")
