@@ -66,6 +66,7 @@ if [ ! -e "$ROOT" ]; then git clone --filter=blob:none "$repo" "$ROOT"; fi
 git -C "$ROOT" fetch --tags --prune origin
 git -C "$ROOT" checkout --detach "$ref"
 test "$(git -C "$ROOT" rev-parse HEAD)" = "$(git -C "$ROOT" rev-parse "$ref^{commit}")"
+cd "$ROOT"
 python3 -m venv "$ROOT/.venv"
 "$ROOT/.venv/bin/pip" install --disable-pip-version-check -r "$ROOT/server/deploy/requirements.txt"
 "$ROOT/.venv/bin/python" -c 'from research.kolkhoz_research.c_engine import CEngine; CEngine()'

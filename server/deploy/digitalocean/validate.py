@@ -11,6 +11,9 @@ assert "LIVE_ROOT=/opt/kolkhoz\n" in bootstrap
 assert "KOLKHOZ_ONLINE_DATABASE_URL" in bootstrap
 assert bootstrap.count("_schema.sql") == 5
 assert "--apply" in bootstrap and "DRY RUN:" in bootstrap
+assert bootstrap.index('cd "$ROOT"') < bootstrap.index(
+    "from research.kolkhoz_research.c_engine"
+)
 assert "MemAvailable:" in bootstrap and "358400" in bootstrap
 assert "2097152" in bootstrap
 assert "redis_was_installed" in bootstrap

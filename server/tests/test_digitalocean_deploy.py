@@ -38,3 +38,6 @@ def test_bootstrap_requires_explicit_apply_for_mutations() -> None:
     assert '. "$env_file"' not in source
     assert source.index('psql "$database_url"') < source.index("unset database_url")
     assert "redis_was_installed" in source
+    assert source.index('cd "$ROOT"') < source.index(
+        "from research.kolkhoz_research.c_engine"
+    )
