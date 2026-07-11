@@ -92,6 +92,9 @@ class LiveGameStore extends ChangeNotifier {
     Future<KolkhozNativePolicyModel>? neuralPolicyLoader,
     this.onlineAccessTokenProvider,
     this.onlineDeviceID,
+    this.onlineHttpClient,
+    this.onlineWebSocketConnector,
+    this.onlineRealtimeReconnectDelay = const Duration(seconds: 1),
     this.autosaveEnabled = true,
   }) : bridge = bridge ?? KolkhozCEngineBridge(),
        _autosaveStore = autosaveStore ?? KolkhozAutosaveStore.defaultStore(),
@@ -119,6 +122,9 @@ class LiveGameStore extends ChangeNotifier {
   Future<KolkhozNativePolicyModel>? _neuralPolicyLoader;
   final Future<String?> Function()? onlineAccessTokenProvider;
   final String? onlineDeviceID;
+  final HttpClient? onlineHttpClient;
+  final OnlineWebSocketConnector? onlineWebSocketConnector;
+  final Duration onlineRealtimeReconnectDelay;
   final bool autosaveEnabled;
 
   DesignTokens tokens = defaultDesignTokens;
@@ -357,6 +363,8 @@ class LiveGameStore extends ChangeNotifier {
     try {
       final client = KolkhozOnlineClient(
         baseURL,
+        httpClient: onlineHttpClient,
+        webSocketConnector: onlineWebSocketConnector,
         accessTokenProvider: onlineAccessTokenProvider,
         deviceID: onlineDeviceID,
       );
@@ -393,6 +401,8 @@ class LiveGameStore extends ChangeNotifier {
     try {
       final client = KolkhozOnlineClient(
         baseURL,
+        httpClient: onlineHttpClient,
+        webSocketConnector: onlineWebSocketConnector,
         accessTokenProvider: onlineAccessTokenProvider,
         deviceID: onlineDeviceID,
       );
@@ -423,6 +433,8 @@ class LiveGameStore extends ChangeNotifier {
     try {
       final client = KolkhozOnlineClient(
         baseURL,
+        httpClient: onlineHttpClient,
+        webSocketConnector: onlineWebSocketConnector,
         accessTokenProvider: onlineAccessTokenProvider,
         deviceID: onlineDeviceID,
       );
@@ -453,6 +465,8 @@ class LiveGameStore extends ChangeNotifier {
   Future<void> syncActiveOnlineGame({required Uri baseURL}) async {
     final client = KolkhozOnlineClient(
       baseURL,
+      httpClient: onlineHttpClient,
+      webSocketConnector: onlineWebSocketConnector,
       accessTokenProvider: onlineAccessTokenProvider,
       deviceID: onlineDeviceID,
     );
@@ -985,9 +999,12 @@ class LiveGameStore extends ChangeNotifier {
         online.realtimeReconnectTimer != null) {
       return;
     }
+    final wasConnected = online.realtimeSocket != null;
     online.realtimeSocket = null;
-    _startOnlinePolling();
-    online.realtimeReconnectTimer = Timer(const Duration(seconds: 1), () {
+    if (wasConnected) {
+      _startOnlinePolling();
+    }
+    online.realtimeReconnectTimer = Timer(onlineRealtimeReconnectDelay, () {
       online.realtimeReconnectTimer = null;
       if (!_disposed &&
           identical(_online, online) &&

@@ -2134,6 +2134,100 @@ void registerStoreAndOnlineTests() {
     expect(newestOnlineRevision(5, null), isNull);
   });
 
+  test(
+    'realtime reconnect resumes after the latest accepted revision',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      final requestedUris = <Uri>[];
+      final reconnected = Completer<void>();
+      final openSockets = <WebSocket>[];
+      var connectionCount = 0;
+      server.listen((request) async {
+        final socket = await WebSocketTransformer.upgrade(request);
+        openSockets.add(socket);
+        connectionCount += 1;
+        if (connectionCount == 1) {
+          for (final revision in [4, 2, 4]) {
+            socket.add(
+              jsonEncode({
+                'type': 'state',
+                'update': onlineUpdateJson()..['actionLogCount'] = revision,
+              }),
+            );
+          }
+          await socket.close();
+        } else if (!reconnected.isCompleted) {
+          reconnected.complete();
+        }
+      });
+      addTearDown(() async {
+        for (final socket in openSockets) {
+          await socket.close();
+        }
+      });
+      final store = LiveGameStore(
+        autosaveEnabled: false,
+        onlineAccessTokenProvider: () async => 'access-token',
+        onlineHttpClient: FakeOnlineHttpClient(),
+        onlineRealtimeReconnectDelay: Duration.zero,
+        onlineWebSocketConnector: (uri, headers) {
+          requestedUris.add(uri);
+          return WebSocket.connect(
+            'ws://${server.address.address}:${server.port}',
+            headers: headers,
+          );
+        },
+      );
+      addTearDown(store.dispose);
+
+      await store.hostOnlineGame(
+        baseURL: Uri.parse('http://online.example'),
+        variants: KolkhozGameVariants.kolkhoz,
+        controllers: KolkhozPlayerController.defaultControllers,
+        ranked: false,
+        browserJoinable: false,
+      );
+      await reconnected.future.timeout(const Duration(seconds: 2));
+
+      expect(store.onlineUpdate!.actionLogCount, 4);
+      expect(requestedUris, hasLength(greaterThanOrEqualTo(2)));
+      expect(requestedUris[0].queryParameters['afterRevision'], '0');
+      expect(requestedUris[1].queryParameters['afterRevision'], '4');
+    },
+  );
+
+  test('disconnected realtime keeps durable polling active', () async {
+    final httpClient = FakeOnlineHttpClient();
+    final store = LiveGameStore(
+      autosaveEnabled: false,
+      onlineAccessTokenProvider: () async => 'access-token',
+      onlineHttpClient: httpClient,
+      onlineRealtimeReconnectDelay: const Duration(milliseconds: 50),
+      onlineWebSocketConnector: (_, _) async =>
+          throw const SocketException('offline'),
+    );
+    addTearDown(store.dispose);
+
+    await store.hostOnlineGame(
+      baseURL: Uri.parse('http://online.example'),
+      variants: KolkhozGameVariants.kolkhoz,
+      controllers: KolkhozPlayerController.defaultControllers,
+      ranked: false,
+      browserJoinable: false,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 1150));
+
+    expect(
+      httpClient.requests.where(
+        (request) =>
+            request.route ==
+            'GET /sessions/11111111-1111-1111-1111-111111111111/actions',
+      ),
+      isNotEmpty,
+    );
+  });
+
   test('greenfield realtime URI preserves the durable revision cursor', () {
     final secure = KolkhozOnlineClient(
       Uri.parse('https://online.kolkhoz.example/api/'),

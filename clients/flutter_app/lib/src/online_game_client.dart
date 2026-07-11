@@ -6,18 +6,29 @@ import 'online_game_models.dart';
 import 'render_model.dart';
 import 'saved_game_store.dart';
 
+typedef OnlineWebSocketConnector =
+    Future<WebSocket> Function(Uri uri, Map<String, dynamic> headers);
+
 class KolkhozOnlineClient {
   KolkhozOnlineClient(
     this.baseURL, {
     HttpClient? httpClient,
+    OnlineWebSocketConnector? webSocketConnector,
     this.accessTokenProvider,
     this.deviceID,
-  }) : _httpClient = httpClient ?? HttpClient();
+  }) : _httpClient = httpClient ?? HttpClient(),
+       _webSocketConnector = webSocketConnector ?? _connectWebSocket;
 
   final Uri baseURL;
   final Future<String?> Function()? accessTokenProvider;
   final String? deviceID;
   final HttpClient _httpClient;
+  final OnlineWebSocketConnector _webSocketConnector;
+
+  static Future<WebSocket> _connectWebSocket(
+    Uri uri,
+    Map<String, dynamic> headers,
+  ) => WebSocket.connect(uri.toString(), headers: headers);
 
   Future<List<OnlineSessionListing>> fetchSessions() async {
     final decoded = await _send(method: 'GET', path: 'sessions');
@@ -323,13 +334,13 @@ class KolkhozOnlineClient {
     if (accessToken == null || accessToken.isEmpty) {
       throw StateError('Online realtime requires an access token');
     }
-    return WebSocket.connect(
+    return _webSocketConnector(
       realtimeURI(
         sessionID: sessionID,
         playerID: playerID,
         afterRevision: afterRevision,
-      ).toString(),
-      headers: {
+      ),
+      {
         HttpHeaders.authorizationHeader: 'Bearer $accessToken',
         _seatTokenHeader: seatToken,
       },
