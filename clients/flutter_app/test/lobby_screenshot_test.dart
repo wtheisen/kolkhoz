@@ -5,6 +5,7 @@ import 'package:kolkhoz_app/src/app_settings.dart';
 import 'package:kolkhoz_app/src/c_engine_bridge.dart';
 import 'package:kolkhoz_app/src/kolkhoz_app.dart';
 import 'package:kolkhoz_app/src/online_game_models.dart';
+import 'package:kolkhoz_app/src/online_game_client.dart';
 import 'package:kolkhoz_app/src/pixel_text.dart';
 
 class _ScreenshotDevice {

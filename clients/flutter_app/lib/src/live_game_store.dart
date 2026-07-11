@@ -7,11 +7,13 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'animation_speed.dart';
+import 'assignment_display.dart';
 import 'c_engine_action_codec.dart';
 import 'c_engine_bridge.dart';
 import 'game_constants.dart';
 import 'game_ui_state.dart';
 import 'online_game_models.dart';
+import 'online_game_client.dart';
 import 'online_table_projection.dart';
 import 'policy_model.dart';
 import 'render_model.dart';
@@ -38,6 +40,50 @@ bool onlineActionMatches(OnlineEngineAction candidate, EngineAction action) {
       jsonEncode(OnlineEngineAction.fromEngineAction(action).toJson());
 }
 
+Duration onlineActionAnimationDelay({
+  required GameAnimationSpeed speed,
+  required OnlineEngineAction action,
+  required int viewerPlayerID,
+}) {
+  final scale = switch (action.kind) {
+    kcActionAssign => jobAssignmentCardFlightDurationScale,
+    kcActionContinueAfterRequisition => requisitionCardFlightDurationScale,
+    kcActionPlayCard when action.playerID != viewerPlayerID =>
+      playerInfoCardFlightDurationScale,
+    _ => 1.0,
+  };
+  final flight = scaledGameAnimationDuration(speed.cardFlightDuration, scale);
+  if (flight == Duration.zero) {
+    return Duration.zero;
+  }
+  return flight + const Duration(milliseconds: 80);
+}
+
+GameUiState autoSelectCards(GameUiState uiState, TableViewModel model) {
+  if (model.table.phase == phaseTrick) {
+    final plays = model.legalActions
+        .where((action) => action.kind == actionPlayCard)
+        .toList(growable: false);
+    if (plays.length == 1) {
+      final cardID = plays.single.engineAction.card?.id;
+      if (cardID != null && uiState.selection.handCardID != cardID) {
+        return uiState.copyWith(
+          selection: uiState.selection.copyWith(handCardID: cardID),
+        );
+      }
+    }
+    return uiState;
+  }
+  if (model.table.phase == phaseAssignment) {
+    final cards = assignmentControlCards(model);
+    if (cards.isNotEmpty &&
+        !cards.any((card) => card.id == uiState.selection.assignmentCardID)) {
+      return uiState.selectAssignmentCard(cards.last.id);
+    }
+  }
+  return uiState;
+}
+
 class LiveGameStore extends ChangeNotifier {
   LiveGameStore({
     KolkhozCEngineBridge? bridge,
@@ -47,6 +93,7 @@ class LiveGameStore extends ChangeNotifier {
     KolkhozNativePolicyModel? neuralPolicy,
     Future<KolkhozNativePolicyModel>? neuralPolicyLoader,
     this.onlineAccessTokenProvider,
+    this.onlineDeviceID,
     this.autosaveEnabled = true,
   }) : bridge = bridge ?? KolkhozCEngineBridge(),
        _autosaveStore = autosaveStore ?? KolkhozAutosaveStore.defaultStore(),
@@ -73,6 +120,7 @@ class LiveGameStore extends ChangeNotifier {
   KolkhozNativePolicyModel? _neuralPolicy;
   Future<KolkhozNativePolicyModel>? _neuralPolicyLoader;
   final Future<String?> Function()? onlineAccessTokenProvider;
+  final String? onlineDeviceID;
   final bool autosaveEnabled;
 
   DesignTokens tokens = defaultDesignTokens;
@@ -86,17 +134,6 @@ class LiveGameStore extends ChangeNotifier {
   List<EngineAction> actionLog = [];
   bool restoredSavedGame = false;
   OnlineGameRuntime? _online;
-  Timer? _onlineRefreshTimer;
-  RealtimeChannel? _onlineRealtimeChannel;
-  bool _onlineRealtimeRefreshInFlight = false;
-  bool _onlineRealtimeRefreshPending = false;
-  int? _pendingOnlineRealtimeRevision;
-  bool _onlineActionRefreshInFlight = false;
-  Timer? _onlineUpdateQueueTimer;
-  final List<OnlineActionUpdate> _onlineUpdateQueue = [];
-  Timer? _reactionFlashTimer;
-  OnlineReaction? _activeReaction;
-  bool _hasUnreadReactions = false;
   Timer? _automaticStepTimer;
   TableViewModel? model;
   Pointer<KCEngine>? _engine;
@@ -192,7 +229,7 @@ class LiveGameStore extends ChangeNotifier {
   void setActivePanel(String panel) {
     uiState = uiState.togglePanel(panel);
     if (panel == panelLog) {
-      _hasUnreadReactions = false;
+      _online?.hasUnreadReactions = false;
     }
     _sync();
   }
@@ -228,8 +265,8 @@ class LiveGameStore extends ChangeNotifier {
         ];
   List<OnlineReaction> get gameReactions =>
       List.unmodifiable(_online?.update.reactions ?? const []);
-  OnlineReaction? get activeReaction => _activeReaction;
-  bool get hasUnreadReactions => _hasUnreadReactions;
+  OnlineReaction? get activeReaction => _online?.activeReaction;
+  bool get hasUnreadReactions => _online?.hasUnreadReactions ?? false;
   bool get canSendReaction => _online?.update.started ?? false;
 
   Future<File> saveGameLog() async {
@@ -323,6 +360,7 @@ class LiveGameStore extends ChangeNotifier {
       final client = KolkhozOnlineClient(
         baseURL,
         accessTokenProvider: onlineAccessTokenProvider,
+        deviceID: onlineDeviceID,
       );
       final normalizedControllers = KolkhozPlayerController.normalized(
         controllers,
@@ -358,6 +396,7 @@ class LiveGameStore extends ChangeNotifier {
       final client = KolkhozOnlineClient(
         baseURL,
         accessTokenProvider: onlineAccessTokenProvider,
+        deviceID: onlineDeviceID,
       );
       final response = await client.joinSession(
         sessionID: inviteCode.trim(),
@@ -387,6 +426,7 @@ class LiveGameStore extends ChangeNotifier {
       final client = KolkhozOnlineClient(
         baseURL,
         accessTokenProvider: onlineAccessTokenProvider,
+        deviceID: onlineDeviceID,
       );
       final response = await client.matchmakeSession(
         rankedOnly: rankedOnly,
@@ -410,6 +450,23 @@ class LiveGameStore extends ChangeNotifier {
 
   Future<void> refreshOnlineGame() async {
     await _refreshOnlineGame();
+  }
+
+  Future<void> syncActiveOnlineGame({required Uri baseURL}) async {
+    final client = KolkhozOnlineClient(
+      baseURL,
+      accessTokenProvider: onlineAccessTokenProvider,
+      deviceID: onlineDeviceID,
+    );
+    final response = await client.syncActiveSession();
+    await _connectOnline(
+      client: client,
+      sessionID: response.sessionID,
+      inviteCode: response.inviteCode,
+      playerID: response.playerID,
+      seatToken: response.seatToken,
+      update: response.update,
+    );
   }
 
   Future<void> kickOnlinePlayer(int playerID) async {
@@ -444,7 +501,7 @@ class LiveGameStore extends ChangeNotifier {
         _knownOnlineRevision(online) >= minimumRevision) {
       return;
     }
-    if (_onlineActionRefreshInFlight) {
+    if (online.actionRefreshInFlight) {
       return;
     }
     try {
@@ -565,11 +622,14 @@ class LiveGameStore extends ChangeNotifier {
     }
     if (nextModel != null) {
       final phase = nextModel.table.phase;
-      final nextUiState = uiState.clearActivePanelAfterPhaseChange(
-        previousPhase: _lastSyncedPhase,
-        nextPhase: phase,
+      final nextUiState = autoSelectCards(
+        uiState.clearActivePanelAfterPhaseChange(
+          previousPhase: _lastSyncedPhase,
+          nextPhase: phase,
+        ),
+        nextModel,
       );
-      if (nextUiState.activePanel != uiState.activePanel) {
+      if (!identical(nextUiState, uiState)) {
         uiState = nextUiState;
         if (online != null) {
           nextModel = OnlineTableProjection(
@@ -620,8 +680,6 @@ class LiveGameStore extends ChangeNotifier {
       seatToken: seatToken,
       update: update,
     );
-    _activeReaction = null;
-    _hasUnreadReactions = false;
     currentVariants = update.variants;
     currentSeed = update.seed ?? currentSeed;
     controllers = update.controllers;
@@ -636,14 +694,7 @@ class LiveGameStore extends ChangeNotifier {
   }
 
   void _clearOnlineSession() {
-    _onlineRefreshTimer?.cancel();
-    _onlineRefreshTimer = null;
-    _clearOnlineUpdateQueue();
-    _clearOnlineRealtime();
-    _reactionFlashTimer?.cancel();
-    _reactionFlashTimer = null;
-    _activeReaction = null;
-    _hasUnreadReactions = false;
+    _online?.dispose();
     _online = null;
   }
 
@@ -851,8 +902,12 @@ class LiveGameStore extends ChangeNotifier {
   }
 
   void _startOnlinePolling({Duration interval = onlineGameRefreshInterval}) {
-    _onlineRefreshTimer?.cancel();
-    _onlineRefreshTimer = Timer.periodic(interval, (_) {
+    final online = _online;
+    if (online == null) {
+      return;
+    }
+    online.refreshTimer?.cancel();
+    online.refreshTimer = Timer.periodic(interval, (_) {
       unawaited(refreshOnlineGame());
     });
   }
@@ -880,7 +935,7 @@ class LiveGameStore extends ChangeNotifier {
       },
     );
     channel.subscribe((status, _) {
-      if (_onlineRealtimeChannel != channel) {
+      if (online.realtimeChannel != channel) {
         return;
       }
       _startOnlinePolling(
@@ -889,41 +944,33 @@ class LiveGameStore extends ChangeNotifier {
             : onlineGameRefreshInterval,
       );
     });
-    _onlineRealtimeChannel = channel;
+    online.realtimeChannel = channel;
   }
 
   Future<void> _refreshOnlineGameFromRealtime(int? revision) async {
-    if (_onlineRealtimeRefreshInFlight) {
-      _rememberPendingOnlineRealtimeRefresh(revision);
+    final online = _online;
+    if (online == null) {
       return;
     }
-    _onlineRealtimeRefreshInFlight = true;
+    if (online.realtimeRefreshInFlight) {
+      online.rememberPendingRealtimeRefresh(revision);
+      return;
+    }
+    online.realtimeRefreshInFlight = true;
     var targetRevision = revision;
     try {
-      while (!_disposed) {
+      while (!_disposed && identical(_online, online)) {
         await _refreshOnlineGame(minimumRevision: targetRevision);
-        if (!_onlineRealtimeRefreshPending) {
+        if (!online.realtimeRefreshPending) {
           break;
         }
-        targetRevision = _pendingOnlineRealtimeRevision;
-        _onlineRealtimeRefreshPending = false;
-        _pendingOnlineRealtimeRevision = null;
+        targetRevision = online.pendingRealtimeRevision;
+        online.realtimeRefreshPending = false;
+        online.pendingRealtimeRevision = null;
       }
     } finally {
-      _onlineRealtimeRefreshInFlight = false;
+      online.realtimeRefreshInFlight = false;
     }
-  }
-
-  void _rememberPendingOnlineRealtimeRefresh(int? revision) {
-    if (!_onlineRealtimeRefreshPending) {
-      _onlineRealtimeRefreshPending = true;
-      _pendingOnlineRealtimeRevision = revision;
-      return;
-    }
-    _pendingOnlineRealtimeRevision = newestOnlineRevision(
-      _pendingOnlineRealtimeRevision,
-      revision,
-    );
   }
 
   int? _revisionFromRealtimePayload(PostgresChangePayload payload) {
@@ -946,14 +993,7 @@ class LiveGameStore extends ChangeNotifier {
   }
 
   void _clearOnlineRealtime() {
-    final channel = _onlineRealtimeChannel;
-    _onlineRealtimeChannel = null;
-    _onlineRealtimeRefreshInFlight = false;
-    _onlineRealtimeRefreshPending = false;
-    _pendingOnlineRealtimeRevision = null;
-    if (channel != null) {
-      unawaited(KolkhozSupabaseRuntime.instance.client?.removeChannel(channel));
-    }
+    _online?.clearRealtimeChannel();
   }
 
   Future<void> _submitOnlineAction(
@@ -1022,10 +1062,10 @@ class LiveGameStore extends ChangeNotifier {
     OnlineGameRuntime online, {
     int? afterRevision,
   }) async {
-    if (_onlineActionRefreshInFlight) {
+    if (online.actionRefreshInFlight) {
       return false;
     }
-    _onlineActionRefreshInFlight = true;
+    online.actionRefreshInFlight = true;
     try {
       final response = await online.client.fetchActionUpdates(
         sessionID: online.sessionID,
@@ -1048,31 +1088,31 @@ class LiveGameStore extends ChangeNotifier {
       if (updates.isEmpty) {
         return false;
       }
-      _onlineUpdateQueue.addAll(updates);
+      online.updateQueue.addAll(updates);
       _drainNextOnlineUpdate();
       return true;
     } finally {
-      _onlineActionRefreshInFlight = false;
+      online.actionRefreshInFlight = false;
     }
   }
 
   int _knownOnlineRevision(OnlineGameRuntime online) {
-    if (_onlineUpdateQueue.isNotEmpty) {
-      return _onlineUpdateQueue.last.revision;
+    if (online.updateQueue.isNotEmpty) {
+      return online.updateQueue.last.revision;
     }
     return online.update.actionLogCount;
   }
 
   void _drainNextOnlineUpdate() {
     final online = _online;
-    if (online == null || _onlineUpdateQueueTimer != null) {
+    if (online == null || online.updateQueueTimer != null) {
       return;
     }
-    if (_onlineUpdateQueue.isEmpty) {
+    if (online.updateQueue.isEmpty) {
       return;
     }
-    final next = _onlineUpdateQueue.removeAt(0);
-    final hasPendingUpdates = _onlineUpdateQueue.isNotEmpty;
+    final next = online.updateQueue.removeAt(0);
+    final hasPendingUpdates = online.updateQueue.isNotEmpty;
     final update = hasPendingUpdates
         ? next.update.copyWith(legalActions: const [])
         : next.update;
@@ -1081,26 +1121,22 @@ class LiveGameStore extends ChangeNotifier {
     error = null;
     _sync();
     if (hasPendingUpdates) {
-      _onlineUpdateQueueTimer = Timer(_onlineQueueStepDelay, () {
-        _onlineUpdateQueueTimer = null;
-        _drainNextOnlineUpdate();
-      });
+      online.updateQueueTimer = Timer(
+        onlineActionAnimationDelay(
+          speed: animationSpeed,
+          action: next.action,
+          viewerPlayerID: online.playerID,
+        ),
+        () {
+          online.updateQueueTimer = null;
+          _drainNextOnlineUpdate();
+        },
+      );
     }
-  }
-
-  Duration get _onlineQueueStepDelay {
-    final flight = animationSpeed.cardFlightDuration;
-    if (flight == Duration.zero) {
-      return Duration.zero;
-    }
-    return flight + const Duration(milliseconds: 80);
   }
 
   void _clearOnlineUpdateQueue() {
-    _onlineUpdateQueueTimer?.cancel();
-    _onlineUpdateQueueTimer = null;
-    _onlineUpdateQueue.clear();
-    _onlineActionRefreshInFlight = false;
+    _online?.clearUpdateQueue();
   }
 
   void _acceptOnlineUpdate(
@@ -1120,15 +1156,15 @@ class LiveGameStore extends ChangeNotifier {
       return;
     }
     final latest = newRemoteReactions.last;
-    _activeReaction = latest;
+    online.activeReaction = latest;
     if (uiState.activePanel != panelLog) {
-      _hasUnreadReactions = true;
+      online.hasUnreadReactions = true;
     }
-    _reactionFlashTimer?.cancel();
-    _reactionFlashTimer = Timer(const Duration(seconds: 3), () {
-      _reactionFlashTimer = null;
-      _activeReaction = null;
-      if (!_disposed) {
+    online.reactionFlashTimer?.cancel();
+    online.reactionFlashTimer = Timer(const Duration(seconds: 3), () {
+      online.reactionFlashTimer = null;
+      online.activeReaction = null;
+      if (!_disposed && identical(_online, online)) {
         notifyListeners();
       }
     });
@@ -1267,12 +1303,7 @@ class LiveGameStore extends ChangeNotifier {
     _mediumPolicy = null;
     _neuralPolicy?.dispose();
     _neuralPolicy = null;
-    _onlineRefreshTimer?.cancel();
-    _onlineRefreshTimer = null;
-    _clearOnlineUpdateQueue();
-    _clearOnlineRealtime();
-    _reactionFlashTimer?.cancel();
-    _reactionFlashTimer = null;
+    _clearOnlineSession();
     super.dispose();
   }
 }
@@ -1314,6 +1345,58 @@ class OnlineGameRuntime {
   final String seatToken;
   OnlineSessionUpdate update;
   List<OnlineEngineAction> legalActions;
+  Timer? refreshTimer;
+  RealtimeChannel? realtimeChannel;
+  bool realtimeRefreshInFlight = false;
+  bool realtimeRefreshPending = false;
+  int? pendingRealtimeRevision;
+  bool actionRefreshInFlight = false;
+  Timer? updateQueueTimer;
+  final List<OnlineActionUpdate> updateQueue = [];
+  Timer? reactionFlashTimer;
+  OnlineReaction? activeReaction;
+  bool hasUnreadReactions = false;
+
+  void rememberPendingRealtimeRefresh(int? revision) {
+    if (!realtimeRefreshPending) {
+      realtimeRefreshPending = true;
+      pendingRealtimeRevision = revision;
+      return;
+    }
+    pendingRealtimeRevision = newestOnlineRevision(
+      pendingRealtimeRevision,
+      revision,
+    );
+  }
+
+  void clearUpdateQueue() {
+    updateQueueTimer?.cancel();
+    updateQueueTimer = null;
+    updateQueue.clear();
+    actionRefreshInFlight = false;
+  }
+
+  void clearRealtimeChannel() {
+    final channel = realtimeChannel;
+    realtimeChannel = null;
+    realtimeRefreshInFlight = false;
+    realtimeRefreshPending = false;
+    pendingRealtimeRevision = null;
+    if (channel != null) {
+      unawaited(KolkhozSupabaseRuntime.instance.client?.removeChannel(channel));
+    }
+  }
+
+  void dispose() {
+    refreshTimer?.cancel();
+    refreshTimer = null;
+    clearUpdateQueue();
+    clearRealtimeChannel();
+    reactionFlashTimer?.cancel();
+    reactionFlashTimer = null;
+    activeReaction = null;
+    hasUnreadReactions = false;
+  }
 }
 
 int? newestOnlineRevision(int? current, int? incoming) {

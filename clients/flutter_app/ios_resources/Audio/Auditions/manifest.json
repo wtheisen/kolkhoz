@@ -1,0 +1,60 @@
+[
+  {
+    "id": "worker-jack",
+    "voice": "alloy",
+    "line": "Хлеб будет!",
+    "direction": "A boyish native Russian male farm worker, about eighteen. Bright, youthful, energetic, proud, and sincere. A very quick natural exclamation, completed in about one second. No dramatic pause and no caricature.",
+    "file": "worker-jack.wav"
+  },
+  {
+    "id": "worker-queen",
+    "voice": "coral",
+    "line": "Каждое зерно пойдёт в дело.",
+    "direction": "A native Russian woman working on a collective farm. Calm, capable, resolute, and practical. Warm contralto feeling, never glamorous or theatrical. Deliver briskly in under two seconds with no dramatic pauses.",
+    "file": "worker-queen.wav"
+  },
+  {
+    "id": "worker-king",
+    "voice": "ballad",
+    "line": "За хлеб отвечаю лично.",
+    "direction": "An ancient native Russian male brigade foreman. Speak in an exceptionally deep, harsh, cracked throat-growl: extreme gravel, heavy rasp, strong vocal fry on every word, almost an animal growl but still intelligible. His lungs and voice are ruined by a lifetime of smoke, cold, and field work. Absolutely no smooth narrator tone. Bark the statement quickly in under two seconds.",
+    "post_filter": "asetrate=20160,aresample=24000,atempo=1.190476,asoftclip=type=tanh:threshold=0.72,acompressor=threshold=0.12:ratio=3:attack=5:release=60",
+    "file": "worker-king.wav"
+  },
+  {
+    "id": "nomenklatura-drunkard",
+    "voice": "echo",
+    "line": "За хлеб выпьем. Работать — завтра.",
+    "direction": "A thoroughly drunk native Russian man who contributes no work. Heavy but intelligible slurring: soften consonants, run neighboring words together, and sound thick-tongued, sleepy, slack, evasive, and complacently pleased with the excuse. Compress the entire line into one quick drunken mumble lasting about two seconds, with no lingering pauses. Darkly comic but realistic; no shouting, hiccups, added words, or cartoon voice.",
+    "file": "nomenklatura-drunkard.wav"
+  },
+  {
+    "id": "nomenklatura-informant",
+    "voice": "coral",
+    "line": "Доклад о хлебе отправлен.",
+    "direction": "A native Russian female bureaucratic informant. Quiet, precise, controlled, and subtly threatening. Crisp Russian diction. Deliver the whole report briskly in under two seconds, with no dramatic pause. Speak every written word exactly once.",
+    "file": "nomenklatura-informant.wav"
+  },
+  {
+    "id": "nomenklatura-party-official",
+    "voice": "ballad",
+    "line": "Хлеб сдать. Возражения?",
+    "direction": "An ancient native Russian male Party official with an exceptionally deep, harsh, cracked throat-growl: extreme gravel, heavy rasp, and strong vocal fry on every word. Cold, decorated, and absolutely certain of his authority; stern and menacing, never polished or narrator-like. Bark the order quickly, then make the final question clipped and plainly rhetorical. Speak every written word exactly once.",
+    "post_filter": "asetrate=20160,aresample=24000,atempo=1.190476,asoftclip=type=tanh:threshold=0.72,acompressor=threshold=0.12:ratio=3:attack=5:release=60",
+    "file": "nomenklatura-party-official.wav"
+  },
+  {
+    "id": "saboteur-wrench",
+    "voice": "echo",
+    "line": "Один оборот — и план сорван.",
+    "direction": "An unmistakably adult Russian man, but reedy and nasal rather than deep. A gaunt, slimy saboteur with the ingratiating whine of a petty thief and the suppressed sneer of an evil court adviser. Oily, conniving, cowardly, and pleased with his own cleverness. Close-mic and conspiratorial, clearly voiced, never feminine or heroic. Deliver quickly.",
+    "file": "saboteur-wrench.wav"
+  },
+  {
+    "id": "saboteur-any-crop",
+    "voice": "echo",
+    "line": "Я подхожу к любой культуре.",
+    "direction": "The same adult Russian male schemer: reedy, nasal, slimy, whining, ingratiating, and conniving, like a petty thief or evil court adviser. Let a smug little sneer leak through the final words. Never feminine or heroic. Stress любой культуре slightly because he can infiltrate every crop suit. Deliver quickly.",
+    "file": "saboteur-any-crop.wav"
+  }
+]

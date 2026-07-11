@@ -362,49 +362,52 @@ class PlotOverviewView extends StatelessWidget {
                   ],
                 ),
               ),
-            SizedBox(
-              height: localHeight,
-              child: Row(
-                spacing: metrics.spacing,
-                children: [
-                  Expanded(
-                    child: LocalPlotColumn(
-                      title: 'Cellar',
-                      iconPath: 'ios_resources/Icons/icon-cellar.png',
-                      cards: viewerHiddenCards,
-                      value: viewerHiddenCards.length,
-                      hidden: true,
-                      hiddenCards: false,
-                      selectable: selectable,
-                      selectedCardID: model.selection.plotCardID,
-                      exiledCardIDs: exiledCardIDs,
-                      metrics: metrics,
-                      tokens: tokens,
-                      onCardTap: (cardID) =>
-                          onPlotCardTap?.call(cardID, plotZoneHidden),
-                    ),
-                  ),
-                  Expanded(
-                    child: LocalPlotColumn(
-                      title: 'Plot',
-                      iconPath: 'ios_resources/Icons/icon-plot.png',
-                      cards: viewerRevealedCards,
-                      stacks: viewer.plot.stacks,
-                      value: plotSectionValue(
-                        viewerRevealedCards,
-                        viewer.plot.stacks,
+            MotionTrackedRegion(
+              motionKey: plotCardMotionSourceKey(viewer.id),
+              child: SizedBox(
+                height: localHeight,
+                child: Row(
+                  spacing: metrics.spacing,
+                  children: [
+                    Expanded(
+                      child: LocalPlotColumn(
+                        title: 'Cellar',
+                        iconPath: 'ios_resources/Icons/icon-cellar.png',
+                        cards: viewerHiddenCards,
+                        value: viewerHiddenCards.length,
+                        hidden: true,
+                        hiddenCards: false,
+                        selectable: selectable,
+                        selectedCardID: model.selection.plotCardID,
+                        exiledCardIDs: exiledCardIDs,
+                        metrics: metrics,
+                        tokens: tokens,
+                        onCardTap: (cardID) =>
+                            onPlotCardTap?.call(cardID, plotZoneHidden),
                       ),
-                      hidden: false,
-                      selectable: selectable,
-                      selectedCardID: model.selection.plotCardID,
-                      exiledCardIDs: exiledCardIDs,
-                      metrics: metrics,
-                      tokens: tokens,
-                      onCardTap: (cardID) =>
-                          onPlotCardTap?.call(cardID, plotZoneRevealed),
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child: LocalPlotColumn(
+                        title: 'Plot',
+                        iconPath: 'ios_resources/Icons/icon-plot.png',
+                        cards: viewerRevealedCards,
+                        stacks: viewer.plot.stacks,
+                        value: plotSectionValue(
+                          viewerRevealedCards,
+                          viewer.plot.stacks,
+                        ),
+                        hidden: false,
+                        selectable: selectable,
+                        selectedCardID: model.selection.plotCardID,
+                        exiledCardIDs: exiledCardIDs,
+                        metrics: metrics,
+                        tokens: tokens,
+                        onCardTap: (cardID) =>
+                            onPlotCardTap?.call(cardID, plotZoneRevealed),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

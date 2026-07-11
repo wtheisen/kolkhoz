@@ -48,9 +48,67 @@ GameSoundCue? gameSoundCueForTransition({
   }
   return switch (actions.last.kind) {
     actionPlayCard => GameSoundCue.cardPlay,
-    actionAssign || actionSubmitAssignments => GameSoundCue.assignment,
+    actionSubmitAssignments => GameSoundCue.assignment,
     _ => null,
   };
+}
+
+List<String> assignmentWorkAssetsForTransition({
+  required TableViewModel? previous,
+  required int previousActionCount,
+  required List<EngineAction> actions,
+}) {
+  if (previous == null || actions.length <= previousActionCount) {
+    return const [];
+  }
+  final action = actions.last;
+  final targetSuit = action.targetSuit;
+  if (action.kind != actionAssign || targetSuit == null) {
+    return const [];
+  }
+  final assets = <String>['audio/assignment_$targetSuit.wav'];
+  if (action.card?.suit == wreckerSuit || action.card?.value == 14) {
+    assets.add('audio/assignment_saboteur.wav');
+  }
+  return assets;
+}
+
+String? faceCardVoiceAssetForTransition({
+  required TableViewModel? previous,
+  required TableViewModel next,
+  required int previousActionCount,
+  required List<EngineAction> actions,
+}) {
+  if (previous == null || actions.length <= previousActionCount) {
+    return null;
+  }
+  final action = actions.last;
+  final card = action.card;
+  if (action.kind != actionPlayCard || card == null) {
+    return null;
+  }
+  if (card.suit == wreckerSuit || card.value == 14) {
+    final variant = (next.table.year + action.playerID).isEven
+        ? 'wrench'
+        : 'any-crop';
+    return 'ios_resources/Audio/VoiceLines/saboteur-$variant.wav';
+  }
+  final rank = switch (card.value) {
+    11 => 'jack',
+    12 => 'queen',
+    13 => 'king',
+    _ => null,
+  };
+  if (rank == null) {
+    return null;
+  }
+  final playedCard = [...next.table.trick.plays, ...next.table.lastTrick.plays]
+      .where(
+        (play) => play.seatID == action.playerID && play.card.id == card.id,
+      )
+      .firstOrNull;
+  final prefix = playedCard?.card.nomenclature ?? false ? 'nomenklatura-' : '';
+  return 'ios_resources/Audio/VoiceLines/$prefix$rank-${card.suit}.wav';
 }
 
 class GameSoundController {
@@ -60,13 +118,20 @@ class GameSoundController {
   final List<AudioPlayer> _activePlayers = [];
 
   Future<void> play(GameSoundCue? cue) async {
-    if (!enabled || cue == null) {
+    if (cue == null) {
+      return;
+    }
+    await playAsset(cue.assetPath, volume: cue.volume);
+  }
+
+  Future<void> playAsset(String? assetPath, {double volume = 0.85}) async {
+    if (!enabled || assetPath == null) {
       return;
     }
     final player = AudioPlayer();
     _activePlayers.add(player);
     try {
-      await player.play(AssetSource(cue.assetPath), volume: cue.volume);
+      await player.play(AssetSource(assetPath), volume: volume);
       unawaited(player.onPlayerComplete.first.then((_) => _release(player)));
     } catch (_) {
       await _release(player);

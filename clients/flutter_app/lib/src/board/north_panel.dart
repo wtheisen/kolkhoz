@@ -15,6 +15,8 @@ const northHeaderHeight = 34.0;
 const northCardScrollReservedHeight = 16.0;
 const northEmptyYearMinHeight = 80.0;
 const northEmptyYearSpacing = 32.0;
+const northCardScaleFactor = 0.8;
+const northCardExposedFraction = 0.5;
 
 double northCardScrollHeight({
   required double columnHeight,
@@ -208,31 +210,42 @@ class NorthCardStack extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final cardWidth = constraints.maxWidth;
+        final cardWidth = constraints.maxWidth * northCardScaleFactor;
         final cardScale = cardWidth / tokens.card.large.width;
         final cardHeight = tokens.card.large.height * cardScale;
-        return Column(
-          spacing: cardWidth * 0.06,
-          children: [
-            for (final card in cards)
-              NaturalSizeViewport(
-                key: ValueKey('north-card-${card.id}'),
-                width: cardWidth,
-                height: cardHeight,
-                naturalWidth: tokens.card.large.width,
-                naturalHeight: tokens.card.large.height,
-                child: Transform.scale(
-                  alignment: Alignment.topLeft,
-                  scale: cardScale,
-                  child: GameCard(
-                    card: card,
-                    tokens: tokens,
-                    sizeOverride: tokens.card.large,
+        final cardStride = cardHeight * northCardExposedFraction;
+        final stackHeight = cards.isEmpty
+            ? 0.0
+            : cardHeight + cardStride * (cards.length - 1);
+        return SizedBox(
+          width: constraints.maxWidth,
+          height: stackHeight + cardWidth * 0.1,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              for (final (index, card) in cards.indexed)
+                Positioned(
+                  left: (constraints.maxWidth - cardWidth) / 2,
+                  top: index * cardStride,
+                  child: NaturalSizeViewport(
+                    key: ValueKey('north-card-${card.id}'),
+                    width: cardWidth,
+                    height: cardHeight,
+                    naturalWidth: tokens.card.large.width,
+                    naturalHeight: tokens.card.large.height,
+                    child: Transform.scale(
+                      alignment: Alignment.topLeft,
+                      scale: cardScale,
+                      child: GameCard(
+                        card: card,
+                        tokens: tokens,
+                        sizeOverride: tokens.card.large,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            SizedBox(height: cardWidth * 0.1),
-          ],
+            ],
+          ),
         );
       },
     );

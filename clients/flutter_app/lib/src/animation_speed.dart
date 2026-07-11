@@ -42,3 +42,14 @@ enum GameAnimationSpeed {
 }
 
 const defaultGameAnimationSpeed = GameAnimationSpeed.normal;
+
+const playerInfoCardFlightDurationScale = 1.5;
+const requisitionCardFlightDurationScale = 1.35;
+const jobAssignmentCardFlightDurationScale = 2.0;
+
+Duration scaledGameAnimationDuration(Duration duration, double scale) {
+  if (duration == Duration.zero || scale == 1) {
+    return duration;
+  }
+  return Duration(microseconds: (duration.inMicroseconds * scale).round());
+}

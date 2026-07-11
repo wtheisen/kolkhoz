@@ -1,0 +1,158 @@
+[
+  {
+    "id": "jack-wheat",
+    "file": "jack-wheat.wav",
+    "line": "Хлеб будет!",
+    "character": "worker-jack"
+  },
+  {
+    "id": "jack-sunflower",
+    "file": "jack-sunflower.wav",
+    "line": "Тянемся к солнцу!",
+    "character": "worker-jack"
+  },
+  {
+    "id": "jack-potato",
+    "file": "jack-potato.wav",
+    "line": "Картошка — второй хлеб!",
+    "character": "worker-jack"
+  },
+  {
+    "id": "jack-beet",
+    "file": "jack-beet.wav",
+    "line": "Свёкла — в амба́р!",
+    "character": "worker-jack"
+  },
+  {
+    "id": "queen-wheat",
+    "file": "queen-wheat.wav",
+    "line": "Каждое зерно пойдёт в дело.",
+    "character": "worker-queen"
+  },
+  {
+    "id": "queen-sunflower",
+    "file": "queen-sunflower.wav",
+    "line": "Солнце даст богатый урожай.",
+    "character": "worker-queen"
+  },
+  {
+    "id": "queen-potato",
+    "file": "queen-potato.wav",
+    "line": "Картошку сохраним до весны.",
+    "character": "worker-queen"
+  },
+  {
+    "id": "queen-beet",
+    "file": "queen-beet.wav",
+    "line": "Свёкла уродилась на славу.",
+    "character": "worker-queen"
+  },
+  {
+    "id": "king-wheat",
+    "file": "king-wheat.wav",
+    "line": "За хлеб отвечаю лично.",
+    "character": "worker-king"
+  },
+  {
+    "id": "king-sunflower",
+    "file": "king-sunflower.wav",
+    "line": "Подсолнух выполнил план.",
+    "character": "worker-king"
+  },
+  {
+    "id": "king-potato",
+    "file": "king-potato.wav",
+    "line": "Без картошки не останемся.",
+    "character": "worker-king"
+  },
+  {
+    "id": "king-beet",
+    "file": "king-beet.wav",
+    "line": "Свёкла даст стране сахар.",
+    "character": "worker-king"
+  },
+  {
+    "id": "nomenklatura-jack-wheat",
+    "file": "nomenklatura-jack-wheat.wav",
+    "line": "За хлеб выпьем. Работать — завтра.",
+    "character": "nomenklatura-drunkard"
+  },
+  {
+    "id": "nomenklatura-jack-sunflower",
+    "file": "nomenklatura-jack-sunflower.wav",
+    "line": "Подсолнух сам вырастет. Наливай.",
+    "character": "nomenklatura-drunkard"
+  },
+  {
+    "id": "nomenklatura-jack-potato",
+    "file": "nomenklatura-jack-potato.wav",
+    "line": "Картошка подождёт. Наливай.",
+    "character": "nomenklatura-drunkard"
+  },
+  {
+    "id": "nomenklatura-jack-beet",
+    "file": "nomenklatura-jack-beet.wav",
+    "line": "Свёкла подождёт. Вы́пьем.",
+    "character": "nomenklatura-drunkard"
+  },
+  {
+    "id": "nomenklatura-queen-wheat",
+    "file": "nomenklatura-queen-wheat.wav",
+    "line": "Доклад о хлебе отправлен.",
+    "character": "nomenklatura-informant"
+  },
+  {
+    "id": "nomenklatura-queen-sunflower",
+    "file": "nomenklatura-queen-sunflower.wav",
+    "line": "О подсолнухе уже доложено.",
+    "character": "nomenklatura-informant"
+  },
+  {
+    "id": "nomenklatura-queen-potato",
+    "file": "nomenklatura-queen-potato.wav",
+    "line": "Я знаю, кто спрятал картошку.",
+    "character": "nomenklatura-informant"
+  },
+  {
+    "id": "nomenklatura-queen-beet",
+    "file": "nomenklatura-queen-beet.wav",
+    "line": "По свёкле всё записано.",
+    "character": "nomenklatura-informant"
+  },
+  {
+    "id": "nomenklatura-king-wheat",
+    "file": "nomenklatura-king-wheat.wav",
+    "line": "Хлеб сдать. Возражения?",
+    "character": "nomenklatura-party-official"
+  },
+  {
+    "id": "nomenklatura-king-sunflower",
+    "file": "nomenklatura-king-sunflower.wav",
+    "line": "План подсолнуха утверждён.",
+    "character": "nomenklatura-party-official"
+  },
+  {
+    "id": "nomenklatura-king-potato",
+    "file": "nomenklatura-king-potato.wav",
+    "line": "Картошку изъять. По необходимости.",
+    "character": "nomenklatura-party-official"
+  },
+  {
+    "id": "nomenklatura-king-beet",
+    "file": "nomenklatura-king-beet.wav",
+    "line": "Свёклу сдать. Виновных тоже.",
+    "character": "nomenklatura-party-official"
+  },
+  {
+    "id": "saboteur-wrench",
+    "file": "saboteur-wrench.wav",
+    "line": "Один оборот — и план сорван.",
+    "character": "saboteur"
+  },
+  {
+    "id": "saboteur-any-crop",
+    "file": "saboteur-any-crop.wav",
+    "line": "Я подхожу к любой культуре.",
+    "character": "saboteur"
+  }
+]
