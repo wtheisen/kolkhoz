@@ -286,3 +286,58 @@ def test_websocket_rejects_missing_credentials() -> None:
     asyncio.run(app(scope, incoming.get, _collector(sent)))
     assert sent == [{"type": "websocket.close", "code": 1008}]
     assert bus.topics == []
+
+
+def test_websocket_rejects_revision_ahead_of_durable_state() -> None:
+    application = _Application()
+    bus = _Bus()
+    app = ASGIApplication(application, bus)  # type: ignore[arg-type]
+    incoming = asyncio.Queue()
+    incoming.put_nowait({"type": "websocket.connect"})
+    sent: list[dict[str, Any]] = []
+    asyncio.run(
+        app(_scope(b"viewerID=2&afterRevision=4"), incoming.get, _collector(sent))
+    )
+    assert sent == [{"type": "websocket.close", "code": 1008}]
+    assert bus.subscription.closed
+
+
+def test_websocket_suppresses_duplicate_committed_notifications() -> None:
+    application = _Application()
+    application.revision = 0
+    bus = _Bus()
+    app = ASGIApplication(application, bus)  # type: ignore[arg-type]
+    incoming = asyncio.Queue()
+    incoming.put_nowait({"type": "websocket.connect"})
+    sent: list[dict[str, Any]] = []
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+        committed = [
+            item
+            for item in sent
+            if item.get("type") == "websocket.send"
+            and json.loads(item["text"])["type"] == "committed"
+        ]
+        if committed:
+            incoming.put_nowait({"type": "websocket.disconnect"})
+
+    async def scenario() -> None:
+        task = asyncio.create_task(app(_scope(b"viewerID=2&afterRevision=0"), incoming.get, send))
+        while not any(item.get("type") == "websocket.accept" for item in sent):
+            await asyncio.sleep(0)
+        application.revision = 1
+        notification = RealtimeMessage(
+            "session:s1", "s1:1", {"sessionID": "s1", "revision": 1}
+        )
+        bus.publish(notification)
+        bus.publish(notification)
+        await asyncio.wait_for(task, 2)
+
+    asyncio.run(scenario())
+    payloads = [
+        json.loads(item["text"])
+        for item in sent
+        if item.get("type") == "websocket.send"
+    ]
+    assert [item["type"] for item in payloads].count("committed") == 1
