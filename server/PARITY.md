@@ -12,15 +12,15 @@ durable behavior are covered by a gateway-level test.
 - [x] Expected-revision durable action commits
 - [x] Engine recovery by replay
 - [x] Realtime publication boundary with revision catch-up semantics
-- [ ] PostgreSQL connection pool adapter
+- [x] PostgreSQL connection pool adapter
 - [ ] Distributed realtime adapter
-- [ ] Metrics and health reporting
+- [x] Metrics and health reporting
 - [ ] Production process/deployment wiring
 
 ## Public and authenticated routes
 
-- [ ] `GET /health`
-- [ ] `GET /metrics`
+- [x] `GET /health`
+- [x] `GET /metrics`
 - [ ] `POST /presence`
 - [ ] `POST /active-session/sync`
 - [ ] `GET /leaderboard`

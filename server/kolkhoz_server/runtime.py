@@ -22,7 +22,9 @@ class _Envelope:
 
 
 class _Shard:
-    def __init__(self, index: int, store: EventStore, factory: EngineFactory, hub: EventHub):
+    def __init__(
+        self, index: int, store: EventStore, factory: EngineFactory, hub: EventHub
+    ):
         self.index = index
         self.store = store
         self.factory = factory
@@ -81,11 +83,32 @@ class GameRuntime:
         self.store = store
         self.hub = event_hub or EventHub()
         factory = engine_factory or KolkhozCEngineFactory()
-        self._shards = [_Shard(index, store, factory, self.hub) for index in range(shard_count)]
+        self._factory = factory
+        self._shards = [
+            _Shard(index, store, factory, self.hub) for index in range(shard_count)
+        ]
 
     def shard_index(self, session_id: str) -> int:
         digest = hashlib.blake2b(session_id.encode(), digest_size=8).digest()
         return int.from_bytes(digest, "big") % len(self._shards)
+
+    def metrics_state(self) -> dict[str, object]:
+        return {
+            "activeSessions": sum(len(shard.engines) for shard in self._shards),
+            "shards": len(self._shards),
+            "shardQueues": [shard.mailbox.qsize() for shard in self._shards],
+            "persistenceQueueDepth": 0,
+            "persistenceError": None,
+        }
+
+    def health_state(self) -> dict[str, object]:
+        provenance = getattr(self._factory, "provenance", None)
+        details = provenance() if provenance is not None else {}
+        return {
+            "status": "ok",
+            "gitSHA": details.get("gitSHA", "unknown"),
+            "engineSHA256": details.get("engineSHA256", "unknown"),
+        }
 
     def _execute(
         self,

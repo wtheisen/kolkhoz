@@ -1,0 +1,23 @@
+[Unit]
+Description=Kolkhoz partitioned online server
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kolkhoz
+Group=kolkhoz
+WorkingDirectory=/opt/kolkhoz
+EnvironmentFile=/etc/kolkhoz-server.env
+ExecStart=/opt/kolkhoz/.venv/bin/python -m server.kolkhoz_server.production
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths=/opt/kolkhoz/research/.build
+
+[Install]
+WantedBy=multi-user.target

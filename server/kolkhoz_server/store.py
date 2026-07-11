@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import queue
 import sqlite3
 import threading
 import time
 from contextlib import closing
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Protocol
+from typing import Callable, Iterator, Protocol
 
 from .model import GameRecord, JsonObject, StoredEvent
 
@@ -29,7 +31,9 @@ class EventStore(Protocol):
 
     def game(self, session_id: str) -> GameRecord: ...
 
-    def events(self, session_id: str, *, after_revision: int = 0) -> list[StoredEvent]: ...
+    def events(
+        self, session_id: str, *, after_revision: int = 0
+    ) -> list[StoredEvent]: ...
 
     def append(
         self,
@@ -41,6 +45,47 @@ class EventStore(Protocol):
     ) -> StoredEvent: ...
 
     def close(self) -> None: ...
+
+
+class ConnectionPool:
+    """Small bounded DB-API pool with no global query lock."""
+
+    def __init__(self, connect: Callable[[], object], *, size: int = 8) -> None:
+        if size < 1:
+            raise ValueError("pool size must be positive")
+        self._connect = connect
+        self._available: queue.LifoQueue[object] = queue.LifoQueue(maxsize=size)
+        self._all: list[object] = []
+        self._creation_lock = threading.Lock()
+        self._size = size
+        self._closed = False
+
+    @contextmanager
+    def connection(self) -> Iterator[object]:
+        if self._closed:
+            raise RuntimeError("connection pool is closed")
+        try:
+            connection = self._available.get_nowait()
+        except queue.Empty:
+            with self._creation_lock:
+                if len(self._all) < self._size:
+                    connection = self._connect()
+                    self._all.append(connection)
+                else:
+                    connection = None
+            if connection is None:
+                connection = self._available.get(timeout=5)
+        try:
+            yield connection
+        finally:
+            if not self._closed:
+                self._available.put(connection)
+
+    def close(self) -> None:
+        self._closed = True
+        for connection in self._all:
+            connection.close()  # type: ignore[attr-defined]
+        self._all.clear()
 
 
 SCHEMA = """
@@ -120,9 +165,7 @@ class SQLiteEventStore:
             int(row["revision"]),
         )
 
-    def events(
-        self, session_id: str, *, after_revision: int = 0
-    ) -> list[StoredEvent]:
+    def events(self, session_id: str, *, after_revision: int = 0) -> list[StoredEvent]:
         with closing(self._connect()) as connection:
             rows = connection.execute(
                 """
@@ -186,3 +229,111 @@ class SQLiteEventStore:
 
     def close(self) -> None:
         pass
+
+
+class PostgresEventStore:
+    """Pooled production event store using PostgreSQL as session authority."""
+
+    def __init__(self, database_url: str, *, pool_size: int = 8) -> None:
+        try:
+            import psycopg
+            from psycopg.types.json import Jsonb
+        except ImportError as error:
+            raise RuntimeError("PostgreSQL requires psycopg[binary]>=3.2") from error
+
+        self._jsonb = Jsonb
+        self._pool = ConnectionPool(
+            lambda: psycopg.connect(
+                database_url,
+                autocommit=False,
+                prepare_threshold=None,
+                connect_timeout=5,
+                options="-c statement_timeout=5000 -c lock_timeout=3000",
+            ),
+            size=pool_size,
+        )
+
+    def create_game(
+        self, session_id: str, seed: int, variants: JsonObject
+    ) -> GameRecord:
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            connection.execute(  # type: ignore[attr-defined]
+                """
+                insert into server_games (session_id, seed, variants)
+                values (%s::uuid, %s, %s)
+                """,
+                (session_id, seed, self._jsonb(variants)),
+            )
+        return GameRecord(session_id, seed, dict(variants), 0)
+
+    def game(self, session_id: str) -> GameRecord:
+        with self._pool.connection() as connection:
+            row = connection.execute(  # type: ignore[attr-defined]
+                """
+                select session_id::text, seed, variants, revision
+                  from server_games where session_id = %s::uuid
+                """,
+                (session_id,),
+            ).fetchone()
+        if row is None:
+            raise GameNotFound(session_id)
+        return GameRecord(str(row[0]), int(row[1]), dict(row[2]), int(row[3]))
+
+    def events(self, session_id: str, *, after_revision: int = 0) -> list[StoredEvent]:
+        with self._pool.connection() as connection:
+            rows = connection.execute(  # type: ignore[attr-defined]
+                """
+                select session_id::text, revision, kind, payload,
+                       extract(epoch from created_at)
+                  from server_game_events
+                 where session_id = %s::uuid and revision > %s
+                 order by revision
+                """,
+                (session_id, after_revision),
+            ).fetchall()
+        return [
+            StoredEvent(
+                str(row[0]), int(row[1]), str(row[2]), dict(row[3]), float(row[4])
+            )
+            for row in rows
+        ]
+
+    def append(
+        self,
+        session_id: str,
+        *,
+        expected_revision: int,
+        kind: str,
+        payload: JsonObject,
+    ) -> StoredEvent:
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            row = connection.execute(  # type: ignore[attr-defined]
+                """
+                update server_games
+                   set revision = revision + 1, updated_at = now()
+                 where session_id = %s::uuid and revision = %s
+                returning revision, extract(epoch from updated_at)
+                """,
+                (session_id, expected_revision),
+            ).fetchone()
+            if row is None:
+                current = connection.execute(  # type: ignore[attr-defined]
+                    "select revision from server_games where session_id = %s::uuid",
+                    (session_id,),
+                ).fetchone()
+                if current is None:
+                    raise GameNotFound(session_id)
+                raise RevisionConflict(expected_revision, int(current[0]))
+            revision, created_at = int(row[0]), float(row[1])
+            connection.execute(  # type: ignore[attr-defined]
+                """
+                insert into server_game_events
+                    (session_id, revision, kind, payload, created_at)
+                values (%s::uuid, %s, %s, %s, to_timestamp(%s))
+                """,
+                (session_id, revision, kind, self._jsonb(payload), created_at),
+            )
+        return StoredEvent(session_id, revision, kind, dict(payload), created_at)
+
+    def close(self) -> None:
+        self._pool.close()

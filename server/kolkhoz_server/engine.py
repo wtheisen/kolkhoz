@@ -26,6 +26,10 @@ class KolkhozCEngineFactory:
     def create(self, seed: int, variants: JsonObject) -> GameEngine:
         return KolkhozCEngine(self._engine, seed)
 
+    def provenance(self) -> JsonObject:
+        value = self._engine.provenance()
+        return {"gitSHA": value.git_sha, "engineSHA256": value.c_sha256}
+
 
 class KolkhozCEngine:
     def __init__(self, engine: object, seed: int) -> None:

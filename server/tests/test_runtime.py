@@ -12,7 +12,11 @@ from pathlib import Path
 from server.kolkhoz_server.events import EventHub
 from server.kolkhoz_server.gateway import Gateway
 from server.kolkhoz_server.runtime import GameRuntime
-from server.kolkhoz_server.store import RevisionConflict, SQLiteEventStore
+from server.kolkhoz_server.store import (
+    ConnectionPool,
+    RevisionConflict,
+    SQLiteEventStore,
+)
 
 
 class FakeEngine:
@@ -84,8 +88,12 @@ class RuntimeTests(unittest.TestCase):
         runtime = self.runtime()
         try:
             created = runtime.create_game(seed=10, session_id="ordered")
-            first = runtime.submit_action("ordered", expected_revision=0, action={"delta": 2})
-            second = runtime.submit_action("ordered", expected_revision=1, action={"delta": 5})
+            first = runtime.submit_action(
+                "ordered", expected_revision=0, action={"delta": 2}
+            )
+            second = runtime.submit_action(
+                "ordered", expected_revision=1, action={"delta": 5}
+            )
         finally:
             runtime.close()
 
@@ -100,7 +108,9 @@ class RuntimeTests(unittest.TestCase):
             runtime.create_game(seed=1, session_id="stale")
             runtime.submit_action("stale", expected_revision=0, action={"delta": 3})
             with self.assertRaises(RevisionConflict):
-                runtime.submit_action("stale", expected_revision=0, action={"delta": 100})
+                runtime.submit_action(
+                    "stale", expected_revision=0, action={"delta": 100}
+                )
             state = runtime.state("stale")
         finally:
             runtime.close()
@@ -124,9 +134,14 @@ class RuntimeTests(unittest.TestCase):
 
             def submit(session_id: str) -> None:
                 barrier.wait()
-                runtime.submit_action(session_id, expected_revision=0, action={"delta": 1})
+                runtime.submit_action(
+                    session_id, expected_revision=0, action={"delta": 1}
+                )
 
-            threads = [threading.Thread(target=submit, args=(value,)) for value in (left, right)]
+            threads = [
+                threading.Thread(target=submit, args=(value,))
+                for value in (left, right)
+            ]
             for thread in threads:
                 thread.start()
             barrier.wait()
@@ -173,12 +188,54 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(event.payload, {"delta": 1})
 
 
+class ConnectionPoolTests(unittest.TestCase):
+    def test_pool_allows_bounded_parallel_leases(self) -> None:
+        created: list[FakeConnection] = []
+
+        def connect() -> "FakeConnection":
+            connection = FakeConnection()
+            created.append(connection)
+            return connection
+
+        pool = ConnectionPool(connect, size=2)
+        barrier = threading.Barrier(3)
+        leased: list[FakeConnection] = []
+
+        def lease() -> None:
+            with pool.connection() as connection:
+                leased.append(connection)  # type: ignore[arg-type]
+                barrier.wait()
+                barrier.wait()
+
+        threads = [threading.Thread(target=lease) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        barrier.wait()
+        self.assertEqual(len(created), 2)
+        self.assertIsNot(leased[0], leased[1])
+        barrier.wait()
+        for thread in threads:
+            thread.join()
+        pool.close()
+        self.assertTrue(all(connection.closed for connection in created))
+
+
+class FakeConnection:
+    def __init__(self) -> None:
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
+
+
 class GatewayTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         database = Path(self.temporary.name) / "gateway.sqlite3"
         self.runtime = GameRuntime(
-            SQLiteEventStore(database), engine_factory=FakeEngineFactory(), shard_count=2
+            SQLiteEventStore(database),
+            engine_factory=FakeEngineFactory(),
+            shard_count=2,
         )
         self.server = Gateway(("127.0.0.1", 0), self.runtime)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -204,7 +261,8 @@ class GatewayTests(unittest.TestCase):
         )
         try:
             with urllib.request.urlopen(request, timeout=2) as response:
-                return response.status, json.loads(response.read())
+                payload = response.read()
+                return response.status, json.loads(payload) if payload else {}
         except urllib.error.HTTPError as error:
             try:
                 return error.code, json.loads(error.read())
@@ -230,6 +288,17 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(stale["currentRevision"], 1)
         self.assertEqual(read_status, 200)
         self.assertEqual(state["state"]["value"], 7)
+
+    def test_health_metrics_and_options_match_operational_contract(self) -> None:
+        health_status, health = self.request("GET", "/health")
+        metrics_status, metrics = self.request("GET", "/metrics")
+        options_status, _ = self.request("OPTIONS", "/games")
+
+        self.assertEqual(health_status, 200)
+        self.assertEqual(health["status"], "ok")
+        self.assertEqual(metrics_status, 200)
+        self.assertIn("GET /health", metrics["routes"])
+        self.assertEqual(options_status, 204)
 
 
 if __name__ == "__main__":
