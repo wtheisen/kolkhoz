@@ -211,3 +211,39 @@ class CompatibilityApiTests(unittest.TestCase):
             seat_token=synced["seatToken"],
         )
         self.assertEqual(still_valid, 200)
+
+    def test_create_and_join_immediately_register_device_leases(self) -> None:
+        _, created = self.request(
+            "POST",
+            "/sessions",
+            {"seed": 1},
+            bearer="host-token",
+            device_id="host-phone",
+        )
+        host_conflict, host_error = self.request(
+            "POST",
+            "/active-session/sync",
+            {},
+            bearer="host-token",
+            device_id="host-tablet",
+        )
+        self.assertEqual(host_conflict, 409)
+        self.assertIn("another device", host_error["error"])
+
+        joined_status, _ = self.request(
+            "POST",
+            f"/sessions/{created['inviteCode']}/join",
+            {},
+            bearer="guest-token",
+            device_id="guest-phone",
+        )
+        self.assertEqual(joined_status, 200)
+        guest_conflict, guest_error = self.request(
+            "POST",
+            "/active-session/sync",
+            {},
+            bearer="guest-token",
+            device_id="guest-tablet",
+        )
+        self.assertEqual(guest_conflict, 409)
+        self.assertIn("another device", guest_error["error"])

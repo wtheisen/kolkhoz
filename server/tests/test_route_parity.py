@@ -239,7 +239,13 @@ class CanonicalRouteParityTests(unittest.TestCase):
                 bearer="host-token",
             )
         )
-        self.assert_ok(self.request("GET", "/sessions/invites", bearer="guest-token"))
+        pending = self.assert_ok(
+            self.request("GET", "/sessions/invites", bearer="guest-token")
+        )
+        self.assertEqual(pending[0]["invitedUserID"], "guest")
+        self.assertEqual(pending[0]["hostProfile"]["userID"], "host")
+        self.assertEqual(pending[0]["hostProfile"]["displayName"], "Host")
+        self.assertNotIn("inviteCode", pending[0])
         self.assert_ok(
             self.request(
                 "POST",

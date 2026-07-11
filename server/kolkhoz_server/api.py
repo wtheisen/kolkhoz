@@ -119,7 +119,14 @@ class OnlineApplication:
                 HTTPStatus.OK, self._social(operation, params, request.body, user_id)
             )
         if operation == "sessions.create":
-            return Response(HTTPStatus.OK, self._create(request.body, user_id))
+            return Response(
+                HTTPStatus.OK,
+                self._create(
+                    request.body,
+                    user_id,
+                    _header(request.headers, "X-Kolkhoz-Device-ID"),
+                ),
+            )
         if operation == "sessions.list":
             return Response(
                 HTTPStatus.OK,
@@ -132,16 +139,28 @@ class OnlineApplication:
         if operation == "sessions.join":
             return Response(
                 HTTPStatus.OK,
-                self._join(params["sessionID"], request.body, user_id),
+                self._join(
+                    params["sessionID"],
+                    request.body,
+                    user_id,
+                    _header(request.headers, "X-Kolkhoz-Device-ID"),
+                ),
             )
         if operation == "sessions.matchmake":
-            return Response(HTTPStatus.OK, self._matchmake(request.body, user_id))
+            return Response(
+                HTTPStatus.OK,
+                self._matchmake(
+                    request.body,
+                    user_id,
+                    _header(request.headers, "X-Kolkhoz-Device-ID"),
+                ),
+            )
         if operation == "sessions.invites.pending":
             user_id = self._require_user(user_id)
             return Response(
                 HTTPStatus.OK,
                 [
-                    self._listing(value)
+                    self._invite_listing(value, user_id)
                     for value in self.lobby.invites_for_user(user_id)
                 ],
             )
@@ -188,7 +207,9 @@ class OnlineApplication:
             )
         raise ServerError(HTTPStatus.NOT_IMPLEMENTED, f"{operation} is not implemented")
 
-    def _create(self, body: JsonObject, user_id: str | None) -> JsonObject:
+    def _create(
+        self, body: JsonObject, user_id: str | None, device_id: str | None = None
+    ) -> JsonObject:
         user_id = self._require_user(user_id)
         self._ensure_no_active(user_id)
         variants = normalize_variants(body.get("variants"))
@@ -228,6 +249,7 @@ class OnlineApplication:
             )
             self.lobby.complete_lifecycle_intent(record.session_id, "provision")
             record = self._sync_lobby(record.session_id)
+            self._register_device_lease(user_id, device_id, record.session_id)
         except Exception:
             self.lobby.delete_session(record.session_id)
             raise
@@ -240,7 +262,11 @@ class OnlineApplication:
         }
 
     def _join(
-        self, session_id_or_invite: str, body: JsonObject, user_id: str | None
+        self,
+        session_id_or_invite: str,
+        body: JsonObject,
+        user_id: str | None,
+        device_id: str | None = None,
     ) -> JsonObject:
         user_id = self._require_user(user_id)
         record = self.lobby.session(session_id_or_invite)
@@ -286,6 +312,7 @@ class OnlineApplication:
             return player_id, token
 
         player_id, token = self.runtime.serialize(record.session_id, claim)
+        self._register_device_lease(user_id, device_id, record.session_id)
         record = self._sync_lobby(record.session_id)
         return {
             "sessionID": record.session_id,
@@ -331,6 +358,22 @@ class OnlineApplication:
             "update": self._update(record.session_id, seat.player_id),
         }
 
+    def _register_device_lease(
+        self, user_id: str, device_id: str | None, session_id: str
+    ) -> None:
+        if not device_id:
+            return
+        if not self.lobby.acquire_device_lease(
+            user_id,
+            device_id,
+            session_id,
+            now=time.time(),
+            ttl_seconds=self.presence_ttl_seconds,
+        ):
+            raise ServerError(
+                HTTPStatus.CONFLICT, "active session is in use on another device"
+            )
+
     def _active_session_json(
         self, user_id: str | None, current_session_id: str | None
     ) -> JsonObject | None:
@@ -358,7 +401,9 @@ class OnlineApplication:
         )
         return service
 
-    def _matchmake(self, body: JsonObject, user_id: str | None) -> JsonObject:
+    def _matchmake(
+        self, body: JsonObject, user_id: str | None, device_id: str | None = None
+    ) -> JsonObject:
         user_id = self._require_user(user_id)
         self._ensure_no_active(user_id)
         self._ensure_not_banned(user_id)
@@ -388,6 +433,7 @@ class OnlineApplication:
                     choice.session_id,
                     {"preferredPlayerID": choice.player_id},
                     user_id,
+                    device_id,
                 )
             except ServerError as error:
                 if error.status != HTTPStatus.CONFLICT:
@@ -400,6 +446,7 @@ class OnlineApplication:
                 "browserJoinable": True,
             },
             user_id,
+            device_id,
         )
         session_id = str(created["sessionID"])
         record = self.lobby.session(session_id)
@@ -810,6 +857,25 @@ class OnlineApplication:
             created_at=record.created_at,
             expires_at=record.expires_at,
         )
+
+    def _invite_listing(self, record: object, user_id: str) -> JsonObject:
+        listing = self._listing(record)
+        listing.pop("inviteCode", None)
+        profiles = listing.get("playerProfiles")
+        host_profile: JsonObject | None = None
+        if isinstance(profiles, list):
+            for profile in profiles:
+                if (
+                    isinstance(profile, dict)
+                    and profile.get("userID") == record.created_by_user_id
+                ):
+                    host_profile = profile
+                    break
+            if host_profile is None and profiles and isinstance(profiles[0], dict):
+                host_profile = profiles[0]
+        listing["hostProfile"] = host_profile or {}
+        listing["invitedUserID"] = user_id
+        return listing
 
     def _sync_lobby(self, session_id: str):
         return self.runtime.serialize(
