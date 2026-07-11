@@ -7,6 +7,7 @@ Type=notify
 User=redis
 Group=redis
 ExecStart=/usr/bin/redis-server /etc/redis/kolkhoz-greenfield.conf --supervised systemd
+ExecStartPost=/usr/bin/redis-cli -p 16379 CONFIG SET maxclients 1000
 ExecStop=/usr/bin/redis-cli -p 16379 shutdown
 Restart=on-failure
 CPUQuota=10%

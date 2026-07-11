@@ -5,6 +5,7 @@ root = Path(__file__).resolve().parent
 bootstrap = (root / "bootstrap.sh").read_text()
 server = (root / "kolkhoz-greenfield.service").read_text()
 redis = (root / "redis-greenfield.conf").read_text()
+redis_service = (root / "kolkhoz-greenfield-redis.service").read_text()
 
 assert "ROOT=/opt/kolkhoz-greenfield" in bootstrap
 assert "LIVE_ROOT=/opt/kolkhoz\n" in bootstrap
@@ -28,6 +29,7 @@ assert "TasksMax=128" in server and "LimitNOFILE=8192" in server
 assert "port 16379" in redis and "bind 127.0.0.1" in redis
 assert "maxmemory 64mb" in redis and "maxmemory-policy noeviction" in redis
 assert "maxclients 1000" in redis
+assert "CONFIG SET maxclients 1000" in redis_service
 assert "for _ in $(seq 1 30)" in bootstrap
 assert 'git -c safe.directory="$ROOT" -C "$ROOT"' in bootstrap
 print("DigitalOcean shadow package invariants valid")
