@@ -1,0 +1,80 @@
+name: kolkhoz-vps-benchmark
+
+x-server: &server
+  build:
+    context: ../../..
+    dockerfile: server/Dockerfile
+  restart: unless-stopped
+  env_file: benchmark.env
+  environment: &common
+    KOLKHOZ_HOST: 0.0.0.0
+    KOLKHOZ_PORT: 8787
+    KOLKHOZ_SHARDS: 16
+    KOLKHOZ_DB_POOL_SIZE: 8
+    KOLKHOZ_COMMAND_PARTITION_COUNT: 64
+    KOLKHOZ_COMMAND_PARTITION_CAPACITY: 25000
+    KOLKHOZ_ENVIRONMENT: staging
+    KOLKHOZ_STAGING_STATIC_AUTH_TOKENS: '{"benchmark-bootstrap":"20000000-0000-4000-8000-000000000001"}'
+    KOLKHOZ_RUN_COMMAND_WORKER: "false"
+    KOLKHOZ_RUN_DEADLINE_SCHEDULER: "false"
+    KOLKHOZ_RUN_POPULATION_SCHEDULER: "false"
+    KOLKHOZ_RUN_LIFECYCLE_RECONCILER: "false"
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/ready',timeout=2).read()"]
+    interval: 10s
+    timeout: 3s
+    retries: 12
+    start_period: 20s
+  mem_limit: 1g
+  cpus: 1.0
+  pids_limit: 256
+  ulimits:
+    nofile: {soft: 65536, hard: 65536}
+  security_opt: [no-new-privileges:true]
+
+services:
+  gateway-a: {<<: *server, environment: {<<: *common, KOLKHOZ_WORKER_ID: gateway-a}}
+  gateway-b: {<<: *server, environment: {<<: *common, KOLKHOZ_WORKER_ID: gateway-b}}
+  gateway-c: {<<: *server, environment: {<<: *common, KOLKHOZ_WORKER_ID: gateway-c}}
+  gateway-d: {<<: *server, environment: {<<: *common, KOLKHOZ_WORKER_ID: gateway-d}}
+
+  worker-a:
+    <<: *server
+    environment: {<<: *common, KOLKHOZ_WORKER_ID: worker-a, KOLKHOZ_RUN_COMMAND_WORKER: "true", KOLKHOZ_COMMAND_PARTITIONS: "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15"}
+  worker-b:
+    <<: *server
+    environment: {<<: *common, KOLKHOZ_WORKER_ID: worker-b, KOLKHOZ_RUN_COMMAND_WORKER: "true", KOLKHOZ_COMMAND_PARTITIONS: "16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31"}
+  worker-c:
+    <<: *server
+    environment: {<<: *common, KOLKHOZ_WORKER_ID: worker-c, KOLKHOZ_RUN_COMMAND_WORKER: "true", KOLKHOZ_COMMAND_PARTITIONS: "32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47"}
+  worker-d:
+    <<: *server
+    environment: {<<: *common, KOLKHOZ_WORKER_ID: worker-d, KOLKHOZ_RUN_COMMAND_WORKER: "true", KOLKHOZ_COMMAND_PARTITIONS: "48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63"}
+
+  deadline-scheduler:
+    <<: *server
+    environment: {<<: *common, KOLKHOZ_WORKER_ID: deadline-runtime, KOLKHOZ_SCHEDULER_ID: benchmark-deadline, KOLKHOZ_RUN_DEADLINE_SCHEDULER: "true"}
+  population-scheduler:
+    <<: *server
+    environment: {<<: *common, KOLKHOZ_WORKER_ID: population-runtime, KOLKHOZ_POPULATION_ID: benchmark-population, KOLKHOZ_RUN_POPULATION_SCHEDULER: "true"}
+  lifecycle-reconciler:
+    <<: *server
+    environment: {<<: *common, KOLKHOZ_WORKER_ID: lifecycle-runtime, KOLKHOZ_LIFECYCLE_ID: benchmark-lifecycle, KOLKHOZ_RUN_LIFECYCLE_RECONCILER: "true"}
+
+  load-balancer:
+    image: haproxy:3.0-alpine
+    restart: unless-stopped
+    depends_on:
+      gateway-a: {condition: service_healthy}
+      gateway-b: {condition: service_healthy}
+      gateway-c: {condition: service_healthy}
+      gateway-d: {condition: service_healthy}
+    volumes:
+      - ./haproxy.benchmark.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports: ["127.0.0.1:${BENCHMARK_PORT:-19080}:8080"]
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 128
+    ulimits:
+      nofile: {soft: 65536, hard: 65536}
+    security_opt: [no-new-privileges:true]

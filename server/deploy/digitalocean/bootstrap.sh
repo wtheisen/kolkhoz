@@ -1,0 +1,119 @@
+#!/bin/sh
+set -eu
+
+ROOT=/opt/kolkhoz-greenfield
+LIVE_ROOT=/opt/kolkhoz
+LIVE_ENV=/etc/kolkhoz-online.env
+SHADOW_ENV=/etc/kolkhoz-greenfield.env
+PORT=18787
+REDIS_PORT=16379
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+apply=false
+repo=
+ref=
+
+usage() { echo "usage: $0 --repo URL --ref COMMIT_OR_TAG [--apply]" >&2; exit 64; }
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --repo) [ "$#" -ge 2 ] || usage; repo=$2; shift 2 ;;
+    --ref) [ "$#" -ge 2 ] || usage; ref=$2; shift 2 ;;
+    --apply) apply=true; shift ;;
+    *) usage ;;
+  esac
+done
+[ -n "$repo" ] && [ -n "$ref" ] || usage
+[ "$ROOT" != "$LIVE_ROOT" ] || { echo "refusing live checkout path" >&2; exit 1; }
+[ -r "$LIVE_ENV" ] || { echo "missing $LIVE_ENV" >&2; exit 1; }
+grep -q '^KOLKHOZ_ONLINE_DATABASE_URL=' "$LIVE_ENV" || { echo "legacy database key missing" >&2; exit 1; }
+if ss -H -ltn "sport = :$PORT" | grep -q . && ! systemctl is-active --quiet kolkhoz-greenfield.service; then
+  echo "refusing: 127.0.0.1:$PORT is already in use" >&2; exit 1
+fi
+if ss -H -ltn "sport = :$REDIS_PORT" | grep -q . && ! systemctl is-active --quiet kolkhoz-greenfield-redis; then
+  echo "refusing: Redis port $REDIS_PORT belongs to another process" >&2; exit 1
+fi
+if [ -e "$ROOT" ]; then
+  [ -d "$ROOT/.git" ] || { echo "refusing non-git path $ROOT" >&2; exit 1; }
+  [ -z "$(git -C "$ROOT" status --porcelain)" ] || { echo "refusing dirty shadow checkout" >&2; exit 1; }
+  actual=$(git -C "$ROOT" remote get-url origin)
+  [ "$actual" = "$repo" ] || { echo "shadow remote mismatch" >&2; exit 1; }
+fi
+
+if ! $apply; then
+  echo "DRY RUN: would install redis-server, PostgreSQL client, Python venv, clang, and git"
+  echo "DRY RUN: would clone/update $repo at requested ref into $ROOT (never $LIVE_ROOT)"
+  echo "DRY RUN: would map the legacy database URL and Supabase auth into $SHADOW_ENV without displaying values"
+  echo "DRY RUN: would apply five additive greenfield schemas explicitly"
+  echo "DRY RUN: would install capped Redis on 127.0.0.1:$REDIS_PORT and shadow server on 127.0.0.1:$PORT"
+  exit 0
+fi
+[ "$(id -u)" -eq 0 ] || { echo "--apply must run as root" >&2; exit 1; }
+available_kb=$(awk '/^MemAvailable:/ { print $2 }' /proc/meminfo)
+free_kb=$(df -Pk /opt | awk 'NR == 2 { print $4 }')
+[ "${available_kb:-0}" -ge 358400 ] || { echo "refusing: shadow needs at least 350 MB MemAvailable" >&2; exit 1; }
+[ "${free_kb:-0}" -ge 2097152 ] || { echo "refusing: shadow needs at least 2 GB free under /opt" >&2; exit 1; }
+
+export DEBIAN_FRONTEND=noninteractive
+redis_was_installed=false
+dpkg-query -W -f='${Status}' redis-server 2>/dev/null | grep -q 'install ok installed' && redis_was_installed=true
+apt-get update
+apt-get install -y --no-install-recommends redis-server postgresql-client python3-venv clang git ca-certificates curl iproute2
+if ! $redis_was_installed; then
+  systemctl disable --now redis-server.service redis.service 2>/dev/null || true
+fi
+id kolkhoz-greenfield >/dev/null 2>&1 || useradd --system --home-dir "$ROOT" --shell /usr/sbin/nologin kolkhoz-greenfield
+systemctl stop kolkhoz-greenfield.service 2>/dev/null || true
+if [ ! -e "$ROOT" ]; then git clone --filter=blob:none "$repo" "$ROOT"; fi
+git -C "$ROOT" fetch --tags --prune origin
+git -C "$ROOT" checkout --detach "$ref"
+test "$(git -C "$ROOT" rev-parse HEAD)" = "$(git -C "$ROOT" rev-parse "$ref^{commit}")"
+python3 -m venv "$ROOT/.venv"
+"$ROOT/.venv/bin/pip" install --disable-pip-version-check -r "$ROOT/server/deploy/requirements.txt"
+"$ROOT/.venv/bin/python" -c 'from research.kolkhoz_research.c_engine import CEngine; CEngine()'
+install -d -o kolkhoz-greenfield -g kolkhoz-greenfield "$ROOT/research/.build"
+chown -R kolkhoz-greenfield:kolkhoz-greenfield "$ROOT"
+
+umask 077
+database_url=$(sed -n 's/^KOLKHOZ_ONLINE_DATABASE_URL=//p' "$LIVE_ENV" | tail -n 1)
+supabase_url=$(sed -n 's/^KOLKHOZ_SUPABASE_URL=//p' "$LIVE_ENV" | tail -n 1)
+publishable=$(sed -n 's/^KOLKHOZ_SUPABASE_PUBLISHABLE_KEY=//p' "$LIVE_ENV" | tail -n 1)
+[ -n "$publishable" ] || publishable=$(sed -n 's/^KOLKHOZ_SUPABASE_ANON_KEY=//p' "$LIVE_ENV" | tail -n 1)
+[ -n "$database_url" ] && [ -n "$supabase_url" ] && [ -n "$publishable" ] || { echo "database/Supabase settings incomplete" >&2; exit 1; }
+{
+  printf 'DATABASE_URL=%s\n' "$database_url"
+  printf 'REDIS_URL=redis://127.0.0.1:%s/15\n' "$REDIS_PORT"
+  printf 'KOLKHOZ_SUPABASE_URL=%s\n' "$supabase_url"
+  printf 'KOLKHOZ_SUPABASE_PUBLISHABLE_KEY=%s\n' "$publishable"
+  cat <<'EOF'
+KOLKHOZ_HOST=127.0.0.1
+KOLKHOZ_PORT=18787
+KOLKHOZ_SHARDS=2
+KOLKHOZ_DB_POOL_SIZE=3
+KOLKHOZ_COMMAND_PARTITION_COUNT=16
+KOLKHOZ_COMMAND_PARTITION_CAPACITY=1000
+KOLKHOZ_AUTH_CACHE_CAPACITY=5000
+KOLKHOZ_WORKER_ID=digitalocean-shadow-combined
+KOLKHOZ_SCHEDULER_ID=digitalocean-shadow-deadline
+KOLKHOZ_POPULATION_ID=digitalocean-shadow-population
+KOLKHOZ_LIFECYCLE_ID=digitalocean-shadow-lifecycle
+KOLKHOZ_RUN_COMMAND_WORKER=true
+KOLKHOZ_RUN_DEADLINE_SCHEDULER=true
+KOLKHOZ_RUN_POPULATION_SCHEDULER=true
+KOLKHOZ_RUN_LIFECYCLE_RECONCILER=true
+EOF
+} >"$SHADOW_ENV"
+chmod 600 "$SHADOW_ENV"
+
+for schema in postgres_schema.sql lobby_schema.sql distributed_schema.sql command_schema.sql population_schema.sql; do
+  DATABASE_URL="$database_url" psql "$database_url" -v ON_ERROR_STOP=1 -f "$ROOT/server/$schema" >/dev/null
+done
+unset database_url supabase_url publishable
+install -d -o redis -g redis /var/lib/redis-greenfield
+install -o root -g redis -m 0640 "$here/redis-greenfield.conf" /etc/redis/kolkhoz-greenfield.conf
+install -o root -g root -m 0644 "$here/kolkhoz-greenfield-redis.service" /etc/systemd/system/kolkhoz-greenfield-redis.service
+install -o root -g root -m 0644 "$here/kolkhoz-greenfield.service" /etc/systemd/system/kolkhoz-greenfield.service
+systemctl daemon-reload
+systemctl enable --now kolkhoz-greenfield-redis.service
+systemctl enable --now kolkhoz-greenfield.service
+curl --fail --silent --max-time 5 http://127.0.0.1:18787/ready >/dev/null
+curl --fail --silent --max-time 5 http://127.0.0.1:18787/metrics/prometheus | grep -q '^kolkhoz_uptime_seconds '
+echo "greenfield shadow ready on loopback port 18787"
