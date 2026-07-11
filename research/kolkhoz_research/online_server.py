@@ -387,10 +387,24 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
                 if authorization is not None
                 else None
             )
-            service.mark_online_presence(user_id=user_id)
-            return service.metrics_snapshot()
+            return service.mark_online_presence(
+                user_id=user_id,
+                device_id=_device_id(headers),
+                session_id=str(body.get("sessionID") or "").strip() or None,
+            )
         if method == "GET" and parts == ["metrics"]:
             return service.metrics_snapshot()
+        if method == "POST" and parts == ["active-session", "sync"]:
+            authorization = _authorization_header(headers)
+            user_id = (
+                service.user_id_from_authorization(authorization)
+                if authorization is not None
+                else None
+            )
+            return service.sync_active_session(
+                user_id=user_id,
+                device_id=_device_id(headers),
+            )
         authorization = _authorization_header(headers)
         user_id = (
             service.user_id_from_authorization(authorization)
@@ -409,11 +423,15 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
         if method == "GET" and parts == ["sessions"]:
             return service.list_sessions(user_id=user_id)
         if method == "POST" and parts == ["sessions"]:
-            return service.create_session(body, user_id=user_id)
+            return service.create_session(
+                body, user_id=user_id, device_id=_device_id(headers)
+            )
         if method == "GET" and parts == ["sessions", "invites"]:
             return service.pending_session_invites(user_id=user_id)
         if method == "POST" and parts == ["sessions", "matchmake"]:
-            return service.matchmake_session(body, user_id=user_id)
+            return service.matchmake_session(
+                body, user_id=user_id, device_id=_device_id(headers)
+            )
         if len(parts) >= 2 and parts[0] == "sessions":
             session_id = parts[1]
             if method == "GET" and len(parts) == 2:
@@ -436,6 +454,7 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
                     session_id,
                     body,
                     user_id=user_id,
+                    device_id=_device_id(headers),
                 )
             if (
                 method == "POST"
@@ -526,7 +545,7 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header(
             "Access-Control-Allow-Headers",
-            "Content-Type, Accept, Authorization, X-Kolkhoz-Seat-Token",
+            "Content-Type, Accept, Authorization, X-Kolkhoz-Seat-Token, X-Kolkhoz-Device-ID",
         )
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -778,6 +797,7 @@ class KolkhozOnlineSessionService:
         self._lock = threading.RLock()
         self._policy_lock = threading.RLock()
         self._online_presence: dict[str, float] = {}
+        self._device_session_leases: dict[tuple[str, str], tuple[str, float]] = {}
         self.metrics = OnlineServerMetrics()
         self.population_handler = (
             OnlinePopulationHandler(self) if population_enabled else None
@@ -951,12 +971,126 @@ class KolkhozOnlineSessionService:
         self,
         *,
         user_id: str | None,
-    ) -> None:
+        device_id: str | None = None,
+        session_id: str | None = None,
+    ) -> dict[str, object]:
         key = _online_presence_key(user_id)
-        if key is None:
+        now = time.time()
+        with self._lock:
+            if key is not None:
+                self._online_presence[key] = now
+            if user_id and device_id and session_id:
+                self._device_session_leases[(user_id, device_id)] = (session_id, now)
+        result = self.metrics_snapshot()
+        result["activeSession"] = self._active_session_json(
+            user_id=user_id,
+            current_session_id=session_id,
+        )
+        return result
+
+    def sync_active_session(
+        self,
+        *,
+        user_id: str | None,
+        device_id: str | None,
+    ) -> dict[str, object]:
+        self._require_authenticated_user(user_id)
+        active = self._active_session_for_user(user_id)
+        if active is None or user_id is None:
+            raise OnlineServerError(HTTPStatus.NOT_FOUND, "no active game")
+        hosted, player_id = active
+        with self._session_lock(hosted, "sync_active_session"):
+            seat_token = self._issue_seat_token(hosted, player_id)
+            now = time.time()
+            self._mark_seat_seen(hosted, player_id, now)
+            if device_id:
+                with self._lock:
+                    self._device_session_leases[(user_id, device_id)] = (
+                        hosted.session_id,
+                        now,
+                    )
+            return {
+                "sessionID": hosted.session_id,
+                "seed": hosted.seed,
+                "inviteCode": hosted.invite_code,
+                "playerID": player_id,
+                "seatToken": seat_token,
+                "update": self._update(hosted, player_id),
+            }
+
+    def _active_session_json(
+        self,
+        *,
+        user_id: str | None,
+        current_session_id: str | None,
+    ) -> dict[str, object] | None:
+        active = self._active_session_for_user(user_id)
+        if active is None:
+            return None
+        hosted, player_id = active
+        return {
+            "sessionID": hosted.session_id,
+            "inviteCode": hosted.invite_code,
+            "playerID": player_id,
+            "started": hosted.started,
+            "requiresSync": current_session_id != hosted.session_id,
+        }
+
+    def _active_session_for_user(
+        self,
+        user_id: str | None,
+    ) -> tuple[HostedSession, int] | None:
+        if not user_id:
+            return None
+        cutoff = time.time() - 30.0
+        with self._lock:
+            expired = [
+                key
+                for key, (_, seen_at) in self._device_session_leases.items()
+                if seen_at < cutoff
+            ]
+            for key in expired:
+                del self._device_session_leases[key]
+            session_ids = {
+                session_id
+                for (lease_user_id, _), (session_id, _) in self._device_session_leases.items()
+                if lease_user_id == user_id
+            }
+            sessions = [
+                hosted
+                for session_id in session_ids
+                if (hosted := self._sessions.get(session_id)) is not None
+            ]
+        for hosted in sorted(sessions, key=lambda value: value.last_seen_at, reverse=True):
+            state = CEngine.snapshot(hosted.engine_pointer)
+            if int(state.phase) == PHASE_GAME_OVER:
+                continue
+            for player_id, seat_user_id in hosted.seat_user_ids.items():
+                if seat_user_id == user_id and player_id not in hosted.abandoned_seats:
+                    return hosted, player_id
+        return None
+
+    def _ensure_no_active_session(self, user_id: str | None) -> None:
+        if self._active_session_for_user(user_id) is not None:
+            raise OnlineServerError(
+                HTTPStatus.CONFLICT,
+                "active game on another device",
+            )
+
+    def _register_device_session(
+        self,
+        user_id: str | None,
+        device_id: str | None,
+        session_id: str,
+        seen_at: float,
+    ) -> None:
+        if not user_id or not device_id:
             return
         with self._lock:
-            self._online_presence[key] = time.time()
+            self._device_session_leases[(user_id, device_id)] = (
+                session_id,
+                seen_at,
+            )
 
     def metrics_state(self) -> dict[str, object]:
         with self._lock:
@@ -1013,9 +1147,11 @@ class KolkhozOnlineSessionService:
         request: dict[str, object],
         *,
         user_id: str | None = None,
+        device_id: str | None = None,
     ) -> dict[str, object]:
         with self._lock:
             self._require_authenticated_user(user_id)
+            self._ensure_no_active_session(user_id)
             self._prune_expired_sessions()
             variants = _normalize_variants(request.get("variants"))
             controllers = _normalize_controllers(request.get("controllers"))
@@ -1068,6 +1204,7 @@ class KolkhozOnlineSessionService:
                 hosted.seat_user_ids[player_id] = user_id
             self._assign_server_bot_profiles(hosted)
             self._sessions[session_id] = hosted
+            self._register_device_session(user_id, device_id, session_id, now)
             try:
                 self._sync_lobby_state(hosted, now, persist=False)
                 self._persist_session_created(hosted)
@@ -1094,7 +1231,9 @@ class KolkhozOnlineSessionService:
         request: dict[str, object],
         *,
         user_id: str | None = None,
+        device_id: str | None = None,
     ) -> dict[str, object]:
+        self._ensure_no_active_session(user_id)
         with self._locked_session(session_id) as hosted:
             self._require_authenticated_user(user_id)
             lookup_is_invite_code = _session_lookup_is_invite_code(session_id)
@@ -1114,7 +1253,12 @@ class KolkhozOnlineSessionService:
                 player_id = preferred
             else:
                 player_id = self._first_available_seat(hosted)
-            response = self._join_hosted_seat(hosted, player_id, user_id=user_id)
+            response = self._join_hosted_seat(
+                hosted,
+                player_id,
+                user_id=user_id,
+                device_id=device_id,
+            )
             if user_id is not None:
                 hosted.invited_user_ids.discard(user_id)
                 hosted.declined_invite_user_ids.discard(user_id)
@@ -1209,8 +1353,10 @@ class KolkhozOnlineSessionService:
         request: dict[str, object],
         *,
         user_id: str | None = None,
+        device_id: str | None = None,
     ) -> dict[str, object]:
         self._require_authenticated_user(user_id)
+        self._ensure_no_active_session(user_id)
         self._ensure_not_online_banned(user_id)
         ranked_only = _optional_bool(request.get("rankedOnly"), False)
         comrades_only = _optional_bool(request.get("comradesOnly"), False)
@@ -1302,15 +1448,20 @@ class KolkhozOnlineSessionService:
                     hosted,
                     open_seats[0],
                     user_id=user_id,
+                    device_id=device_id,
                 )
         if ranked_only and not comrades_only:
-            return self._join_new_ranked_matchmaking_seed(user_id=user_id)
+            return self._join_new_ranked_matchmaking_seed(
+                user_id=user_id,
+                device_id=device_id,
+            )
         raise OnlineServerError(HTTPStatus.NOT_FOUND, "no open games")
 
     def _join_new_ranked_matchmaking_seed(
         self,
         *,
         user_id: str | None,
+        device_id: str | None = None,
     ) -> dict[str, object]:
         now = time.time()
         try:
@@ -1328,6 +1479,7 @@ class KolkhozOnlineSessionService:
                 hosted,
                 self._first_available_seat(hosted),
                 user_id=user_id,
+                device_id=device_id,
             )
 
     def _bot_profiles_by_rating_match(
@@ -1405,6 +1557,7 @@ class KolkhozOnlineSessionService:
         player_id: int,
         *,
         user_id: str | None = None,
+        device_id: str | None = None,
     ) -> dict[str, object]:
         previous_occupied_seats = set(hosted.occupied_seats)
         previous_seat_tokens = dict(hosted.seat_tokens)
@@ -1420,6 +1573,12 @@ class KolkhozOnlineSessionService:
         if user_id is not None:
             hosted.seat_user_ids[player_id] = user_id
         hosted.last_seen_at = time.time()
+        self._register_device_session(
+            user_id,
+            device_id,
+            hosted.session_id,
+            hosted.last_seen_at,
+        )
         try:
             self._mark_seat_seen(hosted, player_id, hosted.last_seen_at)
             self._persist_seat_joined(hosted, player_id, seat_token)
@@ -2434,11 +2593,19 @@ class KolkhozOnlineSessionService:
             raise OnlineServerError(HTTPStatus.UNAUTHORIZED, "missing player")
         if player_id not in hosted.occupied_seats:
             raise OnlineServerError(HTTPStatus.CONFLICT, "seat not joined")
+        expected_user_id = hosted.seat_user_ids.get(player_id)
+        account_owns_seat = (
+            self.auth_verifier is not None
+            and user_id is not None
+            and expected_user_id == user_id
+        )
         expected = hosted.seat_tokens.get(player_id)
         expected_hash = hosted.seat_token_hashes.get(player_id)
         if not seat_token:
             raise OnlineServerError(HTTPStatus.UNAUTHORIZED, "invalid seat token")
-        if expected is not None:
+        if account_owns_seat:
+            pass
+        elif expected is not None:
             if not secrets.compare_digest(expected, seat_token):
                 raise OnlineServerError(HTTPStatus.UNAUTHORIZED, "invalid seat token")
         elif expected_hash is not None:
@@ -2446,7 +2613,6 @@ class KolkhozOnlineSessionService:
                 raise OnlineServerError(HTTPStatus.UNAUTHORIZED, "invalid seat token")
         else:
             raise OnlineServerError(HTTPStatus.UNAUTHORIZED, "invalid seat token")
-        expected_user_id = hosted.seat_user_ids.get(player_id)
         if self.auth_verifier is not None and user_id is None:
             raise OnlineServerError(HTTPStatus.UNAUTHORIZED, "missing auth token")
         if (
@@ -4102,6 +4268,14 @@ def _authorization_header(headers: object) -> str | None:
         return None
     value = header_get("Authorization")
     return str(value) if value else None
+
+
+def _device_id(headers: object) -> str | None:
+    header_get = getattr(headers, "get", None)
+    if not callable(header_get):
+        return None
+    value = str(header_get("X-Kolkhoz-Device-ID") or "").strip()
+    return value[:128] or None
 
 
 def _online_presence_key(user_id: str | None) -> str | None:

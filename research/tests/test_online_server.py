@@ -192,6 +192,86 @@ class OnlineServerTests(unittest.TestCase):
             )
         self.assertEqual(stale.exception.status, HTTPStatus.CONFLICT)
 
+    def test_active_session_can_be_synced_by_another_device(self) -> None:
+        service = KolkhozOnlineSessionService(
+            self.engine,
+            auth_verifier=object(),  # type: ignore[arg-type]
+            lobby_countdown_seconds=0,
+        )
+        try:
+            created = service.create_session(
+                create_request(),
+                user_id="user-a",
+                device_id="phone",
+            )
+            with self.assertRaises(OnlineServerError) as duplicate:
+                service.create_session(
+                    create_request(),
+                    user_id="user-a",
+                    device_id="desktop",
+                )
+            self.assertEqual(duplicate.exception.status, HTTPStatus.CONFLICT)
+            first = service.mark_online_presence(
+                user_id="user-a",
+                device_id="phone",
+                session_id=created["sessionID"],
+            )
+            self.assertFalse(first["activeSession"]["requiresSync"])
+
+            desktop = service.mark_online_presence(
+                user_id="user-a",
+                device_id="desktop",
+            )
+            self.assertTrue(desktop["activeSession"]["requiresSync"])
+            resumed = service.sync_active_session(
+                user_id="user-a",
+                device_id="desktop",
+            )
+            self.assertEqual(resumed["sessionID"], created["sessionID"])
+            self.assertEqual(resumed["playerID"], created["playerID"])
+            self.assertNotEqual(resumed["seatToken"], created["seatToken"])
+
+            # Both account-authenticated devices remain valid after resuming.
+            self.assertIsInstance(
+                service.legal_actions(
+                    created["sessionID"],
+                    created["playerID"],
+                    created["seatToken"],
+                    user_id="user-a",
+                ),
+                list,
+            )
+            self.assertIsInstance(
+                service.legal_actions(
+                    created["sessionID"],
+                    resumed["playerID"],
+                    resumed["seatToken"],
+                    user_id="user-a",
+                ),
+                list,
+            )
+        finally:
+            service.close()
+
+    def test_active_session_lease_expires_after_thirty_seconds(self) -> None:
+        created = self.service.create_session(create_request(), user_id="user-a")
+        self.service.mark_online_presence(
+            user_id="user-a",
+            device_id="phone",
+            session_id=created["sessionID"],
+        )
+        self.service._device_session_leases[("user-a", "phone")] = (
+            created["sessionID"],
+            time.time() - 31,
+        )
+
+        heartbeat = self.service.mark_online_presence(
+            user_id="user-a",
+            device_id="desktop",
+        )
+
+        self.assertIsNone(heartbeat["activeSession"])
+
     def test_requisition_event_messages_match_engine_kinds(self) -> None:
         self.assertEqual(_requisition_message(1), "Card sent north.")
         self.assertEqual(_requisition_message(2), "No matching card found.")
@@ -2650,6 +2730,95 @@ class OnlineServerTests(unittest.TestCase):
         self.assertEqual(first["service"]["citizensOnline"], 16)
         self.assertEqual(second["service"]["connectedHumanSeats"], 1)
         self.assertEqual(second["service"]["citizensOnline"], 16)
+
+    def test_http_two_devices_sync_and_share_one_seat(self) -> None:
+        user_id = "11111111-1111-1111-1111-111111111111"
+
+        class FakeAuthVerifier:
+            def user_id_from_authorization(
+                self, authorization: str | None
+            ) -> str | None:
+                return user_id if authorization == "Bearer user-token" else None
+
+        service = KolkhozOnlineSessionService(
+            self.engine,
+            auth_verifier=FakeAuthVerifier(),  # type: ignore[arg-type]
+            lobby_countdown_seconds=0,
+        )
+        server = KolkhozOnlineHTTPServer(("127.0.0.1", 0), service)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        phone_headers = {
+            "Authorization": "Bearer user-token",
+            "X-Kolkhoz-Device-ID": "phone",
+        }
+        desktop_headers = {
+            "Authorization": "Bearer user-token",
+            "X-Kolkhoz-Device-ID": "desktop",
+        }
+        try:
+            base_url = f"http://127.0.0.1:{server.server_port}"
+            request = create_request()
+            request["controllers"] = [
+                "human",
+                "heuristicAI",
+                "heuristicAI",
+                "heuristicAI",
+            ]
+            created = request_json(
+                "POST", f"{base_url}/sessions", request, headers=phone_headers
+            )
+            phone_headers["X-Kolkhoz-Seat-Token"] = created["seatToken"]
+            request_json(
+                "POST",
+                f"{base_url}/presence",
+                {"sessionID": created["sessionID"]},
+                headers=phone_headers,
+            )
+
+            desktop_presence = request_json(
+                "POST", f"{base_url}/presence", headers=desktop_headers
+            )
+            self.assertTrue(desktop_presence["activeSession"]["requiresSync"])
+            resumed = request_json(
+                "POST",
+                f"{base_url}/active-session/sync",
+                headers=desktop_headers,
+            )
+            desktop_headers["X-Kolkhoz-Seat-Token"] = resumed["seatToken"]
+            self.assertEqual(resumed["sessionID"], created["sessionID"])
+            self.assertEqual(resumed["playerID"], created["playerID"])
+
+            actions = request_json(
+                "GET",
+                f"{base_url}/sessions/{created['sessionID']}/players/0/actions",
+                headers=desktop_headers,
+            )
+            submitted = request_json(
+                "POST",
+                f"{base_url}/sessions/{created['sessionID']}/actions",
+                {
+                    "playerID": 0,
+                    "actionLogCount": resumed["update"]["actionLogCount"],
+                    "action": actions[0],
+                },
+                headers=desktop_headers,
+            )
+            phone_view = request_json(
+                "GET",
+                f"{base_url}/sessions/{created['sessionID']}/state?viewerID=0",
+                headers=phone_headers,
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+            service.close()
+
+        self.assertGreater(submitted["actionLogCount"], 0)
+        self.assertEqual(
+            phone_view["actionLogCount"], submitted["actionLogCount"]
+        )
 
     def test_online_load_test_runs_synthetic_players(self) -> None:
         server = KolkhozOnlineHTTPServer(("127.0.0.1", 0), self.service)
