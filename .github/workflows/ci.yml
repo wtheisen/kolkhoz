@@ -158,3 +158,59 @@ jobs:
           path: app/build/windows/x64/runner/Release/
           if-no-files-found: error
           retention-days: 30
+
+  macos-release:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: dart run tool/sync_policy_assets.dart
+      - run: ./tool/build_c_engine_macos.sh
+      - run: flutter pub get
+      - run: flutter build macos --release
+      - name: Verify release bundle
+        run: |
+          bundle="build/macos/Build/Products/Release/kolkhoz_app.app"
+          test -x "$bundle/Contents/MacOS/kolkhoz_app"
+          test -f "$bundle/Contents/Frameworks/libkolkhoz_c_engine.dylib"
+          test -n "$(find "$bundle" -path '*/flutter_assets/assets/policies/hard_policy.json' -print -quit)"
+          otool -L "$bundle/Contents/MacOS/kolkhoz_app"
+          otool -L "$bundle/Contents/Frameworks/libkolkhoz_c_engine.dylib"
+          codesign --force --deep --sign - "$bundle"
+          codesign --verify --deep --strict --verbose=2 "$bundle"
+      - name: Package macOS release
+        run: |
+          bundle="build/macos/Build/Products/Release/kolkhoz_app.app"
+          package="build/macos/package"
+          rm -rf "$package"
+          mkdir -p "$package"
+          {
+            echo "Kolkhoz macOS Release"
+            echo "Commit: $GITHUB_SHA"
+            echo "Workflow run: $GITHUB_RUN_ID"
+            echo "Built UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "Signing: ad-hoc"
+          } > "$package/BUILD_INFO.txt"
+          (
+            cd "$(dirname "$bundle")"
+            find "$(basename "$bundle")" -type f -print0 |
+              sort -z |
+              xargs -0 shasum -a 256
+          ) > "$package/SHA256SUMS.txt"
+          ditto -c -k --sequesterRsrc --keepParent "$bundle" "$package/kolkhoz-macos.zip"
+      - name: Upload macOS release
+        uses: actions/upload-artifact@v4
+        with:
+          name: kolkhoz-macos-${{ github.sha }}
+          path: |
+            app/build/macos/package/kolkhoz-macos.zip
+            app/build/macos/package/BUILD_INFO.txt
+            app/build/macos/package/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
