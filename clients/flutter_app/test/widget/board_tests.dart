@@ -1602,6 +1602,84 @@ void registerBoardTests() {
     expect(find.byType(FlyingCard), findsOneWidget);
   });
 
+  testWidgets('rapid assignment updates only animate the committed move once', (
+    tester,
+  ) async {
+    final before = runtimeModelWith(
+      phase: phaseAssignment,
+      selection: SelectionState.empty,
+      jobs: runtimeModel().table.jobs,
+      lastTrick: Trick(
+        plays: [
+          TrickPlay(
+            seatID: 2,
+            card: testCard(id: 'sunflower-7', suit: 'sunflower', value: 7),
+          ),
+        ],
+        winnerSeatID: 2,
+      ),
+    );
+    final pending = runtimeModelWith(
+      phase: phaseAssignment,
+      selection: SelectionState.empty,
+      jobs: before.table.jobs,
+      lastTrick: before.table.lastTrick,
+    );
+    final assignedCard = before.table.lastTrick.plays.single.card;
+    final after = runtimeModelWith(
+      phase: phaseTrick,
+      selection: SelectionState.empty,
+      jobs: [
+        for (final job in before.table.jobs)
+          job.suit == assignedCard.suit
+              ? Job(
+                  suit: job.suit,
+                  hours: assignedCard.value,
+                  requiredHours: job.requiredHours,
+                  claimed: job.claimed,
+                  assignedCards: [assignedCard],
+                  reward: job.reward,
+                  validAssignmentTarget: job.validAssignmentTarget,
+                  highlighted: job.highlighted,
+                )
+              : job,
+      ],
+      lastTrick: const Trick(plays: [], winnerSeatID: null),
+    );
+
+    var currentModel = before;
+    late StateSetter setMotionState;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            setMotionState = setState;
+            return SizedBox(
+              width: 420,
+              height: 280,
+              child: CardMotionLayer(
+                model: currentModel,
+                tokens: defaultDesignTokens,
+                speed: GameAnimationSpeed.normal,
+                child: _CardMotionTestBoard(model: currentModel),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    setMotionState(() => currentModel = pending);
+    await tester.pump();
+    setMotionState(() => currentModel = after);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(FlyingCard), findsOneWidget);
+  });
+
   testWidgets('requisition flies a newly plotted hand card to North', (
     tester,
   ) async {

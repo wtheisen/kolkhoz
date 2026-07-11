@@ -268,7 +268,7 @@ def main() -> None:
         split_group(combined, group, args.output)
         combined.unlink()
 
-    auditions = ROOT / "clients/flutter_app/ios_resources/Audio/Auditions"
+    auditions = ROOT / "clients/flutter_app/tool/voice_line_auditions"
     for name in ("saboteur-wrench.wav", "saboteur-any-crop.wav"):
         target = args.output / name
         target.write_bytes((auditions / name).read_bytes())

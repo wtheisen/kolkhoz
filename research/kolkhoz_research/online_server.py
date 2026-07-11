@@ -923,24 +923,33 @@ class KolkhozOnlineSessionService:
         self.metrics.record_lock_wait(kind, time.perf_counter() - started)
 
     def _get_or_load_session_locked(self, session_id: str) -> HostedSession:
-        with self._lock:
-            self._prune_expired_sessions()
-            hosted = self._session_from_memory(session_id)
-            if hosted is not None:
-                self._acquire_session_lock(hosted, "request")
-                return hosted
+        while True:
+            with self._lock:
+                self._prune_expired_sessions()
+                hosted = self._session_from_memory(session_id)
+            if hosted is None:
+                break
+            self._acquire_session_lock(hosted, "request")
+            with self._lock:
+                if self._sessions.get(hosted.session_id) is hosted:
+                    return hosted
+            hosted.lock.release()
         loaded = self._load_persisted_session(session_id)
-        with self._lock:
-            existing = self._session_from_memory(str(loaded.session_id))
-            if existing is None:
-                existing = self._session_from_memory(str(loaded.invite_code))
-            if existing is not None:
-                self.engine.free_engine(loaded.engine_pointer)
-                self._acquire_session_lock(existing, "request")
-                return existing
-            self._sessions[loaded.session_id] = loaded
-            self._acquire_session_lock(loaded, "request")
-            return loaded
+        while True:
+            with self._lock:
+                existing = self._session_from_memory(str(loaded.session_id))
+                if existing is None:
+                    existing = self._session_from_memory(str(loaded.invite_code))
+                if existing is None:
+                    self._sessions[loaded.session_id] = loaded
+                    self._acquire_session_lock(loaded, "request")
+                    return loaded
+            self._acquire_session_lock(existing, "request")
+            with self._lock:
+                if self._sessions.get(existing.session_id) is existing:
+                    self.engine.free_engine(loaded.engine_pointer)
+                    return existing
+            existing.lock.release()
 
     def _session_is_registered(self, hosted: HostedSession) -> bool:
         with self._lock:

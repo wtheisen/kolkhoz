@@ -167,6 +167,19 @@ void registerStoreAndOnlineTests() {
     );
   });
 
+  test('face-card voices replace only the standard card-play sound', () {
+    const voice = 'audio/voice_lines/jack-wheat.wav';
+    expect(gameSoundCueWithVoiceOverride(GameSoundCue.cardPlay, voice), isNull);
+    expect(
+      gameSoundCueWithVoiceOverride(GameSoundCue.trickWin, voice),
+      GameSoundCue.trickWin,
+    );
+    expect(
+      gameSoundCueWithVoiceOverride(GameSoundCue.cardPlay, null),
+      GameSoundCue.cardPlay,
+    );
+  });
+
   test('assignment work cues follow crop and layer saboteur damage', () {
     final model = runtimeModelWith(
       phase: phaseAssignment,
@@ -236,7 +249,7 @@ void registerStoreAndOnlineTests() {
         previousActionCount: 0,
         actions: const [queenAction],
       ),
-      'ios_resources/Audio/VoiceLines/queen-sunflower.wav',
+      'audio/voice_lines/queen-sunflower.wav',
     );
 
     final nomenklaturaKing = runtimeModelWith(
@@ -270,7 +283,16 @@ void registerStoreAndOnlineTests() {
         previousActionCount: 0,
         actions: const [kingAction],
       ),
-      'ios_resources/Audio/VoiceLines/nomenklatura-king-beet.wav',
+      'audio/voice_lines/nomenklatura-king-beet.wav',
+    );
+  });
+
+  testWidgets('face-card voice assets use their root bundle keys', (
+    tester,
+  ) async {
+    expect(
+      await rootBundle.load('assets/audio/voice_lines/jack-wheat.wav'),
+      isNotNull,
     );
   });
 
@@ -295,7 +317,7 @@ void registerStoreAndOnlineTests() {
           previousActionCount: 0,
           actions: const [saboteur],
         ),
-        'ios_resources/Audio/VoiceLines/saboteur-wrench.wav',
+        'audio/voice_lines/saboteur-wrench.wav',
       );
       const numberCard = EngineAction(
         kind: actionPlayCard,

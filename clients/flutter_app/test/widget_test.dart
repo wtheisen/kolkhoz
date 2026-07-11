@@ -4,6 +4,7 @@ import 'dart:ffi' hide Size;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolkhoz_app/src/animation_speed.dart';
 import 'package:kolkhoz_app/src/app_settings.dart';
@@ -489,7 +490,9 @@ class _CardMotionTestBoard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hand = model.table.seats[0].hand;
-    final trick = model.table.trick.plays;
+    final trick = model.table.trick.plays.isNotEmpty
+        ? model.table.trick.plays
+        : model.table.lastTrick.plays;
     final handCard = hand.isEmpty ? null : hand.first;
     final trickPlay = trick.isEmpty ? null : trick.first;
     return Stack(
@@ -503,6 +506,15 @@ class _CardMotionTestBoard extends StatelessWidget {
             child: const SizedBox(width: 96, height: 42),
           ),
         ),
+        for (final (index, job) in model.table.jobs.indexed)
+          Positioned(
+            left: 150 + index * 45,
+            top: 24,
+            child: MotionTrackedRegion(
+              motionKey: jobGaugeMotionTargetKey(job.suit),
+              child: const SizedBox(width: 40, height: 40),
+            ),
+          ),
         if (handCard != null)
           Positioned(
             left: 24,

@@ -63,8 +63,8 @@ flutter:
     - ios_resources/Cards/
     - ios_resources/Embellishments/
     - ios_resources/Fonts/Bitmap/
-    - ios_resources/Audio/VoiceLines/
     - assets/audio/
+    - assets/audio/voice_lines/
     - assets/policies/current_best_policy.json
     - assets/policies/medium_policy.json
     - assets/policies/hard_policy.json

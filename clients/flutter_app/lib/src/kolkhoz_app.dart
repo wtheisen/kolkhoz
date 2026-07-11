@@ -614,7 +614,9 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
       );
       previousSoundModel = model;
       previousSoundActionCount = actions.length;
-      unawaited(gameSounds.play(cue));
+      unawaited(
+        gameSounds.play(gameSoundCueWithVoiceOverride(cue, faceCardVoice)),
+      );
       unawaited(gameSounds.playAsset(faceCardVoice));
       for (final asset in assignmentWorkAssets) {
         unawaited(gameSounds.playAsset(asset, volume: 0.65));

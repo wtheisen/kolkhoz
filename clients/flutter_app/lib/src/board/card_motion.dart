@@ -43,10 +43,12 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
     final previousCards = cardMotionCards(oldWidget.model);
     final nextCards = cardMotionCards(widget.model);
     final previousRects = Map<String, Rect>.of(_controller.previousRects);
+    final nextModel = widget.model;
     _afterCardLayout(() {
       final currentRects = Map<String, Rect>.of(_controller.currentRects);
       _startFlights(
         previousModel: oldWidget.model,
+        nextModel: nextModel,
         previousZones: previousZones,
         nextZones: nextZones,
         previousCards: previousCards,
@@ -68,6 +70,7 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
 
   void _startFlights({
     required TableViewModel previousModel,
+    required TableViewModel nextModel,
     required Map<String, String> previousZones,
     required Map<String, String> nextZones,
     required Map<String, TableCard> previousCards,
@@ -81,7 +84,7 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
     final newFlights = <CardFlight>[];
     final newExiledIDs = newlyExiledCardIDs(
       previousModel: previousModel,
-      nextModel: widget.model,
+      nextModel: nextModel,
     );
     for (final entry in nextZones.entries) {
       final cardID = entry.key;
@@ -162,7 +165,7 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
         );
       }
       final plotSeatID =
-          plotSeatIDForMotionCard(widget.model, cardID) ??
+          plotSeatIDForMotionCard(nextModel, cardID) ??
           (previousZone == null ? null : plotZoneSeatID(previousZone));
       sourceRect ??= plotSeatID == null
           ? null

@@ -400,6 +400,36 @@ class OnlineServerTests(unittest.TestCase):
         finally:
             service.close()
 
+    def test_request_lock_does_not_hold_registry_while_waiting_for_session(self) -> None:
+        created = self.service.create_session(create_request())
+        hosted = self.service._session(created["sessionID"])
+        hosted.lock.acquire()
+        request_finished = threading.Event()
+
+        def fetch_update() -> None:
+            try:
+                self.service.update(
+                    created["sessionID"],
+                    created["playerID"],
+                    created["seatToken"],
+                )
+            finally:
+                request_finished.set()
+
+        request = threading.Thread(target=fetch_update)
+        request.start()
+        try:
+            time.sleep(0.05)
+            registry_acquired = self.service._lock.acquire(timeout=0.5)
+            self.assertTrue(registry_acquired)
+            if registry_acquired:
+                self.service._lock.release()
+        finally:
+            hosted.lock.release()
+            request.join(timeout=1)
+
+        self.assertTrue(request_finished.is_set())
+
     def test_lobby_countdown_cancels_when_a_player_leaves(self) -> None:
         service = KolkhozOnlineSessionService(
             self.engine,

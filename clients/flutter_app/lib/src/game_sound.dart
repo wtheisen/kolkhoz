@@ -53,6 +53,13 @@ GameSoundCue? gameSoundCueForTransition({
   };
 }
 
+GameSoundCue? gameSoundCueWithVoiceOverride(
+  GameSoundCue? cue,
+  String? voiceAsset,
+) {
+  return cue == GameSoundCue.cardPlay && voiceAsset != null ? null : cue;
+}
+
 List<String> assignmentWorkAssetsForTransition({
   required TableViewModel? previous,
   required int previousActionCount,
@@ -91,7 +98,7 @@ String? faceCardVoiceAssetForTransition({
     final variant = (next.table.year + action.playerID).isEven
         ? 'wrench'
         : 'any-crop';
-    return 'ios_resources/Audio/VoiceLines/saboteur-$variant.wav';
+    return 'audio/voice_lines/saboteur-$variant.wav';
   }
   final rank = switch (card.value) {
     11 => 'jack',
@@ -108,7 +115,7 @@ String? faceCardVoiceAssetForTransition({
       )
       .firstOrNull;
   final prefix = playedCard?.card.nomenclature ?? false ? 'nomenklatura-' : '';
-  return 'ios_resources/Audio/VoiceLines/$prefix$rank-${card.suit}.wav';
+  return 'audio/voice_lines/$prefix$rank-${card.suit}.wav';
 }
 
 class GameSoundController {
