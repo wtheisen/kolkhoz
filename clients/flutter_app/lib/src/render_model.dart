@@ -108,18 +108,29 @@ class PlotState {
     required this.revealed,
     required this.hidden,
     required this.stacks,
+    this.hiddenCardCount,
   });
 
   final List<TableCard> revealed;
   final List<TableCard> hidden;
   final List<PlotStackState> stacks;
+  final int? hiddenCardCount;
+
+  int get effectiveHiddenCardCount => hiddenCardCount ?? hidden.length;
 }
 
 class PlotStackState {
-  const PlotStackState({required this.revealed, required this.hidden});
+  const PlotStackState({
+    required this.revealed,
+    required this.hidden,
+    this.hiddenCardCount,
+  });
 
   final List<TableCard> revealed;
   final List<TableCard> hidden;
+  final int? hiddenCardCount;
+
+  int get effectiveHiddenCardCount => hiddenCardCount ?? hidden.length;
 }
 
 class Job {
@@ -202,6 +213,7 @@ class TableCard {
     required this.pending,
     this.assignmentRound,
     this.nomenclature = false,
+    this.ownerSeatID,
   });
 
   final String id;
@@ -213,6 +225,7 @@ class TableCard {
   final bool pending;
   final int? assignmentRound;
   final bool nomenclature;
+  final int? ownerSeatID;
 }
 
 class Panels {
@@ -244,6 +257,7 @@ class EngineAction {
     this.plotCard,
     this.plotZone,
     this.targetSuit,
+    this.requisitionKind,
   });
 
   final String kind;
@@ -254,6 +268,7 @@ class EngineAction {
   final EngineCard? plotCard;
   final String? plotZone;
   final String? targetSuit;
+  final int? requisitionKind;
 }
 
 class EngineCard {

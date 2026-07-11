@@ -128,12 +128,14 @@ class OnlineTableProjection {
                 )
               : const {},
         ),
+        hiddenCardCount: player?.effectiveHiddenPlotCount ?? 0,
         stacks: [
           for (final stack
               in player?.stacks ?? const <OnlinePlotStackSnapshot>[])
             PlotStackState(
               revealed: cards(stack.revealed),
               hidden: cards(stack.hidden),
+              hiddenCardCount: stack.effectiveHiddenCount,
             ),
         ],
       ),
@@ -228,9 +230,26 @@ class OnlineTableProjection {
   }
 
   Map<int, List<TableCard>> exiledByYear() {
-    return buildExiledByYear(
-      (year) => cards(cardsForSuit(snapshot.exiled, year)),
-    );
+    return buildExiledByYear((year) {
+      final exiledCards = cardsForSuit(snapshot.exiled, year);
+      final owners = exiledPlayersForYear(year);
+      return [
+        for (final (index, card) in exiledCards.indexed)
+          projectOnlineCard(
+            card.valueObject,
+            ownerSeatID: index < owners.length
+                ? nullablePlayerID(owners[index])
+                : null,
+          ),
+      ];
+    });
+  }
+
+  List<int> exiledPlayersForYear(int year) {
+    for (final entry in snapshot.exiledPlayers) {
+      if (entry.suit == year) return entry.values;
+    }
+    return const [];
   }
 
   List<Score> scoreboard({required bool finalScores}) {
@@ -290,12 +309,14 @@ class OnlineTableProjection {
     bool highlighted = false,
     bool pending = false,
     int? assignmentRound,
+    int? ownerSeatID,
   }) {
     return projectCard(
       card,
       highlighted: highlighted,
       pending: pending,
       assignmentRound: assignmentRound,
+      ownerSeatID: ownerSeatID,
       nomenclature: isNomenclatureFace(card, update.variants, snapshot.trump),
     );
   }

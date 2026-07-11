@@ -241,6 +241,7 @@ class KolkhozCEngineBridge {
   late final int Function(Pointer<KCEngine>, int) _pendingAssignmentTarget;
   late final int Function(Pointer<KCEngine>, int) _exiledCount;
   late final KCCardNative Function(Pointer<KCEngine>, int, int) _exiledCard;
+  late final int Function(Pointer<KCEngine>, int, int) _exiledPlayer;
   late final int Function(Pointer<KCEngine>) _requisitionEventCount;
   late final int Function(Pointer<KCEngine>, int) _requisitionEventPlayer;
   late final int Function(Pointer<KCEngine>, int) _requisitionEventSuit;
@@ -472,6 +473,8 @@ class KolkhozCEngineBridge {
       _exiledCount(engine, year);
   EngineCardValue exiledCard(Pointer<KCEngine> engine, int year, int index) =>
       _cardValue(_exiledCard(engine, year, index));
+  int exiledPlayer(Pointer<KCEngine> engine, int year, int index) =>
+      _exiledPlayer(engine, year, index);
   int requisitionEventCount(Pointer<KCEngine> engine) =>
       _requisitionEventCount(engine);
   int requisitionEventPlayer(Pointer<KCEngine> engine, int index) =>
@@ -703,6 +706,7 @@ class KolkhozCEngineBridge {
     _pendingAssignmentTarget = _int1('kc_pending_assignment_target');
     _exiledCount = _int1('kc_exiled_count');
     _exiledCard = _card2('kc_exiled_card');
+    _exiledPlayer = _int2('kc_exiled_player');
     _requisitionEventCount = _int0('kc_requisition_event_count');
     _requisitionEventPlayer = _int1('kc_requisition_event_player');
     _requisitionEventSuit = _int1('kc_requisition_event_suit');

@@ -52,6 +52,125 @@ class PlayerProfileAction {
   final PixelTextSize textSize;
 }
 
+class PlayerProfileBadge extends StatelessWidget {
+  const PlayerProfileBadge({
+    required this.tokens,
+    required this.displayName,
+    required this.portraitAsset,
+    this.seatLabel,
+    this.subtitle,
+    this.subtitleIconAsset,
+    this.title,
+    this.portraitSemanticsLabel,
+    this.onPortraitPressed,
+    this.statGroups = const [],
+    this.action,
+    this.trailing,
+    this.active = false,
+    this.muted = false,
+    this.portraitSelected = false,
+    this.portraitSize = 48,
+    this.minHeight = 82,
+    super.key,
+  });
+
+  final DesignTokens tokens;
+  final String displayName;
+  final String portraitAsset;
+  final String? seatLabel;
+  final String? subtitle;
+  final String? subtitleIconAsset;
+  final Widget? title;
+  final String? portraitSemanticsLabel;
+  final VoidCallback? onPortraitPressed;
+  final List<PlayerProfileStatGroup> statGroups;
+  final PlayerProfileAction? action;
+  final Widget? trailing;
+  final bool active;
+  final bool muted;
+  final bool portraitSelected;
+  final double portraitSize;
+  final double minHeight;
+
+  @override
+  Widget build(BuildContext context) => PlayerProfilePanel(
+    tokens: tokens,
+    displayName: displayName,
+    portraitAsset: portraitAsset,
+    seatLabel: seatLabel,
+    subtitle: subtitle,
+    subtitleIconAsset: subtitleIconAsset,
+    title: title,
+    portraitSemanticsLabel: portraitSemanticsLabel,
+    onPortraitPressed: onPortraitPressed,
+    statGroups: statGroups,
+    action: action,
+    trailing: trailing,
+    active: active,
+    muted: muted,
+    portraitSelected: portraitSelected,
+    portraitSize: portraitSize,
+    minHeight: minHeight,
+  );
+}
+
+class ExpandedPlayerProfile extends StatelessWidget {
+  const ExpandedPlayerProfile({
+    required this.tokens,
+    required this.displayName,
+    required this.portraitAsset,
+    this.subtitle,
+    this.title,
+    this.portraitSemanticsLabel,
+    this.onPortraitPressed,
+    this.chips = const [],
+    this.statGroups = const [],
+    this.action,
+    this.footer,
+    this.active = false,
+    this.portraitSelected = false,
+    this.portraitSize = 72,
+    super.key,
+  });
+
+  final DesignTokens tokens;
+  final String displayName;
+  final String portraitAsset;
+  final String? subtitle;
+  final Widget? title;
+  final String? portraitSemanticsLabel;
+  final VoidCallback? onPortraitPressed;
+  final List<PlayerProfileChip> chips;
+  final List<PlayerProfileStatGroup> statGroups;
+  final PlayerProfileAction? action;
+  final Widget? footer;
+  final bool active;
+  final bool portraitSelected;
+  final double portraitSize;
+
+  @override
+  Widget build(BuildContext context) => PlayerProfilePanel(
+    tokens: tokens,
+    displayName: displayName,
+    portraitAsset: portraitAsset,
+    subtitle: subtitle,
+    title: title,
+    portraitSemanticsLabel: portraitSemanticsLabel,
+    onPortraitPressed: onPortraitPressed,
+    chips: chips,
+    statGroups: statGroups,
+    action: action,
+    footer: footer,
+    active: active,
+    portraitSelected: portraitSelected,
+    portraitSize: portraitSize,
+    minHeight: 0,
+    padding: const EdgeInsets.all(10),
+    expandStats: true,
+    scrollStats: true,
+  );
+}
+
 class PlayerProfilePanel extends StatelessWidget {
   const PlayerProfilePanel({
     required this.tokens,

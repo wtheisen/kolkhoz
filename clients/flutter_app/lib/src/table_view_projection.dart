@@ -244,10 +244,15 @@ class TableViewProjection {
 
   Map<int, List<TableCard>> exiledByYear() {
     return buildExiledByYear(
-      (year) => cards(
-        bridge.exiledCount(engine, year),
-        (index) => bridge.exiledCard(engine, year, index),
-      ),
+      (year) => [
+        for (var index = 0; index < bridge.exiledCount(engine, year); index++)
+          projectEngineCard(
+            bridge.exiledCard(engine, year, index),
+            ownerSeatID: nullablePlayerID(
+              bridge.exiledPlayer(engine, year, index),
+            ),
+          ),
+      ],
     );
   }
 
@@ -298,12 +303,14 @@ class TableViewProjection {
     bool highlighted = false,
     bool pending = false,
     int? assignmentRound,
+    int? ownerSeatID,
   }) {
     return projectCard(
       card,
       highlighted: highlighted,
       pending: pending,
       assignmentRound: assignmentRound,
+      ownerSeatID: ownerSeatID,
       nomenclature: isNomenclatureFace(card, variants, bridge.trump(engine)),
     );
   }
@@ -314,6 +321,7 @@ TableCard projectCard(
   bool highlighted = false,
   bool pending = false,
   int? assignmentRound,
+  int? ownerSeatID,
   bool nomenclature = false,
 }) {
   return TableCard(
@@ -326,6 +334,7 @@ TableCard projectCard(
     pending: pending,
     assignmentRound: assignmentRound,
     nomenclature: nomenclature,
+    ownerSeatID: ownerSeatID,
   );
 }
 

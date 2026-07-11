@@ -209,7 +209,11 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
     if (newFlights.isEmpty) {
       return;
     }
+    final newFlightCardIDs = {for (final flight in newFlights) flight.card.id};
     setState(() {
+      _flights.removeWhere(
+        (flight) => newFlightCardIDs.contains(flight.card.id),
+      );
       _flights.addAll(newFlights);
     });
   }
@@ -550,7 +554,9 @@ Iterable<CardMotionEntry> cardMotionEntries(TableViewModel model) sync* {
   }
   for (final job in model.table.jobs) {
     for (final card in job.assignedCards) {
-      yield CardMotionEntry(card: card, zone: 'job:${job.suit}');
+      if (!card.pending) {
+        yield CardMotionEntry(card: card, zone: 'job:${job.suit}');
+      }
     }
   }
   for (final entry in model.table.exiledByYear.entries) {

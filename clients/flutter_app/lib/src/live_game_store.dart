@@ -9,6 +9,7 @@ import 'animation_speed.dart';
 import 'assignment_display.dart';
 import 'c_engine_action_codec.dart';
 import 'c_engine_bridge.dart';
+import 'engine_action_projection.dart';
 import 'game_constants.dart';
 import 'game_ui_state.dart';
 import 'online_game_models.dart';
@@ -136,6 +137,7 @@ class LiveGameStore extends ChangeNotifier {
   KolkhozGameVariants currentVariants = KolkhozGameVariants.kolkhoz;
   int currentSeed = 0;
   List<EngineAction> actionLog = [];
+  List<EngineAction> localGameLog = [];
   bool restoredSavedGame = false;
   OnlineGameRuntime? _online;
   Timer? _automaticStepTimer;
@@ -169,6 +171,7 @@ class LiveGameStore extends ChangeNotifier {
       currentVariants = variants;
       currentSeed = _newSeed();
       actionLog = [];
+      localGameLog = [];
       _clearUndoStack();
       restoredSavedGame = false;
       uiState = const GameUiState();
@@ -221,6 +224,7 @@ class LiveGameStore extends ChangeNotifier {
         _clearUndoStack();
       }
       actionLog = [...actionLog, action.engineAction];
+      localGameLog = [...localGameLog, action.engineAction];
       _clearSelectionAfter(action.kind);
     }
     _sync();
@@ -262,7 +266,7 @@ class LiveGameStore extends ChangeNotifier {
   int? get onlinePlayerID => _online?.playerID;
   OnlineSessionUpdate? get onlineUpdate => _online?.update;
   List<EngineAction> get gameLogActions => _online == null
-      ? List.unmodifiable(actionLog)
+      ? List.unmodifiable(localGameLog)
       : [
           for (final action in _online!.update.gameLogActions)
             action.engineAction,
@@ -345,6 +349,7 @@ class LiveGameStore extends ChangeNotifier {
     }
     _engine = snapshot.engine;
     actionLog = snapshot.actionLog;
+    localGameLog = snapshot.localGameLog;
     uiState = snapshot.uiState;
     revealedPlayerID = snapshot.revealedPlayerID;
     _lastSyncedPhase = snapshot.lastSyncedPhase;
@@ -726,6 +731,15 @@ class LiveGameStore extends ChangeNotifier {
   }
 
   Duration _automaticStepDelay(Pointer<KCEngine> engine) {
+    if (bridge.phase(engine) == kcPhaseRequisition) {
+      final flight = scaledGameAnimationDuration(
+        animationSpeed.cardFlightDuration,
+        requisitionCardFlightDurationScale,
+      );
+      return flight == Duration.zero
+          ? Duration.zero
+          : flight + const Duration(milliseconds: 80);
+    }
     if (_currentAutomaticStepIsTrumpSelection(engine)) {
       return animationSpeed.automaticTrumpSelectionDelay;
     }
@@ -751,6 +765,10 @@ class LiveGameStore extends ChangeNotifier {
     if (engine == null) {
       return;
     }
+    final phaseBefore = bridge.phase(engine);
+    final requisitionEventCountBefore = phaseBefore == kcPhaseRequisition
+        ? bridge.requisitionEventCount(engine)
+        : 0;
     final result = _currentAutomaticSeatUsesNeural(engine)
         ? _stepNeuralAutomatic(engine, _currentAutomaticController(engine))
         : _stepHeuristicAutomatic(engine);
@@ -763,6 +781,26 @@ class LiveGameStore extends ChangeNotifier {
       return;
     }
     error = null;
+    if (phaseBefore == kcPhaseRequisition &&
+        bridge.requisitionEventCount(engine) > requisitionEventCountBefore) {
+      final index = requisitionEventCountBefore;
+      final card = bridge.requisitionEventCard(engine, index);
+      localGameLog = [
+        ...localGameLog,
+        EngineAction(
+          kind: actionRequisitionEvent,
+          playerID: bridge.requisitionEventPlayer(engine, index),
+          suit: suitName(bridge.requisitionEventSuit(engine, index)),
+          card: card.isValid
+              ? EngineCard(
+                  suit: suitName(card.suit) ?? wreckerSuit,
+                  value: card.value,
+                )
+              : null,
+          requisitionKind: bridge.requisitionEventMessageKind(engine, index),
+        ),
+      ];
+    }
     _sync();
     _saveAutosave();
     _scheduleAutomaticStep();
@@ -780,7 +818,9 @@ class LiveGameStore extends ChangeNotifier {
       }
       final error = bridge.applyAIAction(engine, action);
       if (error == 0) {
-        actionLog = [...actionLog, engineActionFromCValue(action)];
+        final loggedAction = engineActionFromCValue(action);
+        actionLog = [...actionLog, loggedAction];
+        localGameLog = [...localGameLog, loggedAction];
         return 1;
       }
       return -error;
@@ -793,7 +833,9 @@ class LiveGameStore extends ChangeNotifier {
   }
 
   int _stepHeuristicAutomatic(Pointer<KCEngine> engine) {
-    if (bridge.phase(engine) == kcPhasePlanning && bridge.isFamine(engine)) {
+    final phase = bridge.phase(engine);
+    if (phase == kcPhaseRequisition ||
+        (phase == kcPhasePlanning && bridge.isFamine(engine))) {
       return bridge.stepAutomatic(engine);
     }
     final action = bridge.heuristicAction(engine);
@@ -804,13 +846,16 @@ class LiveGameStore extends ChangeNotifier {
     if (error != 0) {
       return -error;
     }
-    actionLog = [...actionLog, engineActionFromCValue(action)];
+    final loggedAction = engineActionFromCValue(action);
+    actionLog = [...actionLog, loggedAction];
+    localGameLog = [...localGameLog, loggedAction];
     return 1;
   }
 
   bool _currentAutomaticSeatUsesNeural(Pointer<KCEngine> engine) {
     final phase = bridge.phase(engine);
-    if (phase == kcPhasePlanning && bridge.isFamine(engine)) {
+    if (phase == kcPhaseRequisition ||
+        (phase == kcPhasePlanning && bridge.isFamine(engine))) {
       return false;
     }
     final playerID = _currentAutomaticPlayerID(engine);
@@ -1246,6 +1291,11 @@ class LiveGameStore extends ChangeNotifier {
       currentVariants = payload.variants;
       currentSeed = payload.seed;
       actionLog = List.of(payload.actions);
+      localGameLog = List.of(
+        payload.gameLogActions.isEmpty
+            ? payload.actions
+            : payload.gameLogActions,
+      );
       _clearUndoStack();
       restoredSavedGame = true;
       uiState = const GameUiState();
@@ -1297,6 +1347,7 @@ class LiveGameStore extends ChangeNotifier {
         variants: currentVariants,
         controllers: controllers,
         actions: actionLog,
+        gameLogActions: localGameLog,
       ),
     );
   }
@@ -1305,6 +1356,7 @@ class LiveGameStore extends ChangeNotifier {
     return GameUndoSnapshot(
       engine: bridge.cloneEngine(engine),
       actionLog: List.of(actionLog),
+      localGameLog: List.of(localGameLog),
       uiState: uiState,
       revealedPlayerID: revealedPlayerID,
       lastSyncedPhase: _lastSyncedPhase,
@@ -1350,6 +1402,7 @@ class GameUndoSnapshot {
   const GameUndoSnapshot({
     required this.engine,
     required this.actionLog,
+    required this.localGameLog,
     required this.uiState,
     required this.revealedPlayerID,
     required this.lastSyncedPhase,
@@ -1357,6 +1410,7 @@ class GameUndoSnapshot {
 
   final Pointer<KCEngine> engine;
   final List<EngineAction> actionLog;
+  final List<EngineAction> localGameLog;
   final GameUiState uiState;
   final int? revealedPlayerID;
   final String? lastSyncedPhase;

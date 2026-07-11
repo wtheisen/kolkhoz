@@ -121,6 +121,7 @@ enum KolkhozText {
   kolkhozappComradeAdded,
   kolkhozappComradeRequestSent,
   kolkhozappComrade,
+  kolkhozappNotComrade,
   kolkhozappPending,
   kolkhozappIncomingRequests,
   kolkhozappOutgoingRequests,
@@ -648,6 +649,7 @@ const Map<KolkhozText, ({String en, String ru})> kolkhozText = {
     ru: 'Запрос отправлен',
   ),
   KolkhozText.kolkhozappComrade: (en: 'Comrade', ru: 'Товарищ'),
+  KolkhozText.kolkhozappNotComrade: (en: 'Not a comrade', ru: 'Не товарищ'),
   KolkhozText.kolkhozappPending: (en: 'Pending', ru: 'Ожидает'),
   KolkhozText.kolkhozappIncomingRequests: (
     en: 'Incoming Requests',

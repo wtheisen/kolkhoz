@@ -34,6 +34,7 @@ from research.kolkhoz_research.model import PolicyArtifact
 from research.kolkhoz_research.online_store import (
     SERVER_BOT_PROFILES,
     SERVER_BOT_PROFILES_BY_ID,
+    _aggregate_ai_results,
     seat_token_hash,
 )
 
@@ -191,6 +192,30 @@ class OnlineServerTests(unittest.TestCase):
                 created["seatToken"],
             )
         self.assertEqual(stale.exception.status, HTTPStatus.CONFLICT)
+
+    def test_profile_bots_are_rated_only_as_individual_accounts(self) -> None:
+        bot = SERVER_BOT_PROFILES[0]
+        results = [
+            {
+                "user_id": bot["user_id"],
+                "controller": bot["controller"],
+                "score": 42,
+                "rank": 1,
+                "won": True,
+            },
+            {
+                "user_id": None,
+                "controller": "mediumAI",
+                "score": 18,
+                "rank": 2,
+                "won": False,
+            },
+        ]
+
+        aggregated = _aggregate_ai_results(results)
+
+        self.assertNotIn(bot["controller"], aggregated)
+        self.assertIn("mediumAI", aggregated)
 
     def test_active_session_can_be_synced_by_another_device(self) -> None:
         service = KolkhozOnlineSessionService(
@@ -2309,6 +2334,26 @@ class OnlineServerTests(unittest.TestCase):
 
         self.assertEqual(unauthorized.exception.status, HTTPStatus.UNAUTHORIZED)
 
+    def test_service_exposes_global_leaderboard_and_public_profiles(self) -> None:
+        store = FakeOnlineStore()
+        user_id = "11111111-1111-1111-1111-111111111111"
+        store.profiles[user_id] = {
+            "userID": user_id,
+            "displayName": "Mira",
+            "avatarURL": "worker3",
+            "stats": {"rating": 1234, "online_games": 8, "online_wins": 5},
+        }
+        service = KolkhozOnlineSessionService(self.engine, store=store)
+        try:
+            leaderboard = service.leaderboard()
+            profile = service.public_profile(user_id)
+        finally:
+            service.close()
+
+        self.assertEqual(leaderboard["players"][0]["rank"], 1)
+        self.assertEqual(leaderboard["players"][0]["displayName"], "Mira")
+        self.assertEqual(profile["stats"]["rating"], 1234)
+
     def test_requisition_continue_stays_with_engine_owner(self) -> None:
         class FakeEngine:
             def __init__(self) -> None:
@@ -3111,6 +3156,15 @@ class FakeOnlineStore:
 
     def close(self) -> None:
         self.closed = True
+
+    def leaderboard(self) -> list[dict[str, object]]:
+        return list(self.profiles.values())
+
+    def public_profile(self, *, user_id: str) -> dict[str, object]:
+        profile = self.profiles.get(user_id)
+        if profile is None:
+            raise ValueError("comrade profile not found")
+        return profile
 
     def create_session(
         self,

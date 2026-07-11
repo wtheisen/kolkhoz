@@ -19,6 +19,7 @@ class _VariantPanel extends StatefulWidget {
     required this.onStart,
     required this.onHostOnline,
     required this.onInviteOnlineComrades,
+    required this.onComradeRequestToUser,
     required this.onRememberStartedSetup,
     required this.hostedInviteCode,
     required this.onlineSessionUpdate,
@@ -58,6 +59,7 @@ class _VariantPanel extends StatefulWidget {
   onHostOnline;
   final Future<void> Function(String sessionID, List<String> userIDs)?
   onInviteOnlineComrades;
+  final Future<void> Function(String userID)? onComradeRequestToUser;
   final void Function(
     List<KolkhozPlayerController> controllers,
     List<String> lobbySeats,
@@ -465,6 +467,7 @@ class _VariantPanelState extends State<_VariantPanel> {
           language: widget.language,
           variants: widget.variants,
           compact: widget.compactRail,
+          ranked: update.ranked,
         ),
         if (onlineStatus != null)
           _OnlineStatusBanner(
@@ -486,6 +489,18 @@ class _VariantPanelState extends State<_VariantPanel> {
             showHeaderCancel: false,
             showInviteCard: false,
             showJoinButton: false,
+            showDetails: false,
+            currentUserID: widget.comradesSummary.userID,
+            comradeUserIDs: widget.comradesSummary.userIDs,
+            incomingComradeRequestUserIDs: {
+              for (final request in widget.comradesSummary.incomingRequests)
+                request.userID,
+            },
+            outgoingComradeRequestUserIDs: {
+              for (final request in widget.comradesSummary.outgoingRequests)
+                request.userID,
+            },
+            onComradeRequestToUser: widget.onComradeRequestToUser,
             canKickPlayers: !update.started,
             onKickPlayer: widget.onKickOnlinePlayer,
             onEnterOnlineGame: widget.onEnterOnlineGame,
@@ -711,12 +726,14 @@ class _PresetSummaryStrip extends StatelessWidget {
     required this.language,
     required this.variants,
     required this.compact,
+    this.ranked,
   });
 
   final DesignTokens tokens;
   final KolkhozLanguage language;
   final KolkhozGameVariants variants;
   final bool compact;
+  final bool? ranked;
 
   @override
   Widget build(BuildContext context) {
@@ -725,13 +742,28 @@ class _PresetSummaryStrip extends StatelessWidget {
       if (majorPreset.iconAsset != null)
         _VariantHeaderIconData(
           label: presetTitle(majorPreset, language),
+          description: _VariantRowData.summaryRows(
+            variants,
+          ).map((row) => row.localizedTitle(language, variants)).join(' • '),
           iconAsset: majorPreset.iconAsset!,
           showLabel: true,
         ),
       for (final row in _VariantRowData.summaryRows(variants))
         _VariantHeaderIconData(
           label: row.localizedTitle(language, variants),
+          description: row.localizedDescription(language, variants),
           iconAsset: row.iconAssetFor(variants),
+        ),
+      if (ranked != null)
+        _VariantHeaderIconData(
+          label: language.t(
+            ranked!
+                ? KolkhozText.kolkhozappRanked
+                : KolkhozText.kolkhozappCasual,
+          ),
+          iconAsset: ranked!
+              ? 'ios_resources/Icons/icon-medal-star.png'
+              : 'ios_resources/Icons/icon-foreman-misha.png',
         ),
     ];
     return Align(
@@ -746,6 +778,7 @@ class _PresetSummaryStrip extends StatelessWidget {
           for (final icon in icons)
             _VariantHeaderIconChip(
               label: icon.label,
+              description: icon.description,
               iconAsset: icon.iconAsset,
               showLabel: icon.showLabel,
               tokens: tokens,
@@ -760,11 +793,13 @@ class _PresetSummaryStrip extends StatelessWidget {
 class _VariantHeaderIconData {
   const _VariantHeaderIconData({
     required this.label,
+    this.description = '',
     required this.iconAsset,
     this.showLabel = false,
   });
 
   final String label;
+  final String description;
   final String iconAsset;
   final bool showLabel;
 }
@@ -772,6 +807,7 @@ class _VariantHeaderIconData {
 class _VariantHeaderIconChip extends StatelessWidget {
   const _VariantHeaderIconChip({
     required this.label,
+    required this.description,
     required this.iconAsset,
     required this.showLabel,
     required this.tokens,
@@ -779,6 +815,7 @@ class _VariantHeaderIconChip extends StatelessWidget {
   });
 
   final String label;
+  final String description;
   final String iconAsset;
   final bool showLabel;
   final DesignTokens tokens;
@@ -793,12 +830,49 @@ class _VariantHeaderIconChip extends StatelessWidget {
     final iconSize = showLabel
         ? (compact ? 25.0 : 29.0)
         : (compact ? 28.0 : 33.0);
+    final tooltipText = TextSpan(
+      style: kolkhozFontStyle.copyWith(
+        color: tokens.colors.cardInk,
+        fontSize: compact ? 13 : 14,
+        fontWeight: FontWeight.w700,
+        height: 1.25,
+      ),
+      children: [
+        TextSpan(
+          text: label.toUpperCase(),
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
+        if (description.isNotEmpty) TextSpan(text: '\n$description'),
+      ],
+    );
     return Semantics(
-      image: true,
+      button: true,
       label: label,
       child: ExcludeSemantics(
         child: Tooltip(
-          message: label,
+          richMessage: tooltipText,
+          triggerMode: TooltipTriggerMode.tap,
+          waitDuration: const Duration(milliseconds: 250),
+          showDuration: const Duration(seconds: 8),
+          exitDuration: const Duration(milliseconds: 150),
+          preferBelow: true,
+          constraints: const BoxConstraints(maxWidth: 320),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          decoration: BoxDecoration(
+            color: tokens.colors.cardFill,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: tokens.colors.gold.withValues(alpha: 0.82),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: tokens.colors.black.withValues(alpha: 0.35),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
           child: SizedBox(
             width: width,
             height: height,
@@ -1039,7 +1113,7 @@ class _SeatLobbyColumn extends StatelessWidget {
         ? language.t(KolkhozText.kolkhozappOpen)
         : choice.shortTitle(language);
     final semanticLabel = '$playerLabel $occupantLabel';
-    final card = PlayerProfilePanel(
+    final card = PlayerProfileBadge(
       tokens: tokens,
       displayName: occupantLabel,
       portraitAsset: localProfile

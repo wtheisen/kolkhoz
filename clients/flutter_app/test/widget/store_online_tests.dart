@@ -1325,7 +1325,7 @@ void registerStoreAndOnlineTests() {
           find.byType(OpponentPlotMiniSection),
         )
         .toList();
-    expect(opponentSections.first.value, '12');
+    expect(opponentSections.first.value, '17');
     expect(opponentSections.first.hidden, isFalse);
     expect(find.byType(GameOverFinalScoreStrip), findsOneWidget);
     expect(find.byType(PanelTitleRow), findsNothing);
@@ -1846,6 +1846,33 @@ void registerStoreAndOnlineTests() {
     expect(model.legalActions.single.engineAction.suit, 'wheat');
   });
 
+  test('online North cards preserve the losing player', () {
+    final json = onlineUpdateJson();
+    final snapshot = json['snapshot'] as Map<String, Object?>;
+    snapshot['exiled'] = onlineSuitCardsJson(
+      count: finalGameYear + 1,
+      cardsBySuit: {
+        1: [onlineCardJson(2, 10)],
+      },
+    );
+    snapshot['exiledPlayers'] = [
+      for (var year = 0; year <= finalGameYear; year++)
+        {
+          'suit': year,
+          'values': year == 1 ? [2] : <int>[],
+        },
+    ];
+
+    final model = OnlineTableProjection(
+      update: OnlineSessionUpdate.fromJson(json),
+      playerID: 0,
+      legalActions: const [],
+    ).project();
+
+    expect(model.table.exiledByYear[1]!.single.id, 'potato-10');
+    expect(model.table.exiledByYear[1]!.single.ownerSeatID, 2);
+  });
+
   test('online job cards preserve assignment trick rows', () {
     final json = onlineUpdateJson();
     final snapshot = json['snapshot'] as Map<String, Object?>;
@@ -1956,6 +1983,117 @@ void registerStoreAndOnlineTests() {
       findAssetImage('ios_resources/Icons/icon-sunflower.png'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('local requisition advances and logs one event per timer tick', (
+    tester,
+  ) async {
+    final store = LiveGameStore(autosaveEnabled: false)
+      ..animationSpeed = GameAnimationSpeed.normal;
+    store.newGame(
+      persist: false,
+      controllers: const [
+        KolkhozPlayerController.human,
+        KolkhozPlayerController.human,
+        KolkhozPlayerController.human,
+        KolkhozPlayerController.human,
+      ],
+    );
+
+    const priority = {
+      actionSubmitAssignments: 0,
+      actionContinueAfterRequisition: 0,
+      actionConfirmSwap: 0,
+      actionSetTrump: 1,
+      actionPlayCard: 1,
+      actionAssign: 1,
+      actionSwap: 2,
+      actionUndoSwap: 3,
+    };
+    for (var guard = 0; guard < 250; guard += 1) {
+      final model = store.model!;
+      if (model.table.phase == phaseRequisition) break;
+      final actions = [...model.legalActions]
+        ..sort(
+          (left, right) =>
+              (priority[left.kind] ?? 9).compareTo(priority[right.kind] ?? 9),
+        );
+      expect(actions, isNotEmpty);
+      store.applyLegalAction(actions.first);
+    }
+
+    expect(store.model!.table.phase, phaseRequisition);
+    expect(store.model!.table.requisitionEvents, isEmpty);
+    expect(
+      store.gameLogActions.where(
+        (action) => action.kind == actionRequisitionEvent,
+      ),
+      isEmpty,
+    );
+
+    await tester.pump(const Duration(milliseconds: 783));
+    expect(store.model!.table.requisitionEvents, hasLength(1));
+    expect(
+      store.gameLogActions.where(
+        (action) => action.kind == actionRequisitionEvent,
+      ),
+      hasLength(1),
+    );
+
+    await tester.pump(const Duration(milliseconds: 783));
+    expect(store.model!.table.requisitionEvents, hasLength(2));
+    expect(
+      store.gameLogActions.where(
+        (action) => action.kind == actionRequisitionEvent,
+      ),
+      hasLength(2),
+    );
+    store.dispose();
+  });
+
+  testWidgets('game log renders individual requisition outcomes', (
+    tester,
+  ) async {
+    final base = runtimeModel();
+    final model = runtimeModelWith(
+      phase: phaseRequisition,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 600,
+          height: 400,
+          child: GameLogPanel(
+            model: model,
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
+            actions: const [
+              EngineAction(
+                kind: actionRequisitionEvent,
+                playerID: 0,
+                suit: 'wheat',
+                card: EngineCard(suit: 'wheat', value: 9),
+                requisitionKind: 1,
+              ),
+              EngineAction(
+                kind: actionRequisitionEvent,
+                playerID: -1,
+                suit: 'potato',
+                requisitionKind: 2,
+              ),
+            ],
+            reactions: const [],
+          ),
+        ),
+      ),
+    );
+
+    expect(findAppText('Requisition'), findsWidgets);
+    expect(findAppText('lost'), findsWidgets);
+    expect(findAppText('No matching card was found for'), findsWidgets);
+    expect(findAppText('9'), findsWidgets);
   });
 
   test('online swap projection hides raw swap combinations until selected', () {

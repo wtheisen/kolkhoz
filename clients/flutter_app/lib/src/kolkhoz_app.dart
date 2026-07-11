@@ -34,6 +34,7 @@ part 'online_lobby_panel.dart';
 part 'lobby/lobby_screen.dart';
 part 'lobby/game_setup_panel.dart';
 part 'lobby/profile_settings_panel.dart';
+part 'lobby/leaderboard_panel.dart';
 part 'lobby/variant_controls.dart';
 
 Future<bool> showGameControlConfirmation({

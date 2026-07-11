@@ -1355,6 +1355,7 @@ void registerBoardTests() {
                   testCard(id: 'wheat-7', suit: 'wheat', value: 7),
                   testCard(id: 'wheat-8', suit: 'wheat', value: 8),
                 ],
+                seats: const [],
                 tokens: defaultDesignTokens,
               ),
             ),
@@ -1387,6 +1388,42 @@ void registerBoardTests() {
       greaterThan(0),
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('north cards show the portrait of the player who lost them', (
+    tester,
+  ) async {
+    final seats = runtimeModel().table.seats;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 100,
+          height: 140,
+          child: NorthCardStack(
+            cards: [
+              testCard(
+                id: 'beet-10',
+                suit: 'beet',
+                value: 10,
+                ownerSeatID: seats[2].id,
+              ),
+              testCard(id: 'wheat-6', suit: 'wheat', value: 6),
+            ],
+            seats: seats,
+            tokens: defaultDesignTokens,
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey('north-card-beet-10-portrait')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('north-card-wheat-6-portrait')),
+      findsNothing,
+    );
   });
 
   test('options display helpers clamp menu spacing', () {
@@ -1605,6 +1642,11 @@ void registerBoardTests() {
   testWidgets('rapid assignment updates only animate the committed move once', (
     tester,
   ) async {
+    final opening = runtimeModelWith(
+      phase: phaseTrick,
+      selection: SelectionState.empty,
+      jobs: runtimeModel().table.jobs,
+    );
     final before = runtimeModelWith(
       phase: phaseAssignment,
       selection: SelectionState.empty,
@@ -1622,7 +1664,28 @@ void registerBoardTests() {
     final pending = runtimeModelWith(
       phase: phaseAssignment,
       selection: SelectionState.empty,
-      jobs: before.table.jobs,
+      jobs: [
+        for (final job in before.table.jobs)
+          job.suit == 'sunflower'
+              ? Job(
+                  suit: job.suit,
+                  hours: job.hours,
+                  requiredHours: job.requiredHours,
+                  claimed: job.claimed,
+                  assignedCards: [
+                    testCard(
+                      id: 'sunflower-7',
+                      suit: 'sunflower',
+                      value: 7,
+                      pending: true,
+                    ),
+                  ],
+                  reward: job.reward,
+                  validAssignmentTarget: job.validAssignmentTarget,
+                  highlighted: job.highlighted,
+                )
+              : job,
+      ],
       lastTrick: before.table.lastTrick,
     );
     final assignedCard = before.table.lastTrick.plays.single.card;
@@ -1647,7 +1710,7 @@ void registerBoardTests() {
       lastTrick: const Trick(plays: [], winnerSeatID: null),
     );
 
-    var currentModel = before;
+    var currentModel = opening;
     late StateSetter setMotionState;
     await tester.pumpWidget(
       MaterialApp(
@@ -1671,8 +1734,19 @@ void registerBoardTests() {
     await tester.pump();
     await tester.pump();
 
+    setMotionState(() => currentModel = before);
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(FlyingCard), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(FlyingCard), findsNothing);
+
     setMotionState(() => currentModel = pending);
     await tester.pump();
+    await tester.pump();
+    expect(cardMotionZones(pending)[assignedCard.id], 'trick:2');
+    expect(find.byType(FlyingCard), findsNothing);
+
     setMotionState(() => currentModel = after);
     await tester.pump();
     await tester.pump();

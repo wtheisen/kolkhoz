@@ -1204,6 +1204,45 @@ class PostgresOnlineSessionStore:
                 }
             return profiles
 
+    def leaderboard(self, *, limit: int = 100) -> list[dict[str, object]]:
+        with self._lock, self._connection.cursor() as cursor:
+            cursor.execute(
+                f"""
+                select
+                    profiles.user_id::text,
+                    profiles.display_name,
+                    profiles.avatar_url,
+                    profiles.comrade_code,
+                    profile_stats.games_played,
+                    profile_stats.wins_total,
+                    profile_stats.offline_games,
+                    profile_stats.offline_wins,
+                    profile_stats.online_games,
+                    profile_stats.online_wins,
+                    profile_stats.rating,
+                    profile_stats.peak_rating,
+                    profile_stats.rating_games,
+{self._split_stats_select_sql("profile_stats")},
+{self._casual_rating_select_sql("profile_stats")}
+                  from public.profiles
+                  join public.profile_stats
+                    on profile_stats.user_id = profiles.user_id
+                 where profile_stats.online_games > 0
+                 order by profile_stats.rating desc,
+                          profile_stats.online_wins desc,
+                          profile_stats.online_games desc,
+                          lower(profiles.display_name),
+                          profiles.user_id
+                 limit %s
+                """,
+                (max(1, min(limit, 100)),),
+            )
+            return [self._comrade_profile_json(row) for row in cursor.fetchall()]
+
+    def public_profile(self, *, user_id: str) -> dict[str, object]:
+        with self._lock, self._connection.cursor() as cursor:
+            return self._profile_for_user(cursor, user_id)
+
     def profiles_for_ai_controllers(
         self,
         controllers: list[str],
@@ -1936,7 +1975,12 @@ def _aggregate_ai_results(
     grouped: dict[str, list[dict[str, object]]] = {}
     for result in results:
         controller = result.get("controller")
-        if isinstance(controller, str) and controller in AI_PROFILES:
+        user_id = result.get("user_id")
+        if (
+            isinstance(controller, str)
+            and controller in AI_PROFILES
+            and (not isinstance(user_id, str) or not user_id)
+        ):
             grouped.setdefault(controller, []).append(result)
     aggregated: dict[str, dict[str, object]] = {}
     for controller, items in grouped.items():

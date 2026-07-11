@@ -11,6 +11,7 @@ class KolkhozSavedGamePayload {
     required this.variants,
     required this.controllers,
     required this.actions,
+    this.gameLogActions = const [],
   });
 
   final int version;
@@ -18,6 +19,7 @@ class KolkhozSavedGamePayload {
   final KolkhozGameVariants variants;
   final List<KolkhozPlayerController> controllers;
   final List<EngineAction> actions;
+  final List<EngineAction> gameLogActions;
 
   Map<String, Object?> toJson() {
     return {
@@ -26,6 +28,7 @@ class KolkhozSavedGamePayload {
       'variants': variantsToJson(variants),
       'controllers': controllers.map((controller) => controller.name).toList(),
       'actions': actions.map(engineActionToJson).toList(),
+      'gameLogActions': gameLogActions.map(engineActionToJson).toList(),
     };
   }
 
@@ -44,6 +47,10 @@ class KolkhozSavedGamePayload {
       ]),
       actions: [
         for (final value in _objectList(json['actions']))
+          engineActionFromJson(_objectMap(value)),
+      ],
+      gameLogActions: [
+        for (final value in _objectList(json['gameLogActions'] ?? const []))
           engineActionFromJson(_objectMap(value)),
       ],
     );
@@ -179,6 +186,8 @@ Map<String, Object?> engineActionToJson(EngineAction action) {
     if (action.plotCard != null) 'plotCard': engineCardToJson(action.plotCard!),
     if (action.plotZone != null) 'plotZone': action.plotZone,
     if (action.targetSuit != null) 'targetSuit': action.targetSuit,
+    if (action.requisitionKind != null)
+      'requisitionKind': action.requisitionKind,
   };
 }
 
@@ -192,6 +201,7 @@ EngineAction engineActionFromJson(Map<String, Object?> json) {
     plotCard: optionalEngineCardFromJson(json['plotCard']),
     plotZone: json['plotZone'] as String?,
     targetSuit: json['targetSuit'] as String?,
+    requisitionKind: json['requisitionKind'] as int?,
   );
 }
 

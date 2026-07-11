@@ -875,7 +875,10 @@ class PlayerBadge extends StatelessWidget {
 
   String get displayName {
     final base = seatDisplayName(seat, language: language);
-    return seat.statusText.isEmpty ? base : '$base ${seat.statusText}';
+    return seat.statusText.isEmpty ||
+            RegExp(r'^\d+s$').hasMatch(seat.statusText)
+        ? base
+        : '$base ${seat.statusText}';
   }
 
   List<String> get statusBadgeAssets {
@@ -884,7 +887,6 @@ class PlayerBadge extends StatelessWidget {
         isHumanControlledSeat(seat)
             ? 'icon-status-current-turn.png'
             : 'icon-status-ai-thinking.png',
-      if (seat.statusText.endsWith('s')) 'icon-turn-timer-clock.png',
       if (seat.isBrigadeLeader) 'icon-status-brigade-leader.png',
     ];
   }
@@ -925,7 +927,9 @@ class ExpandedPlayerInfoPanel extends StatelessWidget {
       if (seat.isViewer) language.t(KolkhozText.tabledisplayYou),
       if (seat.isCurrentTurn) language.t(KolkhozText.kolkhozappCurrentTurn),
       if (seat.isBrigadeLeader) language.t(KolkhozText.kolkhozappBrigadeLeader),
-      if (seat.statusText.isNotEmpty) seat.statusText,
+      if (seat.statusText.isNotEmpty &&
+          !RegExp(r'^\d+s$').hasMatch(seat.statusText))
+        seat.statusText,
     ];
     final stats = [
       PlayerProfileStat(
@@ -983,7 +987,7 @@ class ExpandedPlayerInfoPanel extends StatelessWidget {
     final actionEnabled =
         showComradeAction && !isComrade && !hasOutgoingRequest;
 
-    return PlayerProfilePanel(
+    return ExpandedPlayerProfile(
       key: Key('player-info-panel-${seat.id}'),
       tokens: tokens,
       displayName: title,
@@ -1016,8 +1020,6 @@ class ExpandedPlayerInfoPanel extends StatelessWidget {
       active: seat.isCurrentTurn,
       portraitSelected: seat.isViewer,
       portraitSize: 58,
-      minHeight: 0,
-      padding: const EdgeInsets.all(10),
       onPortraitPressed: onClose,
       chips: [
         for (final chip in statusChips)
@@ -1030,8 +1032,6 @@ class ExpandedPlayerInfoPanel extends StatelessWidget {
         for (final stat in stats)
           PlayerProfileStatGroup(label: stat.label, stats: [stat]),
       ],
-      expandStats: true,
-      scrollStats: true,
       action: showComradeAction
           ? PlayerProfileAction(
               label: actionLabel,

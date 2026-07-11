@@ -122,6 +122,10 @@ actions=
         try {
           for (var step = 0; step < 100; step += 1) {
             final legalActions = bridge.legalActions(engine);
+            if (legalActions.isEmpty) {
+              expect(bridge.stepAutomatic(engine), greaterThan(0));
+              continue;
+            }
             if (bridge.phase(engine) == kcPhaseAssignment &&
                 legalActions.length == 1 &&
                 legalActions.single.kind == kcActionSubmitAssignments) {

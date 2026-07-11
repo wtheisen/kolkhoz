@@ -140,12 +140,9 @@ const defaultDesignTokens = DesignTokens(
       gaugeSpacingMax: 6,
       gaugeFrameWidthMultiplier: 1.2,
       gaugeContentWidthMultiplier: 1.1,
-      gaugeClusterLeftOffsetFactor: 0.045,
-      gaugeClusterLeftOffsetMin: 34,
-      gaugeClusterLeftOffsetMax: 48,
-      scoreWidthFactor: 0.04,
-      scoreWidthMin: 54,
-      scoreWidthMax: 70,
+      scoreWidthFactor: 0.075,
+      scoreWidthMin: 92,
+      scoreWidthMax: 104,
       rewardMarkerHeightMultiplier: 0.72,
       checkIconHeightMultiplier: 0.4,
     ),
@@ -435,9 +432,6 @@ class TopInfoLayoutTokens {
     required this.gaugeSpacingMax,
     required this.gaugeFrameWidthMultiplier,
     required this.gaugeContentWidthMultiplier,
-    required this.gaugeClusterLeftOffsetFactor,
-    required this.gaugeClusterLeftOffsetMin,
-    required this.gaugeClusterLeftOffsetMax,
     required this.scoreWidthFactor,
     required this.scoreWidthMin,
     required this.scoreWidthMax,
@@ -463,9 +457,6 @@ class TopInfoLayoutTokens {
   final double gaugeSpacingMax;
   final double gaugeFrameWidthMultiplier;
   final double gaugeContentWidthMultiplier;
-  final double gaugeClusterLeftOffsetFactor;
-  final double gaugeClusterLeftOffsetMin;
-  final double gaugeClusterLeftOffsetMax;
   final double scoreWidthFactor;
   final double scoreWidthMin;
   final double scoreWidthMax;

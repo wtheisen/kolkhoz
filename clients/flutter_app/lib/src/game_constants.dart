@@ -46,4 +46,5 @@ const actionAssign = 'assign';
 const actionSubmitAssignments = 'submitAssignments';
 const actionContinueAfterRequisition = 'continueAfterRequisition';
 const actionUndoSwap = 'undoSwap';
+const actionRequisitionEvent = 'requisitionEvent';
 const actionUnknown = 'unknown';

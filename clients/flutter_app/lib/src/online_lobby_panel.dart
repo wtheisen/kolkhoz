@@ -335,6 +335,11 @@ class _OnlinePanelState extends State<_OnlinePanel> {
         onCopyInviteCode: widget.hostedInviteCode == null
             ? null
             : () => copyInviteCode(widget.hostedInviteCode!),
+        currentUserID: currentUserID ?? widget.comradesSummary.userID,
+        comradeUserIDs: comradeUserIDs,
+        incomingComradeRequestUserIDs: incomingComradeRequestUserIDs,
+        outgoingComradeRequestUserIDs: outgoingComradeRequestUserIDs,
+        onComradeRequestToUser: sendComradeRequestToUser,
         canKickPlayers: widget.showHostedInviteCode && !onlineUpdate.started,
         onKickPlayer: widget.onKickOnlinePlayer,
         onEnterOnlineGame: widget.onEnterOnlineGame,
@@ -553,7 +558,7 @@ class _HostedInviteCodeFooterButton extends StatelessWidget {
                       spacing: 7,
                       children: [
                         const _AssetIcon(
-                          'ios_resources/Icons/icon-online.png',
+                          'ios_resources/Icons/icon-add-friend.png',
                           size: 22,
                         ),
                         Expanded(
@@ -642,6 +647,12 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
     this.showHeaderCancel = true,
     this.showInviteCard = true,
     this.showJoinButton = true,
+    this.showDetails = true,
+    this.currentUserID,
+    this.comradeUserIDs = const {},
+    this.incomingComradeRequestUserIDs = const {},
+    this.outgoingComradeRequestUserIDs = const {},
+    this.onComradeRequestToUser,
     required this.canKickPlayers,
     required this.onKickPlayer,
     required this.onEnterOnlineGame,
@@ -656,6 +667,12 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
   final bool showHeaderCancel;
   final bool showInviteCard;
   final bool showJoinButton;
+  final bool showDetails;
+  final String? currentUserID;
+  final Set<String> comradeUserIDs;
+  final Set<String> incomingComradeRequestUserIDs;
+  final Set<String> outgoingComradeRequestUserIDs;
+  final Future<void> Function(String userID)? onComradeRequestToUser;
   final bool canKickPlayers;
   final Future<void> Function(int playerID)? onKickPlayer;
   final VoidCallback onEnterOnlineGame;
@@ -678,82 +695,82 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
           })
         : language.t(KolkhozText.kolkhozappWaitingForPlayers);
     final subtitle =
-        inviteCode ??
         '${update.playerProfiles.length}/${update.controllers.length} '
-            '${language.t(KolkhozText.kolkhozappSeats)}';
+        '${language.t(KolkhozText.kolkhozappSeats)}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 10,
       children: [
-        Row(
-          spacing: 8,
-          children: [
-            if (showHeaderCancel && onCancelOnlineGame != null)
-              Tooltip(
-                message: language.t(KolkhozText.kolkhozappCancel),
-                child: Semantics(
-                  button: true,
-                  label: language.t(KolkhozText.kolkhozappCancel),
-                  child: GestureDetector(
-                    key: const Key('online-waiting-cancel'),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: onCancelOnlineGame,
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: tokens.colors.black.withValues(alpha: 0.24),
-                        borderRadius: BorderRadius.circular(5),
-                        border: Border.all(
-                          color: tokens.colors.gold.withValues(alpha: 0.48),
+        if (showHeaderCancel)
+          Row(
+            spacing: 8,
+            children: [
+              if (showHeaderCancel && onCancelOnlineGame != null)
+                Tooltip(
+                  message: language.t(KolkhozText.kolkhozappCancel),
+                  child: Semantics(
+                    button: true,
+                    label: language.t(KolkhozText.kolkhozappCancel),
+                    child: GestureDetector(
+                      key: const Key('online-waiting-cancel'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: onCancelOnlineGame,
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: tokens.colors.black.withValues(alpha: 0.24),
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(
+                            color: tokens.colors.gold.withValues(alpha: 0.48),
+                          ),
                         ),
-                      ),
-                      child: Icon(
-                        Icons.arrow_back,
-                        color: tokens.colors.cream,
-                        size: 20,
+                        child: Icon(
+                          Icons.arrow_back,
+                          color: tokens.colors.cream,
+                          size: 20,
+                        ),
                       ),
                     ),
                   ),
                 ),
+              const _AssetIcon(
+                'ios_resources/Icons/icon-status-connected.png',
+                size: 26,
               ),
-            const _AssetIcon(
-              'ios_resources/Icons/icon-status-connected.png',
-              size: 26,
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 2,
-                children: [
-                  Text(
-                    status,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: kolkhozFontStyle.copyWith(
-                      color: tokens.colors.gold,
-                      fontSize: 19,
-                      fontWeight: FontWeight.w900,
-                      height: 1,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 2,
+                  children: [
+                    Text(
+                      status,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: kolkhozFontStyle.copyWith(
+                        color: tokens.colors.gold,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
+                      ),
                     ),
-                  ),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: kolkhozFontStyle.copyWith(
-                      color: tokens.colors.creamDim,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      height: 1,
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: kolkhozFontStyle.copyWith(
+                        color: tokens.colors.creamDim,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        height: 1,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         if (showInviteCard && inviteCode != null && onCopyInviteCode != null)
           _HostedInviteCodeCard(
             tokens: tokens,
@@ -761,37 +778,36 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
             inviteCode: inviteCode!,
             onCopy: onCopyInviteCode!,
           ),
-        Wrap(
-          spacing: 12,
-          runSpacing: 6,
-          children: [
-            _OpenSessionDetailChip(
-              tokens: tokens,
-              label: language.t(KolkhozText.kolkhozappGameType),
-              value: update.ranked
-                  ? language.t(KolkhozText.kolkhozappRanked)
-                  : language.t(KolkhozText.kolkhozappCasual),
-            ),
-            _OpenSessionDetailChip(
-              tokens: tokens,
-              label: language.t(KolkhozText.kolkhozappSeats),
-              value:
-                  '${update.playerProfiles.length}/${update.controllers.length}',
-            ),
-            _OpenSessionDetailChip(
-              tokens: tokens,
-              label: language.t(KolkhozText.kolkhozappMoves),
-              value: '${update.actionLogCount}',
-            ),
-          ],
-        ),
+        if (showDetails)
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: [
+              _OpenSessionDetailChip(
+                tokens: tokens,
+                label: language.t(KolkhozText.kolkhozappGameType),
+                value: update.ranked
+                    ? language.t(KolkhozText.kolkhozappRanked)
+                    : language.t(KolkhozText.kolkhozappCasual),
+              ),
+              _OpenSessionDetailChip(
+                tokens: tokens,
+                label: language.t(KolkhozText.kolkhozappSeats),
+                value:
+                    '${update.playerProfiles.length}/${update.controllers.length}',
+              ),
+              _OpenSessionDetailChip(
+                tokens: tokens,
+                label: language.t(KolkhozText.kolkhozappMoves),
+                value: '${update.actionLogCount}',
+              ),
+            ],
+          ),
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final cardWidth = constraints.maxWidth >= 660
+              final cardWidth = constraints.maxWidth >= 430
                   ? (constraints.maxWidth - 24) / 4
-                  : constraints.maxWidth >= 430
-                  ? (constraints.maxWidth - 8) / 2
                   : constraints.maxWidth;
               return SingleChildScrollView(
                 child: Wrap(
@@ -814,6 +830,13 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
                           presence: presenceBySeat[index],
                           ranked: update.ranked,
                           local: update.viewerID == index,
+                          currentUserID: currentUserID,
+                          comradeUserIDs: comradeUserIDs,
+                          incomingComradeRequestUserIDs:
+                              incomingComradeRequestUserIDs,
+                          outgoingComradeRequestUserIDs:
+                              outgoingComradeRequestUserIDs,
+                          onComradeRequestToUser: onComradeRequestToUser,
                           canKick:
                               canKickPlayers &&
                               update.controllers[index] ==
@@ -943,6 +966,11 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
     required this.presence,
     required this.ranked,
     required this.local,
+    required this.currentUserID,
+    required this.comradeUserIDs,
+    required this.incomingComradeRequestUserIDs,
+    required this.outgoingComradeRequestUserIDs,
+    required this.onComradeRequestToUser,
     required this.canKick,
     required this.onKick,
   });
@@ -955,6 +983,11 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
   final OnlineSeatPresence? presence;
   final bool ranked;
   final bool local;
+  final String? currentUserID;
+  final Set<String> comradeUserIDs;
+  final Set<String> incomingComradeRequestUserIDs;
+  final Set<String> outgoingComradeRequestUserIDs;
+  final Future<void> Function(String userID)? onComradeRequestToUser;
   final bool canKick;
   final VoidCallback? onKick;
 
@@ -964,10 +997,24 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
     final name = _seatName(open);
     final portraitAsset = profile?.portraitAsset ?? 'worker${playerID + 1}';
     final connected = presence?.connected ?? profile != null;
-    return PlayerProfilePanel(
+    return PlayerProfileBadge(
       tokens: tokens,
       displayName: name,
       portraitAsset: portraitAsset,
+      portraitSemanticsLabel: profile == null ? null : '$name profile',
+      onPortraitPressed: profile == null
+          ? null
+          : () => _showLobbyPlayerProfile(
+              context: context,
+              tokens: tokens,
+              language: language,
+              profile: profile!,
+              currentUserID: currentUserID,
+              comradeUserIDs: comradeUserIDs,
+              incomingComradeRequestUserIDs: incomingComradeRequestUserIDs,
+              outgoingComradeRequestUserIDs: outgoingComradeRequestUserIDs,
+              onComradeRequestToUser: onComradeRequestToUser,
+            ),
       seatLabel: language.t(KolkhozText.kolkhozappPValue1, {
         'value1': playerID + 1,
       }),
@@ -1026,6 +1073,87 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
         ? controller.shortTitle(language)
         : language.t(KolkhozText.kolkhozappWaiting);
   }
+}
+
+Future<void> _showLobbyPlayerProfile({
+  required BuildContext context,
+  required DesignTokens tokens,
+  required KolkhozLanguage language,
+  required OnlinePlayerProfile profile,
+  String? currentUserID,
+  Set<String> comradeUserIDs = const {},
+  Set<String> incomingComradeRequestUserIDs = const {},
+  Set<String> outgoingComradeRequestUserIDs = const {},
+  Future<void> Function(String userID)? onComradeRequestToUser,
+}) {
+  final displayName = profile.displayName?.trim();
+  final userID = profile.userID;
+  final canManageRelationship =
+      userID != null &&
+      userID != currentUserID &&
+      onComradeRequestToUser != null;
+  final isComrade = userID != null && comradeUserIDs.contains(userID);
+  final hasIncomingRequest =
+      userID != null && incomingComradeRequestUserIDs.contains(userID);
+  final hasOutgoingRequest =
+      userID != null && outgoingComradeRequestUserIDs.contains(userID);
+  final relationshipLabel = isComrade
+      ? language.t(KolkhozText.kolkhozappComrade)
+      : hasOutgoingRequest
+      ? language.t(KolkhozText.kolkhozappPending)
+      : language.t(KolkhozText.kolkhozappNotComrade);
+  return showDialog<void>(
+    context: context,
+    builder: (context) => Dialog(
+      backgroundColor: tokens.colors.panel,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: ExpandedPlayerProfile(
+            key: Key('lobby-player-profile-${profile.playerID}'),
+            tokens: tokens,
+            displayName: displayName == null || displayName.isEmpty
+                ? language.t(KolkhozText.kolkhozappHuman)
+                : displayName,
+            portraitAsset: profile.portraitAsset ?? defaultProfilePortraitAsset,
+            subtitle: language.t(KolkhozText.kolkhozappPlayer),
+            statGroups: kolkhozProfileStatGroups(
+              stats: profile.stats,
+              language: language,
+            ),
+            chips: canManageRelationship
+                ? [
+                    PlayerProfileChip(
+                      label: relationshipLabel,
+                      active: isComrade,
+                    ),
+                  ]
+                : const [],
+            action: canManageRelationship && !isComrade && !hasOutgoingRequest
+                ? PlayerProfileAction(
+                    label: language.t(
+                      hasIncomingRequest
+                          ? KolkhozText.kolkhozappAccept
+                          : KolkhozText.kolkhozappAddComrade,
+                    ),
+                    iconAsset: 'ios_resources/Icons/icon-add-friend.png',
+                    prominent: hasIncomingRequest,
+                    onPressed: () => unawaited(onComradeRequestToUser(userID)),
+                  )
+                : null,
+            footer: Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('CLOSE'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 String onlineFailureStatusMessage(Object exception, KolkhozLanguage language) {
@@ -1895,10 +2023,24 @@ class _OpenSessionPlayerCard extends StatelessWidget {
         : 'ios_resources/Icons/icon-add-friend.png';
     final actionEnabled =
         showComradeAction && !isComrade && !hasOutgoingRequest;
-    return PlayerProfilePanel(
+    return PlayerProfileBadge(
       tokens: tokens,
       displayName: displayName,
       portraitAsset: portraitAsset,
+      portraitSemanticsLabel: profile == null ? null : '$displayName profile',
+      onPortraitPressed: profile == null
+          ? null
+          : () => _showLobbyPlayerProfile(
+              context: context,
+              tokens: tokens,
+              language: language,
+              profile: profile!,
+              currentUserID: currentUserID,
+              comradeUserIDs: comradeUserIDs,
+              incomingComradeRequestUserIDs: incomingComradeRequestUserIDs,
+              outgoingComradeRequestUserIDs: outgoingComradeRequestUserIDs,
+              onComradeRequestToUser: onComradeRequestToUser,
+            ),
       seatLabel: player,
       subtitle: occupied
           ? '${language.t(KolkhozText.kolkhozappRating)} $rating'

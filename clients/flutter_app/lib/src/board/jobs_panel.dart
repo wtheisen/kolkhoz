@@ -145,6 +145,25 @@ bool jobContainsWrecker(Job job) {
   return job.assignedCards.any((card) => card.suit == wreckerSuit);
 }
 
+List<int> jobNomenklaturaValues(Job job) {
+  final values = job.assignedCards
+      .where(
+        (card) => card.nomenclature && card.value >= 11 && card.value <= 13,
+      )
+      .map((card) => card.value)
+      .toSet()
+      .toList(growable: false);
+  values.sort();
+  return values;
+}
+
+String nomenklaturaPileIconAsset(int value) => switch (value) {
+  11 => 'ios_resources/Icons/icon-nomenklatura-drunkard.png',
+  12 => 'ios_resources/Icons/icon-nomenklatura-informant.png',
+  13 => 'ios_resources/Icons/icon-nomenklatura-party-official.png',
+  _ => throw ArgumentError.value(value, 'value'),
+};
+
 List<List<TableCard>> assignedJobTrickRows(List<TableCard> cards) {
   final assignedRounds = cards
       .map((card) => card.assignmentRound)

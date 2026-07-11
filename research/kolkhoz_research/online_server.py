@@ -411,6 +411,10 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
             if authorization is not None
             else None
         )
+        if method == "GET" and parts == ["leaderboard"]:
+            return service.leaderboard()
+        if method == "GET" and len(parts) == 2 and parts[0] == "profiles":
+            return service.public_profile(parts[1])
         if len(parts) >= 1 and parts[0] == "comrades":
             if method == "GET" and len(parts) == 1:
                 return service.comrades(user_id=user_id)
@@ -2122,6 +2126,28 @@ class KolkhozOnlineSessionService:
                 self.store.comrades_for_user(user_id=user_id),
             ),
         )
+
+    def leaderboard(self) -> dict[str, object]:
+        if self.store is None:
+            return {"players": []}
+        return {
+            "players": [
+                _public_profile_response(profile, rank=index)
+                for index, profile in enumerate(self.store.leaderboard(), start=1)
+            ]
+        }
+
+    def public_profile(self, user_id: str) -> dict[str, object]:
+        if self.store is None:
+            raise OnlineServerError(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                "public profiles are not configured",
+            )
+        try:
+            profile = self.store.public_profile(user_id=user_id)
+        except ValueError as error:
+            raise OnlineServerError(HTTPStatus.NOT_FOUND, str(error)) from error
+        return _public_profile_response(profile)
 
     def _comrades_with_presence(self, value: dict[str, object]) -> dict[str, object]:
         user_ids: set[str] = set()
@@ -3867,6 +3893,16 @@ class KolkhozOnlineSessionService:
             "lastTrick": _trick_json(state.last_trick, state.last_trick_count),
             "lastWinner": int(state.last_winner),
             "exiled": _suit_card_lists_json(state.exiled, MAX_YEARS + 1),
+            "exiledPlayers": [
+                {
+                    "suit": year,
+                    "values": [
+                        int(state.exiled_player_ids[year][index])
+                        for index in range(int(state.exiled[year].count))
+                    ],
+                }
+                for year in range(MAX_YEARS + 1)
+            ],
             "pendingAssignments": _pending_assignments_json(state),
             "requisitionEvents": _requisition_events_json(state),
             "scores": [
@@ -3943,6 +3979,20 @@ def _comrades_response(value: dict[str, object]) -> dict[str, object]:
             if isinstance(profile, dict)
         ],
     }
+
+
+def _public_profile_response(
+    profile: dict[str, object], *, rank: int | None = None
+) -> dict[str, object]:
+    result = {
+        "userID": profile.get("userID") or profile.get("user_id"),
+        "displayName": profile.get("displayName") or profile.get("display_name"),
+        "avatarURL": profile.get("avatarURL") or profile.get("avatar_url"),
+        "stats": profile.get("stats") if isinstance(profile.get("stats"), dict) else {},
+    }
+    if rank is not None:
+        result["rank"] = rank
+    return result
 
 
 def _comrade_profile_response(profile: dict[str, object]) -> dict[str, object]:
@@ -4041,6 +4091,7 @@ def _player_json(player: KCPlayer, viewer_id: int | None) -> dict[str, object]:
         "hand": _card_list_json(player.hand) if is_viewer else [],
         "revealedPlot": _card_list_json(player.plot_revealed),
         "hiddenPlot": _card_list_json(player.plot_hidden) if is_viewer else [],
+        "hiddenPlotCount": int(player.plot_hidden.count),
         "medals": int(player.medals),
         "bankedMedals": int(player.plot_medals),
         "brigadeLeader": bool(player.brigade_leader),
@@ -4056,6 +4107,7 @@ def _stack_json(stack: KCPlotStack, is_viewer: bool) -> dict[str, object]:
     return {
         "revealed": _cards_json(stack.revealed, stack.revealed_count),
         "hidden": _cards_json(stack.hidden, stack.hidden_count) if is_viewer else [],
+        "hiddenCount": int(stack.hidden_count),
     }
 
 
@@ -4347,6 +4399,10 @@ def _route_label(path: str) -> str:
         if len(parts) == 1:
             return "/comrades"
         return f"/comrades/{parts[1]}"
+    if parts[0] == "leaderboard":
+        return "/leaderboard"
+    if parts[0] == "profiles":
+        return "/profiles/:userID"
     if parts[0] != "sessions":
         return "/" + "/".join(parts)
     if len(parts) == 2:

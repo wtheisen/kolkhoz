@@ -90,6 +90,7 @@ class NorthPanel extends StatelessWidget {
                         child: NorthYearColumn(
                           year: year,
                           cards: exiledByYear[year] ?? const [],
+                          seats: model.table.seats,
                           currentYear: model.table.year,
                           headerHeight: headerHeight,
                           columnHeight: columnHeight,
@@ -112,6 +113,7 @@ class NorthYearColumn extends StatelessWidget {
   const NorthYearColumn({
     required this.year,
     required this.cards,
+    required this.seats,
     required this.currentYear,
     required this.headerHeight,
     required this.columnHeight,
@@ -122,6 +124,7 @@ class NorthYearColumn extends StatelessWidget {
 
   final int year;
   final List<TableCard> cards;
+  final List<Seat> seats;
   final int currentYear;
   final double headerHeight;
   final double columnHeight;
@@ -175,7 +178,11 @@ class NorthYearColumn extends StatelessWidget {
                 child: NorthCardScrollRegion(
                   child: cards.isEmpty
                       ? NorthEmptyYear(current: current, tokens: tokens)
-                      : NorthCardStack(cards: cards, tokens: tokens),
+                      : NorthCardStack(
+                          cards: cards,
+                          seats: seats,
+                          tokens: tokens,
+                        ),
                 ),
               ),
             ),
@@ -201,9 +208,15 @@ class NorthCardScrollRegion extends StatelessWidget {
 }
 
 class NorthCardStack extends StatelessWidget {
-  const NorthCardStack({required this.cards, required this.tokens, super.key});
+  const NorthCardStack({
+    required this.cards,
+    required this.seats,
+    required this.tokens,
+    super.key,
+  });
 
   final List<TableCard> cards;
+  final List<Seat> seats;
   final DesignTokens tokens;
 
   @override
@@ -227,20 +240,40 @@ class NorthCardStack extends StatelessWidget {
                 Positioned(
                   left: (constraints.maxWidth - cardWidth) / 2,
                   top: index * cardStride,
-                  child: NaturalSizeViewport(
+                  child: SizedBox(
                     key: ValueKey('north-card-${card.id}'),
                     width: cardWidth,
                     height: cardHeight,
-                    naturalWidth: tokens.card.large.width,
-                    naturalHeight: tokens.card.large.height,
-                    child: Transform.scale(
-                      alignment: Alignment.topLeft,
-                      scale: cardScale,
-                      child: GameCard(
-                        card: card,
-                        tokens: tokens,
-                        sizeOverride: tokens.card.large,
-                      ),
+                    child: Stack(
+                      children: [
+                        NaturalSizeViewport(
+                          width: cardWidth,
+                          height: cardHeight,
+                          naturalWidth: tokens.card.large.width,
+                          naturalHeight: tokens.card.large.height,
+                          child: Transform.scale(
+                            alignment: Alignment.topLeft,
+                            scale: cardScale,
+                            child: GameCard(
+                              card: card,
+                              tokens: tokens,
+                              sizeOverride: tokens.card.large,
+                            ),
+                          ),
+                        ),
+                        if (seatForCard(card) case final seat?)
+                          Positioned(
+                            right: 3,
+                            top: 3,
+                            child: PortraitFrame(
+                              key: ValueKey('north-card-${card.id}-portrait'),
+                              seat: seat,
+                              tokens: tokens,
+                              width: 24 * cardScale,
+                              height: 27 * cardScale,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -249,6 +282,15 @@ class NorthCardStack extends StatelessWidget {
         );
       },
     );
+  }
+
+  Seat? seatForCard(TableCard card) {
+    final ownerSeatID = card.ownerSeatID;
+    if (ownerSeatID == null) return null;
+    for (final seat in seats) {
+      if (seat.id == ownerSeatID) return seat;
+    }
+    return null;
   }
 }
 

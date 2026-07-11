@@ -546,23 +546,8 @@ class _LobbyTitleColumn extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             spacing: compact ? (shortCompact ? 4 : 7) : 10,
             children: [
-              Container(
+              SizedBox(
                 height: cardHeight,
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: tokens.colors.gold.withValues(alpha: 0.72),
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: tokens.colors.black.withValues(alpha: 0.28),
-                      blurRadius: 7,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
                 child: Image.asset(
                   'ios_resources/title-card-kolkhoz.png',
                   width: double.infinity,
@@ -1179,6 +1164,7 @@ class _LobbyPanel extends StatelessWidget {
       onStart: onStart,
       onHostOnline: onHostOnline,
       onInviteOnlineComrades: onInviteOnlineComrades,
+      onComradeRequestToUser: onComradeRequestToUser,
       onRememberStartedSetup: onRememberStartedSetup,
       hostedInviteCode: hostedInviteCode,
       onlineSessionUpdate: onlineSessionUpdate,
@@ -1252,6 +1238,7 @@ class _LobbyPanel extends StatelessWidget {
               onCloudResetPassword: onCloudResetPassword,
               onCloudSignOut: onCloudSignOut,
               onComradesChanged: onComradesChanged,
+              onlineClientFactory: onlineClientFactory,
             )
           else if (showingOnline)
             _OnlinePanel(
@@ -1284,6 +1271,7 @@ class _LobbyPanel extends StatelessWidget {
 
 enum KolkhozSettingsTab {
   profile,
+  leaderboard,
   progress,
   comrades,
   assist,
@@ -1293,6 +1281,7 @@ enum KolkhozSettingsTab {
   String title(KolkhozLanguage language) {
     return switch (this) {
       KolkhozSettingsTab.profile => language.t(KolkhozText.kolkhozappProfile),
+      KolkhozSettingsTab.leaderboard => 'LEADERBOARD',
       KolkhozSettingsTab.progress => language.t(KolkhozText.kolkhozappProgress),
       KolkhozSettingsTab.comrades => language.t(KolkhozText.kolkhozappComrades),
       KolkhozSettingsTab.assist => OptionsMenuTab.assist.title(language),
@@ -1304,6 +1293,8 @@ enum KolkhozSettingsTab {
   String get iconAsset {
     return switch (this) {
       KolkhozSettingsTab.profile => 'ios_resources/Icons/icon-profile.png',
+      KolkhozSettingsTab.leaderboard =>
+        'ios_resources/Icons/icon-medal-star.png',
       KolkhozSettingsTab.progress => 'ios_resources/Icons/icon-medal-star.png',
       KolkhozSettingsTab.comrades =>
         'ios_resources/Icons/icon-friends-list.png',
@@ -1356,6 +1347,7 @@ class _SettingsPanel extends StatefulWidget {
     required this.onCloudResetPassword,
     required this.onCloudSignOut,
     required this.onComradesChanged,
+    required this.onlineClientFactory,
   });
 
   final DesignTokens tokens;
@@ -1398,6 +1390,7 @@ class _SettingsPanel extends StatefulWidget {
   final Future<void> Function(String email)? onCloudResetPassword;
   final Future<void> Function()? onCloudSignOut;
   final ValueChanged<OnlineComradesResponse>? onComradesChanged;
+  final KolkhozOnlineClient Function()? onlineClientFactory;
 
   @override
   State<_SettingsPanel> createState() => _SettingsPanelState();
@@ -1436,6 +1429,12 @@ class _SettingsPanelState extends State<_SettingsPanel> {
         onCloudSignUp: widget.onCloudSignUp,
         onCloudResetPassword: widget.onCloudResetPassword,
         onCloudSignOut: widget.onCloudSignOut,
+      ),
+      KolkhozSettingsTab.leaderboard => _LeaderboardPanel(
+        tokens: widget.tokens,
+        language: widget.language,
+        clientFactory: widget.onlineClientFactory,
+        signedIn: widget.cloudSignedIn,
       ),
       KolkhozSettingsTab.progress => ProgressionOverview(
         state: widget.progression,

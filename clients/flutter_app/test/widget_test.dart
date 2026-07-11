@@ -447,6 +447,7 @@ TableCard testCard({
   bool pending = false,
   int? assignmentRound,
   bool nomenclature = false,
+  int? ownerSeatID,
 }) {
   return TableCard(
     id: id,
@@ -458,6 +459,7 @@ TableCard testCard({
     pending: pending,
     assignmentRound: assignmentRound,
     nomenclature: nomenclature,
+    ownerSeatID: ownerSeatID,
   );
 }
 

@@ -324,10 +324,44 @@ class _LogLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (action.playerID < 0) {
+      return _SystemLogEventRow(
+        tokens: tokens,
+        children: _actionWidgets(action, language, tokens),
+      );
+    }
     return _LogEventRow(
       seat: _playerSeat(model, action.playerID),
       tokens: tokens,
       children: _actionWidgets(action, language, tokens),
+    );
+  }
+}
+
+class _SystemLogEventRow extends StatelessWidget {
+  const _SystemLogEventRow({required this.tokens, required this.children});
+
+  final DesignTokens tokens;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Wrap(
+        spacing: 5,
+        runSpacing: 3,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Image.asset(
+            'ios_resources/Icons/icon-requisition-north.png',
+            width: 22,
+            height: 22,
+            filterQuality: FilterQuality.none,
+          ),
+          ...children,
+        ],
+      ),
     );
   }
 }
@@ -555,6 +589,7 @@ String _phaseForAction(String kind) => switch (kind) {
   actionPlayCard => phaseTrick,
   actionAssign || actionSubmitAssignments => phaseAssignment,
   actionContinueAfterRequisition => phaseRequisition,
+  actionRequisitionEvent => phaseRequisition,
   _ => 'events',
 };
 
@@ -642,6 +677,29 @@ List<Widget> _actionWidgets(
     actionContinueAfterRequisition => [
       text('completed requisition.', 'завершил реквизицию.'),
     ],
+    actionRequisitionEvent => switch (action.requisitionKind) {
+      1 => [
+        text('lost', 'лишился'),
+        if (card != null) _InlineCard(card: card, tokens: tokens),
+        text('to', 'из-за'),
+        _InlineSuitIcon(suit: action.suit, tokens: tokens),
+        text('requisition.', 'реквизиции.'),
+      ],
+      2 => [
+        text('No matching card was found for', 'Не найдена карта для'),
+        _InlineSuitIcon(suit: action.suit, tokens: tokens),
+        text('.', '.'),
+      ],
+      3 => [
+        text('Drunkard', 'Пьяница'),
+        if (card != null) _InlineCard(card: card, tokens: tokens),
+        text('was sent north for', 'отправлен на север за'),
+        _InlineSuitIcon(suit: action.suit, tokens: tokens),
+        text('.', '.'),
+      ],
+      4 => [text('was protected from requisition.', 'защищён от реквизиции.')],
+      _ => [text('requisition resolved.', 'реквизиция завершена.')],
+    },
     _ => [text('performed ${action.kind}.', '${action.kind}.')],
   };
 }

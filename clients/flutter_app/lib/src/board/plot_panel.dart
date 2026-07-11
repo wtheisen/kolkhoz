@@ -782,6 +782,20 @@ class OpponentPlotPanel extends StatelessWidget {
       seat.plot.revealed,
       hiddenExiledCardIDs,
     );
+    final stackedRevealedCards = [
+      for (final stack in seat.plot.stacks)
+        ...visiblePlotCards(stack.revealed, hiddenExiledCardIDs),
+    ];
+    final stackedHiddenCards = [
+      for (final stack in seat.plot.stacks)
+        ...visiblePlotCards(stack.hidden, hiddenExiledCardIDs),
+    ];
+    final cellarCardCount =
+        seat.plot.effectiveHiddenCardCount +
+        seat.plot.stacks.fold<int>(
+          0,
+          (count, stack) => count + stack.effectiveHiddenCardCount,
+        );
     final vulnerable = hasExiledPlotCard;
     return MotionTrackedRegion(
       motionKey: plotCardMotionSourceKey(seat.id),
@@ -849,9 +863,10 @@ class OpponentPlotPanel extends StatelessWidget {
                     child: OpponentPlotMiniSection(
                       iconPath: 'ios_resources/Icons/icon-cellar.png',
                       value: revealCellarCards
-                          ? '${plotCardsValue(visibleHiddenCards)}'
-                          : '${visibleHiddenCards.length}',
-                      cards: visibleHiddenCards,
+                          ? '${plotCardsValue([...visibleHiddenCards, ...stackedHiddenCards])}'
+                          : '$cellarCardCount',
+                      cards: [...visibleHiddenCards, ...stackedHiddenCards],
+                      cardCount: cellarCardCount,
                       hidden: !revealCellarCards,
                       metrics: metrics,
                       tokens: tokens,
@@ -862,7 +877,7 @@ class OpponentPlotPanel extends StatelessWidget {
                     child: OpponentPlotMiniSection(
                       iconPath: 'ios_resources/Icons/icon-plot.png',
                       value: '${visiblePlotScore(seat, hiddenExiledCardIDs)}',
-                      cards: visibleRevealedCards,
+                      cards: [...visibleRevealedCards, ...stackedRevealedCards],
                       hidden: false,
                       metrics: metrics,
                       tokens: tokens,
@@ -895,6 +910,7 @@ class OpponentPlotMiniSection extends StatelessWidget {
     required this.iconPath,
     required this.value,
     required this.cards,
+    this.cardCount,
     required this.hidden,
     required this.metrics,
     required this.tokens,
@@ -905,6 +921,7 @@ class OpponentPlotMiniSection extends StatelessWidget {
   final String iconPath;
   final String value;
   final List<TableCard> cards;
+  final int? cardCount;
   final bool hidden;
   final PlotPanelMetrics metrics;
   final DesignTokens tokens;
@@ -913,6 +930,7 @@ class OpponentPlotMiniSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const visibleCardLimit = 2;
+    final displayCardCount = cardCount ?? cards.length;
     final cardWidgets = <Widget>[
       for (final card in cards.take(visibleCardLimit))
         NaturalSizeViewport(
@@ -938,7 +956,24 @@ class OpponentPlotMiniSection extends StatelessWidget {
             ),
           ),
         ),
-      if (cards.isEmpty)
+      for (
+        var index = cards.length;
+        index < math.min(displayCardCount, visibleCardLimit);
+        index += 1
+      )
+        NaturalSizeViewport(
+          key: ValueKey('opponent-hidden-card-$index'),
+          width: metrics.opponentCardFrameWidth,
+          height: metrics.opponentCardFrameHeight,
+          naturalWidth: tokens.card.small.width,
+          naturalHeight: tokens.card.small.height,
+          child: Transform.scale(
+            alignment: Alignment.topLeft,
+            scale: metrics.opponentCardScale,
+            child: CardBackMini(tokens: tokens),
+          ),
+        ),
+      if (displayCardCount == 0)
         SizedBox(
           width: metrics.opponentCardFrameWidth,
           height: metrics.opponentCardFrameHeight,
