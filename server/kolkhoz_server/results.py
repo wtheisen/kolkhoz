@@ -477,7 +477,12 @@ def aggregate_ai_results(results: list[Result]) -> dict[str, Result]:
     grouped: dict[str, list[Result]] = {}
     for result in results:
         controller = result.get("controller")
-        if isinstance(controller, str) and controller in AI_PROFILES:
+        user_id = result.get("user_id")
+        if (
+            isinstance(controller, str)
+            and controller in AI_PROFILES
+            and (not isinstance(user_id, str) or not user_id)
+        ):
             grouped.setdefault(controller, []).append(result)
     return {
         controller: {

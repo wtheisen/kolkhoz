@@ -34,6 +34,28 @@ class ResultsLogicTests(unittest.TestCase):
             },
         )
 
+    def test_user_owned_ai_seats_are_not_aggregated_as_shared_ai(self) -> None:
+        results = aggregate_ai_results(
+            [
+                {
+                    "user_id": "bot-profile-user",
+                    "controller": "heuristicAI",
+                    "score": 42,
+                    "rank": 1,
+                    "won": True,
+                },
+                {
+                    "user_id": None,
+                    "controller": "mediumAI",
+                    "score": 18,
+                    "rank": 2,
+                    "won": False,
+                },
+            ]
+        )
+        self.assertNotIn("heuristicAI", results)
+        self.assertIn("mediumAI", results)
+
     def test_rating_updates_reward_winner_and_reduce_uncertainty(self) -> None:
         outputs = rate_multiplayer(
             [

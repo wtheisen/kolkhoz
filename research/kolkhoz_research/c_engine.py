@@ -137,6 +137,7 @@ class KCEngineSnapshot(ctypes.Structure):
         ("last_winner", ctypes.c_int32),
         ("trick_count", ctypes.c_int32),
         ("exiled", KCCardList * (MAX_YEARS + 1)),
+        ("exiled_player_ids", (ctypes.c_int32 * MAX_CARDS) * (MAX_YEARS + 1)),
         ("is_famine", ctypes.c_bool),
         ("phase", ctypes.c_int32),
         ("current_player", ctypes.c_int32),

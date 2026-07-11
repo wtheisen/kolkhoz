@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ctypes
 import unittest
 from http import HTTPStatus
 
@@ -7,6 +8,7 @@ from research.kolkhoz_research.c_engine import (
     CEngine,
     KCAction,
     KCCard,
+    KCEngineSnapshot,
     build_shared_library,
 )
 from server.kolkhoz_server.contracts import (
@@ -114,6 +116,10 @@ class ProjectionContractTests(unittest.TestCase):
         self.assertTrue(all(player["hand"] == [] for player in spectator["players"]))
         self.assertTrue(all(pile["cards"] == [] for pile in viewed["jobPiles"]))
         self.assertEqual(
+            viewed["exiledPlayers"],
+            [{"suit": year, "values": []} for year in range(6)],
+        )
+        self.assertEqual(
             set(viewed),
             {
                 "year",
@@ -137,6 +143,7 @@ class ProjectionContractTests(unittest.TestCase):
                 "lastTrick",
                 "lastWinner",
                 "exiled",
+                "exiledPlayers",
                 "pendingAssignments",
                 "requisitionEvents",
                 "scores",
@@ -144,6 +151,26 @@ class ProjectionContractTests(unittest.TestCase):
                 "swapConfirmed",
                 "swapCount",
             },
+        )
+
+    def test_snapshot_pairs_each_exiled_card_with_its_player(self) -> None:
+        pointer = self.engine.new_engine(
+            654,
+            variants=variants_native(normalize_variants(None)),
+            controllers=controllers_native(["human"] * 4),
+        )
+        try:
+            state = ctypes.cast(pointer, ctypes.POINTER(KCEngineSnapshot)).contents
+            state.exiled[2].cards[0] = KCCard(1, 10)
+            state.exiled[2].cards[1] = KCCard(3, 7)
+            state.exiled[2].count = 2
+            state.exiled_player_ids[2][0] = 1
+            state.exiled_player_ids[2][1] = 3
+            viewed = snapshot_json(self.engine, pointer, 0)
+        finally:
+            self.engine.free_engine(pointer)
+        self.assertEqual(
+            viewed["exiledPlayers"][2], {"suit": 2, "values": [1, 3]}
         )
 
     def test_update_and_listing_keep_flutter_envelope_names(self) -> None:

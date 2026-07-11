@@ -214,6 +214,16 @@ def snapshot_json(
         "lastTrick": trick_json(state.last_trick, state.last_trick_count),
         "lastWinner": int(state.last_winner),
         "exiled": suit_card_lists_json(state.exiled, MAX_YEARS + 1),
+        "exiledPlayers": [
+            {
+                "suit": year,
+                "values": [
+                    int(state.exiled_player_ids[year][index])
+                    for index in range(int(state.exiled[year].count))
+                ],
+            }
+            for year in range(MAX_YEARS + 1)
+        ],
         "pendingAssignments": pending_assignments_json(state),
         "requisitionEvents": requisition_events_json(state),
         "scores": [

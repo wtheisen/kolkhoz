@@ -701,6 +701,12 @@ KCCard kc_exiled_card(const KCEngine *engine, int32_t year, int32_t index) {
     return kc_card_at(&engine->exiled[year], index);
 }
 
+int32_t kc_exiled_player(const KCEngine *engine, int32_t year, int32_t index) {
+    if (engine == NULL || year < 0 || year > KC_MAX_YEARS ||
+        index < 0 || index >= engine->exiled[year].count) return KC_NO_PLAYER;
+    return engine->exiled_player_ids[year][index];
+}
+
 int32_t kc_requisition_event_count(const KCEngine *engine) {
     return engine ? engine->requisition_event_count : 0;
 }
@@ -1297,6 +1303,13 @@ static int32_t kc_hero_player_id(const KCEngine *engine) {
     return KC_NO_PLAYER;
 }
 
+static void kc_append_exiled(KCEngine *engine, KCCard card, int32_t player_id) {
+    KCCardList *cards = &engine->exiled[engine->year];
+    if (cards->count >= KC_MAX_CARDS) return;
+    engine->exiled_player_ids[engine->year][cards->count] = player_id;
+    kc_list_append(cards, card);
+}
+
 static bool kc_handle_drunkard(KCEngine *engine, int32_t suit) {
     if (!engine->variants.nomenclature || engine->trump < 0) {
         return false;
@@ -1305,7 +1318,7 @@ static bool kc_handle_drunkard(KCEngine *engine, int32_t suit) {
     for (int32_t i = 0; i < bucket->count; i++) {
         KCCard card = bucket->cards[i];
         if (card.value == 11 && card.suit == engine->trump) {
-            kc_list_append(&engine->exiled[engine->year], card);
+            kc_append_exiled(engine, card, KC_NO_PLAYER);
             if (engine->has_revealed_job[suit]) {
                 kc_list_append(&engine->drunkard_replacements, engine->revealed_jobs[suit]);
             }
@@ -1423,7 +1436,7 @@ static void kc_perform_requisition(KCEngine *engine) {
             kc_sort_revealed_desc(revealed, revealed_count);
             int32_t limit = party_official ? 2 : 1;
             for (int32_t i = 0; i < revealed_count && i < limit; i++) {
-                kc_list_append(&engine->exiled[engine->year], revealed[i]);
+                kc_append_exiled(engine, revealed[i], player_id);
                 if (engine->requisition_event_count < KC_MAX_CARDS) {
                     engine->requisition_events[engine->requisition_event_count++] = (KCRequisitionEvent){
                         .player_id = player_id,
@@ -1533,7 +1546,7 @@ static void kc_transition_to_next_year(KCEngine *engine) {
             if (engine->variants.accumulate_jobs) {
                 kc_list_append(&engine->accumulated_job_cards[suit], engine->revealed_jobs[suit]);
             } else {
-                kc_list_append(&engine->exiled[engine->year], engine->revealed_jobs[suit]);
+                kc_append_exiled(engine, engine->revealed_jobs[suit], KC_NO_PLAYER);
             }
         }
     }
