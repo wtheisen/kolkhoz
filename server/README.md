@@ -1,9 +1,8 @@
-# Kolkhoz greenfield server
+# Kolkhoz online server
 
-This directory is the independent replacement for the former research-hosted runtime.
-It preserves the Flutter-facing
-online API while replacing process-wide game locking with partitioned, single-owner
-execution. The authoritative game rules remain in the C engine.
+This directory owns the authoritative Flutter-facing online API, durable sessions,
+distributed execution, realtime transport, and production deployment. The authoritative
+game rules remain in the C engine.
 
 The design target includes 10K, 100K, and eventually 1M concurrent connections. Those
 figures are capacity goals, not measured production results; see `PARITY_GAPS.md` and
@@ -31,11 +30,10 @@ the cache window and response size therefore remain bounded. This is determinist
 replay, not a claim that long histories have constant replay cost; durable engine
 snapshots are a future optimization if game histories grow materially.
 
-`commands.py` implements the intended cross-host Redis Streams command plane, including
+`commands.py` implements the cross-host Redis Streams command plane, including
 partitioning, backpressure, retry, failover claim, result deduplication, and dead-letter
-handling. It is tested but is **not yet wired into `production.py`**, so production HTTP
-mutations still execute in the gateway's local runtime and rely on PostgreSQL leases.
-That is a retirement blocker, documented in `PARITY_GAPS.md`.
+handling. `production.py` routes mutations through this plane; PostgreSQL leases and
+fencing remain the final stale-owner safety boundary.
 
 ## File layout
 
@@ -64,7 +62,7 @@ That is a retirement blocker, documented in `PARITY_GAPS.md`.
 
 ## Run locally
 
-The development gateway uses SQLite and legacy `/games` vertical-slice routes. It is
+The development gateway uses SQLite and minimal `/games` vertical-slice routes. It is
 not the production compatibility transport:
 
 ```bash
@@ -79,9 +77,9 @@ Uvicorn. Follow `deploy/README.md`; the process entry point is:
 python3 -m server.kolkhoz_server.production
 ```
 
-Until the fail-closed auth startup gap in `PARITY_GAPS.md` is fixed, operators must set
-both `KOLKHOZ_SUPABASE_URL` and `KOLKHOZ_SUPABASE_PUBLISHABLE_KEY`; omitting them
-disables the verifier instead of refusing startup.
+Operators must set both `KOLKHOZ_SUPABASE_URL` and
+`KOLKHOZ_SUPABASE_PUBLISHABLE_KEY`; production startup fails closed when either is
+missing.
 
 The production WebSocket endpoint is:
 

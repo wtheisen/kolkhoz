@@ -1,12 +1,12 @@
 # Production parity inventory
 
-Audit snapshot: 2026-07-11. The route inventory is derived from the legacy
-the retired research server router and the Flutter-compatible
-contracts in this directory.
+Audit snapshot: 2026-07-11. The route inventory was derived from the retired research
+server before its deletion and is locked by the Flutter-compatible contracts and tests
+in this directory.
 
 An `[x]` route means the canonical route resolves and has an executable gateway-level
-contract test. It does **not** by itself prove every legacy side effect. Behavioral
-status and remaining retirement blockers are listed separately below and in
+contract test. It does **not** by itself prove every behavioral side effect. Behavioral
+status and remaining scale gates are listed separately below and in
 `PARITY_GAPS.md`.
 
 ## Infrastructure

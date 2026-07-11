@@ -12,7 +12,7 @@ persistence, and local play.
 | Local app runtime and state projection | Flutter | Project direct C-engine state into Dart render models. |
 | Client UX, navigation, tutorial, settings | Flutter | New app behavior lands here first. |
 | Save/restore behavior | Flutter + C action log | Saves should replay through the C engine. |
-| Online transport and redaction behavior | Flutter client + future C-engine server | Keep server behavior authoritative and viewer-redacted. |
+| Online transport and redaction behavior | Flutter client + `server/` | Keep the server authoritative and viewer-redacted. |
 | Training/benchmarking | Research harness | Python/Torch code calls the C engine directly. |
 
 ## Promotion Checklist
@@ -25,7 +25,7 @@ persistence, and local play.
 | App controls are functional | Tests cover new game, return to lobby, tutorial, and game-over restart callbacks | Covered |
 | Save/restore is reliable | Tests cover action-log payload round trip, corrupt-save fallback, restored table state | Covered |
 | UI can be dogfooded as the app | Manual pass completes full local and online games from the Flutter UI | See `agent-docs/FLUTTER_DOGFOOD_LOG.md` |
-| CI enforces Flutter ownership | Required checks run format, analyze, test, build, C engine syntax, and research smoke where relevant | Scripted by `scripts/verify_flutter_source_gate.sh`; not yet wired to CI |
+| CI enforces Flutter ownership | Required checks run analyze, portable tests, macOS build, C engine syntax, and server/research smoke | Enforced by `.github/workflows/ci.yml`; the local superset is `scripts/verify_flutter_source_gate.sh` |
 | Docs point future work to Flutter | Agent docs state Flutter owns app/client behavior | Covered |
 
 ## Required Local Checks

@@ -3,7 +3,8 @@
 The authoritative gameplay implementation is the C engine in `engine/KolkhozCEngine/`.
 The primary standalone app surface is the Flutter client in `clients/flutter_app/`.
 The research harness in `research/` talks to the same C engine through `ctypes`.
-Those are the three active repo owners: engine, app, and research.
+The authoritative online runtime and deployment live in `server/`. Those are the four
+active repo owners: engine, app, server, and research.
 
 The old React/boardgame.io/Vite web app and the transitional native Apple app have been
 removed. Do not revive either one, and do not add compatibility layers for retired
@@ -13,6 +14,7 @@ client contracts.
 
 - **C** - Rules, legal actions, phase flow, AI, scoring, policy features, deterministic simulation.
 - **Flutter/Dart** - Standalone app UI, app state, animations, asset presentation, and FFI bridge.
+- **Python/PostgreSQL/Redis** - Authoritative online API, durable sessions, distributed commands, and realtime transport.
 - **Python/Torch** - Research orchestration, C-engine benchmarks, C MLP training, Torch/MPS training, dashboards.
 - **Xcode projects under Flutter** - Apple platform build wrappers for the Flutter app.
 
@@ -65,10 +67,10 @@ clients/
     tool/build_c_engine_macos.sh
 research/
   kolkhoz_research/              # Python C-engine wrapper, training, benchmarks
-server/                         # Distributed online server and deployment tooling
   configs/
   dashboard/
   runs/                          # ignored local runs and candidate outputs
+server/                          # Distributed online server and deployment tooling
 training/
   rl/runs/                       # ignored legacy promoted/baseline JSON models
 agent-docs/
@@ -104,7 +106,8 @@ processed as failed during requisition.
 5. `clients/flutter_app/lib/src/table_view_projection.dart` - C state to Flutter model projection.
 6. `clients/flutter_app/lib/src/board/` and `clients/flutter_app/lib/src/board_view.dart` - app UI.
 7. `research/kolkhoz_research/c_engine.py` - Python C-engine wrapper.
-8. `research/kolkhoz_research/cli.py` - training and benchmark commands.
+8. `server/kolkhoz_server/production.py` - production online composition.
+9. `research/kolkhoz_research/cli.py` - training and benchmark commands.
 
 ## Common Tasks
 

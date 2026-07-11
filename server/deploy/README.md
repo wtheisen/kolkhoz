@@ -1,15 +1,16 @@
-# Greenfield server deployment
+# Server deployment
 
-These files deploy the PostgreSQL-backed, partitioned server. Do not run another
-service on the same port.
+The live DigitalOcean procedure is authoritative and documented in
+[`digitalocean/README.md`](digitalocean/README.md). The generic unit and environment
+files in this directory are templates for another single-host installation.
 
 ## Install
 
-From a checked-out release at `/opt/kolkhoz`:
+From a checked-out release at `/opt/kolkhoz-server`:
 
 ```bash
-python3 -m venv /opt/kolkhoz/.venv
-/opt/kolkhoz/.venv/bin/pip install -r server/deploy/requirements.txt
+python3 -m venv /opt/kolkhoz-server/.venv
+/opt/kolkhoz-server/.venv/bin/pip install -r server/deploy/requirements.txt
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/postgres_schema.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/lobby_schema.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/distributed_schema.sql
@@ -28,7 +29,7 @@ service:
 sudo systemctl daemon-reload
 sudo systemctl enable --now kolkhoz-server
 sudo systemctl status kolkhoz-server
-curl --fail --silent http://127.0.0.1:8787/health
+curl --fail --silent http://127.0.0.1:18787/health
 ```
 
 The database role needs `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on the `server_*`,
