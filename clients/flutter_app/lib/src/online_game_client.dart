@@ -66,6 +66,19 @@ class KolkhozOnlineClient {
     return OnlineComradesResponse.fromJson(onlineObjectMap(decoded));
   }
 
+  Future<List<OnlineComradeProfile>> fetchLeaderboard() async {
+    final json = await _sendJson(method: 'GET', path: 'leaderboard');
+    return [
+      for (final value in onlineObjectList(json['players'] ?? const []))
+        OnlineComradeProfile.fromJson(onlineObjectMap(value)),
+    ];
+  }
+
+  Future<OnlineComradeProfile> fetchPublicProfile(String userID) async {
+    final decoded = await _send(method: 'GET', path: 'profiles/$userID');
+    return OnlineComradeProfile.fromJson(onlineObjectMap(decoded));
+  }
+
   Future<OnlineComradeProfile> sendComradeRequest(String comradeCode) async {
     final json = await _sendJson(
       method: 'POST',
@@ -288,6 +301,41 @@ class KolkhozOnlineClient {
     return OnlineSessionUpdate.fromJson(onlineObjectMap(json['update']));
   }
 
+  Uri realtimeURI({
+    required String sessionID,
+    required int playerID,
+    required int afterRevision,
+  }) {
+    final uri = _resolve('sessions/$sessionID/realtime', {
+      'viewerID': '$playerID',
+      'afterRevision': '$afterRevision',
+    });
+    return uri.replace(scheme: uri.scheme == 'https' ? 'wss' : 'ws');
+  }
+
+  Future<WebSocket> connectRealtime({
+    required String sessionID,
+    required int playerID,
+    required String seatToken,
+    required int afterRevision,
+  }) async {
+    final accessToken = await accessTokenProvider?.call();
+    if (accessToken == null || accessToken.isEmpty) {
+      throw StateError('Online realtime requires an access token');
+    }
+    return WebSocket.connect(
+      realtimeURI(
+        sessionID: sessionID,
+        playerID: playerID,
+        afterRevision: afterRevision,
+      ).toString(),
+      headers: {
+        HttpHeaders.authorizationHeader: 'Bearer $accessToken',
+        _seatTokenHeader: seatToken,
+      },
+    );
+  }
+
   Future<Map<String, Object?>> _sendJson({
     required String method,
     required String path,
@@ -356,6 +404,48 @@ class KolkhozOnlineClient {
       return resolved;
     }
     return resolved.replace(queryParameters: query);
+  }
+}
+
+class OnlineRealtimeFrame {
+  const OnlineRealtimeFrame({
+    required this.type,
+    this.revision,
+    this.update,
+    this.updates,
+  });
+
+  final String type;
+  final int? revision;
+  final OnlineSessionUpdate? update;
+  final OnlineActionUpdatesResponse? updates;
+
+  static OnlineRealtimeFrame fromJson(Map<String, Object?> json) {
+    final type = json['type'] as String;
+    return OnlineRealtimeFrame(
+      type: type,
+      revision: (json['revision'] as num?)?.toInt(),
+      update: type == 'state'
+          ? OnlineSessionUpdate.fromJson(onlineObjectMap(json['update']))
+          : null,
+      updates: type == 'catchUp' || type == 'committed'
+          ? OnlineActionUpdatesResponse.fromJson(
+              onlineObjectMap(json['updates']),
+            )
+          : null,
+    );
+  }
+
+  static OnlineRealtimeFrame decode(Object? data) {
+    final text = switch (data) {
+      String value => value,
+      List<int> value => utf8.decode(value),
+      _ => null,
+    };
+    if (text == null) {
+      throw const FormatException('Online realtime frame must be text');
+    }
+    return fromJson(onlineObjectMap(jsonDecode(text)));
   }
 }
 
