@@ -103,3 +103,34 @@ jobs:
           test/progression_test.dart
           test/online_action_retry_test.dart
       - run: flutter build macos --debug
+
+  windows-release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: dart run tool/sync_policy_assets.dart
+      - run: flutter config --enable-windows-desktop
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter build windows --release
+      - run: >-
+          flutter test
+          test/parity_gate_test.dart
+          test/progression_test.dart
+          test/online_action_retry_test.dart
+        env:
+          KOLKHOZ_C_ENGINE_LIB: ${{ github.workspace }}\app\build\windows\x64\runner\Release\kolkhoz_c_engine.dll
+      - name: Verify release bundle
+        shell: pwsh
+        run: |
+          $bundle = "build/windows/x64/runner/Release"
+          if (-not (Test-Path "$bundle/kolkhoz_app.exe")) { throw "Missing Windows executable" }
+          if (-not (Test-Path "$bundle/kolkhoz_c_engine.dll")) { throw "Missing C engine DLL" }
+          if (-not (Test-Path "$bundle/data/flutter_assets/assets/policies/hard_policy.json")) { throw "Missing policy assets" }

@@ -760,7 +760,7 @@ void kc_add_cached_score_gradient(KCPolicyModelBuffer model, const KCPolicyActio
         return;
     }
 
-    double upstream[activation_count];
+    double upstream[KC_MAX_POLICY_ACTIVATIONS];
     memset(upstream, 0, (size_t)activation_count * sizeof(double));
     int32_t output_offset = kc_policy_output_offset(model);
     int32_t last_layer = layer_count - 1;

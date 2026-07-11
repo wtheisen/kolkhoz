@@ -27,6 +27,18 @@ xcodebuild -quiet -workspace ios/Runner.xcworkspace -scheme Runner -configuratio
 Run commands from this directory. If Flutter is on your `PATH`, the shorter
 `flutter` form works too.
 
+Windows release builds require Visual Studio with the Desktop development with C++
+workload. From this directory on Windows:
+
+```powershell
+dart run tool/sync_policy_assets.dart
+flutter pub get
+flutter build windows --release
+```
+
+The Windows CMake build compiles `kolkhoz_c_engine.dll` from the shared runtime engine
+and installs it beside `kolkhoz_app.exe` in the release bundle.
+
 Physical iPhone installs must use profile or release mode if the app needs to launch
 from the home screen. Do not use `flutter build ios --debug` or `flutter install --debug`
 for physical iPhone deployment; iOS 14+ only launches debug-mode Flutter apps from

@@ -1,7 +1,6 @@
 #include "KolkhozCEngineInternal.h"
 
 #include <math.h>
-#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -81,8 +80,20 @@ static uint64_t kc_next(KCEngine *engine) {
     return engine->rng_state;
 }
 
+static uint64_t kc_multiply_high(uint64_t lhs, uint64_t rhs) {
+    uint64_t lhs_low = (uint32_t)lhs;
+    uint64_t lhs_high = lhs >> 32;
+    uint64_t rhs_low = (uint32_t)rhs;
+    uint64_t rhs_high = rhs >> 32;
+    uint64_t low_product = lhs_low * rhs_low;
+    uint64_t cross_left = lhs_low * rhs_high;
+    uint64_t cross_right = lhs_high * rhs_low;
+    uint64_t carry = (low_product >> 32) + (uint32_t)cross_left + (uint32_t)cross_right;
+    return lhs_high * rhs_high + (cross_left >> 32) + (cross_right >> 32) + (carry >> 32);
+}
+
 static uint64_t kc_random_below(KCEngine *engine, uint64_t upper_bound) {
-    return (uint64_t)(((__uint128_t)kc_next(engine) * upper_bound) >> 64);
+    return kc_multiply_high(kc_next(engine), upper_bound);
 }
 
 static double kc_uniform(KCEngine *engine) {
