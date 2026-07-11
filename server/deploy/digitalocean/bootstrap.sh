@@ -13,6 +13,7 @@ repo=
 ref=
 
 usage() { echo "usage: $0 --repo URL --ref COMMIT_OR_TAG [--apply]" >&2; exit 64; }
+git_shadow() { git -c safe.directory="$ROOT" -C "$ROOT" "$@"; }
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --repo) [ "$#" -ge 2 ] || usage; repo=$2; shift 2 ;;
@@ -33,8 +34,8 @@ if ss -H -ltn "sport = :$REDIS_PORT" | grep -q . && ! systemctl is-active --quie
 fi
 if [ -e "$ROOT" ]; then
   [ -d "$ROOT/.git" ] || { echo "refusing non-git path $ROOT" >&2; exit 1; }
-  [ -z "$(git -C "$ROOT" status --porcelain)" ] || { echo "refusing dirty shadow checkout" >&2; exit 1; }
-  actual=$(git -C "$ROOT" remote get-url origin)
+  [ -z "$(git_shadow status --porcelain)" ] || { echo "refusing dirty shadow checkout" >&2; exit 1; }
+  actual=$(git_shadow remote get-url origin)
   [ "$actual" = "$repo" ] || { echo "shadow remote mismatch" >&2; exit 1; }
 fi
 
@@ -63,9 +64,9 @@ fi
 id kolkhoz-greenfield >/dev/null 2>&1 || useradd --system --home-dir "$ROOT" --shell /usr/sbin/nologin kolkhoz-greenfield
 systemctl stop kolkhoz-greenfield.service 2>/dev/null || true
 if [ ! -e "$ROOT" ]; then git clone --filter=blob:none "$repo" "$ROOT"; fi
-git -C "$ROOT" fetch --tags --prune origin
-git -C "$ROOT" checkout --detach "$ref"
-test "$(git -C "$ROOT" rev-parse HEAD)" = "$(git -C "$ROOT" rev-parse "$ref^{commit}")"
+git_shadow fetch --tags --prune origin
+git_shadow checkout --detach "$ref"
+test "$(git_shadow rev-parse HEAD)" = "$(git_shadow rev-parse "$ref^{commit}")"
 cd "$ROOT"
 python3 -m venv "$ROOT/.venv"
 "$ROOT/.venv/bin/pip" install --disable-pip-version-check -r "$ROOT/server/deploy/requirements.txt"
