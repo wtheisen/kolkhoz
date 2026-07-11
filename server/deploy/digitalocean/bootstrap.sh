@@ -115,6 +115,14 @@ install -o root -g root -m 0644 "$here/kolkhoz-greenfield.service" /etc/systemd/
 systemctl daemon-reload
 systemctl enable --now kolkhoz-greenfield-redis.service
 systemctl enable --now kolkhoz-greenfield.service
-curl --fail --silent --max-time 5 http://127.0.0.1:18787/ready >/dev/null
+ready=false
+for _ in $(seq 1 30); do
+  if curl --fail --silent --max-time 2 http://127.0.0.1:18787/ready >/dev/null; then
+    ready=true
+    break
+  fi
+  sleep 1
+done
+$ready || { systemctl status kolkhoz-greenfield.service --no-pager >&2; exit 1; }
 curl --fail --silent --max-time 5 http://127.0.0.1:18787/metrics/prometheus | grep -q '^kolkhoz_uptime_seconds '
 echo "greenfield shadow ready on loopback port 18787"

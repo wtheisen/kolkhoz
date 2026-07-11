@@ -27,4 +27,6 @@ assert "MemoryMax=300M" in server
 assert "TasksMax=128" in server and "LimitNOFILE=8192" in server
 assert "port 16379" in redis and "bind 127.0.0.1" in redis
 assert "maxmemory 64mb" in redis and "maxmemory-policy noeviction" in redis
+assert "maxclients 1000" in redis
+assert "for _ in $(seq 1 30)" in bootstrap
 print("DigitalOcean shadow package invariants valid")
