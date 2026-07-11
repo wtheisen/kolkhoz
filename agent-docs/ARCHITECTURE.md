@@ -4,7 +4,8 @@ The C engine under `engine/KolkhozCEngine/` is the source of truth for rules, le
 actions, phase flow, AI, scoring, policy features, and deterministic simulation. The
 Flutter app in `clients/flutter_app/` is the primary app surface and binds to the engine
 through Dart FFI. The research harness in `research/` binds to the same engine through
-Python `ctypes`. Keep the architecture organized around those three owners.
+Python `ctypes`. The online runtime in `server/` uses the same C engine behind its
+durable session/event model. Keep the architecture organized around those four owners.
 
 The legacy web app and transitional native Apple app have been removed. Current and future
 clients should not derive architecture from those retired implementations.
@@ -31,6 +32,10 @@ kolkhoz/
 │   ├── configs/
 │   ├── dashboard/
 │   └── runs/                  # ignored local experiments and candidate outputs
+├── server/
+│   ├── kolkhoz_server/        # authoritative online runtime
+│   ├── deploy/                # production and staging operations
+│   └── tests/                 # contracts, concurrency, and failure gates
 ├── training/
 │   └── rl/runs/               # ignored legacy promoted/baseline JSON models
 ├── agent-docs/
@@ -42,8 +47,8 @@ kolkhoz/
 ### `engine/KolkhozCEngine`
 
 Portable C rules engine. This is the runtime rules implementation for local play,
-research simulation, policy features, legal actions, automatic AI turns, scoring, and
-eventual server/backend use.
+server sessions, research simulation, policy features, legal actions, automatic AI
+turns, and scoring.
 
 ### `clients/flutter_app`
 
@@ -77,6 +82,14 @@ Important files:
 | `kolkhoz_research/benchmark.py` | Paired candidate-vs-baseline and tournament logic |
 | `kolkhoz_research/training.py` | C MLP training path |
 | `kolkhoz_research/torch_policy.py` | Torch/MPS training and benchmark path |
+
+### `server`
+
+Authoritative online runtime. It owns the Flutter-compatible HTTP/WebSocket API,
+single-owner partitioned game execution, PostgreSQL event persistence and fencing,
+Redis command/realtime transport, matchmaking, deadlines, population, social/results
+services, and deployment. Game rules remain in the C engine; do not add a parallel
+Python rules implementation.
 
 ### Generated And Historical Artifacts
 

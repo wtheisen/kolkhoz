@@ -16,6 +16,7 @@ solutions over clever abstractions.
 **Follow the current owners:**
 - **C engine** - Keep rules, legal actions, phase flow, AI, scoring, policy features, and deterministic simulation in `engine/KolkhozCEngine/`.
 - **Flutter** - Keep app state, layout, animation, controls, and assets in `clients/flutter_app/`.
+- **Server** - Keep the authoritative online API, session execution, persistence, realtime transport, matchmaking, and deployment in `server/`.
 - **Research** - Keep training, benchmarking, promotion gates, seed mining, and dashboards in `research/`.
 
 **Write minimal code:**
@@ -64,6 +65,8 @@ Pass a device id as the first argument only when targeting a different iPhone.
 **Flutter models, adapters, and UI** go in `clients/flutter_app/lib/`.
 
 **Flutter assets** go in `clients/flutter_app/ios_resources/`.
+
+**Online server behavior and operations** go in `server/`.
 
 **Research and model training** go in `research/`.
 

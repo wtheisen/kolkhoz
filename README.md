@@ -1,7 +1,7 @@
 # Kolkhoz
 
-Kolkhoz is a Soviet-themed trick-taking card game. The repo has three active owners:
-the portable C engine, the Flutter app, and the Python/Torch research harness.
+Kolkhoz is a Soviet-themed trick-taking card game. The repo has four active owners:
+the portable C engine, the Flutter app, the online server, and the Python/Torch research harness.
 
 ## Current Status
 
@@ -11,6 +11,8 @@ the portable C engine, the Flutter app, and the Python/Torch research harness.
   app state, C-engine projection, animation, controls, and assets.
 - `clients/flutter_app/ios_resources/` owns the app's pixel-art cards, icons, UI chrome,
   fonts, and tutorial art.
+- `server/` owns the authoritative online API, durable sessions, realtime transport,
+  matchmaking, social/results services, and deployment.
 - `research/` owns model training, benchmarking, promotion records, seed mining, and
   dashboard tooling.
 
@@ -109,6 +111,10 @@ research/
   configs/
   dashboard/
   runs/                         # ignored local experiments and model outputs
+server/
+  kolkhoz_server/               # authoritative online runtime
+  deploy/                       # service and staging deployment
+  tests/                        # server contracts and distributed failure gates
 training/
   rl/runs/                      # ignored legacy promoted/baseline JSON models
 agent-docs/
