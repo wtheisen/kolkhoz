@@ -123,7 +123,9 @@ class LobbyRepositoryTests(unittest.TestCase):
         self.repository.mark_presence("user-2", now=200)
         self.assertEqual(self.repository.online_user_ids(since=150), {"user-2"})
 
-    def test_citizens_online_includes_active_profile_bots_without_duplicates(self) -> None:
+    def test_citizens_online_includes_active_profile_bots_without_duplicates(
+        self,
+    ) -> None:
         record = self.make_session()
         with self.repository._connect() as connection:
             connection.execute(

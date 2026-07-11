@@ -194,9 +194,7 @@ def create_asgi_application() -> ASGIApplication:
             social,
             presence=LobbyPresenceReader(
                 lobby,
-                ttl_seconds=float(
-                    os.environ.get("KOLKHOZ_PRESENCE_TTL_SECONDS", "60")
-                ),
+                ttl_seconds=float(os.environ.get("KOLKHOZ_PRESENCE_TTL_SECONDS", "60")),
             ),
         ),
         results=results,
