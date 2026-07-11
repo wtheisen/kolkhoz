@@ -134,3 +134,27 @@ jobs:
           if (-not (Test-Path "$bundle/kolkhoz_app.exe")) { throw "Missing Windows executable" }
           if (-not (Test-Path "$bundle/kolkhoz_c_engine.dll")) { throw "Missing C engine DLL" }
           if (-not (Test-Path "$bundle/data/flutter_assets/assets/policies/hard_policy.json")) { throw "Missing policy assets" }
+      - name: Add build manifest and checksums
+        shell: pwsh
+        run: |
+          $bundle = Resolve-Path "build/windows/x64/runner/Release"
+          @(
+            "Kolkhoz Windows Release"
+            "Commit: $env:GITHUB_SHA"
+            "Workflow run: $env:GITHUB_RUN_ID"
+            "Built UTC: $([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))"
+          ) | Set-Content "$bundle/BUILD_INFO.txt"
+          Get-ChildItem $bundle -File -Recurse |
+            Where-Object { $_.Name -ne "SHA256SUMS.txt" } |
+            Sort-Object FullName |
+            ForEach-Object {
+              $relative = $_.FullName.Substring($bundle.Path.Length + 1).Replace('\', '/')
+              "$(Get-FileHash $_.FullName -Algorithm SHA256 | Select-Object -ExpandProperty Hash)  $relative"
+            } | Set-Content "$bundle/SHA256SUMS.txt"
+      - name: Upload Windows release
+        uses: actions/upload-artifact@v4
+        with:
+          name: kolkhoz-windows-${{ github.sha }}
+          path: app/build/windows/x64/runner/Release/
+          if-no-files-found: error
+          retention-days: 30
