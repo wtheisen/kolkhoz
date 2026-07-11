@@ -336,7 +336,7 @@ void registerLobbyAndProfileTests() {
       expect(findAppText('HOST GAME'), findsNothing);
       expect(findAppText('INVITE CODE'), findsOneWidget);
 
-      await tester.tap(findAppText('CREATE GAME'));
+      await tester.tap(findAppText('CREATE GAME').first);
       await tester.tap(findAppText('JOIN GAME').first);
       await tester.tap(findAppText('HOW TO PLAY'));
 
@@ -378,11 +378,11 @@ void registerLobbyAndProfileTests() {
       await tester.tap(findAppText('ADD PLAYERS'));
       await tester.pumpAndSettle();
       expect(findAppText('52 CARDS / 5 YEARS'), findsNothing);
-      expect(find.byTooltip('Kolkhoz'), findsOneWidget);
-      expect(find.byTooltip('52 Card Deck'), findsOneWidget);
-      expect(find.byTooltip('5 Year Plan'), findsOneWidget);
-      expect(find.byTooltip('Exchange Soap for an Awl'), findsOneWidget);
-      expect(find.byTooltip('Enemy of the People'), findsOneWidget);
+      expect(find.bySemanticsLabel('Kolkhoz'), findsOneWidget);
+      expect(find.bySemanticsLabel('52 Card Deck'), findsOneWidget);
+      expect(find.bySemanticsLabel('5 Year Plan'), findsOneWidget);
+      expect(find.bySemanticsLabel('Exchange Soap for an Awl'), findsOneWidget);
+      expect(find.bySemanticsLabel('Enemy of the People'), findsOneWidget);
       final backCenter = tester.getCenter(findAppText('BACK TO SETUP')).dy;
       final startCenter = tester
           .getCenter(findAppText('START OFFLINE GAME'))
@@ -843,7 +843,7 @@ void registerLobbyAndProfileTests() {
     );
 
     expect(findAppText('ADD PLAYERS'), findsNothing);
-    expect(findAppText('START OFFLINE GAME'), findsOneWidget);
+    expect(findAppText('START OFFLINE GAME'), findsWidgets);
     expect(findAppText('PRIVATE'), findsOneWidget);
     expect(find.bySemanticsLabel('P2 Easy'), findsOneWidget);
 
@@ -947,38 +947,38 @@ void registerLobbyAndProfileTests() {
       ),
     );
 
-    expect(findAppText('ADD PLAYERS'), findsOneWidget);
+    expect(findAppText('ADD PLAYERS'), findsWidgets);
     expect(findAppText('START OFFLINE GAME'), findsNothing);
 
-    await tester.tap(findAppText('ADD PLAYERS'));
+    await tester.tap(findAppText('ADD PLAYERS').first);
     await tester.pumpAndSettle();
-    expect(findAppText('START OFFLINE GAME'), findsOneWidget);
-    expect(findAppText('VISIBILITY'), findsOneWidget);
-    expect(findAppText('PUBLIC'), findsOneWidget);
+    expect(findAppText('START OFFLINE GAME'), findsWidgets);
+    expect(findAppText('VISIBILITY'), findsWidgets);
+    expect(findAppText('PUBLIC'), findsWidgets);
 
-    await tester.tap(findAppText('PUBLIC'));
+    await tester.tap(findAppText('PUBLIC').first);
     await tester.pump();
-    expect(findAppText('PUBLIC'), findsOneWidget);
+    expect(findAppText('PUBLIC'), findsWidgets);
     expect(findAppText('PRIVATE'), findsNothing);
 
     await tester.tap(find.bySemanticsLabel('P2 Online'));
     await tester.pumpAndSettle();
-    expect(findAppText('START ONLINE GAME'), findsOneWidget);
+    expect(findAppText('START ONLINE GAME'), findsWidgets);
     final p3Hotseat = find.bySemanticsLabel('P3 Hotseat');
     expect(p3Hotseat, findsOneWidget);
     expect(
       tester.getSemantics(p3Hotseat).flagsCollection.isEnabled.toBoolOrNull(),
       isFalse,
     );
-    await tester.tap(findAppText('PUBLIC'));
+    await tester.tap(findAppText('PUBLIC').first);
     await tester.pump();
-    expect(findAppText('PRIVATE'), findsOneWidget);
+    expect(findAppText('PRIVATE'), findsWidgets);
 
-    await tester.tap(findAppText('JOIN GAME'));
+    await tester.tap(findAppText('JOIN GAME').first);
     await tester.pumpAndSettle();
-    await tester.tap(findAppText('CREATE GAME'));
+    await tester.tap(findAppText('CREATE GAME').first);
     await tester.pumpAndSettle();
-    expect(findAppText('START ONLINE GAME'), findsOneWidget);
+    expect(findAppText('START ONLINE GAME'), findsWidgets);
 
     await tester.ensureVisible(find.bySemanticsLabel('P3 Hard'));
     await tester.tap(find.bySemanticsLabel('P3 Hard'));
@@ -989,13 +989,13 @@ void registerLobbyAndProfileTests() {
 
     expect(changedControllers, isNotNull);
     expect(changedControllers![1], KolkhozPlayerController.human);
-    expect(findAppText('START ONLINE GAME'), findsOneWidget);
+    expect(findAppText('START ONLINE GAME'), findsWidgets);
     expect(findAppText('RANKED'), findsNothing);
     expect(findAppText('CASUAL'), findsNothing);
-    expect(findAppText('PRIVATE'), findsOneWidget);
+    expect(findAppText('PRIVATE'), findsWidgets);
 
-    await tester.ensureVisible(findAppText('START ONLINE GAME'));
-    await tester.tap(findAppText('START ONLINE GAME'));
+    await tester.ensureVisible(findAppText('START ONLINE GAME').first);
+    await tester.tap(findAppText('START ONLINE GAME').first);
     await tester.pump();
 
     expect(hostedControllers, isNotNull);
@@ -1009,10 +1009,24 @@ void registerLobbyAndProfileTests() {
     await tester.pumpAndSettle();
     expect(showingOnline, isFalse);
     expect(findAppText('YOUR INVITE CODE'), findsNothing);
+    expect(findAppText('ABCDE'), findsWidgets);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                'ios_resources/Icons/icon-foreman-misha.png',
+      ),
+      findsWidgets,
+    );
+    expect(findAppText('TYPE'), findsNothing);
+    expect(findAppText('SEATS'), findsNothing);
+    expect(findAppText('MOVES'), findsNothing);
     expect(find.bySemanticsLabel('INVITE CODE ABCDE'), findsOneWidget);
     expect(find.bySemanticsLabel('Waiting for players'), findsWidgets);
     expect(find.textContaining('Searching for Player'), findsOneWidget);
-    expect(findAppText('Mira'), findsOneWidget);
+    expect(findAppText('Mira'), findsWidgets);
   });
 
   testWidgets('online ban state does not disable the create-game button', (

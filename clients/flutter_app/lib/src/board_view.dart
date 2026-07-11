@@ -1423,6 +1423,13 @@ class TopInfoStrip extends StatelessWidget {
       0,
       (score, card) => score + card.value,
     );
+    String? turnClock;
+    for (final seat in model.table.seats) {
+      if (RegExp(r'^\d+s$').hasMatch(seat.statusText)) {
+        turnClock = seat.statusText;
+        break;
+      }
+    }
     final topInfo = tokens.layout.topInfo;
     return SizedBox(
       height: metrics.topInfoHeight,
@@ -1452,68 +1459,29 @@ class TopInfoStrip extends StatelessWidget {
               gaugeWidth * topInfo.gaugeFrameWidthMultiplier;
           final gaugesWidth =
               gaugeFrameWidth * jobs.length + gaugeSpacing * (jobs.length - 1);
-          final gaugeClusterLeftOffset = -clampDouble(
-            constraints.maxWidth * topInfo.gaugeClusterLeftOffsetFactor,
-            topInfo.gaugeClusterLeftOffsetMin,
-            topInfo.gaugeClusterLeftOffsetMax,
-          );
           final scoreWidth = clampDouble(
             constraints.maxWidth * topInfo.scoreWidthFactor,
             topInfo.scoreWidthMin,
             topInfo.scoreWidthMax,
           );
           final scoreGroupWidth = scoreWidth * 2 + rowSpacing;
+          final contentWidth =
+              gaugesWidth +
+              scoreGroupWidth +
+              rowSpacing +
+              (turnClock == null ? 0 : scoreWidth + rowSpacing);
 
           return ClipRect(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Row(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                width: contentWidth,
+                height: constraints.maxHeight,
+                child: Row(
                   spacing: rowSpacing,
                   children: [
-                    const Spacer(),
                     SizedBox(
-                      width: scoreGroupWidth,
-                      child: Row(
-                        spacing: rowSpacing,
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          SizedBox(
-                            width: scoreWidth,
-                            child: TopInfoCell(
-                              icon: 'icon-cellar.png',
-                              value: '$cellarScore',
-                              iconSize: gaugeHeight * 0.8,
-                              contentSpacing: rowSpacing,
-                              height: metrics.topInfoHeight,
-                              tokens: tokens,
-                            ),
-                          ),
-                          SizedBox(
-                            width: scoreWidth,
-                            child: TopInfoCell(
-                              icon: 'icon-plot.png',
-                              value: '$plotScore',
-                              iconSize: gaugeHeight * 0.8,
-                              contentSpacing: rowSpacing,
-                              height: metrics.topInfoHeight,
-                              tokens: tokens,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                Transform.translate(
-                  offset: Offset(gaugeClusterLeftOffset, 0),
-                  child: OverflowBox(
-                    minWidth: 0,
-                    maxWidth: gaugesWidth,
-                    minHeight: 0,
-                    maxHeight: gaugeHeight,
-                    alignment: Alignment.center,
-                    child: SizedBox(
                       width: gaugesWidth,
                       height: gaugeHeight,
                       child: Row(
@@ -1541,9 +1509,54 @@ class TopInfoStrip extends StatelessWidget {
                         ],
                       ),
                     ),
-                  ),
+                    SizedBox(
+                      width: scoreGroupWidth,
+                      child: Row(
+                        spacing: rowSpacing,
+                        children: [
+                          SizedBox(
+                            width: scoreWidth,
+                            child: TopInfoCell(
+                              icon: 'icon-cellar.png',
+                              value: '$cellarScore',
+                              iconSize: gaugeHeight * 0.8,
+                              contentSpacing: rowSpacing,
+                              height: metrics.topInfoHeight,
+                              tokens: tokens,
+                            ),
+                          ),
+                          SizedBox(
+                            width: scoreWidth,
+                            child: TopInfoCell(
+                              icon: 'icon-plot.png',
+                              value: '$plotScore',
+                              iconSize: gaugeHeight * 0.8,
+                              contentSpacing: rowSpacing,
+                              height: metrics.topInfoHeight,
+                              tokens: tokens,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (turnClock != null) ...[
+                      const Spacer(),
+                      SizedBox(
+                        key: const Key('online-turn-clock'),
+                        width: scoreWidth,
+                        child: TopInfoCell(
+                          icon: 'icon-turn-timer-clock.png',
+                          value: turnClock,
+                          iconSize: gaugeHeight * 0.68,
+                          contentSpacing: rowSpacing,
+                          height: metrics.topInfoHeight,
+                          tokens: tokens,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              ],
+              ),
             ),
           );
         },
@@ -1574,40 +1587,33 @@ class TopInfoCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRect(
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: OverflowBox(
-          minWidth: 0,
-          maxWidth: double.infinity,
-          minHeight: height,
-          maxHeight: height,
-          alignment: Alignment.centerLeft,
-          child: SizedBox(
-            height: height,
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                spacing: contentSpacing,
-                children: [
-                  Image.asset(
-                    'ios_resources/Icons/$icon',
-                    width: iconSize,
-                    height: iconSize,
-                    filterQuality: FilterQuality.none,
-                  ),
-                  if (value.isNotEmpty)
-                    PixelText(
-                      value,
-                      size: PixelTextSize.cardRank,
-                      variant: PixelTextVariant.heavy,
-                      color: tokens.colors.gold,
-                    ),
-                ],
-              ),
+    return SizedBox(
+      height: height,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+        child: Row(
+          spacing: contentSpacing,
+          children: [
+            Image.asset(
+              'ios_resources/Icons/$icon',
+              width: iconSize,
+              height: iconSize,
+              filterQuality: FilterQuality.none,
             ),
-          ),
+            if (value.isNotEmpty)
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: PixelText(
+                    value,
+                    size: PixelTextSize.cardRank,
+                    variant: PixelTextVariant.heavy,
+                    color: tokens.colors.gold,
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -1700,9 +1706,13 @@ class _JobGaugeState extends State<JobGauge> {
     final rewardMarkerWidth =
         height * tokens.layout.topInfo.rewardMarkerHeightMultiplier + 3;
     final containsWrecker = jobContainsWrecker(job);
-    final wreckerIconSize = height * 0.4;
+    final pileEffectIconSize = height * 0.4;
+    final nomenklaturaValues = jobNomenklaturaValues(job);
     final markerWidth =
-        rewardMarkerWidth + (containsWrecker ? wreckerIconSize + 2 : 0);
+        rewardMarkerWidth +
+        (job.claimed ? 3 : 0) +
+        (containsWrecker ? pileEffectIconSize + 2 : 0) +
+        nomenklaturaValues.length * (pileEffectIconSize + 2);
     const contentSpacing = 4.0;
     final contentWidth = width - markerWidth - contentSpacing;
     final displayedHours = displayedJobHours(job);
@@ -1732,15 +1742,35 @@ class _JobGaugeState extends State<JobGauge> {
                       spacing: containsWrecker ? 2 : 0,
                       children: [
                         if (job.claimed)
-                          Image.asset(
-                            'ios_resources/Icons/icon-check.png',
-                            width:
-                                height *
-                                tokens.layout.topInfo.checkIconHeightMultiplier,
-                            height:
-                                height *
-                                tokens.layout.topInfo.checkIconHeightMultiplier,
-                            filterQuality: FilterQuality.none,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            spacing: 2,
+                            children: [
+                              Image.asset(
+                                'ios_resources/Icons/icon-check.png',
+                                width:
+                                    height *
+                                    tokens
+                                        .layout
+                                        .topInfo
+                                        .checkIconHeightMultiplier,
+                                height:
+                                    height *
+                                    tokens
+                                        .layout
+                                        .topInfo
+                                        .checkIconHeightMultiplier,
+                                filterQuality: FilterQuality.none,
+                              ),
+                              SuitMark(
+                                key: ValueKey(
+                                  'job-gauge-completed-suit-${job.suit}',
+                                ),
+                                suit: job.suit,
+                                tokens: tokens,
+                                size: height * 0.4,
+                              ),
+                            ],
                           )
                         else if (job.reward == null)
                           EmptyRewardMarker(
@@ -1774,8 +1804,19 @@ class _JobGaugeState extends State<JobGauge> {
                           Image.asset(
                             'ios_resources/Icons/icon-variant-saboteur.png',
                             key: ValueKey('job-gauge-wrecker-${job.suit}'),
-                            width: wreckerIconSize,
-                            height: wreckerIconSize,
+                            width: pileEffectIconSize,
+                            height: pileEffectIconSize,
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.none,
+                          ),
+                        for (final value in nomenklaturaValues)
+                          Image.asset(
+                            nomenklaturaPileIconAsset(value),
+                            key: ValueKey(
+                              'job-gauge-nomenklatura-$value-${job.suit}',
+                            ),
+                            width: pileEffectIconSize,
+                            height: pileEffectIconSize,
                             fit: BoxFit.contain,
                             filterQuality: FilterQuality.none,
                           ),
