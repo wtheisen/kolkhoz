@@ -43,10 +43,11 @@ cd clients/flutter_app
 python3 -m research.kolkhoz_research.cli engine-smoke --games 8
 ```
 
-For a local-network online play server that the Flutter app can join by URL:
+For the PostgreSQL/Redis-backed online server, configure the environment described in
+`server/deploy/README.md`, then run:
 
 ```bash
-python3 -m research.kolkhoz_research.cli serve-online --host 0.0.0.0 --port 8787
+python3 -m server.kolkhoz_server.production
 ```
 
 ## Project Layout
@@ -64,7 +65,7 @@ clients/
     tool/build_c_engine_macos.sh
 research/
   kolkhoz_research/              # Python C-engine wrapper, training, benchmarks
-  kolkhoz_research/online_server.py # Local HTTP online session server for Flutter
+server/                         # Distributed online server and deployment tooling
   configs/
   dashboard/
   runs/                          # ignored local runs and candidate outputs

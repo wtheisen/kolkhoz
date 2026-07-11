@@ -35,7 +35,6 @@ jobs:
         run: >-
           python3 -m unittest
           research.tests.test_progression
-          research.tests.test_online_server
           research.tests.test_online_smoke
           research.tests.test_dashboard_smoke
 

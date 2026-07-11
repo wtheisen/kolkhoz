@@ -1,8 +1,7 @@
 # Greenfield server deployment
 
-These files deploy the PostgreSQL-backed, partitioned server independently of the
-legacy `research.kolkhoz_research.cli serve-online` process. Do not run both services
-on the same port.
+These files deploy the PostgreSQL-backed, partitioned server. Do not run another
+service on the same port.
 
 ## Install
 

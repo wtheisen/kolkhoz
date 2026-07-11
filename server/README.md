@@ -1,7 +1,7 @@
 # Kolkhoz greenfield server
 
-This directory is the independent replacement for the legacy
-`research/kolkhoz_research/online_server.py` runtime. It preserves the Flutter-facing
+This directory is the independent replacement for the former research-hosted runtime.
+It preserves the Flutter-facing
 online API while replacing process-wide game locking with partitioned, single-owner
 execution. The authoritative game rules remain in the C engine.
 

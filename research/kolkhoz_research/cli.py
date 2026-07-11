@@ -18,8 +18,6 @@ from .c_engine import CEngine, build_shared_library
 from .dashboard import serve_dashboard
 from .history import append_history, write_current_experiment
 from .online_load_test import run_online_load_test
-from .online_server import SupabaseAuthVerifier, serve_online
-from .online_store import PostgresOnlineSessionStore
 from .training import train_c_mlp
 
 
@@ -1177,20 +1175,6 @@ def dashboard_command(args: argparse.Namespace) -> int:
     return 0
 
 
-def serve_online_command(args: argparse.Namespace) -> int:
-    engine = CEngine(build_shared_library(force=args.rebuild))
-    database_url = args.database_url or os.environ.get("KOLKHOZ_ONLINE_DATABASE_URL")
-    store = PostgresOnlineSessionStore(database_url) if database_url else None
-    serve_online(
-        host=args.host,
-        port=args.port,
-        engine=engine,
-        store=store,
-        auth_verifier=SupabaseAuthVerifier.from_environment(),
-    )
-    return 0
-
-
 def online_load_test_command(args: argparse.Namespace) -> int:
     record = run_online_load_test(
         base_url=args.base_url,
@@ -2175,22 +2159,6 @@ def main() -> int:
         "--password", default=os.environ.get("KOLKHOZ_DASHBOARD_PASSWORD")
     )
     dashboard_parser.set_defaults(func=dashboard_command)
-
-    online_parser = subparsers.add_parser(
-        "serve-online", help="serve C-engine online sessions for Flutter clients"
-    )
-    online_parser.add_argument("--host", default="0.0.0.0")
-    online_parser.add_argument("--port", type=int, default=8787)
-    online_parser.add_argument("--rebuild", action="store_true")
-    online_parser.add_argument(
-        "--database-url",
-        default=None,
-        help=(
-            "optional Supabase/Postgres connection string; defaults to "
-            "KOLKHOZ_ONLINE_DATABASE_URL"
-        ),
-    )
-    online_parser.set_defaults(func=serve_online_command)
 
     load_parser = subparsers.add_parser(
         "online-load-test", help="run synthetic players against an online server"

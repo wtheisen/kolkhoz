@@ -1,7 +1,7 @@
 # Production parity inventory
 
 Audit snapshot: 2026-07-11. The route inventory is derived from the legacy
-`research/kolkhoz_research/online_server.py` router and the Flutter-compatible
+the retired research server router and the Flutter-compatible
 contracts in this directory.
 
 An `[x]` route means the canonical route resolves and has an executable gateway-level
