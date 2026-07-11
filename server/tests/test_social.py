@@ -68,8 +68,8 @@ class FakePresence:
         return {
             user_id: {
                 "isOnline": user_id == "bob",
-                "inGame": False,
-                "inLobby": user_id == "bob",
+                "inGame": user_id == "bob",
+                "inLobby": False,
             }
             for user_id in user_ids
         }
@@ -92,6 +92,10 @@ class SocialServiceTests(unittest.TestCase):
                         "displayName": "Alice",
                         "avatarURL": "worker1",
                         "stats": ALICE["stats"],
+                        "isOnline": False,
+                        "inGame": False,
+                        "inLobby": False,
+                        "isComrade": False,
                         "rank": 1,
                     },
                     {
@@ -99,11 +103,21 @@ class SocialServiceTests(unittest.TestCase):
                         "displayName": "Bob",
                         "avatarURL": None,
                         "stats": BOB["stats"],
+                        "isOnline": True,
+                        "inGame": True,
+                        "inLobby": False,
+                        "isComrade": False,
                         "rank": 2,
                     },
                 ]
             },
         )
+
+    def test_authenticated_leaderboard_marks_comrades(self) -> None:
+        players = self.service.leaderboard(user_id="alice")["players"]
+        self.assertFalse(players[0]["isComrade"])
+        self.assertTrue(players[1]["isComrade"])
+        self.assertTrue(players[1]["inGame"])
 
     def test_public_profile_excludes_private_comrade_code(self) -> None:
         self.assertEqual(
@@ -113,6 +127,10 @@ class SocialServiceTests(unittest.TestCase):
                 "displayName": "Alice",
                 "avatarURL": "worker1",
                 "stats": ALICE["stats"],
+                "isOnline": False,
+                "inGame": False,
+                "inLobby": False,
+                "isComrade": False,
             },
         )
 
@@ -122,7 +140,7 @@ class SocialServiceTests(unittest.TestCase):
         self.assertEqual(result["comradeCode"], "ALICE001")
         self.assertEqual(result["comrades"][0]["userID"], "bob")
         self.assertTrue(result["comrades"][0]["isOnline"])
-        self.assertTrue(result["comrades"][0]["inLobby"])
+        self.assertTrue(result["comrades"][0]["inGame"])
         self.assertEqual(result["incomingRequests"][0]["requestedAt"], 12.5)
         self.assertEqual(self.repository.calls[0][0], "ensure")
 

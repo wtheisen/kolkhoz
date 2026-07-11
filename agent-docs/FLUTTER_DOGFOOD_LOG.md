@@ -10,7 +10,7 @@ scripts/verify_flutter_source_gate.sh
 
 Evidence covered by the script:
 
-- Rebuilt `clients/flutter_app/native/macos/libkolkhoz_c_engine.dylib`.
+- Rebuilt `app/native/macos/libkolkhoz_c_engine.dylib`.
 - C engine syntax check passed.
 - Dart format check passed with no changes.
 - Flutter analyzer passed with no issues.
@@ -20,7 +20,7 @@ Evidence covered by the script:
 - Flutter analyze, tests, and macOS debug build passed.
 
 Additional deterministic Flutter parity coverage added in
-`clients/flutter_app/test/parity_gate_test.dart`:
+`app/test/parity_gate_test.dart`:
 
 - Fixed-seed table projection.
 - Full deterministic local game through game over.
@@ -33,7 +33,7 @@ Additional deterministic Flutter parity coverage added in
 Manual GUI dogfood status:
 
 - The macOS app launches from
-  `clients/flutter_app/build/macos/Build/Products/Debug/kolkhoz_app.app`.
+  `app/build/macos/Build/Products/Debug/kolkhoz_app.app`.
 - Computer Use could not capture the app state; `get_app_state` timed out after launch.
 - The app bundle identifier collides with an old fixture-renderer build:
   `com.example.kolkhozFixtureRenderer`.

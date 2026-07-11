@@ -123,6 +123,27 @@ class LobbyRepositoryTests(unittest.TestCase):
         self.repository.mark_presence("user-2", now=200)
         self.assertEqual(self.repository.online_user_ids(since=150), {"user-2"})
 
+    def test_citizens_online_includes_active_profile_bots_without_duplicates(self) -> None:
+        record = self.make_session()
+        with self.repository._connect() as connection:
+            connection.execute(
+                """update server_seats
+                      set controller = 'heuristicAI', occupied = 1,
+                          user_id = 'bot-1'
+                    where session_id = ? and player_id = 1""",
+                (record.session_id,),
+            )
+            connection.commit()
+        self.repository.mark_presence("human-1", now=200)
+        self.repository.mark_presence("bot-1", now=200)
+
+        metrics = self.repository.metrics_state(now=200, presence_since=150)
+
+        self.assertEqual(metrics["citizensOnline"], 2)
+        self.repository.set_status(record.session_id, "finished", now=201)
+        metrics = self.repository.metrics_state(now=201, presence_since=150)
+        self.assertEqual(metrics["citizensOnline"], 2)
+
     def test_fresh_device_lease_blocks_takeover_but_stale_lease_expires(self) -> None:
         record = self.make_session()
         self.assertTrue(
@@ -248,6 +269,17 @@ class PostgresLobbyRepositoryTests(unittest.TestCase):
         self.assertIn("and controller = 'human' and not occupied", claim_sql)
         self.assertIn("returning player_id", claim_sql)
         self.assertEqual(claim_parameters[-1], 2)
+
+    def test_metrics_count_recent_people_and_all_active_profile_bots(self) -> None:
+        connection = FakeConnection([FakeResult(row=(1, 2, 3, 16))])
+        repository = self.repository(connection)
+
+        metrics = repository.metrics_state(now=200, presence_since=150)
+
+        self.assertEqual(metrics["citizensOnline"], 16)
+        sql, parameters = connection.executions[0]
+        self.assertIn("from public.server_bot_profiles where active", sql)
+        self.assertEqual(parameters, (200, 150, 150))
 
     def test_failed_conditional_seat_claim_reports_unavailable(self) -> None:
         connection = FakeConnection([FakeResult(row=None)])

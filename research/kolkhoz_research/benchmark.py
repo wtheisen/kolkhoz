@@ -14,8 +14,8 @@ from .ratings import DEFAULT_MU, DEFAULT_SIGMA, RatingInput, display_rating, rat
 PHASE_GAME_OVER = 5
 BOT_RATING_CONTROLLERS = ("heuristicAI", "mediumAI", "neuralAI")
 DEFAULT_BOT_POLICY_PATHS = {
-    "mediumAI": REPO_ROOT / "clients/flutter_app/assets/policies/medium_policy.json",
-    "neuralAI": REPO_ROOT / "clients/flutter_app/assets/policies/hard_policy.json",
+    "mediumAI": REPO_ROOT / "policies/medium_policy.json",
+    "neuralAI": REPO_ROOT / "policies/hard_policy.json",
 }
 
 

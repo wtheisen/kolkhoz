@@ -99,7 +99,10 @@ class _Shard:
         engine = self.factory.create(record.seed, record.variants)
         for event in self.store.events(session_id):
             if event.kind == "action":
-                engine.apply(event.payload)
+                if event.payload.get("source") == "automatic":
+                    engine.apply_ai_action(event.payload)
+                else:
+                    engine.apply(event.payload)
         self.engines[session_id] = engine
         self.automatic_states[session_id] = desired
         self.update_buffers[session_id] = ShardUpdateBuffer(

@@ -882,6 +882,26 @@ class OnlineApplication:
             session_id, lambda: self._sync_lobby_unserialized(session_id)
         )
 
+    def population_seat_filled(self, session_id: str) -> None:
+        """Start a population lobby once profile bots occupy every seat."""
+        self.runtime.invalidate_session(session_id)
+
+        def start_if_ready() -> bool:
+            record = self.lobby.session(session_id)
+            if record.status != "open":
+                return False
+            seats = self.lobby.seats(session_id)
+            if not seats or any(
+                not seat.occupied or seat.controller == "human" for seat in seats
+            ):
+                return False
+            self.lobby.set_status(session_id, "active", now=time.time())
+            return True
+
+        started = self.runtime.serialize(session_id, start_if_ready)
+        if started:
+            self._update(session_id, None)
+
     def _sync_lobby_unserialized(self, session_id: str):
         record = self.lobby.session(session_id)
         if record.status != "open":
@@ -976,7 +996,7 @@ class OnlineApplication:
                 HTTPStatus.SERVICE_UNAVAILABLE, "profiles are not configured"
             )
         if operation == "profiles.leaderboard":
-            return self.social.leaderboard()
+            return self.social.leaderboard(user_id=user_id)
         if operation == "profiles.get_public":
             return self.social.public_profile(params["userID"])
         user_id = self._require_user(user_id)

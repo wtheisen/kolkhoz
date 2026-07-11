@@ -34,7 +34,7 @@ def test_online_progression_accumulates_and_unlocks_once() -> None:
 def test_server_catalog_matches_flutter() -> None:
     dart_catalog = (
         Path(__file__).resolve().parents[2]
-        / "clients/flutter_app/lib/src/progression/progression.dart"
+        / "app/lib/src/progression/progression.dart"
     ).read_text()
     dart_ids = set(re.findall(r"id: '([^']+)'", dart_catalog))
 

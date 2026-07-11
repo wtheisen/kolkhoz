@@ -754,9 +754,19 @@ class SQLiteLobbyRepository:
                     (select count(*) from server_seats where occupied = 1),
                     (select count(*) from server_seats
                       where occupied = 1 and abandoned = 0 and last_seen_at >= ?),
-                    (select count(*) from server_presence where last_seen_at >= ?)
+                    (select count(*) from (
+                        select user_id from server_presence where last_seen_at >= ?
+                        union
+                        select seats.user_id
+                          from server_seats seats
+                          join server_sessions sessions using (session_id)
+                         where seats.occupied = 1 and seats.user_id is not null
+                           and seats.controller <> 'human'
+                           and sessions.status in ('open', 'active')
+                           and sessions.expires_at > ?
+                    ))
                 """,
-                (now, presence_since, presence_since),
+                (now, presence_since, presence_since, now),
             ).fetchone()
         return {
             "activeSessions": int(row[0]),
@@ -1627,8 +1637,13 @@ class PostgresLobbyRepository:
                     (select count(*) from server_seats where occupied),
                     (select count(*) from server_seats
                       where occupied and not abandoned and last_seen_at >= to_timestamp(%s)),
-                    (select count(*) from server_presence
-                      where last_seen_at >= to_timestamp(%s))
+                    (select count(*) from (
+                        select user_id::text from server_presence
+                         where last_seen_at >= to_timestamp(%s)
+                        union
+                        select user_id::text
+                          from public.server_bot_profiles where active
+                    ) citizens)
                 """,
                 (now, presence_since, presence_since),
             ).fetchone()

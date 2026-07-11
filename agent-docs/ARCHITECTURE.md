@@ -2,7 +2,7 @@
 
 The C engine under `engine/KolkhozCEngine/` is the source of truth for rules, legal
 actions, phase flow, AI, scoring, policy features, and deterministic simulation. The
-Flutter app in `clients/flutter_app/` is the primary app surface and binds to the engine
+Flutter app in `app/` is the primary app surface and binds to the engine
 through Dart FFI. The research harness in `research/` binds to the same engine through
 Python `ctypes`. The online runtime in `server/` uses the same C engine behind its
 durable session/event model. Keep the architecture organized around those four owners.
@@ -19,14 +19,14 @@ kolkhoz/
 │       ├── KolkhozCEngine.c
 │       └── include/
 │           └── KolkhozCEngine.h
-├── clients/
-│   └── flutter_app/
-│       ├── lib/
-│       ├── ios_resources/
-│       ├── ios/
-│       ├── macos/
-│       ├── native/
-│       └── test/
+├── app/
+│   ├── lib/
+│   ├── assets/ui/
+│   ├── ios/
+│   ├── macos/
+│   ├── native/
+│   └── test/
+├── policies/                   # Canonical promoted runtime AI models
 ├── research/
 │   ├── kolkhoz_research/
 │   ├── configs/
@@ -50,7 +50,7 @@ Portable C rules engine. This is the runtime rules implementation for local play
 server sessions, research simulation, policy features, legal actions, automatic AI
 turns, and scoring.
 
-### `clients/flutter_app`
+### `app`
 
 Standalone Flutter client backed by the C engine. It renders Dart runtime models
 projected from the engine, owns app assets, and should not depend on JSON presentation
@@ -65,7 +65,11 @@ Important files:
 | `lib/src/table_view_projection.dart` | C engine state to Flutter table model |
 | `lib/src/online_game_models.dart` | Dart online API models/client |
 | `lib/src/board/` | Board panels and controls |
-| `ios_resources/` | Pixel art, cards, icons, chrome, fonts |
+| `assets/ui/` | Pixel art, cards, icons, chrome, fonts |
+
+Promoted runtime policy files live in top-level `policies/`. The app copies them into
+its ignored asset-staging directory before Flutter builds; the server and research load
+the canonical files directly.
 
 ### `research`
 
@@ -95,7 +99,7 @@ Python rules implementation.
 
 Generated tool output is intentionally outside the active architecture. Flutter build
 directories, Dart tool state, Xcode ephemeral files, Python caches, `research/.build/`,
-and the local `clients/flutter_app/native/macos/libkolkhoz_c_engine.dylib` are
+and the local `app/native/macos/libkolkhoz_c_engine.dylib` are
 regenerable.
 
 `research/runs/` and `training/rl/runs/` are ignored, but they are not arbitrary caches.
@@ -196,7 +200,8 @@ clang -std=c11 -I engine/KolkhozCEngine/include \
 ```
 
 ```bash
-cd clients/flutter_app
+cd app
+dart run tool/sync_policy_assets.dart
 flutter analyze
 flutter test
 flutter build macos --debug

@@ -7,9 +7,10 @@ the portable C engine, the Flutter app, the online server, and the Python/Torch 
 
 - `engine/KolkhozCEngine/` is the source of truth for rules, legal actions, phase flow,
   AI, scoring, policy features, and deterministic simulation.
-- `clients/flutter_app/` is the standalone client for desktop/mobile work, including
-  app state, C-engine projection, animation, controls, and assets.
-- `clients/flutter_app/ios_resources/` owns the app's pixel-art cards, icons, UI chrome,
+- `app/` is the standalone client for desktop/mobile work, including
+app state, C-engine projection, animation, controls, and assets.
+- `policies/` owns the promoted runtime AI models packaged by the app and server.
+- `app/assets/ui/` owns the app's pixel-art cards, icons, UI chrome,
   fonts, and tutorial art.
 - `server/` owns the authoritative online API, durable sessions, realtime transport,
   matchmaking, social/results services, and deployment.
@@ -38,7 +39,8 @@ clang -std=c11 -I engine/KolkhozCEngine/include \
 Check the Flutter client:
 
 ```bash
-cd clients/flutter_app
+cd app
+dart run tool/sync_policy_assets.dart
 flutter analyze
 flutter test
 flutter build macos --debug
@@ -100,12 +102,12 @@ engine/
   KolkhozCEngine/
     KolkhozCEngine.c
     include/KolkhozCEngine.h
-clients/
-  flutter_app/
-    lib/
-    ios_resources/
-    native/macos/libkolkhoz_c_engine.dylib
-    tool/build_c_engine_macos.sh
+app/
+  lib/
+  assets/ui/
+  native/macos/libkolkhoz_c_engine.dylib
+  tool/build_c_engine_macos.sh
+policies/                       # Canonical promoted runtime AI models
 research/
   kolkhoz_research/
   configs/
@@ -146,8 +148,8 @@ Python CLI
 
 - `engine/KolkhozCEngine/KolkhozCEngine.c` - rules, legal actions, AI, scoring, C policy features.
 - `engine/KolkhozCEngine/include/KolkhozCEngine.h` - public C API used by Flutter and research.
-- `clients/flutter_app/lib/src/c_engine_bridge.dart` - Dart FFI bridge.
-- `clients/flutter_app/lib/src/live_game_store.dart` - Flutter runtime store.
-- `clients/flutter_app/lib/src/table_view_projection.dart` - C snapshot to Flutter table model.
+- `app/lib/src/c_engine_bridge.dart` - Dart FFI bridge.
+- `app/lib/src/live_game_store.dart` - Flutter runtime store.
+- `app/lib/src/table_view_projection.dart` - C snapshot to Flutter table model.
 - `research/kolkhoz_research/c_engine.py` - Python `ctypes` wrapper and local shared-library build.
 - `research/kolkhoz_research/cli.py` - training, benchmark, tournament, seed-mining CLI.

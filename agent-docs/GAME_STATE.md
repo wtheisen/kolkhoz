@@ -165,7 +165,7 @@ scores/winner.
 
 Inspect the C engine through:
 
-- `clients/flutter_app/lib/src/c_engine_bridge.dart` accessors for Flutter behavior;
+- `app/lib/src/c_engine_bridge.dart` accessors for Flutter behavior;
 - `research/kolkhoz_research/c_engine.py` for Python/research behavior;
 - temporary C-side logging only when necessary.
 

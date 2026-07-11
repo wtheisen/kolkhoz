@@ -182,6 +182,32 @@ class CompatibilityApiTests(unittest.TestCase):
         self.assertEqual(invalid_seat, 401)
         self.assertEqual(error["error"], "invalid seat token")
 
+    def test_population_lobby_starts_when_profile_bots_fill_every_seat(self) -> None:
+        _, created = self.request(
+            "POST",
+            "/sessions",
+            {"seed": 17, "controllers": ["human"] * 4},
+            bearer="host-token",
+        )
+        session_id = created["sessionID"]
+        lobby = self.application.lobby
+        self.application.population_seat_filled(session_id)
+        self.assertEqual(lobby.session(session_id).status, "open")
+
+        with lobby._connect() as connection:
+            connection.execute(
+                """update server_seats
+                      set controller = 'heuristicAI', occupied = 1,
+                          user_id = coalesce(user_id, 'bot-' || player_id)
+                    where session_id = ?""",
+                (session_id,),
+            )
+            connection.commit()
+
+        self.application.population_seat_filled(session_id)
+
+        self.assertEqual(lobby.session(session_id).status, "active")
+
     def test_active_sync_rejects_second_device_without_rotating_token(self) -> None:
         _, created = self.request("POST", "/sessions", {"seed": 1}, bearer="host-token")
         session_id = created["sessionID"]

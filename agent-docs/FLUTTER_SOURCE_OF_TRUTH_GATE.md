@@ -39,10 +39,11 @@ scripts/verify_flutter_source_gate.sh
 The script expands to:
 
 ```bash
-clients/flutter_app/tool/build_c_engine_macos.sh
+app/tool/build_c_engine_macos.sh
 clang -std=c11 -I engine/KolkhozCEngine/include \
   -fsyntax-only engine/KolkhozCEngine/KolkhozCEngine.c
-cd clients/flutter_app
+cd app
+dart run tool/sync_policy_assets.dart
 dart format --set-exit-if-changed lib test
 flutter analyze
 flutter test

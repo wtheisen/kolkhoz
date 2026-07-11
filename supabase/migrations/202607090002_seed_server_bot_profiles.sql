@@ -30,21 +30,21 @@ insert into kolkhoz_server_bot_seed (
     avatar_url
 )
 values
-    ('00000000-0000-4000-8000-000000000101'::uuid, 'heuristicAI', 1, 'Mira Petrov', 'worker1'),
-    ('00000000-0000-4000-8000-000000000102'::uuid, 'heuristicAI', 2, 'Nadia Volkov', 'worker2'),
-    ('00000000-0000-4000-8000-000000000103'::uuid, 'heuristicAI', 3, 'Vera Sokolov', 'worker3'),
-    ('00000000-0000-4000-8000-000000000104'::uuid, 'heuristicAI', 4, 'Anya Morozov', 'worker4'),
-    ('00000000-0000-4000-8000-000000000105'::uuid, 'heuristicAI', 5, 'Lena Orlov', 'worker1'),
-    ('00000000-0000-4000-8000-000000000201'::uuid, 'mediumAI', 1, 'Pavel Kuznetsov', 'worker1'),
-    ('00000000-0000-4000-8000-000000000202'::uuid, 'mediumAI', 2, 'Irina Smirnov', 'worker2'),
-    ('00000000-0000-4000-8000-000000000203'::uuid, 'mediumAI', 3, 'Oleg Novikov', 'worker3'),
-    ('00000000-0000-4000-8000-000000000204'::uuid, 'mediumAI', 4, 'Dima Fedorov', 'worker4'),
-    ('00000000-0000-4000-8000-000000000205'::uuid, 'mediumAI', 5, 'Sofia Ivanov', 'worker1'),
-    ('00000000-0000-4000-8000-000000000301'::uuid, 'neuralAI', 1, 'Boris Mikhailov', 'worker1'),
-    ('00000000-0000-4000-8000-000000000302'::uuid, 'neuralAI', 2, 'Katya Romanov', 'worker2'),
-    ('00000000-0000-4000-8000-000000000303'::uuid, 'neuralAI', 3, 'Anton Lebedev', 'worker3'),
-    ('00000000-0000-4000-8000-000000000304'::uuid, 'neuralAI', 4, 'Yuri Belov', 'worker4'),
-    ('00000000-0000-4000-8000-000000000305'::uuid, 'neuralAI', 5, 'Tanya Kozlov', 'worker1');
+    ('00000000-0000-4000-8000-000000000101'::uuid, 'heuristicAI', 1, 'mossy7', 'worker1'),
+    ('00000000-0000-4000-8000-000000000102'::uuid, 'heuristicAI', 2, 'turnip99', 'worker2'),
+    ('00000000-0000-4000-8000-000000000103'::uuid, 'heuristicAI', 3, 'crabcake', 'worker3'),
+    ('00000000-0000-4000-8000-000000000104'::uuid, 'heuristicAI', 4, 'zimbo', 'worker4'),
+    ('00000000-0000-4000-8000-000000000105'::uuid, 'heuristicAI', 5, 'redkip', 'worker1'),
+    ('00000000-0000-4000-8000-000000000201'::uuid, 'mediumAI', 1, 'noodle44', 'worker1'),
+    ('00000000-0000-4000-8000-000000000202'::uuid, 'mediumAI', 2, 'lilspud', 'worker2'),
+    ('00000000-0000-4000-8000-000000000203'::uuid, 'mediumAI', 3, 'wallywest', 'worker3'),
+    ('00000000-0000-4000-8000-000000000204'::uuid, 'mediumAI', 4, 'beepboop8', 'worker4'),
+    ('00000000-0000-4000-8000-000000000205'::uuid, 'mediumAI', 5, 'grumble', 'worker1'),
+    ('00000000-0000-4000-8000-000000000301'::uuid, 'neuralAI', 1, 'toastman', 'worker1'),
+    ('00000000-0000-4000-8000-000000000302'::uuid, 'neuralAI', 2, 'juno13', 'worker2'),
+    ('00000000-0000-4000-8000-000000000303'::uuid, 'neuralAI', 3, 'bogfrog', 'worker3'),
+    ('00000000-0000-4000-8000-000000000304'::uuid, 'neuralAI', 4, 'pickles2', 'worker4'),
+    ('00000000-0000-4000-8000-000000000305'::uuid, 'neuralAI', 5, 'dingo77', 'worker1');
 
 insert into auth.users (
     id,

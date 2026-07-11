@@ -84,13 +84,14 @@ jobs:
     runs-on: macos-15
     defaults:
       run:
-        working-directory: clients/flutter_app
+        working-directory: app
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
+      - run: dart run tool/sync_policy_assets.dart
       - run: ./tool/build_c_engine_macos.sh
       - run: flutter pub get
       - run: flutter analyze

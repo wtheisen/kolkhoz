@@ -180,10 +180,23 @@ class AutomaticAdvancer(Generic[Model]):
                     return applied
                 if now < ready_at:
                     return applied
-            action = self._choose(engine, player_id, controller)
-            if int(action.get("playerID", -1)) != player_id:
-                action = self._first_legal(engine, player_id)
-            engine.apply_ai_action(action)
+            legal_actions = list(engine.legal_actions())
+            fallback = self._first_legal(engine, player_id)
+            try:
+                action = self._choose(engine, player_id, controller)
+            except ValueError as error:
+                if "illegal action" not in str(error).lower():
+                    raise
+                action = fallback
+            if action not in legal_actions:
+                action = fallback
+            try:
+                engine.apply_ai_action(action)
+            except ValueError as error:
+                if action == fallback or "illegal action" not in str(error).lower():
+                    raise
+                action = fallback
+                engine.apply_ai_action(action)
             state.ready_at.pop(player_id, None)
             record(action, "automatic")
             state.action_count += 1

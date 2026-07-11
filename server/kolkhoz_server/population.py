@@ -401,6 +401,16 @@ class PostgresPopulationRepository:
                 return None
             for player_id, controller in enumerate(controllers):
                 profile = profiles[player_id] if player_id < len(profiles) else None
+                if profile is not None:
+                    connection.execute(  # type: ignore[attr-defined]
+                        """update server_seats seat
+                              set occupied = false, user_id = null, token_hash = null,
+                                  last_seen_at = null, autopilot = false, abandoned = false
+                              from server_sessions session
+                             where seat.session_id = session.session_id
+                               and seat.user_id = %s and session.status = 'finished'""",
+                        (profile.user_id,),
+                    )
                 connection.execute(  # type: ignore[attr-defined]
                     """
                     insert into server_seats (
@@ -552,6 +562,15 @@ class PostgresPopulationRepository:
                 ).fetchone()
                 if valid is None:
                     return False
+                connection.execute(  # type: ignore[attr-defined]
+                    """update server_seats seat
+                          set occupied = false, user_id = null, token_hash = null,
+                              last_seen_at = null, autopilot = false, abandoned = false
+                          from server_sessions session
+                         where seat.session_id = session.session_id
+                           and seat.user_id = %s and session.status = 'finished'""",
+                    (profile.user_id,),
+                )
                 updated = connection.execute(  # type: ignore[attr-defined]
                     """
                     update server_seats seat

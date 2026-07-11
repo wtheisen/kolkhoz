@@ -51,7 +51,7 @@ Flutter owns visual constants directly in Dart app code:
 - board layout constants, panel sizes, and animation timings.
 
 PNG cards, icons, chrome, title art, and fonts live in
-`clients/flutter_app/ios_resources/`.
+`app/assets/ui/`.
 
 ## Screenshot Alignment
 

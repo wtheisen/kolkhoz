@@ -15,7 +15,7 @@ solutions over clever abstractions.
 
 **Follow the current owners:**
 - **C engine** - Keep rules, legal actions, phase flow, AI, scoring, policy features, and deterministic simulation in `engine/KolkhozCEngine/`.
-- **Flutter** - Keep app state, layout, animation, controls, and assets in `clients/flutter_app/`.
+- **Flutter** - Keep app state, layout, animation, controls, and assets in `app/`.
 - **Research** - Keep training, benchmarking, promotion gates, seed mining, and dashboards in `research/`.
 
 **Write minimal code:**
@@ -28,7 +28,8 @@ solutions over clever abstractions.
 ```bash
 clang -std=c11 -I engine/KolkhozCEngine/include \
   -fsyntax-only engine/KolkhozCEngine/KolkhozCEngine.c
-cd clients/flutter_app
+cd app
+dart run tool/sync_policy_assets.dart
 flutter analyze
 flutter test
 flutter build macos --debug
@@ -48,9 +49,9 @@ visual and behavioral app source of truth.
 
 **Game logic** goes in `engine/KolkhozCEngine/`.
 
-**Flutter models, adapters, and UI** go in `clients/flutter_app/lib/`.
+**Flutter models, adapters, and UI** go in `app/lib/`.
 
-**Flutter assets** go in `clients/flutter_app/ios_resources/`.
+**Flutter assets** go in `app/assets/ui/`.
 
 **Research and model training** go in `research/`.
 

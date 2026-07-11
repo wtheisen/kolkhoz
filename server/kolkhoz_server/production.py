@@ -30,7 +30,7 @@ from .runtime import GameRuntime
 from .results import PostgresResultsRepository
 from .scheduler import DeadlineScheduler
 from .lifecycle import LifecycleReconciler
-from .social import PostgresSocialRepository, SocialService
+from .social import LobbyPresenceReader, PostgresSocialRepository, SocialService
 from .store import ConnectionPool, PostgresEventStore
 
 
@@ -100,6 +100,7 @@ def create_asgi_application() -> ASGIApplication:
 
     try:
         import psycopg
+        from psycopg.types.json import Jsonb
     except ImportError as error:
         raise RuntimeError("production server requires psycopg[binary]>=3.2") from error
 
@@ -117,19 +118,19 @@ def create_asgi_application() -> ASGIApplication:
     store = PostgresEventStore(pool=pool)
     lobby = PostgresLobbyRepository(pool)
     social = PostgresSocialRepository(pool=pool)
-    results = PostgresResultsRepository(pool=pool)
+    results = PostgresResultsRepository(pool=pool, json_value=Jsonb)
     repo_root = Path(__file__).resolve().parents[2]
     policy_paths = {
         "mediumAI": Path(
             os.environ.get(
                 "KOLKHOZ_MEDIUM_POLICY_PATH",
-                repo_root / "clients/flutter_app/assets/policies/medium_policy.json",
+                repo_root / "policies/medium_policy.json",
             )
         ),
         "neuralAI": Path(
             os.environ.get(
                 "KOLKHOZ_NEURAL_POLICY_PATH",
-                repo_root / "clients/flutter_app/assets/policies/hard_policy.json",
+                repo_root / "policies/hard_policy.json",
             )
         ),
     }
@@ -189,7 +190,15 @@ def create_asgi_application() -> ASGIApplication:
         runtime,
         lobby,  # type: ignore[arg-type]
         auth=auth_verifier,
-        social=SocialService(social),
+        social=SocialService(
+            social,
+            presence=LobbyPresenceReader(
+                lobby,
+                ttl_seconds=float(
+                    os.environ.get("KOLKHOZ_PRESENCE_TTL_SECONDS", "60")
+                ),
+            ),
+        ),
         results=results,
         session_ttl_seconds=float(
             os.environ.get("KOLKHOZ_SESSION_TTL_SECONDS", "1800")
@@ -216,7 +225,7 @@ def create_asgi_application() -> ASGIApplication:
         PostgresPopulationRepository(pool),
         owner_id=os.environ.get("KOLKHOZ_POPULATION_ID"),
         batch_size=int(os.environ.get("KOLKHOZ_POPULATION_BATCH_SIZE", "256")),
-        on_filled=runtime.invalidate_session,
+        on_filled=application.population_seat_filled,
     )
     if _enabled("KOLKHOZ_RUN_POPULATION_SCHEDULER"):
         population.start(

@@ -20,12 +20,17 @@ class FakeEngine:
         self.controllers = controllers
         self.applied: list[dict[str, object]] = []
         self.policy_observed_controller: str | None = None
+        self.rejected_kinds: set[int] = set()
 
     def waiting_player(self) -> int:
         return self.waiting[0] if self.waiting else -1
 
     def legal_actions(self):
-        return [{"playerID": self.waiting_player(), "kind": 9}]
+        player = self.waiting_player()
+        return [
+            {"playerID": player, "kind": 1},
+            {"playerID": player, "kind": 2, "model": "medium-model"},
+        ]
 
     def heuristic_action(self):
         return {"playerID": self.waiting_player(), "kind": 1}
@@ -36,6 +41,8 @@ class FakeEngine:
         return {"playerID": player, "kind": 2, "model": str(model)}
 
     def apply_ai_action(self, action):
+        if action.get("kind") in self.rejected_kinds:
+            raise ValueError("illegal action")
         self.applied.append(action)
         self.waiting.pop(0)
 
@@ -94,6 +101,44 @@ class AITests(unittest.TestCase):
                 engine, state, now=0, record=lambda *_: None
             )
         self.assertEqual(engine.controllers[0], "human")
+
+    def test_illegal_policy_action_falls_back_to_first_legal_action(self) -> None:
+        engine = FakeEngine([0], ["neuralAI"] * 4)
+        engine.policy_action = lambda model: {"playerID": 0, "kind": 99}
+        state = AutomaticState(
+            "game", tuple(engine.controllers), browser_joinable=False
+        )
+        models = ModelCache({"neuralAI": "unused"}, lambda path: object())
+
+        AutomaticAdvancer(models).advance(engine, state, now=0, record=lambda *_: None)
+
+        self.assertEqual(engine.applied, [{"playerID": 0, "kind": 1}])
+
+    def test_rejected_policy_action_retries_first_legal_action(self) -> None:
+        engine = FakeEngine([0], ["mediumAI"] * 4)
+        engine.rejected_kinds.add(2)
+        state = AutomaticState(
+            "game", tuple(engine.controllers), browser_joinable=False
+        )
+        models = ModelCache({"mediumAI": "unused"}, lambda path: "medium-model")
+
+        AutomaticAdvancer(models).advance(engine, state, now=0, record=lambda *_: None)
+
+        self.assertEqual(engine.applied, [{"playerID": 0, "kind": 1}])
+
+    def test_policy_selection_illegal_action_falls_back(self) -> None:
+        engine = FakeEngine([0], ["neuralAI"] * 4)
+        engine.policy_action = lambda model: (_ for _ in ()).throw(
+            ValueError("illegal action")
+        )
+        state = AutomaticState(
+            "game", tuple(engine.controllers), browser_joinable=False
+        )
+        models = ModelCache({"neuralAI": "unused"}, lambda path: object())
+
+        AutomaticAdvancer(models).advance(engine, state, now=0, record=lambda *_: None)
+
+        self.assertEqual(engine.applied, [{"playerID": 0, "kind": 1}])
 
     def test_human_game_delay_is_deterministic_and_only_scheduled_once(self) -> None:
         engine = FakeEngine([1], ["human", "heuristicAI", "human", "human"])

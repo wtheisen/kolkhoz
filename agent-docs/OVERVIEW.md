@@ -1,7 +1,7 @@
 # Kolkhoz - Agent Quick Start Guide
 
 The authoritative gameplay implementation is the C engine in `engine/KolkhozCEngine/`.
-The primary standalone app surface is the Flutter client in `clients/flutter_app/`.
+The primary standalone app surface is the Flutter client in `app/`.
 The research harness in `research/` talks to the same C engine through `ctypes`.
 The authoritative online runtime and deployment live in `server/`. Those are the four
 active repo owners: engine, app, server, and research.
@@ -26,7 +26,8 @@ clang -std=c11 -I engine/KolkhozCEngine/include \
 ```
 
 ```bash
-cd clients/flutter_app
+cd app
+dart run tool/sync_policy_assets.dart
 ./tool/build_c_engine_macos.sh
 flutter analyze
 flutter test
@@ -37,7 +38,7 @@ For a physical iPhone install that can launch from the home screen, never use an
 debug build. Use the profile deploy wrapper:
 
 ```bash
-cd clients/flutter_app
+cd app
 ./tool/deploy_ios_device_profile.sh
 ```
 
@@ -59,12 +60,12 @@ engine/
   KolkhozCEngine/
     KolkhozCEngine.c
     include/KolkhozCEngine.h
-clients/
-  flutter_app/
-    lib/                         # Flutter runtime, board UI, C FFI projection
-    ios_resources/               # Pixel art, cards, icons, chrome, fonts
-    native/macos/                # Local C engine dylib for macOS Flutter tests/builds
-    tool/build_c_engine_macos.sh
+app/
+  lib/                           # Flutter runtime, board UI, C FFI projection
+  assets/ui/                     # Pixel art, cards, icons, chrome, fonts
+  native/macos/                  # Local C engine dylib for macOS Flutter tests/builds
+  tool/build_c_engine_macos.sh
+policies/                        # Canonical promoted runtime AI models
 research/
   kolkhoz_research/              # Python C-engine wrapper, training, benchmarks
   configs/
@@ -101,10 +102,10 @@ processed as failed during requisition.
 
 1. `engine/KolkhozCEngine/KolkhozCEngine.c` - source rules engine.
 2. `engine/KolkhozCEngine/include/KolkhozCEngine.h` - public C API.
-3. `clients/flutter_app/lib/src/c_engine_bridge.dart` - Dart FFI bindings.
-4. `clients/flutter_app/lib/src/live_game_store.dart` - Flutter game store.
-5. `clients/flutter_app/lib/src/table_view_projection.dart` - C state to Flutter model projection.
-6. `clients/flutter_app/lib/src/board/` and `clients/flutter_app/lib/src/board_view.dart` - app UI.
+3. `app/lib/src/c_engine_bridge.dart` - Dart FFI bindings.
+4. `app/lib/src/live_game_store.dart` - Flutter game store.
+5. `app/lib/src/table_view_projection.dart` - C state to Flutter model projection.
+6. `app/lib/src/board/` and `app/lib/src/board_view.dart` - app UI.
 7. `research/kolkhoz_research/c_engine.py` - Python C-engine wrapper.
 8. `server/kolkhoz_server/production.py` - production online composition.
 9. `research/kolkhoz_research/cli.py` - training and benchmark commands.

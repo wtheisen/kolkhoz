@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 COPY engine ./engine
 COPY research ./research
-COPY clients/flutter_app/assets/policies ./clients/flutter_app/assets/policies
+COPY policies ./policies
 COPY server ./server
 
 RUN python -c 'from research.kolkhoz_research.c_engine import CEngine; CEngine()'

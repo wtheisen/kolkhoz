@@ -23,5 +23,5 @@ research/history/current_experiment.json
 *.pyc
 
 # Generated Flutter layout screenshots (keep the workflow README tracked)
-clients/flutter_app/test/layout_goldens/*.png
-clients/flutter_app/test/failures/
+app/test/layout_goldens/*.png
+app/test/failures/

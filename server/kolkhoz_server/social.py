@@ -61,6 +61,25 @@ class NullPresenceReader:
         return {}
 
 
+class LobbyPresenceReader:
+    def __init__(self, lobby: object, *, ttl_seconds: float = 60) -> None:
+        self.lobby = lobby
+        self.ttl_seconds = ttl_seconds
+
+    def statuses(self, user_ids: set[str]) -> dict[str, dict[str, bool]]:
+        online = self.lobby.online_user_ids(since=time.time() - self.ttl_seconds)
+        result: dict[str, dict[str, bool]] = {}
+        for user_id in user_ids:
+            active = self.lobby.active_for_user(user_id)
+            status = active[0].status if active is not None else None
+            result[user_id] = {
+                "isOnline": user_id in online,
+                "inGame": status == "active",
+                "inLobby": status == "open",
+            }
+        return result
+
+
 class SocialService:
     """Transport-neutral API contract used by HTTP and realtime gateways."""
 
@@ -75,11 +94,31 @@ class SocialService:
         self.presence = presence or NullPresenceReader()
         self.clock = clock
 
-    def leaderboard(self) -> dict[str, object]:
+    def leaderboard(self, *, user_id: str | None = None) -> dict[str, object]:
+        profiles = self.repository.leaderboard()
+        user_ids = {
+            str(profile.get("user_id") or profile.get("userID"))
+            for profile in profiles
+            if profile.get("user_id") or profile.get("userID")
+        }
+        statuses = self.presence.statuses(user_ids)
+        comrades = self.comrade_user_ids(user_id) if user_id is not None else set()
         return {
             "players": [
-                _public_profile_response(profile, rank=rank)
-                for rank, profile in enumerate(self.repository.leaderboard(), start=1)
+                _public_profile_response(
+                    {
+                        **profile,
+                        **statuses.get(
+                            str(profile.get("user_id") or profile.get("userID")), {}
+                        ),
+                        "isComrade": str(
+                            profile.get("user_id") or profile.get("userID")
+                        )
+                        in comrades,
+                    },
+                    rank=rank,
+                )
+                for rank, profile in enumerate(profiles, start=1)
             ]
         }
 
@@ -554,6 +593,10 @@ def _public_profile_response(profile: Profile, *, rank: int | None = None) -> Pr
         "displayName": profile.get("displayName") or profile.get("display_name"),
         "avatarURL": profile.get("avatarURL") or profile.get("avatar_url"),
         "stats": profile.get("stats") if isinstance(profile.get("stats"), dict) else {},
+        "isOnline": bool(profile.get("isOnline")),
+        "inGame": bool(profile.get("inGame")),
+        "inLobby": bool(profile.get("inLobby")),
+        "isComrade": bool(profile.get("isComrade")),
     }
     if rank is not None:
         result["rank"] = rank

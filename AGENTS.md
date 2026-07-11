@@ -15,7 +15,7 @@ solutions over clever abstractions.
 
 **Follow the current owners:**
 - **C engine** - Keep rules, legal actions, phase flow, AI, scoring, policy features, and deterministic simulation in `engine/KolkhozCEngine/`.
-- **Flutter** - Keep app state, layout, animation, controls, and assets in `clients/flutter_app/`.
+- **Flutter** - Keep app state, layout, animation, controls, and assets in `app/`.
 - **Server** - Keep the authoritative online API, session execution, persistence, realtime transport, matchmaking, and deployment in `server/`.
 - **Research** - Keep training, benchmarking, promotion gates, seed mining, and dashboards in `research/`.
 
@@ -29,7 +29,8 @@ solutions over clever abstractions.
 ```bash
 clang -std=c11 -I engine/KolkhozCEngine/include \
   -fsyntax-only engine/KolkhozCEngine/KolkhozCEngine.c
-cd clients/flutter_app
+cd app
+dart run tool/sync_policy_assets.dart
 flutter analyze
 flutter test
 flutter build macos --debug
@@ -52,7 +53,7 @@ apps cannot be launched from the home screen; they only launch from Flutter tool
 Flutter IDE plugins, or Xcode. For a device install the user can open normally, use:
 
 ```bash
-cd clients/flutter_app
+cd app
 ./tool/deploy_ios_device_profile.sh
 ```
 
@@ -62,9 +63,9 @@ Pass a device id as the first argument only when targeting a different iPhone.
 
 **Game logic** goes in `engine/KolkhozCEngine/`.
 
-**Flutter models, adapters, and UI** go in `clients/flutter_app/lib/`.
+**Flutter models, adapters, and UI** go in `app/lib/`.
 
-**Flutter assets** go in `clients/flutter_app/ios_resources/`.
+**Flutter assets** go in `app/assets/ui/`.
 
 **Online server behavior and operations** go in `server/`.
 
