@@ -61,6 +61,7 @@ void main() {
 
   test('online gameplay fallback refreshes once per second', () {
     expect(onlineGameRefreshInterval, const Duration(seconds: 1));
+    expect(onlineGameRealtimeRefreshInterval, const Duration(seconds: 15));
   });
 
   test('game sound cues follow authoritative action and phase transitions', () {

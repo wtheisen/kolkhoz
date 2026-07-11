@@ -101,6 +101,7 @@ CONTROLLER_NAMES = {
 INVITE_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 INVITE_CODE_LENGTH = 5
 METRIC_SAMPLE_LIMIT = 2048
+ACTION_UPDATE_CACHE_LIMIT = 32
 REACTION_IDS = (
     "comrade",
     "medal",
@@ -318,10 +319,6 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
         super().setup()
         self.connection.settimeout(5)
 
-    def parse_request(self) -> bool:
-        print(f"Online request line: {self.raw_requestline!r}", flush=True)
-        return super().parse_request()
-
     def do_OPTIONS(self) -> None:
         self._send_json({}, status=HTTPStatus.NO_CONTENT)
 
@@ -332,7 +329,7 @@ class KolkhozOnlineRequestHandler(BaseHTTPRequestHandler):
         self._handle()
 
     def log_message(self, format: str, *args: object) -> None:
-        print(f"Online server: {format % args}", flush=True)
+        pass
 
     def _handle(self) -> None:
         started = time.perf_counter()
@@ -2235,14 +2232,21 @@ class KolkhozOnlineSessionService:
                 raise OnlineServerError(HTTPStatus.CONFLICT, "unknown revision")
             self._persist_touch_if_needed(hosted)
             self._persist_finished_if_needed(hosted)
+            oldest_cached_revision = (
+                int(hosted.action_update_cache[0]["revision"])
+                if hosted.action_update_cache
+                else current_revision + 1
+            )
+            needs_resync = after_revision < oldest_cached_revision - 1
             return {
                 "sessionID": hosted.session_id,
                 "actionLogCount": current_revision,
-                "updates": self._action_updates_since(
-                    hosted,
-                    viewer_id,
-                    after_revision,
-                ),
+                "updates": []
+                if needs_resync
+                else self._action_updates_since(hosted, viewer_id, after_revision),
+                "resyncUpdate": self._update(hosted, viewer_id)
+                if needs_resync
+                else None,
             }
 
     def _session(self, session_id: str) -> HostedSession:
@@ -3279,6 +3283,7 @@ class KolkhozOnlineSessionService:
                 "updatesByViewer": updates_by_viewer,
             }
         )
+        del hosted.action_update_cache[:-ACTION_UPDATE_CACHE_LIMIT]
 
     def _policy_model_sha(self) -> str | None:
         available_paths = {
@@ -3461,9 +3466,14 @@ class KolkhozOnlineSessionService:
         after_revision: int,
     ) -> list[dict[str, object]]:
         updates: list[dict[str, object]] = []
+        cached_through = (
+            int(hosted.action_update_cache[-1]["revision"])
+            if hosted.action_update_cache
+            else max(0, len(hosted.action_log) - ACTION_UPDATE_CACHE_LIMIT)
+        )
         for index, action_json in enumerate(
-            hosted.action_log[len(hosted.action_update_cache) :],
-            start=len(hosted.action_update_cache) + 1,
+            hosted.action_log[cached_through:],
+            start=cached_through + 1,
         ):
             self._cache_action_update(hosted, action_json, revision=index)
         viewer_key = str(viewer_id) if viewer_id is not None else None

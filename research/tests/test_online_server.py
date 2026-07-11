@@ -18,6 +18,7 @@ from research.kolkhoz_research.c_engine import (
 )
 from research.kolkhoz_research.online_load_test import run_online_load_test
 from research.kolkhoz_research.online_server import (
+    ACTION_UPDATE_CACHE_LIMIT,
     BOT_HUMAN_GAME_ACTION_DELAY_MAX_SECONDS,
     BOT_HUMAN_GAME_ACTION_DELAY_MIN_SECONDS,
     DEFAULT_SESSION_TTL_SECONDS,
@@ -980,6 +981,40 @@ class OnlineServerTests(unittest.TestCase):
         self.assertEqual(
             queued["updates"][-1]["update"]["actionLogCount"],
             submitted["actionLogCount"],
+        )
+
+    def test_action_update_cache_is_bounded_and_stale_clients_resync(self) -> None:
+        created = self.service.create_session(create_request())
+        hosted = self.service._sessions[created["sessionID"]]
+        for revision in range(1, ACTION_UPDATE_CACHE_LIMIT + 9):
+            action = {"kind": 0, "playerID": 0, "revision": revision}
+            hosted.action_log.append(action)
+            self.service._cache_action_update(hosted, action)
+
+        self.assertEqual(len(hosted.action_update_cache), ACTION_UPDATE_CACHE_LIMIT)
+        stale = self.service.action_updates(
+            created["sessionID"],
+            0,
+            0,
+            created["seatToken"],
+        )
+        recent_revision = len(hosted.action_log) - 2
+        recent = self.service.action_updates(
+            created["sessionID"],
+            0,
+            recent_revision,
+            created["seatToken"],
+        )
+
+        self.assertEqual(stale["updates"], [])
+        self.assertEqual(
+            stale["resyncUpdate"]["actionLogCount"],
+            len(hosted.action_log),
+        )
+        self.assertIsNone(recent["resyncUpdate"])
+        self.assertEqual(
+            [entry["revision"] for entry in recent["updates"]],
+            [recent_revision + 1, recent_revision + 2],
         )
 
     def test_online_assignment_keeps_remaining_cards_actionable(self) -> None:

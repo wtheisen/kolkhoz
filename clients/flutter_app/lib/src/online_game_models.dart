@@ -742,11 +742,13 @@ class OnlineActionUpdatesResponse {
     required this.sessionID,
     required this.actionLogCount,
     required this.updates,
+    this.resyncUpdate,
   });
 
   final String sessionID;
   final int actionLogCount;
   final List<OnlineActionUpdate> updates;
+  final OnlineSessionUpdate? resyncUpdate;
 
   static OnlineActionUpdatesResponse fromJson(Map<String, Object?> json) {
     return OnlineActionUpdatesResponse(
@@ -756,6 +758,9 @@ class OnlineActionUpdatesResponse {
         for (final value in _objectList(json['updates'] ?? const []))
           OnlineActionUpdate.fromJson(_objectMap(value)),
       ],
+      resyncUpdate: json['resyncUpdate'] == null
+          ? null
+          : OnlineSessionUpdate.fromJson(_objectMap(json['resyncUpdate'])),
     );
   }
 }

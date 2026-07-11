@@ -25,6 +25,7 @@ bool actionCapturesUndoSnapshot(String actionKind) {
 }
 
 const onlineGameRefreshInterval = Duration(seconds: 1);
+const onlineGameRealtimeRefreshInterval = Duration(seconds: 15);
 
 bool isStaleOnlineActionError(Object error) {
   return error is OnlineRequestException &&
@@ -849,9 +850,9 @@ class LiveGameStore extends ChangeNotifier {
     );
   }
 
-  void _startOnlinePolling() {
+  void _startOnlinePolling({Duration interval = onlineGameRefreshInterval}) {
     _onlineRefreshTimer?.cancel();
-    _onlineRefreshTimer = Timer.periodic(onlineGameRefreshInterval, (_) {
+    _onlineRefreshTimer = Timer.periodic(interval, (_) {
       unawaited(refreshOnlineGame());
     });
   }
@@ -878,7 +879,16 @@ class LiveGameStore extends ChangeNotifier {
         unawaited(_refreshOnlineGameFromRealtime(revision));
       },
     );
-    channel.subscribe();
+    channel.subscribe((status, _) {
+      if (_onlineRealtimeChannel != channel) {
+        return;
+      }
+      _startOnlinePolling(
+        interval: status == RealtimeSubscribeStatus.subscribed
+            ? onlineGameRealtimeRefreshInterval
+            : onlineGameRefreshInterval,
+      );
+    });
     _onlineRealtimeChannel = channel;
   }
 
@@ -1024,6 +1034,14 @@ class LiveGameStore extends ChangeNotifier {
         afterRevision: afterRevision ?? _knownOnlineRevision(online),
       );
       final known = _knownOnlineRevision(online);
+      final resyncUpdate = response.resyncUpdate;
+      if (resyncUpdate != null) {
+        _clearOnlineUpdateQueue();
+        _acceptOnlineUpdate(online, resyncUpdate);
+        online.legalActions = resyncUpdate.legalActions;
+        _sync();
+        return true;
+      }
       final updates = response.updates
           .where((update) => update.revision > known)
           .toList(growable: false);
