@@ -157,6 +157,9 @@ class KCEngineSnapshot(ctypes.Structure):
         ("last_swap_plot_index", ctypes.c_int32),
         ("last_swap_hand_index", ctypes.c_int32),
         ("last_swap_new_plot_card", KCCard),
+        ("requisition_plan", KCRequisitionEvent * MAX_CARDS),
+        ("requisition_plan_count", ctypes.c_int32),
+        ("requisition_plan_index", ctypes.c_int32),
     ]
 
 

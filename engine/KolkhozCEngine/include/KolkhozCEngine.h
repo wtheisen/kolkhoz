@@ -347,6 +347,9 @@ typedef struct {
     int32_t last_swap_plot_index;
     int32_t last_swap_hand_index;
     KCCard last_swap_new_plot_card;
+    KCRequisitionEvent requisition_plan[KC_MAX_CARDS];
+    int32_t requisition_plan_count;
+    int32_t requisition_plan_index;
 } KCEngine;
 
 void kc_variants_kolkhoz(KCVariants *variants);

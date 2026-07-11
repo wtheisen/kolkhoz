@@ -39,6 +39,7 @@ int32_t kc_lead_suit(const KCEngine *engine) {
 
 static void kc_process_automatic_turns(KCEngine *engine);
 static int32_t kc_engine_apply_action(KCEngine *engine, KCAction action);
+static bool kc_step_requisition(KCEngine *engine);
 
 static int32_t kc_single_assignment_target(const KCEngine *engine) {
     int32_t only_target = KC_NO_SUIT;
@@ -993,6 +994,10 @@ int32_t kc_engine_step_automatic(KCEngine *engine) {
         kc_advance_from_planning(engine);
         return 1;
     }
+    if (engine->phase == KC_PHASE_REQUISITION &&
+        engine->requisition_plan_index < engine->requisition_plan_count) {
+        return kc_step_requisition(engine) ? 1 : 0;
+    }
     int32_t player_id = engine->phase == KC_PHASE_ASSIGNMENT ? engine->last_winner : engine->current_player;
     if (player_id < 0 ||
         player_id >= KC_PLAYER_COUNT ||
@@ -1040,7 +1045,9 @@ int32_t kc_engine_waiting_player(const KCEngine *engine) {
     case KC_PHASE_ASSIGNMENT:
         return engine->last_winner;
     case KC_PHASE_REQUISITION:
-        return 0;
+        return engine->requisition_plan_index < engine->requisition_plan_count
+            ? KC_NO_PLAYER
+            : 0;
     default:
         return KC_NO_PLAYER;
     }
@@ -1377,7 +1384,7 @@ static void kc_sort_revealed_desc(KCCard *cards, int32_t count) {
     }
 }
 
-static void kc_perform_requisition(KCEngine *engine) {
+static void kc_perform_requisition_batch(KCEngine *engine) {
     engine->phase = KC_PHASE_REQUISITION;
     engine->current_player = 0;
     engine->requisition_event_count = 0;
@@ -1456,6 +1463,64 @@ static void kc_perform_requisition(KCEngine *engine) {
                 .message_kind = 2
             };
         }
+    }
+}
+
+static bool kc_requisition_reveal_all(const KCEngine *engine, int32_t suit) {
+    if (engine->variants.mice_variant) return true;
+    if (!engine->variants.nomenclature || engine->trump < 0) return false;
+    for (int32_t i = 0; i < engine->job_buckets[suit].count; i++) {
+        KCCard card = engine->job_buckets[suit].cards[i];
+        if (card.suit == engine->trump && card.value == 12) return true;
+    }
+    return false;
+}
+
+static bool kc_step_requisition(KCEngine *engine) {
+    if (!engine || engine->phase != KC_PHASE_REQUISITION ||
+        engine->requisition_plan_index >= engine->requisition_plan_count) {
+        return false;
+    }
+    int32_t event_index = engine->requisition_plan_index++;
+    KCRequisitionEvent event = engine->requisition_plan[event_index];
+    if (event.message_kind == 1 && event.player_id >= 0 && event.player_id < KC_PLAYER_COUNT) {
+        bool continues_player_suit = false;
+        if (event_index > 0) {
+            KCRequisitionEvent previous = engine->requisition_plan[event_index - 1];
+            continues_player_suit = previous.message_kind == 1 &&
+                previous.player_id == event.player_id && previous.suit == event.suit;
+        }
+        if (!continues_player_suit) {
+            kc_reveal_hidden_cards(
+                engine,
+                event.player_id,
+                event.suit,
+                kc_requisition_reveal_all(engine, event.suit)
+            );
+        }
+        kc_append_exiled(engine, event.card, event.player_id);
+    } else if (event.message_kind == 3) {
+        kc_append_exiled(engine, event.card, KC_NO_PLAYER);
+        if (event.suit >= 0 && event.suit < KC_SUIT_COUNT && engine->has_revealed_job[event.suit]) {
+            kc_list_append(&engine->drunkard_replacements, engine->revealed_jobs[event.suit]);
+        }
+    }
+    if (engine->requisition_event_count < KC_MAX_CARDS) {
+        engine->requisition_events[engine->requisition_event_count++] = event;
+    }
+    return true;
+}
+
+static void kc_perform_requisition(KCEngine *engine) {
+    KCEngine resolved = *engine;
+    kc_perform_requisition_batch(&resolved);
+    engine->phase = KC_PHASE_REQUISITION;
+    engine->current_player = 0;
+    engine->requisition_event_count = 0;
+    engine->requisition_plan_count = resolved.requisition_event_count;
+    engine->requisition_plan_index = 0;
+    for (int32_t i = 0; i < resolved.requisition_event_count; i++) {
+        engine->requisition_plan[i] = resolved.requisition_events[i];
     }
 }
 
@@ -1561,6 +1626,8 @@ static void kc_transition_to_next_year(KCEngine *engine) {
     engine->last_winner = KC_NO_PLAYER;
     engine->trump = KC_NO_SUIT;
     engine->requisition_event_count = 0;
+    engine->requisition_plan_count = 0;
+    engine->requisition_plan_index = 0;
     memset(engine->swap_confirmed, 0, sizeof(engine->swap_confirmed));
     memset(engine->swap_count, 0, sizeof(engine->swap_count));
     kc_clear_last_swap(engine);
@@ -1758,6 +1825,9 @@ static int32_t kc_engine_apply_action(KCEngine *engine, KCAction action) {
         if (engine->phase != KC_PHASE_REQUISITION) {
             return 0;
         }
+        if (engine->requisition_plan_index < engine->requisition_plan_count) {
+            return KC_ERR_WRONG_PHASE;
+        }
         kc_remove_exiled_cards(engine);
         kc_transition_to_next_year(engine);
         return 0;
@@ -1919,6 +1989,9 @@ int32_t kc_engine_legal_actions(const KCEngine *engine, KCAction *actions, int32
     }
 
     case KC_PHASE_REQUISITION: {
+        if (engine->requisition_plan_index < engine->requisition_plan_count) {
+            break;
+        }
         KCAction action = {0};
         action.kind = KC_ACTION_CONTINUE_AFTER_REQUISITION;
         action.player_id = 0;
