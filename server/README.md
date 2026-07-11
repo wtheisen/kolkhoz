@@ -6,7 +6,8 @@ game rules remain in the C engine.
 
 The design target includes 10K, 100K, and eventually 1M concurrent connections. Those
 figures are capacity goals, not measured production results; see `PARITY_GAPS.md` and
-`tools/README.md` for the current evidence boundary.
+`tools/README.md` for the current evidence boundary. See [`../SCALING.md`](../SCALING.md)
+for the incremental single-host, multi-process, and regional scaling roadmap.
 
 ## Request and state flow
 
