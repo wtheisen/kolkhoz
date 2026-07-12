@@ -1,16 +1,12 @@
 from __future__ import annotations
 
-import json
 import tempfile
-import threading
 import unittest
-import urllib.error
-import urllib.request
 from pathlib import Path
 
-from server.kolkhoz_server.api import OnlineApplication
+from server.kolkhoz_server.api import OnlineApplication, Request
 from server.kolkhoz_server.auth import StaticAuthVerifier
-from server.kolkhoz_server.gateway import Gateway
+from server.kolkhoz_server.errors import ServerError
 from server.kolkhoz_server.lobby import SQLiteLobbyRepository
 from server.kolkhoz_server.routes import ROUTES, resolve_route
 from server.kolkhoz_server.runtime import GameRuntime
@@ -130,19 +126,10 @@ class CanonicalRouteParityTests(unittest.TestCase):
             social=SocialService(FakeSocialRepository()),
             lobby_countdown_seconds=0,
         )
-        self.server = Gateway(
-            ("127.0.0.1", 0), self.runtime, application=self.application
-        )
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.thread.start()
-        self.base_url = f"http://127.0.0.1:{self.server.server_port}"
         self.exercised: set[tuple[str, str]] = set()
 
     def tearDown(self) -> None:
-        self.server.shutdown()
-        self.server.server_close()
         self.runtime.close()
-        self.thread.join(timeout=2)
         self.temporary.cleanup()
 
     def request(
@@ -165,21 +152,13 @@ class CanonicalRouteParityTests(unittest.TestCase):
             headers["authorization"] = f"Bearer {bearer}"
         if seat_token:
             headers["x-kolkhoz-seat-token"] = seat_token
-        request = urllib.request.Request(
-            self.base_url + path,
-            data=None if body is None else json.dumps(body).encode(),
-            method=method,
-            headers=headers,
-        )
         try:
-            with urllib.request.urlopen(request, timeout=3) as response:
-                payload = response.read()
-                return response.status, json.loads(payload) if payload else {}
-        except urllib.error.HTTPError as error:
-            try:
-                return error.code, json.loads(error.read())
-            finally:
-                error.close()
+            response = self.application.dispatch(
+                Request(method, path, headers, body or {})
+            )
+            return int(response.status), response.body
+        except ServerError as error:
+            return int(error.status), {"error": error.message}
 
     def assert_ok(self, response: tuple[int, object]) -> object:
         status, body = response
@@ -195,6 +174,11 @@ class CanonicalRouteParityTests(unittest.TestCase):
         leaderboard = self.assert_ok(self.request("GET", "/leaderboard"))
         self.assertEqual(leaderboard["players"][0]["userID"], "host")
         self.assert_ok(self.request("GET", "/profiles/guest"))
+        self.assert_ok(self.request("GET", "/results/recent", bearer="host-token"))
+        self.request("GET", "/results/missing/replay", bearer="host-token")
+        self.request("POST", "/results/missing/rematch", bearer="host-token")
+        self.request("GET", "/challenges/daily", bearer="host-token")
+        self.request("POST", "/challenges/daily/start", bearer="host-token")
         self.assert_ok(self.request("GET", "/comrades", bearer="host-token"))
         self.assert_ok(
             self.request(
@@ -230,6 +214,8 @@ class CanonicalRouteParityTests(unittest.TestCase):
         session_id = created["sessionID"]
         host_seat_token = created["seatToken"]
         self.assert_ok(self.request("GET", "/sessions"))
+        self.assert_ok(self.request("GET", "/sessions/watchable"))
+        self.request("GET", f"/sessions/{session_id}/spectate")
         self.assert_ok(self.request("GET", f"/sessions/{session_id}"))
         self.assert_ok(
             self.request(
@@ -341,7 +327,8 @@ class CanonicalRouteParityTests(unittest.TestCase):
                 seat_token=host_seat_token,
             )
         )
-        self.assertEqual(incremental["updates"][0]["revision"], 1)
+        self.assertEqual(incremental["updates"], [])
+        self.assertEqual(incremental["resyncUpdate"]["actionLogCount"], 1)
         self.assert_ok(
             self.request(
                 "POST",

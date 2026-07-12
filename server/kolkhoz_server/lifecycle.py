@@ -35,6 +35,7 @@ class LifecycleReconciler:
 
     def run_once(self, *, now: float | None = None) -> int:
         current = self.clock() if now is None else now
+        self.repository.expire_sessions(now=current, limit=self.batch_size)
         intents = self.repository.claim_lifecycle_intents(
             owner=self.owner_id,
             now=current,
@@ -63,6 +64,9 @@ class LifecycleReconciler:
         return completed
 
     def _apply(self, intent: LifecycleIntent) -> None:
+        if intent.operation == "invalidate":
+            self.runtime.invalidate_session(intent.session_id)
+            return
         if intent.operation == "delete":
             try:
                 self.runtime.delete_game(intent.session_id)

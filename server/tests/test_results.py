@@ -145,8 +145,10 @@ class _Pool:
 class ResultsRepositoryTests(unittest.TestCase):
     def test_finished_session_retry_is_a_noop(self) -> None:
         cursor = _Cursor([None])
-        repository = PostgresResultsRepository(pool=_Pool(cursor))
-        changed = repository.finish_session(
+        repository = PostgresResultsRepository(
+            pool=_Pool(cursor), json_value=lambda value: value
+        )
+        changed = repository.record_session_results(
             session_id="session",
             results=[{"user_id": "user", "won": True}],
             ranked=True,
@@ -155,25 +157,27 @@ class ResultsRepositoryTests(unittest.TestCase):
         )
         self.assertFalse(changed)
         self.assertEqual(len(cursor.executions), 1)
-        self.assertIn("status <> 'finished'", cursor.executions[0][0])
+        self.assertIn("server_result_commits", cursor.executions[0][0])
 
     def test_abandonment_is_one_transaction_and_returns_penalty(self) -> None:
         from datetime import datetime, timezone
 
         banned_until = datetime.fromtimestamp(500, timezone.utc)
         cursor = _Cursor([(3, banned_until)])
-        repository = PostgresResultsRepository(pool=_Pool(cursor))
-        penalty = repository.abandon_seat(
+        repository = PostgresResultsRepository(
+            pool=_Pool(cursor), json_value=lambda value: value
+        )
+        penalty = repository.record_abandonment(
             session_id="session",
             player_id=2,
             user_id="user",
             updated_at=100,
-            expires_at=200,
             revision=8,
         )
         self.assertEqual(penalty, {"strikes": 3, "banned_until": 500.0})
         statements = "\n".join(sql for sql, _ in cursor.executions)
-        self.assertIn("abandoned = true", statements)
+        self.assertNotIn("server_seats", statements)
+        self.assertNotIn("update server_sessions", statements)
         self.assertIn("online_abandon_strikes = online_abandon_strikes + 1", statements)
         self.assertIn("insert into server_session_updates", statements)
 

@@ -5,6 +5,7 @@ import re
 import secrets
 import time
 import uuid
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Mapping
@@ -18,14 +19,18 @@ from .contracts import (
     optional_int,
 )
 from .errors import ServerError
-from .lobby import SeatRecord, SeatUnavailable, SQLiteLobbyRepository
+from .lobby import LobbyRepository, SeatRecord, SeatUnavailable
 from .matchmaking import Matchmaker, MatchmakingSession, MatchRequest
 from .model import JsonObject
 from .routes import resolve_route
 from .runtime import GameRuntime
-from .session import REACTION_IDS
 from .social import SocialService
 from .results import ResultsRepository
+
+
+REACTION_IDS = frozenset(
+    ("comrade", "medal", "protected", "warning", "wheat", "wrecker")
+)
 
 
 @dataclass(frozen=True)
@@ -52,7 +57,7 @@ class OnlineApplication:
     def __init__(
         self,
         runtime: GameRuntime,
-        lobby: SQLiteLobbyRepository,
+        lobby: LobbyRepository,
         *,
         auth: AuthVerifier | None = None,
         social: SocialService | None = None,
@@ -118,6 +123,40 @@ class OnlineApplication:
             return Response(
                 HTTPStatus.OK, self._social(operation, params, request.body, user_id)
             )
+        if operation == "results.recent":
+            user_id = self._require_user(user_id)
+            if self.results is None:
+                return Response(HTTPStatus.OK, {"games": []})
+            return Response(
+                HTTPStatus.OK,
+                {"games": self.results.recent_games(user_id=user_id, limit=5)},
+            )
+        if operation == "results.replay":
+            return Response(
+                HTTPStatus.OK,
+                self._replay(params["sessionID"], self._require_user(user_id)),
+            )
+        if operation == "results.rematch":
+            return Response(
+                HTTPStatus.OK,
+                self._rematch(
+                    params["sessionID"], request.body,
+                    self._require_user(user_id),
+                    _header(request.headers, "X-Kolkhoz-Device-ID"),
+                ),
+            )
+        if operation == "challenges.daily":
+            return Response(
+                HTTPStatus.OK, self._daily_challenge(self._require_user(user_id))
+            )
+        if operation == "challenges.daily.start":
+            return Response(
+                HTTPStatus.OK,
+                self._start_daily_challenge(
+                    self._require_user(user_id),
+                    _header(request.headers, "X-Kolkhoz-Device-ID"),
+                ),
+            )
         if operation == "sessions.create":
             return Response(
                 HTTPStatus.OK,
@@ -130,12 +169,28 @@ class OnlineApplication:
         if operation == "sessions.list":
             return Response(
                 HTTPStatus.OK,
-                [self._listing(value) for value in self.lobby.list_open(time.time())],
+                [
+                    self._listing(value, browser_listing=True)
+                    for value in self.lobby.list_open(time.time())
+                ],
+            )
+        if operation == "sessions.watchable":
+            return Response(
+                HTTPStatus.OK,
+                [self._listing(value) for value in self.lobby.list_watchable(time.time())],
             )
         if operation == "sessions.get":
             return Response(
                 HTTPStatus.OK, self._listing(self.lobby.session(params["sessionID"]))
             )
+        if operation == "sessions.spectate":
+            record = self.lobby.session(params["sessionID"])
+            if record.status != "active" or record.ranked or not record.browser_joinable:
+                raise ServerError(HTTPStatus.FORBIDDEN, "session is not watchable")
+            update = self._read_update(record.session_id, None)
+            update["spectator"] = True
+            update["legalActions"] = []
+            return Response(HTTPStatus.OK, update)
         if operation == "sessions.join":
             return Response(
                 HTTPStatus.OK,
@@ -172,10 +227,7 @@ class OnlineApplication:
         if operation == "sessions.invites.decline":
             user_id = self._require_user(user_id)
             session = self.lobby.session(params["sessionID"])
-            self.runtime.serialize(
-                session.session_id,
-                lambda: self.lobby.decline_invite(session.session_id, user_id),
-            )
+            self.lobby.decline_invite(session.session_id, user_id)
             return Response(HTTPStatus.OK, {"declined": True})
         if operation in {
             "sessions.state",
@@ -207,6 +259,126 @@ class OnlineApplication:
             )
         raise ServerError(HTTPStatus.NOT_IMPLEMENTED, f"{operation} is not implemented")
 
+    def _replay(self, session_id: str, user_id: str) -> JsonObject:
+        if self.results is None:
+            raise ServerError(HTTPStatus.NOT_FOUND, "replay unavailable")
+        results = self.results.session_results(
+            session_id=session_id, user_id=user_id
+        )
+        if not results:
+            raise ServerError(HTTPStatus.NOT_FOUND, "finished game not found")
+        record = self.lobby.session(session_id)
+        if record.status != "finished":
+            raise ServerError(HTTPStatus.CONFLICT, "game is not finished")
+        return {
+            "sessionID": record.session_id,
+            "seed": record.seed,
+            "variants": record.variants,
+            "controllers": record.controllers,
+            "ranked": record.ranked,
+            "results": results,
+            "events": [
+                {
+                    "revision": event.revision,
+                    "kind": event.kind,
+                    "action": event.payload,
+                    "createdAt": event.created_at,
+                }
+                for event in self.runtime.events(record.session_id)
+            ],
+        }
+
+    def _rematch(
+        self, session_id: str, body: JsonObject, user_id: str,
+        device_id: str | None,
+    ) -> JsonObject:
+        if self.results is None:
+            raise ServerError(HTTPStatus.NOT_FOUND, "result unavailable")
+        players = self.results.session_results(session_id=session_id, user_id=user_id)
+        if not players:
+            raise ServerError(HTTPStatus.FORBIDDEN, "not a participant")
+        source = self.lobby.session(session_id)
+        if source.ranked:
+            raise ServerError(HTTPStatus.CONFLICT, "ranked games cannot be rematched")
+        if source.status != "finished":
+            raise ServerError(HTTPStatus.CONFLICT, "game is not finished")
+        series = self._series_status(source.session_id)
+        if series is not None and bool(series.get("completed")):
+            raise ServerError(HTTPStatus.CONFLICT, "series is complete")
+        response = self._create(
+            {
+                "variants": body.get("variants", source.variants),
+                "controllers": source.controllers,
+                "browserJoinable": False,
+            },
+            user_id,
+            device_id,
+        )
+        invitees = [
+            str(player["userID"])
+            for player in players
+            if player.get("userID") and player["userID"] != user_id
+        ]
+        if invitees:
+            self.lobby.invite(
+                str(response["sessionID"]), set(invitees), now=time.time()
+            )
+        response["invitedUserIDs"] = invitees
+        response["rematchOf"] = source.session_id
+        if series is not None and hasattr(self.results, "continue_series"):
+            try:
+                continued = self.results.continue_series(
+                    source_session_id=source.session_id,
+                    session_id=str(response["sessionID"]),
+                )
+            except ValueError as error:
+                raise ServerError(HTTPStatus.CONFLICT, str(error)) from error
+            response["series"] = continued
+            response["update"] = self._command_update(
+                str(response["sessionID"]), int(response["playerID"])
+            )
+        return response
+
+    def _daily_challenge(self, user_id: str) -> JsonObject:
+        if self.results is None:
+            raise ServerError(HTTPStatus.NOT_FOUND, "daily challenge unavailable")
+        day = datetime.now(timezone.utc).date().isoformat()
+        seed = int.from_bytes(
+            hashlib.sha256(f"kolkhoz-daily:{day}".encode()).digest()[:8], "big"
+        ) & ((1 << 63) - 1)
+        status = self.results.daily_challenge(
+            challenge_date=day, user_id=user_id
+        )
+        return {
+            "date": day,
+            "seed": seed,
+            "variants": normalize_variants(None),
+            **status,
+        }
+
+    def _start_daily_challenge(
+        self, user_id: str, device_id: str | None
+    ) -> JsonObject:
+        challenge = self._daily_challenge(user_id)
+        response = self._create(
+            {
+                "seed": challenge["seed"],
+                "variants": challenge["variants"],
+                "controllers": ["human", "mediumAI", "mediumAI", "mediumAI"],
+                "browserJoinable": False,
+            },
+            user_id,
+            device_id,
+        )
+        assert self.results is not None
+        if not self.results.claim_daily_attempt(
+            challenge_date=str(challenge["date"]), user_id=user_id,
+            session_id=str(response["sessionID"]),
+        ):
+            raise ServerError(HTTPStatus.CONFLICT, "daily challenge session already exists")
+        response["challengeDate"] = challenge["date"]
+        return response
+
     def _create(
         self, body: JsonObject, user_id: str | None, device_id: str | None = None
     ) -> JsonObject:
@@ -215,6 +387,9 @@ class OnlineApplication:
         variants = normalize_variants(body.get("variants"))
         controllers = normalize_controllers(body.get("controllers"))
         seed = optional_int(body.get("seed")) or int(time.time_ns())
+        best_of = optional_int(body.get("bestOf"), 1)
+        if best_of not in (1, 3, 5):
+            raise ServerError(HTTPStatus.BAD_REQUEST, "bestOf must be 1, 3, or 5")
         record = self.lobby.new_session(
             seed=seed,
             variants=variants,
@@ -253,13 +428,21 @@ class OnlineApplication:
         except Exception:
             self.lobby.delete_session(record.session_id)
             raise
-        return {
+        response = {
             "sessionID": record.session_id,
             "inviteCode": record.invite_code,
             "playerID": player_id,
             "seatToken": seat_token,
-            "update": self._update(record.session_id, player_id),
+            "update": self._command_update(record.session_id, player_id),
         }
+        if best_of > 1:
+            if self.results is None or not hasattr(self.results, "create_series"):
+                raise ServerError(HTTPStatus.SERVICE_UNAVAILABLE, "series unavailable")
+            response["series"] = self.results.create_series(
+                session_id=record.session_id, best_of=best_of
+            )
+            response["update"] = self._command_update(record.session_id, player_id)
+        return response
 
     def _join(
         self,
@@ -311,7 +494,7 @@ class OnlineApplication:
             self.lobby.consume_invite(record.session_id, user_id)
             return player_id, token
 
-        player_id, token = self.runtime.serialize(record.session_id, claim)
+        player_id, token = claim()
         self._register_device_lease(user_id, device_id, record.session_id)
         record = self._sync_lobby(record.session_id)
         return {
@@ -320,7 +503,7 @@ class OnlineApplication:
             "inviteCode": record.invite_code,
             "playerID": player_id,
             "seatToken": token,
-            "update": self._update(record.session_id, player_id),
+            "update": self._command_update(record.session_id, player_id),
         }
 
     def _sync_active(self, user_id: str | None, device_id: str | None) -> JsonObject:
@@ -355,7 +538,7 @@ class OnlineApplication:
             "inviteCode": record.invite_code,
             "playerID": seat.player_id,
             "seatToken": token,
-            "update": self._update(record.session_id, seat.player_id),
+            "update": self._command_update(record.session_id, seat.player_id),
         }
 
     def _register_device_lease(
@@ -400,6 +583,11 @@ class OnlineApplication:
             )
         )
         return service
+
+    def finalize_runtime_state(
+        self, session_id: str, state: Mapping[str, object]
+    ) -> None:
+        self._finalize_if_needed(self.lobby.session(session_id), state)
 
     def _matchmake(
         self, body: JsonObject, user_id: str | None, device_id: str | None = None
@@ -452,7 +640,9 @@ class OnlineApplication:
         record = self.lobby.session(session_id)
         # Ranked is a lobby/read-model attribute; the game rules remain identical.
         self.lobby.set_ranked(record.session_id, True, now=time.time())
-        created["update"] = self._update(record.session_id, int(created["playerID"]))
+        created["update"] = self._command_update(
+            record.session_id, int(created["playerID"])
+        )
         return created
 
     def _invite(
@@ -481,10 +671,7 @@ class OnlineApplication:
             if seat.user_id is not None
         }
         invited.difference_update(seated)
-        self.runtime.serialize(
-            record.session_id,
-            lambda: self.lobby.invite(record.session_id, invited, now=time.time()),
-        )
+        self.lobby.invite(record.session_id, invited, now=time.time())
         return {"sessionID": record.session_id, "invitedUserIDs": sorted(invited)}
 
     def _game_operation(
@@ -504,13 +691,13 @@ class OnlineApplication:
         )
         self._authenticate(record.session_id, viewer, request, user_id)
         if operation == "sessions.state":
-            return self._update(record.session_id, viewer)
+            return self._read_update(record.session_id, viewer)
         if operation == "sessions.actions.legal":
-            update = self._update(record.session_id, viewer)
+            update = self._read_update(record.session_id, viewer)
             return update["legalActions"]
         if operation == "sessions.actions.since":
             after = int((query.get("afterRevision") or ["-1"])[0])
-            current = self._update(record.session_id, viewer)
+            current = self._read_update(record.session_id, viewer)
             after_reaction = optional_int(
                 (query.get("afterReactionRevision") or [None])[0]
             )
@@ -545,7 +732,7 @@ class OnlineApplication:
                 viewer_id=viewer,
                 authorize=authorize_action,
             )
-            return self._update(record.session_id, viewer)
+            return self._command_update(record.session_id, viewer)
         reaction_id = str(body.get("reactionID") or "")
         if record.status != "active":
             raise ServerError(HTTPStatus.CONFLICT, "game has not started")
@@ -563,7 +750,7 @@ class OnlineApplication:
                 now=time.time(),
             ),
         )
-        return self._update(record.session_id, viewer)
+        return self._read_update(record.session_id, viewer)
 
     def _leave(
         self,
@@ -581,38 +768,31 @@ class OnlineApplication:
             self._authenticate(record.session_id, player_id, request, user_id)
             now = time.time()
             if record.status == "active":
+                self.lobby.abandon_seat(record.session_id, player_id, now=now)
                 if self.results is not None:
-                    value = self.results.abandon_seat(
+                    value = self.results.record_abandonment(
                         session_id=record.session_id,
                         player_id=player_id,
                         user_id=user_id,
                         updated_at=now,
-                        expires_at=record.expires_at,
                         revision=self.runtime.store.game(record.session_id).revision,
                     )
                     penalty = value or {}
-                seat = next(
-                    value
-                    for value in self.lobby.seats(record.session_id)
-                    if value.player_id == player_id
-                )
-                if not seat.abandoned:
-                    self.lobby.abandon_seat(record.session_id, player_id, now=now)
                 return
             deleted = self.lobby.release_seat_and_delete_if_empty(
                 record.session_id, player_id, now=now
             )
 
         deleted = False
-        final_update = self._update(record.session_id, player_id)
-        self.runtime.serialize(record.session_id, leave)
+        final_update = self._read_update(record.session_id, player_id)
+        leave()
         if record.status == "active":
             self.runtime.set_autopilot(record.session_id, player_id)
         if deleted:
             self.runtime.delete_game(record.session_id)
             self.lobby.complete_lifecycle_intent(record.session_id, "delete")
         else:
-            final_update = self._update(record.session_id, player_id)
+            final_update = self._command_update(record.session_id, player_id)
         return {
             "sessionID": record.session_id,
             "inviteCode": record.invite_code,
@@ -655,20 +835,38 @@ class OnlineApplication:
             except SeatUnavailable as error:
                 raise ServerError(HTTPStatus.CONFLICT, "seat unavailable") from error
 
-        self.runtime.serialize(record.session_id, kick)
+        kick()
         return {
             "sessionID": record.session_id,
             "inviteCode": record.invite_code,
             "playerID": host_player_id,
-            "update": self._update(record.session_id, host_player_id),
+            "update": self._command_update(record.session_id, host_player_id),
         }
 
-    def _update(self, session_id: str, viewer_id: int | None) -> JsonObject:
+    def _read_update(self, session_id: str, viewer_id: int | None) -> JsonObject:
+        runtime_update = self.runtime.state(session_id, viewer_id)
+        return self._build_update(
+            session_id,
+            viewer_id,
+            runtime_update.state,
+            runtime_update.revision,
+        )
+
+    def _command_update(self, session_id: str, viewer_id: int | None) -> JsonObject:
         record = self._sync_lobby(session_id)
-        self._ensure_projector(record.session_id)
         if record.status == "active":
-            self.runtime.advance_automatic(record.session_id)
-        runtime_update = self.runtime.state(record.session_id, viewer_id)
+            now = time.time()
+            runtime_update = self.runtime.advance_and_state(
+                record.session_id, viewer_id=viewer_id, now=now
+            )
+        else:
+            runtime_update = self.runtime.state(record.session_id, viewer_id)
+        self._finalize_if_needed(record, runtime_update.state)
+        current = self.lobby.session(record.session_id)
+        seats = self.lobby.seats(record.session_id)
+        self._sync_turn_deadline(
+            current, seats, runtime_update.state.get("waitingPlayer")
+        )
         return self._build_update(
             record.session_id,
             viewer_id,
@@ -676,41 +874,21 @@ class OnlineApplication:
             runtime_update.revision,
         )
 
-    def _ensure_projector(self, session_id: str) -> None:
-        def project(
-            engine: object, revision: int, historical: bool
-        ) -> dict[int | None, JsonObject]:
-            return {
-                viewer: self._build_update(
-                    session_id,
-                    viewer,
-                    engine.view(viewer),  # type: ignore[attr-defined]
-                    revision,
-                    action_revision_limit=revision,
-                    historical_projection=historical,
-                )
-                for viewer in (None, 0, 1, 2, 3)
-            }
-
-        self.runtime.register_projector(session_id, project)
-
     def _build_update(
         self,
         session_id: str,
         viewer_id: int | None,
         state: Mapping[str, object],
         revision: int,
-        *,
-        action_revision_limit: int | None = None,
-        historical_projection: bool = False,
     ) -> JsonObject:
         record = self.lobby.session(session_id)
         snapshot = dict(state)
         legal_actions = snapshot.pop("legalActions", [])
         actions = [
             event.payload
-            for event in self.runtime.events(record.session_id)
-            if action_revision_limit is None or event.revision <= action_revision_limit
+            for event in self.runtime.events(
+                record.session_id, after_revision=max(0, revision - 64)
+            )
         ]
         seats = self.lobby.seats(record.session_id)
         player_profiles = (
@@ -719,12 +897,7 @@ class OnlineApplication:
             else []
         )
         waiting = snapshot.get("waitingPlayer")
-        if historical_projection:
-            turn_player_id, turn_deadline_at = self.lobby.turn_state(session_id)
-        else:
-            turn_player_id, turn_deadline_at = self._sync_turn_deadline(
-                record, seats, waiting
-            )
+        turn_player_id, turn_deadline_at = self.lobby.turn_state(session_id)
         update = {
             "sessionID": record.session_id,
             "seed": record.seed,
@@ -751,15 +924,22 @@ class OnlineApplication:
             "turnDeadlineAt": turn_deadline_at,
             "snapshot": snapshot,
         }
-        if not historical_projection:
-            self._finish_if_needed(record, snapshot, seats)
+        series = self._series_status(record.session_id)
+        if series is not None:
+            update["series"] = series
         return update
 
-    def _finish_if_needed(
-        self, record: object, snapshot: Mapping[str, object], seats: list[SeatRecord]
+    def _series_status(self, session_id: str) -> JsonObject | None:
+        if self.results is None or not hasattr(self.results, "series_status"):
+            return None
+        return self.results.series_status(session_id=session_id)
+
+    def _finalize_if_needed(
+        self, record: object, snapshot: Mapping[str, object]
     ) -> None:
-        if self.results is None or int(snapshot.get("phase", -1)) != 5:
+        if int(snapshot.get("phase", -1)) != 5:
             return
+        seats = self.lobby.seats(record.session_id)
         scores = [
             int(value.get("finalScore", 0))
             for value in snapshot.get("scores", [])
@@ -817,24 +997,32 @@ class OnlineApplication:
                     ),
                 }
             )
-        self.results.finish_session(
-            session_id=record.session_id,
-            results=results,
-            ranked=record.ranked,
-            updated_at=time.time(),
-            expires_at=record.expires_at,
+        now = time.time()
+        if self.results is not None:
+            self.results.record_session_results(
+                session_id=record.session_id,
+                results=results,
+                ranked=record.ranked,
+                updated_at=now,
+                expires_at=record.expires_at,
+            )
+        self.lobby.finish_session(
+            record.session_id, now=now, expires_at=record.expires_at
         )
 
-    def _listing(self, record: object) -> JsonObject:
-        record = self._sync_lobby(record.session_id)
+    def _listing(self, record: object, *, browser_listing: bool = False) -> JsonObject:
         seats = self.lobby.seats(record.session_id)
         player_profiles = (
             self.social.player_profiles(seats, record.controllers)
             if self.social is not None
             else []
         )
-        action_count = self.runtime.store.game(record.session_id).revision
-        turn_player_id, turn_deadline_at = self.lobby.turn_state(record.session_id)
+        if browser_listing:
+            action_count = 0
+            turn_player_id, turn_deadline_at = None, None
+        else:
+            action_count = self.runtime.store.game(record.session_id).revision
+            turn_player_id, turn_deadline_at = self.lobby.turn_state(record.session_id)
         return listing_json(
             session_id=record.session_id,
             invite_code=record.invite_code,
@@ -878,9 +1066,7 @@ class OnlineApplication:
         return listing
 
     def _sync_lobby(self, session_id: str):
-        return self.runtime.serialize(
-            session_id, lambda: self._sync_lobby_unserialized(session_id)
-        )
+        return self._sync_lobby_unserialized(session_id)
 
     def population_seat_filled(self, session_id: str) -> None:
         """Start a population lobby once profile bots occupy every seat."""
@@ -898,9 +1084,21 @@ class OnlineApplication:
             self.lobby.set_status(session_id, "active", now=time.time())
             return True
 
-        started = self.runtime.serialize(session_id, start_if_ready)
+        started = start_if_ready()
         if started:
-            self._update(session_id, None)
+            previous_revision = -1
+            for _ in range(64):
+                update = self._command_update(session_id, None)
+                snapshot = update.get("snapshot", {})
+                if (
+                    isinstance(snapshot, Mapping)
+                    and optional_int(snapshot.get("phase"), -1) == 5
+                ):
+                    return
+                revision = optional_int(update.get("actionLogCount"), -1)
+                if revision <= previous_revision:
+                    return
+                previous_revision = revision
 
     def _sync_lobby_unserialized(self, session_id: str):
         record = self.lobby.session(session_id)

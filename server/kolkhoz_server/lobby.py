@@ -57,6 +57,7 @@ class DueTurn:
 class TimeoutResult:
     timeouts: int
     forced_autopilot: bool
+    completed: bool = False
 
 
 @dataclass(frozen=True)
@@ -78,6 +79,12 @@ class LobbyRepository(Protocol):
     def session(self, session_id_or_invite: str) -> SessionRecord: ...
     def seats(self, session_id: str) -> list[SeatRecord]: ...
     def list_open(self, now: float) -> list[SessionRecord]: ...
+    def list_watchable(self, now: float) -> list[SessionRecord]: ...
+    def activate_ready_sessions(self, *, now: float) -> list[str]: ...
+    def finish_session(
+        self, session_id: str, *, now: float, expires_at: float
+    ) -> bool: ...
+    def expire_sessions(self, *, now: float, limit: int) -> list[str]: ...
     def occupy_seat(
         self,
         session_id: str,
@@ -147,6 +154,7 @@ class LobbyRepository(Protocol):
         self, *, owner: str, now: float, lease_seconds: float, limit: int
     ) -> list[DueTurn]: ...
     def consume_timeout(self, claim: DueTurn, *, now: float) -> TimeoutResult: ...
+    def complete_timeout(self, claim: DueTurn) -> None: ...
     def touch_seat(self, session_id: str, player_id: int, *, now: float) -> None: ...
     def complete_lifecycle_intent(
         self, session_id: str, operation: str, *, fencing_token: int | None = None
@@ -199,8 +207,10 @@ create table if not exists server_seats (
     autopilot integer not null default 0,
     primary key (session_id, player_id)
 );
-create unique index if not exists server_active_user_seat_idx
-    on server_seats (user_id) where occupied = 1 and user_id is not null;
+drop index if exists server_active_user_seat_idx;
+create unique index server_active_user_seat_idx
+    on server_seats (user_id)
+    where occupied = 1 and abandoned = 0 and user_id is not null;
 
 create table if not exists server_session_invites (
     session_id text not null references server_sessions(session_id) on delete cascade,
@@ -235,7 +245,7 @@ create table if not exists server_reactions (
 );
 create table if not exists server_lifecycle_intents (
     session_id text not null,
-    operation text not null check (operation in ('provision', 'delete')),
+    operation text not null check (operation in ('provision', 'delete', 'invalidate')),
     seed integer,
     variants_json text,
     controllers_json text,
@@ -250,6 +260,15 @@ create table if not exists server_lifecycle_intents (
 create index if not exists server_lifecycle_pending_idx
     on server_lifecycle_intents (next_attempt_at, session_id)
     where state = 'pending';
+create table if not exists server_timeout_transitions (
+    session_id text not null,
+    fencing_token integer not null,
+    player_id integer not null,
+    timeouts integer not null,
+    forced_autopilot integer not null,
+    state text not null check (state in ('pending', 'completed')),
+    primary key (session_id, fencing_token)
+);
 """
 
 
@@ -271,6 +290,8 @@ class SQLiteLobbyRepository:
     def create(self, record: SessionRecord, seats: list[SeatRecord]) -> None:
         with closing(self._connect()) as connection, connection:
             connection.execute("begin immediate")
+            for user_id in {seat.user_id for seat in seats if seat.user_id is not None}:
+                self._release_finished_seats(connection, user_id)
             connection.execute(
                 """
                 insert into server_sessions (
@@ -376,6 +397,112 @@ class SQLiteLobbyRepository:
             ).fetchall()
         return [self._session(row) for row in rows]
 
+    def list_watchable(self, now: float) -> list[SessionRecord]:
+        with closing(self._connect()) as connection:
+            rows = connection.execute(
+                """select * from server_sessions
+                    where status = 'active' and browser_joinable = 1
+                      and ranked = 0 and expires_at > ?
+                    order by updated_at desc""",
+                (now,),
+            ).fetchall()
+        return [self._session(row) for row in rows]
+
+    def activate_ready_sessions(self, *, now: float) -> list[str]:
+        connection = self._connect()
+        try:
+            connection.execute("begin immediate")
+            rows = connection.execute(
+                """select sessions.session_id
+                     from server_sessions sessions
+                    where sessions.status = 'open'
+                      and sessions.lobby_countdown_ends_at is not null
+                      and sessions.lobby_countdown_ends_at <= ?
+                      and not exists (
+                          select 1 from server_seats seats
+                           where seats.session_id = sessions.session_id
+                             and seats.controller = 'human' and seats.occupied = 0
+                      )""",
+                (now,),
+            ).fetchall()
+            session_ids = [str(row[0]) for row in rows]
+            for session_id in session_ids:
+                connection.execute(
+                    """update server_sessions
+                          set status = 'active', updated_at = ?,
+                              lobby_countdown_ends_at = null
+                        where session_id = ? and status = 'open'""",
+                    (now, session_id),
+                )
+            connection.commit()
+            return session_ids
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    def finish_session(self, session_id: str, *, now: float, expires_at: float) -> bool:
+        with closing(self._connect()) as connection, connection:
+            updated = connection.execute(
+                """update server_sessions
+                      set status = 'finished', updated_at = ?, expires_at = ?,
+                          turn_player_id = null, turn_deadline_at = null
+                    where session_id = ? and status = 'active'""",
+                (now, expires_at, session_id),
+            )
+            if updated.rowcount == 1:
+                connection.execute(
+                    """insert into server_lifecycle_intents
+                           (session_id, operation, next_attempt_at)
+                         values (?, 'invalidate', ?)
+                         on conflict (session_id, operation) do update
+                           set state = 'pending', next_attempt_at = excluded.next_attempt_at""",
+                    (session_id, now),
+                )
+        return updated.rowcount == 1
+
+    def expire_sessions(self, *, now: float, limit: int) -> list[str]:
+        connection = self._connect()
+        try:
+            connection.execute("begin immediate")
+            rows = connection.execute(
+                """select session_id from server_sessions
+                    where status in ('open', 'active') and expires_at <= ?
+                    order by expires_at, session_id limit ?""",
+                (now, limit),
+            ).fetchall()
+            session_ids = [str(row[0]) for row in rows]
+            for session_id in session_ids:
+                connection.execute(
+                    """update server_sessions set status = 'expired', updated_at = ?,
+                              turn_player_id = null, turn_deadline_at = null
+                        where session_id = ?""",
+                    (now, session_id),
+                )
+                connection.execute(
+                    """update server_seats
+                          set occupied = 0, user_id = null, token_hash = null,
+                              last_seen_at = null, autopilot = 0, abandoned = 0
+                        where session_id = ?""",
+                    (session_id,),
+                )
+                connection.execute(
+                    """insert into server_lifecycle_intents
+                           (session_id, operation, next_attempt_at)
+                         values (?, 'invalidate', ?)
+                         on conflict (session_id, operation) do update
+                           set state = 'pending', next_attempt_at = excluded.next_attempt_at""",
+                    (session_id, now),
+                )
+            connection.commit()
+            return session_ids
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
     def occupy_seat(
         self,
         session_id: str,
@@ -388,6 +515,7 @@ class SQLiteLobbyRepository:
         connection = self._connect()
         try:
             connection.execute("begin immediate")
+            self._release_finished_seats(connection, user_id)
             updated = connection.execute(
                 """
                 update server_seats
@@ -413,6 +541,19 @@ class SQLiteLobbyRepository:
             raise
         finally:
             connection.close()
+
+    @staticmethod
+    def _release_finished_seats(connection: sqlite3.Connection, user_id: str) -> None:
+        connection.execute(
+            """update server_seats
+                  set occupied = 0, user_id = null, token_hash = null,
+                      last_seen_at = null, autopilot = 0, abandoned = 0
+                where user_id = ? and session_id in (
+                    select session_id from server_sessions
+                     where status in ('finished', 'expired')
+                )""",
+            (user_id,),
+        )
 
     def release_seat(self, session_id: str, player_id: int, *, now: float) -> None:
         connection = self._connect()
@@ -781,7 +922,7 @@ class SQLiteLobbyRepository:
                 """
                 select seats.session_id, seats.player_id
                   from server_seats seats join server_sessions sessions using (session_id)
-                 where seats.user_id = ? and seats.occupied = 1
+                 where seats.user_id = ? and seats.occupied = 1 and seats.abandoned = 0
                    and sessions.status in ('open', 'active') and sessions.expires_at > ?
                  order by sessions.updated_at desc limit 1
                 """,
@@ -913,6 +1054,17 @@ class SQLiteLobbyRepository:
         connection = self._connect()
         try:
             connection.execute("begin immediate")
+            existing = connection.execute(
+                """select timeouts, forced_autopilot, state
+                     from server_timeout_transitions
+                    where session_id = ? and fencing_token = ?""",
+                (claim.session_id, claim.fencing_token),
+            ).fetchone()
+            if existing is not None:
+                connection.commit()
+                return TimeoutResult(
+                    int(existing[0]), bool(existing[1]), str(existing[2]) == "completed"
+                )
             valid = connection.execute(
                 """
                 update server_sessions
@@ -947,6 +1099,19 @@ class SQLiteLobbyRepository:
             ).fetchone()
             if seat is None:
                 raise SeatUnavailable("timeout seat unavailable")
+            connection.execute(
+                """insert into server_timeout_transitions
+                       (session_id, fencing_token, player_id, timeouts,
+                        forced_autopilot, state)
+                     values (?, ?, ?, ?, ?, 'pending')""",
+                (
+                    claim.session_id,
+                    claim.fencing_token,
+                    claim.player_id,
+                    int(seat[0]),
+                    bool(seat[1]),
+                ),
+            )
             connection.commit()
             return TimeoutResult(int(seat[0]), bool(seat[1]))
         except Exception:
@@ -954,6 +1119,16 @@ class SQLiteLobbyRepository:
             raise
         finally:
             connection.close()
+
+    def complete_timeout(self, claim: DueTurn) -> None:
+        with closing(self._connect()) as connection, connection:
+            updated = connection.execute(
+                """update server_timeout_transitions set state = 'completed'
+                    where session_id = ? and fencing_token = ? and player_id = ?""",
+                (claim.session_id, claim.fencing_token, claim.player_id),
+            )
+            if updated.rowcount != 1:
+                raise SeatUnavailable("timeout transition unavailable")
 
     @staticmethod
     def new_session(
@@ -1108,6 +1283,8 @@ class PostgresLobbyRepository:
 
     def create(self, record: SessionRecord, seats: list[SeatRecord]) -> None:
         with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            for user_id in {seat.user_id for seat in seats if seat.user_id is not None}:
+                self._release_finished_seats(connection, user_id)
             connection.execute(  # type: ignore[attr-defined]
                 """
                 insert into server_sessions (
@@ -1244,6 +1421,97 @@ class PostgresLobbyRepository:
             ).fetchall()
         return [self._session_row(row) for row in rows]
 
+    def list_watchable(self, now: float) -> list[SessionRecord]:
+        with self._pool.connection() as connection:
+            rows = connection.execute(  # type: ignore[attr-defined]
+                """select session_id::text, invite_code, seed, variants,
+                          controllers, ranked, browser_joinable, status,
+                          created_by_user_id, extract(epoch from created_at),
+                          extract(epoch from updated_at), extract(epoch from expires_at),
+                          extract(epoch from lobby_countdown_ends_at)
+                     from server_sessions
+                    where status = 'active' and browser_joinable and not ranked
+                      and expires_at > to_timestamp(%s)
+                    order by updated_at desc""",
+                (now,),
+            ).fetchall()
+        return [self._session_row(row) for row in rows]
+
+    def activate_ready_sessions(self, *, now: float) -> list[str]:
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            rows = connection.execute(  # type: ignore[attr-defined]
+                """update server_sessions sessions
+                      set status = 'active', updated_at = to_timestamp(%s),
+                          lobby_countdown_ends_at = null
+                    where sessions.status = 'open'
+                      and sessions.lobby_countdown_ends_at is not null
+                      and sessions.lobby_countdown_ends_at <= to_timestamp(%s)
+                      and not exists (
+                          select 1 from server_seats seats
+                           where seats.session_id = sessions.session_id
+                             and seats.controller = 'human' and not seats.occupied
+                      )
+                returning sessions.session_id::text""",
+                (now, now),
+            ).fetchall()
+        return [str(row[0]) for row in rows]
+
+    def finish_session(self, session_id: str, *, now: float, expires_at: float) -> bool:
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            row = connection.execute(  # type: ignore[attr-defined]
+                """update server_sessions
+                      set status = 'finished', updated_at = to_timestamp(%s),
+                          expires_at = to_timestamp(%s), turn_player_id = null,
+                          turn_deadline_at = null
+                    where session_id = %s::uuid and status = 'active'
+                returning session_id""",
+                (now, expires_at, session_id),
+            ).fetchone()
+            if row is not None:
+                connection.execute(  # type: ignore[attr-defined]
+                    """insert into server_lifecycle_intents
+                           (session_id, operation, next_attempt_at)
+                         values (%s::uuid, 'invalidate', to_timestamp(%s))
+                         on conflict (session_id, operation) do update
+                           set state = 'pending', next_attempt_at = excluded.next_attempt_at""",
+                    (session_id, now),
+                )
+        return row is not None
+
+    def expire_sessions(self, *, now: float, limit: int) -> list[str]:
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            rows = connection.execute(  # type: ignore[attr-defined]
+                """with expired as (
+                       select session_id from server_sessions
+                        where status in ('open', 'active') and expires_at <= to_timestamp(%s)
+                        order by expires_at, session_id
+                        for update skip locked limit %s
+                   ), updated as (
+                       update server_sessions sessions
+                          set status = 'expired', updated_at = to_timestamp(%s),
+                              turn_player_id = null, turn_deadline_at = null
+                         from expired where sessions.session_id = expired.session_id
+                       returning sessions.session_id
+                   )
+                   insert into server_lifecycle_intents
+                       (session_id, operation, next_attempt_at)
+                   select session_id, 'invalidate', to_timestamp(%s) from updated
+                   on conflict (session_id, operation) do update
+                       set state = 'pending', next_attempt_at = excluded.next_attempt_at
+                   returning session_id::text""",
+                (now, limit, now, now),
+            ).fetchall()
+            session_ids = [str(row[0]) for row in rows]
+            if session_ids:
+                connection.execute(  # type: ignore[attr-defined]
+                    """update server_seats
+                          set occupied = false, user_id = null, token_hash = null,
+                              last_seen_at = null, autopilot = false, abandoned = false
+                        where session_id = any(%s::uuid[])""",
+                    (session_ids,),
+                )
+        return session_ids
+
     def occupy_seat(
         self,
         session_id: str,
@@ -1255,6 +1523,7 @@ class PostgresLobbyRepository:
     ) -> None:
         try:
             with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+                self._release_finished_seats(connection, user_id)
                 row = connection.execute(  # type: ignore[attr-defined]
                     """
                     update server_seats
@@ -1279,6 +1548,19 @@ class PostgresLobbyRepository:
             if getattr(error, "sqlstate", None) == "23505":
                 raise SeatUnavailable("user already has an active seat") from error
             raise
+
+    @staticmethod
+    def _release_finished_seats(connection: object, user_id: str) -> None:
+        connection.execute(  # type: ignore[attr-defined]
+            """update server_seats seat
+                  set occupied = false, user_id = null, token_hash = null,
+                      last_seen_at = null, autopilot = false, abandoned = false
+                  from server_sessions session
+                 where seat.session_id = session.session_id
+                   and seat.user_id = %s
+                   and session.status in ('finished', 'expired')""",
+            (user_id,),
+        )
 
     def release_seat(self, session_id: str, player_id: int, *, now: float) -> None:
         with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
@@ -1660,7 +1942,7 @@ class PostgresLobbyRepository:
                 """
                 select seats.session_id::text, seats.player_id
                   from server_seats seats join server_sessions sessions using (session_id)
-                 where seats.user_id = %s and seats.occupied
+                 where seats.user_id = %s and seats.occupied and not seats.abandoned
                    and sessions.status in ('open', 'active') and sessions.expires_at > now()
                  order by sessions.updated_at desc limit 1
                 """,
@@ -1782,6 +2064,16 @@ class PostgresLobbyRepository:
 
     def consume_timeout(self, claim: DueTurn, *, now: float) -> TimeoutResult:
         with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            existing = connection.execute(  # type: ignore[attr-defined]
+                """select timeouts, forced_autopilot, state
+                     from server_timeout_transitions
+                    where session_id = %s::uuid and fencing_token = %s""",
+                (claim.session_id, claim.fencing_token),
+            ).fetchone()
+            if existing is not None:
+                return TimeoutResult(
+                    int(existing[0]), bool(existing[1]), str(existing[2]) == "completed"
+                )
             valid = connection.execute(  # type: ignore[attr-defined]
                 """
                 update server_sessions
@@ -1817,7 +2109,31 @@ class PostgresLobbyRepository:
             ).fetchone()
             if seat is None:
                 raise SeatUnavailable("timeout seat unavailable")
+            connection.execute(  # type: ignore[attr-defined]
+                """insert into server_timeout_transitions
+                       (session_id, fencing_token, player_id, timeouts,
+                        forced_autopilot, state)
+                     values (%s::uuid, %s, %s, %s, %s, 'pending')""",
+                (
+                    claim.session_id,
+                    claim.fencing_token,
+                    claim.player_id,
+                    int(seat[0]),
+                    bool(seat[1]),
+                ),
+            )
             return TimeoutResult(int(seat[0]), bool(seat[1]))
+
+    def complete_timeout(self, claim: DueTurn) -> None:
+        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            row = connection.execute(  # type: ignore[attr-defined]
+                """update server_timeout_transitions set state = 'completed'
+                    where session_id = %s::uuid and fencing_token = %s and player_id = %s
+                    returning session_id""",
+                (claim.session_id, claim.fencing_token, claim.player_id),
+            ).fetchone()
+            if row is None:
+                raise SeatUnavailable("timeout transition unavailable")
 
     @staticmethod
     def new_session(

@@ -8,12 +8,12 @@ import uuid
 from concurrent.futures import Future, TimeoutError as FutureTimeout
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Callable, Mapping, TypeVar
+from typing import Callable, Mapping
 from typing import TYPE_CHECKING
 
 from .engine import EngineFactory, GameEngine, KolkhozCEngineFactory
 from .events import EventHub
-from .ai import AutomaticAdvancer, AutomaticState
+from .ai import HUMAN, AutomaticAdvancer, AutomaticState
 from .model import GameUpdate, JsonObject
 from .store import EventStore
 from .updates import ShardUpdateBuffer
@@ -22,9 +22,6 @@ from .errors import ServerError
 
 if TYPE_CHECKING:
     from .metrics import ServerMetrics
-
-
-Result = TypeVar("Result")
 
 
 @dataclass
@@ -60,9 +57,6 @@ class _Shard:
         self.engines: dict[str, GameEngine] = {}
         self.automatic_states: dict[str, AutomaticState] = {}
         self.update_buffers: dict[str, ShardUpdateBuffer] = {}
-        self.projectors: dict[
-            str, Callable[[GameEngine, int, bool], Mapping[int | None, JsonObject]]
-        ] = {}
         self.mailbox: queue.Queue[_Envelope | None] = queue.Queue(maxsize=4096)
         self.thread = threading.Thread(
             target=self._run, name=f"kolkhoz-game-shard-{index}", daemon=True
@@ -89,6 +83,7 @@ class _Shard:
             engine is not None
             and current is not None
             and current.controllers == desired.controllers
+            and current.action_count == record.revision
         ):
             return engine
         if engine is not None:
@@ -124,10 +119,19 @@ class _Shard:
             if self.metrics is not None:
                 self.metrics.increment("lease.lost")
             raise ServerError(503, "session is owned by another worker")
+        if current is not None and lease.fencing_token != current.fencing_token:
+            self._discard_cache(session_id)
         if self.metrics is not None:
             self.metrics.increment("lease.acquired")
         self.session_leases[session_id] = lease
         return lease.fencing_token
+
+    def _discard_cache(self, session_id: str) -> None:
+        engine = self.engines.pop(session_id, None)
+        if engine is not None:
+            engine.close()
+        self.automatic_states.pop(session_id, None)
+        self.update_buffers.pop(session_id, None)
 
     @staticmethod
     def _automatic_state(
@@ -148,7 +152,6 @@ class _Shard:
         self.engines.clear()
         self.automatic_states.clear()
         self.update_buffers.clear()
-        self.projectors.clear()
         if self.leases is not None:
             for lease in self.session_leases.values():
                 self.leases.release(lease)
@@ -250,15 +253,6 @@ class GameRuntime:
         except FutureTimeout as error:
             raise ServerError(504, "game worker timed out") from error
 
-    def serialize(self, session_id: str, operation: Callable[[], Result]) -> Result:
-        """Run session metadata work on the same ordered mailbox as engine work."""
-
-        def invoke(shard: _Shard, engine: GameEngine | None) -> Result:
-            shard.ensure_lease(session_id)
-            return operation()
-
-        return self._execute(session_id, invoke)  # type: ignore[return-value]
-
     def create_game(
         self,
         *,
@@ -323,46 +317,6 @@ class GameRuntime:
     def events(self, session_id: str, *, after_revision: int = 0):
         return self.store.events(session_id, after_revision=after_revision)
 
-    def replay_action_projections(
-        self,
-        session_id: str,
-        *,
-        after_revision: int,
-        projector: Callable[[GameEngine, int, bool], Mapping[int | None, JsonObject]],
-    ) -> list[tuple[int, JsonObject, Mapping[int | None, JsonObject]]]:
-        """Rebuild viewer projections from durable truth without using worker cache.
-
-        Gateways use this only for the bounded recent catch-up window. Replaying
-        from the seed makes the result independent of which gateway or worker
-        handled the mutation, while the normal full-state path handles older gaps.
-        """
-
-        def replay(shard: _Shard, unused: GameEngine | None):
-            del unused
-            record = shard.store.game(session_id)
-            engine = shard.factory.create(record.seed, record.variants)
-            projected: list[
-                tuple[int, JsonObject, Mapping[int | None, JsonObject]]
-            ] = []
-            try:
-                for event in shard.store.events(session_id):
-                    if event.kind != "action":
-                        continue
-                    engine.apply(event.payload)
-                    if event.revision > after_revision:
-                        projected.append(
-                            (
-                                event.revision,
-                                dict(event.payload),
-                                projector(engine, event.revision, True),
-                            )
-                        )
-                return projected
-            finally:
-                engine.close()
-
-        return self._execute(session_id, replay)  # type: ignore[return-value]
-
     def submit_action(
         self,
         session_id: str,
@@ -378,7 +332,7 @@ class GameRuntime:
             fencing_token = shard.ensure_lease(session_id)
             if authorize is not None:
                 authorize()
-            engine = engine or shard.load(session_id)
+            engine = shard.engines.get(session_id) or shard.load(session_id)
             record = shard.store.game(session_id)
             if record.revision != expected_revision:
                 from .store import RevisionConflict
@@ -422,24 +376,31 @@ class GameRuntime:
             automatic = shard.automatic_states.get(session_id)
             if automatic is not None:
                 automatic.action_count = event.revision
-            projector = shard.projectors.get(session_id)
-            if projector is not None:
-                shard.update_buffers[session_id].record_action(
-                    event.revision,
-                    action,
-                    projector(engine, event.revision, False),
-                )
             return GameUpdate(session_id, event.revision, engine.view(viewer_id), event)
 
         return self._execute(session_id, submit)  # type: ignore[return-value]
 
     def advance_automatic(self, session_id: str, *, now: float | None = None) -> int:
         def advance(shard: _Shard, engine: GameEngine | None) -> int:
-            fencing_token = shard.ensure_lease(session_id)
             engine = engine or shard.load(session_id)
             if shard.advancer is None:
                 return 0
             state = shard.automatic_states[session_id]
+            waiting_player = engine.waiting_player()  # type: ignore[attr-defined]
+            if (
+                0 <= waiting_player < len(state.controllers)
+                and state.effective_controller(waiting_player) == HUMAN
+            ):
+                return 0
+            fencing_token = shard.ensure_lease(session_id)
+            engine = shard.engines.get(session_id) or shard.load(session_id)
+            state = shard.automatic_states[session_id]
+            waiting_player = engine.waiting_player()  # type: ignore[attr-defined]
+            if (
+                0 <= waiting_player < len(state.controllers)
+                and state.effective_controller(waiting_player) == HUMAN
+            ):
+                return 0
 
             def record(action: JsonObject, source: str) -> None:
                 payload = dict(action)
@@ -452,13 +413,6 @@ class GameRuntime:
                     fencing_token=fencing_token,
                 )
                 shard.hub.publish(event)
-                projector = shard.projectors.get(session_id)
-                if projector is not None:
-                    shard.update_buffers[session_id].record_action(
-                        event.revision,
-                        payload,
-                        projector(engine, event.revision, False),
-                    )
 
             try:
                 return shard.advancer.advance(
@@ -475,20 +429,37 @@ class GameRuntime:
 
         return self._execute(session_id, advance)  # type: ignore[return-value]
 
-    def register_projector(
+    def advance_and_state(
         self,
         session_id: str,
-        projector: Callable[[GameEngine, int, bool], Mapping[int | None, JsonObject]],
-    ) -> None:
-        def register(shard: _Shard, engine: GameEngine | None) -> None:
-            if session_id not in shard.update_buffers:
-                record = shard.store.game(session_id)
-                shard.update_buffers[session_id] = ShardUpdateBuffer(
-                    session_id, current_revision=record.revision
-                )
-            shard.projectors[session_id] = projector
+        *,
+        viewer_id: int | None = None,
+        now: float | None = None,
+    ) -> GameUpdate:
+        started_at = time.time() if now is None else now
+        self.advance_automatic(session_id, now=started_at)
+        self.advance_automatic(session_id, now=started_at + 10.0)
+        return self.state(session_id, viewer_id)
 
-        self._execute(session_id, register)
+    def consume_timeout(
+        self, claim: object, repository: object, *, now: float
+    ) -> GameUpdate:
+        session_id = str(claim.session_id)  # type: ignore[attr-defined]
+        player_id = int(claim.player_id)  # type: ignore[attr-defined]
+        result = repository.consume_timeout(claim, now=now)  # type: ignore[attr-defined]
+        before = self.state(session_id)
+        if bool(result.completed):  # type: ignore[attr-defined]
+            return before
+        if before.state.get("waitingPlayer") != player_id:
+            repository.complete_timeout(claim)  # type: ignore[attr-defined]
+            return before
+        self.set_autopilot(session_id, player_id)
+        update = self.advance_and_state(session_id, now=now)
+        if not bool(result.forced_autopilot):  # type: ignore[attr-defined]
+            self.set_autopilot(session_id, player_id, "human")
+            update = self.state(session_id)
+        repository.complete_timeout(claim)  # type: ignore[attr-defined]
+        return update
 
     def updates_since(
         self,
@@ -501,12 +472,20 @@ class GameRuntime:
         durable_reactions: list[Mapping[str, object]] | None = None,
     ) -> JsonObject:
         def read(shard: _Shard, engine: GameEngine | None) -> JsonObject:
+            durable_revision = shard.store.game(session_id).revision
             if session_id not in shard.update_buffers:
-                record = shard.store.game(session_id)
                 shard.update_buffers[session_id] = ShardUpdateBuffer(
-                    session_id, current_revision=record.revision
+                    session_id, current_revision=durable_revision
                 )
-            return shard.update_buffers[session_id].updates_since(
+            buffer = shard.update_buffers[session_id]
+            if buffer.current_revision != durable_revision:
+                buffer = ShardUpdateBuffer(
+                    session_id,
+                    current_revision=durable_revision,
+                    reaction_revision=buffer.reaction_revision,
+                )
+                shard.update_buffers[session_id] = buffer
+            return buffer.updates_since(
                 after_revision,
                 viewer_id,
                 resync_update=resync_update,
@@ -545,7 +524,8 @@ class GameRuntime:
     ) -> None:
         def set_controller(shard: _Shard, engine: GameEngine | None) -> None:
             fencing_token = shard.ensure_lease(session_id)
-            engine = engine or shard.load(session_id)
+            if session_id not in shard.engines:
+                shard.load(session_id)
             state = shard.automatic_states[session_id]
             shard.store.set_controller_override(
                 session_id,
@@ -575,12 +555,12 @@ class GameRuntime:
     ) -> None:
         def delete(shard: _Shard, engine: GameEngine | None) -> None:
             fencing_token = shard.ensure_lease(session_id)
+            engine = shard.engines.get(session_id)
             if engine is not None:
                 engine.close()
                 shard.engines.pop(session_id, None)
                 shard.automatic_states.pop(session_id, None)
                 shard.update_buffers.pop(session_id, None)
-                shard.projectors.pop(session_id, None)
             shard.store.delete_game(
                 session_id,
                 command_id=command_id,
@@ -595,12 +575,15 @@ class GameRuntime:
 
         def invalidate(shard: _Shard, engine: GameEngine | None) -> None:
             shard.ensure_lease(session_id)
+            engine = shard.engines.get(session_id)
             if engine is not None:
                 engine.close()
             shard.engines.pop(session_id, None)
             shard.automatic_states.pop(session_id, None)
             shard.update_buffers.pop(session_id, None)
-            shard.projectors.pop(session_id, None)
+            lease = shard.session_leases.pop(session_id, None)
+            if lease is not None and shard.leases is not None:
+                shard.leases.release(lease)
 
         self._execute(session_id, invalidate)
 
@@ -608,6 +591,34 @@ class GameRuntime:
         for shard in self._shards:
             shard.close()
         self.store.close()
+
+
+class GatewayRuntimeContext:
+    """Durable read context for roles that never execute C-engine commands."""
+
+    def __init__(self, store: EventStore, hub: EventHub, owner_id: str) -> None:
+        self.store = store
+        self.hub = hub
+        self.owner_id = owner_id
+
+    def events(self, session_id: str, *, after_revision: int = 0):
+        return self.store.events(session_id, after_revision=after_revision)
+
+    def metrics_state(self) -> dict[str, object]:
+        return {
+            "activeSessions": 0,
+            "shards": 0,
+            "shardQueues": [],
+            "shardQueueCapacity": 0,
+            "overloadRejections": 0,
+            "workerID": self.owner_id,
+            "policyModelSHA": None,
+            "persistenceQueueDepth": 0,
+            "persistenceError": None,
+        }
+
+    def close(self) -> None:
+        return None
 
 
 def _successful_receipt(

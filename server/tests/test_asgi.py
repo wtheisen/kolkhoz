@@ -129,6 +129,27 @@ def test_http_adapts_online_application_contract() -> None:
     assert json.loads(sent[1]["body"]) == {"status": "ok"}
 
 
+def test_duplicate_gateway_catch_up_reads_are_coalesced() -> None:
+    application = _Application()
+    app = ASGIApplication(application, _Bus())  # type: ignore[arg-type]
+    headers = {
+        "authorization": "Bearer bearer",
+        "x-kolkhoz-seat-token": "seat",
+    }
+
+    async def exercise():
+        target = "/sessions/s1/actions?viewerID=2&afterRevision=1"
+        return await asyncio.gather(
+            app._coalesced_catch_up(target, headers),
+            app._coalesced_catch_up(target, headers),
+        )
+
+    left, right = asyncio.run(exercise())
+
+    assert left == right
+    assert sum("/actions?" in request.target for request in application.requests) == 1
+
+
 def test_prometheus_endpoint_preserves_plain_text_scrape_contract() -> None:
     app = ASGIApplication(_Application(), _Bus())  # type: ignore[arg-type]
     incoming = asyncio.Queue()

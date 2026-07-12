@@ -64,6 +64,35 @@ def test_partition_is_stable_and_session_commands_remain_ordered():
     assert session_partition("session-a", 8) == partition
 
 
+def test_worker_rotates_partition_scan_after_each_delivery():
+    broker = InMemoryCommandBroker(partition_count=3)
+    sessions = {}
+    for suffix in range(1000):
+        session_id = f"session-{suffix}"
+        partition = session_partition(session_id, 3)
+        sessions.setdefault(partition, session_id)
+        if len(sessions) == 3:
+            break
+    for value, partition in enumerate((0, 1, 2)):
+        broker.publish(command(f"command-{value}", sessions[partition], value))
+
+    seen = []
+    worker = CommandWorker(
+        broker,
+        "worker-a",
+        (0, 1, 2),
+        lambda item: (
+            seen.append(session_partition(item.session_id, 3))
+            or CommandResult(item.command_id, item.session_id, True, {})
+        ),
+    )
+
+    assert worker.run_once()
+    assert worker.run_once()
+    assert worker.run_once()
+    assert seen == [0, 1, 2]
+
+
 def test_unacknowledged_command_is_redelivered_to_failover_worker():
     now = [10.0]
     broker = InMemoryCommandBroker(
@@ -165,8 +194,23 @@ class FakeStreamsRedis:
         self.pending = {}
         self.values = {}
         self.next_id = 1
+        self.lists = {}
+        self.blocking_reads = 0
 
-    def eval(self, _script, _keys, stream, capacity, encoded, attempts):
+    def eval(self, script, _keys, *args):
+        if "XLEN" not in script:
+            key, owner, *_rest = args
+            current = self.values.get(key)
+            if "DEL" in script:
+                if current == owner:
+                    self.values.pop(key, None)
+                    return 1
+                return 0
+            if current is not None and current != owner:
+                return 0
+            self.values[key] = owner
+            return 1
+        stream, capacity, encoded, attempts = args
         entries = self.streams.setdefault(stream, [])
         if len(entries) >= int(capacity):
             return 0
@@ -219,6 +263,21 @@ class FakeStreamsRedis:
     def get(self, key):
         return self.values.get(key)
 
+    def rpush(self, key, value):
+        self.lists.setdefault(key, []).append(value)
+
+    def expire(self, _key, _seconds):
+        return True
+
+    def blpop(self, key, **_kwargs):
+        self.blocking_reads += 1
+        values = self.lists.get(key, [])
+        return (key, values.pop(0)) if values else None
+
+    def xdel(self, stream, delivery_id):
+        entries = self.streams.get(stream, [])
+        self.streams[stream] = [entry for entry in entries if entry[0] != delivery_id]
+
     def ping(self):
         return True
 
@@ -247,6 +306,33 @@ def test_redis_streams_adapter_routes_reclaims_and_deduplicates_results():
 
     assert duplicate == accepted
     assert broker.result(item.command_id) == accepted
+    assert redis.streams[f"test:partition:{partition}"] == []
+
+
+def test_redis_result_wait_blocks_on_completion_notification() -> None:
+    redis = FakeStreamsRedis()
+    broker = RedisStreamsCommandBroker(redis, namespace="test", partition_count=1)
+
+    assert broker.wait_for_result("missing", 0.01) is None
+    assert redis.blocking_reads == 1
+
+
+def test_command_worker_refuses_overlapping_partition_ownership() -> None:
+    redis = FakeStreamsRedis()
+    broker = RedisStreamsCommandBroker(redis, namespace="test", partition_count=1)
+
+    def handler(item):  # type: ignore[no-untyped-def]
+        return CommandResult(item.command_id, item.session_id, True, {})
+
+    first = CommandWorkerService(CommandWorker(broker, "owner-a", (0,), handler))
+    second = CommandWorkerService(CommandWorker(broker, "owner-b", (0,), handler))
+
+    first.start()
+    try:
+        with pytest.raises(RuntimeError, match="ownership conflict"):
+            second.start()
+    finally:
+        first.close()
 
 
 def test_redis_command_lag_and_health_are_observable_without_live_redis():
@@ -329,7 +415,10 @@ def test_routed_runtime_executes_on_remote_worker_and_preserves_domain_errors():
             poll_timeout_seconds=0.01,
         )
         routed = RoutedGameRuntime(
-            gateway_runtime, CommandClient(broker), timeout_seconds=1
+            gateway_runtime,
+            CommandClient(broker),
+            timeout_seconds=1,
+            owns_all_partitions=True,
         )
         worker.start()
         try:
@@ -337,7 +426,7 @@ def test_routed_runtime_executes_on_remote_worker_and_preserves_domain_errors():
             updated = routed.submit_action(
                 "cross-host", expected_revision=0, action={"delta": 7}
             )
-            remote_state = routed.state("cross-host", viewer_id=2)
+            remote_state = routed.advance_and_state("cross-host", viewer_id=2)
             with pytest.raises(RevisionConflict):
                 routed.submit_action(
                     "cross-host", expected_revision=0, action={"delta": 100}
@@ -353,7 +442,7 @@ def test_routed_runtime_executes_on_remote_worker_and_preserves_domain_errors():
     assert remote_state.state == {"value": 12, "viewerID": 2}
 
 
-def test_two_gateway_apps_rebuild_incremental_updates_without_sticky_routing():
+def test_two_gateway_apps_resync_without_replaying_history():
     with TemporaryDirectory() as directory:
         database = Path(directory) / "cross-gateway.sqlite3"
         worker_runtime = GameRuntime(
@@ -421,9 +510,9 @@ def test_two_gateway_apps_rebuild_incremental_updates_without_sticky_routing():
                     {},
                 )
             ).body
-            assert caught_up["resyncUpdate"] is None
-            assert [value["revision"] for value in caught_up["updates"]] == [1]
-            assert caught_up["updates"][0]["update"]["snapshot"] == {
+            assert caught_up["updates"] == []
+            assert caught_up["resyncUpdate"]["actionLogCount"] == 1
+            assert caught_up["resyncUpdate"]["snapshot"] == {
                 "value": 12,
                 "viewerID": 0,
             }
@@ -433,6 +522,17 @@ def test_two_gateway_apps_rebuild_incremental_updates_without_sticky_routing():
                 expected_revision=1,
                 action={"playerID": 0, "delta": 1},
             )
+            recovered = app_b.dispatch(
+                Request(
+                    "GET",
+                    f"/sessions/{session_id}/actions?viewerID=0&afterRevision=1",
+                    game_headers,
+                    {},
+                )
+            ).body
+            assert recovered["updates"] == []
+            assert recovered["resyncUpdate"]["actionLogCount"] == 2
+
             two_frames = app_b.dispatch(
                 Request(
                     "GET",
@@ -441,13 +541,8 @@ def test_two_gateway_apps_rebuild_incremental_updates_without_sticky_routing():
                     {},
                 )
             ).body
-            assert [
-                value["update"]["actionLogCount"] for value in two_frames["updates"]
-            ] == [1, 2]
-            assert [
-                len(value["update"]["gameLogActions"])
-                for value in two_frames["updates"]
-            ] == [1, 2]
+            assert two_frames["updates"] == []
+            assert two_frames["resyncUpdate"]["actionLogCount"] == 2
 
             for expected in range(2, 34):
                 routed_a.submit_action(

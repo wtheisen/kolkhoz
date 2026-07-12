@@ -5,7 +5,7 @@ import threading
 import time
 import uuid
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Mapping, Protocol
 
 from .lobby import DueTurn, LobbyRepository, SeatUnavailable
 from .model import GameUpdate
@@ -21,13 +21,15 @@ DEFAULT_BATCH_SIZE = 128
 
 class ScheduledRuntime(Protocol):
     def state(self, session_id: str, viewer_id: int | None = None) -> GameUpdate: ...
-    def serialize(self, session_id: str, operation: Callable[[], object]) -> object: ...
     def set_autopilot(
         self, session_id: str, player_id: int, controller: str = "heuristicAI"
     ) -> None: ...
-    def advance_automatic(
-        self, session_id: str, *, now: float | None = None
-    ) -> int: ...
+    def advance_and_state(
+        self, session_id: str, *, viewer_id: int | None = None, now: float | None = None
+    ) -> GameUpdate: ...
+    def consume_timeout(
+        self, claim: DueTurn, repository: LobbyRepository, *, now: float
+    ) -> GameUpdate: ...
 
 
 class DeadlineScheduler:
@@ -48,6 +50,7 @@ class DeadlineScheduler:
         batch_size: int = DEFAULT_BATCH_SIZE,
         clock: Callable[[], float] = time.time,
         metrics: ServerMetrics | None = None,
+        on_state: Callable[[str, Mapping[str, object]], None] | None = None,
     ) -> None:
         if turn_seconds <= 0 or claim_seconds <= 0 or batch_size <= 0:
             raise ValueError("scheduler durations and batch size must be positive")
@@ -61,10 +64,17 @@ class DeadlineScheduler:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self.metrics = metrics
+        self.on_state = on_state
 
     def run_once(self, *, now: float | None = None) -> int:
         started = time.perf_counter()
         current = self.clock() if now is None else now
+        activated = self.repository.activate_ready_sessions(now=current)
+        for session_id in activated:
+            state = self.runtime.advance_and_state(session_id, now=current)
+            if self.on_state is not None:
+                self.on_state(session_id, state.state)
+            self._schedule_waiting(session_id, self._waiting_player(state), current)
         claims = self.repository.claim_due_turns(
             owner=self.owner_id,
             now=current,
@@ -99,32 +109,14 @@ class DeadlineScheduler:
         before = self.runtime.state(claim.session_id)
         waiting = self._waiting_player(before)
         if waiting != claim.player_id:
-            self.runtime.serialize(
-                claim.session_id,
-                lambda: self._schedule_waiting(claim.session_id, waiting, now),
-            )
+            self._schedule_waiting(claim.session_id, waiting, now)
             return False
 
-        result = self.runtime.serialize(
-            claim.session_id,
-            lambda: self.repository.consume_timeout(claim, now=now),
-        )
-        forced = bool(getattr(result, "forced_autopilot"))
-
-        self.runtime.set_autopilot(claim.session_id, claim.player_id)
-        # AutomaticAdvancer intentionally delays visible bots. A timed-out move is
-        # already 90 seconds late, so prime and then pass its maximum jitter window.
-        self.runtime.advance_automatic(claim.session_id, now=now)
-        self.runtime.advance_automatic(claim.session_id, now=now + 10.0)
-        if not forced:
-            self.runtime.set_autopilot(claim.session_id, claim.player_id, "human")
-
-        after = self.runtime.state(claim.session_id)
+        after = self.runtime.consume_timeout(claim, self.repository, now=now)
+        if self.on_state is not None:
+            self.on_state(claim.session_id, after.state)
         next_player = self._waiting_player(after)
-        self.runtime.serialize(
-            claim.session_id,
-            lambda: self._schedule_waiting(claim.session_id, next_player, now),
-        )
+        self._schedule_waiting(claim.session_id, next_player, now)
         return True
 
     @staticmethod

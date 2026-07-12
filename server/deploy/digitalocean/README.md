@@ -6,9 +6,12 @@ This package installs the production server on `192.241.150.25`. The checkout is
 
 The current VPS has only 1 vCPU and roughly 1 GB RAM. This is therefore a correctness
 deployment, not a capacity environment. One combined process owns gateways, all 16 command
-partitions, and the three schedulers. systemd caps it at 25% CPU and 300 MB memory.
+partitions, and the three schedulers. systemd allows it to use the single CPU and caps
+memory at 300 MB.
 A dedicated Redis instance binds `127.0.0.1:16379`, uses database 15, has a 64 MB
 `noeviction` cap, and is separately resource limited. Do not expose either port.
+Caddy retries unavailable loopback connections for up to five seconds, bridging the
+short bind gap during application restarts without immediately returning 502 responses.
 
 The installer reads normalized database, Redis, and production Supabase authentication
 settings from `/etc/kolkhoz-greenfield.env` without printing values. The five server

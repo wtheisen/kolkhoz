@@ -41,9 +41,8 @@ fencing remain the final stale-owner safety boundary.
 | Path | Responsibility |
 |---|---|
 | `kolkhoz_server/asgi.py` | Production HTTP, WebSocket, CORS, reconnect/catch-up transport |
-| `kolkhoz_server/gateway.py` | Small threaded SQLite development/test gateway |
 | `kolkhoz_server/api.py`, `routes.py` | Flutter-compatible route dispatch and response contracts |
-| `kolkhoz_server/runtime.py`, `session.py` | Partitioned session ownership, bounded mailboxes, lifecycle model |
+| `kolkhoz_server/runtime.py` | Partitioned session ownership and bounded mailboxes |
 | `kolkhoz_server/engine.py`, `contracts.py` | C-engine adapter, legal actions, privacy-safe projections |
 | `kolkhoz_server/store.py` | SQLite reference store, pooled PostgreSQL event store, revision CAS |
 | `kolkhoz_server/lobby.py`, `social.py`, `results.py` | Durable session/seat, profile/social, rating/progression read models |
@@ -60,16 +59,6 @@ fencing remain the final stale-owner safety boundary.
 | `deploy/staging/` | Real multi-role Compose topology, smoke test, and chaos drill |
 | `tools/` | Disposable PostgreSQL schema smoke test and scale/failure harness |
 | `tests/` | Contracts, real C replay, concurrency, chaos, transport, and parity tests |
-
-## Run locally
-
-The development gateway uses SQLite and minimal `/games` vertical-slice routes. It is
-not the production compatibility transport:
-
-```bash
-python3 -m server.kolkhoz_server.gateway \
-  --database /tmp/kolkhoz-server.sqlite3
-```
 
 Production is intended to use PostgreSQL, Redis, Supabase auth, all schemas, and
 Uvicorn. Follow `deploy/README.md`; the process entry point is:

@@ -63,8 +63,10 @@ create table if not exists server_seats (
     )
 );
 
-create unique index if not exists server_active_user_seat_idx
-    on server_seats (user_id) where occupied and user_id is not null;
+drop index if exists server_active_user_seat_idx;
+create unique index server_active_user_seat_idx
+    on server_seats (user_id)
+    where occupied and not abandoned and user_id is not null;
 create index if not exists server_open_human_seat_idx
     on server_seats (session_id, player_id)
     where controller = 'human' and not occupied;
@@ -77,6 +79,49 @@ create table if not exists server_progression_events (
     user_id uuid not null references public.profiles(user_id) on delete cascade,
     recorded_at timestamptz not null default now(),
     primary key (session_id, user_id)
+);
+create table if not exists server_game_results (
+    session_id uuid not null references server_sessions(session_id) on delete cascade,
+    user_id uuid not null references public.profiles(user_id) on delete cascade,
+    player_id integer not null,
+    score integer not null,
+    rank integer not null,
+    won boolean not null,
+    ranked boolean not null,
+    completed_at timestamptz not null,
+    primary key (session_id, user_id)
+);
+create index if not exists server_game_results_user_idx
+    on server_game_results (user_id, completed_at desc);
+create table if not exists server_series (
+    series_id uuid primary key,
+    best_of smallint not null check (best_of in (3, 5)),
+    completed boolean not null default false,
+    winner_player_id smallint check (winner_player_id between 0 and 3),
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+create table if not exists server_series_rounds (
+    series_id uuid not null references server_series(series_id) on delete cascade,
+    round_number smallint not null,
+    session_id uuid not null unique references server_sessions(session_id) on delete cascade,
+    winner_player_id smallint check (winner_player_id between 0 and 3),
+    scores jsonb,
+    completed_at timestamptz,
+    primary key (series_id, round_number)
+);
+create table if not exists server_daily_challenge_attempts (
+    challenge_date date not null,
+    user_id uuid not null references public.profiles(user_id) on delete cascade,
+    session_id uuid primary key references server_sessions(session_id) on delete cascade,
+    created_at timestamptz not null default now(),
+    unique (challenge_date, user_id, session_id)
+);
+create index if not exists server_daily_challenge_user_idx
+    on server_daily_challenge_attempts (challenge_date, user_id, created_at desc);
+create table if not exists server_result_commits (
+    session_id uuid primary key references server_sessions(session_id) on delete cascade,
+    recorded_at timestamptz not null default now()
 );
 create index if not exists server_seat_heartbeat_idx
     on server_seats (last_seen_at, session_id)
@@ -131,7 +176,7 @@ create table if not exists server_reactions (
 
 create table if not exists server_lifecycle_intents (
     session_id uuid not null,
-    operation text not null check (operation in ('provision', 'delete')),
+    operation text not null check (operation in ('provision', 'delete', 'invalidate')),
     seed bigint,
     variants jsonb,
     controllers jsonb,
@@ -143,9 +188,23 @@ create table if not exists server_lifecycle_intents (
     fencing_token bigint not null default 0,
     primary key (session_id, operation)
 );
+alter table server_lifecycle_intents
+    drop constraint if exists server_lifecycle_intents_operation_check;
+alter table server_lifecycle_intents
+    add constraint server_lifecycle_intents_operation_check
+    check (operation in ('provision', 'delete', 'invalidate'));
 create index if not exists server_lifecycle_pending_idx
     on server_lifecycle_intents (next_attempt_at, session_id)
     where state = 'pending';
+create table if not exists server_timeout_transitions (
+    session_id uuid not null references server_sessions(session_id) on delete cascade,
+    fencing_token bigint not null,
+    player_id smallint not null check (player_id between 0 and 3),
+    timeouts integer not null,
+    forced_autopilot boolean not null,
+    state text not null check (state in ('pending', 'completed')),
+    primary key (session_id, fencing_token)
+);
 
 create index if not exists server_reactions_created_idx
     on server_reactions (session_id, created_at desc);

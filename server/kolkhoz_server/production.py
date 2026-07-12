@@ -26,7 +26,7 @@ from .events import EventHub
 from .lobby import PostgresLobbyRepository
 from .metrics import ServerMetrics
 from .population import PopulationScheduler, PostgresPopulationRepository
-from .runtime import GameRuntime
+from .runtime import GameRuntime, GatewayRuntimeContext
 from .results import PostgresResultsRepository
 from .scheduler import DeadlineScheduler
 from .lifecycle import LifecycleReconciler
@@ -119,37 +119,43 @@ def create_asgi_application() -> ASGIApplication:
     lobby = PostgresLobbyRepository(pool)
     social = PostgresSocialRepository(pool=pool)
     results = PostgresResultsRepository(pool=pool, json_value=Jsonb)
-    repo_root = Path(__file__).resolve().parents[2]
-    policy_paths = {
-        "mediumAI": Path(
-            os.environ.get(
-                "KOLKHOZ_MEDIUM_POLICY_PATH",
-                repo_root / "policies/medium_policy.json",
-            )
-        ),
-        "neuralAI": Path(
-            os.environ.get(
-                "KOLKHOZ_NEURAL_POLICY_PATH",
-                repo_root / "policies/hard_policy.json",
-            )
-        ),
-    }
-    models = ModelCache(policy_paths, lambda path: PolicyArtifact.load(path).c_buffer())
-    lease_repository = PostgresSessionLeaseRepository(pool=pool)
     redis_url = os.environ.get("REDIS_URL")
     if not redis_url:
         parser.error("REDIS_URL is required")
     realtime_bus = RedisRealtimeBus.from_url(redis_url, metrics=metrics)
-    local_runtime = GameRuntime(
-        store,
-        shard_count=args.shards,
-        event_hub=EventHub(realtime_bus),
-        automatic_advancer=AutomaticAdvancer(models),
-        lease_repository=lease_repository,
-        owner_id=os.environ.get("KOLKHOZ_WORKER_ID"),
-        lease_ttl_seconds=float(os.environ.get("KOLKHOZ_LEASE_TTL_SECONDS", "15")),
-        metrics=metrics,
-    )
+    run_command_worker = _enabled("KOLKHOZ_RUN_COMMAND_WORKER")
+    owner_id = os.environ.get("KOLKHOZ_WORKER_ID") or "gateway"
+    if run_command_worker:
+        repo_root = Path(__file__).resolve().parents[2]
+        policy_paths = {
+            "mediumAI": Path(
+                os.environ.get(
+                    "KOLKHOZ_MEDIUM_POLICY_PATH",
+                    repo_root / "policies/medium_policy.json",
+                )
+            ),
+            "neuralAI": Path(
+                os.environ.get(
+                    "KOLKHOZ_NEURAL_POLICY_PATH",
+                    repo_root / "policies/hard_policy.json",
+                )
+            ),
+        }
+        models = ModelCache(
+            policy_paths, lambda path: PolicyArtifact.load(path).c_buffer()
+        )
+        local_runtime: GameRuntime | GatewayRuntimeContext = GameRuntime(
+            store,
+            shard_count=args.shards,
+            event_hub=EventHub(realtime_bus),
+            automatic_advancer=AutomaticAdvancer(models),
+            lease_repository=PostgresSessionLeaseRepository(pool=pool),
+            owner_id=owner_id,
+            lease_ttl_seconds=float(os.environ.get("KOLKHOZ_LEASE_TTL_SECONDS", "15")),
+            metrics=metrics,
+        )
+    else:
+        local_runtime = GatewayRuntimeContext(store, EventHub(realtime_bus), owner_id)
     command_partitions = int(os.environ.get("KOLKHOZ_COMMAND_PARTITION_COUNT", "256"))
     command_broker = RedisStreamsCommandBroker.from_url(
         redis_url,
@@ -170,21 +176,41 @@ def create_asgi_application() -> ASGIApplication:
         else tuple(range(command_partitions))
     )
     worker_id = local_runtime.owner_id
-    command_worker = None
-    if _enabled("KOLKHOZ_RUN_COMMAND_WORKER"):
-        command_worker = CommandWorkerService(
-            CommandWorker(
-                command_broker,
-                worker_id,
-                partitions,
-                RuntimeCommandHandler(local_runtime),
-            )
+    command_workers: list[CommandWorkerService] = []
+    if run_command_worker:
+        worker_count = min(
+            len(partitions),
+            max(1, int(os.environ.get("KOLKHOZ_COMMAND_WORKER_THREADS", "8"))),
         )
-        command_worker.start()
+        partition_groups = [
+            partitions[index::worker_count] for index in range(worker_count)
+        ]
+        try:
+            for index, partition_group in enumerate(partition_groups):
+                service = CommandWorkerService(
+                    CommandWorker(
+                        command_broker,
+                        f"{worker_id}:{index}",
+                        partition_group,
+                        RuntimeCommandHandler(local_runtime, lobby),
+                    )
+                )
+                service.start()
+                command_workers.append(service)
+        except Exception:
+            for service in command_workers:
+                service.close()
+            local_runtime.close()
+            realtime_bus.close()
+            pool.close()
+            raise
     runtime = RoutedGameRuntime(
         local_runtime,
         CommandClient(command_broker),
         timeout_seconds=float(os.environ.get("KOLKHOZ_COMMAND_TIMEOUT_SECONDS", "10")),
+        owns_all_partitions=(
+            bool(command_workers) and set(partitions) == set(range(command_partitions))
+        ),
     )
     application = OnlineApplication(
         runtime,
@@ -214,6 +240,7 @@ def create_asgi_application() -> ASGIApplication:
         owner_id=os.environ.get("KOLKHOZ_SCHEDULER_ID"),
         batch_size=int(os.environ.get("KOLKHOZ_DEADLINE_BATCH_SIZE", "128")),
         metrics=metrics,
+        on_state=application.finalize_runtime_state,
     )
     if _enabled("KOLKHOZ_RUN_DEADLINE_SCHEDULER"):
         scheduler.start(
@@ -244,7 +271,7 @@ def create_asgi_application() -> ASGIApplication:
         lifecycle.close()
         population.close()
         scheduler.close()
-        if command_worker is not None:
+        for command_worker in command_workers:
             command_worker.close()
         local_runtime.close()
         realtime_bus.close()
@@ -260,7 +287,9 @@ def create_asgi_application() -> ASGIApplication:
             pass
         try:
             command_broker.readiness_check()
-            checks["redisCommands"] = True
+            checks["redisCommands"] = all(
+                worker.ownership_healthy for worker in command_workers
+            )
         except Exception:
             pass
         try:

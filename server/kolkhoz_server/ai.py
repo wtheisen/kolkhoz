@@ -13,7 +13,7 @@ from .model import JsonObject
 HUMAN = "human"
 HEURISTIC_AI = "heuristicAI"
 POLICY_CONTROLLERS = frozenset(("mediumAI", "neuralAI"))
-AUTOMATIC_GUARD_LIMIT = 200
+AUTOMATIC_BATCH_LIMIT = 4
 BOT_ACTION_DELAY_MIN_SECONDS = 1.5
 BOT_ACTION_DELAY_MAX_SECONDS = 8.0
 
@@ -166,7 +166,7 @@ class AutomaticAdvancer(Generic[Model]):
         record: Callable[[JsonObject, str], None],
     ) -> int:
         applied = 0
-        for _ in range(AUTOMATIC_GUARD_LIMIT):
+        for _ in range(AUTOMATIC_BATCH_LIMIT):
             player_id = engine.waiting_player()
             if player_id < 0 or player_id >= len(state.controllers):
                 return applied
@@ -201,7 +201,7 @@ class AutomaticAdvancer(Generic[Model]):
             record(action, "automatic")
             state.action_count += 1
             applied += 1
-        raise RuntimeError("automatic controller loop exceeded guard limit")
+        return applied
 
     @staticmethod
     def _should_delay(state: AutomaticState, player_id: int) -> bool:

@@ -85,6 +85,46 @@ class LobbyRepositoryTests(unittest.TestCase):
         self.assertEqual(loaded.session_id, record.session_id)
         self.assertEqual([value.session_id for value in listings], [record.session_id])
 
+    def test_create_releases_same_user_seat_from_finished_session(self) -> None:
+        first = self.repository.new_session(
+            seed=1,
+            variants={},
+            controllers=["human"] * 4,
+            ranked=False,
+            browser_joinable=True,
+            created_by_user_id="host",
+            ttl_seconds=3600,
+        )
+        occupied = SeatRecord(
+            0, "human", True, "host", "token", time.time(), 0, False, False
+        )
+        empty = [
+            SeatRecord(index, "human", False, None, None, None, 0, False, False)
+            for index in range(1, 4)
+        ]
+        self.repository.create(first, [occupied, *empty])
+        self.repository.set_status(first.session_id, "active", now=time.time())
+        self.assertTrue(
+            self.repository.finish_session(
+                first.session_id, now=time.time(), expires_at=time.time() + 3600
+            )
+        )
+        self.assertTrue(self.repository.seats(first.session_id)[0].occupied)
+
+        second = self.repository.new_session(
+            seed=2,
+            variants={},
+            controllers=["human"] * 4,
+            ranked=False,
+            browser_joinable=True,
+            created_by_user_id="host",
+            ttl_seconds=3600,
+        )
+        self.repository.create(second, [occupied, *empty])
+
+        self.assertFalse(self.repository.seats(first.session_id)[0].occupied)
+        self.assertTrue(self.repository.seats(second.session_id)[0].occupied)
+
     def test_concurrent_join_claims_exactly_one_seat(self) -> None:
         record = self.make_session()
         barrier = threading.Barrier(3)
@@ -117,6 +157,58 @@ class LobbyRepositoryTests(unittest.TestCase):
         self.assertEqual(
             sum(seat.occupied for seat in self.repository.seats(record.session_id)), 1
         )
+
+    def test_join_releases_same_user_seat_from_finished_session(self) -> None:
+        first = self.make_session()
+        self.repository.occupy_seat(
+            first.session_id,
+            0,
+            user_id="returning-user",
+            token_hash="old-token",
+            now=time.time(),
+        )
+        self.repository.set_status(first.session_id, "finished", now=time.time())
+        second = self.make_session()
+
+        self.repository.occupy_seat(
+            second.session_id,
+            0,
+            user_id="returning-user",
+            token_hash="new-token",
+            now=time.time(),
+        )
+
+        self.assertFalse(self.repository.seats(first.session_id)[0].occupied)
+        self.assertTrue(self.repository.seats(second.session_id)[0].occupied)
+
+    def test_abandoned_membership_does_not_block_a_new_active_seat(self) -> None:
+        first = self.make_session()
+        self.repository.occupy_seat(
+            first.session_id,
+            0,
+            user_id="returning-user",
+            token_hash="old-token",
+            now=time.time(),
+        )
+        self.repository.set_status(first.session_id, "active", now=time.time())
+        self.repository.abandon_seat(first.session_id, 0, now=time.time())
+        second = self.make_session()
+
+        self.repository.occupy_seat(
+            second.session_id,
+            0,
+            user_id="returning-user",
+            token_hash="new-token",
+            now=time.time(),
+        )
+
+        old_seat = self.repository.seats(first.session_id)[0]
+        self.assertTrue(old_seat.occupied)
+        self.assertTrue(old_seat.abandoned)
+        self.assertIsNone(self.repository.active_for_user("missing-user"))
+        active = self.repository.active_for_user("returning-user")
+        self.assertIsNotNone(active)
+        self.assertEqual(active[0].session_id, second.session_id)
 
     def test_presence_counts_only_authenticated_user_rows(self) -> None:
         self.repository.mark_presence("user-1", now=100)
@@ -256,7 +348,7 @@ class PostgresLobbyRepositoryTests(unittest.TestCase):
         return repository
 
     def test_seat_claim_is_one_conditional_update_in_a_transaction(self) -> None:
-        connection = FakeConnection([FakeResult(row=(2,)), FakeResult()])
+        connection = FakeConnection([FakeResult(), FakeResult(row=(2,)), FakeResult()])
         repository = self.repository(connection)
 
         repository.occupy_seat(
@@ -267,7 +359,7 @@ class PostgresLobbyRepositoryTests(unittest.TestCase):
             now=123.0,
         )
 
-        claim_sql, claim_parameters = connection.executions[0]
+        claim_sql, claim_parameters = connection.executions[1]
         self.assertIn("and controller = 'human' and not occupied", claim_sql)
         self.assertIn("returning player_id", claim_sql)
         self.assertEqual(claim_parameters[-1], 2)

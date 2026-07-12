@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import json
 import tempfile
 import threading
 import time
 import unittest
-import urllib.error
-import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -14,8 +11,7 @@ from server.kolkhoz_server.events import EventHub
 from server.kolkhoz_server.ai import AutomaticAdvancer, ModelCache
 from server.kolkhoz_server.distributed import SessionLease
 from server.kolkhoz_server.errors import ServerError
-from server.kolkhoz_server.gateway import Gateway
-from server.kolkhoz_server.runtime import GameRuntime
+from server.kolkhoz_server.runtime import GameRuntime, GatewayRuntimeContext
 from server.kolkhoz_server.store import (
     ConnectionPool,
     RevisionConflict,
@@ -122,6 +118,15 @@ class RuntimeTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
+
+    def test_gateway_runtime_context_has_no_engine_shards(self) -> None:
+        store = SQLiteEventStore(self.database)
+        context = GatewayRuntimeContext(store, EventHub(), "gateway-a")
+
+        self.assertEqual(context.metrics_state()["shards"], 0)
+        self.assertEqual(context.owner_id, "gateway-a")
+        context.close()
+        store.close()
 
     def test_create_is_idempotent_for_lifecycle_reconciliation(self) -> None:
         runtime = GameRuntime(
@@ -286,6 +291,23 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(state.state["value"], 11)
         self.assertEqual(events[-1].payload["source"], "automatic")
 
+    def test_human_turn_automatic_check_does_not_renew_session_lease(self) -> None:
+        leases = FakeLeaseRepository()
+        runtime = GameRuntime(
+            SQLiteEventStore(self.database),
+            engine_factory=AutomaticFakeFactory(),
+            shard_count=1,
+            automatic_advancer=AutomaticAdvancer(ModelCache({}, lambda path: object())),
+            lease_repository=leases,
+        )
+        try:
+            runtime.create_game(seed=0, session_id="human-turn")
+            renewals = leases.renew_calls
+            self.assertEqual(runtime.advance_automatic("human-turn"), 0)
+            self.assertEqual(leases.renew_calls, renewals)
+        finally:
+            runtime.close()
+
     def test_distributed_lease_allows_only_one_mutating_runtime_owner(self) -> None:
         leases = FakeLeaseRepository()
         first = GameRuntime(
@@ -386,6 +408,7 @@ class FakeLeaseRepository:
     def __init__(self) -> None:
         self.current: dict[str, SessionLease] = {}
         self.tokens: dict[str, int] = {}
+        self.renew_calls = 0
 
     def acquire(
         self, session_id: str, owner_id: str, ttl: timedelta
@@ -405,6 +428,7 @@ class FakeLeaseRepository:
         return lease
 
     def renew(self, lease: SessionLease, ttl: timedelta) -> SessionLease | None:
+        self.renew_calls += 1
         if self.current.get(lease.session_id) != lease:
             return None
         renewed = SessionLease(
@@ -421,79 +445,6 @@ class FakeLeaseRepository:
             return False
         self.current.pop(lease.session_id)
         return True
-
-
-class GatewayTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.temporary = tempfile.TemporaryDirectory()
-        database = Path(self.temporary.name) / "gateway.sqlite3"
-        self.runtime = GameRuntime(
-            SQLiteEventStore(database),
-            engine_factory=FakeEngineFactory(),
-            shard_count=2,
-        )
-        self.server = Gateway(("127.0.0.1", 0), self.runtime)
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.thread.start()
-        self.base_url = f"http://127.0.0.1:{self.server.server_port}"
-
-    def tearDown(self) -> None:
-        self.server.shutdown()
-        self.server.server_close()
-        self.runtime.close()
-        self.thread.join(timeout=2)
-        self.temporary.cleanup()
-
-    def request(
-        self, method: str, path: str, body: dict[str, object] | None = None
-    ) -> tuple[int, dict[str, object]]:
-        data = None if body is None else json.dumps(body).encode()
-        request = urllib.request.Request(
-            self.base_url + path,
-            data=data,
-            method=method,
-            headers={"content-type": "application/json"},
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=2) as response:
-                payload = response.read()
-                return response.status, json.loads(payload) if payload else {}
-        except urllib.error.HTTPError as error:
-            try:
-                return error.code, json.loads(error.read())
-            finally:
-                error.close()
-
-    def test_http_create_read_action_and_conflict_contract(self) -> None:
-        status, created = self.request("POST", "/games", {"seed": 5})
-        session_id = str(created["session_id"])
-        action_path = f"/games/{session_id}/actions"
-        accepted, update = self.request(
-            "POST", action_path, {"expectedRevision": 0, "action": {"delta": 2}}
-        )
-        conflict, stale = self.request(
-            "POST", action_path, {"expectedRevision": 0, "action": {"delta": 2}}
-        )
-        read_status, state = self.request("GET", f"/games/{session_id}")
-
-        self.assertEqual(status, 201)
-        self.assertEqual(accepted, 200)
-        self.assertEqual(update["revision"], 1)
-        self.assertEqual(conflict, 409)
-        self.assertEqual(stale["currentRevision"], 1)
-        self.assertEqual(read_status, 200)
-        self.assertEqual(state["state"]["value"], 7)
-
-    def test_health_metrics_and_options_match_operational_contract(self) -> None:
-        health_status, health = self.request("GET", "/health")
-        metrics_status, metrics = self.request("GET", "/metrics")
-        options_status, _ = self.request("OPTIONS", "/games")
-
-        self.assertEqual(health_status, 200)
-        self.assertEqual(health["status"], "ok")
-        self.assertEqual(metrics_status, 200)
-        self.assertIn("GET /health", metrics["routes"])
-        self.assertEqual(options_status, 204)
 
 
 if __name__ == "__main__":

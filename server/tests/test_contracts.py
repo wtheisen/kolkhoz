@@ -24,7 +24,6 @@ from server.kolkhoz_server.contracts import (
     optional_int,
     privacy_safe_action_log,
     snapshot_json,
-    update_json,
     variants_native,
 )
 from server.kolkhoz_server.errors import ServerError
@@ -171,33 +170,7 @@ class ProjectionContractTests(unittest.TestCase):
             self.engine.free_engine(pointer)
         self.assertEqual(viewed["exiledPlayers"][2], {"suit": 2, "values": [1, 3]})
 
-    def test_update_and_listing_keep_flutter_envelope_names(self) -> None:
-        snapshot = {"phase": 2, "waitingPlayer": 0}
-        action = KCAction(0, 0, 1, KCCard(-1, 0), KCCard(-1, 0), KCCard(-1, 0), -1, -1)
-        update = update_json(
-            session_id="s",
-            seed=4,
-            invite_code="invite",
-            viewer_id=0,
-            actions=[],
-            started=True,
-            lobby_countdown_ends_at=None,
-            reactions=[],
-            variants=DEFAULT_VARIANTS,
-            controllers=["human"] * 4,
-            ranked=False,
-            browser_joinable=True,
-            player_profiles=[],
-            seat_presence=[],
-            turn_player_id=0,
-            turn_deadline_at=12.0,
-            snapshot=snapshot,
-            legal_actions=[action],
-        )
-        self.assertTrue(update["isViewerTurn"])
-        self.assertEqual(update["legalActions"], [action_to_json(action)])
-        self.assertEqual(update["actionLogCount"], 0)
-
+    def test_listing_keeps_flutter_envelope_names(self) -> None:
         listing = listing_json(
             session_id="s",
             invite_code="invite",

@@ -260,6 +260,7 @@ class RedisStreamsCommandBroker:
         self,
         client: Any,
         *,
+        response_client: Any | None = None,
         namespace: str = "kolkhoz:commands",
         partition_count: int = 256,
         max_stream_length: int = 100_000,
@@ -269,6 +270,7 @@ class RedisStreamsCommandBroker:
         metrics: ServerMetrics | None = None,
     ) -> None:
         self._client = client
+        self._response_client = response_client or client
         self._namespace = namespace.rstrip(":")
         self.partition_count = partition_count
         self._max_stream_length = max_stream_length
@@ -283,15 +285,13 @@ class RedisStreamsCommandBroker:
     def from_url(cls, url: str, **kwargs: Any) -> RedisStreamsCommandBroker:
         import redis
 
-        return cls(
-            redis.Redis.from_url(
-                url,
-                decode_responses=True,
-                socket_connect_timeout=0.5,
-                socket_timeout=0.5,
-            ),
-            **kwargs,
+        client = redis.Redis.from_url(
+            url, decode_responses=True, socket_connect_timeout=0.5, socket_timeout=0.5
         )
+        response_client = redis.Redis.from_url(
+            url, decode_responses=True, socket_connect_timeout=0.5, socket_timeout=15
+        )
+        return cls(client, response_client=response_client, **kwargs)
 
     def publish(self, command: GameCommand) -> None:
         partition = session_partition(command.session_id, self.partition_count)
@@ -316,6 +316,58 @@ class RedisStreamsCommandBroker:
     def readiness_check(self) -> None:
         if not self._client.ping():
             raise RuntimeError("Redis command broker ping failed")
+
+    def acquire_partitions(
+        self, owner_id: str, partitions: tuple[int, ...], ttl_seconds: int
+    ) -> bool:
+        acquired: list[int] = []
+        script = """
+        local current = redis.call('GET', KEYS[1])
+        if current and current ~= ARGV[1] then return false end
+        redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
+        return true
+        """
+        for partition in partitions:
+            if not self._client.eval(
+                script,
+                1,
+                self._partition_owner_key(partition),
+                owner_id,
+                ttl_seconds,
+            ):
+                self.release_partitions(owner_id, tuple(acquired))
+                return False
+            acquired.append(partition)
+        return True
+
+    def renew_partitions(
+        self, owner_id: str, partitions: tuple[int, ...], ttl_seconds: int
+    ) -> bool:
+        script = """
+        if redis.call('GET', KEYS[1]) ~= ARGV[1] then return false end
+        redis.call('EXPIRE', KEYS[1], ARGV[2])
+        return true
+        """
+        return all(
+            self._client.eval(
+                script,
+                1,
+                self._partition_owner_key(partition),
+                owner_id,
+                ttl_seconds,
+            )
+            for partition in partitions
+        )
+
+    def release_partitions(self, owner_id: str, partitions: tuple[int, ...]) -> None:
+        script = """
+        if redis.call('GET', KEYS[1]) == ARGV[1] then
+          return redis.call('DEL', KEYS[1])
+        end
+        return 0
+        """
+        for partition in partitions:
+            self._client.eval(script, 1, self._partition_owner_key(partition), owner_id)
 
     def receive(
         self, partition: int, consumer_id: str, timeout_seconds: float
@@ -359,11 +411,13 @@ class RedisStreamsCommandBroker:
         return delivery
 
     def acknowledge(self, delivery: CommandDelivery) -> None:
+        stream = self._stream(delivery.partition)
         self._client.xack(
-            self._stream(delivery.partition),
+            stream,
             self._group(delivery.partition),
             delivery.delivery_id,
         )
+        self._client.xdel(stream, delivery.delivery_id)
 
     def retry_or_dead_letter(self, delivery: CommandDelivery, error: str) -> bool:
         if delivery.attempts >= self._max_attempts:
@@ -398,6 +452,9 @@ class RedisStreamsCommandBroker:
         key = self._result_key(result.command_id)
         encoded = _encode_result(result)
         if self._client.set(key, encoded, nx=True, ex=self._result_ttl):
+            notification = self._notification_key(result.command_id)
+            self._client.rpush(notification, "ready")
+            self._client.expire(notification, self._result_ttl)
             return result
         existing = self.result(result.command_id)
         return existing if existing is not None else result
@@ -409,14 +466,12 @@ class RedisStreamsCommandBroker:
     def wait_for_result(
         self, command_id: str, timeout_seconds: float
     ) -> CommandResult | None:
-        deadline = time.monotonic() + max(0.0, timeout_seconds)
-        delay = 0.005
-        while time.monotonic() < deadline:
-            result = self.result(command_id)
-            if result is not None:
-                return result
-            time.sleep(min(delay, max(0.0, deadline - time.monotonic())))
-            delay = min(delay * 2, 0.05)
+        result = self.result(command_id)
+        if result is not None or timeout_seconds <= 0:
+            return result
+        self._response_client.blpop(
+            self._notification_key(command_id), timeout=timeout_seconds
+        )
         return self.result(command_id)
 
     def _ensure_group(self, partition: int) -> None:
@@ -447,6 +502,12 @@ class RedisStreamsCommandBroker:
 
     def _result_key(self, command_id: str) -> str:
         return f"{self._namespace}:result:{command_id}"
+
+    def _notification_key(self, command_id: str) -> str:
+        return f"{self._namespace}:completion:{command_id}"
+
+    def _partition_owner_key(self, partition: int) -> str:
+        return f"{self._namespace}:owner:{partition}"
 
     def _bounded_xadd(self, stream: str, encoded: str, attempts: int) -> bool:
         # MAXLEN trimming is not safe here: it can discard an entry that has not
@@ -494,13 +555,33 @@ class CommandWorker:
         self._handler = handler
         self._after_handler = after_handler
         self._stop = threading.Event()
+        self._next_partition = 0
+
+    @property
+    def broker(self) -> CommandBroker:
+        return self._broker
+
+    @property
+    def consumer_id(self) -> str:
+        return self._consumer_id
+
+    @property
+    def partitions(self) -> tuple[int, ...]:
+        return self._partitions
 
     def run_once(self, timeout_seconds: float = 0.0) -> bool:
         per_partition = timeout_seconds / len(self._partitions)
-        for partition in self._partitions:
+        ordered = (
+            self._partitions[self._next_partition :]
+            + self._partitions[: self._next_partition]
+        )
+        for offset, partition in enumerate(ordered):
             delivery = self._broker.receive(partition, self._consumer_id, per_partition)
             if delivery is None:
                 continue
+            self._next_partition = (self._next_partition + offset + 1) % len(
+                self._partitions
+            )
             cached = self._broker.result(delivery.command.command_id)
             if cached is not None:
                 self._broker.acknowledge(delivery)
@@ -542,29 +623,71 @@ class CommandWorker:
 class CommandWorkerService:
     """Own the production consumer thread and its bounded shutdown."""
 
-    def __init__(self, worker: CommandWorker, *, poll_timeout_seconds: float = 0.25):
+    def __init__(
+        self,
+        worker: CommandWorker,
+        *,
+        poll_timeout_seconds: float = 0.032,
+        ownership_ttl_seconds: int = 15,
+    ):
         self._worker = worker
         self._poll_timeout = poll_timeout_seconds
+        self._ownership_ttl = ownership_ttl_seconds
+        self._ownership_healthy = True
+        self._stop = threading.Event()
         self._thread = threading.Thread(
-            target=worker.run,
-            args=(poll_timeout_seconds,),
-            name="kolkhoz-command-worker",
-            daemon=True,
+            target=self._run, name="kolkhoz-command-worker", daemon=True
         )
 
     def start(self) -> None:
+        acquire = getattr(self._worker.broker, "acquire_partitions", None)
+        if acquire is not None and not acquire(
+            self._worker.consumer_id,
+            self._worker.partitions,
+            self._ownership_ttl,
+        ):
+            self._ownership_healthy = False
+            raise RuntimeError("command partition ownership conflict")
         self._thread.start()
 
+    @property
+    def ownership_healthy(self) -> bool:
+        return self._ownership_healthy and self._thread.is_alive()
+
+    def _run(self) -> None:
+        renew_at = time.monotonic() + self._ownership_ttl / 3
+        while not self._stop.is_set():
+            if time.monotonic() >= renew_at:
+                renew = getattr(self._worker.broker, "renew_partitions", None)
+                if renew is not None and not renew(
+                    self._worker.consumer_id,
+                    self._worker.partitions,
+                    self._ownership_ttl,
+                ):
+                    self._ownership_healthy = False
+                    return
+                renew_at = time.monotonic() + self._ownership_ttl / 3
+            try:
+                self._worker.run_once(self._poll_timeout)
+            except Exception:
+                logging.exception("command worker poll failed")
+                self._stop.wait(min(max(self._poll_timeout, 0.1), 1.0))
+
     def close(self) -> None:
+        self._stop.set()
         self._worker.stop()
         self._thread.join(timeout=max(2.0, self._poll_timeout * 2))
+        release = getattr(self._worker.broker, "release_partitions", None)
+        if release is not None:
+            release(self._worker.consumer_id, self._worker.partitions)
 
 
 class RuntimeCommandHandler:
     """Decode durable commands into the small serializable runtime mutation API."""
 
-    def __init__(self, runtime: Any) -> None:
+    def __init__(self, runtime: Any, lobby: Any | None = None) -> None:
         self._runtime = runtime
+        self._lobby = lobby
 
     def __call__(self, command: GameCommand) -> CommandResult:
         try:
@@ -608,15 +731,25 @@ class RuntimeCommandHandler:
                 if durable is None:
                     raise RuntimeError("action committed without its command receipt")
                 return _decode_durable_result(durable)
-            elif command.kind == "game.advance_automatic":
-                # This is a deterministic sequence of individually committed events.
-                # A crash may change the retry's `advanced` count, but replay/CAS
-                # prevents an already committed action from being applied twice.
-                value = {
-                    "advanced": self._runtime.advance_automatic(
-                        command.session_id, now=payload.get("now")
+            elif command.kind == "game.advance_and_state":
+                value = _update_json(
+                    self._runtime.advance_and_state(
+                        command.session_id,
+                        viewer_id=payload.get("viewerID"),
+                        now=payload.get("now"),
                     )
-                }
+                )
+            elif command.kind == "game.consume_timeout":
+                if self._lobby is None:
+                    raise RuntimeError("timeout commands require a lobby repository")
+                claim = _due_turn(payload["claim"])
+                value = _update_json(
+                    self._runtime.consume_timeout(
+                        claim,
+                        self._lobby,
+                        now=float(payload["now"]),
+                    )
+                )
             elif command.kind == "game.set_autopilot":
                 self._runtime.set_autopilot(
                     command.session_id,
@@ -688,26 +821,19 @@ class RoutedGameRuntime:
         *,
         fencing_token: int = 1,
         timeout_seconds: float = 10,
+        owns_all_partitions: bool = False,
     ) -> None:
         self._local = local_runtime
         self._client = client
         self._fencing_token = fencing_token
         self._timeout = timeout_seconds
+        self._owns_all_partitions = owns_all_partitions
         self.store = local_runtime.store
         self.hub = local_runtime.hub
         self.owner_id = local_runtime.owner_id
-        self._projectors: dict[
-            str, Callable[[Any, int, bool], Mapping[int | None, JsonObject]]
-        ] = {}
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._local, name)
-
-    def serialize(self, session_id: str, operation: Callable[[], Any]) -> Any:
-        # Metadata repositories provide their own database transactions. Closures
-        # cannot cross a process boundary and must not acquire an engine lease.
-        del session_id
-        return operation()
 
     def create_game(
         self,
@@ -746,6 +872,8 @@ class RoutedGameRuntime:
         )
 
     def state(self, session_id: str, viewer_id: int | None = None) -> Any:
+        if self._owns_all_partitions:
+            return self._local.state(session_id, viewer_id)
         return self._update(
             self._send(session_id, "game.state", {"viewerID": viewer_id})
         )
@@ -760,9 +888,23 @@ class RoutedGameRuntime:
         del session_id
         return dict(persist())
 
-    def advance_automatic(self, session_id: str, *, now: float | None = None) -> int:
-        return int(
-            self._send(session_id, "game.advance_automatic", {"now": now})["advanced"]
+    def advance_and_state(
+        self,
+        session_id: str,
+        *,
+        viewer_id: int | None = None,
+        now: float | None = None,
+    ) -> Any:
+        if self._owns_all_partitions:
+            return self._local.advance_and_state(
+                session_id, viewer_id=viewer_id, now=now
+            )
+        return self._update(
+            self._send(
+                session_id,
+                "game.advance_and_state",
+                {"viewerID": viewer_id, "now": now},
+            )
         )
 
     def set_autopilot(
@@ -774,20 +916,30 @@ class RoutedGameRuntime:
             {"playerID": player_id, "controller": controller},
         )
 
+    def consume_timeout(self, claim: Any, repository: Any, *, now: float) -> Any:
+        del repository
+        return self._update(
+            self._send(
+                claim.session_id,
+                "game.consume_timeout",
+                {
+                    "claim": {
+                        "sessionID": claim.session_id,
+                        "playerID": claim.player_id,
+                        "deadlineAt": claim.deadline_at,
+                        "claimOwner": claim.claim_owner,
+                        "fencingToken": claim.fencing_token,
+                    },
+                    "now": now,
+                },
+            )
+        )
+
     def delete_game(self, session_id: str) -> None:
         self._send(session_id, "game.delete", {})
 
     def invalidate_session(self, session_id: str) -> None:
         self._send(session_id, "game.invalidate", {})
-
-    def register_projector(
-        self,
-        session_id: str,
-        projector: Callable[[Any, int, bool], Mapping[int | None, JsonObject]],
-    ) -> None:
-        # Projectors close over gateway-side profile/lobby services and therefore
-        # cannot be serialized to the remote game worker.
-        self._projectors[session_id] = projector
 
     def updates_since(
         self,
@@ -820,22 +972,18 @@ class RoutedGameRuntime:
             # established full-resync contract for gaps outside bounded retention.
             buffer.current_revision = record.revision
         elif record.revision > after_revision:
-            projector = self._projectors.get(session_id)
-            if projector is None:
-                return {
-                    "sessionID": session_id,
-                    "actionLogCount": record.revision,
-                    "reactionLogCount": reaction_revision,
-                    "updates": [],
-                    "reactions": [],
-                    "resyncUpdate": dict(resync_update()),
-                }
-            for revision, action, projections in self._local.replay_action_projections(
-                session_id,
-                after_revision=after_revision,
-                projector=projector,
-            ):
-                buffer.record_action(revision, action, projections)
+            # Replaying the entire durable game on a gateway request can occupy a
+            # shard long enough for unrelated action commands to hit their request
+            # deadline. The authoritative snapshot is already the established
+            # recovery contract and is bounded regardless of game length.
+            return {
+                "sessionID": session_id,
+                "actionLogCount": record.revision,
+                "reactionLogCount": reaction_revision,
+                "updates": [],
+                "reactions": [],
+                "resyncUpdate": dict(resync_update()),
+            }
         return buffer.updates_since(
             after_revision,
             viewer_id,
@@ -914,6 +1062,18 @@ def _decode_durable_result(value: Mapping[str, Any]) -> CommandResult:
         ok=bool(value["ok"]),
         payload=dict(value.get("payload") or {}),
         error=str(value["error"]) if value.get("error") is not None else None,
+    )
+
+
+def _due_turn(value: Mapping[str, Any]) -> Any:
+    from .lobby import DueTurn
+
+    return DueTurn(
+        str(value["sessionID"]),
+        int(value["playerID"]),
+        float(value["deadlineAt"]),
+        str(value["claimOwner"]),
+        int(value["fencingToken"]),
     )
 
 

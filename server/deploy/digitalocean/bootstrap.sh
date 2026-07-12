@@ -42,6 +42,7 @@ if ! $apply; then
   echo "DRY RUN: would read database and Supabase auth from $SERVER_ENV without displaying values"
   echo "DRY RUN: would apply five server schemas explicitly"
   echo "DRY RUN: would install capped Redis on 127.0.0.1:$REDIS_PORT and the server on 127.0.0.1:$PORT"
+  echo "DRY RUN: would configure Caddy to bridge short upstream restart gaps"
   exit 0
 fi
 [ "$(id -u)" -eq 0 ] || { echo "--apply must run as root" >&2; exit 1; }
@@ -84,6 +85,9 @@ install -d -o redis -g redis /var/lib/redis-greenfield
 install -o root -g redis -m 0640 "$here/redis-greenfield.conf" /etc/redis/kolkhoz-greenfield.conf
 install -o root -g root -m 0644 "$here/kolkhoz-greenfield-redis.service" /etc/systemd/system/kolkhoz-greenfield-redis.service
 install -o root -g root -m 0644 "$here/kolkhoz-greenfield.service" /etc/systemd/system/kolkhoz-greenfield.service
+install -o root -g root -m 0644 "$here/Caddyfile" /etc/caddy/Caddyfile
+caddy validate --config /etc/caddy/Caddyfile
+systemctl reload caddy
 systemctl daemon-reload
 systemctl enable kolkhoz-greenfield-redis.service
 systemctl restart kolkhoz-greenfield-redis.service

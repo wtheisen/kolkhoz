@@ -34,6 +34,9 @@ class _Runtime:
             raise KeyError(session_id)
         self.store.games.remove(session_id)
 
+    def invalidate_session(self, session_id: str) -> None:
+        self.store.games.discard(session_id)
+
 
 class LifecycleReconcilerTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -157,6 +160,42 @@ class LifecycleReconcilerTests(unittest.TestCase):
                 record.session_id, 0, now=record.created_at + 1
             )
         self.assertTrue(self.repository.seats(record.session_id)[0].occupied)
+
+    def test_finished_session_durably_invalidates_runtime_cache(self) -> None:
+        record = self.create_lobby()
+        self.runtime.store.games.add(record.session_id)
+        self.repository.complete_lifecycle_intent(record.session_id, "provision")
+        self.repository.set_status(record.session_id, "active", now=record.created_at)
+
+        self.assertTrue(
+            self.repository.finish_session(
+                record.session_id,
+                now=record.created_at + 1,
+                expires_at=record.expires_at,
+            )
+        )
+        reconciler = LifecycleReconciler(self.repository, self.runtime)
+
+        self.assertEqual(reconciler.run_once(now=record.created_at + 1), 1)
+        self.assertNotIn(record.session_id, self.runtime.store.games)
+
+    def test_expired_session_is_marked_and_runtime_is_invalidated(self) -> None:
+        record = self.create_lobby()
+        self.repository.occupy_seat(
+            record.session_id,
+            0,
+            user_id="host",
+            token_hash="token",
+            now=record.created_at,
+        )
+        self.runtime.store.games.add(record.session_id)
+        self.repository.complete_lifecycle_intent(record.session_id, "provision")
+        reconciler = LifecycleReconciler(self.repository, self.runtime)
+
+        self.assertEqual(reconciler.run_once(now=record.expires_at + 1), 1)
+        self.assertEqual(self.repository.session(record.session_id).status, "expired")
+        self.assertFalse(self.repository.seats(record.session_id)[0].occupied)
+        self.assertNotIn(record.session_id, self.runtime.store.games)
 
 
 if __name__ == "__main__":

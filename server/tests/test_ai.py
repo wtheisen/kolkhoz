@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from server.kolkhoz_server.ai import (
+    AUTOMATIC_BATCH_LIMIT,
     AutomaticAdvancer,
     AutomaticState,
     ModelCache,
@@ -54,6 +55,20 @@ class FakeEngine:
 
 
 class AITests(unittest.TestCase):
+    def test_long_automatic_sequence_is_split_into_bounded_batches(self) -> None:
+        engine = FakeEngine([0] * (AUTOMATIC_BATCH_LIMIT + 2), ["heuristicAI"] * 4)
+        state = AutomaticState(
+            "game", tuple(engine.controllers), browser_joinable=False
+        )
+
+        count = AutomaticAdvancer(ModelCache({}, lambda path: object())).advance(
+            engine, state, now=0, record=lambda *_: None
+        )
+
+        self.assertEqual(count, AUTOMATIC_BATCH_LIMIT)
+        self.assertEqual(len(engine.waiting), 2)
+        self.assertEqual(state.action_count, AUTOMATIC_BATCH_LIMIT)
+
     def test_advances_multiple_automatic_players_until_human(self) -> None:
         engine = FakeEngine([0, 1, 2], ["heuristicAI", "mediumAI", "human", "human"])
         state = AutomaticState(

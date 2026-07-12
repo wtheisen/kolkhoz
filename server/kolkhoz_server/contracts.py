@@ -238,61 +238,6 @@ def snapshot_json(
     }
 
 
-def update_json(
-    *,
-    session_id: str,
-    seed: int,
-    invite_code: str,
-    viewer_id: int | None,
-    actions: Sequence[Mapping[str, object]],
-    started: bool,
-    lobby_countdown_ends_at: float | None,
-    reactions: Sequence[Mapping[str, object]],
-    variants: Mapping[str, object],
-    controllers: Sequence[str],
-    ranked: bool,
-    browser_joinable: bool,
-    player_profiles: Sequence[Mapping[str, object]],
-    seat_presence: Sequence[Mapping[str, object]],
-    turn_player_id: int | None,
-    turn_deadline_at: float | None,
-    snapshot: Mapping[str, object],
-    legal_actions: Sequence[KCAction] = (),
-) -> JsonObject:
-    game_over = int(snapshot.get("phase", -1)) == PHASE_GAME_OVER
-    waiting = snapshot.get("waitingPlayer")
-    return {
-        "sessionID": session_id,
-        "seed": seed,
-        "inviteCode": invite_code,
-        "viewerID": viewer_id,
-        "actionLogCount": len(actions),
-        "started": started,
-        "lobbyCountdownEndsAt": lobby_countdown_ends_at,
-        "gameLogActions": privacy_safe_action_log(
-            actions, viewer_id, game_over=game_over
-        ),
-        "reactions": [dict(entry) for entry in reactions],
-        "isViewerTurn": bool(
-            started and viewer_id is not None and waiting == viewer_id
-        ),
-        "legalActions": [
-            action_to_json(action)
-            for action in legal_actions
-            if action.player_id == viewer_id
-        ],
-        "variants": dict(variants),
-        "controllers": list(controllers),
-        "ranked": ranked,
-        "browserJoinable": browser_joinable,
-        "playerProfiles": [dict(profile) for profile in player_profiles],
-        "seatPresence": [dict(presence) for presence in seat_presence],
-        "turnPlayerID": turn_player_id,
-        "turnDeadlineAt": turn_deadline_at,
-        "snapshot": dict(snapshot),
-    }
-
-
 def listing_json(
     *,
     session_id: str,

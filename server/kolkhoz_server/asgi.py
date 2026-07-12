@@ -52,6 +52,10 @@ class ASGIApplication:
         self.metrics = metrics or ServerMetrics()
         self.readiness = readiness
         self.readiness_timeout_seconds = readiness_timeout_seconds
+        self._catch_up_tasks: dict[
+            tuple[str, str, str], asyncio.Task[dict[str, Any]]
+        ] = {}
+        self._catch_up_lock = asyncio.Lock()
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
         if scope["type"] == "http":
@@ -207,7 +211,7 @@ class ASGIApplication:
             await send({"type": "websocket.accept"})
             await _send_json(send, {"type": "state", "update": state})
             if 0 <= after_revision < current_revision:
-                catch_up = await self._dispatch_get(
+                catch_up = await self._coalesced_catch_up(
                     f"/sessions/{match}/actions?viewerID={viewer_id}"
                     f"&afterRevision={after_revision}",
                     headers,
@@ -288,7 +292,7 @@ class ASGIApplication:
                 highest = max(int(item.payload.get("revision", 0)) for item in messages)
                 if highest <= revision:
                     continue
-                updates = await self._dispatch_get(
+                updates = await self._coalesced_catch_up(
                     f"/sessions/{session_id}/actions?viewerID={viewer_id}"
                     f"&afterRevision={revision}",
                     headers,
@@ -314,6 +318,27 @@ class ASGIApplication:
         if not isinstance(response.body, dict):
             raise ServerError(HTTPStatus.INTERNAL_SERVER_ERROR, "invalid server state")
         return response.body
+
+    async def _coalesced_catch_up(
+        self, target: str, headers: Mapping[str, str]
+    ) -> dict[str, Any]:
+        key = (
+            target,
+            _header(headers, "authorization") or "",
+            _header(headers, "x-kolkhoz-seat-token") or "",
+        )
+        async with self._catch_up_lock:
+            task = self._catch_up_tasks.get(key)
+            if task is None:
+                task = asyncio.create_task(self._dispatch_get(target, headers))
+                self._catch_up_tasks[key] = task
+        try:
+            return await asyncio.shield(task)
+        finally:
+            if task.done():
+                async with self._catch_up_lock:
+                    if self._catch_up_tasks.get(key) is task:
+                        self._catch_up_tasks.pop(key, None)
 
     @staticmethod
     async def _http_response(send: Any, status: int, value: object) -> None:

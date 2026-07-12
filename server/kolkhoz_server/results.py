@@ -70,7 +70,20 @@ class RatingOutput:
 
 
 class ResultsRepository(Protocol):
-    def finish_session(
+    def recent_games(self, *, user_id: str, limit: int = 5) -> list[Result]: ...
+
+    def session_results(self, *, session_id: str, user_id: str) -> list[Result]: ...
+
+    def claim_daily_attempt(
+        self, *, challenge_date: str, user_id: str, session_id: str
+    ) -> bool: ...
+
+    def daily_challenge(self, *, challenge_date: str, user_id: str) -> Result: ...
+    def create_series(self, *, session_id: str, best_of: int) -> Result: ...
+    def continue_series(self, *, source_session_id: str, session_id: str) -> Result | None: ...
+    def series_status(self, *, session_id: str) -> Result | None: ...
+
+    def record_session_results(
         self,
         *,
         session_id: str,
@@ -84,14 +97,13 @@ class ResultsRepository(Protocol):
         self, *, user_id: str, checked_at: float
     ) -> dict[str, object] | None: ...
 
-    def abandon_seat(
+    def record_abandonment(
         self,
         *,
         session_id: str,
         player_id: int,
         user_id: str | None,
         updated_at: float,
-        expires_at: float,
         revision: int,
     ) -> dict[str, object] | None: ...
 
@@ -114,7 +126,11 @@ class PostgresResultsRepository:
     ) -> None:
         if pool is not None:
             self._pool = pool
-            self._json_value = json_value or (lambda value: value)
+            if json_value is None:
+                from psycopg.types.json import Jsonb
+
+                json_value = Jsonb
+            self._json_value = json_value
             self._owns_pool = False
             return
         if not database_url:
@@ -166,27 +182,18 @@ class PostgresResultsRepository:
             return None
         return {"strikes": int(row[0]), "banned_until": row[1].timestamp()}
 
-    def abandon_seat(
+    def record_abandonment(
         self,
         *,
         session_id: str,
         player_id: int,
         user_id: str | None,
         updated_at: float,
-        expires_at: float,
         revision: int,
     ) -> dict[str, object] | None:
         now = _timestamp(updated_at)
         penalty = None
         with self._cursor() as cursor:
-            cursor.execute(
-                """update server_seats
-                      set abandoned = true, autopilot = true,
-                          timeouts = greatest(timeouts, 2),
-                          last_seen_at = %s
-                    where session_id = %s and player_id = %s""",
-                (now, session_id, player_id),
-            )
             if user_id:
                 self._ensure_human(cursor, user_id, now)
                 cursor.execute(
@@ -209,16 +216,10 @@ class PostgresResultsRepository:
                             row[1].timestamp() if row[1] is not None else None
                         ),
                     }
-            cursor.execute(
-                """update server_sessions
-                      set updated_at = %s, expires_at = %s
-                    where session_id = %s""",
-                (now, _timestamp(expires_at), session_id),
-            )
             self._insert_update(cursor, session_id, revision, "abandoned", now)
         return penalty
 
-    def finish_session(
+    def record_session_results(
         self,
         *,
         session_id: str,
@@ -227,15 +228,14 @@ class PostgresResultsRepository:
         updated_at: float,
         expires_at: float,
     ) -> bool:
-        """Persist a complete result exactly once; return False for a retry."""
+        """Persist a complete result exactly once; lifecycle belongs to lobby."""
         now = _timestamp(updated_at)
         with self._cursor() as cursor:
             cursor.execute(
-                """update server_sessions
-                      set status = 'finished', updated_at = %s, expires_at = %s
-                    where session_id = %s and status <> 'finished'
+                """insert into server_result_commits (session_id, recorded_at)
+                   values (%s, %s) on conflict (session_id) do nothing
                 returning session_id""",
-                (now, _timestamp(expires_at), session_id),
+                (session_id, now),
             )
             if cursor.fetchone() is None:
                 return False
@@ -245,6 +245,23 @@ class PostgresResultsRepository:
                 user_id = _user_id(result)
                 assert user_id is not None
                 self._ensure_human(cursor, user_id, now)
+                cursor.execute(
+                    """insert into server_game_results (
+                           session_id, user_id, player_id, score, rank, won,
+                           ranked, completed_at
+                       ) values (%s, %s, %s, %s, %s, %s, %s, %s)
+                       on conflict (session_id, user_id) do nothing""",
+                    (
+                        session_id,
+                        user_id,
+                        int(result.get("player_id", 0)),
+                        int(result.get("score", 0)),
+                        int(result.get("rank", 4)),
+                        bool(result.get("won", False)),
+                        ranked,
+                        now,
+                    ),
+                )
                 self._record_progression(
                     cursor,
                     session_id=session_id,
@@ -294,7 +311,232 @@ class PostgresResultsRepository:
                     updated_at=now,
                 )
             self._insert_update(cursor, session_id, None, "finished", now)
+            self._record_series_round(cursor, session_id, results, now)
         return True
+
+    def create_series(self, *, session_id: str, best_of: int) -> Result:
+        if best_of not in (3, 5):
+            raise ValueError("best_of must be 3 or 5")
+        series_id = str(__import__("uuid").uuid4())
+        with self._cursor() as cursor:
+            cursor.execute(
+                "insert into server_series (series_id, best_of) values (%s, %s)",
+                (series_id, best_of),
+            )
+            cursor.execute(
+                """insert into server_series_rounds
+                          (series_id, round_number, session_id)
+                   values (%s, 1, %s)""",
+                (series_id, session_id),
+            )
+        return self.series_status(session_id=session_id) or {}
+
+    def continue_series(
+        self, *, source_session_id: str, session_id: str
+    ) -> Result | None:
+        with self._cursor() as cursor:
+            cursor.execute(
+                """select r.series_id, r.round_number, s.completed
+                     from server_series_rounds r join server_series s using (series_id)
+                    where r.session_id = %s""",
+                (source_session_id,),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                return None
+            if bool(row[2]):
+                raise ValueError("series is complete")
+            cursor.execute(
+                """insert into server_series_rounds
+                          (series_id, round_number, session_id)
+                   values (%s, %s, %s)""",
+                (row[0], int(row[1]) + 1, session_id),
+            )
+        return self.series_status(session_id=session_id)
+
+    def series_status(self, *, session_id: str) -> Result | None:
+        with self._cursor() as cursor:
+            cursor.execute(
+                """select s.series_id::text, s.best_of, s.completed,
+                          s.winner_player_id, current.round_number
+                     from server_series_rounds current
+                     join server_series s using (series_id)
+                    where current.session_id = %s""",
+                (session_id,),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                return None
+            cursor.execute(
+                """select winner_player_id, count(*)
+                     from server_series_rounds
+                    where series_id = %s and completed_at is not null
+                      and winner_player_id is not null
+                    group by winner_player_id""",
+                (row[0],),
+            )
+            wins = {str(int(value[0])): int(value[1]) for value in cursor.fetchall()}
+        return {
+            "seriesID": row[0], "bestOf": int(row[1]),
+            "completed": bool(row[2]), "winnerPlayerID": row[3],
+            "roundNumber": int(row[4]), "wins": wins,
+        }
+
+    def _record_series_round(
+        self, cursor: object, session_id: str, results: list[Result], now: datetime
+    ) -> None:
+        winner = next((value for value in results if bool(value.get("won"))), None)
+        cursor.execute(
+            """update server_series_rounds
+                  set winner_player_id = %s, scores = %s, completed_at = %s
+                where session_id = %s and completed_at is null
+            returning series_id""",
+            (
+                None if winner is None else int(winner.get("player_id", 0)),
+                self._json_value([
+                    {"playerID": int(value.get("player_id", 0)),
+                     "score": int(value.get("score", 0))}
+                    for value in results
+                ]),
+                now, session_id,
+            ),
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return
+        series_id = row[0]
+        cursor.execute(
+            """select s.best_of, r.winner_player_id, count(*)
+                 from server_series s join server_series_rounds r using (series_id)
+                where s.series_id = %s and r.completed_at is not null
+                  and r.winner_player_id is not null
+                group by s.best_of, r.winner_player_id
+                order by count(*) desc limit 1""",
+            (series_id,),
+        )
+        standing = cursor.fetchone()
+        if standing is None or int(standing[2]) < int(standing[0]) // 2 + 1:
+            return
+        cursor.execute(
+            """update server_series set completed = true, winner_player_id = %s,
+                      updated_at = %s where series_id = %s""",
+            (int(standing[1]), now, series_id),
+        )
+
+    def recent_games(self, *, user_id: str, limit: int = 5) -> list[Result]:
+        with self._cursor() as cursor:
+            cursor.execute(
+                """select session_id::text, player_id, score, rank, won, ranked,
+                          extract(epoch from completed_at)
+                     from server_game_results
+                    where user_id = %s
+                    order by completed_at desc
+                    limit %s""",
+                (user_id, max(1, min(limit, 20))),
+            )
+            rows = cursor.fetchall()
+        return [
+            {
+                "sessionID": row[0],
+                "playerID": int(row[1]),
+                "score": int(row[2]),
+                "rank": int(row[3]),
+                "won": bool(row[4]),
+                "ranked": bool(row[5]),
+                "completedAt": float(row[6]),
+            }
+            for row in rows
+        ]
+
+    def session_results(self, *, session_id: str, user_id: str) -> list[Result]:
+        with self._cursor() as cursor:
+            cursor.execute(
+                """select r.player_id, r.score, r.rank, r.won, r.ranked,
+                          extract(epoch from r.completed_at), r.user_id::text,
+                          coalesce(p.display_name, 'Player')
+                     from server_game_results r
+                     left join public.profiles p on p.user_id = r.user_id
+                    where r.session_id = %s
+                      and exists (
+                        select 1 from server_game_results mine
+                         where mine.session_id = r.session_id and mine.user_id = %s
+                      )
+                    order by r.player_id""",
+                (session_id, user_id),
+            )
+            rows = cursor.fetchall()
+        return [
+            {
+                "playerID": int(row[0]), "score": int(row[1]),
+                "rank": int(row[2]), "won": bool(row[3]),
+                "ranked": bool(row[4]), "completedAt": float(row[5]),
+                "userID": row[6], "displayName": row[7],
+            }
+            for row in rows
+        ]
+
+    def claim_daily_attempt(
+        self, *, challenge_date: str, user_id: str, session_id: str
+    ) -> bool:
+        with self._cursor() as cursor:
+            self._ensure_human(cursor, user_id, datetime.now(timezone.utc))
+            cursor.execute(
+                """insert into server_daily_challenge_attempts
+                          (challenge_date, user_id, session_id)
+                   values (%s::date, %s, %s) on conflict (session_id) do nothing
+                returning session_id""",
+                (challenge_date, user_id, session_id),
+            )
+            return cursor.fetchone() is not None
+
+    def daily_challenge(self, *, challenge_date: str, user_id: str) -> Result:
+        with self._cursor() as cursor:
+            cursor.execute(
+                """select a.session_id::text, r.score, r.rank,
+                          extract(epoch from r.completed_at)
+                     from server_daily_challenge_attempts a
+                     left join server_game_results r
+                       on r.session_id = a.session_id and r.user_id = a.user_id
+                    where a.challenge_date = %s::date and a.user_id = %s
+                    order by r.score desc nulls last, r.completed_at asc nulls last
+                    limit 1""",
+                (challenge_date, user_id),
+            )
+            mine = cursor.fetchone()
+            cursor.execute(
+                """select coalesce(p.display_name, 'Player'), max(r.score),
+                          min(r.completed_at) filter (
+                            where r.score = best.best_score
+                          )
+                     from server_daily_challenge_attempts a
+                     join server_game_results r
+                       on r.session_id = a.session_id and r.user_id = a.user_id
+                     left join public.profiles p on p.user_id = a.user_id
+                     join lateral (
+                       select max(r2.score) as best_score
+                         from server_daily_challenge_attempts a2
+                         join server_game_results r2
+                           on r2.session_id = a2.session_id and r2.user_id = a2.user_id
+                        where a2.challenge_date = a.challenge_date
+                          and a2.user_id = a.user_id
+                     ) best on true
+                    where a.challenge_date = %s::date
+                    group by a.user_id, p.display_name, best.best_score
+                    order by max(r.score) desc, min(r.completed_at) asc limit 20""",
+                (challenge_date,),
+            )
+            leaders = cursor.fetchall()
+        return {
+            "attempt": None if mine is None else {
+                "sessionID": mine[0], "score": mine[1], "rank": mine[2],
+                "completedAt": None if mine[3] is None else float(mine[3]),
+            },
+            "leaders": [
+                {"displayName": row[0], "score": int(row[1]),
+                 "completedAt": float(row[2])}
+                for row in leaders
+            ],
+        }
 
     def _ensure_human(self, cursor: object, user_id: str, now: datetime) -> None:
         cursor.execute(

@@ -1,16 +1,12 @@
 from __future__ import annotations
 
-import json
 import tempfile
-import threading
 import unittest
-import urllib.error
-import urllib.request
 from pathlib import Path
 
-from server.kolkhoz_server.api import OnlineApplication
+from server.kolkhoz_server.api import OnlineApplication, Request
 from server.kolkhoz_server.auth import StaticAuthVerifier
-from server.kolkhoz_server.gateway import Gateway
+from server.kolkhoz_server.errors import ServerError
 from server.kolkhoz_server.lobby import SQLiteLobbyRepository
 from server.kolkhoz_server.runtime import GameRuntime
 from server.kolkhoz_server.store import SQLiteEventStore
@@ -20,16 +16,76 @@ from server.tests.test_runtime import FakeEngineFactory
 class FakeResults:
     def __init__(self) -> None:
         self.abandoned: list[tuple[str, int]] = []
+        self.recorded: list[str] = []
+        self.series_by_session: dict[str, dict[str, object]] = {}
 
-    def abandon_seat(self, **values: object) -> dict[str, object]:
+    def record_abandonment(self, **values: object) -> dict[str, object]:
         self.abandoned.append((str(values["session_id"]), int(values["player_id"])))
         return {"strikes": 1, "banned_until": None}
 
-    def finish_session(self, **values: object) -> bool:
+    def record_session_results(self, **values: object) -> bool:
+        self.recorded.append(str(values["session_id"]))
         return True
 
     def online_ban_for_user(self, **values: object) -> None:
         return None
+
+    def recent_games(self, **values: object) -> list[dict[str, object]]:
+        return [
+            {
+                "sessionID": "recent-game",
+                "playerID": 1,
+                "score": 123,
+                "rank": 2,
+                "won": False,
+                "ranked": True,
+                "completedAt": 1000.0,
+            }
+        ]
+
+    def session_results(self, **values: object) -> list[dict[str, object]]:
+        return [
+            {
+                "playerID": 0,
+                "userID": "host",
+                "score": 100,
+                "rank": 1,
+                "won": True,
+                "ranked": False,
+                "completedAt": 1000.0,
+                "displayName": "Host",
+            }
+        ]
+
+    def daily_challenge(self, **values: object) -> dict[str, object]:
+        return {
+            "attempt": {"sessionID": "old", "score": 140},
+            "leaders": [{"displayName": "Host", "score": 140}],
+        }
+
+    def claim_daily_attempt(self, **values: object) -> bool:
+        return True
+
+    def create_series(self, *, session_id: str, best_of: int) -> dict[str, object]:
+        value = {
+            "seriesID": "series-1", "bestOf": best_of, "roundNumber": 1,
+            "completed": False, "winnerPlayerID": None, "wins": {},
+        }
+        self.series_by_session[session_id] = value
+        return value
+
+    def series_status(self, *, session_id: str) -> dict[str, object] | None:
+        return self.series_by_session.get(session_id)
+
+    def continue_series(
+        self, *, source_session_id: str, session_id: str
+    ) -> dict[str, object] | None:
+        source = self.series_by_session.get(source_session_id)
+        if source is None:
+            return None
+        value = {**source, "roundNumber": int(source["roundNumber"]) + 1}
+        self.series_by_session[session_id] = value
+        return value
 
 
 class CompatibilityApiTests(unittest.TestCase):
@@ -48,19 +104,107 @@ class CompatibilityApiTests(unittest.TestCase):
             lobby_countdown_seconds=0,
             results=FakeResults(),
         )
-        self.server = Gateway(
-            ("127.0.0.1", 0), self.runtime, application=self.application
-        )
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.thread.start()
-        self.base_url = f"http://127.0.0.1:{self.server.server_port}"
 
     def tearDown(self) -> None:
-        self.server.shutdown()
-        self.server.server_close()
         self.runtime.close()
-        self.thread.join(timeout=2)
         self.temporary.cleanup()
+
+    def test_recent_results_require_auth_and_return_last_games(self) -> None:
+        status, _ = self.request("GET", "/results/recent")
+        self.assertEqual(status, 401)
+        status, body = self.request("GET", "/results/recent", bearer="host-token")
+        self.assertEqual(status, 200)
+        self.assertEqual(body["games"][0]["sessionID"], "recent-game")
+
+    def test_daily_challenge_returns_shared_seed_and_personal_best(self) -> None:
+        status, body = self.request("GET", "/challenges/daily", bearer="host-token")
+        self.assertEqual(status, 200)
+        self.assertIsInstance(body["seed"], int)
+        self.assertEqual(body["attempt"]["score"], 140)
+
+    def test_best_of_format_is_persisted_in_session_update(self) -> None:
+        status, created = self.request(
+            "POST",
+            "/sessions",
+            {
+                "controllers": ["human", "heuristicAI", "heuristicAI", "heuristicAI"],
+                "bestOf": 3,
+            },
+            bearer="host-token",
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(created["series"]["bestOf"], 3)
+        self.assertEqual(created["update"]["series"]["roundNumber"], 1)
+
+    def test_ranked_games_reject_rematch(self) -> None:
+        _, created = self.request(
+            "POST",
+            "/sessions",
+            {"controllers": ["human", "heuristicAI", "heuristicAI", "heuristicAI"]},
+            bearer="host-token",
+        )
+        self.application.lobby.set_ranked(created["sessionID"], True, now=1.0)
+        status, body = self.request(
+            "POST", f"/results/{created['sessionID']}/rematch", bearer="host-token"
+        )
+        self.assertEqual(status, 409)
+        self.assertIn("ranked games cannot be rematched", body["error"])
+
+    def test_public_casual_game_can_be_spectated_without_actions(self) -> None:
+        _, created = self.request(
+            "POST",
+            "/sessions",
+            {
+                "controllers": [
+                    "human", "heuristicAI", "heuristicAI", "heuristicAI"
+                ],
+                "browserJoinable": True,
+            },
+            bearer="host-token",
+        )
+        session_id = created["sessionID"]
+        status, update = self.request("GET", f"/sessions/{session_id}/spectate")
+        self.assertEqual(status, 200)
+        self.assertTrue(update["spectator"])
+        self.assertEqual(update["legalActions"], [])
+        self.assertIsNone(update["viewerID"])
+
+        self.application.lobby.set_ranked(session_id, True, now=2.0)
+        status, _ = self.request("GET", f"/sessions/{session_id}/spectate")
+        self.assertEqual(status, 403)
+
+    def test_gameplay_gets_do_not_mutate_session_state(self) -> None:
+        status, created = self.request(
+            "POST",
+            "/sessions",
+            {
+                "seed": 10,
+                "controllers": ["human", "heuristicAI", "heuristicAI", "heuristicAI"],
+            },
+            bearer="host-token",
+        )
+        self.assertEqual(status, 200)
+        session_id = created["sessionID"]
+        before_game = self.runtime.store.game(session_id)
+        before_session = self.application.lobby.session(session_id)
+        before_turn = self.application.lobby.turn_state(session_id)
+        before_results = list(self.application.results.recorded)
+
+        for _ in range(3):
+            read_status, _ = self.request(
+                "GET",
+                f"/sessions/{session_id}/state?viewerID=0",
+                bearer="host-token",
+                seat_token=created["seatToken"],
+            )
+            self.assertEqual(read_status, 200)
+
+        after_game = self.runtime.store.game(session_id)
+        after_session = self.application.lobby.session(session_id)
+        self.assertEqual(after_game.revision, before_game.revision)
+        self.assertEqual(after_session.status, before_session.status)
+        self.assertEqual(self.application.lobby.turn_state(session_id), before_turn)
+        self.assertEqual(self.application.results.recorded, before_results)
 
     def request(
         self,
@@ -79,21 +223,13 @@ class CompatibilityApiTests(unittest.TestCase):
             headers["x-kolkhoz-seat-token"] = seat_token
         if device_id:
             headers["x-kolkhoz-device-id"] = device_id
-        request = urllib.request.Request(
-            self.base_url + path,
-            data=None if body is None else json.dumps(body).encode(),
-            method=method,
-            headers=headers,
-        )
         try:
-            with urllib.request.urlopen(request, timeout=3) as response:
-                payload = response.read()
-                return response.status, json.loads(payload) if payload else {}
-        except urllib.error.HTTPError as error:
-            try:
-                return error.code, json.loads(error.read())
-            finally:
-                error.close()
+            response = self.application.dispatch(
+                Request(method, path, headers, body or {})
+            )
+            return int(response.status), response.body
+        except ServerError as error:
+            return int(error.status), {"error": error.message}
 
     def test_create_list_join_state_action_and_presence_route_contracts(self) -> None:
         status, created = self.request(
