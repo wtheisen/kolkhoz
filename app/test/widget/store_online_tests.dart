@@ -57,37 +57,6 @@ void registerStoreAndOnlineTests() {
     expect(onlineGameRealtimeRefreshInterval, const Duration(seconds: 15));
   });
 
-  test('online replay waits for the visible action flight to finish', () {
-    const remotePlay = OnlineEngineAction(
-      kind: kcActionPlayCard,
-      playerID: 1,
-      card: OnlineEngineCard(suit: 0, value: 7),
-    );
-    const assignment = OnlineEngineAction(
-      kind: kcActionAssign,
-      playerID: 1,
-      card: OnlineEngineCard(suit: 0, value: 7),
-      targetSuit: 0,
-    );
-
-    expect(
-      onlineActionAnimationDelay(
-        speed: GameAnimationSpeed.normal,
-        action: remotePlay,
-        viewerPlayerID: 0,
-      ),
-      const Duration(milliseconds: 860),
-    );
-    expect(
-      onlineActionAnimationDelay(
-        speed: GameAnimationSpeed.normal,
-        action: assignment,
-        viewerPlayerID: 0,
-      ),
-      const Duration(milliseconds: 1120),
-    );
-  });
-
   test('game sound cues follow authoritative action and phase transitions', () {
     final trick = runtimeModelWith(
       phase: phaseTrick,
@@ -2015,6 +1984,10 @@ void registerStoreAndOnlineTests() {
         );
       expect(actions, isNotEmpty);
       store.applyLegalAction(actions.first);
+      final revision = store.presentationRevision;
+      if (revision != null) {
+        store.acknowledgeRevisionPresented(revision);
+      }
     }
 
     expect(store.model!.table.phase, phaseRequisition);
@@ -2026,7 +1999,7 @@ void registerStoreAndOnlineTests() {
       isEmpty,
     );
 
-    await tester.pump(const Duration(milliseconds: 783));
+    await tester.pump(GameAnimationSpeed.normal.automaticStepDelay);
     expect(store.model!.table.requisitionEvents, hasLength(1));
     expect(
       store.gameLogActions.where(
@@ -2035,7 +2008,11 @@ void registerStoreAndOnlineTests() {
       hasLength(1),
     );
 
-    await tester.pump(const Duration(milliseconds: 783));
+    await tester.pump(GameAnimationSpeed.normal.automaticStepDelay * 2);
+    expect(store.model!.table.requisitionEvents, hasLength(1));
+
+    store.acknowledgeRevisionPresented(store.presentationRevision!);
+    await tester.pump(GameAnimationSpeed.normal.automaticStepDelay);
     expect(store.model!.table.requisitionEvents, hasLength(2));
     expect(
       store.gameLogActions.where(
@@ -2196,6 +2173,7 @@ void registerStoreAndOnlineTests() {
     final sessions = await client.fetchSessions();
     final status = await client.fetchServerStatus();
     final leaderboard = await client.fetchLeaderboard();
+    final recentGames = await client.fetchRecentGames();
     final publicProfile = await client.fetchPublicProfile('profile-user');
     final matched = await client.matchmakeSession(rankedOnly: true);
     final session = await client.fetchSession(created.sessionID);
@@ -2220,6 +2198,7 @@ void registerStoreAndOnlineTests() {
       'GET /sessions',
       'GET /metrics',
       'GET /leaderboard',
+      'GET /results/recent',
       'GET /profiles/profile-user',
       'POST /sessions/matchmake',
       'GET /sessions/11111111-1111-1111-1111-111111111111',
@@ -2232,6 +2211,9 @@ void registerStoreAndOnlineTests() {
     expect(status.citizensOnline, 16);
     expect(leaderboard.single.rank, 1);
     expect(leaderboard.single.displayName, 'Leader');
+    expect(recentGames.single.sessionID, 'recent-game');
+    expect(recentGames.single.won, isTrue);
+    expect(recentGames.single.score, 123);
     expect(publicProfile.userID, 'profile-user');
     expect(publicProfile.rank, 4);
     expect(matched.playerID, 1);
@@ -2265,6 +2247,75 @@ void registerStoreAndOnlineTests() {
     expect(newestOnlineRevision(5, 3), 5);
     expect(newestOnlineRevision(null, 3), isNull);
     expect(newestOnlineRevision(5, null), isNull);
+  });
+
+  test('realtime snapshots wait for the active presentation', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    final framesSent = Completer<void>();
+    server.listen((request) async {
+      final socket = await WebSocketTransformer.upgrade(request);
+      final revisionOne = onlineUpdateJson()..['actionLogCount'] = 1;
+      final revisionTwo = onlineUpdateJson()..['actionLogCount'] = 2;
+      socket.add(
+        jsonEncode({
+          'type': 'committed',
+          'revision': 1,
+          'updates': {
+            'sessionID': '11111111-1111-1111-1111-111111111111',
+            'actionLogCount': 1,
+            'updates': [
+              {
+                'revision': 1,
+                'action': const OnlineEngineAction(
+                  kind: kcActionSetTrump,
+                  playerID: 0,
+                  suit: 0,
+                ).toJson(),
+                'update': revisionOne,
+              },
+            ],
+            'resyncUpdate': null,
+          },
+        }),
+      );
+      socket.add(jsonEncode({'type': 'state', 'update': revisionTwo}));
+      socket.add(
+        jsonEncode({
+          'type': 'state',
+          'update': onlineUpdateJson()..['actionLogCount'] = 0,
+        }),
+      );
+      framesSent.complete();
+    });
+    final store = LiveGameStore(
+      autosaveEnabled: false,
+      onlineAccessTokenProvider: () async => 'access-token',
+      onlineHttpClient: FakeOnlineHttpClient(),
+      onlineWebSocketConnector: (_, headers) => WebSocket.connect(
+        'ws://${server.address.address}:${server.port}',
+        headers: headers,
+      ),
+    );
+    addTearDown(store.dispose);
+
+    await store.hostOnlineGame(
+      baseURL: Uri.parse('http://online.example'),
+      variants: KolkhozGameVariants.kolkhoz,
+      controllers: KolkhozPlayerController.defaultControllers,
+      ranked: false,
+      browserJoinable: false,
+    );
+    await framesSent.future;
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+
+    expect(store.onlineUpdate!.actionLogCount, 1);
+    expect(store.presentationRevision, 1);
+    expect(store.onlineUpdate!.legalActions, isEmpty);
+    expect(store.model!.legalActions, isEmpty);
+    store.acknowledgeRevisionPresented(1);
+    expect(store.onlineUpdate!.actionLogCount, 2);
+    expect(store.onlineUpdate!.legalActions, hasLength(1));
   });
 
   test(

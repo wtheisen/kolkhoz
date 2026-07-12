@@ -270,6 +270,69 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
                   onSync: syncActiveSession,
                 ),
               ),
+            if (store.isSpectating)
+              Positioned(
+                key: const ValueKey('spectator-banner'),
+                top: 12,
+                left: 76,
+                child: SafeArea(
+                  child: IgnorePointer(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: settings.appearance.tokens.colors.black
+                            .withValues(alpha: 0.8),
+                        border: Border.all(
+                          color: settings.appearance.tokens.colors.gold,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'SPECTATING • READ ONLY',
+                        style: kolkhozFontStyle.copyWith(
+                          color: settings.appearance.tokens.colors.goldBright,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            if (store.onlineUpdate?.series case final series?)
+              Positioned(
+                key: const ValueKey('series-banner'),
+                top: 12,
+                right: 12,
+                child: SafeArea(
+                  child: IgnorePointer(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: settings.appearance.tokens.colors.black
+                            .withValues(alpha: 0.8),
+                        border: Border.all(
+                          color: settings.appearance.tokens.colors.gold,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'BEST OF ${series.bestOf} • ROUND ${series.roundNumber} • '
+                        '${[for (var i = 0; i < 4; i++) 'P${i + 1} ${series.winsFor(i)}'].join('  ')}',
+                        style: kolkhozFontStyle.copyWith(
+                          color: settings.appearance.tokens.colors.goldBright,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -285,6 +348,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
             content = StandaloneErrorView(error: store.error!, tokens: tokens);
           } else if (store.model == null ||
               (showingLobby &&
+                  store.model?.table.phase != phaseGameOver &&
                   (!store.isOnlineGame ||
                       !(store.onlineUpdate?.started ?? false)))) {
             content = StandaloneLobby(
@@ -330,8 +394,22 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
               cloudAuthMessage: cloudAuthMessage,
               cloudAuthIsError: cloudAuthIsError,
               onHostOnline: hostOnlineGame,
+              onHostOnlineSeries: hostOnlineSeries,
               onInviteOnlineComrades: inviteOnlineComrades,
               onJoinOnline: joinOnlineGame,
+              onWatchOnline: (baseURL, sessionID) async {
+                await store.watchOnlineGame(
+                  baseURL: baseURL,
+                  sessionID: sessionID,
+                );
+                if (mounted) {
+                  setState(() {
+                    gameLaunchOrigin = KolkhozGameLaunchOrigin.joined;
+                    onlineSessionCreatedByLocalPlayer = false;
+                    destination = _AppDestination.game;
+                  });
+                }
+              },
               onMatchmakeOnline: matchmakeOnlineGame,
               onKickOnlinePlayer: kickOnlinePlayer,
               onEnterOnlineGame: enterOnlineGame,
@@ -427,6 +505,16 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
               onComradesChanged: updateComradesSummary,
               onComradeRequestToUser: requestComradeByUserID,
               onlineClientFactory: onlineClient,
+              onStartDailyChallenge: () async {
+                await store.startDailyChallenge(baseURL: _onlineServerURL);
+                if (mounted) {
+                  setState(() {
+                    gameLaunchOrigin = KolkhozGameLaunchOrigin.created;
+                    onlineSessionCreatedByLocalPlayer = true;
+                    destination = _AppDestination.game;
+                  });
+                }
+              },
               onTutorialPressed: () {
                 showTutorial();
               },
@@ -468,9 +556,17 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
                   canSendReaction: store.canSendReaction,
                   onReaction: store.sendReaction,
                   activeReaction: store.activeReaction,
-                  gameOverReturnsToLobby: true,
+                  gameOverReturnsToLobby:
+                      !(store.isOnlineGame &&
+                          store.onlineUpdate?.ranked == false &&
+                          store.onlineUpdate?.series?.completed != true &&
+                          store.model?.table.phase == phaseGameOver),
                   onTutorial: showTutorial,
                   animationSpeed: store.animationSpeed,
+                  presentationRevision: store.presentationRevision,
+                  assignmentPresentationCardIDs:
+                      store.onlineAssignmentPresentationCardIDs,
+                  onPresentationComplete: store.acknowledgeRevisionPresented,
                   onAnimationSpeedChanged: store.setAnimationSpeed,
                   confirmNewGame: settings.confirmNewGame,
                   onConfirmNewGameChanged: setConfirmNewGame,
@@ -674,6 +770,15 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   Future<void> requestNewGameFromBoard() async {
     clearForemanHint();
     if (store.model?.table.phase == phaseGameOver) {
+      if (store.isOnlineGame && store.onlineUpdate?.ranked == false) {
+        await store.rematchOnlineGame();
+        setState(() {
+          gameLaunchOrigin = KolkhozGameLaunchOrigin.created;
+          onlineSessionCreatedByLocalPlayer = true;
+          destination = _AppDestination.offline;
+        });
+        return;
+      }
       returnToLobby();
       return;
     }
@@ -1488,6 +1593,22 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     bool enterImmediately,
     bool ranked,
     bool browserJoinable,
+  ) => hostOnlineSeries(
+    baseURL,
+    controllers,
+    enterImmediately,
+    ranked,
+    browserJoinable,
+    1,
+  );
+
+  Future<String> hostOnlineSeries(
+    Uri baseURL,
+    List<KolkhozPlayerController> controllers,
+    bool enterImmediately,
+    bool ranked,
+    bool browserJoinable,
+    int bestOf,
   ) async {
     if (demoMode) {
       throw HttpException(
@@ -1502,6 +1623,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
       controllers: controllers,
       ranked: ranked,
       browserJoinable: browserJoinable,
+      bestOf: bestOf,
     );
     setState(() {
       gameLaunchOrigin = KolkhozGameLaunchOrigin.created;

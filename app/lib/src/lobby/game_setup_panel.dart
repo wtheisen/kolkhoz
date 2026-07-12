@@ -18,6 +18,7 @@ class _VariantPanel extends StatefulWidget {
     required this.compactRail,
     required this.onStart,
     required this.onHostOnline,
+    this.onHostOnlineSeries,
     required this.onInviteOnlineComrades,
     required this.onComradeRequestToUser,
     required this.onRememberStartedSetup,
@@ -57,6 +58,15 @@ class _VariantPanel extends StatefulWidget {
     bool browserJoinable,
   )
   onHostOnline;
+  final Future<String> Function(
+    Uri baseURL,
+    List<KolkhozPlayerController> controllers,
+    bool enterImmediately,
+    bool ranked,
+    bool browserJoinable,
+    int bestOf,
+  )?
+  onHostOnlineSeries;
   final Future<void> Function(String sessionID, List<String> userIDs)?
   onInviteOnlineComrades;
   final Future<void> Function(String userID)? onComradeRequestToUser;
@@ -88,6 +98,7 @@ class _VariantPanelState extends State<_VariantPanel> {
   bool showingSeatLobby = false;
   bool startingOnline = false;
   bool browserJoinable = true;
+  int bestOf = 1;
   String? onlineStatus;
   bool onlineStatusIsError = false;
   bool onlineStatusDisablesAction = false;
@@ -158,6 +169,18 @@ class _VariantPanelState extends State<_VariantPanel> {
     return false;
   }
 
+  void setOnlineStatus(String? message) {
+    onlineStatus = message;
+    onlineStatusIsError = false;
+    onlineStatusDisablesAction = false;
+  }
+
+  void setOnlineFailure(Object exception) {
+    onlineStatus = onlineFailureStatusMessage(exception, widget.language);
+    onlineStatusIsError = true;
+    onlineStatusDisablesAction = false;
+  }
+
   List<String> get invitedComradeUserIDs {
     final userIDs = <String>{};
     for (var playerID = 1; playerID < kolkhozPlayerCount; playerID += 1) {
@@ -204,9 +227,7 @@ class _VariantPanelState extends State<_VariantPanel> {
           selectedComradeUserIDsBySeat.remove(index);
         }
       }
-      onlineStatus = null;
-      onlineStatusIsError = false;
-      onlineStatusDisablesAction = false;
+      setOnlineStatus(null);
     });
     widget.onPlayerControllersChanged(
       _LobbySeatChoice.toControllers(exclusive),
@@ -216,9 +237,7 @@ class _VariantPanelState extends State<_VariantPanel> {
   void setSeatComrade(int playerID, String userID) {
     setState(() {
       selectedComradeUserIDsBySeat[playerID] = userID;
-      onlineStatus = null;
-      onlineStatusIsError = false;
-      onlineStatusDisablesAction = false;
+      setOnlineStatus(null);
     });
   }
 
@@ -234,18 +253,25 @@ class _VariantPanelState extends State<_VariantPanel> {
     }
     setState(() {
       startingOnline = true;
-      onlineStatus = null;
-      onlineStatusIsError = false;
-      onlineStatusDisablesAction = false;
+      setOnlineStatus(null);
     });
     try {
-      final sessionID = await widget.onHostOnline(
-        _onlineServerURL,
-        effectiveControllers,
-        false,
-        false,
-        browserJoinable,
-      );
+      final sessionID = bestOf == 1 || widget.onHostOnlineSeries == null
+          ? await widget.onHostOnline(
+              _onlineServerURL,
+              effectiveControllers,
+              false,
+              false,
+              browserJoinable,
+            )
+          : await widget.onHostOnlineSeries!(
+              _onlineServerURL,
+              effectiveControllers,
+              false,
+              false,
+              browserJoinable,
+              bestOf,
+            );
       await widget.onInviteOnlineComrades?.call(
         sessionID,
         invitedComradeUserIDs,
@@ -256,9 +282,7 @@ class _VariantPanelState extends State<_VariantPanel> {
         return;
       }
       setState(() {
-        onlineStatus = onlineFailureStatusMessage(exception, widget.language);
-        onlineStatusIsError = true;
-        onlineStatusDisablesAction = false;
+        setOnlineFailure(exception);
       });
     } finally {
       if (mounted) {
@@ -282,9 +306,7 @@ class _VariantPanelState extends State<_VariantPanel> {
     }
     setState(() {
       seatChoices = _LobbySeatChoice.fromControllers(favorite.controllers);
-      onlineStatus = null;
-      onlineStatusIsError = false;
-      onlineStatusDisablesAction = false;
+      setOnlineStatus(null);
     });
     widget.onUseFavoriteSetup?.call();
   }
@@ -295,9 +317,7 @@ class _VariantPanelState extends State<_VariantPanel> {
       return;
     }
     setState(() {
-      onlineStatus = widget.language.t(KolkhozText.kolkhozappCopied);
-      onlineStatusIsError = false;
-      onlineStatusDisablesAction = false;
+      setOnlineStatus(widget.language.t(KolkhozText.kolkhozappCopied));
     });
   }
 
@@ -322,7 +342,40 @@ class _VariantPanelState extends State<_VariantPanel> {
           onPresetChanged: widget.demoMode ? null : widget.onPresetChanged,
         ),
         _GoldDivider(tokens: widget.tokens),
-        Expanded(child: _VariantOptionsScroll(panel: widget)),
+        Expanded(
+          child: KolkhozScrollbar(
+            tokens: widget.tokens,
+            childBuilder: (context, scrollController) => SingleChildScrollView(
+              controller: scrollController,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 10, bottom: 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 10,
+                  children: [
+                    if (widget.selectedPreset == KolkhozGamePreset.custom &&
+                        !widget.demoMode)
+                      _CustomVariantOptions(
+                        tokens: widget.tokens,
+                        language: widget.language,
+                        variants: widget.customVariants,
+                        compact: widget.compactRail,
+                        onChanged: widget.onCustomVariantsChanged,
+                      )
+                    else
+                      _PresetSummary(
+                        tokens: widget.tokens,
+                        language: widget.language,
+                        variants: widget.variants,
+                        demoMode: widget.demoMode,
+                        compact: widget.compactRail,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
         if (widget.demoMode)
           _primaryCommandButton(
             label: widget.language.t(KolkhozText.kolkhozappStartDemo),
@@ -385,6 +438,13 @@ class _VariantPanelState extends State<_VariantPanel> {
                       onChanged: widget.demoMode ? null : setSeatChoice,
                       compact: widget.compactRail,
                     ),
+                    if (hasOnlineSeats)
+                      _MatchFormatSelector(
+                        tokens: widget.tokens,
+                        value: bestOf,
+                        enabled: true,
+                        onChanged: (value) => setState(() => bestOf = value),
+                      ),
                   ],
                 ),
               ),
@@ -405,12 +465,18 @@ class _VariantPanelState extends State<_VariantPanel> {
           width: widget.compactRail ? 154 : 190,
           child: _backToSetupButton(height: height),
         ),
-        _BrowserJoinableToggle(
+        _OnlineGameOptionToggle(
           tokens: widget.tokens,
-          language: widget.language,
-          browserJoinable: browserJoinable,
+          title: widget.language.t(KolkhozText.kolkhozappAccess),
+          label: browserJoinable
+              ? widget.language.t(KolkhozText.kolkhozappBrowser)
+              : widget.language.t(KolkhozText.kolkhozappLocked),
+          selected: browserJoinable,
           enabled: hasOnlineSeats,
-          onChanged: (value) => setState(() => browserJoinable = value),
+          iconAsset: browserJoinable
+              ? 'assets/ui/Icons/icon-online.png'
+              : 'assets/ui/Icons/icon-lock.png',
+          onTap: () => setState(() => browserJoinable = !browserJoinable),
         ),
         Expanded(
           child: _primaryCommandButton(
@@ -536,13 +602,74 @@ class _VariantPanelState extends State<_VariantPanel> {
         if (widget.hostedInviteCode != null)
           SizedBox(
             width: widget.compactRail ? 134 : 164,
-            child: _HostedInviteCodeFooterButton(
-              tokens: widget.tokens,
-              language: widget.language,
-              inviteCode: widget.hostedInviteCode!,
-              height: height,
-              onCopy: () =>
-                  unawaited(copyHostedInviteCode(widget.hostedInviteCode!)),
+            child: Semantics(
+              button: true,
+              label:
+                  '${widget.language.t(KolkhozText.kolkhozappInviteCode)} ${widget.hostedInviteCode!}',
+              child: ExcludeSemantics(
+                child: Tooltip(
+                  message: widget.language.t(KolkhozText.kolkhozappCopyCode),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => unawaited(
+                      copyHostedInviteCode(widget.hostedInviteCode!),
+                    ),
+                    child: SizedBox(
+                      height: height,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          const Positioned.fill(
+                            child: ChromeButtonBackground(
+                              asset: chromeButtonSecondaryAsset,
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 9),
+                            child: Row(
+                              spacing: 7,
+                              children: [
+                                const _AssetIcon(
+                                  'assets/ui/Icons/icon-add-friend.png',
+                                  size: 22,
+                                ),
+                                Expanded(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    spacing: 2,
+                                    children: [
+                                      ChromeScaledLabel(
+                                        widget.language.t(
+                                          KolkhozText.kolkhozappInviteCode,
+                                        ),
+                                        color: widget.tokens.colors.cardInk,
+                                        size: PixelTextSize.xSmall,
+                                        textAlign: TextAlign.start,
+                                      ),
+                                      ChromeScaledLabel(
+                                        widget.hostedInviteCode!,
+                                        color: widget.tokens.colors.cardInk,
+                                        size: PixelTextSize.caption,
+                                        textAlign: TextAlign.start,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const _AssetIcon(
+                                  'assets/ui/Icons/icon-check.png',
+                                  size: 18,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         Expanded(
@@ -678,44 +805,69 @@ class _VariantPanelState extends State<_VariantPanel> {
   }
 }
 
-class _VariantOptionsScroll extends StatelessWidget {
-  const _VariantOptionsScroll({required this.panel});
+class _MatchFormatSelector extends StatelessWidget {
+  const _MatchFormatSelector({
+    required this.tokens,
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
 
-  final _VariantPanel panel;
+  final DesignTokens tokens;
+  final int value;
+  final bool enabled;
+  final ValueChanged<int> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return KolkhozScrollbar(
-      tokens: panel.tokens,
-      childBuilder: (context, scrollController) => SingleChildScrollView(
-        controller: scrollController,
-        child: Padding(
-          padding: const EdgeInsets.only(right: 10, bottom: 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: 10,
-            children: [
-              if (panel.selectedPreset == KolkhozGamePreset.custom &&
-                  !panel.demoMode)
-                _CustomVariantOptions(
-                  tokens: panel.tokens,
-                  language: panel.language,
-                  variants: panel.customVariants,
-                  compact: panel.compactRail,
-                  onChanged: panel.onCustomVariantsChanged,
-                )
-              else
-                _PresetSummary(
-                  tokens: panel.tokens,
-                  language: panel.language,
-                  variants: panel.variants,
-                  demoMode: panel.demoMode,
-                  compact: panel.compactRail,
-                ),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 6,
+      children: [
+        Text(
+          'MATCH FORMAT',
+          style: kolkhozFontStyle.copyWith(
+            color: tokens.colors.gold,
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
           ),
         ),
-      ),
+        Row(
+          spacing: 8,
+          children: [
+            for (final option in const [
+              (1, 'SINGLE', 'assets/ui/Icons/icon-match-single.png'),
+              (3, 'BEST OF 3', 'assets/ui/Icons/icon-match-best-of-3.png'),
+              (5, 'BEST OF 5', 'assets/ui/Icons/icon-match-best-of-5.png'),
+            ])
+              Expanded(
+                child: SizedBox(
+                  height: 42,
+                  child: ChromeAssetButton.command(
+                    label: option.$2,
+                    prominent: value == option.$1,
+                    tokens: tokens,
+                    iconAsset: option.$3,
+                    iconSize: 28,
+                    expandLabel: false,
+                    onPressed: enabled ? () => onChanged(option.$1) : null,
+                    surfaceKey: Key('match-format-${option.$1}'),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        Text(
+          value == 1
+              ? 'ONE GAME'
+              : 'FIRST TO ${value ~/ 2 + 1} WINS • SEATS MAY CHANGE BETWEEN GAMES',
+          style: kolkhozFontStyle.copyWith(
+            color: tokens.colors.creamDim,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1434,40 +1586,6 @@ class _SeatChoiceOptionButton extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _BrowserJoinableToggle extends StatelessWidget {
-  const _BrowserJoinableToggle({
-    required this.tokens,
-    required this.language,
-    required this.browserJoinable,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final DesignTokens tokens;
-  final KolkhozLanguage language;
-  final bool browserJoinable;
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = browserJoinable
-        ? language.t(KolkhozText.kolkhozappBrowser)
-        : language.t(KolkhozText.kolkhozappLocked);
-    return _OnlineGameOptionToggle(
-      tokens: tokens,
-      title: language.t(KolkhozText.kolkhozappAccess),
-      label: label,
-      selected: browserJoinable,
-      enabled: enabled,
-      iconAsset: browserJoinable
-          ? 'assets/ui/Icons/icon-online.png'
-          : 'assets/ui/Icons/icon-lock.png',
-      onTap: () => onChanged(!browserJoinable),
     );
   }
 }

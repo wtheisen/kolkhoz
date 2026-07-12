@@ -6,6 +6,9 @@ class CardMotionLayer extends StatefulWidget {
     required this.tokens,
     required this.speed,
     required this.child,
+    this.presentationRevision,
+    this.assignmentPresentationCardIDs = const [],
+    this.onPresentationComplete,
     super.key,
   });
 
@@ -13,6 +16,9 @@ class CardMotionLayer extends StatefulWidget {
   final DesignTokens tokens;
   final GameAnimationSpeed speed;
   final Widget child;
+  final int? presentationRevision;
+  final List<String> assignmentPresentationCardIDs;
+  final ValueChanged<int>? onPresentationComplete;
 
   @override
   State<CardMotionLayer> createState() => _CardMotionLayerState();
@@ -22,7 +28,16 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
   final GlobalKey _rootKey = GlobalKey();
   final CardMotionController _controller = CardMotionController();
   final List<CardFlight> _flights = [];
+  final List<CardFlight> _sequentialFlights = [];
+  final Set<int> _presentationFlightIDs = {};
   int _nextFlightID = 0;
+  int? _activePresentationRevision;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -35,7 +50,12 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
   @override
   void didUpdateWidget(CardMotionLayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.model == widget.model) {
+    if (widget.presentationRevision != null &&
+        oldWidget.presentationRevision == widget.presentationRevision) {
+      return;
+    }
+    if (oldWidget.model == widget.model &&
+        oldWidget.presentationRevision == widget.presentationRevision) {
       return;
     }
     final previousZones = cardMotionZones(oldWidget.model);
@@ -44,6 +64,10 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
     final nextCards = cardMotionCards(widget.model);
     final previousRects = Map<String, Rect>.of(_controller.previousRects);
     final nextModel = widget.model;
+    final presentationRevision = widget.presentationRevision;
+    final assignmentPresentationCardIDs = List<String>.of(
+      widget.assignmentPresentationCardIDs,
+    );
     _afterCardLayout(() {
       final currentRects = Map<String, Rect>.of(_controller.currentRects);
       _startFlights(
@@ -55,6 +79,8 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
         nextCards: nextCards,
         previousRects: previousRects,
         currentRects: currentRects,
+        presentationRevision: presentationRevision,
+        assignmentPresentationCardIDs: assignmentPresentationCardIDs,
       );
       _controller.commitFrame();
     });
@@ -77,8 +103,12 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
     required Map<String, TableCard> nextCards,
     required Map<String, Rect> previousRects,
     required Map<String, Rect> currentRects,
+    required int? presentationRevision,
+    required List<String> assignmentPresentationCardIDs,
   }) {
     if (widget.speed.cardFlightDuration == Duration.zero) {
+      _recordImmediateJobArrivals(previousZones, nextZones, nextCards);
+      _completePresentation(presentationRevision);
       return;
     }
     final newFlights = <CardFlight>[];
@@ -143,6 +173,7 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
           card: card,
           from: sourceRect,
           to: to,
+          destinationZone: entry.value,
           durationScale: cardFlightDurationScale(
             previousZone: previousZone,
             nextZone: entry.value,
@@ -198,6 +229,7 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
           card: card,
           from: sourceRect,
           to: to,
+          destinationZone: cardMotionNorthExileZone,
           durationScale: cardFlightDurationScale(
             previousZone: previousZone,
             nextZone: cardMotionNorthExileZone,
@@ -207,14 +239,37 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
       );
     }
     if (newFlights.isEmpty) {
+      _recordImmediateJobArrivals(previousZones, nextZones, nextCards);
+      _completePresentation(presentationRevision);
       return;
+    }
+    if (assignmentPresentationCardIDs.isNotEmpty) {
+      final order = {
+        for (final entry in assignmentPresentationCardIDs.indexed)
+          entry.$2: entry.$1,
+      };
+      newFlights.sort(
+        (left, right) => (order[left.card.id] ?? order.length).compareTo(
+          order[right.card.id] ?? order.length,
+        ),
+      );
     }
     final newFlightCardIDs = {for (final flight in newFlights) flight.card.id};
     setState(() {
       _flights.removeWhere(
         (flight) => newFlightCardIDs.contains(flight.card.id),
       );
-      _flights.addAll(newFlights);
+      _activePresentationRevision = presentationRevision;
+      _presentationFlightIDs.clear();
+      _sequentialFlights.clear();
+      if (assignmentPresentationCardIDs.isNotEmpty && newFlights.length > 1) {
+        _flights.add(newFlights.first);
+        _presentationFlightIDs.add(newFlights.first.id);
+        _sequentialFlights.addAll(newFlights.skip(1));
+      } else {
+        _flights.addAll(newFlights);
+        _presentationFlightIDs.addAll(newFlights.map((flight) => flight.id));
+      }
     });
   }
 
@@ -222,9 +277,57 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
     if (!mounted) {
       return;
     }
+    final completedFlight = _flights
+        .where((flight) => flight.id == id)
+        .firstOrNull;
+    int? completedRevision;
     setState(() {
       _flights.removeWhere((flight) => flight.id == id);
+      _presentationFlightIDs.remove(id);
+      if (_presentationFlightIDs.isEmpty && _sequentialFlights.isNotEmpty) {
+        final next = _sequentialFlights.removeAt(0);
+        _flights.add(next);
+        _presentationFlightIDs.add(next.id);
+      } else if (_presentationFlightIDs.isEmpty) {
+        completedRevision = _activePresentationRevision;
+        _activePresentationRevision = null;
+      }
     });
+    if (completedFlight != null &&
+        completedFlight.destinationZone.startsWith('job:')) {
+      _controller.recordJobCardArrival(
+        JobCardArrival(
+          cardID: completedFlight.card.id,
+          suit: completedFlight.destinationZone.substring('job:'.length),
+        ),
+      );
+    }
+    _completePresentation(completedRevision);
+  }
+
+  void _recordImmediateJobArrivals(
+    Map<String, String> previousZones,
+    Map<String, String> nextZones,
+    Map<String, TableCard> nextCards,
+  ) {
+    for (final entry in nextZones.entries) {
+      if (entry.value.startsWith('job:') &&
+          previousZones[entry.key] != entry.value &&
+          nextCards.containsKey(entry.key)) {
+        _controller.recordJobCardArrival(
+          JobCardArrival(
+            cardID: entry.key,
+            suit: entry.value.substring('job:'.length),
+          ),
+        );
+      }
+    }
+  }
+
+  void _completePresentation(int? revision) {
+    if (revision != null) {
+      widget.onPresentationComplete?.call(revision);
+    }
   }
 
   @override
@@ -297,6 +400,7 @@ class CardMotionController {
   int _frame = 0;
   Map<String, Rect> _previousRects = {};
   final Map<String, CardMotionRect> _currentRects = {};
+  final ValueNotifier<JobCardArrival?> jobCardArrival = ValueNotifier(null);
 
   Map<String, Rect> get previousRects => _previousRects;
 
@@ -310,6 +414,14 @@ class CardMotionController {
   int beginFrame() {
     _frame += 1;
     return _frame;
+  }
+
+  void recordJobCardArrival(JobCardArrival arrival) {
+    jobCardArrival.value = arrival;
+  }
+
+  void dispose() {
+    jobCardArrival.dispose();
   }
 
   void record({
@@ -451,6 +563,7 @@ class CardFlight {
     required this.card,
     required this.from,
     required this.to,
+    required this.destinationZone,
     this.durationScale = 1,
   });
 
@@ -458,7 +571,15 @@ class CardFlight {
   final TableCard card;
   final Rect from;
   final Rect to;
+  final String destinationZone;
   final double durationScale;
+}
+
+class JobCardArrival {
+  const JobCardArrival({required this.cardID, required this.suit});
+
+  final String cardID;
+  final String suit;
 }
 
 class FlyingCard extends StatelessWidget {

@@ -94,6 +94,7 @@ enum KolkhozText {
   kolkhozappGameBy,
   kolkhozappWilliamTheisen,
   kolkhozappProfile,
+  kolkhozappLeaderboard,
   kolkhozappSettings,
   kolkhozappProgress,
   kolkhozappCouldNotReachTheOnlineServerTryAgainInAMom,
@@ -583,6 +584,7 @@ const Map<KolkhozText, ({String en, String ru})> kolkhozText = {
     ru: 'УИЛЬЯМ ТАЙСОН',
   ),
   KolkhozText.kolkhozappProfile: (en: 'Profile', ru: 'Профиль'),
+  KolkhozText.kolkhozappLeaderboard: (en: 'LEADERBOARD', ru: 'ТАБЛИЦА ЛИДЕРОВ'),
   KolkhozText.kolkhozappSettings: (en: 'SETTINGS', ru: 'НАСТРОЙКИ'),
   KolkhozText.kolkhozappProgress: (en: 'PROGRESS', ru: 'ПРОГРЕСС'),
   KolkhozText.kolkhozappCouldNotReachTheOnlineServerTryAgainInAMom: (

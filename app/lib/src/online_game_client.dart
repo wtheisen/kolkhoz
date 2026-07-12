@@ -38,6 +38,22 @@ class KolkhozOnlineClient {
     ];
   }
 
+  Future<List<OnlineSessionListing>> fetchWatchableSessions() async {
+    final decoded = await _send(method: 'GET', path: 'sessions/watchable');
+    return [
+      for (final value in onlineObjectList(decoded))
+        OnlineSessionListing.fromJson(onlineObjectMap(value)),
+    ];
+  }
+
+  Future<OnlineSessionUpdate> fetchSpectatorUpdate(String sessionID) async {
+    final json = await _sendJson(
+      method: 'GET',
+      path: 'sessions/$sessionID/spectate',
+    );
+    return OnlineSessionUpdate.fromJson(json);
+  }
+
   Future<OnlineSessionListing> fetchSession(String sessionID) async {
     final decoded = await _send(method: 'GET', path: 'sessions/$sessionID');
     return OnlineSessionListing.fromJson(onlineObjectMap(decoded));
@@ -83,6 +99,43 @@ class KolkhozOnlineClient {
       for (final value in onlineObjectList(json['players'] ?? const []))
         OnlineComradeProfile.fromJson(onlineObjectMap(value)),
     ];
+  }
+
+  Future<List<OnlineRecentGame>> fetchRecentGames() async {
+    final json = await _sendJson(method: 'GET', path: 'results/recent');
+    return [
+      for (final value in onlineObjectList(json['games'] ?? const []))
+        OnlineRecentGame.fromJson(onlineObjectMap(value)),
+    ];
+  }
+
+  Future<OnlineGameReplay> fetchReplay(String sessionID) async {
+    final json = await _sendJson(
+      method: 'GET',
+      path: 'results/$sessionID/replay',
+    );
+    return OnlineGameReplay.fromJson(json);
+  }
+
+  Future<OnlineSessionResponse> createRematch(String sessionID) async {
+    final json = await _sendJson(
+      method: 'POST',
+      path: 'results/$sessionID/rematch',
+    );
+    return OnlineSessionResponse.fromJson(json);
+  }
+
+  Future<OnlineDailyChallenge> fetchDailyChallenge() async {
+    final json = await _sendJson(method: 'GET', path: 'challenges/daily');
+    return OnlineDailyChallenge.fromJson(json);
+  }
+
+  Future<OnlineSessionResponse> startDailyChallenge() async {
+    final json = await _sendJson(
+      method: 'POST',
+      path: 'challenges/daily/start',
+    );
+    return OnlineSessionResponse.fromJson(json);
   }
 
   Future<OnlineComradeProfile> fetchPublicProfile(String userID) async {
@@ -141,12 +194,14 @@ class KolkhozOnlineClient {
     required List<KolkhozPlayerController> controllers,
     bool ranked = false,
     bool browserJoinable = true,
+    int bestOf = 1,
   }) async {
     final body = <String, Object?>{
       'variants': variantsToJson(variants),
       'controllers': controllers.map((controller) => controller.name).toList(),
       'ranked': ranked,
       'browserJoinable': browserJoinable,
+      'bestOf': bestOf,
     };
     if (seed != null) {
       body['seed'] = seed;

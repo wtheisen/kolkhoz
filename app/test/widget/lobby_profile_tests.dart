@@ -1,6 +1,17 @@
 part of '../widget_test.dart';
 
 void registerLobbyAndProfileTests() {
+  test('leaderboard settings tab title is localized', () {
+    expect(
+      KolkhozSettingsTab.leaderboard.title(KolkhozLanguage.en),
+      'LEADERBOARD',
+    );
+    expect(
+      KolkhozSettingsTab.leaderboard.title(KolkhozLanguage.ru),
+      'ТАБЛИЦА ЛИДЕРОВ',
+    );
+  });
+
   testWidgets('narrow preset tabs reserve space between icons and labels', (
     tester,
   ) async {
@@ -1335,6 +1346,18 @@ void registerLobbyAndProfileTests() {
       expect(findAppText('ABCDE'), findsNothing);
       expect(findAppText('16 Citizens Online'), findsOneWidget);
       expect(findAppText('Refresh in 15s'), findsOneWidget);
+      final refreshButton = find.byWidgetPredicate(
+        (widget) => widget is ChromeAssetButton && widget.label == 'Refresh',
+      );
+      final assignButton = find.byWidgetPredicate(
+        (widget) =>
+            widget is ChromeAssetButton && widget.label == 'Assign Game',
+      );
+      expect(tester.getSize(refreshButton).height, 44);
+      expect(
+        tester.getSize(refreshButton).height,
+        tester.getSize(assignButton).height,
+      );
       expect(findAppText('RANKED'), findsNothing);
       expect(findAppText('COMRADES'), findsNothing);
       expect(find.byTooltip('Ranked'), findsOneWidget);
@@ -1354,7 +1377,7 @@ void registerLobbyAndProfileTests() {
         contains('GET /sessions'),
       );
 
-      await tester.tap(findAppText('ASSIGN GAME'));
+      await tester.tap(assignButton);
       await tester.pump();
 
       expect(matchmakeCalled, isTrue);

@@ -547,6 +547,152 @@ class OnlineEngineSnapshot {
   }
 }
 
+class OnlineRecentGame {
+  const OnlineRecentGame({
+    required this.sessionID,
+    required this.playerID,
+    required this.score,
+    required this.rank,
+    required this.won,
+    required this.ranked,
+    required this.completedAt,
+  });
+
+  final String sessionID;
+  final int playerID;
+  final int score;
+  final int rank;
+  final bool won;
+  final bool ranked;
+  final double completedAt;
+
+  factory OnlineRecentGame.fromJson(Map<String, Object?> json) {
+    return OnlineRecentGame(
+      sessionID: json['sessionID'] as String,
+      playerID: json['playerID'] as int,
+      score: json['score'] as int,
+      rank: json['rank'] as int,
+      won: json['won'] as bool,
+      ranked: json['ranked'] as bool,
+      completedAt: (json['completedAt'] as num).toDouble(),
+    );
+  }
+}
+
+class OnlineReplayResult {
+  const OnlineReplayResult({
+    required this.playerID,
+    required this.score,
+    required this.rank,
+    required this.displayName,
+  });
+  final int playerID;
+  final int score;
+  final int rank;
+  final String displayName;
+  factory OnlineReplayResult.fromJson(Map<String, Object?> json) =>
+      OnlineReplayResult(
+        playerID: json['playerID'] as int,
+        score: json['score'] as int,
+        rank: json['rank'] as int,
+        displayName: json['displayName'] as String? ?? 'Player',
+      );
+}
+
+class OnlineReplayEvent {
+  const OnlineReplayEvent({
+    required this.revision,
+    required this.kind,
+    required this.action,
+    required this.createdAt,
+  });
+  final int revision;
+  final String kind;
+  final OnlineEngineAction action;
+  final double createdAt;
+  factory OnlineReplayEvent.fromJson(Map<String, Object?> json) =>
+      OnlineReplayEvent(
+        revision: json['revision'] as int,
+        kind: json['kind'] as String,
+        action: OnlineEngineAction.fromJson(_objectMap(json['action'])),
+        createdAt: (json['createdAt'] as num).toDouble(),
+      );
+}
+
+class OnlineGameReplay {
+  const OnlineGameReplay({
+    required this.sessionID,
+    required this.seed,
+    required this.variants,
+    required this.controllers,
+    required this.ranked,
+    required this.results,
+    required this.events,
+  });
+  final String sessionID;
+  final int seed;
+  final KolkhozGameVariants variants;
+  final List<KolkhozPlayerController> controllers;
+  final bool ranked;
+  final List<OnlineReplayResult> results;
+  final List<OnlineReplayEvent> events;
+  factory OnlineGameReplay.fromJson(Map<String, Object?> json) =>
+      OnlineGameReplay(
+        sessionID: json['sessionID'] as String,
+        seed: json['seed'] as int,
+        variants: variantsFromJson(_objectMap(json['variants'])),
+        controllers: [
+          for (final value in _objectList(json['controllers']))
+            controllerFromJson(value),
+        ],
+        ranked: json['ranked'] as bool? ?? false,
+        results: [
+          for (final value in _objectList(json['results']))
+            OnlineReplayResult.fromJson(_objectMap(value)),
+        ],
+        events: [
+          for (final value in _objectList(json['events']))
+            OnlineReplayEvent.fromJson(_objectMap(value)),
+        ],
+      );
+}
+
+class OnlineDailyLeader {
+  const OnlineDailyLeader({required this.displayName, required this.score});
+  final String displayName;
+  final int score;
+  factory OnlineDailyLeader.fromJson(Map<String, Object?> json) =>
+      OnlineDailyLeader(
+        displayName: json['displayName'] as String? ?? 'Player',
+        score: json['score'] as int,
+      );
+}
+
+class OnlineDailyChallenge {
+  const OnlineDailyChallenge({
+    required this.date,
+    required this.seed,
+    required this.bestScore,
+    required this.leaders,
+  });
+  final String date;
+  final int seed;
+  final int? bestScore;
+  final List<OnlineDailyLeader> leaders;
+  factory OnlineDailyChallenge.fromJson(Map<String, Object?> json) {
+    final attempt = json['attempt'];
+    return OnlineDailyChallenge(
+      date: json['date'] as String,
+      seed: json['seed'] as int,
+      bestScore: attempt is Map ? attempt['score'] as int? : null,
+      leaders: [
+        for (final value in _objectList(json['leaders'] ?? const []))
+          OnlineDailyLeader.fromJson(_objectMap(value)),
+      ],
+    );
+  }
+}
+
 class OnlineSessionUpdate {
   const OnlineSessionUpdate({
     required this.sessionID,
@@ -568,6 +714,7 @@ class OnlineSessionUpdate {
     this.lobbyCountdownEndsAt,
     this.gameLogActions = const [],
     this.reactions = const [],
+    this.series,
     required this.snapshot,
   });
 
@@ -590,6 +737,7 @@ class OnlineSessionUpdate {
   final double? lobbyCountdownEndsAt;
   final List<OnlineEngineAction> gameLogActions;
   final List<OnlineReaction> reactions;
+  final OnlineSeriesStatus? series;
   final OnlineEngineSnapshot snapshot;
 
   int? get lobbyCountdownSeconds {
@@ -640,6 +788,9 @@ class OnlineSessionUpdate {
         for (final value in _objectList(json['reactions'] ?? const []))
           OnlineReaction.fromJson(_objectMap(value)),
       ],
+      series: json['series'] is Map
+          ? OnlineSeriesStatus.fromJson(_objectMap(json['series']))
+          : null,
       snapshot: OnlineEngineSnapshot.fromJson(_objectMap(json['snapshot'])),
     );
   }
@@ -665,7 +816,43 @@ class OnlineSessionUpdate {
       lobbyCountdownEndsAt: lobbyCountdownEndsAt,
       gameLogActions: gameLogActions,
       reactions: reactions,
+      series: series,
       snapshot: snapshot,
+    );
+  }
+}
+
+class OnlineSeriesStatus {
+  const OnlineSeriesStatus({
+    required this.seriesID,
+    required this.bestOf,
+    required this.roundNumber,
+    required this.completed,
+    required this.winnerPlayerID,
+    required this.wins,
+  });
+  final String seriesID;
+  final int bestOf;
+  final int roundNumber;
+  final bool completed;
+  final int? winnerPlayerID;
+  final Map<int, int> wins;
+
+  int winsFor(int playerID) => wins[playerID] ?? 0;
+
+  factory OnlineSeriesStatus.fromJson(Map<String, Object?> json) {
+    final rawWins = _objectMap(json['wins'] ?? const <String, Object?>{});
+    return OnlineSeriesStatus(
+      seriesID: json['seriesID'] as String,
+      bestOf: json['bestOf'] as int,
+      roundNumber: json['roundNumber'] as int,
+      completed: json['completed'] as bool? ?? false,
+      winnerPlayerID: json['winnerPlayerID'] as int?,
+      wins: {
+        for (final entry in rawWins.entries)
+          if (int.tryParse(entry.key) case final playerID?)
+            playerID: entry.value as int,
+      },
     );
   }
 }

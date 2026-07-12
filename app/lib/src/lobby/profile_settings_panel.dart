@@ -118,6 +118,8 @@ class _ProfilePanel extends StatefulWidget {
     required this.onCloudSignUp,
     required this.onCloudResetPassword,
     required this.onCloudSignOut,
+    required this.clientFactory,
+    required this.onStartDailyChallenge,
   });
 
   final DesignTokens tokens;
@@ -139,6 +141,8 @@ class _ProfilePanel extends StatefulWidget {
   final Future<void> Function(String email, String password)? onCloudSignUp;
   final Future<void> Function(String email)? onCloudResetPassword;
   final Future<void> Function()? onCloudSignOut;
+  final KolkhozOnlineClient Function()? clientFactory;
+  final Future<void> Function()? onStartDailyChallenge;
 
   @override
   State<_ProfilePanel> createState() => _ProfilePanelState();
@@ -147,6 +151,11 @@ class _ProfilePanel extends StatefulWidget {
 class _ProfilePanelState extends State<_ProfilePanel> {
   late final TextEditingController displayNameController;
   late String lastSubmittedName;
+  List<OnlineRecentGame> recentGames = const [];
+  bool recentGamesLoading = false;
+  Object? recentGamesError;
+  OnlineDailyChallenge? dailyChallenge;
+  bool dailyLoading = false;
 
   @override
   void initState() {
@@ -154,6 +163,41 @@ class _ProfilePanelState extends State<_ProfilePanel> {
     lastSubmittedName = widget.displayName;
     displayNameController = TextEditingController(text: widget.displayName);
     displayNameController.addListener(notifyDisplayNameChanged);
+    if (widget.cloudSignedIn) {
+      unawaited(loadRecentGames());
+      unawaited(loadDailyChallenge());
+    }
+  }
+
+  Future<void> loadDailyChallenge() async {
+    final factory = widget.clientFactory;
+    if (factory == null) return;
+    setState(() => dailyLoading = true);
+    try {
+      final value = await factory().fetchDailyChallenge();
+      if (mounted) setState(() => dailyChallenge = value);
+    } catch (_) {
+      // Profile history remains usable when the optional challenge is offline.
+    } finally {
+      if (mounted) setState(() => dailyLoading = false);
+    }
+  }
+
+  Future<void> loadRecentGames() async {
+    final factory = widget.clientFactory;
+    if (factory == null) return;
+    setState(() {
+      recentGamesLoading = true;
+      recentGamesError = null;
+    });
+    try {
+      final games = await factory().fetchRecentGames();
+      if (mounted) setState(() => recentGames = games);
+    } catch (exception) {
+      if (mounted) setState(() => recentGamesError = exception);
+    } finally {
+      if (mounted) setState(() => recentGamesLoading = false);
+    }
   }
 
   @override
@@ -247,13 +291,48 @@ class _ProfilePanelState extends State<_ProfilePanel> {
               spacing: 12,
               children: [
                 if (widget.cloudSignedIn) ...[
-                  _ProfilePreview(
+                  PlayerProfilePanel(
                     tokens: widget.tokens,
-                    controller: displayNameController,
+                    displayName: displayNameController.text.trim().isEmpty
+                        ? defaultProfileDisplayName
+                        : displayNameController.text.trim(),
                     portraitAsset: widget.portraitAsset,
+                    active: true,
+                    portraitSelected: true,
+                    portraitSize: 74,
+                    minHeight: 94,
+                    padding: const EdgeInsets.all(10),
                     onPortraitPressed: widget.onPortraitChanged == null
                         ? null
                         : showPortraitPicker,
+                    portraitSemanticsLabel: widget.portraitAsset,
+                    title: TextField(
+                      controller: displayNameController,
+                      maxLength: 24,
+                      minLines: 1,
+                      maxLines: 1,
+                      style: kolkhozFontStyle.copyWith(
+                        color: widget.tokens.colors.cream,
+                        fontSize: 28,
+                        height: 1.0,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      cursorColor: widget.tokens.colors.goldBright,
+                      decoration: InputDecoration(
+                        counterText: '',
+                        hintText: defaultProfileDisplayName,
+                        hintStyle: kolkhozFontStyle.copyWith(
+                          color: widget.tokens.colors.creamDim.withValues(
+                            alpha: 0.74,
+                          ),
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        border: InputBorder.none,
+                        isCollapsed: true,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                    ),
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -282,6 +361,20 @@ class _ProfilePanelState extends State<_ProfilePanel> {
                           );
                         },
                       ),
+                      _RecentGamesPanel(
+                        tokens: widget.tokens,
+                        games: recentGames,
+                        loading: recentGamesLoading,
+                        error: recentGamesError,
+                        onRetry: loadRecentGames,
+                        clientFactory: widget.clientFactory,
+                      ),
+                      _DailyChallengePanel(
+                        tokens: widget.tokens,
+                        challenge: dailyChallenge,
+                        loading: dailyLoading,
+                        onPlay: widget.onStartDailyChallenge,
+                      ),
                     ],
                   ),
                 ],
@@ -307,6 +400,331 @@ class _ProfilePanelState extends State<_ProfilePanel> {
       ],
     );
   }
+}
+
+class _RecentGamesPanel extends StatelessWidget {
+  const _RecentGamesPanel({
+    required this.tokens,
+    required this.games,
+    required this.loading,
+    required this.error,
+    required this.onRetry,
+    required this.clientFactory,
+  });
+
+  final DesignTokens tokens;
+  final List<OnlineRecentGame> games;
+  final bool loading;
+  final Object? error;
+  final VoidCallback onRetry;
+  final KolkhozOnlineClient Function()? clientFactory;
+
+  String placement(int rank) => switch (rank) {
+    1 => '1ST',
+    2 => '2ND',
+    3 => '3RD',
+    _ => '${rank}TH',
+  };
+
+  String date(double seconds) {
+    final value = DateTime.fromMillisecondsSinceEpoch(
+      (seconds * 1000).round(),
+    ).toLocal();
+    return '${value.month}/${value.day}/${value.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 7,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'RECENT GAMES',
+                style: kolkhozFontStyle.copyWith(
+                  color: tokens.colors.gold,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            if (error != null)
+              TextButton(onPressed: onRetry, child: const Text('RETRY')),
+          ],
+        ),
+        if (loading)
+          const LinearProgressIndicator(minHeight: 2)
+        else if (error != null)
+          Text(
+            'RECENT RESULTS UNAVAILABLE',
+            style: kolkhozFontStyle.copyWith(color: tokens.colors.creamDim),
+          )
+        else if (games.isEmpty)
+          Text(
+            'NO COMPLETED ONLINE GAMES YET',
+            style: kolkhozFontStyle.copyWith(color: tokens.colors.creamDim),
+          )
+        else
+          for (final game in games)
+            InkWell(
+              onTap: clientFactory == null
+                  ? null
+                  : () => showDialog<void>(
+                      context: context,
+                      builder: (context) => _ReplayDialog(
+                        tokens: tokens,
+                        replay: clientFactory!().fetchReplay(game.sessionID),
+                      ),
+                    ),
+              child: Container(
+                key: Key('recent-game-${game.sessionID}'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: tokens.colors.black.withValues(alpha: 0.22),
+                  border: Border.all(
+                    color: game.won
+                        ? tokens.colors.gold.withValues(alpha: 0.7)
+                        : tokens.colors.creamDim.withValues(alpha: 0.25),
+                  ),
+                  borderRadius: BorderRadius.circular(tokens.radius.sm),
+                ),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 48,
+                      child: Text(
+                        game.won ? 'WIN' : placement(game.rank),
+                        style: kolkhozFontStyle.copyWith(
+                          color: game.won
+                              ? tokens.colors.goldBright
+                              : tokens.colors.cream,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        '${game.score} PTS  •  ${game.ranked ? 'RANKED' : 'CASUAL'}',
+                        style: kolkhozFontStyle.copyWith(
+                          color: tokens.colors.cream,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      date(game.completedAt),
+                      style: kolkhozFontStyle.copyWith(
+                        color: tokens.colors.creamDim,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+      ],
+    );
+  }
+}
+
+class _DailyChallengePanel extends StatelessWidget {
+  const _DailyChallengePanel({
+    required this.tokens,
+    required this.challenge,
+    required this.loading,
+    required this.onPlay,
+  });
+  final DesignTokens tokens;
+  final OnlineDailyChallenge? challenge;
+  final bool loading;
+  final Future<void> Function()? onPlay;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = challenge;
+    return Container(
+      key: const Key('daily-collective-challenge'),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: tokens.colors.gold.withValues(alpha: 0.1),
+        border: Border.all(color: tokens.colors.gold.withValues(alpha: 0.55)),
+        borderRadius: BorderRadius.circular(tokens.radius.sm),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 6,
+        children: [
+          Text(
+            'DAILY COLLECTIVE CHALLENGE',
+            style: kolkhozFontStyle.copyWith(
+              color: tokens.colors.goldBright,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          if (loading)
+            const LinearProgressIndicator(minHeight: 2)
+          else ...[
+            Text(
+              value?.bestScore == null
+                  ? 'One shared seed. Unlimited attempts. Your best score counts.'
+                  : 'PERSONAL BEST  ${value!.bestScore} PTS',
+              style: kolkhozFontStyle.copyWith(color: tokens.colors.cream),
+            ),
+            if (value != null && value.leaders.isNotEmpty)
+              Text(
+                'LEADER  ${value.leaders.first.displayName}  ${value.leaders.first.score}',
+                style: kolkhozFontStyle.copyWith(color: tokens.colors.creamDim),
+              ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                key: const Key('daily-challenge-play-button'),
+                onPressed: onPlay == null ? null : () => onPlay!(),
+                child: Text(value?.bestScore == null ? 'PLAY' : 'PLAY AGAIN'),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ReplayDialog extends StatefulWidget {
+  const _ReplayDialog({required this.tokens, required this.replay});
+  final DesignTokens tokens;
+  final Future<OnlineGameReplay> replay;
+  @override
+  State<_ReplayDialog> createState() => _ReplayDialogState();
+}
+
+class _ReplayDialogState extends State<_ReplayDialog> {
+  int revision = 0;
+
+  String actionLabel(OnlineReplayEvent event) {
+    final action = event.action;
+    return [
+      'R${event.revision}',
+      'ACTION ${action.kind}',
+      'P${action.playerID + 1}',
+      if (action.card.isValid) '${action.card.suit}-${action.card.value}',
+    ].join('  ');
+  }
+
+  @override
+  Widget build(BuildContext context) => Dialog(
+    backgroundColor: widget.tokens.colors.panel,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 680, maxHeight: 640),
+      child: FutureBuilder<OnlineGameReplay>(
+        future: widget.replay,
+        builder: (context, snapshot) {
+          final replay = snapshot.data;
+          if (replay == null) {
+            return const Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(),
+            );
+          }
+          final events = replay.events;
+          final selected = events.isEmpty
+              ? null
+              : events[revision.clamp(0, events.length - 1)];
+          return Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 10,
+              children: [
+                Text(
+                  'MATCH REPLAY',
+                  style: kolkhozFontStyle.copyWith(
+                    color: widget.tokens.colors.goldBright,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  'SEED ${replay.seed}  •  ${replay.ranked ? 'RANKED' : 'CASUAL'}  •  ${events.length} ACTIONS',
+                ),
+                Wrap(
+                  spacing: 12,
+                  children: [
+                    for (final result in replay.results)
+                      Text(
+                        '${result.rank}. ${result.displayName} ${result.score}',
+                      ),
+                  ],
+                ),
+                const Divider(),
+                if (selected != null) ...[
+                  Text(
+                    actionLabel(selected),
+                    key: const Key('replay-current-action'),
+                  ),
+                  Slider(
+                    value: revision.toDouble(),
+                    min: 0,
+                    max: (events.length - 1).toDouble(),
+                    divisions: events.length - 1 > 0 ? events.length - 1 : null,
+                    onChanged: (value) =>
+                        setState(() => revision = value.round()),
+                  ),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: revision == 0
+                            ? null
+                            : () => setState(() => revision--),
+                        child: const Text('PREVIOUS'),
+                      ),
+                      TextButton(
+                        onPressed: revision >= events.length - 1
+                            ? null
+                            : () => setState(() => revision++),
+                        child: const Text('NEXT'),
+                      ),
+                      const Spacer(),
+                      Text('${revision + 1}/${events.length}'),
+                    ],
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: events.length,
+                      itemBuilder: (context, index) => ListTile(
+                        dense: true,
+                        selected: index == revision,
+                        title: Text(actionLabel(events[index])),
+                        onTap: () => setState(() => revision = index),
+                      ),
+                    ),
+                  ),
+                ] else
+                  const Expanded(
+                    child: Center(child: Text('NO RECORDED ACTIONS')),
+                  ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('CLOSE'),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    ),
+  );
 }
 
 class _CloudAuthPanel extends StatefulWidget {
@@ -418,15 +836,51 @@ class _CloudAuthPanelState extends State<_CloudAuthPanel> {
           ),
         ),
         if (widget.configured && widget.ready && widget.signedIn)
-          _SignedInAccountRow(
-            tokens: widget.tokens,
-            status: status,
-            signOutLabel: widget.busy
-                ? widget.language.t(KolkhozText.kolkhozappWorking)
-                : widget.language.t(KolkhozText.kolkhozappSignOut),
-            onSignOut: widget.busy || widget.onSignOut == null
-                ? null
-                : widget.onSignOut,
+          Row(
+            spacing: 8,
+            children: [
+              Expanded(
+                child: _VariantRowBackground(
+                  tokens: widget.tokens,
+                  active: true,
+                  child: Row(
+                    spacing: 8,
+                    children: [
+                      const _AssetIcon(
+                        'assets/ui/Icons/icon-status-connected.png',
+                        size: 24,
+                      ),
+                      Expanded(
+                        child: Text(
+                          status,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: kolkhozFontStyle.copyWith(
+                            color: widget.tokens.colors.activeSurfaceText,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 142,
+                height: 42,
+                child: ChromeAssetButton.command(
+                  label: widget.busy
+                      ? widget.language.t(KolkhozText.kolkhozappWorking)
+                      : widget.language.t(KolkhozText.kolkhozappSignOut),
+                  prominent: false,
+                  tokens: widget.tokens,
+                  onPressed: widget.busy || widget.onSignOut == null
+                      ? null
+                      : widget.onSignOut,
+                ),
+              ),
+            ],
           )
         else
           _VariantRowBackground(
@@ -536,66 +990,6 @@ class _CloudAuthPanelState extends State<_CloudAuthPanel> {
             ],
           ),
         ],
-      ],
-    );
-  }
-}
-
-class _SignedInAccountRow extends StatelessWidget {
-  const _SignedInAccountRow({
-    required this.tokens,
-    required this.status,
-    required this.signOutLabel,
-    required this.onSignOut,
-  });
-
-  final DesignTokens tokens;
-  final String status;
-  final String signOutLabel;
-  final Future<void> Function()? onSignOut;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      spacing: 8,
-      children: [
-        Expanded(
-          child: _VariantRowBackground(
-            tokens: tokens,
-            active: true,
-            child: Row(
-              spacing: 8,
-              children: [
-                const _AssetIcon(
-                  'assets/ui/Icons/icon-status-connected.png',
-                  size: 24,
-                ),
-                Expanded(
-                  child: Text(
-                    status,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: kolkhozFontStyle.copyWith(
-                      color: tokens.colors.activeSurfaceText,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        SizedBox(
-          width: 142,
-          height: 42,
-          child: ChromeAssetButton.command(
-            label: signOutLabel,
-            prominent: false,
-            tokens: tokens,
-            onPressed: onSignOut,
-          ),
-        ),
       ],
     );
   }
@@ -914,10 +1308,21 @@ class _ComradesPanelState extends State<_ComradesPanel> {
         LayoutBuilder(
           builder: (context, constraints) {
             const footerControlHeight = 38.0;
-            final codeBox = _ComradeCodeDisplayBox(
-              tokens: widget.tokens,
-              code: code,
+            final codeBox = Container(
               height: footerControlHeight,
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: _comradeFooterBoxDecoration(widget.tokens),
+              child: SelectableText(
+                code,
+                maxLines: 1,
+                style: kolkhozFontStyle.copyWith(
+                  color: widget.tokens.colors.cardInk,
+                  fontSize: 23,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+              ),
             );
             final copyButton = SizedBox(
               width: 126,
@@ -933,11 +1338,39 @@ class _ComradesPanelState extends State<_ComradesPanel> {
                     : copyComradeCode,
               ),
             );
-            final inputBox = _ComradeCodeTextField(
-              tokens: widget.tokens,
-              controller: codeController,
-              hint: widget.language.t(KolkhozText.kolkhozappComradeCode),
+            final inputBox = Container(
               height: footerControlHeight,
+              alignment: Alignment.center,
+              decoration: _comradeFooterBoxDecoration(widget.tokens),
+              child: TextField(
+                controller: codeController,
+                maxLength: 12,
+                minLines: 1,
+                maxLines: 1,
+                textAlignVertical: TextAlignVertical.center,
+                style: kolkhozFontStyle.copyWith(
+                  color: widget.tokens.colors.cardInk,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
+                cursorColor: widget.tokens.colors.redDark,
+                decoration: InputDecoration(
+                  hintText: widget.language
+                      .t(KolkhozText.kolkhozappComradeCode)
+                      .toUpperCase(),
+                  counterText: '',
+                  isCollapsed: true,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                  hintStyle: kolkhozFontStyle.copyWith(
+                    color: widget.tokens.colors.cardInk.withValues(alpha: 0.44),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    height: 1,
+                  ),
+                ),
+              ),
             );
             final addButton = SizedBox(
               width: 142,
@@ -1344,88 +1777,6 @@ String _profileRatingSummary(
       '${language.t(KolkhozText.kolkhozappCasual)} ${stats.casualRating}';
 }
 
-class _ComradeCodeDisplayBox extends StatelessWidget {
-  const _ComradeCodeDisplayBox({
-    required this.tokens,
-    required this.code,
-    required this.height,
-  });
-
-  final DesignTokens tokens;
-  final String code;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: height,
-      alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: _comradeFooterBoxDecoration(tokens),
-      child: SelectableText(
-        code,
-        maxLines: 1,
-        style: kolkhozFontStyle.copyWith(
-          color: tokens.colors.cardInk,
-          fontSize: 23,
-          fontWeight: FontWeight.w900,
-          height: 1,
-        ),
-      ),
-    );
-  }
-}
-
-class _ComradeCodeTextField extends StatelessWidget {
-  const _ComradeCodeTextField({
-    required this.tokens,
-    required this.controller,
-    required this.hint,
-    required this.height,
-  });
-
-  final DesignTokens tokens;
-  final TextEditingController controller;
-  final String hint;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: height,
-      alignment: Alignment.center,
-      decoration: _comradeFooterBoxDecoration(tokens),
-      child: TextField(
-        controller: controller,
-        maxLength: 12,
-        minLines: 1,
-        maxLines: 1,
-        textAlignVertical: TextAlignVertical.center,
-        style: kolkhozFontStyle.copyWith(
-          color: tokens.colors.cardInk,
-          fontSize: 18,
-          fontWeight: FontWeight.w800,
-          height: 1,
-        ),
-        cursorColor: tokens.colors.redDark,
-        decoration: InputDecoration(
-          hintText: hint.toUpperCase(),
-          counterText: '',
-          isCollapsed: true,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-          hintStyle: kolkhozFontStyle.copyWith(
-            color: tokens.colors.cardInk.withValues(alpha: 0.44),
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-            height: 1,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 BoxDecoration _comradeFooterBoxDecoration(DesignTokens tokens) {
   return BoxDecoration(
     color: tokens.colors.cardFill.withValues(alpha: 0.74),
@@ -1435,63 +1786,6 @@ BoxDecoration _comradeFooterBoxDecoration(DesignTokens tokens) {
       width: 1,
     ),
   );
-}
-
-class _ProfilePreview extends StatelessWidget {
-  const _ProfilePreview({
-    required this.tokens,
-    required this.controller,
-    required this.portraitAsset,
-    required this.onPortraitPressed,
-  });
-
-  final DesignTokens tokens;
-  final TextEditingController controller;
-  final String portraitAsset;
-  final VoidCallback? onPortraitPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return PlayerProfilePanel(
-      tokens: tokens,
-      displayName: controller.text.trim().isEmpty
-          ? defaultProfileDisplayName
-          : controller.text.trim(),
-      portraitAsset: portraitAsset,
-      active: true,
-      portraitSelected: true,
-      portraitSize: 74,
-      minHeight: 94,
-      padding: const EdgeInsets.all(10),
-      onPortraitPressed: onPortraitPressed,
-      portraitSemanticsLabel: portraitAsset,
-      title: TextField(
-        controller: controller,
-        maxLength: 24,
-        minLines: 1,
-        maxLines: 1,
-        style: kolkhozFontStyle.copyWith(
-          color: tokens.colors.cream,
-          fontSize: 28,
-          height: 1.0,
-          fontWeight: FontWeight.w700,
-        ),
-        cursorColor: tokens.colors.goldBright,
-        decoration: InputDecoration(
-          counterText: '',
-          hintText: defaultProfileDisplayName,
-          hintStyle: kolkhozFontStyle.copyWith(
-            color: tokens.colors.creamDim.withValues(alpha: 0.74),
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
-          ),
-          border: InputBorder.none,
-          isCollapsed: true,
-          contentPadding: const EdgeInsets.symmetric(vertical: 8),
-        ),
-      ),
-    );
-  }
 }
 
 class _ProfileTextField extends StatelessWidget {

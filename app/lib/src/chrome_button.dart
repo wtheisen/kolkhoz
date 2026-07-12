@@ -142,7 +142,7 @@ class ChromeButtonBackground extends StatelessWidget {
       );
     }
     return FutureBuilder<ui.Image>(
-      future: _ChromeImageCache.load(context, asset),
+      future: ChromeImageCache.load(context, asset),
       builder: (context, snapshot) {
         final image = snapshot.data;
         if (image == null) {
@@ -198,7 +198,7 @@ ChromeNineSliceConfig? chromeButtonNineSliceConfig(String asset) {
   };
 }
 
-class _ChromeImageCache {
+class ChromeImageCache {
   static final Map<String, Future<ui.Image>> _images = {};
 
   static Future<ui.Image> load(BuildContext context, String asset) {

@@ -1636,24 +1636,21 @@ void registerBoardTests() {
     expect(find.byType(FlyingCard), findsOneWidget);
   });
 
-  testWidgets('rapid assignment updates only animate the committed move once', (
+  testWidgets('confirmed assignments animate sequentially before completing', (
     tester,
   ) async {
-    final opening = runtimeModelWith(
-      phase: phaseTrick,
-      selection: SelectionState.empty,
-      jobs: runtimeModel().table.jobs,
-    );
+    final cards = [
+      testCard(id: 'sunflower-7', suit: 'sunflower', value: 7),
+      testCard(id: 'wheat-8', suit: 'wheat', value: 8),
+    ];
     final before = runtimeModelWith(
       phase: phaseAssignment,
       selection: SelectionState.empty,
       jobs: runtimeModel().table.jobs,
       lastTrick: Trick(
         plays: [
-          TrickPlay(
-            seatID: 2,
-            card: testCard(id: 'sunflower-7', suit: 'sunflower', value: 7),
-          ),
+          TrickPlay(seatID: 2, card: cards[0]),
+          TrickPlay(seatID: 3, card: cards[1]),
         ],
         winnerSeatID: 2,
       ),
@@ -1663,19 +1660,21 @@ void registerBoardTests() {
       selection: SelectionState.empty,
       jobs: [
         for (final job in before.table.jobs)
-          job.suit == 'sunflower'
+          cards.any((card) => card.suit == job.suit)
               ? Job(
                   suit: job.suit,
                   hours: job.hours,
                   requiredHours: job.requiredHours,
                   claimed: job.claimed,
                   assignedCards: [
-                    testCard(
-                      id: 'sunflower-7',
-                      suit: 'sunflower',
-                      value: 7,
-                      pending: true,
-                    ),
+                    for (final card in cards)
+                      if (card.suit == job.suit)
+                        testCard(
+                          id: card.id,
+                          suit: card.suit,
+                          value: card.value,
+                          pending: true,
+                        ),
                   ],
                   reward: job.reward,
                   validAssignmentTarget: job.validAssignmentTarget,
@@ -1685,19 +1684,23 @@ void registerBoardTests() {
       ],
       lastTrick: before.table.lastTrick,
     );
-    final assignedCard = before.table.lastTrick.plays.single.card;
     final after = runtimeModelWith(
       phase: phaseTrick,
       selection: SelectionState.empty,
       jobs: [
         for (final job in before.table.jobs)
-          job.suit == assignedCard.suit
+          cards.any((card) => card.suit == job.suit)
               ? Job(
                   suit: job.suit,
-                  hours: assignedCard.value,
+                  hours: cards
+                      .where((card) => card.suit == job.suit)
+                      .fold(0, (total, card) => total + card.value),
                   requiredHours: job.requiredHours,
                   claimed: job.claimed,
-                  assignedCards: [assignedCard],
+                  assignedCards: [
+                    for (final card in cards)
+                      if (card.suit == job.suit) card,
+                  ],
                   reward: job.reward,
                   validAssignmentTarget: job.validAssignmentTarget,
                   highlighted: job.highlighted,
@@ -1707,7 +1710,9 @@ void registerBoardTests() {
       lastTrick: const Trick(plays: [], winnerSeatID: null),
     );
 
-    var currentModel = opening;
+    var currentModel = before;
+    int? presentationRevision;
+    final completedRevisions = <int>[];
     late StateSetter setMotionState;
     await tester.pumpWidget(
       MaterialApp(
@@ -1721,6 +1726,11 @@ void registerBoardTests() {
                 model: currentModel,
                 tokens: defaultDesignTokens,
                 speed: GameAnimationSpeed.normal,
+                presentationRevision: presentationRevision,
+                assignmentPresentationCardIDs: [
+                  for (final card in cards) card.id,
+                ],
+                onPresentationComplete: completedRevisions.add,
                 child: _CardMotionTestBoard(model: currentModel),
               ),
             );
@@ -1731,24 +1741,79 @@ void registerBoardTests() {
     await tester.pump();
     await tester.pump();
 
-    setMotionState(() => currentModel = before);
-    await tester.pump();
-    await tester.pump();
-    expect(find.byType(FlyingCard), findsOneWidget);
-    await tester.pump(const Duration(seconds: 1));
-    expect(find.byType(FlyingCard), findsNothing);
-
     setMotionState(() => currentModel = pending);
     await tester.pump();
     await tester.pump();
-    expect(cardMotionZones(pending)[assignedCard.id], 'trick:2');
+    expect(cardMotionZones(pending)[cards[0].id], 'trick:2');
+    expect(cardMotionZones(pending)[cards[1].id], 'trick:3');
     expect(find.byType(FlyingCard), findsNothing);
 
-    setMotionState(() => currentModel = after);
+    setMotionState(() {
+      currentModel = after;
+      presentationRevision = 12;
+    });
     await tester.pump();
     await tester.pump();
 
     expect(find.byType(FlyingCard), findsOneWidget);
+    expect(completedRevisions, isEmpty);
+    await tester.pump(const Duration(milliseconds: 100));
+    setMotionState(() {
+      currentModel = runtimeModelWith(
+        phase: phaseTrick,
+        selection: SelectionState.empty,
+        jobs: after.table.jobs,
+        lastTrick: const Trick(plays: [], winnerSeatID: null),
+      );
+    });
+    await tester.pump();
+    expect(find.byType(FlyingCard), findsOneWidget);
+    expect(completedRevisions, isEmpty);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(FlyingCard), findsOneWidget);
+    expect(completedRevisions, isEmpty);
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.byType(FlyingCard), findsNothing);
+    expect(completedRevisions, [12]);
+  });
+
+  testWidgets('a revision without card motion completes after layout', (
+    tester,
+  ) async {
+    var revision = 1;
+    final completedRevisions = <int>[];
+    late StateSetter setMotionState;
+    final model = runtimeModel();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            setMotionState = setState;
+            return SizedBox(
+              width: 420,
+              height: 280,
+              child: CardMotionLayer(
+                model: model,
+                tokens: defaultDesignTokens,
+                speed: GameAnimationSpeed.normal,
+                presentationRevision: revision,
+                onPresentationComplete: completedRevisions.add,
+                child: _CardMotionTestBoard(model: model),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    setMotionState(() => revision = 2);
+    await tester.pump();
+    await tester.pump();
+
+    expect(completedRevisions, [2]);
   });
 
   testWidgets('requisition flies a newly plotted hand card to North', (
@@ -1962,57 +2027,72 @@ void registerBoardTests() {
   testWidgets('job gauge delta waits for assignment flight to finish', (
     tester,
   ) async {
-    Widget gaugeWithHours(int hours, {bool claimed = false}) {
+    final controller = CardMotionController();
+    final rootKey = GlobalKey();
+    final wheat7 = testCard(id: 'wheat-7', suit: 'wheat', value: 7);
+    final wheat8 = testCard(id: 'wheat-8', suit: 'wheat', value: 8);
+
+    Widget gaugeWithCards(List<TableCard> cards, {bool claimed = false}) {
       return MaterialApp(
-        home: JobGauge(
-          job: Job(
-            suit: 'wheat',
-            hours: hours,
-            requiredHours: jobRequiredHours,
-            claimed: claimed,
-            reward: testCard(id: 'wheat-1', suit: 'wheat', value: 1),
-            assignedCards: const [],
-            validAssignmentTarget: false,
+        home: CardMotionScope(
+          controller: controller,
+          frame: 0,
+          rootKey: rootKey,
+          activeCardIDs: const {},
+          child: JobGauge(
+            job: Job(
+              suit: 'wheat',
+              hours: cards.fold(10, (total, card) => total + card.value),
+              requiredHours: jobRequiredHours,
+              claimed: claimed,
+              reward: testCard(id: 'wheat-1', suit: 'wheat', value: 1),
+              assignedCards: cards,
+              validAssignmentTarget: false,
+              highlighted: false,
+            ),
             highlighted: false,
+            width: 118,
+            height: 38,
+            tokens: defaultDesignTokens,
           ),
-          highlighted: false,
-          animationSpeed: GameAnimationSpeed.normal,
-          width: 118,
-          height: 38,
-          tokens: defaultDesignTokens,
         ),
       );
     }
 
-    await tester.pumpWidget(gaugeWithHours(10));
-    await tester.pumpWidget(gaugeWithHours(17));
-    await tester.pumpWidget(gaugeWithHours(25));
+    await tester.pumpWidget(gaugeWithCards(const []));
+    await tester.pumpWidget(gaugeWithCards([wheat7]));
+    await tester.pumpWidget(gaugeWithCards([wheat7, wheat8]));
 
-    expect(findAppText('25/40'), findsOneWidget);
+    expect(findAppText('25/40'), findsWidgets);
     expect(findAppText('+7'), findsNothing);
     expect(findAppText('+8'), findsNothing);
 
-    await tester.pump(
-      jobGaugeDeltaRevealDelay(GameAnimationSpeed.normal) -
-          const Duration(milliseconds: 1),
+    controller.recordJobCardArrival(
+      const JobCardArrival(cardID: 'wheat-7', suit: 'wheat'),
     );
+    await tester.pump();
+    expect(findAppText('+7'), findsWidgets);
+    expect(findAppText('+8'), findsNothing);
+
+    controller.recordJobCardArrival(
+      const JobCardArrival(cardID: 'wheat-8', suit: 'wheat'),
+    );
+    await tester.pump();
+    expect(findAppText('+7'), findsWidgets);
+    expect(findAppText('+8'), findsWidgets);
+
+    await tester.pumpAndSettle();
     expect(findAppText('+7'), findsNothing);
     expect(findAppText('+8'), findsNothing);
 
-    await tester.pump(const Duration(milliseconds: 1));
-    expect(findAppText('+7'), findsOneWidget);
-    expect(findAppText('+8'), findsNothing);
-
-    await tester.pump(jobGaugeDeltaRevealStagger);
-    expect(findAppText('+7'), findsOneWidget);
-    expect(findAppText('+8'), findsOneWidget);
-
-    await tester.pump(jobGaugeDeltaDuration + jobGaugeDeltaRevealStagger);
-    expect(findAppText('+7'), findsNothing);
-    expect(findAppText('+8'), findsNothing);
-
-    await tester.pumpWidget(gaugeWithHours(40, claimed: true));
-    expect(findAppText('40/40'), findsOneWidget);
+    await tester.pumpWidget(
+      gaugeWithCards([
+        wheat7,
+        wheat8,
+        testCard(id: 'wheat-15', suit: 'wheat', value: 15),
+      ], claimed: true),
+    );
+    expect(findAppText('40/40'), findsWidgets);
   });
 
   test('AI card flights originate from the player info card', () {

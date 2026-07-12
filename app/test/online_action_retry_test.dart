@@ -40,4 +40,10 @@ void main() {
       isFalse,
     );
   });
+
+  test('single-revision online action results are identified', () {
+    expect(onlineActionResultIsSingleRevision(12, 13), isTrue);
+    expect(onlineActionResultIsSingleRevision(12, 14), isFalse);
+    expect(onlineActionResultIsSingleRevision(12, 12), isFalse);
+  });
 }

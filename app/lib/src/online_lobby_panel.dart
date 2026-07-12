@@ -8,6 +8,7 @@ class _OnlinePanel extends StatefulWidget {
     required this.onlineSessionUpdate,
     required this.showHostedInviteCode,
     required this.onJoinOnline,
+    required this.onWatchOnline,
     required this.onMatchmakeOnline,
     required this.onKickOnlinePlayer,
     required this.onEnterOnlineGame,
@@ -33,6 +34,7 @@ class _OnlinePanel extends StatefulWidget {
     int? preferredPlayerID,
   )
   onJoinOnline;
+  final Future<void> Function(Uri baseURL, String sessionID)? onWatchOnline;
   final Future<String> Function(
     Uri baseURL,
     bool rankedOnly,
@@ -65,15 +67,28 @@ class _OnlinePanelState extends State<_OnlinePanel> {
   String? currentUserID;
   String? selectedSessionID;
 
+  void setStatus(String? message) {
+    status = message;
+    statusIsError = false;
+    statusDisablesAction = false;
+  }
+
+  void setFailure(Object exception) {
+    status = onlineFailureStatusMessage(exception, widget.language);
+    statusIsError = true;
+    statusDisablesAction = onlineFailureLocksOnlinePlay(exception);
+    if (statusDisablesAction) {
+      selectedSessionID = null;
+    }
+  }
+
   Future<void> copyInviteCode(String inviteCode) async {
     await Clipboard.setData(ClipboardData(text: inviteCode));
     if (!mounted) {
       return;
     }
     setState(() {
-      status = widget.language.t(KolkhozText.kolkhozappCopied);
-      statusIsError = false;
-      statusDisablesAction = false;
+      setStatus(widget.language.t(KolkhozText.kolkhozappCopied));
     });
   }
 
@@ -122,7 +137,12 @@ class _OnlinePanelState extends State<_OnlinePanel> {
     unawaited(loadComrades());
     await runOnlineAction(() async {
       final client = _onlineClient();
-      final sessions = await client.fetchSessions();
+      final sessions = [...await client.fetchSessions()];
+      try {
+        sessions.addAll(await client.fetchWatchableSessions());
+      } catch (_) {
+        // Older servers can still provide the joinable-session browser.
+      }
       var nextCitizensOnline = _citizensOnlineFromSessions(sessions);
       try {
         nextCitizensOnline = (await client.fetchServerStatus()).citizensOnline;
@@ -135,8 +155,7 @@ class _OnlinePanelState extends State<_OnlinePanel> {
           ? selectedSessionID
           : null;
       secondsUntilBrowserRefresh = _browserRefreshInterval.inSeconds;
-      statusIsError = false;
-      statusDisablesAction = false;
+      setStatus(status);
     });
   }
 
@@ -149,13 +168,18 @@ class _OnlinePanelState extends State<_OnlinePanel> {
 
   Future<void> joinSession(OnlineSessionListing session) async {
     await runOnlineAction(() async {
+      if (session.started) {
+        await widget.onWatchOnline?.call(_onlineServerURL, session.sessionID);
+        setStatus('WATCHING ${session.shortID}');
+        return;
+      }
       final seat = session.openSeats.isEmpty ? null : session.openSeats.first;
       await widget.onJoinOnline(_onlineServerURL, session.sessionID, seat);
-      status = widget.language.t(KolkhozText.kolkhozappJoinedValue1, {
-        'value1': session.shortID,
-      });
-      statusIsError = false;
-      statusDisablesAction = false;
+      setStatus(
+        widget.language.t(KolkhozText.kolkhozappJoinedValue1, {
+          'value1': session.shortID,
+        }),
+      );
     });
   }
 
@@ -231,9 +255,7 @@ class _OnlinePanelState extends State<_OnlinePanel> {
     await runOnlineAction(() async {
       await widget.onComradeRequestToUser!(userID);
       await loadComrades();
-      status = widget.language.t(KolkhozText.kolkhozappComradeRequestSent);
-      statusIsError = false;
-      statusDisablesAction = false;
+      setStatus(widget.language.t(KolkhozText.kolkhozappComradeRequestSent));
     });
   }
 
@@ -256,11 +278,11 @@ class _OnlinePanelState extends State<_OnlinePanel> {
         inviteController.text.trim(),
         null,
       );
-      status = widget.language.t(KolkhozText.kolkhozappJoinedValue1, {
-        'value1': inviteController.text.trim(),
-      });
-      statusIsError = false;
-      statusDisablesAction = false;
+      setStatus(
+        widget.language.t(KolkhozText.kolkhozappJoinedValue1, {
+          'value1': inviteController.text.trim(),
+        }),
+      );
     });
   }
 
@@ -275,11 +297,11 @@ class _OnlinePanelState extends State<_OnlinePanel> {
         true,
         false,
       );
-      status = widget.language.t(KolkhozText.kolkhozappJoinedValue1, {
-        'value1': inviteCode,
-      });
-      statusIsError = false;
-      statusDisablesAction = false;
+      setStatus(
+        widget.language.t(KolkhozText.kolkhozappJoinedValue1, {
+          'value1': inviteCode,
+        }),
+      );
     });
   }
 
@@ -297,21 +319,14 @@ class _OnlinePanelState extends State<_OnlinePanel> {
     }
     setState(() {
       busy = true;
-      status = null;
-      statusIsError = false;
-      statusDisablesAction = false;
+      setStatus(null);
     });
     try {
       await action();
     } catch (exception) {
       if (mounted) {
         setState(() {
-          status = onlineFailureStatusMessage(exception, widget.language);
-          statusIsError = true;
-          statusDisablesAction = onlineFailureLocksOnlinePlay(exception);
-          if (statusDisablesAction) {
-            selectedSessionID = null;
-          }
+          setFailure(exception);
         });
       }
     } finally {
@@ -465,6 +480,7 @@ class _OnlinePanelState extends State<_OnlinePanel> {
             children: [
               SizedBox(
                 width: 112,
+                height: double.infinity,
                 child: ChromeAssetButton.command(
                   label: widget.language.t(KolkhozText.kolkhozappRefresh),
                   prominent: false,
@@ -474,14 +490,46 @@ class _OnlinePanelState extends State<_OnlinePanel> {
                 ),
               ),
               Expanded(
-                child: _OnlineTextField(
-                  tokens: widget.tokens,
-                  controller: inviteController,
-                  label: widget.language.t(KolkhozText.kolkhozappInviteCode),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: widget.tokens.colors.black.withValues(alpha: 0.30),
+                    borderRadius: BorderRadius.circular(5),
+                    border: Border.all(
+                      color: widget.tokens.colors.steel.withValues(alpha: 0.34),
+                    ),
+                  ),
+                  child: TextField(
+                    controller: inviteController,
+                    minLines: 1,
+                    maxLines: 1,
+                    style: kolkhozFontStyle.copyWith(
+                      color: widget.tokens.colors.cream,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: widget.language.t(
+                        KolkhozText.kolkhozappInviteCode,
+                      ),
+                      labelStyle: kolkhozFontStyle.copyWith(
+                        color: widget.tokens.colors.creamDim.withValues(
+                          alpha: 0.72,
+                        ),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                    ),
+                  ),
                 ),
               ),
               SizedBox(
                 width: 220,
+                height: double.infinity,
                 child: Opacity(
                   opacity: busy ? 0.55 : 1,
                   child: ChromeAssetButton.command(
@@ -490,7 +538,11 @@ class _OnlinePanelState extends State<_OnlinePanel> {
                         : busy
                         ? widget.language.t(KolkhozText.kolkhozappWorking)
                         : joinsExistingGame
-                        ? widget.language.t(KolkhozText.kolkhozappJoinGame)
+                        ? selected?.started == true
+                              ? 'WATCH GAME'
+                              : widget.language.t(
+                                  KolkhozText.kolkhozappJoinGame,
+                                )
                         : widget.language.t(KolkhozText.kolkhozappAssignGame),
                     prominent: true,
                     tokens: widget.tokens,
@@ -512,89 +564,6 @@ class _OnlinePanelState extends State<_OnlinePanel> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _HostedInviteCodeFooterButton extends StatelessWidget {
-  const _HostedInviteCodeFooterButton({
-    required this.tokens,
-    required this.language,
-    required this.inviteCode,
-    required this.height,
-    required this.onCopy,
-  });
-
-  final DesignTokens tokens;
-  final KolkhozLanguage language;
-  final String inviteCode;
-  final double height;
-  final VoidCallback onCopy;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: '${language.t(KolkhozText.kolkhozappInviteCode)} $inviteCode',
-      child: ExcludeSemantics(
-        child: Tooltip(
-          message: language.t(KolkhozText.kolkhozappCopyCode),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onCopy,
-            child: SizedBox(
-              height: height,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  const Positioned.fill(
-                    child: ChromeButtonBackground(
-                      asset: chromeButtonSecondaryAsset,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 9),
-                    child: Row(
-                      spacing: 7,
-                      children: [
-                        const _AssetIcon(
-                          'assets/ui/Icons/icon-add-friend.png',
-                          size: 22,
-                        ),
-                        Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            spacing: 2,
-                            children: [
-                              ChromeScaledLabel(
-                                language.t(KolkhozText.kolkhozappInviteCode),
-                                color: tokens.colors.cardInk,
-                                size: PixelTextSize.xSmall,
-                                textAlign: TextAlign.start,
-                              ),
-                              ChromeScaledLabel(
-                                inviteCode,
-                                color: tokens.colors.cardInk,
-                                size: PixelTextSize.caption,
-                                textAlign: TextAlign.start,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const _AssetIcon(
-                          'assets/ui/Icons/icon-check.png',
-                          size: 18,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -2097,52 +2066,6 @@ class _OpenSessionDetailChip extends StatelessWidget {
           ),
           TextSpan(text: value),
         ],
-      ),
-    );
-  }
-}
-
-class _OnlineTextField extends StatelessWidget {
-  const _OnlineTextField({
-    required this.tokens,
-    required this.controller,
-    required this.label,
-  });
-
-  final DesignTokens tokens;
-  final TextEditingController controller;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: tokens.colors.black.withValues(alpha: 0.30),
-        borderRadius: BorderRadius.circular(5),
-        border: Border.all(color: tokens.colors.steel.withValues(alpha: 0.34)),
-      ),
-      child: TextField(
-        controller: controller,
-        minLines: 1,
-        maxLines: 1,
-        style: kolkhozFontStyle.copyWith(
-          color: tokens.colors.cream,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-        ),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: kolkhozFontStyle.copyWith(
-            color: tokens.colors.creamDim.withValues(alpha: 0.72),
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-          ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 6,
-          ),
-        ),
       ),
     );
   }

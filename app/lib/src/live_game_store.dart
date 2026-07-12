@@ -25,6 +25,13 @@ bool actionCapturesUndoSnapshot(String actionKind) {
   return actionKind == actionAssign;
 }
 
+bool onlineActionResultIsSingleRevision(
+  int beforeRevision,
+  int resultRevision,
+) {
+  return resultRevision == beforeRevision + 1;
+}
+
 const onlineGameRefreshInterval = Duration(seconds: 1);
 const onlineGameRealtimeRefreshInterval = Duration(seconds: 15);
 
@@ -37,25 +44,6 @@ bool isStaleOnlineActionError(Object error) {
 bool onlineActionMatches(OnlineEngineAction candidate, EngineAction action) {
   return jsonEncode(candidate.toJson()) ==
       jsonEncode(OnlineEngineAction.fromEngineAction(action).toJson());
-}
-
-Duration onlineActionAnimationDelay({
-  required GameAnimationSpeed speed,
-  required OnlineEngineAction action,
-  required int viewerPlayerID,
-}) {
-  final scale = switch (action.kind) {
-    kcActionAssign => jobAssignmentCardFlightDurationScale,
-    kcActionContinueAfterRequisition => requisitionCardFlightDurationScale,
-    kcActionPlayCard when action.playerID != viewerPlayerID =>
-      playerInfoCardFlightDurationScale,
-    _ => 1.0,
-  };
-  final flight = scaledGameAnimationDuration(speed.cardFlightDuration, scale);
-  if (flight == Duration.zero) {
-    return Duration.zero;
-  }
-  return flight + const Duration(milliseconds: 80);
 }
 
 GameUiState autoSelectCards(GameUiState uiState, TableViewModel model) {
@@ -141,6 +129,8 @@ class LiveGameStore extends ChangeNotifier {
   bool restoredSavedGame = false;
   OnlineGameRuntime? _online;
   Timer? _automaticStepTimer;
+  int _localPresentationSequence = 0;
+  int? _awaitingLocalPresentationRevision;
   TableViewModel? model;
   Pointer<KCEngine>? _engine;
   final List<GameUndoSnapshot> _undoStack = [];
@@ -159,6 +149,7 @@ class LiveGameStore extends ChangeNotifier {
   }) {
     try {
       _clearAutomaticStepTimer();
+      _awaitingLocalPresentationRevision = null;
       final oldEngine = _engine;
       if (oldEngine != null) {
         bridge.freeEngine(oldEngine);
@@ -227,10 +218,12 @@ class LiveGameStore extends ChangeNotifier {
       localGameLog = [...localGameLog, action.engineAction];
       _clearSelectionAfter(action.kind);
     }
+    if (result == 0) {
+      _beginLocalPresentation();
+    }
     _sync();
     if (result == 0) {
       _saveAutosave();
-      _scheduleAutomaticStep();
     }
   }
 
@@ -261,10 +254,17 @@ class LiveGameStore extends ChangeNotifier {
   }
 
   bool get isOnlineGame => _online != null;
+  bool get isSpectating => _online?.spectator ?? false;
   String? get onlineSessionID => _online?.sessionID;
   String? get onlineInviteCode => _online?.inviteCode;
   int? get onlinePlayerID => _online?.playerID;
   OnlineSessionUpdate? get onlineUpdate => _online?.update;
+  int? get presentationRevision =>
+      _online?.awaitingPresentationRevision ??
+      _awaitingLocalPresentationRevision;
+  List<String> get onlineAssignmentPresentationCardIDs => List.unmodifiable(
+    _online?.assignmentPresentationCardIDs ?? const <String>[],
+  );
   List<EngineAction> get gameLogActions => _online == null
       ? List.unmodifiable(localGameLog)
       : [
@@ -354,6 +354,7 @@ class LiveGameStore extends ChangeNotifier {
     revealedPlayerID = snapshot.revealedPlayerID;
     _lastSyncedPhase = snapshot.lastSyncedPhase;
     error = null;
+    _beginLocalPresentation();
     _sync();
     _saveAutosave();
   }
@@ -364,6 +365,7 @@ class LiveGameStore extends ChangeNotifier {
     required List<KolkhozPlayerController> controllers,
     required bool ranked,
     required bool browserJoinable,
+    int bestOf = 1,
   }) async {
     try {
       final client = KolkhozOnlineClient(
@@ -381,6 +383,7 @@ class LiveGameStore extends ChangeNotifier {
         controllers: normalizedControllers,
         ranked: ranked,
         browserJoinable: browserJoinable,
+        bestOf: bestOf,
       );
       await _connectOnline(
         client: client,
@@ -391,6 +394,84 @@ class LiveGameStore extends ChangeNotifier {
         update: response.update,
       );
       return response.sessionID;
+    } catch (exception) {
+      error = '$exception';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> startDailyChallenge({required Uri baseURL}) async {
+    final client = KolkhozOnlineClient(
+      baseURL,
+      httpClient: onlineHttpClient,
+      webSocketConnector: onlineWebSocketConnector,
+      accessTokenProvider: onlineAccessTokenProvider,
+      deviceID: onlineDeviceID,
+    );
+    try {
+      final response = await client.startDailyChallenge();
+      await _connectOnline(
+        client: client,
+        sessionID: response.sessionID,
+        inviteCode: response.inviteCode,
+        playerID: response.playerID,
+        seatToken: response.seatToken,
+        update: response.update,
+      );
+    } catch (exception) {
+      error = '$exception';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> rematchOnlineGame() async {
+    final online = _online;
+    if (online == null ||
+        online.update.ranked ||
+        online.update.snapshot.phase != kcPhaseGameOver) {
+      throw StateError('Only finished casual games can be rematched');
+    }
+    try {
+      final response = await online.client.createRematch(online.sessionID);
+      await _connectOnline(
+        client: online.client,
+        sessionID: response.sessionID,
+        inviteCode: response.inviteCode,
+        playerID: response.playerID,
+        seatToken: response.seatToken,
+        update: response.update,
+      );
+    } catch (exception) {
+      error = '$exception';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> watchOnlineGame({
+    required Uri baseURL,
+    required String sessionID,
+  }) async {
+    final client = KolkhozOnlineClient(
+      baseURL,
+      httpClient: onlineHttpClient,
+      webSocketConnector: onlineWebSocketConnector,
+      accessTokenProvider: onlineAccessTokenProvider,
+      deviceID: onlineDeviceID,
+    );
+    try {
+      final update = await client.fetchSpectatorUpdate(sessionID);
+      await _connectOnline(
+        client: client,
+        sessionID: sessionID,
+        inviteCode: update.inviteCode,
+        playerID: -1,
+        seatToken: '',
+        update: update,
+        spectator: true,
+      );
     } catch (exception) {
       error = '$exception';
       notifyListeners();
@@ -498,10 +579,11 @@ class LiveGameStore extends ChangeNotifier {
         targetPlayerID: playerID,
         seatToken: online.seatToken,
       );
-      _acceptOnlineUpdate(online, update);
-      online.legalActions = update.legalActions;
+      final accepted = _acceptOrDeferOnlineUpdate(online, update);
       error = null;
-      _sync();
+      if (accepted) {
+        _sync();
+      }
     } catch (exception) {
       error = '$exception';
       notifyListeners();
@@ -522,22 +604,27 @@ class LiveGameStore extends ChangeNotifier {
       return;
     }
     try {
-      final queued = await _fetchAndQueueOnlineUpdates(online);
+      final queued = online.spectator
+          ? false
+          : await _fetchAndQueueOnlineUpdates(online);
       if (queued ||
           (minimumRevision != null &&
               _knownOnlineRevision(online) >= minimumRevision)) {
         error = null;
         return;
       }
-      final update = await online.client.fetchUpdate(
-        sessionID: online.sessionID,
-        playerID: online.playerID,
-        seatToken: online.seatToken,
-      );
-      _acceptOnlineUpdate(online, update);
-      online.legalActions = update.legalActions;
+      final update = online.spectator
+          ? await online.client.fetchSpectatorUpdate(online.sessionID)
+          : await online.client.fetchUpdate(
+              sessionID: online.sessionID,
+              playerID: online.playerID,
+              seatToken: online.seatToken,
+            );
+      final accepted = _acceptOrDeferOnlineUpdate(online, update);
       error = null;
-      _sync();
+      if (accepted) {
+        _sync();
+      }
     } catch (exception) {
       error = '$exception';
       notifyListeners();
@@ -546,7 +633,7 @@ class LiveGameStore extends ChangeNotifier {
 
   void leaveOnlineGame() {
     final online = _online;
-    if (online != null && model?.table.phase != phaseGameOver) {
+    if (online != null && !online.spectator) {
       unawaited(_leaveOnlineGame(online));
     }
     _clearOnlineSession();
@@ -592,7 +679,7 @@ class LiveGameStore extends ChangeNotifier {
 
   Future<void> sendReaction(String reactionID) async {
     final online = _online;
-    if (online == null || !online.update.started) {
+    if (online == null || online.spectator || !online.update.started) {
       return;
     }
     try {
@@ -602,10 +689,11 @@ class LiveGameStore extends ChangeNotifier {
         seatToken: online.seatToken,
         reactionID: reactionID,
       );
-      _acceptOnlineUpdate(online, update);
-      online.legalActions = update.legalActions;
+      final accepted = _acceptOrDeferOnlineUpdate(online, update);
       error = null;
-      _sync();
+      if (accepted) {
+        _sync();
+      }
     } catch (exception) {
       error = '$exception';
       notifyListeners();
@@ -680,8 +768,10 @@ class LiveGameStore extends ChangeNotifier {
     required int playerID,
     required String seatToken,
     required OnlineSessionUpdate update,
+    bool spectator = false,
   }) async {
     _clearAutomaticStepTimer();
+    _awaitingLocalPresentationRevision = null;
     final oldEngine = _engine;
     if (oldEngine != null) {
       bridge.freeEngine(oldEngine);
@@ -696,6 +786,7 @@ class LiveGameStore extends ChangeNotifier {
       playerID: playerID,
       seatToken: seatToken,
       update: update,
+      spectator: spectator,
     );
     currentVariants = update.variants;
     currentSeed = update.seed ?? currentSeed;
@@ -705,7 +796,7 @@ class LiveGameStore extends ChangeNotifier {
     _lastSyncedPhase = null;
     revealedPlayerID = playerID;
     _startOnlinePolling();
-    _startOnlineRealtime();
+    if (!spectator) _startOnlineRealtime();
     error = null;
     _sync();
   }
@@ -731,15 +822,6 @@ class LiveGameStore extends ChangeNotifier {
   }
 
   Duration _automaticStepDelay(Pointer<KCEngine> engine) {
-    if (bridge.phase(engine) == kcPhaseRequisition) {
-      final flight = scaledGameAnimationDuration(
-        animationSpeed.cardFlightDuration,
-        requisitionCardFlightDurationScale,
-      );
-      return flight == Duration.zero
-          ? Duration.zero
-          : flight + const Duration(milliseconds: 80);
-    }
     if (_currentAutomaticStepIsTrumpSelection(engine)) {
       return animationSpeed.automaticTrumpSelectionDelay;
     }
@@ -801,9 +883,14 @@ class LiveGameStore extends ChangeNotifier {
         ),
       ];
     }
+    _beginLocalPresentation();
     _sync();
     _saveAutosave();
-    _scheduleAutomaticStep();
+  }
+
+  void _beginLocalPresentation() {
+    _localPresentationSequence += 1;
+    _awaitingLocalPresentationRevision = _localPresentationSequence;
   }
 
   int _stepNeuralAutomatic(
@@ -1019,9 +1106,9 @@ class LiveGameStore extends ChangeNotifier {
       final update = frame.update;
       if (update != null) {
         if (update.actionLogCount >= online.update.actionLogCount) {
-          _acceptOnlineUpdate(online, update);
-          online.legalActions = update.legalActions;
-          _sync();
+          if (_acceptOrDeferOnlineUpdate(online, update)) {
+            _sync();
+          }
         }
         return;
       }
@@ -1109,14 +1196,28 @@ class LiveGameStore extends ChangeNotifier {
         );
       }
       error = null;
+      if (onlineActionResultIsSingleRevision(
+        beforeRevision,
+        update.actionLogCount,
+      )) {
+        online.updateQueue.add(
+          OnlineActionUpdate(
+            revision: update.actionLogCount,
+            action: OnlineEngineAction.fromEngineAction(action.engineAction),
+            update: update,
+          ),
+        );
+        _drainNextOnlineUpdate();
+        return;
+      }
       final queued = await _fetchAndQueueOnlineUpdates(
         online,
         afterRevision: beforeRevision,
       );
       if (!queued) {
-        _acceptOnlineUpdate(online, update);
-        online.legalActions = update.legalActions;
-        _sync();
+        if (_acceptOrDeferOnlineUpdate(online, update)) {
+          _sync();
+        }
       }
     } catch (exception) {
       uiState = selectionBeforeSubmit;
@@ -1181,34 +1282,73 @@ class LiveGameStore extends ChangeNotifier {
 
   void _drainNextOnlineUpdate() {
     final online = _online;
-    if (online == null || online.updateQueueTimer != null) {
+    if (online == null || online.awaitingPresentationRevision != null) {
       return;
     }
     if (online.updateQueue.isEmpty) {
       return;
     }
     final next = online.updateQueue.removeAt(0);
-    final hasPendingUpdates = online.updateQueue.isNotEmpty;
-    final update = hasPendingUpdates
-        ? next.update.copyWith(legalActions: const [])
-        : next.update;
+    final deferred = online.deferredUpdate;
+    if (deferred != null && deferred.actionLogCount <= next.revision) {
+      online.deferredUpdate = null;
+    }
+    final action = next.action;
+    if (action.kind == kcActionAssign) {
+      final cardID = action.engineAction.card?.id;
+      if (cardID != null) {
+        online.pendingAssignmentCardIDs.add(cardID);
+      }
+    }
+    online.assignmentPresentationCardIDs =
+        action.kind == kcActionSubmitAssignments
+        ? List.of(online.pendingAssignmentCardIDs)
+        : const [];
+    if (action.kind == kcActionSubmitAssignments) {
+      online.pendingAssignmentCardIDs.clear();
+    }
+    online.awaitingPresentationRevision = next.revision;
+    online.pendingPresentationLegalActions = next.update.legalActions;
+    final update = next.update.copyWith(legalActions: const []);
     _acceptOnlineUpdate(online, update);
-    online.legalActions = update.legalActions;
+    online.legalActions = const [];
     error = null;
     _sync();
-    if (hasPendingUpdates) {
-      online.updateQueueTimer = Timer(
-        onlineActionAnimationDelay(
-          speed: animationSpeed,
-          action: next.action,
-          viewerPlayerID: online.playerID,
-        ),
-        () {
-          online.updateQueueTimer = null;
-          _drainNextOnlineUpdate();
-        },
-      );
+  }
+
+  void acknowledgeRevisionPresented(int revision) {
+    final online = _online;
+    if (online == null) {
+      if (_awaitingLocalPresentationRevision != revision) {
+        return;
+      }
+      _awaitingLocalPresentationRevision = null;
+      _scheduleAutomaticStep();
+      return;
     }
+    if (online.awaitingPresentationRevision != revision) {
+      return;
+    }
+    online.awaitingPresentationRevision = null;
+    online.assignmentPresentationCardIDs = const [];
+    if (online.updateQueue.isNotEmpty) {
+      _drainNextOnlineUpdate();
+      return;
+    }
+    final deferred = online.deferredUpdate;
+    online.deferredUpdate = null;
+    if (deferred != null &&
+        deferred.actionLogCount >= online.update.actionLogCount) {
+      _acceptOnlineUpdate(online, deferred);
+      online.legalActions = deferred.legalActions;
+      _sync();
+      return;
+    }
+    final legalActions = online.pendingPresentationLegalActions;
+    online.pendingPresentationLegalActions = const [];
+    online.update = online.update.copyWith(legalActions: legalActions);
+    online.legalActions = legalActions;
+    _sync();
   }
 
   void _clearOnlineUpdateQueue() {
@@ -1244,6 +1384,23 @@ class LiveGameStore extends ChangeNotifier {
         notifyListeners();
       }
     });
+  }
+
+  bool _acceptOrDeferOnlineUpdate(
+    OnlineGameRuntime online,
+    OnlineSessionUpdate update,
+  ) {
+    if (online.awaitingPresentationRevision != null) {
+      final deferred = online.deferredUpdate;
+      if (deferred == null ||
+          update.actionLogCount >= deferred.actionLogCount) {
+        online.deferredUpdate = update;
+      }
+      return false;
+    }
+    _acceptOnlineUpdate(online, update);
+    online.legalActions = update.legalActions;
+    return true;
   }
 
   Future<void> _leaveOnlineGame(OnlineGameRuntime online) async {
@@ -1428,6 +1585,7 @@ class OnlineGameRuntime {
     required this.playerID,
     required this.seatToken,
     required this.update,
+    this.spectator = false,
   }) : legalActions = update.legalActions;
 
   final KolkhozOnlineClient client;
@@ -1436,22 +1594,30 @@ class OnlineGameRuntime {
   final int playerID;
   final String seatToken;
   OnlineSessionUpdate update;
+  final bool spectator;
   List<OnlineEngineAction> legalActions;
   Timer? refreshTimer;
   WebSocket? realtimeSocket;
   Timer? realtimeReconnectTimer;
   int realtimeGeneration = 0;
   bool actionRefreshInFlight = false;
-  Timer? updateQueueTimer;
   final List<OnlineActionUpdate> updateQueue = [];
+  int? awaitingPresentationRevision;
+  final List<String> pendingAssignmentCardIDs = [];
+  List<String> assignmentPresentationCardIDs = const [];
+  List<OnlineEngineAction> pendingPresentationLegalActions = const [];
+  OnlineSessionUpdate? deferredUpdate;
   Timer? reactionFlashTimer;
   OnlineReaction? activeReaction;
   bool hasUnreadReactions = false;
 
   void clearUpdateQueue() {
-    updateQueueTimer?.cancel();
-    updateQueueTimer = null;
     updateQueue.clear();
+    awaitingPresentationRevision = null;
+    pendingAssignmentCardIDs.clear();
+    assignmentPresentationCardIDs = const [];
+    pendingPresentationLegalActions = const [];
+    deferredUpdate = null;
     actionRefreshInFlight = false;
   }
 

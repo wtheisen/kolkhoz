@@ -392,6 +392,9 @@ class KolkhozBoard extends StatelessWidget {
     this.gameOverReturnsToLobby = false,
     this.onTutorial,
     this.animationSpeed = defaultGameAnimationSpeed,
+    this.presentationRevision,
+    this.assignmentPresentationCardIDs = const [],
+    this.onPresentationComplete,
     this.onAnimationSpeedChanged,
     this.confirmNewGame = true,
     this.onConfirmNewGameChanged,
@@ -439,6 +442,9 @@ class KolkhozBoard extends StatelessWidget {
   final bool gameOverReturnsToLobby;
   final VoidCallback? onTutorial;
   final GameAnimationSpeed animationSpeed;
+  final int? presentationRevision;
+  final List<String> assignmentPresentationCardIDs;
+  final ValueChanged<int>? onPresentationComplete;
   final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
   final bool confirmNewGame;
   final ValueChanged<bool>? onConfirmNewGameChanged;
@@ -482,6 +488,9 @@ class KolkhozBoard extends StatelessWidget {
                 model: model,
                 tokens: tokens,
                 speed: animationSpeed,
+                presentationRevision: presentationRevision,
+                assignmentPresentationCardIDs: assignmentPresentationCardIDs,
+                onPresentationComplete: onPresentationComplete,
                 child: Stack(
                   clipBehavior: Clip.none,
                   fit: StackFit.expand,
@@ -1635,7 +1644,6 @@ class _TopInfoStripState extends State<TopInfoStrip> {
                                           job: job,
                                           highlighted:
                                               model.table.trump == job.suit,
-                                          animationSpeed: widget.animationSpeed,
                                           width:
                                               gaugeWidth *
                                               topInfo
@@ -1770,7 +1778,6 @@ class JobGauge extends StatefulWidget {
     required this.width,
     required this.height,
     required this.tokens,
-    this.animationSpeed = defaultGameAnimationSpeed,
     super.key,
   });
 
@@ -1779,65 +1786,68 @@ class JobGauge extends StatefulWidget {
   final double width;
   final double height;
   final DesignTokens tokens;
-  final GameAnimationSpeed animationSpeed;
 
   @override
   State<JobGauge> createState() => _JobGaugeState();
 }
 
 class _JobGaugeState extends State<JobGauge> {
-  int? previousDisplayHours;
   int deltaSerial = 0;
-  int pendingDeltaBadgeCount = 0;
-  final List<Timer> deltaTimers = [];
+  CardMotionController? motionController;
+  final Map<String, int> pendingCardDeltas = {};
   final List<_VisibleJobGaugeDelta> visibleDeltas = [];
 
   @override
   void initState() {
     super.initState();
-    previousDisplayHours = displayedJobHours(widget.job);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final next = CardMotionScope.maybeOf(context)?.controller;
+    if (identical(next, motionController)) {
+      return;
+    }
+    motionController?.jobCardArrival.removeListener(_handleJobCardArrival);
+    motionController = next;
+    motionController?.jobCardArrival.addListener(_handleJobCardArrival);
   }
 
   @override
   void didUpdateWidget(JobGauge oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final nextHours = displayedJobHours(widget.job);
-    final previous = previousDisplayHours ?? displayedJobHours(oldWidget.job);
-    if (nextHours > previous) {
-      queueDeltaBadge(nextHours - previous);
+    final previousCardIDs = {
+      for (final card in oldWidget.job.assignedCards)
+        if (!card.pending) card.id,
+    };
+    for (final card in widget.job.assignedCards) {
+      if (!card.pending && !previousCardIDs.contains(card.id)) {
+        pendingCardDeltas[card.id] = card.value;
+      }
     }
-    previousDisplayHours = nextHours;
   }
 
   @override
   void dispose() {
-    for (final timer in deltaTimers) {
-      timer.cancel();
-    }
+    motionController?.jobCardArrival.removeListener(_handleJobCardArrival);
     super.dispose();
   }
 
-  void queueDeltaBadge(int delta) {
-    final delay = jobGaugeDeltaRevealDelay(widget.animationSpeed);
-    final stagger = Duration(
-      milliseconds:
-          jobGaugeDeltaRevealStagger.inMilliseconds * pendingDeltaBadgeCount,
-    );
-    pendingDeltaBadgeCount += 1;
-    late final Timer timer;
-    timer = Timer(delay + stagger, () {
-      deltaTimers.remove(timer);
-      pendingDeltaBadgeCount = math.max(0, pendingDeltaBadgeCount - 1);
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        visibleDeltas.add(
-          _VisibleJobGaugeDelta(serial: deltaSerial++, delta: delta),
-        );
-      });
+  void _handleJobCardArrival() {
+    final arrival = motionController?.jobCardArrival.value;
+    if (!mounted || arrival == null || arrival.suit != widget.job.suit) {
+      return;
+    }
+    final delta = pendingCardDeltas.remove(arrival.cardID);
+    if (delta == null) {
+      return;
+    }
+    setState(() {
+      visibleDeltas.add(
+        _VisibleJobGaugeDelta(serial: deltaSerial++, delta: delta),
+      );
     });
-    deltaTimers.add(timer);
   }
 
   @override
@@ -2073,22 +2083,9 @@ class JobGaugeDeltaBadge extends StatelessWidget {
 }
 
 const jobGaugeDeltaDuration = Duration(milliseconds: 1600);
-const jobGaugeDeltaRevealStagger = Duration(milliseconds: 80);
-const jobGaugeDeltaRevealLead = Duration(milliseconds: 220);
 const jobGaugeDeltaDropDistance = 46.0;
 const jobGaugeDeltaStartScale = 1.64;
 const jobGaugeDeltaEndScale = 2.16;
-
-Duration jobGaugeDeltaRevealDelay(GameAnimationSpeed speed) {
-  final flightDuration = scaledDuration(
-    speed.cardFlightDuration,
-    jobAssignmentCardFlightDurationScale,
-  );
-  if (flightDuration <= jobGaugeDeltaRevealLead) {
-    return Duration.zero;
-  }
-  return flightDuration - jobGaugeDeltaRevealLead;
-}
 
 class ActivePanelView extends StatelessWidget {
   const ActivePanelView({

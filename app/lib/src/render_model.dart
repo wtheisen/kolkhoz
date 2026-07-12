@@ -8,6 +8,7 @@ class TableViewModel {
     required this.panels,
     required this.selection,
     required this.legalActions,
+    this.seed,
   });
 
   final Viewer viewer;
@@ -15,6 +16,16 @@ class TableViewModel {
   final Panels panels;
   final SelectionState selection;
   final List<LegalAction> legalActions;
+  final int? seed;
+
+  TableViewModel withSeed(int value) => TableViewModel(
+    viewer: viewer,
+    table: table,
+    panels: panels,
+    selection: selection,
+    legalActions: legalActions,
+    seed: value,
+  );
 }
 
 class Viewer {

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' show clampDouble;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app_settings.dart';
 import '../app_text.dart';
@@ -92,6 +93,33 @@ class GameOverPlotPanel extends StatelessWidget {
                 ),
               ),
               SizedBox(height: metrics.spacing),
+              if (model.seed != null) ...[
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Semantics(
+                    label: 'Game seed ${model.seed}',
+                    button: true,
+                    child: InkWell(
+                      key: const Key('game-over-seed'),
+                      onTap: () => Clipboard.setData(
+                        ClipboardData(text: '${model.seed}'),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 3),
+                        child: Text(
+                          'SEED ${model.seed}  •  TAP TO COPY',
+                          style: kolkhozFontStyle.copyWith(
+                            color: tokens.colors.creamDim,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: metrics.spacing / 2),
+              ],
               SizedBox(
                 height: gameOverPlotFooterHeight,
                 child: Row(

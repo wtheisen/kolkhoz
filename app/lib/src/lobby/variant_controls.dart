@@ -19,7 +19,7 @@ class _VariantIcon extends StatelessWidget {
         width: size,
         height: size,
         child: FutureBuilder<ui.Image>(
-          future: _LobbyImageCache.load(context, asset),
+          future: ChromeImageCache.load(context, asset),
           builder: (context, snapshot) {
             final image = snapshot.data;
             if (image == null) {
@@ -32,21 +32,6 @@ class _VariantIcon extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _LobbyImageCache {
-  static final Map<String, Future<ui.Image>> _images = {};
-
-  static Future<ui.Image> load(BuildContext context, String asset) {
-    return _images.putIfAbsent(asset, () async {
-      final bytes = await DefaultAssetBundle.of(context).load(asset);
-      final codec = await ui.instantiateImageCodec(
-        bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes),
-      );
-      final frame = await codec.getNextFrame();
-      return frame.image;
-    });
   }
 }
 

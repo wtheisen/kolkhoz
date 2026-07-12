@@ -814,6 +814,21 @@ class FakeOnlineHttpClient implements HttpClient {
         ],
       });
     }
+    if (method == 'GET' && uri.path == '/results/recent') {
+      return FakeOnlineHttpClientResponse.json({
+        'games': [
+          {
+            'sessionID': 'recent-game',
+            'playerID': 0,
+            'score': 123,
+            'rank': 1,
+            'won': true,
+            'ranked': true,
+            'completedAt': 1000.0,
+          },
+        ],
+      });
+    }
     if (method == 'GET' && uri.path == '/profiles/profile-user') {
       return FakeOnlineHttpClientResponse.json({
         'userID': 'profile-user',

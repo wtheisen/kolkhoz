@@ -115,8 +115,10 @@ class StandaloneLobby extends StatelessWidget {
     required this.showingRules,
     required this.showingOnline,
     required this.onHostOnline,
+    this.onHostOnlineSeries,
     this.onInviteOnlineComrades,
     required this.onJoinOnline,
+    this.onWatchOnline,
     this.onRememberStartedSetup,
     this.onMatchmakeOnline,
     this.onKickOnlinePlayer,
@@ -175,6 +177,7 @@ class StandaloneLobby extends StatelessWidget {
     this.onComradesChanged,
     this.onComradeRequestToUser,
     this.onlineClientFactory,
+    this.onStartDailyChallenge,
     this.error,
     super.key,
   });
@@ -223,6 +226,15 @@ class StandaloneLobby extends StatelessWidget {
     bool browserJoinable,
   )
   onHostOnline;
+  final Future<String> Function(
+    Uri,
+    List<KolkhozPlayerController>,
+    bool,
+    bool,
+    bool,
+    int,
+  )?
+  onHostOnlineSeries;
   final Future<void> Function(String sessionID, List<String> userIDs)?
   onInviteOnlineComrades;
   final Future<void> Function(
@@ -231,6 +243,7 @@ class StandaloneLobby extends StatelessWidget {
     int? preferredPlayerID,
   )
   onJoinOnline;
+  final Future<void> Function(Uri baseURL, String sessionID)? onWatchOnline;
   final void Function(
     List<KolkhozPlayerController> controllers,
     List<String> lobbySeats,
@@ -274,14 +287,8 @@ class StandaloneLobby extends StatelessWidget {
   final ValueChanged<OnlineComradesResponse>? onComradesChanged;
   final Future<void> Function(String userID)? onComradeRequestToUser;
   final KolkhozOnlineClient Function()? onlineClientFactory;
+  final Future<void> Function()? onStartDailyChallenge;
   final String? error;
-
-  KolkhozGameVariants get activeVariants {
-    if (demoMode) {
-      return KolkhozGameVariants.demoKolkhoz;
-    }
-    return selectedPreset.variants ?? customVariants;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -378,7 +385,6 @@ class StandaloneLobby extends StatelessWidget {
                   customVariants: customVariants,
                   playerControllers: playerControllers,
                   demoMode: demoMode,
-                  variants: activeVariants,
                   appearance: appearance,
                   cardBack: cardBack,
                   compactRail: compactRail,
@@ -412,8 +418,10 @@ class StandaloneLobby extends StatelessWidget {
                   onTutorialPressed: onTutorialPressed,
                   onStart: onStart,
                   onHostOnline: onHostOnline,
+                  onHostOnlineSeries: onHostOnlineSeries,
                   onInviteOnlineComrades: onInviteOnlineComrades,
                   onJoinOnline: onJoinOnline,
+                  onWatchOnline: onWatchOnline,
                   onRememberStartedSetup: onRememberStartedSetup,
                   onMatchmakeOnline: onMatchmakeOnline,
                   onKickOnlinePlayer: onKickOnlinePlayer,
@@ -441,6 +449,7 @@ class StandaloneLobby extends StatelessWidget {
                   onComradesChanged: onComradesChanged,
                   onComradeRequestToUser: onComradeRequestToUser,
                   onlineClientFactory: onlineClientFactory,
+                  onStartDailyChallenge: onStartDailyChallenge,
                 ),
               );
 
@@ -598,7 +607,28 @@ class _LobbyTitleColumn extends StatelessWidget {
                 child: mainContent,
               ),
             ),
-            if (!compact) _LobbyFooter(tokens: tokens, language: language),
+            if (!compact)
+              Column(
+                spacing: 2,
+                children: [
+                  Text(
+                    language.t(KolkhozText.kolkhozappGameBy),
+                    style: kolkhozFontStyle.copyWith(
+                      color: tokens.colors.gold,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    language.t(KolkhozText.kolkhozappWilliamTheisen),
+                    style: kolkhozFontStyle.copyWith(
+                      color: tokens.colors.gold,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
           ],
         );
       },
@@ -944,38 +974,6 @@ class _LobbyIconButton extends StatelessWidget {
   }
 }
 
-class _LobbyFooter extends StatelessWidget {
-  const _LobbyFooter({required this.tokens, required this.language});
-
-  final DesignTokens tokens;
-  final KolkhozLanguage language;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      spacing: 2,
-      children: [
-        Text(
-          language.t(KolkhozText.kolkhozappGameBy),
-          style: kolkhozFontStyle.copyWith(
-            color: tokens.colors.gold,
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        Text(
-          language.t(KolkhozText.kolkhozappWilliamTheisen),
-          style: kolkhozFontStyle.copyWith(
-            color: tokens.colors.gold,
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _LobbyPanel extends StatelessWidget {
   const _LobbyPanel({
     required this.tokens,
@@ -984,7 +982,6 @@ class _LobbyPanel extends StatelessWidget {
     required this.customVariants,
     required this.playerControllers,
     required this.demoMode,
-    required this.variants,
     required this.appearance,
     required this.cardBack,
     required this.compactRail,
@@ -1018,8 +1015,10 @@ class _LobbyPanel extends StatelessWidget {
     required this.onTutorialPressed,
     required this.onStart,
     required this.onHostOnline,
+    required this.onHostOnlineSeries,
     required this.onInviteOnlineComrades,
     required this.onJoinOnline,
+    required this.onWatchOnline,
     required this.onRememberStartedSetup,
     required this.onMatchmakeOnline,
     required this.onKickOnlinePlayer,
@@ -1047,6 +1046,7 @@ class _LobbyPanel extends StatelessWidget {
     required this.onComradesChanged,
     required this.onComradeRequestToUser,
     required this.onlineClientFactory,
+    required this.onStartDailyChallenge,
   });
 
   final DesignTokens tokens;
@@ -1055,7 +1055,6 @@ class _LobbyPanel extends StatelessWidget {
   final KolkhozGameVariants customVariants;
   final List<KolkhozPlayerController> playerControllers;
   final bool demoMode;
-  final KolkhozGameVariants variants;
   final KolkhozAppearance appearance;
   final KolkhozCardBack cardBack;
   final bool compactRail;
@@ -1096,6 +1095,15 @@ class _LobbyPanel extends StatelessWidget {
     bool browserJoinable,
   )
   onHostOnline;
+  final Future<String> Function(
+    Uri,
+    List<KolkhozPlayerController>,
+    bool,
+    bool,
+    bool,
+    int,
+  )?
+  onHostOnlineSeries;
   final Future<void> Function(String sessionID, List<String> userIDs)?
   onInviteOnlineComrades;
   final Future<void> Function(
@@ -1104,6 +1112,7 @@ class _LobbyPanel extends StatelessWidget {
     int? preferredPlayerID,
   )
   onJoinOnline;
+  final Future<void> Function(Uri baseURL, String sessionID)? onWatchOnline;
   final void Function(
     List<KolkhozPlayerController> controllers,
     List<String> lobbySeats,
@@ -1141,10 +1150,14 @@ class _LobbyPanel extends StatelessWidget {
   final ValueChanged<OnlineComradesResponse>? onComradesChanged;
   final Future<void> Function(String userID)? onComradeRequestToUser;
   final KolkhozOnlineClient Function()? onlineClientFactory;
+  final Future<void> Function()? onStartDailyChallenge;
 
   @override
   Widget build(BuildContext context) {
     final creatingGame = !showingProfile && !showingOnline && !showingRules;
+    final variants = demoMode
+        ? KolkhozGameVariants.demoKolkhoz
+        : selectedPreset.variants ?? customVariants;
     final variantPanel = _VariantPanel(
       tokens: tokens,
       language: language,
@@ -1162,6 +1175,7 @@ class _LobbyPanel extends StatelessWidget {
       compactRail: compactRail,
       onStart: onStart,
       onHostOnline: onHostOnline,
+      onHostOnlineSeries: onHostOnlineSeries,
       onInviteOnlineComrades: onInviteOnlineComrades,
       onComradeRequestToUser: onComradeRequestToUser,
       onRememberStartedSetup: onRememberStartedSetup,
@@ -1238,6 +1252,7 @@ class _LobbyPanel extends StatelessWidget {
               onCloudSignOut: onCloudSignOut,
               onComradesChanged: onComradesChanged,
               onlineClientFactory: onlineClientFactory,
+              onStartDailyChallenge: onStartDailyChallenge,
             )
           else if (showingOnline)
             _OnlinePanel(
@@ -1247,6 +1262,7 @@ class _LobbyPanel extends StatelessWidget {
               onlineSessionUpdate: onlineSessionUpdate,
               showHostedInviteCode: showHostedInviteCode,
               onJoinOnline: onJoinOnline,
+              onWatchOnline: onWatchOnline,
               onMatchmakeOnline: onMatchmakeOnline,
               onKickOnlinePlayer: onKickOnlinePlayer,
               onEnterOnlineGame: onEnterOnlineGame,
@@ -1280,7 +1296,9 @@ enum KolkhozSettingsTab {
   String title(KolkhozLanguage language) {
     return switch (this) {
       KolkhozSettingsTab.profile => language.t(KolkhozText.kolkhozappProfile),
-      KolkhozSettingsTab.leaderboard => 'LEADERBOARD',
+      KolkhozSettingsTab.leaderboard => language.t(
+        KolkhozText.kolkhozappLeaderboard,
+      ),
       KolkhozSettingsTab.progress => language.t(KolkhozText.kolkhozappProgress),
       KolkhozSettingsTab.comrades => language.t(KolkhozText.kolkhozappComrades),
       KolkhozSettingsTab.assist => OptionsMenuTab.assist.title(language),
@@ -1345,6 +1363,7 @@ class _SettingsPanel extends StatefulWidget {
     required this.onCloudSignOut,
     required this.onComradesChanged,
     required this.onlineClientFactory,
+    required this.onStartDailyChallenge,
   });
 
   final DesignTokens tokens;
@@ -1388,6 +1407,7 @@ class _SettingsPanel extends StatefulWidget {
   final Future<void> Function()? onCloudSignOut;
   final ValueChanged<OnlineComradesResponse>? onComradesChanged;
   final KolkhozOnlineClient Function()? onlineClientFactory;
+  final Future<void> Function()? onStartDailyChallenge;
 
   @override
   State<_SettingsPanel> createState() => _SettingsPanelState();
@@ -1426,6 +1446,8 @@ class _SettingsPanelState extends State<_SettingsPanel> {
         onCloudSignUp: widget.onCloudSignUp,
         onCloudResetPassword: widget.onCloudResetPassword,
         onCloudSignOut: widget.onCloudSignOut,
+        clientFactory: widget.onlineClientFactory,
+        onStartDailyChallenge: widget.onStartDailyChallenge,
       ),
       KolkhozSettingsTab.leaderboard => _LeaderboardPanel(
         tokens: widget.tokens,
