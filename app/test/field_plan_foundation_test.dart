@@ -23,6 +23,23 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('generated ledger illustrations are bundled and decode', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    final context = tester.element(find.byType(SizedBox));
+    await tester.runAsync(() async {
+      await Future.wait([
+        for (final asset in fieldPlanLedgerIllustrations)
+          precacheImage(
+            AssetImage(asset.pathFor(KolkhozArtStyle.fieldPlan)),
+            context,
+          ),
+      ]);
+    });
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('field-plan fonts render English and Cyrillic', (tester) async {
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(() async {

@@ -330,6 +330,9 @@ class _VariantPanelState extends State<_VariantPanel> {
   }
 
   Widget _buildSetupStep() {
+    if (configuredKolkhozArtStyle.usesNewArt) {
+      return _buildFieldPlanSetupStep();
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 10,
@@ -385,6 +388,60 @@ class _VariantPanelState extends State<_VariantPanel> {
         else
           _setupCommandRow(),
       ],
+    );
+  }
+
+  Widget _buildFieldPlanSetupStep() {
+    final custom =
+        widget.selectedPreset == KolkhozGamePreset.custom && !widget.demoMode;
+    return PrintedPaperSurface(
+      child: Padding(
+        padding: EdgeInsets.all(widget.compactRail ? 8 : 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: widget.compactRail ? 7 : 10,
+          children: [
+            _FieldPlanPresetSelector(
+              language: widget.language,
+              selectedPreset: widget.selectedPreset,
+              compact: widget.compactRail,
+              onPresetChanged: widget.demoMode ? null : widget.onPresetChanged,
+            ),
+            Expanded(
+              child: KolkhozScrollbar(
+                tokens: widget.tokens,
+                childBuilder: (context, scrollController) =>
+                    SingleChildScrollView(
+                      controller: scrollController,
+                      padding: const EdgeInsets.only(right: 8, bottom: 12),
+                      child: custom
+                          ? _CustomVariantOptions(
+                              tokens: widget.tokens,
+                              language: widget.language,
+                              variants: widget.customVariants,
+                              compact: widget.compactRail,
+                              onChanged: widget.onCustomVariantsChanged,
+                            )
+                          : _FieldPlanVariantLedger(
+                              language: widget.language,
+                              variants: widget.variants,
+                              demoMode: widget.demoMode,
+                              compact: widget.compactRail,
+                            ),
+                    ),
+              ),
+            ),
+            if (widget.demoMode)
+              _primaryCommandButton(
+                label: widget.language.t(KolkhozText.kolkhozappStartDemo),
+                iconAsset: 'assets/ui/Icons/icon-demo.png',
+                onPressed: startGame,
+              )
+            else
+              _setupCommandRow(),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1064,6 +1121,209 @@ class _VariantHeaderIconChip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _FieldPlanPresetSelector extends StatelessWidget {
+  const _FieldPlanPresetSelector({
+    required this.language,
+    required this.selectedPreset,
+    required this.compact,
+    required this.onPresetChanged,
+  });
+
+  final KolkhozLanguage language;
+  final KolkhozGamePreset selectedPreset;
+  final bool compact;
+  final ValueChanged<KolkhozGamePreset>? onPresetChanged;
+
+  ArtAssetRef _assetFor(KolkhozGamePreset preset) => switch (preset) {
+    KolkhozGamePreset.kolkhoz => fieldPlanPresetKolkhoz,
+    KolkhozGamePreset.littleKolkhoz => fieldPlanPresetLittleKolkhoz,
+    KolkhozGamePreset.campStyle => fieldPlanPresetCampStyle,
+    KolkhozGamePreset.custom => fieldPlanPresetCustom,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 650;
+        final height = compact || narrow ? 60.0 : 76.0;
+        return SizedBox(
+          height: narrow ? height * 2 + 6 : height,
+          child: GridView.count(
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: narrow ? 2 : 4,
+            mainAxisSpacing: 6,
+            crossAxisSpacing: 6,
+            childAspectRatio: narrow
+                ? constraints.maxWidth / 2 / height
+                : constraints.maxWidth / 4 / height,
+            children: [
+              for (final preset in KolkhozGamePreset.values)
+                Semantics(
+                  button: true,
+                  selected: selectedPreset == preset,
+                  label: presetTitle(preset, language),
+                  child: InkWell(
+                    key: Key('field-plan-preset-${preset.name}'),
+                    onTap: onPresetChanged == null
+                        ? null
+                        : () => onPresetChanged!(preset),
+                    child: PrintedUnderlay(
+                      tone: selectedPreset == preset
+                          ? PrintedUnderlayTone.primary
+                          : PrintedUnderlayTone.neutral,
+                      focused: selectedPreset == preset,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ArtAssetImage(
+                            asset: _assetFor(preset),
+                            width: compact ? 34 : 46,
+                            height: compact ? 34 : 46,
+                            fit: BoxFit.contain,
+                          ),
+                          const SizedBox(width: 7),
+                          Flexible(
+                            child: Text(
+                              presetTitle(preset, language).toUpperCase(),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: fieldPlanDisplayTextStyle.copyWith(
+                                color: selectedPreset == preset
+                                    ? const Color(0xfff4dfad)
+                                    : const Color(0xff20251d),
+                                fontSize: compact ? 14 : 18,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FieldPlanVariantLedger extends StatelessWidget {
+  const _FieldPlanVariantLedger({
+    required this.language,
+    required this.variants,
+    required this.demoMode,
+    required this.compact,
+  });
+
+  final KolkhozLanguage language;
+  final KolkhozGameVariants variants;
+  final bool demoMode;
+  final bool compact;
+
+  ArtAssetRef? _newAssetFor(_VariantRowData row) {
+    if (identical(row, _VariantRowData.deckType)) return fieldPlanVariantDeck;
+    if (identical(row, _VariantRowData.maxYears)) {
+      return fieldPlanVariantFiveYearPlan;
+    }
+    if (identical(row, _VariantRowData.allowSwap)) {
+      return fieldPlanVariantSwapCards;
+    }
+    if (identical(row, _VariantRowData.accumulateJobs)) {
+      return fieldPlanVariantStakhanovite;
+    }
+    if (identical(row, _VariantRowData.wrecker)) {
+      return fieldPlanVariantSaboteur;
+    }
+    return null;
+  }
+
+  Widget _iconFor(_VariantRowData row) {
+    final newAsset = _newAssetFor(row);
+    if (newAsset != null) {
+      return ArtAssetImage(asset: newAsset, fit: BoxFit.contain);
+    }
+    return _VariantIcon(row.iconAssetFor(variants), size: compact ? 42 : 56);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _VariantRowData.summaryRows(variants, demoMode: demoMode);
+    return Column(
+      spacing: compact ? 6 : 8,
+      children: [
+        for (var index = 0; index < rows.length; index++)
+          SizedBox(
+            height: compact ? 68 : 84,
+            child: PrintedUnderlay(
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 10 : 14,
+                vertical: 6,
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: compact ? 30 : 40,
+                    child: Text(
+                      '${index + 1}'.padLeft(2, '0'),
+                      style: fieldPlanDisplayTextStyle.copyWith(
+                        color: const Color(0xffa33a28),
+                        fontSize: compact ? 22 : 28,
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: compact ? 50 : 66,
+                    child: _iconFor(rows[index]),
+                  ),
+                  SizedBox(width: compact ? 8 : 14),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          rows[index]
+                              .localizedTitle(language, variants)
+                              .toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: fieldPlanDisplayTextStyle.copyWith(
+                            color: const Color(0xff20251d),
+                            fontSize: compact ? 17 : 23,
+                          ),
+                        ),
+                        if (!compact &&
+                            rows[index]
+                                .localizedDescription(language, variants)
+                                .isNotEmpty)
+                          Text(
+                            rows[index].localizedDescription(
+                              language,
+                              variants,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: fieldPlanBodyTextStyle.copyWith(
+                              color: const Color(0xff3d4437),
+                              fontSize: 13,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const PrintedSelectionStamp(size: 30),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

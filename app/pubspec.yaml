@@ -67,6 +67,8 @@ flutter:
     - assets/art/field_plan/shared/textures/
     - assets/art/field_plan/shared/pictograms/
     - assets/art/field_plan/ledger/underlays/
+    - assets/art/field_plan/ledger/presets/
+    - assets/art/field_plan/ledger/variants/
     - assets/audio/
     - assets/audio/voice_lines/
     - assets/policies/current_best_policy.json
