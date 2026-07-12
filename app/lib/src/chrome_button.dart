@@ -153,7 +153,7 @@ class ChromeButtonBackground extends StatelessWidget {
           );
         }
         return CustomPaint(
-          painter: _ChromeNineSlicePainter(
+          painter: ChromeNineSlicePainter(
             image: image,
             config: config,
             maxScale: maxScale,
@@ -213,8 +213,8 @@ class ChromeImageCache {
   }
 }
 
-class _ChromeNineSlicePainter extends CustomPainter {
-  const _ChromeNineSlicePainter({
+class ChromeNineSlicePainter extends CustomPainter {
+  const ChromeNineSlicePainter({
     required this.image,
     required this.config,
     required this.maxScale,
@@ -409,7 +409,7 @@ class _ChromeNineSlicePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_ChromeNineSlicePainter oldDelegate) {
+  bool shouldRepaint(ChromeNineSlicePainter oldDelegate) {
     return image != oldDelegate.image ||
         config != oldDelegate.config ||
         maxScale != oldDelegate.maxScale;

@@ -63,6 +63,10 @@ flutter:
     - assets/ui/Cards/
     - assets/ui/Embellishments/
     - assets/ui/Fonts/Bitmap/
+    - assets/art/field_plan/
+    - assets/art/field_plan/shared/textures/
+    - assets/art/field_plan/shared/pictograms/
+    - assets/art/field_plan/ledger/underlays/
     - assets/audio/
     - assets/audio/voice_lines/
     - assets/policies/current_best_policy.json
@@ -73,6 +77,16 @@ flutter:
     - family: Handjet
       fonts:
         - asset: assets/ui/Fonts/Handjet.ttf
+    - family: PTSansNarrow
+      fonts:
+        - asset: assets/art/field_plan/shared/fonts/PTSansNarrow-Regular.ttf
+        - asset: assets/art/field_plan/shared/fonts/PTSansNarrow-Bold.ttf
+          weight: 700
+    - family: PTSans
+      fonts:
+        - asset: assets/art/field_plan/shared/fonts/PTSans-Regular.ttf
+        - asset: assets/art/field_plan/shared/fonts/PTSans-Bold.ttf
+          weight: 700
 
   # To add assets to your application, add an assets section, like this:
   # assets:
