@@ -168,6 +168,17 @@ class CanonicalRouteParityTests(unittest.TestCase):
     def test_every_canonical_route_dispatches_with_a_realistic_contract(self) -> None:
         self.assert_ok(self.request("GET", "/health"))
         self.assert_ok(self.request("GET", "/metrics"))
+        self.assert_ok(self.request("GET", "/canary"))
+        self.request("GET", "/admin/operations", bearer="host-token")
+        self.request(
+            "PUT",
+            "/installations/device-12345678",
+            {"platform": "ios", "token": "valid-token-value"},
+            bearer="host-token",
+        )
+        self.request(
+            "DELETE", "/installations/device-12345678", bearer="host-token"
+        )
         self.assert_ok(
             self.request("POST", "/presence", {"sessionID": None}, bearer="host-token")
         )

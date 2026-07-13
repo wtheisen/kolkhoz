@@ -11,6 +11,7 @@ Group=kolkhoz-greenfield
 WorkingDirectory=/opt/kolkhoz-greenfield
 EnvironmentFile=/etc/kolkhoz-greenfield.env
 EnvironmentFile=/etc/kolkhoz-greenfield-build.env
+Environment=GOOGLE_APPLICATION_CREDENTIALS=/etc/kolkhoz-greenfield/firebase-fcm.json
 ExecStart=/opt/kolkhoz-greenfield/.venv/bin/uvicorn server.kolkhoz_server.production:create_asgi_application --factory --host 127.0.0.1 --port 18787 --workers 1 --ws-ping-interval 20 --ws-ping-timeout 20
 Restart=on-failure
 RestartSec=5
@@ -29,6 +30,7 @@ ProtectKernelTunables=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
 ReadWritePaths=/opt/kolkhoz-greenfield/research/.build
+ReadOnlyPaths=-/etc/kolkhoz-greenfield/firebase-fcm.json
 
 [Install]
 WantedBy=multi-user.target

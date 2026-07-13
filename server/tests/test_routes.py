@@ -10,6 +10,10 @@ class RouteContractTests(unittest.TestCase):
         expected = {
             ("GET", "/health"),
             ("GET", "/metrics"),
+            ("GET", "/canary"),
+            ("GET", "/admin/operations"),
+            ("PUT", "/installations/{installationID}"),
+            ("DELETE", "/installations/{installationID}"),
             ("POST", "/presence"),
             ("POST", "/active-session/sync"),
             ("GET", "/leaderboard"),

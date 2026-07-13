@@ -120,6 +120,39 @@ class CompatibilityApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(body["games"][0]["sessionID"], "recent-game")
 
+    def test_installation_registration_is_authenticated_and_owned(self) -> None:
+        class Installations:
+            def __init__(self) -> None:
+                self.registered: list[dict[str, object]] = []
+                self.deleted: list[dict[str, object]] = []
+
+            def register_installation(self, **values: object) -> None:
+                self.registered.append(values)
+
+            def delete_installation(self, **values: object) -> bool:
+                self.deleted.append(values)
+                return True
+
+        installations = Installations()
+        self.application.notification_repository = installations  # type: ignore[assignment]
+        path = "/installations/device-12345678"
+        missing, _ = self.request(
+            "PUT", path, {"platform": "ios", "token": "valid-token-value"}
+        )
+        self.assertEqual(missing, 401)
+        status, body = self.request(
+            "PUT",
+            path,
+            {"platform": "ios", "token": "valid-token-value"},
+            bearer="host-token",
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(body["registered"])
+        self.assertEqual(installations.registered[0]["user_id"], "host")
+        deleted, _ = self.request("DELETE", path, bearer="guest-token")
+        self.assertEqual(deleted, 200)
+        self.assertEqual(installations.deleted[0]["user_id"], "guest")
+
     def test_daily_challenge_returns_shared_seed_and_personal_best(self) -> None:
         status, body = self.request("GET", "/challenges/daily", bearer="host-token")
         self.assertEqual(status, 200)

@@ -37,8 +37,12 @@ class Route:
 ROUTES: tuple[Route, ...] = (
     Route("GET", "/health", "health"),
     Route("GET", "/metrics", "metrics"),
+    Route("GET", "/canary", "canary"),
+    Route("GET", "/admin/operations", "admin.operations"),
     Route("POST", "/presence", "presence.heartbeat"),
     Route("POST", "/active-session/sync", "active_session.sync"),
+    Route("PUT", "/installations/{installationID}", "installations.upsert"),
+    Route("DELETE", "/installations/{installationID}", "installations.delete"),
     Route("GET", "/leaderboard", "profiles.leaderboard"),
     Route("GET", "/profiles/{userID}", "profiles.get_public"),
     Route("GET", "/results/recent", "results.recent"),

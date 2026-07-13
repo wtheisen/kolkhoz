@@ -1,0 +1,27 @@
+[Unit]
+Description=Kolkhoz independent admin control plane
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/kolkhoz-greenfield
+EnvironmentFile=/etc/kolkhoz-greenfield.env
+ExecStart=/opt/kolkhoz-greenfield/.venv/bin/uvicorn server.kolkhoz_server.admin_control:create_admin_control_application --factory --host 127.0.0.1 --port 18788 --workers 1
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallFilter=@system-service
+MemoryMax=96M
+TasksMax=32
+
+[Install]
+WantedBy=multi-user.target

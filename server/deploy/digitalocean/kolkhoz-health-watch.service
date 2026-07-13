@@ -4,4 +4,5 @@ After=kolkhoz-greenfield.service
 
 [Service]
 Type=oneshot
+EnvironmentFile=/etc/kolkhoz-greenfield.env
 ExecStart=/usr/local/sbin/kolkhoz-health-watch

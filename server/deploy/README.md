@@ -16,6 +16,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/lobby_schema.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/distributed_schema.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/command_schema.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/population_schema.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/notifications_schema.sql
 sudo install -o root -g root -m 0600 \
   server/deploy/kolkhoz-server.env.example /etc/kolkhoz-server.env
 sudo install -o root -g root -m 0644 \
