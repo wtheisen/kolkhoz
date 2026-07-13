@@ -97,8 +97,7 @@ install -o root -g root -m 0644 "$here/Caddyfile" /etc/caddy/Caddyfile
 caddy validate --config /etc/caddy/Caddyfile
 systemctl reload caddy
 systemctl daemon-reload
-systemctl enable kolkhoz-greenfield-redis.service
-systemctl restart kolkhoz-greenfield-redis.service
+systemctl enable --now kolkhoz-greenfield-redis.service
 systemctl enable kolkhoz-greenfield.service
 systemctl restart kolkhoz-greenfield.service
 systemctl enable --now kolkhoz-health-watch.timer

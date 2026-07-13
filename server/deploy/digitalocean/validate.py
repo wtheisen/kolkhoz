@@ -33,7 +33,7 @@ assert "port 16379" in redis and "bind 127.0.0.1" in redis
 assert "maxmemory 64mb" in redis and "maxmemory-policy noeviction" in redis
 assert "maxclients 1000" in redis
 assert "CONFIG SET maxclients 1000" in redis_service
-assert "systemctl restart kolkhoz-greenfield-redis.service" in bootstrap
+assert "systemctl enable --now kolkhoz-greenfield-redis.service" in bootstrap
 assert "systemctl restart kolkhoz-greenfield.service" in bootstrap
 assert "caddy validate" in bootstrap and "systemctl reload caddy" in bootstrap
 assert "lb_try_duration 5s" in caddy and "lb_try_interval 100ms" in caddy
