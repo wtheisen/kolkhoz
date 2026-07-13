@@ -16,9 +16,25 @@ class KolkhozNativePolicyModel {
 
   final Pointer<KCPolicyModelBufferNative> _buffer;
   final List<Pointer<Void>> _allocations;
+  Pointer<KCPolicyWorkspace>? _workspace;
+  KolkhozCEngineBridge? _workspaceBridge;
   bool _disposed = false;
 
   KCPolicyModelBufferNative get native => _buffer.ref;
+
+  Pointer<KCPolicyWorkspace> workspace(KolkhozCEngineBridge bridge) {
+    final existing = _workspace;
+    if (existing != null) {
+      return existing;
+    }
+    final allocated = bridge.allocPolicyWorkspace(native);
+    if (allocated == nullptr) {
+      throw StateError('Could not allocate policy inference workspace');
+    }
+    _workspace = allocated;
+    _workspaceBridge = bridge;
+    return allocated;
+  }
 
   static Future<KolkhozNativePolicyModel> loadAsset(
     String assetPath, {
@@ -116,6 +132,12 @@ class KolkhozNativePolicyModel {
       return;
     }
     _disposed = true;
+    final workspace = _workspace;
+    if (workspace != null) {
+      _workspaceBridge!.freePolicyWorkspace(workspace);
+      _workspace = null;
+      _workspaceBridge = null;
+    }
     for (final allocation in _allocations.reversed) {
       calloc.free(allocation);
     }

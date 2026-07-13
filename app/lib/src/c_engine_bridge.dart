@@ -5,6 +5,8 @@ import 'package:ffi/ffi.dart';
 
 final class KCEngine extends Opaque {}
 
+final class KCPolicyWorkspace extends Opaque {}
+
 final class KCCardNative extends Struct {
   @Int32()
   external int suit;
@@ -276,6 +278,16 @@ class KolkhozCEngineBridge {
     Pointer<KCActionNative>,
   )
   _policyAction;
+  late final Pointer<KCPolicyWorkspace> Function(KCPolicyModelBufferNative)
+  _policyWorkspaceAlloc;
+  late final void Function(Pointer<KCPolicyWorkspace>) _policyWorkspaceFree;
+  late final bool Function(
+    Pointer<KCEngine>,
+    KCPolicyModelBufferNative,
+    Pointer<KCPolicyWorkspace>,
+    Pointer<KCActionNative>,
+  )
+  _policyActionWithWorkspace;
   late final int Function(Pointer<KCEngine>, KCActionNative) _applyAIAction;
   late final int Function(Pointer<KCEngine>, int, int) _applySetTrumpManual;
   late final int Function(Pointer<KCEngine>, int, int, int)
@@ -591,18 +603,30 @@ class KolkhozCEngineBridge {
 
   CEngineActionValue? policyAction(
     Pointer<KCEngine> engine,
-    KCPolicyModelBufferNative model,
-  ) {
+    KCPolicyModelBufferNative model, [
+    Pointer<KCPolicyWorkspace>? workspace,
+  ]) {
     final arena = Arena();
     try {
       final selected = arena<KCActionNative>();
-      if (!_policyAction(engine, model, selected)) {
+      final ok = workspace == null
+          ? _policyAction(engine, model, selected)
+          : _policyActionWithWorkspace(engine, model, workspace, selected);
+      if (!ok) {
         return null;
       }
       return _actionValue(selected.ref);
     } finally {
       arena.releaseAll();
     }
+  }
+
+  Pointer<KCPolicyWorkspace> allocPolicyWorkspace(
+    KCPolicyModelBufferNative model,
+  ) => _policyWorkspaceAlloc(model);
+
+  void freePolicyWorkspace(Pointer<KCPolicyWorkspace> workspace) {
+    _policyWorkspaceFree(workspace);
   }
 
   int applyAIAction(Pointer<KCEngine> engine, CEngineActionValue action) {
@@ -780,6 +804,31 @@ class KolkhozCEngineBridge {
             Pointer<KCActionNative>,
           )
         >('kc_engine_policy_action');
+    _policyWorkspaceAlloc = _lib
+        .lookupFunction<
+          Pointer<KCPolicyWorkspace> Function(KCPolicyModelBufferNative),
+          Pointer<KCPolicyWorkspace> Function(KCPolicyModelBufferNative)
+        >('kc_policy_workspace_alloc');
+    _policyWorkspaceFree = _lib
+        .lookupFunction<
+          Void Function(Pointer<KCPolicyWorkspace>),
+          void Function(Pointer<KCPolicyWorkspace>)
+        >('kc_policy_workspace_free');
+    _policyActionWithWorkspace = _lib
+        .lookupFunction<
+          Bool Function(
+            Pointer<KCEngine>,
+            KCPolicyModelBufferNative,
+            Pointer<KCPolicyWorkspace>,
+            Pointer<KCActionNative>,
+          ),
+          bool Function(
+            Pointer<KCEngine>,
+            KCPolicyModelBufferNative,
+            Pointer<KCPolicyWorkspace>,
+            Pointer<KCActionNative>,
+          )
+        >('kc_engine_policy_action_with_workspace');
     _applyAIAction = _lib
         .lookupFunction<
           Int32 Function(Pointer<KCEngine>, KCActionNative),
