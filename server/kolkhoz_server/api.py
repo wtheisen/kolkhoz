@@ -1191,7 +1191,12 @@ class OnlineApplication:
             raise ServerError(HTTPStatus.UNAUTHORIZED, "missing auth token")
         if seat.user_id is not None and user_id != seat.user_id:
             raise ServerError(HTTPStatus.UNAUTHORIZED, "invalid auth token")
-        self.lobby.touch_seat(session_id, player_id, now=time.time())
+        self.lobby.touch_seat(
+            session_id,
+            player_id,
+            now=time.time(),
+            session_ttl_seconds=self.session_ttl_seconds,
+        )
 
     def _social(
         self,

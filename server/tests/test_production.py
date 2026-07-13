@@ -15,6 +15,16 @@ class ProductionConfigurationTests(unittest.TestCase):
         with patch.dict(os.environ, {"ROLE": "false"}, clear=True):
             self.assertFalse(_enabled("ROLE"))
 
+    def test_automatic_scheduler_defaults_to_command_worker_role(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            run_worker = _enabled("KOLKHOZ_RUN_COMMAND_WORKER")
+            self.assertTrue(_enabled("KOLKHOZ_RUN_AUTOMATIC_SCHEDULER", run_worker))
+        with patch.dict(
+            os.environ, {"KOLKHOZ_RUN_COMMAND_WORKER": "false"}, clear=True
+        ):
+            run_worker = _enabled("KOLKHOZ_RUN_COMMAND_WORKER")
+            self.assertFalse(_enabled("KOLKHOZ_RUN_AUTOMATIC_SCHEDULER", run_worker))
+
     def test_auth_configuration_fails_closed(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
             with self.assertRaisesRegex(RuntimeError, "required in production"):

@@ -156,7 +156,14 @@ class LobbyRepository(Protocol):
     ) -> list[DueTurn]: ...
     def consume_timeout(self, claim: DueTurn, *, now: float) -> TimeoutResult: ...
     def complete_timeout(self, claim: DueTurn) -> None: ...
-    def touch_seat(self, session_id: str, player_id: int, *, now: float) -> None: ...
+    def touch_seat(
+        self,
+        session_id: str,
+        player_id: int,
+        *,
+        now: float,
+        session_ttl_seconds: float | None = None,
+    ) -> None: ...
     def complete_lifecycle_intent(
         self, session_id: str, operation: str, *, fencing_token: int | None = None
     ) -> None: ...
@@ -964,7 +971,14 @@ class SQLiteLobbyRepository:
             if updated.rowcount != 1:
                 raise SeatUnavailable(f"seat {player_id} is unavailable")
 
-    def touch_seat(self, session_id: str, player_id: int, *, now: float) -> None:
+    def touch_seat(
+        self,
+        session_id: str,
+        player_id: int,
+        *,
+        now: float,
+        session_ttl_seconds: float | None = None,
+    ) -> None:
         with closing(self._connect()) as connection, connection:
             updated = connection.execute(
                 """
@@ -976,6 +990,13 @@ class SQLiteLobbyRepository:
             )
             if updated.rowcount != 1:
                 raise SeatUnavailable(f"seat {player_id} is unavailable")
+            if session_ttl_seconds is not None:
+                connection.execute(
+                    """update server_sessions
+                          set expires_at = max(expires_at, ?)
+                        where session_id = ? and status in ('open', 'active')""",
+                    (now + session_ttl_seconds, session_id),
+                )
 
     def set_turn_deadline(
         self,
@@ -1997,7 +2018,14 @@ class PostgresLobbyRepository:
             if row is None:
                 raise SeatUnavailable(f"seat {player_id} is unavailable")
 
-    def touch_seat(self, session_id: str, player_id: int, *, now: float) -> None:
+    def touch_seat(
+        self,
+        session_id: str,
+        player_id: int,
+        *,
+        now: float,
+        session_ttl_seconds: float | None = None,
+    ) -> None:
         with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
             row = connection.execute(  # type: ignore[attr-defined]
                 """
@@ -2011,6 +2039,16 @@ class PostgresLobbyRepository:
             ).fetchone()
             if row is None:
                 raise SeatUnavailable(f"seat {player_id} is unavailable")
+            if session_ttl_seconds is not None:
+                connection.execute(  # type: ignore[attr-defined]
+                    """update server_sessions
+                          set expires_at = greatest(
+                              expires_at, to_timestamp(%s)
+                          )
+                        where session_id = %s::uuid
+                          and status in ('open', 'active')""",
+                    (now + session_ttl_seconds, session_id),
+                )
 
     def set_turn_deadline(
         self,

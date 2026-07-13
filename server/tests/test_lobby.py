@@ -215,6 +215,23 @@ class LobbyRepositoryTests(unittest.TestCase):
         self.repository.mark_presence("user-2", now=200)
         self.assertEqual(self.repository.online_user_ids(since=150), {"user-2"})
 
+    def test_authenticated_activity_extends_active_session_expiry(self) -> None:
+        record = self.make_session()
+        self.repository.occupy_seat(
+            record.session_id, 0, user_id="host", token_hash="token", now=100
+        )
+        self.repository.set_status(record.session_id, "active", now=100)
+
+        self.repository.touch_seat(
+            record.session_id,
+            0,
+            now=record.expires_at - 10,
+            session_ttl_seconds=3600,
+        )
+
+        refreshed = self.repository.session(record.session_id)
+        self.assertEqual(refreshed.expires_at, record.expires_at - 10 + 3600)
+
     def test_citizens_online_includes_active_profile_bots_without_duplicates(
         self,
     ) -> None:
@@ -387,6 +404,25 @@ class PostgresLobbyRepositoryTests(unittest.TestCase):
                 token_hash="hash",
                 now=123.0,
             )
+
+    def test_touch_extends_active_session_expiry_in_database(self) -> None:
+        connection = FakeConnection([FakeResult(row=(1,)), FakeResult()])
+        repository = self.repository(connection)
+
+        repository.touch_seat(
+            "00000000-0000-0000-0000-000000000001",
+            1,
+            now=123.0,
+            session_ttl_seconds=1800,
+        )
+
+        expiry_sql, expiry_parameters = connection.executions[1]
+        self.assertIn("expires_at = greatest", expiry_sql)
+        self.assertIn("status in ('open', 'active')", expiry_sql)
+        self.assertEqual(
+            expiry_parameters,
+            (1923.0, "00000000-0000-0000-0000-000000000001"),
+        )
 
     def test_device_lease_serializes_by_user_and_rejects_fresh_conflict(self) -> None:
         connection = FakeConnection([FakeResult(), FakeResult(row=(1,))])

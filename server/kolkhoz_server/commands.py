@@ -317,6 +317,12 @@ class RedisStreamsCommandBroker:
         if not self._client.ping():
             raise RuntimeError("Redis command broker ping failed")
 
+    def partition_ownership_ready(self) -> bool:
+        owners = self._client.mget(
+            [self._partition_owner_key(value) for value in range(self.partition_count)]
+        )
+        return len(owners) == self.partition_count and all(owners)
+
     def acquire_partitions(
         self, owner_id: str, partitions: tuple[int, ...], ttl_seconds: int
     ) -> bool:

@@ -129,6 +129,32 @@ def test_http_adapts_online_application_contract() -> None:
     assert json.loads(sent[1]["body"]) == {"status": "ok"}
 
 
+def test_http_rejects_oversized_chunked_body_before_dispatch() -> None:
+    application = _Application()
+    app = ASGIApplication(
+        application,
+        _Bus(),
+        max_request_body_bytes=4,  # type: ignore[arg-type]
+    )
+    incoming = asyncio.Queue()
+    incoming.put_nowait({"type": "http.request", "body": b"123", "more_body": True})
+    incoming.put_nowait({"type": "http.request", "body": b"45", "more_body": False})
+    sent: list[dict[str, Any]] = []
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/sessions",
+        "raw_path": b"/sessions",
+        "query_string": b"",
+        "headers": [],
+    }
+
+    asyncio.run(app(scope, incoming.get, _collector(sent)))
+
+    assert sent[0]["status"] == 413
+    assert application.requests == []
+
+
 def test_duplicate_gateway_catch_up_reads_are_coalesced() -> None:
     application = _Application()
     app = ASGIApplication(application, _Bus())  # type: ignore[arg-type]

@@ -19,6 +19,7 @@ x-server: &server
     KOLKHOZ_RUN_DEADLINE_SCHEDULER: "false"
     KOLKHOZ_RUN_POPULATION_SCHEDULER: "false"
     KOLKHOZ_RUN_LIFECYCLE_RECONCILER: "false"
+    KOLKHOZ_RUN_AUTOMATIC_SCHEDULER: "false"
   healthcheck:
     test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/ready',timeout=2).read()"]
     interval: 10s
@@ -57,6 +58,9 @@ services:
   population-scheduler:
     <<: *server
     environment: {<<: *common, KOLKHOZ_WORKER_ID: population-runtime, KOLKHOZ_POPULATION_ID: benchmark-population, KOLKHOZ_RUN_POPULATION_SCHEDULER: "true"}
+  automatic-scheduler:
+    <<: *server
+    environment: {<<: *common, KOLKHOZ_WORKER_ID: automatic-runtime, KOLKHOZ_RUN_AUTOMATIC_SCHEDULER: "true"}
   lifecycle-reconciler:
     <<: *server
     environment: {<<: *common, KOLKHOZ_WORKER_ID: lifecycle-runtime, KOLKHOZ_LIFECYCLE_ID: benchmark-lifecycle, KOLKHOZ_RUN_LIFECYCLE_RECONCILER: "true"}

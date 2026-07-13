@@ -124,6 +124,9 @@ def create_asgi_application() -> ASGIApplication:
         parser.error("REDIS_URL is required")
     realtime_bus = RedisRealtimeBus.from_url(redis_url, metrics=metrics)
     run_command_worker = _enabled("KOLKHOZ_RUN_COMMAND_WORKER")
+    run_automatic_scheduler = _enabled(
+        "KOLKHOZ_RUN_AUTOMATIC_SCHEDULER", run_command_worker
+    )
     owner_id = os.environ.get("KOLKHOZ_WORKER_ID") or "gateway"
     if run_command_worker:
         repo_root = Path(__file__).resolve().parents[2]
@@ -258,9 +261,10 @@ def create_asgi_application() -> ASGIApplication:
         batch_size=int(os.environ.get("KOLKHOZ_AUTOMATIC_BATCH_SIZE", "64")),
         metrics=metrics,
     )
-    automatic.start(
-        interval_seconds=float(os.environ.get("KOLKHOZ_AUTOMATIC_INTERVAL", "1"))
-    )
+    if run_automatic_scheduler:
+        automatic.start(
+            interval_seconds=float(os.environ.get("KOLKHOZ_AUTOMATIC_INTERVAL", "1"))
+        )
 
     def shutdown() -> None:
         automatic.close()
@@ -282,7 +286,7 @@ def create_asgi_application() -> ASGIApplication:
             "population": population.healthy,
             "lifecycle": lifecycle.healthy,
             "automaticProgress": False,
-            "automaticScheduler": automatic.healthy,
+            "automaticScheduler": not run_automatic_scheduler or automatic.healthy,
         }
         try:
             with pool.connection() as connection:
@@ -300,8 +304,9 @@ def create_asgi_application() -> ASGIApplication:
             pass
         try:
             command_broker.readiness_check()
-            checks["redisCommands"] = all(
-                worker.ownership_healthy for worker in command_workers
+            checks["redisCommands"] = (
+                command_broker.partition_ownership_ready()
+                and all(worker.ownership_healthy for worker in command_workers)
             )
         except Exception:
             pass
@@ -320,6 +325,9 @@ def create_asgi_application() -> ASGIApplication:
         ),
         max_message_bytes=int(
             os.environ.get("KOLKHOZ_REALTIME_MAX_MESSAGE_BYTES", "1048576")
+        ),
+        max_request_body_bytes=int(
+            os.environ.get("KOLKHOZ_HTTP_MAX_BODY_BYTES", "1048576")
         ),
         shutdown=shutdown,
         metrics=metrics,

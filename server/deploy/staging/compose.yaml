@@ -18,6 +18,7 @@ x-server-common: &server-common
     KOLKHOZ_REALTIME_BUFFER_SIZE: 64
     KOLKHOZ_LOBBY_COUNTDOWN_SECONDS: 0
     KOLKHOZ_RUN_LIFECYCLE_RECONCILER: "false"
+    KOLKHOZ_RUN_AUTOMATIC_SCHEDULER: "false"
     KOLKHOZ_ENVIRONMENT: staging
     KOLKHOZ_STAGING_STATIC_AUTH_TOKENS: '{"${KOLKHOZ_STAGING_HOST_TOKEN:-host-token}":"10000000-0000-4000-8000-000000000001","${KOLKHOZ_STAGING_GUEST_TOKEN:-guest-token}":"10000000-0000-4000-8000-000000000002"}'
   depends_on:
@@ -136,6 +137,16 @@ services:
       KOLKHOZ_RUN_COMMAND_WORKER: "false"
       KOLKHOZ_RUN_DEADLINE_SCHEDULER: "false"
       KOLKHOZ_RUN_POPULATION_SCHEDULER: "true"
+
+  automatic-scheduler:
+    <<: *server-common
+    environment:
+      <<: *server-environment
+      KOLKHOZ_WORKER_ID: automatic-runtime
+      KOLKHOZ_RUN_COMMAND_WORKER: "false"
+      KOLKHOZ_RUN_DEADLINE_SCHEDULER: "false"
+      KOLKHOZ_RUN_POPULATION_SCHEDULER: "false"
+      KOLKHOZ_RUN_AUTOMATIC_SCHEDULER: "true"
 
   lifecycle-reconciler:
     <<: *server-common

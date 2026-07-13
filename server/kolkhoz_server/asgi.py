@@ -39,6 +39,7 @@ class ASGIApplication:
         *,
         connection_buffer_size: int = 64,
         max_message_bytes: int = 1_048_576,
+        max_request_body_bytes: int = 1_048_576,
         shutdown: Callable[[], None] | None = None,
         metrics: ServerMetrics | None = None,
         readiness: Callable[[], Mapping[str, bool]] | None = None,
@@ -48,6 +49,7 @@ class ASGIApplication:
         self.realtime_bus = realtime_bus
         self.connection_buffer_size = connection_buffer_size
         self.max_message_bytes = max_message_bytes
+        self.max_request_body_bytes = max_request_body_bytes
         self.shutdown = shutdown
         self.metrics = metrics or ServerMetrics()
         self.readiness = readiness
@@ -70,18 +72,29 @@ class ASGIApplication:
         raise RuntimeError(f"unsupported ASGI scope: {scope['type']}")
 
     async def _http(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+        method = scope["method"].upper()
+        route = _route_label(scope.get("path", "/"))
+        started = time.perf_counter()
+        status = int(HTTPStatus.INTERNAL_SERVER_ERROR)
         body = bytearray()
         while True:
             message = await receive()
             if message["type"] == "http.disconnect":
                 return
             body.extend(message.get("body", b""))
+            if len(body) > self.max_request_body_bytes:
+                status = int(HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+                await self._http_response(
+                    send,
+                    HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+                    {"error": "request body is too large"},
+                )
+                self.metrics.record_route(
+                    method, route, status, time.perf_counter() - started
+                )
+                return
             if not message.get("more_body", False):
                 break
-        method = scope["method"].upper()
-        route = _route_label(scope.get("path", "/"))
-        started = time.perf_counter()
-        status = int(HTTPStatus.INTERNAL_SERVER_ERROR)
         if method == "OPTIONS":
             await self._http_response(send, HTTPStatus.NO_CONTENT, None)
             self.metrics.record_route(

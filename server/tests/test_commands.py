@@ -263,6 +263,9 @@ class FakeStreamsRedis:
     def get(self, key):
         return self.values.get(key)
 
+    def mget(self, keys):
+        return [self.values.get(key) for key in keys]
+
     def rpush(self, key, value):
         self.lists.setdefault(key, []).append(value)
 
@@ -333,6 +336,17 @@ def test_command_worker_refuses_overlapping_partition_ownership() -> None:
             second.start()
     finally:
         first.close()
+
+
+def test_command_readiness_requires_every_partition_owner() -> None:
+    redis = FakeStreamsRedis()
+    broker = RedisStreamsCommandBroker(redis, namespace="test", partition_count=2)
+
+    assert not broker.partition_ownership_ready()
+    assert broker.acquire_partitions("worker-a", (0,), 15)
+    assert not broker.partition_ownership_ready()
+    assert broker.acquire_partitions("worker-b", (1,), 15)
+    assert broker.partition_ownership_ready()
 
 
 def test_redis_command_lag_and_health_are_observable_without_live_redis():
