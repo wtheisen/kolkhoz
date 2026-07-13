@@ -9,9 +9,13 @@ xcuserdata/
 .env
 .env.*
 !.env.example
+*.p8
+firebase-fcm.json
+*service-account*.json
 
 # Generated scratch output
 tmp/
+.codex-worktrees/
 training/rl/runs/
 research/runs/
 research/logs/
