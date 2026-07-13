@@ -15,3 +15,7 @@ echo "$metrics" | grep -q '^kolkhoz_population_healthy 1' || {
   logger -p daemon.alert -t kolkhoz-health-watch "Kolkhoz population scheduler is unhealthy"
   exit 1
 }
+echo "$metrics" | grep -q '^kolkhoz_automatic_healthy 1' || {
+  logger -p daemon.alert -t kolkhoz-health-watch "Kolkhoz automatic turn scheduler is unhealthy"
+  exit 1
+}

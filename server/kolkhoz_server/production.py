@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 
 from .ai import AutomaticAdvancer
+from .automatic_scheduler import AutomaticTurnScheduler
 from .api import OnlineApplication
 from .asgi import ASGIApplication
 from .auth import CachingAuthVerifier, StagingAuthVerifier, SupabaseAuthVerifier
@@ -251,8 +252,18 @@ def create_asgi_application() -> ASGIApplication:
         lifecycle.start(
             interval_seconds=float(os.environ.get("KOLKHOZ_LIFECYCLE_INTERVAL", "1"))
         )
+    automatic = AutomaticTurnScheduler(
+        lobby,
+        application.advance_automatic_session,
+        batch_size=int(os.environ.get("KOLKHOZ_AUTOMATIC_BATCH_SIZE", "64")),
+        metrics=metrics,
+    )
+    automatic.start(
+        interval_seconds=float(os.environ.get("KOLKHOZ_AUTOMATIC_INTERVAL", "1"))
+    )
 
     def shutdown() -> None:
+        automatic.close()
         lifecycle.close()
         population.close()
         scheduler.close()
@@ -271,6 +282,7 @@ def create_asgi_application() -> ASGIApplication:
             "population": population.healthy,
             "lifecycle": lifecycle.healthy,
             "automaticProgress": False,
+            "automaticScheduler": automatic.healthy,
         }
         try:
             with pool.connection() as connection:

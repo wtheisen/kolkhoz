@@ -597,6 +597,9 @@ class OnlineApplication:
     ) -> None:
         self._finalize_if_needed(self.lobby.session(session_id), state)
 
+    def advance_automatic_session(self, session_id: str) -> None:
+        self._command_update(session_id, None)
+
     def _matchmake(
         self, body: JsonObject, user_id: str | None, device_id: str | None = None
     ) -> JsonObject:

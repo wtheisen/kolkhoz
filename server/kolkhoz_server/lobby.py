@@ -80,6 +80,7 @@ class LobbyRepository(Protocol):
     def seats(self, session_id: str) -> list[SeatRecord]: ...
     def list_open(self, now: float) -> list[SessionRecord]: ...
     def list_watchable(self, now: float) -> list[SessionRecord]: ...
+    def automatic_due_sessions(self, *, now: float, limit: int) -> list[str]: ...
     def activate_ready_sessions(self, *, now: float) -> list[str]: ...
     def finish_session(
         self, session_id: str, *, now: float, expires_at: float
@@ -407,6 +408,17 @@ class SQLiteLobbyRepository:
                 (now,),
             ).fetchall()
         return [self._session(row) for row in rows]
+
+    def automatic_due_sessions(self, *, now: float, limit: int) -> list[str]:
+        with closing(self._connect()) as connection:
+            rows = connection.execute(
+                """select session_id from server_sessions
+                    where status = 'active' and turn_player_id is null
+                      and expires_at > ? and updated_at <= ?
+                    order by updated_at, session_id limit ?""",
+                (now, now - 1, limit),
+            ).fetchall()
+        return [str(row[0]) for row in rows]
 
     def activate_ready_sessions(self, *, now: float) -> list[str]:
         connection = self._connect()
@@ -1436,6 +1448,18 @@ class PostgresLobbyRepository:
                 (now,),
             ).fetchall()
         return [self._session_row(row) for row in rows]
+
+    def automatic_due_sessions(self, *, now: float, limit: int) -> list[str]:
+        with self._pool.connection() as connection:
+            rows = connection.execute(  # type: ignore[attr-defined]
+                """select session_id::text from server_sessions
+                    where status = 'active' and turn_player_id is null
+                      and expires_at > to_timestamp(%s)
+                      and updated_at <= to_timestamp(%s)
+                    order by updated_at, session_id limit %s""",
+                (now, now - 1, limit),
+            ).fetchall()
+        return [str(row[0]) for row in rows]
 
     def activate_ready_sessions(self, *, now: float) -> list[str]:
         with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
