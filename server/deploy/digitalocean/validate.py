@@ -7,6 +7,8 @@ server = (root / "kolkhoz-greenfield.service").read_text()
 redis = (root / "redis-greenfield.conf").read_text()
 redis_service = (root / "kolkhoz-greenfield-redis.service").read_text()
 caddy = (root / "Caddyfile").read_text()
+watch = (root / "health-watch.sh").read_text()
+watch_timer = (root / "kolkhoz-health-watch.timer").read_text()
 
 assert "ROOT=/opt/kolkhoz-greenfield" in bootstrap
 assert "SERVER_ENV=/etc/kolkhoz-greenfield.env" in bootstrap
@@ -36,5 +38,11 @@ assert "caddy validate" in bootstrap and "systemctl reload caddy" in bootstrap
 assert "lb_try_duration 5s" in caddy and "lb_try_interval 100ms" in caddy
 assert "stream_close_delay 5m" in caddy
 assert "for _ in $(seq 1 30)" in bootstrap
+assert "server.kolkhoz_server.preflight" in bootstrap
+assert "policies/medium_policy.json" in bootstrap
+assert "KOLKHOZ_BUILD_SHA" in bootstrap and "kolkhoz-greenfield-build.env" in server
+assert "kolkhoz-health-watch.timer" in bootstrap
+assert "/ready" in watch and "lifecycle_healthy" in watch
+assert "OnUnitActiveSec=60s" in watch_timer
 assert 'git -c safe.directory="$ROOT" -C "$ROOT"' in bootstrap
 print("DigitalOcean server package invariants valid")

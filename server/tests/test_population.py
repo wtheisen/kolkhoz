@@ -129,3 +129,23 @@ def test_new_interval_runs_again_with_stable_different_idempotency_keys() -> Non
     keys = [call[2] for call in repository.seed_calls]
     assert len(keys) == 4
     assert len(set(keys)) == 4
+
+
+def test_profile_bot_start_failure_is_not_swallowed() -> None:
+    repository = Repository()
+    repository.sessions = [
+        MatchmakingSession("broken", 1, False, True, (1,), ("low-human",)),
+    ]
+    scheduler = PopulationScheduler(
+        repository,
+        on_filled=lambda session_id: (_ for _ in ()).throw(
+            RuntimeError(f"cannot start {session_id}")
+        ),
+    )
+
+    try:
+        scheduler.tick(now=1000)
+    except RuntimeError as error:
+        assert "cannot start broken" in str(error)
+    else:
+        raise AssertionError("population failure was swallowed")

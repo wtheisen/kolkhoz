@@ -68,8 +68,12 @@ class FakeResults:
 
     def create_series(self, *, session_id: str, best_of: int) -> dict[str, object]:
         value = {
-            "seriesID": "series-1", "bestOf": best_of, "roundNumber": 1,
-            "completed": False, "winnerPlayerID": None, "wins": {},
+            "seriesID": "series-1",
+            "bestOf": best_of,
+            "roundNumber": 1,
+            "completed": False,
+            "winnerPlayerID": None,
+            "wins": {},
         }
         self.series_by_session[session_id] = value
         return value
@@ -155,9 +159,7 @@ class CompatibilityApiTests(unittest.TestCase):
             "POST",
             "/sessions",
             {
-                "controllers": [
-                    "human", "heuristicAI", "heuristicAI", "heuristicAI"
-                ],
+                "controllers": ["human", "heuristicAI", "heuristicAI", "heuristicAI"],
                 "browserJoinable": True,
             },
             bearer="host-token",

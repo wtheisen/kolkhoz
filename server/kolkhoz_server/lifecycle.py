@@ -5,8 +5,12 @@ import threading
 import time
 import uuid
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from .lobby import LifecycleIntent, LobbyRepository
+
+if TYPE_CHECKING:
+    from .metrics import ServerMetrics
 
 
 class LifecycleReconciler:
@@ -22,6 +26,7 @@ class LifecycleReconciler:
         lease_seconds: float = 30,
         retry_seconds: float = 2,
         clock: Callable[[], float] = time.time,
+        metrics: ServerMetrics | None = None,
     ) -> None:
         self.repository = repository
         self.runtime = runtime
@@ -30,6 +35,8 @@ class LifecycleReconciler:
         self.lease_seconds = lease_seconds
         self.retry_seconds = retry_seconds
         self.clock = clock
+        self.metrics = metrics
+        self.consecutive_failures = 0
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -43,6 +50,7 @@ class LifecycleReconciler:
             limit=self.batch_size,
         )
         completed = 0
+        failed = False
         for intent in intents:
             try:
                 self._apply(intent)
@@ -53,6 +61,9 @@ class LifecycleReconciler:
                 )
                 completed += 1
             except Exception:
+                failed = True
+                if self.metrics is not None:
+                    self.metrics.increment("lifecycle.failures")
                 logging.exception(
                     "lifecycle reconciliation failed for %s %s",
                     intent.operation,
@@ -61,7 +72,16 @@ class LifecycleReconciler:
                 self.repository.retry_lifecycle_intent(
                     intent, now=current, delay_seconds=self.retry_seconds
                 )
+        self.consecutive_failures = self.consecutive_failures + 1 if failed else 0
+        if self.metrics is not None:
+            self.metrics.gauge("lifecycle.healthy", int(self.healthy))
         return completed
+
+    @property
+    def healthy(self) -> bool:
+        return self.consecutive_failures == 0 and (
+            self._thread is None or self._thread.is_alive()
+        )
 
     def _apply(self, intent: LifecycleIntent) -> None:
         if intent.operation == "invalidate":

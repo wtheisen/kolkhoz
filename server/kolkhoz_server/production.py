@@ -7,9 +7,7 @@ import json
 import os
 from pathlib import Path
 
-from research.kolkhoz_research.model import PolicyArtifact
-
-from .ai import AutomaticAdvancer, ModelCache
+from .ai import AutomaticAdvancer
 from .api import OnlineApplication
 from .asgi import ASGIApplication
 from .auth import CachingAuthVerifier, StagingAuthVerifier, SupabaseAuthVerifier
@@ -26,6 +24,7 @@ from .events import EventHub
 from .lobby import PostgresLobbyRepository
 from .metrics import ServerMetrics
 from .population import PopulationScheduler, PostgresPopulationRepository
+from .preflight import verify_production_assets
 from .runtime import GameRuntime, GatewayRuntimeContext
 from .results import PostgresResultsRepository
 from .scheduler import DeadlineScheduler
@@ -127,23 +126,7 @@ def create_asgi_application() -> ASGIApplication:
     owner_id = os.environ.get("KOLKHOZ_WORKER_ID") or "gateway"
     if run_command_worker:
         repo_root = Path(__file__).resolve().parents[2]
-        policy_paths = {
-            "mediumAI": Path(
-                os.environ.get(
-                    "KOLKHOZ_MEDIUM_POLICY_PATH",
-                    repo_root / "policies/medium_policy.json",
-                )
-            ),
-            "neuralAI": Path(
-                os.environ.get(
-                    "KOLKHOZ_NEURAL_POLICY_PATH",
-                    repo_root / "policies/hard_policy.json",
-                )
-            ),
-        }
-        models = ModelCache(
-            policy_paths, lambda path: PolicyArtifact.load(path).c_buffer()
-        )
+        models = verify_production_assets(repo_root)
         local_runtime: GameRuntime | GatewayRuntimeContext = GameRuntime(
             store,
             shard_count=args.shards,
@@ -251,6 +234,7 @@ def create_asgi_application() -> ASGIApplication:
         owner_id=os.environ.get("KOLKHOZ_POPULATION_ID"),
         batch_size=int(os.environ.get("KOLKHOZ_POPULATION_BATCH_SIZE", "256")),
         on_filled=application.population_seat_filled,
+        metrics=metrics,
     )
     if _enabled("KOLKHOZ_RUN_POPULATION_SCHEDULER"):
         population.start(
@@ -261,6 +245,7 @@ def create_asgi_application() -> ASGIApplication:
         runtime,
         owner_id=os.environ.get("KOLKHOZ_LIFECYCLE_ID"),
         batch_size=int(os.environ.get("KOLKHOZ_LIFECYCLE_BATCH_SIZE", "64")),
+        metrics=metrics,
     )
     if _enabled("KOLKHOZ_RUN_LIFECYCLE_RECONCILER"):
         lifecycle.start(
@@ -278,7 +263,14 @@ def create_asgi_application() -> ASGIApplication:
         pool.close()
 
     def readiness() -> dict[str, bool]:
-        checks = {"postgres": False, "redisCommands": False, "redisRealtime": False}
+        checks = {
+            "postgres": False,
+            "redisCommands": False,
+            "redisRealtime": False,
+            "policyModels": not run_command_worker or models.sha256() is not None,
+            "population": population.healthy,
+            "lifecycle": lifecycle.healthy,
+        }
         try:
             with pool.connection() as connection:
                 row = connection.execute("select 1").fetchone()  # type: ignore[attr-defined]

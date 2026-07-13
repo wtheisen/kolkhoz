@@ -140,7 +140,8 @@ class OnlineApplication:
             return Response(
                 HTTPStatus.OK,
                 self._rematch(
-                    params["sessionID"], request.body,
+                    params["sessionID"],
+                    request.body,
                     self._require_user(user_id),
                     _header(request.headers, "X-Kolkhoz-Device-ID"),
                 ),
@@ -177,7 +178,10 @@ class OnlineApplication:
         if operation == "sessions.watchable":
             return Response(
                 HTTPStatus.OK,
-                [self._listing(value) for value in self.lobby.list_watchable(time.time())],
+                [
+                    self._listing(value)
+                    for value in self.lobby.list_watchable(time.time())
+                ],
             )
         if operation == "sessions.get":
             return Response(
@@ -185,7 +189,11 @@ class OnlineApplication:
             )
         if operation == "sessions.spectate":
             record = self.lobby.session(params["sessionID"])
-            if record.status != "active" or record.ranked or not record.browser_joinable:
+            if (
+                record.status != "active"
+                or record.ranked
+                or not record.browser_joinable
+            ):
                 raise ServerError(HTTPStatus.FORBIDDEN, "session is not watchable")
             update = self._read_update(record.session_id, None)
             update["spectator"] = True
@@ -262,9 +270,7 @@ class OnlineApplication:
     def _replay(self, session_id: str, user_id: str) -> JsonObject:
         if self.results is None:
             raise ServerError(HTTPStatus.NOT_FOUND, "replay unavailable")
-        results = self.results.session_results(
-            session_id=session_id, user_id=user_id
-        )
+        results = self.results.session_results(session_id=session_id, user_id=user_id)
         if not results:
             raise ServerError(HTTPStatus.NOT_FOUND, "finished game not found")
         record = self.lobby.session(session_id)
@@ -289,7 +295,10 @@ class OnlineApplication:
         }
 
     def _rematch(
-        self, session_id: str, body: JsonObject, user_id: str,
+        self,
+        session_id: str,
+        body: JsonObject,
+        user_id: str,
         device_id: str | None,
     ) -> JsonObject:
         if self.results is None:
@@ -346,9 +355,7 @@ class OnlineApplication:
         seed = int.from_bytes(
             hashlib.sha256(f"kolkhoz-daily:{day}".encode()).digest()[:8], "big"
         ) & ((1 << 63) - 1)
-        status = self.results.daily_challenge(
-            challenge_date=day, user_id=user_id
-        )
+        status = self.results.daily_challenge(challenge_date=day, user_id=user_id)
         return {
             "date": day,
             "seed": seed,
@@ -356,9 +363,7 @@ class OnlineApplication:
             **status,
         }
 
-    def _start_daily_challenge(
-        self, user_id: str, device_id: str | None
-    ) -> JsonObject:
+    def _start_daily_challenge(self, user_id: str, device_id: str | None) -> JsonObject:
         challenge = self._daily_challenge(user_id)
         response = self._create(
             {
@@ -372,10 +377,13 @@ class OnlineApplication:
         )
         assert self.results is not None
         if not self.results.claim_daily_attempt(
-            challenge_date=str(challenge["date"]), user_id=user_id,
+            challenge_date=str(challenge["date"]),
+            user_id=user_id,
             session_id=str(response["sessionID"]),
         ):
-            raise ServerError(HTTPStatus.CONFLICT, "daily challenge session already exists")
+            raise ServerError(
+                HTTPStatus.CONFLICT, "daily challenge session already exists"
+            )
         response["challengeDate"] = challenge["date"]
         return response
 

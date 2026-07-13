@@ -65,10 +65,15 @@ if [ ! -e "$ROOT" ]; then git clone --filter=blob:none "$repo" "$ROOT"; fi
 git_server fetch --tags --prune origin
 git_server checkout --detach "$ref"
 test "$(git_server rev-parse HEAD)" = "$(git_server rev-parse "$ref^{commit}")"
+printf 'KOLKHOZ_BUILD_SHA=%s\n' "$(git_server rev-parse HEAD)" > /etc/kolkhoz-greenfield-build.env
+chmod 0644 /etc/kolkhoz-greenfield-build.env
 cd "$ROOT"
 python3 -m venv "$ROOT/.venv"
 "$ROOT/.venv/bin/pip" install --disable-pip-version-check -r "$ROOT/server/deploy/requirements.txt"
 "$ROOT/.venv/bin/python" -c 'from research.kolkhoz_research.c_engine import CEngine; CEngine()'
+test -s "$ROOT/policies/medium_policy.json"
+test -s "$ROOT/policies/hard_policy.json"
+"$ROOT/.venv/bin/python" -m server.kolkhoz_server.preflight --repo-root "$ROOT"
 install -d -o kolkhoz-greenfield -g kolkhoz-greenfield "$ROOT/research/.build"
 chown -R kolkhoz-greenfield:kolkhoz-greenfield "$ROOT"
 
@@ -85,6 +90,9 @@ install -d -o redis -g redis /var/lib/redis-greenfield
 install -o root -g redis -m 0640 "$here/redis-greenfield.conf" /etc/redis/kolkhoz-greenfield.conf
 install -o root -g root -m 0644 "$here/kolkhoz-greenfield-redis.service" /etc/systemd/system/kolkhoz-greenfield-redis.service
 install -o root -g root -m 0644 "$here/kolkhoz-greenfield.service" /etc/systemd/system/kolkhoz-greenfield.service
+install -o root -g root -m 0755 "$here/health-watch.sh" /usr/local/sbin/kolkhoz-health-watch
+install -o root -g root -m 0644 "$here/kolkhoz-health-watch.service" /etc/systemd/system/kolkhoz-health-watch.service
+install -o root -g root -m 0644 "$here/kolkhoz-health-watch.timer" /etc/systemd/system/kolkhoz-health-watch.timer
 install -o root -g root -m 0644 "$here/Caddyfile" /etc/caddy/Caddyfile
 caddy validate --config /etc/caddy/Caddyfile
 systemctl reload caddy
@@ -92,6 +100,7 @@ systemctl daemon-reload
 systemctl enable kolkhoz-greenfield-redis.service
 systemctl restart kolkhoz-greenfield-redis.service
 systemctl enable --now kolkhoz-greenfield.service
+systemctl enable --now kolkhoz-health-watch.timer
 ready=false
 for _ in $(seq 1 30); do
   if curl --fail --silent --max-time 2 http://127.0.0.1:18787/ready >/dev/null; then
@@ -102,4 +111,5 @@ for _ in $(seq 1 30); do
 done
 $ready || { systemctl status kolkhoz-greenfield.service --no-pager >&2; exit 1; }
 curl --fail --silent --max-time 5 http://127.0.0.1:18787/metrics/prometheus | grep -q '^kolkhoz_uptime_seconds '
+/usr/local/sbin/kolkhoz-health-watch
 echo "Kolkhoz server ready on loopback port 18787"

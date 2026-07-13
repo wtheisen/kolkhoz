@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import queue
 import threading
 import time
@@ -229,7 +230,9 @@ class GameRuntime:
         details = provenance() if provenance is not None else {}
         return {
             "status": "ok",
-            "gitSHA": details.get("gitSHA", "unknown"),
+            "gitSHA": os.environ.get(
+                "KOLKHOZ_BUILD_SHA", str(details.get("gitSHA", "unknown"))
+            ),
             "engineSHA256": details.get("engineSHA256", "unknown"),
         }
 

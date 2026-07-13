@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import threading
 import time
 import uuid
 from dataclasses import dataclass
-from typing import Callable, Mapping, Protocol, Sequence
+from typing import TYPE_CHECKING, Callable, Mapping, Protocol, Sequence
 
 from .matchmaking import (
     DEFAULT_RATING,
@@ -19,6 +20,9 @@ from .matchmaking import (
     target_bot_rating,
 )
 from .store import ConnectionPool
+
+if TYPE_CHECKING:
+    from .metrics import ServerMetrics
 
 
 PROFILE_BOT_TARGET_WAIT_SECONDS = 90
@@ -112,6 +116,7 @@ class PopulationScheduler:
         lease_seconds: float = DEFAULT_LEASE_SECONDS,
         planner: PopulationPlanner | None = None,
         on_filled: Callable[[str], None] | None = None,
+        metrics: ServerMetrics | None = None,
     ) -> None:
         if batch_size < 1:
             raise ValueError("batch_size must be positive")
@@ -121,6 +126,8 @@ class PopulationScheduler:
         self.lease_seconds = lease_seconds
         self.planner = planner or PopulationPlanner()
         self.on_filled = on_filled
+        self.metrics = metrics
+        self.consecutive_failures = 0
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -219,12 +226,7 @@ class PopulationScheduler:
                     (choice.session_id, choice.player_id, choice.profile.user_id)
                 )
                 if self.on_filled is not None:
-                    try:
-                        self.on_filled(choice.session_id)
-                    except Exception:
-                        # The owning worker observes the durable controller change
-                        # on its next command; this replica may not hold its lease.
-                        pass
+                    self.on_filled(choice.session_id)
         return filled
 
     def start(self, *, interval_seconds: float = 1.0) -> None:
@@ -236,7 +238,16 @@ class PopulationScheduler:
 
         def run() -> None:
             while not self._stop.wait(interval_seconds):
-                self.tick(now=time.time())
+                try:
+                    self.tick(now=time.time())
+                    self.consecutive_failures = 0
+                except Exception:
+                    self.consecutive_failures += 1
+                    logging.exception("population scheduler tick failed")
+                    if self.metrics is not None:
+                        self.metrics.increment("population.failures")
+                if self.metrics is not None:
+                    self.metrics.gauge("population.healthy", int(self.healthy))
 
         self._thread = threading.Thread(
             target=run,
@@ -250,6 +261,12 @@ class PopulationScheduler:
         if self._thread is not None:
             self._thread.join(timeout=5)
             self._thread = None
+
+    @property
+    def healthy(self) -> bool:
+        return self.consecutive_failures == 0 and (
+            self._thread is None or self._thread.is_alive()
+        )
 
     def _profiles(
         self, count: int, *, now: float, target_rating: int

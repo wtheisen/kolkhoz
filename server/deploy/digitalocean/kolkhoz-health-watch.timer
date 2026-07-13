@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the Kolkhoz production health alarm every minute
+
+[Timer]
+OnBootSec=90s
+OnUnitActiveSec=60s
+AccuracySec=5s
+Unit=kolkhoz-health-watch.service
+
+[Install]
+WantedBy=timers.target

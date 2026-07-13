@@ -31,6 +31,8 @@ jobs:
         run: python3 -m unittest discover -s server/tests -q
       - name: Test greenfield server with pytest
         run: python3 -m pytest -q server/tests
+      - name: Verify production policy assets with the real C engine
+        run: python3 -m server.kolkhoz_server.preflight --repo-root "$GITHUB_WORKSPACE"
       - name: Test online progression and smoke tooling
         run: >-
           python3 -m unittest

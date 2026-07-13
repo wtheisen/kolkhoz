@@ -80,7 +80,9 @@ class ResultsRepository(Protocol):
 
     def daily_challenge(self, *, challenge_date: str, user_id: str) -> Result: ...
     def create_series(self, *, session_id: str, best_of: int) -> Result: ...
-    def continue_series(self, *, source_session_id: str, session_id: str) -> Result | None: ...
+    def continue_series(
+        self, *, source_session_id: str, session_id: str
+    ) -> Result | None: ...
     def series_status(self, *, session_id: str) -> Result | None: ...
 
     def record_session_results(
@@ -377,9 +379,12 @@ class PostgresResultsRepository:
             )
             wins = {str(int(value[0])): int(value[1]) for value in cursor.fetchall()}
         return {
-            "seriesID": row[0], "bestOf": int(row[1]),
-            "completed": bool(row[2]), "winnerPlayerID": row[3],
-            "roundNumber": int(row[4]), "wins": wins,
+            "seriesID": row[0],
+            "bestOf": int(row[1]),
+            "completed": bool(row[2]),
+            "winnerPlayerID": row[3],
+            "roundNumber": int(row[4]),
+            "wins": wins,
         }
 
     def _record_series_round(
@@ -393,12 +398,17 @@ class PostgresResultsRepository:
             returning series_id""",
             (
                 None if winner is None else int(winner.get("player_id", 0)),
-                self._json_value([
-                    {"playerID": int(value.get("player_id", 0)),
-                     "score": int(value.get("score", 0))}
-                    for value in results
-                ]),
-                now, session_id,
+                self._json_value(
+                    [
+                        {
+                            "playerID": int(value.get("player_id", 0)),
+                            "score": int(value.get("score", 0)),
+                        }
+                        for value in results
+                    ]
+                ),
+                now,
+                session_id,
             ),
         )
         row = cursor.fetchone()
@@ -467,10 +477,14 @@ class PostgresResultsRepository:
             rows = cursor.fetchall()
         return [
             {
-                "playerID": int(row[0]), "score": int(row[1]),
-                "rank": int(row[2]), "won": bool(row[3]),
-                "ranked": bool(row[4]), "completedAt": float(row[5]),
-                "userID": row[6], "displayName": row[7],
+                "playerID": int(row[0]),
+                "score": int(row[1]),
+                "rank": int(row[2]),
+                "won": bool(row[3]),
+                "ranked": bool(row[4]),
+                "completedAt": float(row[5]),
+                "userID": row[6],
+                "displayName": row[7],
             }
             for row in rows
         ]
@@ -527,13 +541,20 @@ class PostgresResultsRepository:
             )
             leaders = cursor.fetchall()
         return {
-            "attempt": None if mine is None else {
-                "sessionID": mine[0], "score": mine[1], "rank": mine[2],
+            "attempt": None
+            if mine is None
+            else {
+                "sessionID": mine[0],
+                "score": mine[1],
+                "rank": mine[2],
                 "completedAt": None if mine[3] is None else float(mine[3]),
             },
             "leaders": [
-                {"displayName": row[0], "score": int(row[1]),
-                 "completedAt": float(row[2])}
+                {
+                    "displayName": row[0],
+                    "score": int(row[1]),
+                    "completedAt": float(row[2]),
+                }
                 for row in leaders
             ],
         }

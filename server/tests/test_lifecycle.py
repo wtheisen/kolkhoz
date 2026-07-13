@@ -111,9 +111,11 @@ class LifecycleReconcilerTests(unittest.TestCase):
 
         with self.assertLogs(level="ERROR"):
             self.assertEqual(reconciler.run_once(now=record.created_at), 0)
+        self.assertFalse(reconciler.healthy)
         self.runtime.fail_create = False
         self.assertEqual(reconciler.run_once(now=record.created_at + 1), 0)
         self.assertEqual(reconciler.run_once(now=record.created_at + 2), 1)
+        self.assertTrue(reconciler.healthy)
 
     def test_failure_after_event_create_schedules_orphan_deletion(self) -> None:
         record = self.create_lobby()
