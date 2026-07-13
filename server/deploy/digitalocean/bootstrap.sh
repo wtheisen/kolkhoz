@@ -99,7 +99,8 @@ systemctl reload caddy
 systemctl daemon-reload
 systemctl enable kolkhoz-greenfield-redis.service
 systemctl restart kolkhoz-greenfield-redis.service
-systemctl enable --now kolkhoz-greenfield.service
+systemctl enable kolkhoz-greenfield.service
+systemctl restart kolkhoz-greenfield.service
 systemctl enable --now kolkhoz-health-watch.timer
 ready=false
 for _ in $(seq 1 30); do
