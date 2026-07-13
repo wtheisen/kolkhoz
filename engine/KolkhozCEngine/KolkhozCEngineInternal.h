@@ -74,7 +74,7 @@ int32_t kc_policy_candidates(const KCEngine *engine, int32_t player_id, KCPolicy
 bool kc_sample_policy_action(KCPolicyActionCandidate *candidates, int32_t count, KCPolicyModelBuffer model, uint64_t *rng_state, double temperature, double greedy_sample_rate, double *gradient, KCAction *selected);
 bool kc_sample_policy_choice(KCPolicyActionCandidate *candidates, int32_t count, uint64_t *rng_state, double temperature, double greedy_sample_rate, int32_t *chosen_out, double *log_probability_out);
 double kc_policy_choice_log_probability(const KCPolicyActionCandidate *candidates, int32_t count, int32_t chosen, double temperature);
-bool kc_greedy_policy_action(const KCEngine *engine, int32_t player_id, KCPolicyModelBuffer model, double *hidden_cache, KCAction *selected);
+bool kc_greedy_policy_action(const KCEngine *engine, int32_t player_id, KCPolicyModelBuffer model, KCPolicyActionCandidate *candidates, double *hidden_cache, KCAction *selected);
 int32_t kc_policy_candidate_index_for_action(const KCPolicyActionCandidate *candidates, int32_t count, KCAction action);
 double kc_imitation_weight_for_head(KCPolicyGradientConfig config, int32_t action_head);
 int32_t kc_apply_policy_action(KCEngine *engine, KCAction action);

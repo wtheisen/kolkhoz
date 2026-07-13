@@ -474,6 +474,7 @@ class CEngine:
     def __init__(self, library_path: Path | None = None) -> None:
         self.library_path = library_path or build_shared_library()
         self.lib = ctypes.CDLL(os.fspath(self.library_path))
+        self._policy_workspaces: dict[int, int] = {}
 
         self.lib.kc_variants_kolkhoz.argtypes = [ctypes.POINTER(KCVariants)]
         self.lib.kc_variants_kolkhoz.restype = None
@@ -535,6 +536,23 @@ class CEngine:
             ctypes.POINTER(KCAction),
         ]
         self.lib.kc_engine_policy_action.restype = ctypes.c_bool
+        self.lib.kc_policy_workspace_alloc.argtypes = [KCPolicyModelBuffer]
+        self.lib.kc_policy_workspace_alloc.restype = ctypes.c_void_p
+        self.lib.kc_policy_workspace_free.argtypes = [ctypes.c_void_p]
+        self.lib.kc_policy_workspace_free.restype = None
+        self.lib.kc_engine_step_policy_automatic_with_workspace.argtypes = [
+            ctypes.c_void_p,
+            KCPolicyModelBuffer,
+            ctypes.c_void_p,
+        ]
+        self.lib.kc_engine_step_policy_automatic_with_workspace.restype = ctypes.c_int32
+        self.lib.kc_engine_policy_action_with_workspace.argtypes = [
+            ctypes.c_void_p,
+            KCPolicyModelBuffer,
+            ctypes.c_void_p,
+            ctypes.POINTER(KCAction),
+        ]
+        self.lib.kc_engine_policy_action_with_workspace.restype = ctypes.c_bool
         self.lib.kc_engine_apply_ai_action.argtypes = [ctypes.c_void_p, KCAction]
         self.lib.kc_engine_apply_ai_action.restype = ctypes.c_int32
         self.lib.kc_engine_apply_policy_action.argtypes = [ctypes.c_void_p, KCAction]
@@ -736,7 +754,11 @@ class CEngine:
         pointer: ctypes.c_void_p,
         model: KCPolicyModelBuffer,
     ) -> int:
-        return int(self.lib.kc_engine_step_policy_automatic(pointer, model))
+        return int(
+            self.lib.kc_engine_step_policy_automatic_with_workspace(
+                pointer, model, self._policy_workspace(model)
+            )
+        )
 
     def policy_action(
         self,
@@ -744,8 +766,26 @@ class CEngine:
         model: KCPolicyModelBuffer,
     ) -> KCAction | None:
         action = KCAction()
-        ok = self.lib.kc_engine_policy_action(pointer, model, ctypes.byref(action))
+        ok = self.lib.kc_engine_policy_action_with_workspace(
+            pointer, model, self._policy_workspace(model), ctypes.byref(action)
+        )
         return action if ok else None
+
+    def _policy_workspace(self, model: KCPolicyModelBuffer) -> int:
+        key = ctypes.addressof(model)
+        workspace = self._policy_workspaces.get(key)
+        if workspace is None:
+            workspace = int(self.lib.kc_policy_workspace_alloc(model) or 0)
+            if not workspace:
+                raise MemoryError("could not allocate policy inference workspace")
+            self._policy_workspaces[key] = workspace
+        return workspace
+
+    def __del__(self) -> None:
+        lib = getattr(self, "lib", None)
+        for workspace in getattr(self, "_policy_workspaces", {}).values():
+            if lib is not None:
+                lib.kc_policy_workspace_free(workspace)
 
     def policy_action_features(
         self,

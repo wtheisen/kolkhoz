@@ -899,7 +899,11 @@ class LiveGameStore extends ChangeNotifier {
   ) {
     final policy = _policyForController(controller);
     if (policy != null) {
-      final action = bridge.policyAction(engine, policy.native);
+      final action = bridge.policyAction(
+        engine,
+        policy.native,
+        policy.workspace(bridge),
+      );
       if (action == null) {
         return 0;
       }

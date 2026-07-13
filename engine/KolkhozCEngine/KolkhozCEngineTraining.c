@@ -759,7 +759,7 @@ static int32_t kc_run_policy_gradient_episode(
     int32_t player_action_counts[KC_PLAYER_COUNT][KC_SUIT_COUNT] = {{0}};
     int32_t player_value_counts[KC_PLAYER_COUNT] = {0};
     int32_t guard_count = 0;
-    KCPolicyActionCandidate *candidates = malloc(256 * sizeof(KCPolicyActionCandidate));
+    KCPolicyActionCandidate *candidates = malloc(512 * sizeof(KCPolicyActionCandidate));
     if (!candidates) {
         return 2;
     }
@@ -789,7 +789,7 @@ static int32_t kc_run_policy_gradient_episode(
         } else {
             bool ok = config.opponent_is_heuristic
                 ? kc_heuristic_policy_action(&engine, &selected)
-                : kc_greedy_policy_action(&engine, player_id, config.opponent_model, candidate_hidden_cache, &selected);
+                : kc_greedy_policy_action(&engine, player_id, config.opponent_model, candidates + 256, candidate_hidden_cache, &selected);
             if (!ok) {
                 free(candidates);
                 return 3;
@@ -1048,7 +1048,7 @@ static int32_t kc_run_policy_ppo_episode(
     int32_t player_action_counts[KC_PLAYER_COUNT][KC_SUIT_COUNT] = {{0}};
     int32_t guard_count = 0;
     bool shaped_rewards = kc_has_shaped_rewards(config);
-    KCPolicyActionCandidate *candidates = malloc(256 * sizeof(KCPolicyActionCandidate));
+    KCPolicyActionCandidate *candidates = malloc(512 * sizeof(KCPolicyActionCandidate));
     if (!candidates) {
         return 2;
     }
@@ -1094,7 +1094,7 @@ static int32_t kc_run_policy_ppo_episode(
             int32_t teacher_index = -1;
             if (kc_imitation_weight_for_head(config, action_head) > 0 && config.has_opponent_model) {
                 KCAction teacher_action;
-                bool teacher_ok = kc_greedy_policy_action(&engine, player_id, config.opponent_model, candidate_hidden_cache, &teacher_action);
+                bool teacher_ok = kc_greedy_policy_action(&engine, player_id, config.opponent_model, candidates + 256, candidate_hidden_cache, &teacher_action);
                 if (teacher_ok) {
                     teacher_index = kc_policy_candidate_index_for_action(candidates, count, teacher_action);
                 }
@@ -1113,7 +1113,7 @@ static int32_t kc_run_policy_ppo_episode(
         } else {
             bool ok = config.opponent_is_heuristic
                 ? kc_heuristic_policy_action(&engine, &selected)
-                : kc_greedy_policy_action(&engine, player_id, config.opponent_model, candidate_hidden_cache, &selected);
+                : kc_greedy_policy_action(&engine, player_id, config.opponent_model, candidates + 256, candidate_hidden_cache, &selected);
             if (!ok) {
                 free(candidates);
                 return 3;

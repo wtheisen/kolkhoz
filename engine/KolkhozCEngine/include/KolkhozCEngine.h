@@ -175,6 +175,8 @@ typedef struct {
     double *b2s;
 } KCPolicyModelBuffer;
 
+typedef struct KCPolicyWorkspace KCPolicyWorkspace;
+
 typedef struct {
     int32_t episodes;
     int32_t batch_size;
@@ -371,6 +373,10 @@ int32_t kc_engine_step_automatic(KCEngine *engine);
 bool kc_engine_heuristic_action(const KCEngine *engine, KCAction *selected);
 int32_t kc_engine_step_policy_automatic(KCEngine *engine, KCPolicyModelBuffer model);
 bool kc_engine_policy_action(const KCEngine *engine, KCPolicyModelBuffer model, KCAction *selected);
+KCPolicyWorkspace *kc_policy_workspace_alloc(KCPolicyModelBuffer model);
+void kc_policy_workspace_free(KCPolicyWorkspace *workspace);
+int32_t kc_engine_step_policy_automatic_with_workspace(KCEngine *engine, KCPolicyModelBuffer model, KCPolicyWorkspace *workspace);
+bool kc_engine_policy_action_with_workspace(const KCEngine *engine, KCPolicyModelBuffer model, KCPolicyWorkspace *workspace, KCAction *selected);
 int32_t kc_engine_apply_ai_action(KCEngine *engine, KCAction action);
 int32_t kc_engine_apply_ai_action_stepwise(KCEngine *engine, KCAction action);
 int32_t kc_engine_apply_policy_action(KCEngine *engine, KCAction action);
