@@ -16,17 +16,21 @@ corner-index and counter sizes:
 
 ## Faces
 
-`faces/` begins the 512 x 512 transparent court-card portrait family. The first batch is
-the four suit-specific Jacks:
+`faces/` contains the 512 x 512 transparent court-card portrait family. The first two
+batches are the four suit-specific Jacks and Queens:
 
 - `face-jack-wheat.png`
 - `face-jack-sunflower.png`
 - `face-jack-potato.png`
 - `face-jack-beet.png`
+- `face-queen-wheat.png`
+- `face-queen-sunflower.png`
+- `face-queen-potato.png`
+- `face-queen-beet.png`
 
 The art direction is ordinary early-1930s agricultural workers rendered like practical
 handbook and muted color-lithograph illustrations. Avoid flags, medals, political
 leaders, invented folk costume, military styling, and monumental heroic poses.
 
-All eight source images were independently generated on flat magenta, processed with
+All source images were independently generated on flat magenta, processed with
 `remove_chroma_key.py`, downsampled, and validated for a full alpha range.
