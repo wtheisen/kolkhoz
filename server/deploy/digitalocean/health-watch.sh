@@ -2,7 +2,15 @@
 set -eu
 
 base=http://127.0.0.1:18787
-if ! curl --fail --silent --show-error --max-time 5 "$base/ready" >/dev/null; then
+ready=false
+for _ in 1 2 3 4 5 6; do
+  if curl --fail --silent --max-time 5 "$base/ready" >/dev/null; then
+    ready=true
+    break
+  fi
+  sleep 5
+done
+if ! $ready; then
   logger -p daemon.alert -t kolkhoz-health-watch "Kolkhoz production readiness failed"
   exit 1
 fi
