@@ -4,6 +4,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'art_direction.dart';
+import 'field_plan_typography.dart';
+
 enum PixelTextSize {
   xSmall(8),
   small(10),
@@ -53,6 +56,24 @@ class PixelText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (configuredKolkhozArtStyle.usesNewArt) {
+      return Text(
+        text,
+        maxLines: maxLines,
+        overflow: overflow,
+        textAlign: textAlign,
+        softWrap: softWrap,
+        style: fieldPlanDisplayTextStyle.copyWith(
+          color: color,
+          fontSize: size.value.toDouble(),
+          fontWeight: variant == PixelTextVariant.heavy
+              ? FontWeight.w700
+              : FontWeight.w400,
+          height: 1,
+          letterSpacing: size.value <= PixelTextSize.caption2.value ? 0.2 : 0.5,
+        ),
+      );
+    }
     final cached = PixelFontAtlasCache.instance.get(
       variant: variant,
       size: size,

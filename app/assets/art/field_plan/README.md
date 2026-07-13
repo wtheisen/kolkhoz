@@ -23,6 +23,7 @@ game/     cards, players, fields, roads, buildings, and phase illustrations
 ## Rules
 
 - Generate pictograms and illustrations with the image generator.
+- Generate new source artwork and production pictograms at 512 x 512.
 - Keep text live in Flutter.
 - Use semantic filenames rather than mirroring the old tree.
 - Prefer transparent PNG/WebP for illustrations.

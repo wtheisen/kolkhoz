@@ -40,6 +40,112 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('generated ledger actions are bundled and decode', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    final context = tester.element(find.byType(SizedBox));
+    await tester.runAsync(() async {
+      await Future.wait([
+        for (final asset in fieldPlanLedgerActions)
+          precacheImage(
+            AssetImage(asset.pathFor(KolkhozArtStyle.fieldPlan)),
+            context,
+          ),
+      ]);
+    });
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('generated field-plan player portraits are bundled and decode', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    final context = tester.element(find.byType(SizedBox));
+    await tester.runAsync(() async {
+      await Future.wait([
+        for (final asset in fieldPlanPlayerPortraits)
+          precacheImage(
+            AssetImage(asset.pathFor(KolkhozArtStyle.fieldPlan)),
+            context,
+          ),
+      ]);
+    });
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('generated trick environment is bundled and decodes', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    final context = tester.element(find.byType(SizedBox));
+    await tester.runAsync(() async {
+      await precacheImage(
+        const AssetImage(fieldPlanTrickFieldBackgroundPath),
+        context,
+      );
+    });
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('generated field sign is bundled and decodes', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    final context = tester.element(find.byType(SizedBox));
+    await tester.runAsync(() async {
+      await precacheImage(const AssetImage(fieldPlanSignAssetPath), context);
+    });
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('generated field-plan card art is bundled and decodes', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    final context = tester.element(find.byType(SizedBox));
+    await tester.runAsync(() async {
+      await Future.wait([
+        for (final path in fieldPlanCardArtAssetPaths)
+          precacheImage(AssetImage(path), context),
+      ]);
+    });
+    expect(tester.takeException(), isNull);
+  });
+
+  test('field-plan card mappings preserve incomplete-family fallbacks', () {
+    expect(
+      fieldPlanCardSuitAssetPath('beet'),
+      'assets/art/field_plan/cards/suits/suit-beet.png',
+    );
+    expect(
+      fieldPlanCardSuitAssetPath('beet', mip: true),
+      'assets/art/field_plan/cards/suits/mip/suit-beet.png',
+    );
+    expect(
+      fieldPlanCardFaceAssetPath(
+        suit: 'wheat',
+        rank: 'queen',
+        nomenclature: false,
+      ),
+      'assets/art/field_plan/cards/faces/face-queen-wheat.png',
+    );
+    expect(
+      fieldPlanCardFaceAssetPath(
+        suit: 'wheat',
+        rank: 'king',
+        nomenclature: false,
+      ),
+      isNull,
+    );
+    expect(
+      fieldPlanCardFaceAssetPath(
+        suit: 'wheat',
+        rank: 'queen',
+        nomenclature: true,
+      ),
+      isNull,
+    );
+  });
+
   testWidgets('field-plan fonts render English and Cyrillic', (tester) async {
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(() async {
