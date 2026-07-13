@@ -43,12 +43,13 @@ class PostgresOperationsRepository:
                 "currentActor": int(row[3]) if row[3] is not None else None,
                 "lastActionAgeSeconds": float(row[4]),
                 "expectedActor": (
-                    "human" if str(row[5]) == "human" else "AI"
-                    if row[5] is not None else None
+                    "human"
+                    if str(row[5]) == "human"
+                    else "AI"
+                    if row[5] is not None
+                    else None
                 ),
-                "suspicious": bool(
-                    str(row[1]) == "active" and float(row[4]) > 180
-                ),
+                "suspicious": bool(str(row[1]) == "active" and float(row[4]) > 180),
             }
             for row in games
         ]

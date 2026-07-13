@@ -198,9 +198,7 @@ class CanonicalRouteParityTests(unittest.TestCase):
             {"platform": "ios", "token": "valid-token-value"},
             bearer="host-token",
         )
-        self.request(
-            "DELETE", "/installations/device-12345678", bearer="host-token"
-        )
+        self.request("DELETE", "/installations/device-12345678", bearer="host-token")
         self.assert_ok(
             self.request("POST", "/presence", {"sessionID": None}, bearer="host-token")
         )

@@ -33,9 +33,7 @@ class FakeVerifier:
 
     def verify_notification(self, signed_payload: str) -> VerifiedPurchase | None:
         if signed_payload == "refund":
-            return VerifiedPurchase(
-                **{**self.purchase.__dict__, "active": False}
-            )
+            return VerifiedPurchase(**{**self.purchase.__dict__, "active": False})
         return None
 
 

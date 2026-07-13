@@ -67,7 +67,9 @@ class InMemoryEntitlementRepository:
         key = (purchase.provider, purchase.original_transaction_id)
         existing = self.purchases.get(key)
         if existing is not None and existing[0] != user_id:
-            raise PurchaseAlreadyClaimed("purchase is already linked to another account")
+            raise PurchaseAlreadyClaimed(
+                "purchase is already linked to another account"
+            )
         self.purchases[key] = (user_id, purchase)
         self.entitlements[(user_id, entitlement_id)] = purchase.active
 
@@ -259,9 +261,7 @@ class ApplePurchaseVerifier:
                 "Apple commerce requires app-store-server-library"
             ) from error
         roots = [path.read_bytes() for path in certificate_paths]
-        bundle_id = os.environ.get(
-            "APPLE_APP_BUNDLE_ID", "com.williamtheisen.kolkhoz"
-        )
+        bundle_id = os.environ.get("APPLE_APP_BUNDLE_ID", "com.williamtheisen.kolkhoz")
         app_apple_id_value = os.environ.get("APPLE_APP_ID")
         verifiers: list[object] = []
         if app_apple_id_value:
@@ -274,9 +274,7 @@ class ApplePurchaseVerifier:
                     int(app_apple_id_value),
                 )
             )
-        sandbox = SignedDataVerifier(
-            roots, True, Environment.SANDBOX, bundle_id, None
-        )
+        sandbox = SignedDataVerifier(roots, True, Environment.SANDBOX, bundle_id, None)
         verifiers.append(sandbox)
         return cls(
             tuple(verifiers),
@@ -310,7 +308,9 @@ class ApplePurchaseVerifier:
                 return getattr(verifier, method)(value)
             except Exception as error:
                 last_error = error
-        raise PurchaseVerificationError("Apple could not verify the transaction") from last_error
+        raise PurchaseVerificationError(
+            "Apple could not verify the transaction"
+        ) from last_error
 
     def _purchase(self, transaction: object) -> VerifiedPurchase:
         product_id = str(getattr(transaction, "productId", "") or "")
@@ -325,7 +325,9 @@ class ApplePurchaseVerifier:
         )
         account_reference = str(getattr(transaction, "appAccountToken", "") or "")
         if not original_id or not account_reference:
-            raise PurchaseVerificationError("Apple transaction is missing account linkage")
+            raise PurchaseVerificationError(
+                "Apple transaction is missing account linkage"
+            )
         return VerifiedPurchase(
             provider=self.provider,
             original_transaction_id=original_id,

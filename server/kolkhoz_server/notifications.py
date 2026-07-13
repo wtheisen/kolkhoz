@@ -70,12 +70,16 @@ class NotificationRepository(Protocol):
     def claim(self, *, limit: int, lock_seconds: float) -> list[OutboxItem]: ...
     def installations(self, item: OutboxItem) -> list[Installation]: ...
     def mark_sent(self, item_id: int) -> None: ...
-    def mark_delivery(self, item_id: int, installation_id: str, *, status: str) -> None: ...
+    def mark_delivery(
+        self, item_id: int, installation_id: str, *, status: str
+    ) -> None: ...
     def mark_failed(
         self, item_id: int, *, error_code: str, retry_at: float | None
     ) -> None: ...
     def disable_installation(self, installation_id: str) -> None: ...
-    def actively_viewing(self, *, user_id: str, session_id: str, since: float) -> bool: ...
+    def actively_viewing(
+        self, *, user_id: str, session_id: str, since: float
+    ) -> bool: ...
 
 
 class PostgresNotificationRepository:
@@ -88,8 +92,13 @@ class PostgresNotificationRepository:
         self._jsonb = Jsonb
 
     def register_installation(
-        self, *, installation_id: str, user_id: str, platform: str,
-        token: str, preferences: Mapping[str, bool]
+        self,
+        *,
+        installation_id: str,
+        user_id: str,
+        platform: str,
+        token: str,
+        preferences: Mapping[str, bool],
     ) -> None:
         with self._pool.connection() as connection, connection.transaction():
             connection.execute(
@@ -100,7 +109,13 @@ class PostgresNotificationRepository:
                        user_id=excluded.user_id, platform=excluded.platform,
                        token=excluded.token, preferences=excluded.preferences,
                        enabled=true, updated_at=now()""",
-                (installation_id, user_id, platform, token, self._jsonb(dict(preferences))),
+                (
+                    installation_id,
+                    user_id,
+                    platform,
+                    token,
+                    self._jsonb(dict(preferences)),
+                ),
             )
 
     def delete_installation(self, *, installation_id: str, user_id: str) -> bool:
@@ -111,8 +126,14 @@ class PostgresNotificationRepository:
             ).fetchone()
         return row is not None
 
-    def enqueue(self, *, user_id: str, event_type: str, dedupe_key: str,
-                payload: Mapping[str, str]) -> bool:
+    def enqueue(
+        self,
+        *,
+        user_id: str,
+        event_type: str,
+        dedupe_key: str,
+        payload: Mapping[str, str],
+    ) -> bool:
         with self._pool.connection() as connection, connection.transaction():
             row = connection.execute(
                 """insert into server_notification_outbox
@@ -140,7 +161,10 @@ class PostgresNotificationRepository:
                      returning o.id,o.user_id,o.event_type,o.payload,o.attempts""",
                 (limit, lock_seconds),
             ).fetchall()
-        return [OutboxItem(int(r[0]), str(r[1]), str(r[2]), dict(r[3]), int(r[4])) for r in rows]
+        return [
+            OutboxItem(int(r[0]), str(r[1]), str(r[2]), dict(r[3]), int(r[4]))
+            for r in rows
+        ]
 
     def installations(self, item: OutboxItem) -> list[Installation]:
         preference = PREFERENCE_FOR_EVENT[item.event_type]
@@ -174,13 +198,20 @@ class PostgresNotificationRepository:
                 (item_id, installation_id, status),
             )
 
-    def mark_failed(self, item_id: int, *, error_code: str, retry_at: float | None) -> None:
+    def mark_failed(
+        self, item_id: int, *, error_code: str, retry_at: float | None
+    ) -> None:
         with self._pool.connection() as connection, connection.transaction():
             connection.execute(
                 """update server_notification_outbox set status=%s,
                        next_attempt_at=coalesce(to_timestamp(%s),next_attempt_at),
                        locked_until=null,last_error_code=%s where id=%s""",
-                ("pending" if retry_at is not None else "failed", retry_at, error_code, item_id),
+                (
+                    "pending" if retry_at is not None else "failed",
+                    retry_at,
+                    error_code,
+                    item_id,
+                ),
             )
 
     def disable_installation(self, installation_id: str) -> None:
@@ -192,34 +223,45 @@ class PostgresNotificationRepository:
 
     def actively_viewing(self, *, user_id: str, session_id: str, since: float) -> bool:
         with self._pool.connection() as connection:
-            return connection.execute(
-                """select 1 from server_device_leases where user_id=%s
+            return (
+                connection.execute(
+                    """select 1 from server_device_leases where user_id=%s
                      and session_id=%s::uuid and last_seen_at>=to_timestamp(%s) limit 1""",
-                (user_id, session_id, since),
-            ).fetchone() is not None
+                    (user_id, session_id, since),
+                ).fetchone()
+                is not None
+            )
 
 
 class FirebasePushTransport:
     def __init__(self, *, project_id: str) -> None:
         import firebase_admin
         from firebase_admin import credentials
+
         if not firebase_admin._apps:
-            firebase_admin.initialize_app(credentials.ApplicationDefault(), {"projectId": project_id})
+            firebase_admin.initialize_app(
+                credentials.ApplicationDefault(), {"projectId": project_id}
+            )
 
     def send(self, token: str, payload: Mapping[str, str]) -> None:
         from firebase_admin import exceptions, messaging
+
         try:
-            messaging.send(messaging.Message(
-                token=token,
-                data=dict(payload),
-                notification=messaging.Notification(
-                    title=payload.get("title", "Kolkhoz"),
-                    body=payload.get("body", "Kolkhoz has an update."),
-                ),
-                apns=messaging.APNSConfig(payload=messaging.APNSPayload(
-                    aps=messaging.Aps(sound="default", content_available=True)
-                )),
-            ))
+            messaging.send(
+                messaging.Message(
+                    token=token,
+                    data=dict(payload),
+                    notification=messaging.Notification(
+                        title=payload.get("title", "Kolkhoz"),
+                        body=payload.get("body", "Kolkhoz has an update."),
+                    ),
+                    apns=messaging.APNSConfig(
+                        payload=messaging.APNSPayload(
+                            aps=messaging.Aps(sound="default", content_available=True)
+                        )
+                    ),
+                )
+            )
         except (messaging.UnregisteredError, messaging.SenderIdMismatchError) as error:
             raise InvalidPushToken from error
         except exceptions.FirebaseError:
@@ -230,29 +272,53 @@ class NotificationService:
     def __init__(self, repository: NotificationRepository) -> None:
         self.repository = repository
 
-    def notify(self, *, user_id: str | None, event_type: str, dedupe_key: str,
-               session_id: str | None = None, title: str, body: str) -> bool:
+    def notify(
+        self,
+        *,
+        user_id: str | None,
+        event_type: str,
+        dedupe_key: str,
+        session_id: str | None = None,
+        title: str,
+        body: str,
+    ) -> bool:
         if not user_id or event_type not in PREFERENCE_FOR_EVENT:
             return False
-        if event_type == "your_turn" and session_id and self.repository.actively_viewing(
-            user_id=user_id, session_id=session_id, since=time.time() - 35
+        if (
+            event_type == "your_turn"
+            and session_id
+            and self.repository.actively_viewing(
+                user_id=user_id, session_id=session_id, since=time.time() - 35
+            )
         ):
             return False
         payload = {"type": event_type, "title": title, "body": body}
         if session_id:
             payload["sessionID"] = session_id
         return self.repository.enqueue(
-            user_id=user_id, event_type=event_type,
-            dedupe_key=dedupe_key, payload=payload,
+            user_id=user_id,
+            event_type=event_type,
+            dedupe_key=dedupe_key,
+            payload=payload,
         )
 
 
 class NotificationWorker:
-    def __init__(self, repository: NotificationRepository, transport: PushTransport,
-                 *, metrics: ServerMetrics | None = None, max_attempts: int = 8,
-                 clock: Callable[[], float] = time.time) -> None:
+    def __init__(
+        self,
+        repository: NotificationRepository,
+        transport: PushTransport,
+        *,
+        metrics: ServerMetrics | None = None,
+        max_attempts: int = 8,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
         self.repository, self.transport = repository, transport
-        self.metrics, self.max_attempts, self.clock = metrics or ServerMetrics(), max_attempts, clock
+        self.metrics, self.max_attempts, self.clock = (
+            metrics or ServerMetrics(),
+            max_attempts,
+            clock,
+        )
 
     def run_once(self, *, limit: int = 32) -> int:
         items = self.repository.claim(limit=limit, lock_seconds=60)
@@ -273,21 +339,34 @@ class NotificationWorker:
                     self.metrics.increment("notifications.invalid_token")
                 except Exception:
                     failed = True
-                    logging.warning("notification delivery failed", extra={"event_type": item.event_type})
+                    logging.warning(
+                        "notification delivery failed",
+                        extra={"event_type": item.event_type},
+                    )
                     self.metrics.increment("notifications.delivery_failure")
             if failed:
-                retry_at = None if item.attempts >= self.max_attempts else self.clock() + min(3600, 5 * 2 ** (item.attempts - 1))
-                self.repository.mark_failed(item.id, error_code="transport_error", retry_at=retry_at)
+                retry_at = (
+                    None
+                    if item.attempts >= self.max_attempts
+                    else self.clock() + min(3600, 5 * 2 ** (item.attempts - 1))
+                )
+                self.repository.mark_failed(
+                    item.id, error_code="transport_error", retry_at=retry_at
+                )
             else:
                 self.repository.mark_sent(item.id)
         return len(items)
 
 
 class NotificationWorkerService:
-    def __init__(self, worker: NotificationWorker, *, interval_seconds: float = 1) -> None:
+    def __init__(
+        self, worker: NotificationWorker, *, interval_seconds: float = 1
+    ) -> None:
         self.worker, self.interval_seconds = worker, interval_seconds
         self._stop = threading.Event()
-        self._thread = threading.Thread(target=self._run, name="notification-outbox", daemon=True)
+        self._thread = threading.Thread(
+            target=self._run, name="notification-outbox", daemon=True
+        )
         self._thread.start()
 
     def _run(self) -> None:

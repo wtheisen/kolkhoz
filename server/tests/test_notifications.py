@@ -64,7 +64,9 @@ class MemoryNotificationRepository:
 
     def claim(self, *, limit: int, lock_seconds: float) -> list[OutboxItem]:
         return [
-            OutboxItem(row.id, row.user_id, row.event_type, row.payload, row.attempts + 1)
+            OutboxItem(
+                row.id, row.user_id, row.event_type, row.payload, row.attempts + 1
+            )
             for row in self.rows[:limit]
             if row.id not in self.sent
         ]
@@ -73,7 +75,8 @@ class MemoryNotificationRepository:
         return [
             device
             for device in self.devices
-            if device.user_id == item.user_id and device.installation_id not in self.disabled
+            if device.user_id == item.user_id
+            and device.installation_id not in self.disabled
             and (item.id, device.installation_id) not in self.deliveries
         ]
 
@@ -83,7 +86,9 @@ class MemoryNotificationRepository:
     def mark_delivery(self, item_id: int, installation_id: str, *, status: str) -> None:
         self.deliveries.add((item_id, installation_id))
 
-    def mark_failed(self, item_id: int, *, error_code: str, retry_at: float | None) -> None:
+    def mark_failed(
+        self, item_id: int, *, error_code: str, retry_at: float | None
+    ) -> None:
         self.failures.append((item_id, error_code, retry_at))
 
     def disable_installation(self, installation_id: str) -> None:
@@ -147,8 +152,11 @@ class NotificationTests(unittest.TestCase):
     def test_worker_retries_without_blocking_the_outbox(self) -> None:
         repository = MemoryNotificationRepository()
         NotificationService(repository).notify(
-            user_id="human", event_type="comrade_request", dedupe_key="social:1",
-            title="Request", body="Request"
+            user_id="human",
+            event_type="comrade_request",
+            dedupe_key="social:1",
+            title="Request",
+            body="Request",
         )
         worker = NotificationWorker(
             repository, FakeTransport(RuntimeError("offline")), clock=lambda: 100.0
@@ -160,9 +168,12 @@ class NotificationTests(unittest.TestCase):
     def test_invalid_token_is_disabled_and_item_completes(self) -> None:
         repository = MemoryNotificationRepository()
         NotificationService(repository).notify(
-            user_id="human", event_type="game_finished", dedupe_key="finished:1",
+            user_id="human",
+            event_type="game_finished",
+            dedupe_key="finished:1",
             session_id="00000000-0000-4000-8000-000000000001",
-            title="Finished", body="Results"
+            title="Finished",
+            body="Results",
         )
         NotificationWorker(repository, FakeTransport(InvalidPushToken())).run_once()
         self.assertEqual(repository.disabled, {"device-123"})
@@ -174,9 +185,12 @@ class NotificationTests(unittest.TestCase):
             Installation("device-456", "human", "failing-token-value", {"turns": True})
         )
         NotificationService(repository).notify(
-            user_id="human", event_type="your_turn", dedupe_key="turn:9",
+            user_id="human",
+            event_type="your_turn",
+            dedupe_key="turn:9",
             session_id="00000000-0000-4000-8000-000000000001",
-            title="Turn", body="Move"
+            title="Turn",
+            body="Move",
         )
 
         class OneFailure(FakeTransport):

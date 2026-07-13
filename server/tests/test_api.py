@@ -180,9 +180,7 @@ class CompatibilityApiTests(unittest.TestCase):
         self.assertEqual(claimed_status, 200)
         self.assertTrue(claimed["fullGame"])
         self.application.require_full_game = True
-        guest_status, _ = self.request(
-            "GET", "/sessions", bearer="guest-token"
-        )
+        guest_status, _ = self.request("GET", "/sessions", bearer="guest-token")
         self.assertEqual(guest_status, 403)
         owner_status, _ = self.request("GET", "/sessions", bearer="host-token")
         self.assertEqual(owner_status, 200)

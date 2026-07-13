@@ -11,8 +11,9 @@ class Auth:
         return {"Bearer admin": "admin", "Bearer player": "player"}.get(authorization)
 
 
-async def request(application: object, *, authorization: str | None,
-                  confirmation: bool = True) -> int:
+async def request(
+    application: object, *, authorization: str | None, confirmation: bool = True
+) -> int:
     messages: list[dict[str, object]] = []
     headers = []
     if authorization:
@@ -27,7 +28,12 @@ async def request(application: object, *, authorization: str | None,
         messages.append(message)
 
     await application(
-        {"type": "http", "method": "POST", "path": "/admin/control/restart", "headers": headers},
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/admin/control/restart",
+            "headers": headers,
+        },
         receive,
         send,
     )
@@ -39,21 +45,33 @@ class AdminControlTests(unittest.TestCase):
         restarts: list[bool] = []
         now = [100.0]
         application = AdminControlApplication(
-            auth=Auth(), admin_user_ids=frozenset({"admin"}),
-            restart=lambda: restarts.append(True), cooldown_seconds=60,
+            auth=Auth(),
+            admin_user_ids=frozenset({"admin"}),
+            restart=lambda: restarts.append(True),
+            cooldown_seconds=60,
             clock=lambda: now[0],
         )
         self.assertEqual(asyncio.run(request(application, authorization=None)), 403)
-        self.assertEqual(asyncio.run(request(application, authorization="Bearer player")), 403)
         self.assertEqual(
-            asyncio.run(request(application, authorization="Bearer admin", confirmation=False)),
+            asyncio.run(request(application, authorization="Bearer player")), 403
+        )
+        self.assertEqual(
+            asyncio.run(
+                request(application, authorization="Bearer admin", confirmation=False)
+            ),
             400,
         )
-        self.assertEqual(asyncio.run(request(application, authorization="Bearer admin")), 202)
-        self.assertEqual(asyncio.run(request(application, authorization="Bearer admin")), 429)
+        self.assertEqual(
+            asyncio.run(request(application, authorization="Bearer admin")), 202
+        )
+        self.assertEqual(
+            asyncio.run(request(application, authorization="Bearer admin")), 429
+        )
         self.assertEqual(restarts, [True])
         now[0] += 61
-        self.assertEqual(asyncio.run(request(application, authorization="Bearer admin")), 202)
+        self.assertEqual(
+            asyncio.run(request(application, authorization="Bearer admin")), 202
+        )
         self.assertEqual(restarts, [True, True])
 
 

@@ -223,9 +223,7 @@ class OnlineApplication:
             try:
                 self.commerce.notification(
                     provider="apple",
-                    signed_payload=str(
-                        request.body.get("signedPayload") or ""
-                    ).strip(),
+                    signed_payload=str(request.body.get("signedPayload") or "").strip(),
                 )
             except PurchaseVerificationError as error:
                 raise ServerError(HTTPStatus.BAD_REQUEST, str(error)) from error
@@ -234,9 +232,10 @@ class OnlineApplication:
             ("sessions.", "results.", "challenges.", "comrades.")
         ):
             premium_user_id = self._require_user(user_id)
-            if self.commerce is None or not self.commerce.status(
-                user_id=premium_user_id
-            )["fullGame"]:
+            if (
+                self.commerce is None
+                or not self.commerce.status(user_id=premium_user_id)["fullGame"]
+            ):
                 raise ServerError(HTTPStatus.FORBIDDEN, "full game required")
         if operation.startswith("profiles.") or operation.startswith("comrades."):
             value = self._social(operation, params, request.body, user_id)
