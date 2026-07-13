@@ -13,7 +13,7 @@ watch_timer = (root / "kolkhoz-health-watch.timer").read_text()
 assert "ROOT=/opt/kolkhoz-greenfield" in bootstrap
 assert "SERVER_ENV=/etc/kolkhoz-greenfield.env" in bootstrap
 assert "KOLKHOZ_ONLINE_DATABASE_URL" not in bootstrap
-assert bootstrap.count("_schema.sql") == 6
+assert bootstrap.count("_schema.sql") == 7
 assert "--apply" in bootstrap and "DRY RUN:" in bootstrap
 assert bootstrap.index('cd "$ROOT"') < bootstrap.index(
     "from research.kolkhoz_research.c_engine"
