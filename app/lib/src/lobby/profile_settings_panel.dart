@@ -156,6 +156,7 @@ class _ProfilePanelState extends State<_ProfilePanel> {
   List<OnlineRecentGame> recentGames = const [];
   bool recentGamesLoading = false;
   Object? recentGamesError;
+  int recentGamesLoadGeneration = 0;
   OnlineDailyChallenge? dailyChallenge;
   bool dailyLoading = false;
 
@@ -188,23 +189,40 @@ class _ProfilePanelState extends State<_ProfilePanel> {
   Future<void> loadRecentGames() async {
     final factory = widget.clientFactory;
     if (factory == null) return;
+    final generation = ++recentGamesLoadGeneration;
     setState(() {
       recentGamesLoading = true;
       recentGamesError = null;
     });
     try {
       final games = await factory().fetchRecentGames();
-      if (mounted) setState(() => recentGames = games);
+      if (mounted &&
+          widget.cloudSignedIn &&
+          generation == recentGamesLoadGeneration) {
+        setState(() => recentGames = games);
+      }
     } catch (exception) {
-      if (mounted) setState(() => recentGamesError = exception);
+      if (mounted && generation == recentGamesLoadGeneration) {
+        setState(() => recentGamesError = exception);
+      }
     } finally {
-      if (mounted) setState(() => recentGamesLoading = false);
+      if (mounted && generation == recentGamesLoadGeneration) {
+        setState(() => recentGamesLoading = false);
+      }
     }
   }
 
   @override
   void didUpdateWidget(covariant _ProfilePanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!oldWidget.cloudSignedIn && widget.cloudSignedIn) {
+      unawaited(loadRecentGames());
+    } else if (oldWidget.cloudSignedIn && !widget.cloudSignedIn) {
+      recentGamesLoadGeneration++;
+      recentGames = const [];
+      recentGamesLoading = false;
+      recentGamesError = null;
+    }
     if (widget.displayName != lastSubmittedName &&
         widget.displayName != displayNameController.text) {
       displayNameController.text = widget.displayName;

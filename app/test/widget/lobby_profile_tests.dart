@@ -674,6 +674,85 @@ void registerLobbyAndProfileTests() {
     expect(find.byType(TextField), findsNWidgets(3));
   });
 
+  testWidgets('profile panel loads recent games after signing in', (
+    tester,
+  ) async {
+    final httpClient = FakeOnlineHttpClient();
+    var signedIn = false;
+    late StateSetter rebuild;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            rebuild = setState;
+            return SizedBox(
+              width: 844,
+              height: 520,
+              child: StandaloneLobby(
+                tokens: defaultDesignTokens,
+                language: KolkhozLanguage.en,
+                appearance: KolkhozAppearance.dark,
+                onStart: () {},
+                selectedPreset: KolkhozGamePreset.kolkhoz,
+                customVariants: KolkhozGameVariants.kolkhoz,
+                playerControllers: KolkhozPlayerController.defaultControllers,
+                showingRules: false,
+                showingOnline: false,
+                showingProfile: true,
+                cloudConfigured: true,
+                cloudReady: true,
+                cloudSignedIn: signedIn,
+                displayName: 'Mira',
+                portraitAsset: 'worker1',
+                profileStats: const KolkhozProfileStats(),
+                onHostOnline: (_, _, _, _, _) async => 'session',
+                onJoinOnline: (_, _, _) async {},
+                onEnterOnlineGame: () {},
+                onPresetChanged: (_) {},
+                onCustomVariantsChanged: (_) {},
+                onPlayerControllersChanged: (_) {},
+                onRulesPressed: () {},
+                onOfflinePressed: () {},
+                onOnlinePressed: () {},
+                onTutorialPressed: () {},
+                onLanguageToggle: () {},
+                onAppearanceToggle: () {},
+                onlineClientFactory: () => KolkhozOnlineClient(
+                  Uri.parse('http://127.0.0.1:8080'),
+                  httpClient: httpClient,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    expect(
+      httpClient.requests.where(
+        (request) => request.route == 'GET /results/recent',
+      ),
+      isEmpty,
+    );
+
+    rebuild(() => signedIn = true);
+    await tester.pumpAndSettle();
+
+    expect(
+      httpClient.requests.where(
+        (request) => request.route == 'GET /results/recent',
+      ),
+      hasLength(1),
+    );
+    expect(find.byKey(const Key('recent-game-recent-game')), findsOneWidget);
+
+    rebuild(() => signedIn = false);
+    await tester.pump();
+
+    expect(find.byKey(const Key('recent-game-recent-game')), findsNothing);
+  });
+
   testWidgets('profile account creation requires matching passwords', (
     tester,
   ) async {
