@@ -850,8 +850,7 @@ class OnlineSeriesStatus {
       winnerPlayerID: json['winnerPlayerID'] as int?,
       wins: {
         for (final entry in rawWins.entries)
-          if (int.tryParse(entry.key) case final playerID?)
-            playerID: entry.value as int,
+          ?int.tryParse(entry.key): entry.value as int,
       },
     );
   }
