@@ -1289,6 +1289,7 @@ enum KolkhozSettingsTab {
   leaderboard,
   progress,
   comrades,
+  admin,
   assist,
   display,
   rules;
@@ -1301,6 +1302,7 @@ enum KolkhozSettingsTab {
       ),
       KolkhozSettingsTab.progress => language.t(KolkhozText.kolkhozappProgress),
       KolkhozSettingsTab.comrades => language.t(KolkhozText.kolkhozappComrades),
+      KolkhozSettingsTab.admin => 'OPERATIONS',
       KolkhozSettingsTab.assist => OptionsMenuTab.assist.title(language),
       KolkhozSettingsTab.display => OptionsMenuTab.display.title(language),
       KolkhozSettingsTab.rules => OptionsMenuTab.rules.title(language),
@@ -1313,6 +1315,7 @@ enum KolkhozSettingsTab {
       KolkhozSettingsTab.leaderboard => 'assets/ui/Icons/icon-medal-star.png',
       KolkhozSettingsTab.progress => 'assets/ui/Icons/icon-medal-star.png',
       KolkhozSettingsTab.comrades => 'assets/ui/Icons/icon-friends-list.png',
+      KolkhozSettingsTab.admin => 'assets/ui/Icons/icon-settings-session.png',
       KolkhozSettingsTab.assist => OptionsMenuTab.assist.iconAsset,
       KolkhozSettingsTab.display => OptionsMenuTab.display.iconAsset,
       KolkhozSettingsTab.rules => OptionsMenuTab.rules.iconAsset,
@@ -1474,6 +1477,10 @@ class _SettingsPanelState extends State<_SettingsPanel> {
         onCloudSignUp: widget.onCloudSignUp,
         onCloudResetPassword: widget.onCloudResetPassword,
         onComradesChanged: widget.onComradesChanged,
+      ),
+      KolkhozSettingsTab.admin => _AdminOperationsPanel(
+        tokens: widget.tokens,
+        clientFactory: widget.onlineClientFactory,
       ),
       KolkhozSettingsTab.assist => SingleChildScrollView(
         child: Column(
