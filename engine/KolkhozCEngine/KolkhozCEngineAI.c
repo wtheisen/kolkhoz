@@ -2060,17 +2060,37 @@ static bool kc_submit_prefilled_assignment_action(const KCEngine *engine, int32_
     return false;
 }
 
-bool kc_greedy_policy_action(const KCEngine *engine, int32_t player_id, KCPolicyModelBuffer model, double *hidden_cache, KCAction *selected) {
+struct KCPolicyWorkspace {
+    int32_t activation_count;
+    KCPolicyActionCandidate candidates[256];
+    double hidden_cache[];
+};
+
+KCPolicyWorkspace *kc_policy_workspace_alloc(KCPolicyModelBuffer model) {
+    int32_t activation_count = kc_policy_activation_count(model);
+    if (activation_count <= 0 || activation_count > KC_MAX_POLICY_ACTIVATIONS) {
+        return NULL;
+    }
+    KCPolicyWorkspace *workspace = malloc(sizeof(KCPolicyWorkspace) + (size_t)256 * (size_t)activation_count * sizeof(double));
+    if (workspace) {
+        workspace->activation_count = activation_count;
+    }
+    return workspace;
+}
+
+void kc_policy_workspace_free(KCPolicyWorkspace *workspace) {
+    free(workspace);
+}
+
+bool kc_greedy_policy_action(const KCEngine *engine, int32_t player_id, KCPolicyModelBuffer model, KCPolicyActionCandidate *candidates, double *hidden_cache, KCAction *selected) {
     if (kc_submit_prefilled_assignment_action(engine, player_id, selected)) {
         return true;
     }
-    KCPolicyActionCandidate *candidates = malloc(256 * sizeof(KCPolicyActionCandidate));
-    if (!candidates) {
+    if (!candidates || !hidden_cache) {
         return false;
     }
     int32_t count = kc_policy_candidates(engine, player_id, model, candidates, 256, hidden_cache);
     if (count <= 0) {
-        free(candidates);
         return false;
     }
     int32_t best = 0;
@@ -2080,7 +2100,6 @@ bool kc_greedy_policy_action(const KCEngine *engine, int32_t player_id, KCPolicy
         }
     }
     *selected = candidates[best].action;
-    free(candidates);
     return true;
 }
 
@@ -2179,7 +2198,7 @@ int32_t kc_engine_apply_policy_action(KCEngine *engine, KCAction action) {
     return kc_engine_apply_ai_action(engine, action);
 }
 
-bool kc_engine_policy_action(const KCEngine *engine, KCPolicyModelBuffer model, KCAction *selected) {
+bool kc_engine_policy_action_with_workspace(const KCEngine *engine, KCPolicyModelBuffer model, KCPolicyWorkspace *workspace, KCAction *selected) {
     if (!engine) {
         return false;
     }
@@ -2195,20 +2214,23 @@ bool kc_engine_policy_action(const KCEngine *engine, KCPolicyModelBuffer model, 
     if (kc_submit_prefilled_assignment_action(engine, player_id, selected)) {
         return true;
     }
-    int32_t activation_count = kc_policy_activation_count(model);
-    if (activation_count <= 0) {
+    if (!workspace || workspace->activation_count != kc_policy_activation_count(model)) {
         return false;
     }
-    double *hidden_cache = malloc((size_t)256 * (size_t)activation_count * sizeof(double));
-    if (!hidden_cache) {
+    return kc_greedy_policy_action(engine, player_id, model, workspace->candidates, workspace->hidden_cache, selected);
+}
+
+bool kc_engine_policy_action(const KCEngine *engine, KCPolicyModelBuffer model, KCAction *selected) {
+    KCPolicyWorkspace *workspace = kc_policy_workspace_alloc(model);
+    if (!workspace) {
         return false;
     }
-    bool ok = kc_greedy_policy_action(engine, player_id, model, hidden_cache, selected);
-    free(hidden_cache);
+    bool ok = kc_engine_policy_action_with_workspace(engine, model, workspace, selected);
+    kc_policy_workspace_free(workspace);
     return ok;
 }
 
-int32_t kc_engine_step_policy_automatic(KCEngine *engine, KCPolicyModelBuffer model) {
+int32_t kc_engine_step_policy_automatic_with_workspace(KCEngine *engine, KCPolicyModelBuffer model, KCPolicyWorkspace *workspace) {
     if (!engine) {
         return 0;
     }
@@ -2217,7 +2239,7 @@ int32_t kc_engine_step_policy_automatic(KCEngine *engine, KCPolicyModelBuffer mo
         return 1;
     }
     KCAction selected;
-    bool ok = kc_engine_policy_action(engine, model, &selected);
+    bool ok = kc_engine_policy_action_with_workspace(engine, model, workspace, &selected);
     if (!ok) {
         return 0;
     }
@@ -2225,11 +2247,21 @@ int32_t kc_engine_step_policy_automatic(KCEngine *engine, KCPolicyModelBuffer mo
     return error == 0 ? 1 : -error;
 }
 
+int32_t kc_engine_step_policy_automatic(KCEngine *engine, KCPolicyModelBuffer model) {
+    KCPolicyWorkspace *workspace = kc_policy_workspace_alloc(model);
+    if (!workspace) {
+        return 0;
+    }
+    int32_t result = kc_engine_step_policy_automatic_with_workspace(engine, model, workspace);
+    kc_policy_workspace_free(workspace);
+    return result;
+}
+
 static int32_t kc_run_greedy_model_game(uint64_t seed, KCVariants variants, KCPolicyModelBuffer model, int32_t *scores, int32_t *medals, int32_t *winner_id) {
     KCEngine engine;
     kc_engine_init(&engine, seed, variants);
-    double *hidden_cache = malloc((size_t)256 * (size_t)kc_policy_activation_count(model) * sizeof(double));
-    if (!hidden_cache) {
+    KCPolicyWorkspace *workspace = kc_policy_workspace_alloc(model);
+    if (!workspace) {
         return 2;
     }
     int32_t guard_count = 0;
@@ -2242,17 +2274,17 @@ static int32_t kc_run_greedy_model_game(uint64_t seed, KCVariants variants, KCPo
         }
         int32_t player_id = engine.phase == KC_PHASE_ASSIGNMENT ? engine.last_winner : engine.current_player;
         KCAction selected;
-        if (!kc_greedy_policy_action(&engine, player_id, model, hidden_cache, &selected)) {
-            free(hidden_cache);
+        if (!kc_greedy_policy_action(&engine, player_id, model, workspace->candidates, workspace->hidden_cache, &selected)) {
+            kc_policy_workspace_free(workspace);
             return 3;
         }
         int32_t error = kc_apply_policy_action(&engine, selected);
         if (error != 0) {
-            free(hidden_cache);
+            kc_policy_workspace_free(workspace);
             return 10 + error;
         }
     }
-    free(hidden_cache);
+    kc_policy_workspace_free(workspace);
     if (engine.phase != KC_PHASE_GAME_OVER) {
         return 4;
     }
@@ -2289,7 +2321,10 @@ int32_t kc_run_greedy_matchup_game(
     int32_t opponent_activation_count = opponent_is_heuristic ? activation_count : kc_policy_activation_count(opponent_model);
     int32_t hidden_size = activation_count > opponent_activation_count ? activation_count : opponent_activation_count;
     double *hidden_cache = malloc((size_t)256 * (size_t)hidden_size * sizeof(double));
-    if (!hidden_cache) {
+    KCPolicyActionCandidate *candidates = malloc(256 * sizeof(KCPolicyActionCandidate));
+    if (!hidden_cache || !candidates) {
+        free(hidden_cache);
+        free(candidates);
         return 2;
     }
     int32_t guard_count = 0;
@@ -2305,22 +2340,26 @@ int32_t kc_run_greedy_matchup_game(
         if (player_id != model_seat && opponent_is_heuristic) {
             if (!kc_heuristic_policy_action(&engine, &selected)) {
                 free(hidden_cache);
+                free(candidates);
                 return 3;
             }
         } else {
             KCPolicyModelBuffer selected_model = player_id == model_seat ? model : opponent_model;
-            if (!kc_greedy_policy_action(&engine, player_id, selected_model, hidden_cache, &selected)) {
+            if (!kc_greedy_policy_action(&engine, player_id, selected_model, candidates, hidden_cache, &selected)) {
                 free(hidden_cache);
+                free(candidates);
                 return 3;
             }
         }
         int32_t error = kc_apply_policy_action(&engine, selected);
         if (error != 0) {
             free(hidden_cache);
+            free(candidates);
             return 10 + error;
         }
     }
     free(hidden_cache);
+    free(candidates);
     if (!round_curriculum && engine.phase != KC_PHASE_GAME_OVER) {
         return 4;
     }
@@ -2383,7 +2422,10 @@ KCPolicyMatchupGameResult kc_run_policy_matchup_game(
         hidden_size = 1;
     }
     double *hidden_cache = malloc((size_t)256 * (size_t)hidden_size * sizeof(double));
-    if (!hidden_cache) {
+    KCPolicyActionCandidate *candidates = malloc(256 * sizeof(KCPolicyActionCandidate));
+    if (!hidden_cache || !candidates) {
+        free(hidden_cache);
+        free(candidates);
         result.status = 2;
         return result;
     }
@@ -2396,6 +2438,7 @@ KCPolicyMatchupGameResult kc_run_policy_matchup_game(
             int32_t error = kc_engine_apply(&engine, action);
             if (error != 0) {
                 free(hidden_cache);
+                free(candidates);
                 result.status = 10 + error;
                 return result;
             }
@@ -2409,21 +2452,24 @@ KCPolicyMatchupGameResult kc_run_policy_matchup_game(
         KCAction selected;
         bool ok = use_heuristic
             ? kc_heuristic_policy_action(&engine, &selected)
-            : kc_greedy_policy_action(&engine, player_id, selected_model, hidden_cache, &selected);
+            : kc_greedy_policy_action(&engine, player_id, selected_model, candidates, hidden_cache, &selected);
         if (!ok) {
             free(hidden_cache);
+            free(candidates);
             result.status = 3;
             return result;
         }
         int32_t error = kc_apply_policy_action(&engine, selected);
         if (error != 0) {
             free(hidden_cache);
+            free(candidates);
             result.status = 10 + error;
             return result;
         }
         result.actions += 1;
     }
     free(hidden_cache);
+    free(candidates);
     if (!round_curriculum && engine.phase != KC_PHASE_GAME_OVER) {
         result.status = 4;
         return result;
