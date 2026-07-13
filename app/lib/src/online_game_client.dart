@@ -120,6 +120,27 @@ class KolkhozOnlineClient {
     await _send(method: 'DELETE', path: 'installations/$installationID');
   }
 
+  Future<void> deleteAccount() async {
+    await _send(method: 'DELETE', path: 'account');
+  }
+
+  Future<bool> fetchFullGameEntitlement() async {
+    final json = await _sendJson(method: 'GET', path: 'commerce/entitlements');
+    return json['fullGame'] as bool? ?? false;
+  }
+
+  Future<bool> claimFullGamePurchase({
+    required String provider,
+    required String verificationData,
+  }) async {
+    final json = await _sendJson(
+      method: 'POST',
+      path: 'commerce/purchases/claim',
+      body: {'provider': provider, 'verificationData': verificationData},
+    );
+    return json['fullGame'] as bool? ?? false;
+  }
+
   Future<OnlineSessionResponse> syncActiveSession() async {
     final decoded = await _send(method: 'POST', path: 'active-session/sync');
     return OnlineSessionResponse.fromJson(onlineObjectMap(decoded));

@@ -13,6 +13,7 @@ import 'app_settings.dart';
 import 'app_text.dart';
 import 'art_direction.dart';
 import 'c_engine_bridge.dart';
+import 'commerce.dart';
 import 'design_tokens.dart';
 import 'field_plan_assets.dart';
 import 'field_plan_typography.dart';
@@ -124,6 +125,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   final navigatorKey = GlobalKey<NavigatorState>();
   final gameSounds = GameSoundController();
   late final LiveGameStore store;
+  late final KolkhozCommerceController commerce;
   late final KolkhozAppSettingsStore settingsStore;
   StreamSubscription<AuthState>? supabaseAuthSubscription;
   Timer? cloudProfileSyncTimer;
@@ -167,7 +169,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   bool get showingOnline => destination == _AppDestination.online;
   bool get showingProfile => destination == _AppDestination.profile;
 
-  bool get demoMode => supabaseCurrentUser == null;
+  bool get demoMode => !commerce.fullGameUnlocked;
 
   ProgressionState get effectiveProgression => mergeProgressionStates(
     settings.progression,
@@ -216,6 +218,12 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
       onlineDeviceID: onlineDeviceID,
     );
     store.addListener(handleStoreChanged);
+    commerce = KolkhozCommerceController(
+      clientFactory: onlineClient,
+      onFullGameChanged: cacheFullGameEntitlement,
+    );
+    commerce.addListener(handleCommerceChanged);
+    commerce.initialize();
     pushNotifications = KolkhozPushNotifications(
       installationID: onlineDeviceID,
       registerInstallation:
@@ -251,6 +259,8 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     onlineInviteTimer?.cancel();
     supabaseAuthSubscription?.cancel();
     store.removeListener(handleStoreChanged);
+    commerce.removeListener(handleCommerceChanged);
+    commerce.dispose();
     unawaited(gameSounds.dispose());
     unawaited(pushNotifications.dispose());
     KolkhozSupabaseRuntime.instance.removeListener(
@@ -292,6 +302,28 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
         child: Stack(
           children: [
             child ?? const SizedBox.shrink(),
+            if (showingLobby && demoMode && supabaseCurrentUser != null)
+              Positioned(
+                key: const ValueKey('unlock-full-game'),
+                right: 16,
+                bottom: 16,
+                child: SafeArea(
+                  child: SizedBox(
+                    width: 220,
+                    height: 46,
+                    child: ChromeAssetButton.command(
+                      label: commerce.price == null
+                          ? 'UNLOCK FULL GAME'
+                          : 'UNLOCK • ${commerce.price}',
+                      prominent: true,
+                      tokens: settings.appearance.tokens,
+                      onPressed: commerce.busy ? null : showFullGameUnlock,
+                      iconAsset: 'assets/ui/Icons/icon-lock.png',
+                      iconSize: 22,
+                    ),
+                  ),
+                ),
+              ),
             if (activeRemoteSession?.requiresSync ?? false)
               Positioned.fill(
                 child: ActiveSessionSyncOverlay(
@@ -532,6 +564,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
               onCloudSignUp: signUpWithSupabase,
               onCloudResetPassword: resetSupabasePassword,
               onCloudSignOut: signOutOfSupabase,
+              onCloudDeleteAccount: deleteSupabaseAccount,
               onComradesChanged: updateComradesSummary,
               onComradeRequestToUser: requestComradeByUserID,
               onlineClientFactory: onlineClient,
@@ -698,6 +731,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
       return;
     }
     setState(() {});
+    syncCommerceUser();
     unawaited(loadCloudProfile());
     unawaited(loadComradesSummary());
   }
@@ -712,6 +746,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
         return;
       }
       setState(() {});
+      syncCommerceUser();
       unawaited(loadCloudProfile());
       unawaited(loadComradesSummary());
       if (supabaseCurrentUser != null) {
@@ -720,6 +755,87 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     });
     unawaited(loadCloudProfile());
     unawaited(loadComradesSummary());
+    syncCommerceUser();
+  }
+
+  void handleCommerceChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void syncCommerceUser() {
+    final userID = supabaseCurrentUser?.id;
+    unawaited(
+      commerce.attachUser(
+        userID,
+        cachedFullGame:
+            userID != null && settings.fullGameEntitlementUserID == userID,
+      ),
+    );
+  }
+
+  void cacheFullGameEntitlement(String userID, bool unlocked) {
+    if (unlocked) {
+      settings = settings.copyWith(fullGameEntitlementUserID: userID);
+    } else if (settings.fullGameEntitlementUserID == userID) {
+      settings = settings.copyWith(clearFullGameEntitlement: true);
+    }
+    settingsStore.save(settings);
+  }
+
+  Future<void> showFullGameUnlock() async {
+    if (supabaseCurrentUser == null) {
+      setState(() {
+        destination = _AppDestination.profile;
+        selectedSettingsTab = KolkhozSettingsTab.profile;
+      });
+      return;
+    }
+    await commerce.refresh();
+    if (!mounted) return;
+    await showDialog<void>(
+      context: navigatorKey.currentContext!,
+      builder: (context) => AnimatedBuilder(
+        animation: commerce,
+        builder: (context, _) => AlertDialog(
+          backgroundColor: settings.appearance.tokens.colors.panel,
+          title: Text(
+            commerce.fullGameUnlocked
+                ? 'FULL GAME UNLOCKED'
+                : 'UNLOCK THE FULL GAME',
+          ),
+          content: Text(
+            commerce.fullGameUnlocked
+                ? 'This Kolkhoz account owns the full game on every supported platform.'
+                : 'One purchase unlocks complete offline play, variants, progression, '
+                      'and online multiplayer on every supported platform. This purchase '
+                      'will be permanently linked to the signed-in Kolkhoz account.'
+                      '${commerce.message == null ? '' : '\n\n${commerce.message}'}',
+          ),
+          actions: [
+            if (!commerce.fullGameUnlocked)
+              TextButton(
+                onPressed: commerce.busy ? null : commerce.restore,
+                child: const Text('RESTORE PURCHASE'),
+              ),
+            if (!commerce.fullGameUnlocked)
+              TextButton(
+                onPressed: commerce.busy ? null : commerce.purchase,
+                child: Text(
+                  commerce.busy
+                      ? 'PLEASE WAIT…'
+                      : commerce.price == null
+                      ? 'PURCHASE'
+                      : 'PURCHASE • ${commerce.price}',
+                ),
+              ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('CLOSE'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void handleStoreChanged() {
@@ -1275,10 +1391,33 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
       final client = KolkhozSupabaseRuntime.instance.client!;
       await pushNotifications.unregister();
       await client.auth.signOut();
+      await commerce.attachUser(null, cachedFullGame: false);
       comradesSummary = const OnlineComradesResponse();
       dismissedInviteSessionIDs.clear();
       activeInviteDialogSessionID = null;
       cloudAuthMessage = settings.language.t(KolkhozText.kolkhozappSignedOut);
+      cloudAuthIsError = false;
+    });
+  }
+
+  Future<void> deleteSupabaseAccount() async {
+    await runCloudAuthAction(() async {
+      final client = KolkhozSupabaseRuntime.instance.client!;
+      await pushNotifications.unregister();
+      await onlineClient().deleteAccount();
+      await client.auth.signOut();
+      await commerce.attachUser(null, cachedFullGame: false);
+      settings = settings.copyWith(
+        clearFullGameEntitlement: true,
+        clearOnlineProgression: true,
+      );
+      settingsStore.save(settings);
+      comradesSummary = const OnlineComradesResponse();
+      dismissedInviteSessionIDs.clear();
+      activeInviteDialogSessionID = null;
+      cloudAuthMessage = settings.language.t(
+        KolkhozText.kolkhozappAccountDeleted,
+      );
       cloudAuthIsError = false;
     });
   }

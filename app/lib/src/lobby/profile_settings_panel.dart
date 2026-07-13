@@ -118,6 +118,7 @@ class _ProfilePanel extends StatefulWidget {
     required this.onCloudSignUp,
     required this.onCloudResetPassword,
     required this.onCloudSignOut,
+    required this.onCloudDeleteAccount,
     required this.clientFactory,
     required this.onStartDailyChallenge,
   });
@@ -141,6 +142,7 @@ class _ProfilePanel extends StatefulWidget {
   final Future<void> Function(String email, String password)? onCloudSignUp;
   final Future<void> Function(String email)? onCloudResetPassword;
   final Future<void> Function()? onCloudSignOut;
+  final Future<void> Function()? onCloudDeleteAccount;
   final KolkhozOnlineClient Function()? clientFactory;
   final Future<void> Function()? onStartDailyChallenge;
 
@@ -392,6 +394,7 @@ class _ProfilePanelState extends State<_ProfilePanel> {
                   onSignUp: widget.onCloudSignUp,
                   onResetPassword: widget.onCloudResetPassword,
                   onSignOut: widget.onCloudSignOut,
+                  onDeleteAccount: widget.onCloudDeleteAccount,
                 ),
               ],
             ),
@@ -913,6 +916,7 @@ class _CloudAuthPanel extends StatefulWidget {
     required this.onSignUp,
     required this.onResetPassword,
     required this.onSignOut,
+    required this.onDeleteAccount,
   });
 
   final DesignTokens tokens;
@@ -928,6 +932,7 @@ class _CloudAuthPanel extends StatefulWidget {
   final Future<void> Function(String email, String password)? onSignUp;
   final Future<void> Function(String email)? onResetPassword;
   final Future<void> Function()? onSignOut;
+  final Future<void> Function()? onDeleteAccount;
 
   @override
   State<_CloudAuthPanel> createState() => _CloudAuthPanelState();
@@ -975,6 +980,34 @@ class _CloudAuthPanelState extends State<_CloudAuthPanel> {
     }
     clearLocalMessage();
     widget.onSignUp?.call(emailController.text, password);
+  }
+
+  Future<void> confirmAccountDeletion() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          widget.language.t(KolkhozText.kolkhozappDeleteAccountQuestion),
+        ),
+        content: Text(
+          widget.language.t(KolkhozText.kolkhozappDeleteAccountWarning),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(widget.language.t(KolkhozText.kolkhozappCancel)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red.shade300),
+            child: Text(widget.language.t(KolkhozText.kolkhozappDeleteAccount)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await widget.onDeleteAccount?.call();
+    }
   }
 
   @override
@@ -1049,6 +1082,24 @@ class _CloudAuthPanelState extends State<_CloudAuthPanel> {
                   onPressed: widget.busy || widget.onSignOut == null
                       ? null
                       : widget.onSignOut,
+                ),
+              ),
+              SizedBox(
+                width: 128,
+                height: 42,
+                child: TextButton(
+                  onPressed: widget.busy || widget.onDeleteAccount == null
+                      ? null
+                      : confirmAccountDeletion,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red.shade300,
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      widget.language.t(KolkhozText.kolkhozappDeleteAccount),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -1230,6 +1281,7 @@ class _ComradesSettingsPanelState extends State<_ComradesSettingsPanel> {
         onSignUp: widget.onCloudSignUp,
         onResetPassword: widget.onCloudResetPassword,
         onSignOut: null,
+        onDeleteAccount: null,
       ),
     );
   }

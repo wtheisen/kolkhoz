@@ -518,6 +518,10 @@ void registerLobbyAndProfileTests() {
     String? displayName;
     String? portraitAsset;
     var signedOut = false;
+    var accountDeleted = false;
+    final signOutLabel = find.byWidgetPredicate(
+      (widget) => widget is PixelText && widget.text == 'SIGN OUT',
+    );
 
     await tester.pumpWidget(
       MaterialApp(
@@ -567,6 +571,7 @@ void registerLobbyAndProfileTests() {
             onDisplayNameChanged: (value) => displayName = value,
             onPortraitChanged: (value) => portraitAsset = value,
             onCloudSignOut: () async => signedOut = true,
+            onCloudDeleteAccount: () async => accountDeleted = true,
           ),
         ),
       ),
@@ -574,7 +579,8 @@ void registerLobbyAndProfileTests() {
 
     expect(findAppText('Signed in as mira@example.com'), findsOneWidget);
     expect(findAppText('Profile loaded.'), findsNothing);
-    expect(findAppText('SIGN OUT'), findsOneWidget);
+    expect(signOutLabel, findsOneWidget);
+    expect(find.text('Delete account'), findsOneWidget);
     expect(findAppText('DISPLAY NAME'), findsNothing);
     expect(findAppText('STATS'), findsOneWidget);
     expect(findAppText('OFFLINE'), findsOneWidget);
@@ -594,8 +600,24 @@ void registerLobbyAndProfileTests() {
     await tester.pumpAndSettle();
     await tester.tap(find.bySemanticsLabel('worker3'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(findAppText('SIGN OUT'));
-    await tester.tap(findAppText('SIGN OUT'));
+    await tester.ensureVisible(find.text('Delete account'));
+    await tester.tap(find.text('Delete account'));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete your account?'), findsOneWidget);
+    expect(
+      find.textContaining('full-game purchase will be surrendered'),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Delete account'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(accountDeleted, isTrue);
+    await tester.ensureVisible(signOutLabel);
+    await tester.tap(signOutLabel);
     await tester.pump();
 
     expect(displayName, 'Nadia');

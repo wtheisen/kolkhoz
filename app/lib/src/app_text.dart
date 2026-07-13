@@ -77,6 +77,10 @@ enum KolkhozText {
   kolkhozappAccountCreatedCheckYourEmailToConfirmItThe,
   kolkhozappAccountCreated,
   kolkhozappSignedOut,
+  kolkhozappDeleteAccount,
+  kolkhozappDeleteAccountQuestion,
+  kolkhozappDeleteAccountWarning,
+  kolkhozappAccountDeleted,
   kolkhozappPasswordResetEmailSent,
   kolkhozappSyncingProfile,
   kolkhozappProfileSaved,
@@ -528,6 +532,22 @@ const Map<KolkhozText, ({String en, String ru})> kolkhozText = {
     ru: 'Аккаунт создан.',
   ),
   KolkhozText.kolkhozappSignedOut: (en: 'Signed out.', ru: 'Вы вышли.'),
+  KolkhozText.kolkhozappDeleteAccount: (
+    en: 'Delete account',
+    ru: 'Удалить аккаунт',
+  ),
+  KolkhozText.kolkhozappDeleteAccountQuestion: (
+    en: 'Delete your account?',
+    ru: 'Удалить ваш аккаунт?',
+  ),
+  KolkhozText.kolkhozappDeleteAccountWarning: (
+    en: 'This permanently deletes your profile and online data. Your full-game purchase will be surrendered and cannot be restored or linked to a new account.',
+    ru: 'Профиль и онлайн-данные будут удалены навсегда. Покупка полной игры будет утрачена: её нельзя будет восстановить или привязать к новому аккаунту.',
+  ),
+  KolkhozText.kolkhozappAccountDeleted: (
+    en: 'Account deleted.',
+    ru: 'Аккаунт удалён.',
+  ),
   KolkhozText.kolkhozappPasswordResetEmailSent: (
     en: 'Password reset email sent.',
     ru: 'Письмо для сброса пароля отправлено.',
