@@ -3,8 +3,8 @@ import 'dart:math' as math;
 import 'dart:ui' show clampDouble, lerpDouble;
 
 import 'package:flutter/material.dart';
-
 import 'animation_speed.dart';
+import 'art_direction.dart';
 import 'app_settings.dart';
 import 'app_text.dart';
 import 'assignment_display.dart';
@@ -12,6 +12,9 @@ import 'chrome_button.dart';
 import 'render_model.dart';
 import 'design_tokens.dart';
 import 'game_constants.dart';
+import 'field_plan_assets.dart';
+import 'field_plan_sign.dart';
+import 'field_plan_typography.dart';
 import 'online_game_models.dart';
 import 'pixel_text.dart';
 import 'player_profile_panel.dart';
@@ -481,6 +484,11 @@ class KolkhozBoard extends StatelessWidget {
               contentWidth: contentWidth,
               contentHeight: contentHeight,
             );
+            final showFieldPlanTrickEnvironment =
+                configuredKolkhozArtStyle.usesNewArt &&
+                !compact &&
+                model.panels.active == panelBrigade &&
+                model.table.phase == phaseTrick;
 
             return DecoratedBox(
               decoration: boardBackdropDecoration(tokens),
@@ -524,8 +532,21 @@ class KolkhozBoard extends StatelessWidget {
                         child: SizedBox(
                           width: boardWidth,
                           height: contentHeight,
-                          child: compact
-                              ? CompactBoardShell(
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              if (showFieldPlanTrickEnvironment)
+                                Image.asset(
+                                  fieldPlanTrickFieldBackgroundPath,
+                                  key: const Key(
+                                    'field-plan-trick-environment',
+                                  ),
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment.center,
+                                  filterQuality: FilterQuality.medium,
+                                ),
+                              if (compact)
+                                CompactBoardShell(
                                   model: model,
                                   tokens: tokens,
                                   metrics: metrics,
@@ -579,7 +600,8 @@ class KolkhozBoard extends StatelessWidget {
                                   onAppearanceToggle: onAppearanceToggle,
                                   onCardBackChanged: onCardBackChanged,
                                 )
-                              : Row(
+                              else
+                                Row(
                                   crossAxisAlignment:
                                       CrossAxisAlignment.stretch,
                                   children: [
@@ -611,6 +633,10 @@ class KolkhozBoard extends StatelessWidget {
                                         model: model,
                                         tokens: tokens,
                                         metrics: metrics,
+                                        fieldPlanBoardWidth: boardWidth,
+                                        fieldPlanBoardHeight: contentHeight,
+                                        fieldPlanBoardLeftInset:
+                                            railWidth + separatorWidth,
                                         heroOfSovietUnion: heroOfSovietUnion,
                                         onAction: onAction,
                                         onPanelSelected: onPanelSelected,
@@ -667,6 +693,8 @@ class KolkhozBoard extends StatelessWidget {
                                     ),
                                   ],
                                 ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -1040,6 +1068,9 @@ class BoardPlayArea extends StatelessWidget {
     required this.model,
     required this.tokens,
     required this.metrics,
+    this.fieldPlanBoardWidth,
+    this.fieldPlanBoardHeight,
+    this.fieldPlanBoardLeftInset = 0,
     this.heroOfSovietUnion = true,
     this.onAction,
     this.onPanelSelected,
@@ -1087,6 +1118,9 @@ class BoardPlayArea extends StatelessWidget {
   final TableViewModel model;
   final DesignTokens tokens;
   final ResponsiveBoardMetrics metrics;
+  final double? fieldPlanBoardWidth;
+  final double? fieldPlanBoardHeight;
+  final double fieldPlanBoardLeftInset;
   final bool heroOfSovietUnion;
   final ValueChanged<LegalAction>? onAction;
   final ValueChanged<String>? onPanelSelected;
@@ -1185,11 +1219,14 @@ class BoardPlayArea extends StatelessWidget {
                 ) {
                   final activePanelWithFocus = Stack(
                     children: [
-                      Positioned.fill(
-                        child: DecoratedBox(
-                          decoration: playAreaBackdropDecoration(tokens),
+                      if (!(configuredKolkhozArtStyle.usesNewArt &&
+                          model.panels.active == panelBrigade &&
+                          model.table.phase == phaseTrick))
+                        Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: playAreaBackdropDecoration(tokens),
+                          ),
                         ),
-                      ),
                       Positioned.fill(
                         child: Padding(
                           padding: EdgeInsets.only(
@@ -1236,6 +1273,12 @@ class BoardPlayArea extends StatelessWidget {
                             onLanguageToggle: onLanguageToggle,
                             onAppearanceToggle: onAppearanceToggle,
                             onCardBackChanged: onCardBackChanged,
+                            fieldPlanBoardWidth: fieldPlanBoardWidth,
+                            fieldPlanBoardHeight: fieldPlanBoardHeight,
+                            fieldPlanBoardLeftInset:
+                                fieldPlanBoardLeftInset +
+                                metrics.playAreaHorizontalPadding,
+                            fieldPlanBoardTopInset: metrics.topInfoHeight,
                           ),
                         ),
                       ),
@@ -2125,6 +2168,10 @@ class ActivePanelView extends StatelessWidget {
     this.onLanguageToggle,
     this.onAppearanceToggle,
     this.onCardBackChanged,
+    this.fieldPlanBoardWidth,
+    this.fieldPlanBoardHeight,
+    this.fieldPlanBoardLeftInset = 0,
+    this.fieldPlanBoardTopInset = 0,
     super.key,
   });
 
@@ -2164,6 +2211,10 @@ class ActivePanelView extends StatelessWidget {
   final VoidCallback? onLanguageToggle;
   final VoidCallback? onAppearanceToggle;
   final ValueChanged<KolkhozCardBack>? onCardBackChanged;
+  final double? fieldPlanBoardWidth;
+  final double? fieldPlanBoardHeight;
+  final double fieldPlanBoardLeftInset;
+  final double fieldPlanBoardTopInset;
 
   @override
   Widget build(BuildContext context) {
@@ -2241,6 +2292,10 @@ class ActivePanelView extends StatelessWidget {
           outgoingComradeRequestUserIDs: outgoingComradeRequestUserIDs,
           onComradeRequestToUser: onComradeRequestToUser,
           onAction: onAction,
+          fieldPlanBoardWidth: fieldPlanBoardWidth,
+          fieldPlanBoardHeight: fieldPlanBoardHeight,
+          fieldPlanBoardLeftInset: fieldPlanBoardLeftInset,
+          fieldPlanBoardTopInset: fieldPlanBoardTopInset,
         );
     }
   }

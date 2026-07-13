@@ -4,8 +4,10 @@ import 'dart:ui' show clampDouble, lerpDouble;
 import 'package:flutter/material.dart';
 
 import '../animation_speed.dart';
+import '../art_direction.dart';
 import '../card_art_display.dart';
 import '../design_tokens.dart';
+import '../field_plan_assets.dart';
 import '../game_constants.dart';
 import '../pixel_text.dart';
 import '../render_model.dart';
@@ -460,6 +462,7 @@ class GameCard extends StatelessWidget {
     this.selectedStrokeWidthOverride,
     this.sizeOverride,
     this.motionTracked = true,
+    this.fieldPlanSeatID,
     super.key,
   });
 
@@ -475,11 +478,14 @@ class GameCard extends StatelessWidget {
   final double? selectedStrokeWidthOverride;
   final TokenCardSize? sizeOverride;
   final bool motionTracked;
+  final int? fieldPlanSeatID;
 
   @override
   Widget build(BuildContext context) {
     final size =
         sizeOverride ?? (small ? tokens.card.small : tokens.card.large);
+    final plantedFace =
+        configuredKolkhozArtStyle.usesNewArt && fieldPlanSeatID != null;
     final highlightColor = card.highlighted
         ? highlightColorOverride ??
               cardHighlightColor(card: card, trump: trump, tokens: tokens)
@@ -500,7 +506,9 @@ class GameCard extends StatelessWidget {
       height: size.height,
       decoration: BoxDecoration(
         color: tokens.colors.panel,
-        borderRadius: BorderRadius.circular(cardViewCornerRadius),
+        borderRadius: BorderRadius.circular(
+          plantedFace ? 0 : cardViewCornerRadius,
+        ),
         boxShadow: highlightGlow == null
             ? null
             : [
@@ -516,15 +524,39 @@ class GameCard extends StatelessWidget {
         children: [
           Positioned.fill(
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(cardViewCornerRadius),
+              borderRadius: BorderRadius.circular(
+                plantedFace ? 0 : cardViewCornerRadius,
+              ),
               child: Image.asset(
-                cardTemplateAssetPath(card: card, tokens: tokens, trump: trump),
+                plantedFace
+                    ? fieldPlanPlantedCardFacePath(fieldPlanSeatID!)
+                    : cardTemplateAssetPath(
+                        card: card,
+                        tokens: tokens,
+                        trump: trump,
+                      ),
                 fit: BoxFit.cover,
-                filterQuality: FilterQuality.none,
+                filterQuality: plantedFace
+                    ? FilterQuality.high
+                    : FilterQuality.none,
+                isAntiAlias: plantedFace,
                 errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
             ),
           ),
+          if (plantedFace)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: fieldPlanCardPaper,
+                      width: (size.width * 0.026).clamp(2.5, 5),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           Padding(
             padding: EdgeInsets.all(size.faceInset),
             child: Stack(
@@ -541,43 +573,63 @@ class GameCard extends StatelessWidget {
                 Positioned(
                   left: cardCornerHorizontalInset(size),
                   top: cardTopCornerVerticalInset(size),
-                  child: CardCornerIndex(
-                    card: card,
-                    size: size,
-                    tokens: tokens,
-                    placement: CardCornerPlacement.top,
-                    trump: trump,
+                  child: FieldPlanCardCornerPaper(
+                    visible: plantedFace,
+                    child: CardCornerIndex(
+                      card: card,
+                      size: size,
+                      tokens: tokens,
+                      placement: CardCornerPlacement.top,
+                      trump: trump,
+                    ),
                   ),
                 ),
                 Positioned(
                   right: cardCornerHorizontalInset(size),
                   bottom: cardBottomCornerVerticalInset(size),
-                  child: CardCornerIndex(
-                    card: card,
-                    size: size,
-                    tokens: tokens,
-                    placement: CardCornerPlacement.bottom,
-                    trump: trump,
+                  child: FieldPlanCardCornerPaper(
+                    visible: plantedFace,
+                    child: CardCornerIndex(
+                      card: card,
+                      size: size,
+                      tokens: tokens,
+                      placement: CardCornerPlacement.bottom,
+                      trump: trump,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(cardViewCornerRadius),
-                  border: Border.all(
-                    color: tokens.colors.black.withValues(
-                      alpha: tokens.colors.cardStrokeOpacity,
+          if (!plantedFace)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(cardViewCornerRadius),
+                    border: Border.all(
+                      color: tokens.colors.black.withValues(
+                        alpha: tokens.colors.cardStrokeOpacity,
+                      ),
+                      width: cardViewStrokeWidth,
                     ),
-                    width: cardViewStrokeWidth,
                   ),
                 ),
               ),
             ),
-          ),
+          if (plantedFace)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: const Color(0xff4a402a).withValues(alpha: 0.72),
+                      width: 0.8,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           if (highlightBorder != null)
             Positioned.fill(
               child: IgnorePointer(
@@ -640,6 +692,40 @@ double cardCornerRankVisualHeight(TokenCardSize size) {
 }
 
 enum CardCornerPlacement { top, bottom }
+
+const fieldPlanCardPaper = Color(0xffead9ad);
+
+class FieldPlanCardCornerPaper extends StatelessWidget {
+  const FieldPlanCardCornerPaper({
+    required this.visible,
+    required this.child,
+    super.key,
+  });
+
+  final bool visible;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!visible) {
+      return child;
+    }
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: fieldPlanCardPaper.withValues(alpha: 0.96),
+        border: Border.all(
+          color: const Color(0xff4a402a).withValues(alpha: 0.72),
+          width: 0.8,
+        ),
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: child,
+      ),
+    );
+  }
+}
 
 class CardCornerIndex extends StatelessWidget {
   const CardCornerIndex({
@@ -824,14 +910,18 @@ class CardCenterFace extends StatelessWidget {
 
     if (card.suit == wreckerSuit || card.value >= 11) {
       final portraitWidth = facePortraitArtWidth(card, size);
+      final fieldPlanFace = cardUsesFieldPlanFaceArt(card);
       return Center(
         child: SizedBox(
           width: portraitWidth,
           height: portraitWidth * 1.5,
           child: Image.asset(
             faceAssetPath(card),
-            fit: BoxFit.cover,
-            filterQuality: FilterQuality.none,
+            fit: fieldPlanFace ? BoxFit.contain : BoxFit.cover,
+            filterQuality: fieldPlanFace
+                ? FilterQuality.high
+                : FilterQuality.none,
+            isAntiAlias: fieldPlanFace,
             errorBuilder: (_, _, _) => Image.asset(
               genericFaceAssetPath(card),
               fit: BoxFit.cover,
@@ -871,6 +961,12 @@ class PipPattern extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (configuredKolkhozArtStyle.usesNewArt &&
+        card.suit == 'sunflower' &&
+        card.value == 8) {
+      return FieldPlanSunflowerRows(size: size);
+    }
+
     final positions = pipPositions(card.value);
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -889,6 +985,69 @@ class PipPattern extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class FieldPlanSunflowerRows extends StatelessWidget {
+  const FieldPlanSunflowerRows({required this.size, super.key});
+
+  final TokenCardSize size;
+
+  @override
+  Widget build(BuildContext context) {
+    const crops = <({double x, double y, double scale})>[
+      (x: 0.38, y: 0.20, scale: 0.70),
+      (x: 0.62, y: 0.20, scale: 0.70),
+      (x: 0.24, y: 0.48, scale: 0.88),
+      (x: 0.50, y: 0.48, scale: 0.88),
+      (x: 0.76, y: 0.48, scale: 0.88),
+      (x: 0.22, y: 0.78, scale: 1.06),
+      (x: 0.50, y: 0.78, scale: 1.06),
+      (x: 0.78, y: 0.78, scale: 1.06),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Stack(
+          key: const Key('field-plan-sunflower-crop-rows'),
+          clipBehavior: Clip.none,
+          children: [
+            for (final crop in crops)
+              Positioned(
+                left:
+                    constraints.maxWidth * crop.x -
+                    size.pipSize * crop.scale * 1.55 / 2,
+                top:
+                    constraints.maxHeight * crop.y -
+                    size.pipSize * crop.scale * 1.55 / 2,
+                child: FieldPlanSunflowerCropMark(
+                  size: size.pipSize * crop.scale * 1.55,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class FieldPlanSunflowerCropMark extends StatelessWidget {
+  const FieldPlanSunflowerCropMark({required this.size, super.key});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      size <= 24
+          ? fieldPlanPlantedSunflowerMipPath
+          : fieldPlanPlantedSunflowerPath,
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.high,
+      isAntiAlias: true,
     );
   }
 }
@@ -1113,12 +1272,17 @@ class SuitMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fieldPlanSuit =
+        configuredKolkhozArtStyle.usesNewArt &&
+        fieldPlanCardSuitAssetPath(suit) != null;
+    final useMip = fieldPlanSuit && size <= 24;
     return Image.asset(
-      'assets/ui/Icons/icon-$suit.png',
+      suitAssetPath(suit, mip: useMip),
       width: size,
       height: size,
       fit: BoxFit.contain,
-      filterQuality: FilterQuality.none,
+      filterQuality: fieldPlanSuit ? FilterQuality.high : FilterQuality.none,
+      isAntiAlias: fieldPlanSuit,
       errorBuilder: (_, _, _) =>
           SuitDot(suit: suit, tokens: tokens, size: size),
     );
@@ -1189,6 +1353,7 @@ class PlayerPortrait extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fieldPlan = configuredKolkhozArtStyle.usesNewArt;
     final imageWidth = width * 32 / 38;
     final imageHeight = height * 36 / 42;
     final medalSize = math.max(7.0, math.min(width, height) * 9 / 38);
@@ -1203,18 +1368,20 @@ class PlayerPortrait extends StatelessWidget {
               width: imageWidth,
               height: imageHeight,
               foregroundDecoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(3),
+                borderRadius: BorderRadius.circular(fieldPlan ? 0 : 3),
                 border: Border.all(
                   color: tokens.colors.black.withValues(alpha: 0.68),
                   width: 1,
                 ),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(3),
+                borderRadius: BorderRadius.circular(fieldPlan ? 0 : 3),
                 child: Image.asset(
                   portraitAssetPath(seat),
                   fit: BoxFit.cover,
-                  filterQuality: FilterQuality.none,
+                  filterQuality: fieldPlan
+                      ? FilterQuality.medium
+                      : FilterQuality.none,
                   errorBuilder: (_, _, _) => Image.asset(
                     'assets/ui/worker4.png',
                     fit: BoxFit.cover,

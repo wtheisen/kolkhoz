@@ -518,6 +518,10 @@ void registerLobbyAndProfileTests() {
     String? displayName;
     String? portraitAsset;
     var signedOut = false;
+    var accountDeleted = false;
+    final signOutLabel = find.byWidgetPredicate(
+      (widget) => widget is PixelText && widget.text == 'SIGN OUT',
+    );
 
     await tester.pumpWidget(
       MaterialApp(
@@ -567,6 +571,7 @@ void registerLobbyAndProfileTests() {
             onDisplayNameChanged: (value) => displayName = value,
             onPortraitChanged: (value) => portraitAsset = value,
             onCloudSignOut: () async => signedOut = true,
+            onCloudDeleteAccount: () async => accountDeleted = true,
           ),
         ),
       ),
@@ -574,7 +579,8 @@ void registerLobbyAndProfileTests() {
 
     expect(findAppText('Signed in as mira@example.com'), findsOneWidget);
     expect(findAppText('Profile loaded.'), findsNothing);
-    expect(findAppText('SIGN OUT'), findsOneWidget);
+    expect(signOutLabel, findsOneWidget);
+    expect(find.text('Delete account'), findsOneWidget);
     expect(findAppText('DISPLAY NAME'), findsNothing);
     expect(findAppText('STATS'), findsOneWidget);
     expect(findAppText('OFFLINE'), findsOneWidget);
@@ -594,8 +600,24 @@ void registerLobbyAndProfileTests() {
     await tester.pumpAndSettle();
     await tester.tap(find.bySemanticsLabel('worker3'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(findAppText('SIGN OUT'));
-    await tester.tap(findAppText('SIGN OUT'));
+    await tester.ensureVisible(find.text('Delete account'));
+    await tester.tap(find.text('Delete account'));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete your account?'), findsOneWidget);
+    expect(
+      find.textContaining('full-game purchase will be surrendered'),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Delete account'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(accountDeleted, isTrue);
+    await tester.ensureVisible(signOutLabel);
+    await tester.tap(signOutLabel);
     await tester.pump();
 
     expect(displayName, 'Nadia');
@@ -650,6 +672,85 @@ void registerLobbyAndProfileTests() {
     expect(findAppText('1125'), findsNothing);
     expect(find.bySemanticsLabel('worker1'), findsNothing);
     expect(find.byType(TextField), findsNWidgets(3));
+  });
+
+  testWidgets('profile panel loads recent games after signing in', (
+    tester,
+  ) async {
+    final httpClient = FakeOnlineHttpClient();
+    var signedIn = false;
+    late StateSetter rebuild;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            rebuild = setState;
+            return SizedBox(
+              width: 844,
+              height: 520,
+              child: StandaloneLobby(
+                tokens: defaultDesignTokens,
+                language: KolkhozLanguage.en,
+                appearance: KolkhozAppearance.dark,
+                onStart: () {},
+                selectedPreset: KolkhozGamePreset.kolkhoz,
+                customVariants: KolkhozGameVariants.kolkhoz,
+                playerControllers: KolkhozPlayerController.defaultControllers,
+                showingRules: false,
+                showingOnline: false,
+                showingProfile: true,
+                cloudConfigured: true,
+                cloudReady: true,
+                cloudSignedIn: signedIn,
+                displayName: 'Mira',
+                portraitAsset: 'worker1',
+                profileStats: const KolkhozProfileStats(),
+                onHostOnline: (_, _, _, _, _) async => 'session',
+                onJoinOnline: (_, _, _) async {},
+                onEnterOnlineGame: () {},
+                onPresetChanged: (_) {},
+                onCustomVariantsChanged: (_) {},
+                onPlayerControllersChanged: (_) {},
+                onRulesPressed: () {},
+                onOfflinePressed: () {},
+                onOnlinePressed: () {},
+                onTutorialPressed: () {},
+                onLanguageToggle: () {},
+                onAppearanceToggle: () {},
+                onlineClientFactory: () => KolkhozOnlineClient(
+                  Uri.parse('http://127.0.0.1:8080'),
+                  httpClient: httpClient,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    expect(
+      httpClient.requests.where(
+        (request) => request.route == 'GET /results/recent',
+      ),
+      isEmpty,
+    );
+
+    rebuild(() => signedIn = true);
+    await tester.pumpAndSettle();
+
+    expect(
+      httpClient.requests.where(
+        (request) => request.route == 'GET /results/recent',
+      ),
+      hasLength(1),
+    );
+    expect(find.byKey(const Key('recent-game-recent-game')), findsOneWidget);
+
+    rebuild(() => signedIn = false);
+    await tester.pump();
+
+    expect(find.byKey(const Key('recent-game-recent-game')), findsNothing);
   });
 
   testWidgets('profile account creation requires matching passwords', (

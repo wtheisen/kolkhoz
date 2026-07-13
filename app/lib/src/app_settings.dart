@@ -566,6 +566,8 @@ class KolkhozAppSettings {
     this.progression = const ProgressionState(),
     this.onlineProgression = const ProgressionState(),
     this.onlineProgressionUserID,
+    this.installationID,
+    this.fullGameEntitlementUserID,
     this.favoriteSetup,
     this.lastStartedSetup,
   });
@@ -583,6 +585,8 @@ class KolkhozAppSettings {
   final ProgressionState progression;
   final ProgressionState onlineProgression;
   final String? onlineProgressionUserID;
+  final String? installationID;
+  final String? fullGameEntitlementUserID;
   final KolkhozFavoriteSetup? favoriteSetup;
   final KolkhozFavoriteSetup? lastStartedSetup;
 
@@ -600,6 +604,10 @@ class KolkhozAppSettings {
     ProgressionState? progression,
     ProgressionState? onlineProgression,
     String? onlineProgressionUserID,
+    String? installationID,
+    String? fullGameEntitlementUserID,
+    bool clearFullGameEntitlement = false,
+    bool clearOnlineProgression = false,
     KolkhozFavoriteSetup? favoriteSetup,
     KolkhozFavoriteSetup? lastStartedSetup,
   }) {
@@ -615,9 +623,16 @@ class KolkhozAppSettings {
       portraitAsset: portraitAsset ?? this.portraitAsset,
       profileStats: profileStats ?? this.profileStats,
       progression: progression ?? this.progression,
-      onlineProgression: onlineProgression ?? this.onlineProgression,
-      onlineProgressionUserID:
-          onlineProgressionUserID ?? this.onlineProgressionUserID,
+      onlineProgression: clearOnlineProgression
+          ? const ProgressionState()
+          : onlineProgression ?? this.onlineProgression,
+      onlineProgressionUserID: clearOnlineProgression
+          ? null
+          : onlineProgressionUserID ?? this.onlineProgressionUserID,
+      installationID: installationID ?? this.installationID,
+      fullGameEntitlementUserID: clearFullGameEntitlement
+          ? null
+          : fullGameEntitlementUserID ?? this.fullGameEntitlementUserID,
       favoriteSetup: favoriteSetup ?? this.favoriteSetup,
       lastStartedSetup: lastStartedSetup ?? this.lastStartedSetup,
     );
@@ -639,6 +654,9 @@ class KolkhozAppSettings {
       'online-progression': onlineProgression.toJson(),
       if (onlineProgressionUserID != null)
         'online-progression-user-id': onlineProgressionUserID,
+      if (installationID != null) 'installation-id': installationID,
+      if (fullGameEntitlementUserID != null)
+        'full-game-entitlement-user-id': fullGameEntitlementUserID,
       if (favoriteSetup != null) 'favorite-setup': favoriteSetup!.toJson(),
       if (lastStartedSetup != null)
         'last-started-setup': lastStartedSetup!.toJson(),
@@ -670,6 +688,9 @@ class KolkhozAppSettings {
       progression: ProgressionState.fromJson(json['progression']),
       onlineProgression: ProgressionState.fromJson(json['online-progression']),
       onlineProgressionUserID: json['online-progression-user-id'] as String?,
+      installationID: json['installation-id'] as String?,
+      fullGameEntitlementUserID:
+          json['full-game-entitlement-user-id'] as String?,
       favoriteSetup: KolkhozFavoriteSetup.fromJson(json['favorite-setup']),
       lastStartedSetup: KolkhozFavoriteSetup.fromJson(
         json['last-started-setup'],

@@ -16,6 +16,10 @@ class BrigadePanel extends StatefulWidget {
     this.outgoingComradeRequestUserIDs = const {},
     this.onComradeRequestToUser,
     this.onAction,
+    this.fieldPlanBoardWidth,
+    this.fieldPlanBoardHeight,
+    this.fieldPlanBoardLeftInset = 0,
+    this.fieldPlanBoardTopInset = 0,
     super.key,
   });
 
@@ -33,6 +37,10 @@ class BrigadePanel extends StatefulWidget {
   final Set<String> outgoingComradeRequestUserIDs;
   final Future<void> Function(String userID)? onComradeRequestToUser;
   final ValueChanged<LegalAction>? onAction;
+  final double? fieldPlanBoardWidth;
+  final double? fieldPlanBoardHeight;
+  final double fieldPlanBoardLeftInset;
+  final double fieldPlanBoardTopInset;
 
   @override
   State<BrigadePanel> createState() => _BrigadePanelState();
@@ -128,7 +136,12 @@ class _BrigadePanelState extends State<BrigadePanel> {
           );
         }
 
-        return Padding(
+        final calibratedSigns =
+            configuredKolkhozArtStyle.usesNewArt &&
+            model.table.phase == phaseTrick &&
+            widget.fieldPlanBoardWidth != null &&
+            widget.fieldPlanBoardHeight != null;
+        final columns = Padding(
           padding: brigadePanelLocalPadding,
           child: SizedBox(
             height: columnHeight,
@@ -183,12 +196,60 @@ class _BrigadePanelState extends State<BrigadePanel> {
                         outgoingComradeRequestUserIDs:
                             widget.outgoingComradeRequestUserIDs,
                         onComradeRequestToUser: widget.onComradeRequestToUser,
+                        hidePlayerBadge: calibratedSigns,
                       ),
                     ),
                   ),
               ],
             ),
           ),
+        );
+        if (!calibratedSigns) {
+          return columns;
+        }
+        final boardWidth = widget.fieldPlanBoardWidth!;
+        final boardHeight = widget.fieldPlanBoardHeight!;
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            columns,
+            for (final seat in playerOrder)
+              if (inspectedSeatID != seat.id)
+                Builder(
+                  builder: (context) {
+                    final normalized = fieldPlanSignRect(seat.id);
+                    final rect = Rect.fromLTWH(
+                      normalized.left * boardWidth -
+                          widget.fieldPlanBoardLeftInset,
+                      normalized.top * boardHeight -
+                          widget.fieldPlanBoardTopInset,
+                      normalized.width * boardWidth,
+                      normalized.height * boardHeight,
+                    );
+                    final play = trick.playForSeat(seat.id);
+                    final active = seat.isCurrentTurn && play == null;
+                    return Positioned.fromRect(
+                      rect: rect,
+                      child: PlayerBadge(
+                        seat: seat,
+                        tokens: tokens,
+                        active: active,
+                        language: language,
+                        width: rect.width,
+                        height: rect.height,
+                        maxTricks: model.table.maxTricks,
+                        heroWithinReach:
+                            widget.heroOfSovietUnion &&
+                            seat.medals == model.table.maxTricks - 1,
+                        reaction: widget.activeReaction?.playerID == seat.id
+                            ? widget.activeReaction
+                            : null,
+                        onInspect: () => togglePlayerInspect(seat.id),
+                      ),
+                    );
+                  },
+                ),
+          ],
         );
       },
     );
@@ -422,6 +483,7 @@ class BrigadePlayerColumn extends StatelessWidget {
     this.incomingComradeRequestUserIDs = const {},
     this.outgoingComradeRequestUserIDs = const {},
     this.onComradeRequestToUser,
+    this.hidePlayerBadge = false,
     super.key,
   });
 
@@ -449,9 +511,12 @@ class BrigadePlayerColumn extends StatelessWidget {
   final Set<String> incomingComradeRequestUserIDs;
   final Set<String> outgoingComradeRequestUserIDs;
   final Future<void> Function(String userID)? onComradeRequestToUser;
+  final bool hidePlayerBadge;
 
   @override
   Widget build(BuildContext context) {
+    final fieldPlanTrick =
+        configuredKolkhozArtStyle.usesNewArt && phase == phaseTrick;
     final active = phase == phaseTrick && seat.isCurrentTurn && play == null;
     final planningSelector =
         phase == phasePlanning && planningTrumpChooser != null;
@@ -491,31 +556,39 @@ class BrigadePlayerColumn extends StatelessWidget {
                 tokens: tokens,
                 trump: trump,
                 sizeOverride: tokens.card.large,
+                fieldPlanSeatID: fieldPlanTrick ? seat.id : null,
               ),
             ),
           );
+    final presentedPlayAreaChild = fieldPlanTrick
+        ? FieldPlanCardPerspective(seatID: seat.id, child: playAreaChild)
+        : playAreaChild;
 
     return SizedBox(
       width: columnWidth,
       height: columnHeight,
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: tokens.colors.black.withValues(alpha: human ? 0.28 : 0.22),
-          borderRadius: BorderRadius.circular(7),
-          border: Border.all(
-            color: activeColumn
-                ? (human ? tokens.colors.gold : tokens.colors.redBright)
-                : tokens.colors.steel.withValues(alpha: 0.48),
-            width: activeColumn ? 2 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: tokens.colors.black.withValues(alpha: 0.24),
-              blurRadius: 6,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
+        decoration: fieldPlanTrick
+            ? const BoxDecoration()
+            : BoxDecoration(
+                color: tokens.colors.black.withValues(
+                  alpha: human ? 0.28 : 0.22,
+                ),
+                borderRadius: BorderRadius.circular(7),
+                border: Border.all(
+                  color: activeColumn
+                      ? (human ? tokens.colors.gold : tokens.colors.redBright)
+                      : tokens.colors.steel.withValues(alpha: 0.48),
+                  width: activeColumn ? 2 : 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: tokens.colors.black.withValues(alpha: 0.24),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
         child: Padding(
           padding: brigadeColumnPadding,
           child: inspecting
@@ -543,25 +616,28 @@ class BrigadePlayerColumn extends StatelessWidget {
                     SizedBox(
                       width: playerPanelWidth,
                       height: playerPanelHeight,
-                      child: PlayerBadge(
-                        seat: seat,
-                        tokens: tokens,
-                        active: active || planningSelector,
-                        width: playerPanelWidth,
-                        height: playerPanelHeight,
-                        maxTricks: maxTricks,
-                        heroWithinReach:
-                            heroOfSovietUnion &&
-                            seat.medals == maxTricks - 1 &&
-                            (phase == phaseTrick || phase == phaseAssignment),
-                        language: language,
-                        reaction: activeReaction?.playerID == seat.id
-                            ? activeReaction
-                            : null,
-                        onInspect: onInspectSeat == null
-                            ? null
-                            : () => onInspectSeat!(seat.id),
-                      ),
+                      child: hidePlayerBadge
+                          ? null
+                          : PlayerBadge(
+                              seat: seat,
+                              tokens: tokens,
+                              active: active || planningSelector,
+                              width: playerPanelWidth,
+                              height: playerPanelHeight,
+                              maxTricks: maxTricks,
+                              heroWithinReach:
+                                  heroOfSovietUnion &&
+                                  seat.medals == maxTricks - 1 &&
+                                  (phase == phaseTrick ||
+                                      phase == phaseAssignment),
+                              language: language,
+                              reaction: activeReaction?.playerID == seat.id
+                                  ? activeReaction
+                                  : null,
+                              onInspect: onInspectSeat == null
+                                  ? null
+                                  : () => onInspectSeat!(seat.id),
+                            ),
                     ),
                     Padding(
                       padding: const EdgeInsets.only(
@@ -572,13 +648,128 @@ class BrigadePlayerColumn extends StatelessWidget {
                         child: SizedBox(
                           width: playObjectWidth,
                           height: playObjectHeight,
-                          child: playAreaChild,
+                          child: presentedPlayAreaChild,
                         ),
                       ),
                     ),
                   ],
                 ),
         ),
+      ),
+    );
+  }
+}
+
+class FieldPlanCardQuad {
+  const FieldPlanCardQuad(
+    this.topLeft,
+    this.topRight,
+    this.bottomRight,
+    this.bottomLeft,
+  );
+
+  final Offset topLeft;
+  final Offset topRight;
+  final Offset bottomRight;
+  final Offset bottomLeft;
+}
+
+FieldPlanCardQuad fieldPlanCardQuad(int seatID) => switch (seatID) {
+  1 => const FieldPlanCardQuad(
+    Offset(0.492, 0.241),
+    Offset(1.162, 0.241),
+    Offset(0.696, 1.035),
+    Offset(-0.237, 1.035),
+  ),
+  2 => const FieldPlanCardQuad(
+    Offset(0.196, 0.241),
+    Offset(0.87, 0.241),
+    Offset(0.807, 1.035),
+    Offset(-0.171, 1.035),
+  ),
+  3 => const FieldPlanCardQuad(
+    Offset(-0.092, 0.241),
+    Offset(0.564, 0.241),
+    Offset(0.994, 1.035),
+    Offset(-0.033, 1.035),
+  ),
+  _ => const FieldPlanCardQuad(
+    Offset(-0.416, 0.241),
+    Offset(0.257, 0.241),
+    Offset(1.163, 1.035),
+    Offset(0.101, 1.035),
+  ),
+};
+
+Rect fieldPlanSignRect(int seatID) => switch (seatID) {
+  1 => const Rect.fromLTWH(0.226, 0.277, 0.107, 0.08),
+  2 => const Rect.fromLTWH(0.388, 0.277, 0.107, 0.08),
+  3 => const Rect.fromLTWH(0.546, 0.277, 0.107, 0.08),
+  _ => const Rect.fromLTWH(0.712, 0.277, 0.107, 0.08),
+};
+
+Matrix4 fieldPlanCardHomography(Size size, FieldPlanCardQuad normalized) {
+  final p0 = Offset(
+    normalized.topLeft.dx * size.width,
+    normalized.topLeft.dy * size.height,
+  );
+  final p1 = Offset(
+    normalized.topRight.dx * size.width,
+    normalized.topRight.dy * size.height,
+  );
+  final p2 = Offset(
+    normalized.bottomRight.dx * size.width,
+    normalized.bottomRight.dy * size.height,
+  );
+  final p3 = Offset(
+    normalized.bottomLeft.dx * size.width,
+    normalized.bottomLeft.dy * size.height,
+  );
+  final dx1 = p1.dx - p2.dx;
+  final dx2 = p3.dx - p2.dx;
+  final dx3 = p0.dx - p1.dx + p2.dx - p3.dx;
+  final dy1 = p1.dy - p2.dy;
+  final dy2 = p3.dy - p2.dy;
+  final dy3 = p0.dy - p1.dy + p2.dy - p3.dy;
+  final determinant = dx1 * dy2 - dx2 * dy1;
+  final projectiveX = (dx3 * dy2 - dx2 * dy3) / determinant;
+  final projectiveY = (dx1 * dy3 - dx3 * dy1) / determinant;
+  final a = p1.dx - p0.dx + projectiveX * p1.dx;
+  final b = p3.dx - p0.dx + projectiveY * p3.dx;
+  final d = p1.dy - p0.dy + projectiveX * p1.dy;
+  final e = p3.dy - p0.dy + projectiveY * p3.dy;
+  return Matrix4.identity()
+    ..setEntry(0, 0, a / size.width)
+    ..setEntry(0, 1, b / size.height)
+    ..setEntry(0, 3, p0.dx)
+    ..setEntry(1, 0, d / size.width)
+    ..setEntry(1, 1, e / size.height)
+    ..setEntry(1, 3, p0.dy)
+    ..setEntry(3, 0, projectiveX / size.width)
+    ..setEntry(3, 1, projectiveY / size.height);
+}
+
+class FieldPlanCardPerspective extends StatelessWidget {
+  const FieldPlanCardPerspective({
+    required this.seatID,
+    required this.child,
+    super.key,
+  });
+
+  final int seatID;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => Transform(
+        alignment: Alignment.topLeft,
+        transform: fieldPlanCardHomography(
+          constraints.biggest,
+          fieldPlanCardQuad(seatID),
+        ),
+        transformHitTests: false,
+        child: child,
       ),
     );
   }
@@ -678,6 +869,9 @@ class PlayerBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (configuredKolkhozArtStyle.usesNewArt) {
+      return _buildFieldPlanBadge();
+    }
     final human = seat.isViewer;
     final scale = playerPanelScale(height);
     final portraitSize = playerPanelPortraitSize(width, height);
@@ -872,6 +1066,74 @@ class PlayerBadge extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFieldPlanBadge() {
+    final human = seat.isViewer;
+    final ink = const Color(0xff24251d);
+    final accent = active ? const Color(0xffa33a28) : const Color(0xff4c5940);
+    return MotionTrackedRegion(
+      motionKey: playerCardMotionSourceKey(seat.id),
+      child: Semantics(
+        button: true,
+        label: displayName,
+        child: GestureDetector(
+          key: Key('player-portrait-${seat.id}-inspect'),
+          behavior: HitTestBehavior.opaque,
+          onTap: onInspect,
+          child: SizedBox(
+            width: width,
+            height: height,
+            child: FieldPlanSign(
+              borderColor: human ? const Color(0xffa33a28) : accent,
+              borderWidth: active ? 2 : 1,
+              child: Row(
+                children: [
+                  SizedBox.square(
+                    dimension: height,
+                    child: PlayerPortrait(
+                      seat: seat,
+                      tokens: tokens,
+                      width: height,
+                      height: height,
+                      badgeVisible: false,
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 5),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayName.toUpperCase(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: fieldPlanDisplayTextStyle.copyWith(
+                              color: ink,
+                              fontSize: math.max(10, height * 0.24),
+                            ),
+                          ),
+                          Text(
+                            '${seat.visibleScore}  •  ${seat.medals}/$maxTricks',
+                            maxLines: 1,
+                            style: fieldPlanBodyStrongTextStyle.copyWith(
+                              color: accent,
+                              fontSize: math.max(8, height * 0.18),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

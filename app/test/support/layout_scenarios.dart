@@ -450,6 +450,26 @@ final _jobs = <Job>[
   ),
 ];
 
+TableViewModel fieldPlanFourCardTrickModel() => _model(
+  phase: phaseTrick,
+  panel: panelBrigade,
+  year: 2,
+  currentPlayerID: 0,
+  prompt: const Prompt(
+    title: 'Trick complete',
+    body: 'Four cards shown for field-plan calibration.',
+  ),
+  trick: Trick(
+    plays: [
+      TrickPlay(seatID: 1, card: _card('wheat', 12)),
+      TrickPlay(seatID: 2, card: _card('sunflower', 8)),
+      TrickPlay(seatID: 3, card: _card('potato', 10)),
+      TrickPlay(seatID: 0, card: _card('beet', 6)),
+    ],
+    winnerSeatID: 1,
+  ),
+);
+
 final _assignmentJobs = [
   for (final job in _jobs)
     Job(

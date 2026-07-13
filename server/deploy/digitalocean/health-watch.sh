@@ -19,3 +19,6 @@ if ! $ready; then
   logger -p daemon.alert -t kolkhoz-health-watch "Kolkhoz production readiness failed"
   exit 1
 fi
+if [ -n "${KOLKHOZ_WATCHDOG_HEARTBEAT_URL:-}" ]; then
+  curl --fail --silent --max-time 10 "$KOLKHOZ_WATCHDOG_HEARTBEAT_URL" >/dev/null
+fi

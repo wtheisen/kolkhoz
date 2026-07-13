@@ -91,6 +91,12 @@ if ! command -v "$FLUTTER_BIN" >/dev/null 2>&1; then
   exit 1
 fi
 
+DART_BIN="$(dirname "$FLUTTER_BIN")/dart"
+if [[ ! -x "$DART_BIN" ]]; then
+  DART_BIN="dart"
+fi
+export PATH="$(dirname "$FLUTTER_BIN"):$PATH"
+
 if [[ -f "$ENV_FILE" ]]; then
   set -a
   # shellcheck disable=SC1090
@@ -154,7 +160,7 @@ fi
 
 mark_dropbox_ignored
 
-dart run tool/sync_policy_assets.dart
+"$DART_BIN" run tool/sync_policy_assets.dart
 "$FLUTTER_BIN" pub get
 
 BUILD_ARGS=(build macos --debug "${DART_DEFINES[@]}")

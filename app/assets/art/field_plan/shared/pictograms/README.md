@@ -1,7 +1,11 @@
 # Generated Pictograms
 
-These 256 x 256 transparent production assets were generated independently on a flat
+These transparent production assets were generated independently on a flat
 green background, processed with `remove_chroma_key.py`, and validated for alpha.
+
+New source artwork and production assets use a 512 x 512 canvas. The original navigation
+pictograms below predate that standard and should be regenerated at 512 x 512 in a later
+replacement pass.
 
 - `create-game.png`
 - `join-game.png`

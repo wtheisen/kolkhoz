@@ -118,6 +118,7 @@ class _ProfilePanel extends StatefulWidget {
     required this.onCloudSignUp,
     required this.onCloudResetPassword,
     required this.onCloudSignOut,
+    required this.onCloudDeleteAccount,
     required this.clientFactory,
     required this.onStartDailyChallenge,
   });
@@ -141,6 +142,7 @@ class _ProfilePanel extends StatefulWidget {
   final Future<void> Function(String email, String password)? onCloudSignUp;
   final Future<void> Function(String email)? onCloudResetPassword;
   final Future<void> Function()? onCloudSignOut;
+  final Future<void> Function()? onCloudDeleteAccount;
   final KolkhozOnlineClient Function()? clientFactory;
   final Future<void> Function()? onStartDailyChallenge;
 
@@ -154,6 +156,7 @@ class _ProfilePanelState extends State<_ProfilePanel> {
   List<OnlineRecentGame> recentGames = const [];
   bool recentGamesLoading = false;
   Object? recentGamesError;
+  int recentGamesLoadGeneration = 0;
   OnlineDailyChallenge? dailyChallenge;
   bool dailyLoading = false;
 
@@ -186,23 +189,40 @@ class _ProfilePanelState extends State<_ProfilePanel> {
   Future<void> loadRecentGames() async {
     final factory = widget.clientFactory;
     if (factory == null) return;
+    final generation = ++recentGamesLoadGeneration;
     setState(() {
       recentGamesLoading = true;
       recentGamesError = null;
     });
     try {
       final games = await factory().fetchRecentGames();
-      if (mounted) setState(() => recentGames = games);
+      if (mounted &&
+          widget.cloudSignedIn &&
+          generation == recentGamesLoadGeneration) {
+        setState(() => recentGames = games);
+      }
     } catch (exception) {
-      if (mounted) setState(() => recentGamesError = exception);
+      if (mounted && generation == recentGamesLoadGeneration) {
+        setState(() => recentGamesError = exception);
+      }
     } finally {
-      if (mounted) setState(() => recentGamesLoading = false);
+      if (mounted && generation == recentGamesLoadGeneration) {
+        setState(() => recentGamesLoading = false);
+      }
     }
   }
 
   @override
   void didUpdateWidget(covariant _ProfilePanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!oldWidget.cloudSignedIn && widget.cloudSignedIn) {
+      unawaited(loadRecentGames());
+    } else if (oldWidget.cloudSignedIn && !widget.cloudSignedIn) {
+      recentGamesLoadGeneration++;
+      recentGames = const [];
+      recentGamesLoading = false;
+      recentGamesError = null;
+    }
     if (widget.displayName != lastSubmittedName &&
         widget.displayName != displayNameController.text) {
       displayNameController.text = widget.displayName;
@@ -392,9 +412,181 @@ class _ProfilePanelState extends State<_ProfilePanel> {
                   onSignUp: widget.onCloudSignUp,
                   onResetPassword: widget.onCloudResetPassword,
                   onSignOut: widget.onCloudSignOut,
+                  onDeleteAccount: widget.onCloudDeleteAccount,
                 ),
               ],
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AdminOperationsPanel extends StatefulWidget {
+  const _AdminOperationsPanel({
+    required this.tokens,
+    required this.clientFactory,
+  });
+
+  final DesignTokens tokens;
+  final KolkhozOnlineClient Function()? clientFactory;
+
+  @override
+  State<_AdminOperationsPanel> createState() => _AdminOperationsPanelState();
+}
+
+class _AdminOperationsPanelState extends State<_AdminOperationsPanel> {
+  Map<String, Object?>? value;
+  Object? error;
+  bool loading = true;
+  bool restarting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(load());
+  }
+
+  Future<void> load() async {
+    final factory = widget.clientFactory;
+    if (factory == null) {
+      setState(() {
+        loading = false;
+        error = 'Sign in to view operations.';
+      });
+      return;
+    }
+    setState(() {
+      loading = true;
+      error = null;
+    });
+    try {
+      final next = await factory().fetchAdminOperations();
+      if (mounted) setState(() => value = next);
+    } catch (exception) {
+      if (mounted) setState(() => error = exception);
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> restart() async {
+    final factory = widget.clientFactory;
+    if (factory == null || restarting) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Restart production server?'),
+        content: const Text(
+          'This restarts only kolkhoz-greenfield.service. Active clients may '
+          'briefly reconnect. A five-minute cooldown applies.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('RESTART'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => restarting = true);
+    try {
+      await factory().restartProductionServer();
+    } catch (exception) {
+      if (mounted) setState(() => error = exception);
+    } finally {
+      if (mounted) setState(() => restarting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) return const Center(child: CircularProgressIndicator());
+    if (error != null && value == null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'ADMIN ACCESS REQUIRED',
+              style: kolkhozFontStyle.copyWith(
+                color: widget.tokens.colors.gold,
+              ),
+            ),
+            TextButton(onPressed: load, child: const Text('RETRY')),
+          ],
+        ),
+      );
+    }
+    final operations = value ?? const <String, Object?>{};
+    final games = onlineObjectList(operations['games'] ?? const []);
+    final suspicious = onlineObjectList(
+      operations['suspiciousGames'] ?? const [],
+    );
+    final outbox = onlineObjectMap(
+      operations['notificationOutbox'] ?? const <String, Object?>{},
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 10,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'PRODUCTION • ${operations['deploymentVersion'] ?? 'unknown'}',
+                style: kolkhozFontStyle.copyWith(
+                  color: widget.tokens.colors.goldBright,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            TextButton(onPressed: load, child: const Text('REFRESH')),
+            TextButton(
+              onPressed: restarting ? null : restart,
+              child: Text(restarting ? 'RESTARTING…' : 'RESTART SERVER'),
+            ),
+          ],
+        ),
+        Text(
+          'ACTIVE ${games.length}   SUSPICIOUS ${suspicious.length}   '
+          'OUTBOX PENDING ${outbox['pending'] ?? 0}   FAILED ${outbox['failed'] ?? 0}',
+          style: kolkhozFontStyle.copyWith(color: widget.tokens.colors.cream),
+        ),
+        Expanded(
+          child: ListView(
+            children: [
+              for (final raw in games)
+                Builder(
+                  builder: (_) {
+                    final game = onlineObjectMap(raw);
+                    return ListTile(
+                      dense: true,
+                      title: Text('${game['sessionID']}'),
+                      subtitle: Text(
+                        'PHASE ${game['phase']} • ACTOR ${game['currentActor'] ?? '—'} • '
+                        '${game['expectedActor'] ?? '—'} • '
+                        '${(game['lastActionAgeSeconds'] as num?)?.round() ?? 0}s',
+                      ),
+                      trailing: game['suspicious'] == true
+                          ? const Text('STUCK?')
+                          : null,
+                    );
+                  },
+                ),
+              const Divider(),
+              Text('AI CANARY  ${operations['aiCanary']}'),
+              Text('BACKUP  ${operations['backup']}'),
+              Text('WATCHDOG  ${operations['watchdog']}'),
+              Text('RECENT ERRORS  ${operations['recentServerErrors']}'),
+              Text('OUTBOX FAILURES  ${outbox['failures']}'),
+            ],
           ),
         ),
       ],
@@ -742,6 +934,7 @@ class _CloudAuthPanel extends StatefulWidget {
     required this.onSignUp,
     required this.onResetPassword,
     required this.onSignOut,
+    required this.onDeleteAccount,
   });
 
   final DesignTokens tokens;
@@ -757,6 +950,7 @@ class _CloudAuthPanel extends StatefulWidget {
   final Future<void> Function(String email, String password)? onSignUp;
   final Future<void> Function(String email)? onResetPassword;
   final Future<void> Function()? onSignOut;
+  final Future<void> Function()? onDeleteAccount;
 
   @override
   State<_CloudAuthPanel> createState() => _CloudAuthPanelState();
@@ -804,6 +998,34 @@ class _CloudAuthPanelState extends State<_CloudAuthPanel> {
     }
     clearLocalMessage();
     widget.onSignUp?.call(emailController.text, password);
+  }
+
+  Future<void> confirmAccountDeletion() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          widget.language.t(KolkhozText.kolkhozappDeleteAccountQuestion),
+        ),
+        content: Text(
+          widget.language.t(KolkhozText.kolkhozappDeleteAccountWarning),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(widget.language.t(KolkhozText.kolkhozappCancel)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red.shade300),
+            child: Text(widget.language.t(KolkhozText.kolkhozappDeleteAccount)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await widget.onDeleteAccount?.call();
+    }
   }
 
   @override
@@ -878,6 +1100,24 @@ class _CloudAuthPanelState extends State<_CloudAuthPanel> {
                   onPressed: widget.busy || widget.onSignOut == null
                       ? null
                       : widget.onSignOut,
+                ),
+              ),
+              SizedBox(
+                width: 128,
+                height: 42,
+                child: TextButton(
+                  onPressed: widget.busy || widget.onDeleteAccount == null
+                      ? null
+                      : confirmAccountDeletion,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red.shade300,
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      widget.language.t(KolkhozText.kolkhozappDeleteAccount),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -1059,6 +1299,7 @@ class _ComradesSettingsPanelState extends State<_ComradesSettingsPanel> {
         onSignUp: widget.onCloudSignUp,
         onResetPassword: widget.onCloudResetPassword,
         onSignOut: null,
+        onDeleteAccount: null,
       ),
     );
   }

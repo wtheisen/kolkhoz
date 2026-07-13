@@ -10,7 +10,9 @@ for schema in \
   lobby_schema.sql \
   distributed_schema.sql \
   command_schema.sql \
-  population_schema.sql
+  population_schema.sql \
+  notifications_schema.sql \
+  commerce_schema.sql
 do
   psql -X -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -1 -f "/schema/server/$schema"
 done

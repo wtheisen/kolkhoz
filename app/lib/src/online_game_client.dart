@@ -72,6 +72,18 @@ class KolkhozOnlineClient {
     return OnlineServerStatus.fromJson(onlineObjectMap(decoded));
   }
 
+  Future<Map<String, Object?>> fetchAdminOperations() async {
+    return _sendJson(method: 'GET', path: 'admin/operations');
+  }
+
+  Future<void> restartProductionServer() async {
+    await _sendJson(
+      method: 'POST',
+      path: 'admin/control/restart',
+      headers: {'X-Kolkhoz-Restart-Confirm': 'restart'},
+    );
+  }
+
   Future<OnlinePresenceHeartbeat> sendPresenceHeartbeat({
     String? sessionID,
   }) async {
@@ -81,6 +93,52 @@ class KolkhozOnlineClient {
       body: {'sessionID': ?sessionID},
     );
     return OnlinePresenceHeartbeat.fromJson(onlineObjectMap(decoded));
+  }
+
+  Future<void> registerInstallation({
+    required String installationID,
+    required String platform,
+    required String token,
+  }) async {
+    await _sendJson(
+      method: 'PUT',
+      path: 'installations/$installationID',
+      body: {
+        'platform': platform,
+        'token': token,
+        'preferences': {
+          'social': true,
+          'invites': true,
+          'turns': true,
+          'results': true,
+        },
+      },
+    );
+  }
+
+  Future<void> deleteInstallation(String installationID) async {
+    await _send(method: 'DELETE', path: 'installations/$installationID');
+  }
+
+  Future<void> deleteAccount() async {
+    await _send(method: 'DELETE', path: 'account');
+  }
+
+  Future<bool> fetchFullGameEntitlement() async {
+    final json = await _sendJson(method: 'GET', path: 'commerce/entitlements');
+    return json['fullGame'] as bool? ?? false;
+  }
+
+  Future<bool> claimFullGamePurchase({
+    required String provider,
+    required String verificationData,
+  }) async {
+    final json = await _sendJson(
+      method: 'POST',
+      path: 'commerce/purchases/claim',
+      body: {'provider': provider, 'verificationData': verificationData},
+    );
+    return json['fullGame'] as bool? ?? false;
   }
 
   Future<OnlineSessionResponse> syncActiveSession() async {

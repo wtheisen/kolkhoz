@@ -26,12 +26,30 @@ from .lobby import PostgresLobbyRepository
 from .metrics import ServerMetrics
 from .population import PopulationScheduler, PostgresPopulationRepository
 from .preflight import verify_production_assets
+from .commerce import (
+    ApplePurchaseVerifier,
+    CommerceService,
+    PostgresEntitlementRepository,
+)
 from .runtime import GameRuntime, GatewayRuntimeContext
 from .results import PostgresResultsRepository
 from .scheduler import DeadlineScheduler
 from .lifecycle import LifecycleReconciler
 from .social import LobbyPresenceReader, PostgresSocialRepository, SocialService
 from .store import ConnectionPool, PostgresEventStore
+from .notifications import (
+    FirebasePushTransport,
+    NotificationService,
+    NotificationWorker,
+    NotificationWorkerService,
+    PostgresNotificationRepository,
+)
+from .operations import PostgresOperationsRepository
+from .accounts import (
+    AccountDeletionService,
+    PostgresAccountCleaner,
+    SupabaseAccountDeleter,
+)
 
 
 def _production_auth_verifier() -> CachingAuthVerifier | StagingAuthVerifier:
@@ -119,6 +137,38 @@ def create_asgi_application() -> ASGIApplication:
     lobby = PostgresLobbyRepository(pool)
     social = PostgresSocialRepository(pool=pool)
     results = PostgresResultsRepository(pool=pool, json_value=Jsonb)
+    notification_repository = PostgresNotificationRepository(pool)
+    notifications = NotificationService(notification_repository)
+    apple_verifier = ApplePurchaseVerifier.from_environment()
+    commerce = CommerceService(
+        PostgresEntitlementRepository(pool),
+        {"apple": apple_verifier} if apple_verifier is not None else {},
+    )
+    account_deleter = SupabaseAccountDeleter.from_environment()
+    if account_deleter is None and not os.environ.get(
+        "KOLKHOZ_STAGING_STATIC_AUTH_TOKENS"
+    ):
+        raise RuntimeError(
+            "KOLKHOZ_SUPABASE_SECRET_KEY is required for account deletion"
+        )
+    accounts = (
+        AccountDeletionService(account_deleter, PostgresAccountCleaner(pool))
+        if account_deleter is not None
+        else None
+    )
+    notification_worker = None
+    firebase_project_id = os.environ.get("KOLKHOZ_FIREBASE_PROJECT_ID")
+    if firebase_project_id and _enabled("KOLKHOZ_RUN_NOTIFICATION_WORKER"):
+        notification_worker = NotificationWorkerService(
+            NotificationWorker(
+                notification_repository,
+                FirebasePushTransport(project_id=firebase_project_id),
+                metrics=metrics,
+            ),
+            interval_seconds=float(
+                os.environ.get("KOLKHOZ_NOTIFICATION_INTERVAL_SECONDS", "1")
+            ),
+        )
     redis_url = os.environ.get("REDIS_URL")
     if not redis_url:
         parser.error("REDIS_URL is required")
@@ -211,6 +261,18 @@ def create_asgi_application() -> ASGIApplication:
             ),
         ),
         results=results,
+        notifications=notifications,
+        notification_repository=notification_repository,
+        operations=PostgresOperationsRepository(pool),
+        commerce=commerce,
+        accounts=accounts,
+        require_full_game=_enabled("KOLKHOZ_ENFORCE_FULL_GAME", False),
+        admin_user_ids=frozenset(
+            value.strip()
+            for value in os.environ.get("KOLKHOZ_ADMIN_USER_IDS", "").split(",")
+            if value.strip()
+        ),
+        deployment_version=os.environ.get("KOLKHOZ_DEPLOYMENT_VERSION", "unknown"),
         session_ttl_seconds=float(
             os.environ.get("KOLKHOZ_SESSION_TTL_SECONDS", "1800")
         ),
@@ -267,6 +329,8 @@ def create_asgi_application() -> ASGIApplication:
         )
 
     def shutdown() -> None:
+        if notification_worker is not None:
+            notification_worker.close()
         automatic.close()
         lifecycle.close()
         population.close()

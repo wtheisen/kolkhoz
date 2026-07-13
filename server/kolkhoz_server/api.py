@@ -26,6 +26,10 @@ from .routes import resolve_route
 from .runtime import GameRuntime
 from .social import SocialService
 from .results import ResultsRepository
+from .notifications import NotificationService, NotificationRepository
+from .operations import PostgresOperationsRepository
+from .commerce import CommerceService, PurchaseAlreadyClaimed, PurchaseVerificationError
+from .accounts import AccountDeletionError, AccountDeletionService
 
 
 REACTION_IDS = frozenset(
@@ -62,6 +66,14 @@ class OnlineApplication:
         auth: AuthVerifier | None = None,
         social: SocialService | None = None,
         results: ResultsRepository | None = None,
+        notifications: NotificationService | None = None,
+        notification_repository: NotificationRepository | None = None,
+        operations: PostgresOperationsRepository | None = None,
+        commerce: CommerceService | None = None,
+        accounts: AccountDeletionService | None = None,
+        require_full_game: bool = False,
+        admin_user_ids: frozenset[str] = frozenset(),
+        deployment_version: str = "unknown",
         session_ttl_seconds: float = 1800,
         presence_ttl_seconds: float = 60,
         lobby_countdown_seconds: float = 30,
@@ -71,6 +83,14 @@ class OnlineApplication:
         self.auth = auth
         self.social = social
         self.results = results
+        self.notifications = notifications
+        self.notification_repository = notification_repository
+        self.operations = operations
+        self.commerce = commerce
+        self.accounts = accounts
+        self.require_full_game = require_full_game
+        self.admin_user_ids = admin_user_ids
+        self.deployment_version = deployment_version
         self.session_ttl_seconds = session_ttl_seconds
         self.presence_ttl_seconds = presence_ttl_seconds
         self.lobby_countdown_seconds = max(0.0, lobby_countdown_seconds)
@@ -89,6 +109,50 @@ class OnlineApplication:
             return Response(HTTPStatus.OK, self.runtime.health_state())
         if operation == "metrics":
             return Response(HTTPStatus.OK, {"service": self.metrics_state()})
+        if operation == "canary":
+            state = self.runtime.health_state()
+            return Response(
+                HTTPStatus.OK,
+                {
+                    "status": "ok",
+                    "eventStore": state,
+                    "routeContract": resolve_route("POST", "/sessions") is not None,
+                },
+            )
+        if operation == "account.delete":
+            if self.accounts is None:
+                raise ServerError(
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    "account deletion is not configured",
+                )
+            try:
+                deleted_user_id = self._require_user(user_id)
+                self.accounts.delete(deleted_user_id)
+            except AccountDeletionError as error:
+                raise ServerError(HTTPStatus.BAD_GATEWAY, str(error)) from error
+            invalidate_user = getattr(self.auth, "invalidate_user", None)
+            if invalidate_user is not None:
+                invalidate_user(deleted_user_id)
+            return Response(HTTPStatus.OK, {"deleted": True})
+        if operation == "admin.operations":
+            admin_id = self._require_user(user_id)
+            if admin_id not in self.admin_user_ids:
+                raise ServerError(HTTPStatus.FORBIDDEN, "admin access required")
+            if self.operations is None:
+                raise ServerError(
+                    HTTPStatus.SERVICE_UNAVAILABLE, "operations are not configured"
+                )
+            snapshot = self.operations.snapshot(version=self.deployment_version)
+            for game in snapshot["games"]:
+                try:
+                    state = self.runtime.state(game["sessionID"], None).state
+                    game["phase"] = optional_int(state.get("phase"), -1)
+                    game["currentActor"] = optional_int(
+                        state.get("currentPlayer"), game["currentActor"]
+                    )
+                except Exception:
+                    game["runtimeUnavailable"] = True
+            return Response(HTTPStatus.OK, snapshot)
         if operation == "presence.heartbeat":
             now = time.time()
             device_id = _header(request.headers, "X-Kolkhoz-Device-ID")
@@ -119,10 +183,87 @@ class OnlineApplication:
                     user_id, _header(request.headers, "X-Kolkhoz-Device-ID")
                 ),
             )
-        if operation.startswith("profiles.") or operation.startswith("comrades."):
+        if operation.startswith("installations."):
             return Response(
-                HTTPStatus.OK, self._social(operation, params, request.body, user_id)
+                HTTPStatus.OK,
+                self._installation(operation, params, request.body, user_id),
             )
+        if operation == "commerce.entitlements":
+            if self.commerce is None:
+                raise ServerError(
+                    HTTPStatus.SERVICE_UNAVAILABLE, "commerce is not configured"
+                )
+            return Response(
+                HTTPStatus.OK,
+                self.commerce.status(user_id=self._require_user(user_id)),
+            )
+        if operation == "commerce.purchases.claim":
+            if self.commerce is None:
+                raise ServerError(
+                    HTTPStatus.SERVICE_UNAVAILABLE, "commerce is not configured"
+                )
+            try:
+                value = self.commerce.claim(
+                    user_id=self._require_user(user_id),
+                    provider=str(request.body.get("provider") or "").strip(),
+                    verification_data=str(
+                        request.body.get("verificationData") or ""
+                    ).strip(),
+                )
+            except PurchaseAlreadyClaimed as error:
+                raise ServerError(HTTPStatus.CONFLICT, str(error)) from error
+            except PurchaseVerificationError as error:
+                raise ServerError(HTTPStatus.BAD_REQUEST, str(error)) from error
+            return Response(HTTPStatus.OK, value)
+        if operation == "commerce.apple.notifications":
+            if self.commerce is None:
+                raise ServerError(
+                    HTTPStatus.SERVICE_UNAVAILABLE, "commerce is not configured"
+                )
+            try:
+                self.commerce.notification(
+                    provider="apple",
+                    signed_payload=str(request.body.get("signedPayload") or "").strip(),
+                )
+            except PurchaseVerificationError as error:
+                raise ServerError(HTTPStatus.BAD_REQUEST, str(error)) from error
+            return Response(HTTPStatus.OK, {"accepted": True})
+        if self.require_full_game and operation.startswith(
+            ("sessions.", "results.", "challenges.", "comrades.")
+        ):
+            premium_user_id = self._require_user(user_id)
+            if (
+                self.commerce is None
+                or not self.commerce.status(user_id=premium_user_id)["fullGame"]
+            ):
+                raise ServerError(HTTPStatus.FORBIDDEN, "full game required")
+        if operation.startswith("profiles.") or operation.startswith("comrades."):
+            value = self._social(operation, params, request.body, user_id)
+            if self.notifications is not None and operation == "comrades.request":
+                profile = value.get("request") or value.get("comrade")
+                target = profile.get("userID") if isinstance(profile, dict) else None
+                self.notifications.notify(
+                    user_id=str(target) if target else None,
+                    event_type="comrade_request",
+                    dedupe_key=f"comrade-request:{user_id}:{target}",
+                    title="New comrade request",
+                    body="A player wants to become your comrade.",
+                )
+            if (
+                self.notifications is not None
+                and operation == "comrades.respond"
+                and isinstance(value, dict)
+                and value.get("accepted") is True
+            ):
+                requester = str(request.body.get("userID") or "")
+                self.notifications.notify(
+                    user_id=requester,
+                    event_type="comrade_accepted",
+                    dedupe_key=f"comrade-accepted:{requester}:{user_id}",
+                    title="Comrade request accepted",
+                    body="Your comrade request was accepted.",
+                )
+            return Response(HTTPStatus.OK, value)
         if operation == "results.recent":
             user_id = self._require_user(user_id)
             if self.results is None:
@@ -228,10 +369,18 @@ class OnlineApplication:
                 ],
             )
         if operation == "sessions.invites.send":
-            return Response(
-                HTTPStatus.OK,
-                self._invite(params["sessionID"], request.body, user_id),
-            )
+            value = self._invite(params["sessionID"], request.body, user_id)
+            if self.notifications is not None:
+                for invited_user in value["invitedUserIDs"]:
+                    self.notifications.notify(
+                        user_id=invited_user,
+                        event_type="game_invitation",
+                        dedupe_key=f"game-invitation:{params['sessionID']}:{invited_user}",
+                        session_id=params["sessionID"],
+                        title="Game invitation",
+                        body="A comrade invited you to a game.",
+                    )
+            return Response(HTTPStatus.OK, value)
         if operation == "sessions.invites.decline":
             user_id = self._require_user(user_id)
             session = self.lobby.session(params["sessionID"])
@@ -505,7 +654,7 @@ class OnlineApplication:
         player_id, token = claim()
         self._register_device_lease(user_id, device_id, record.session_id)
         record = self._sync_lobby(record.session_id)
-        return {
+        response = {
             "sessionID": record.session_id,
             "seed": record.seed,
             "inviteCode": record.invite_code,
@@ -513,6 +662,27 @@ class OnlineApplication:
             "seatToken": token,
             "update": self._command_update(record.session_id, player_id),
         }
+        if self.notifications is not None and record.created_by_user_id != user_id:
+            self.notifications.notify(
+                user_id=record.created_by_user_id,
+                event_type="invitation_accepted",
+                dedupe_key=f"invitation-accepted:{record.session_id}:{user_id}",
+                session_id=record.session_id,
+                title="Invitation accepted",
+                body="A player joined your game.",
+            )
+        if self.notifications is not None and record.status == "active":
+            for seat in self.lobby.seats(record.session_id):
+                if seat.controller == "human" and seat.user_id:
+                    self.notifications.notify(
+                        user_id=seat.user_id,
+                        event_type="game_started",
+                        dedupe_key=f"game-started:{record.session_id}:{seat.user_id}",
+                        session_id=record.session_id,
+                        title="Game started",
+                        body="Your game is ready.",
+                    )
+        return response
 
     def _sync_active(self, user_id: str | None, device_id: str | None) -> JsonObject:
         user_id = self._require_user(user_id)
@@ -938,6 +1108,24 @@ class OnlineApplication:
         series = self._series_status(record.session_id)
         if series is not None:
             update["series"] = series
+        if self.notifications is not None and turn_player_id is not None:
+            turn_seat = next(
+                (seat for seat in seats if seat.player_id == turn_player_id), None
+            )
+            if (
+                turn_seat is not None
+                and turn_seat.controller == "human"
+                and turn_seat.occupied
+                and not turn_seat.autopilot
+            ):
+                self.notifications.notify(
+                    user_id=turn_seat.user_id,
+                    event_type="your_turn",
+                    dedupe_key=f"your-turn:{record.session_id}:{revision}",
+                    session_id=record.session_id,
+                    title="Your turn",
+                    body="A human move is waiting for you.",
+                )
         return update
 
     def _series_status(self, session_id: str) -> JsonObject | None:
@@ -1020,6 +1208,18 @@ class OnlineApplication:
         self.lobby.finish_session(
             record.session_id, now=now, expires_at=record.expires_at
         )
+        if self.notifications is not None:
+            for seat in seats:
+                if seat.controller != "human" or not seat.user_id:
+                    continue
+                self.notifications.notify(
+                    user_id=seat.user_id,
+                    event_type="game_finished",
+                    dedupe_key=f"game-finished:{record.session_id}:{seat.user_id}",
+                    session_id=record.session_id,
+                    title="Game finished",
+                    body="The final results are ready.",
+                )
 
     def _listing(self, record: object, *, browser_listing: bool = False) -> JsonObject:
         seats = self.lobby.seats(record.session_id)
@@ -1221,6 +1421,45 @@ class OnlineApplication:
         if operation == "comrades.respond":
             return self.social.respond(body, user_id=user_id)
         return self.social.remove(body, user_id=user_id)
+
+    def _installation(
+        self,
+        operation: str,
+        params: dict[str, str],
+        body: JsonObject,
+        user_id: str | None,
+    ) -> JsonObject:
+        user_id = self._require_user(user_id)
+        if self.notification_repository is None:
+            raise ServerError(
+                HTTPStatus.SERVICE_UNAVAILABLE, "notifications are not configured"
+            )
+        installation_id = params["installationID"]
+        if not re.fullmatch(r"[A-Za-z0-9._:-]{8,200}", installation_id):
+            raise ServerError(HTTPStatus.BAD_REQUEST, "invalid installation ID")
+        if operation == "installations.delete":
+            self.notification_repository.delete_installation(
+                installation_id=installation_id, user_id=user_id
+            )
+            return {"deleted": True}
+        platform = str(body.get("platform") or "")
+        token = str(body.get("token") or "")
+        if platform not in {"ios", "android"} or not 16 <= len(token) <= 4096:
+            raise ServerError(HTTPStatus.BAD_REQUEST, "invalid installation")
+        raw_preferences = body.get("preferences")
+        raw_preferences = raw_preferences if isinstance(raw_preferences, dict) else {}
+        preferences = {
+            key: bool(raw_preferences.get(key, True))
+            for key in ("social", "invites", "turns", "results")
+        }
+        self.notification_repository.register_installation(
+            installation_id=installation_id,
+            user_id=user_id,
+            platform=platform,
+            token=token,
+            preferences=preferences,
+        )
+        return {"registered": True, "preferences": preferences}
 
     def _user_id(self, headers: Mapping[str, str]) -> str | None:
         if self.auth is None:

@@ -40,7 +40,7 @@ if ! $apply; then
   echo "DRY RUN: would install redis-server, PostgreSQL client, Python venv, clang, and git"
   echo "DRY RUN: would clone/update $repo at requested ref into $ROOT"
   echo "DRY RUN: would read database and Supabase auth from $SERVER_ENV without displaying values"
-  echo "DRY RUN: would apply five server schemas explicitly"
+  echo "DRY RUN: would apply six server schemas explicitly"
   echo "DRY RUN: would install capped Redis on 127.0.0.1:$REDIS_PORT and the server on 127.0.0.1:$PORT"
   echo "DRY RUN: would configure Caddy to bridge short upstream restart gaps"
   exit 0
@@ -75,32 +75,40 @@ test -s "$ROOT/policies/medium_policy.json"
 test -s "$ROOT/policies/hard_policy.json"
 "$ROOT/.venv/bin/python" -m server.kolkhoz_server.preflight --repo-root "$ROOT"
 install -d -o kolkhoz-greenfield -g kolkhoz-greenfield "$ROOT/research/.build"
+install -d -o root -g kolkhoz-greenfield -m 0750 /etc/kolkhoz-greenfield
 chown -R kolkhoz-greenfield:kolkhoz-greenfield "$ROOT"
 
 umask 077
 database_url=$(sed -n 's/^DATABASE_URL=//p' "$SERVER_ENV" | tail -n 1)
 supabase_url=$(sed -n 's/^KOLKHOZ_SUPABASE_URL=//p' "$SERVER_ENV" | tail -n 1)
 publishable=$(sed -n 's/^KOLKHOZ_SUPABASE_PUBLISHABLE_KEY=//p' "$SERVER_ENV" | tail -n 1)
-[ -n "$database_url" ] && [ -n "$supabase_url" ] && [ -n "$publishable" ] || { echo "database/Supabase settings incomplete" >&2; exit 1; }
-for schema in postgres_schema.sql lobby_schema.sql distributed_schema.sql command_schema.sql population_schema.sql; do
+secret_key=$(sed -n 's/^KOLKHOZ_SUPABASE_SECRET_KEY=//p' "$SERVER_ENV" | tail -n 1)
+[ -n "$database_url" ] && [ -n "$supabase_url" ] && [ -n "$publishable" ] && [ -n "$secret_key" ] || { echo "database/Supabase settings incomplete" >&2; exit 1; }
+for schema in postgres_schema.sql lobby_schema.sql distributed_schema.sql command_schema.sql population_schema.sql notifications_schema.sql commerce_schema.sql; do
   DATABASE_URL="$database_url" psql "$database_url" -v ON_ERROR_STOP=1 -f "$ROOT/server/$schema" >/dev/null
 done
-unset database_url supabase_url publishable
+unset database_url supabase_url publishable secret_key
 install -d -o redis -g redis /var/lib/redis-greenfield
 install -o root -g redis -m 0640 "$here/redis-greenfield.conf" /etc/redis/kolkhoz-greenfield.conf
 install -o root -g root -m 0644 "$here/kolkhoz-greenfield-redis.service" /etc/systemd/system/kolkhoz-greenfield-redis.service
 install -o root -g root -m 0644 "$here/kolkhoz-greenfield.service" /etc/systemd/system/kolkhoz-greenfield.service
+install -o root -g root -m 0644 "$here/kolkhoz-admin-control.service" /etc/systemd/system/kolkhoz-admin-control.service
 install -o root -g root -m 0755 "$here/health-watch.sh" /usr/local/sbin/kolkhoz-health-watch
+install -o root -g root -m 0755 "$here/ai-canary.sh" /usr/local/sbin/kolkhoz-ai-canary
 install -o root -g root -m 0644 "$here/kolkhoz-health-watch.service" /etc/systemd/system/kolkhoz-health-watch.service
 install -o root -g root -m 0644 "$here/kolkhoz-health-watch.timer" /etc/systemd/system/kolkhoz-health-watch.timer
+install -o root -g root -m 0644 "$here/kolkhoz-ai-canary.service" /etc/systemd/system/kolkhoz-ai-canary.service
+install -o root -g root -m 0644 "$here/kolkhoz-ai-canary.timer" /etc/systemd/system/kolkhoz-ai-canary.timer
 install -o root -g root -m 0644 "$here/Caddyfile" /etc/caddy/Caddyfile
 caddy validate --config /etc/caddy/Caddyfile
 systemctl reload caddy
 systemctl daemon-reload
 systemctl enable --now kolkhoz-greenfield-redis.service
 systemctl enable kolkhoz-greenfield.service
+systemctl enable --now kolkhoz-admin-control.service
 systemctl restart kolkhoz-greenfield.service
 systemctl enable --now kolkhoz-health-watch.timer
+systemctl enable --now kolkhoz-ai-canary.timer
 ready=false
 for _ in $(seq 1 30); do
   if curl --fail --silent --max-time 2 http://127.0.0.1:18787/ready >/dev/null; then

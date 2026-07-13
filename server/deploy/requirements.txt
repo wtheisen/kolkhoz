@@ -1,4 +1,6 @@
 certifi>=2024.0.0
+app-store-server-library>=3.1.1,<4
+firebase-admin>=7.1.0,<8
 psycopg[binary]>=3.2.0
 redis>=5.2.0
 uvicorn[standard]>=0.30.0

@@ -4,11 +4,13 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import 'src/kolkhoz_app.dart';
+import 'src/push_notifications.dart';
 
 final _semanticsHandles = <SemanticsHandle>[];
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeKolkhozFirebase();
   await _lockMobileLandscape();
   _semanticsHandles.add(SemanticsBinding.instance.ensureSemantics());
   runApp(const KolkhozApp());

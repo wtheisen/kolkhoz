@@ -14,6 +14,10 @@ corner-index and counter sizes:
 - `suit-potato.png`
 - `suit-beet.png`
 
+`suits/mip/` contains deterministic 64 x 64 Lanczos reductions of the same artwork.
+Flutter uses these mip-sized copies for card marks at 24 logical pixels or smaller so
+the detailed source art is not collapsed directly into an 8-14 px pip during painting.
+
 ## Faces
 
 `faces/` contains the 512 x 512 transparent court-card portrait family. The first two

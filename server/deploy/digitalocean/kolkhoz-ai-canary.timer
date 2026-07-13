@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the Kolkhoz AI canary daily
+
+[Timer]
+OnBootSec=10m
+OnUnitActiveSec=1d
+RandomizedDelaySec=15m
+Persistent=true
+Unit=kolkhoz-ai-canary.service
+
+[Install]
+WantedBy=timers.target

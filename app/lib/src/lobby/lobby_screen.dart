@@ -174,6 +174,7 @@ class StandaloneLobby extends StatelessWidget {
     this.onCloudSignUp,
     this.onCloudResetPassword,
     this.onCloudSignOut,
+    this.onCloudDeleteAccount,
     this.onComradesChanged,
     this.onComradeRequestToUser,
     this.onlineClientFactory,
@@ -284,6 +285,7 @@ class StandaloneLobby extends StatelessWidget {
   final Future<void> Function(String email, String password)? onCloudSignUp;
   final Future<void> Function(String email)? onCloudResetPassword;
   final Future<void> Function()? onCloudSignOut;
+  final Future<void> Function()? onCloudDeleteAccount;
   final ValueChanged<OnlineComradesResponse>? onComradesChanged;
   final Future<void> Function(String userID)? onComradeRequestToUser;
   final KolkhozOnlineClient Function()? onlineClientFactory;
@@ -446,6 +448,7 @@ class StandaloneLobby extends StatelessWidget {
                   onCloudSignUp: onCloudSignUp,
                   onCloudResetPassword: onCloudResetPassword,
                   onCloudSignOut: onCloudSignOut,
+                  onCloudDeleteAccount: onCloudDeleteAccount,
                   onComradesChanged: onComradesChanged,
                   onComradeRequestToUser: onComradeRequestToUser,
                   onlineClientFactory: onlineClientFactory,
@@ -1043,6 +1046,7 @@ class _LobbyPanel extends StatelessWidget {
     required this.onCloudSignUp,
     required this.onCloudResetPassword,
     required this.onCloudSignOut,
+    required this.onCloudDeleteAccount,
     required this.onComradesChanged,
     required this.onComradeRequestToUser,
     required this.onlineClientFactory,
@@ -1147,6 +1151,7 @@ class _LobbyPanel extends StatelessWidget {
   final Future<void> Function(String email, String password)? onCloudSignUp;
   final Future<void> Function(String email)? onCloudResetPassword;
   final Future<void> Function()? onCloudSignOut;
+  final Future<void> Function()? onCloudDeleteAccount;
   final ValueChanged<OnlineComradesResponse>? onComradesChanged;
   final Future<void> Function(String userID)? onComradeRequestToUser;
   final KolkhozOnlineClient Function()? onlineClientFactory;
@@ -1250,6 +1255,7 @@ class _LobbyPanel extends StatelessWidget {
               onCloudSignUp: onCloudSignUp,
               onCloudResetPassword: onCloudResetPassword,
               onCloudSignOut: onCloudSignOut,
+              onCloudDeleteAccount: onCloudDeleteAccount,
               onComradesChanged: onComradesChanged,
               onlineClientFactory: onlineClientFactory,
               onStartDailyChallenge: onStartDailyChallenge,
@@ -1289,6 +1295,7 @@ enum KolkhozSettingsTab {
   leaderboard,
   progress,
   comrades,
+  admin,
   assist,
   display,
   rules;
@@ -1301,6 +1308,7 @@ enum KolkhozSettingsTab {
       ),
       KolkhozSettingsTab.progress => language.t(KolkhozText.kolkhozappProgress),
       KolkhozSettingsTab.comrades => language.t(KolkhozText.kolkhozappComrades),
+      KolkhozSettingsTab.admin => 'OPERATIONS',
       KolkhozSettingsTab.assist => OptionsMenuTab.assist.title(language),
       KolkhozSettingsTab.display => OptionsMenuTab.display.title(language),
       KolkhozSettingsTab.rules => OptionsMenuTab.rules.title(language),
@@ -1313,6 +1321,7 @@ enum KolkhozSettingsTab {
       KolkhozSettingsTab.leaderboard => 'assets/ui/Icons/icon-medal-star.png',
       KolkhozSettingsTab.progress => 'assets/ui/Icons/icon-medal-star.png',
       KolkhozSettingsTab.comrades => 'assets/ui/Icons/icon-friends-list.png',
+      KolkhozSettingsTab.admin => 'assets/ui/Icons/icon-settings-session.png',
       KolkhozSettingsTab.assist => OptionsMenuTab.assist.iconAsset,
       KolkhozSettingsTab.display => OptionsMenuTab.display.iconAsset,
       KolkhozSettingsTab.rules => OptionsMenuTab.rules.iconAsset,
@@ -1361,6 +1370,7 @@ class _SettingsPanel extends StatefulWidget {
     required this.onCloudSignUp,
     required this.onCloudResetPassword,
     required this.onCloudSignOut,
+    required this.onCloudDeleteAccount,
     required this.onComradesChanged,
     required this.onlineClientFactory,
     required this.onStartDailyChallenge,
@@ -1405,6 +1415,7 @@ class _SettingsPanel extends StatefulWidget {
   final Future<void> Function(String email, String password)? onCloudSignUp;
   final Future<void> Function(String email)? onCloudResetPassword;
   final Future<void> Function()? onCloudSignOut;
+  final Future<void> Function()? onCloudDeleteAccount;
   final ValueChanged<OnlineComradesResponse>? onComradesChanged;
   final KolkhozOnlineClient Function()? onlineClientFactory;
   final Future<void> Function()? onStartDailyChallenge;
@@ -1446,6 +1457,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
         onCloudSignUp: widget.onCloudSignUp,
         onCloudResetPassword: widget.onCloudResetPassword,
         onCloudSignOut: widget.onCloudSignOut,
+        onCloudDeleteAccount: widget.onCloudDeleteAccount,
         clientFactory: widget.onlineClientFactory,
         onStartDailyChallenge: widget.onStartDailyChallenge,
       ),
@@ -1474,6 +1486,10 @@ class _SettingsPanelState extends State<_SettingsPanel> {
         onCloudSignUp: widget.onCloudSignUp,
         onCloudResetPassword: widget.onCloudResetPassword,
         onComradesChanged: widget.onComradesChanged,
+      ),
+      KolkhozSettingsTab.admin => _AdminOperationsPanel(
+        tokens: widget.tokens,
+        clientFactory: widget.onlineClientFactory,
       ),
       KolkhozSettingsTab.assist => SingleChildScrollView(
         child: Column(

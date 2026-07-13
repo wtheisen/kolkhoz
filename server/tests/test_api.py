@@ -10,6 +10,12 @@ from server.kolkhoz_server.errors import ServerError
 from server.kolkhoz_server.lobby import SQLiteLobbyRepository
 from server.kolkhoz_server.runtime import GameRuntime
 from server.kolkhoz_server.store import SQLiteEventStore
+from server.kolkhoz_server.commerce import (
+    CommerceService,
+    InMemoryEntitlementRepository,
+    PurchaseVerificationError,
+    VerifiedPurchase,
+)
 from server.tests.test_runtime import FakeEngineFactory
 
 
@@ -119,6 +125,98 @@ class CompatibilityApiTests(unittest.TestCase):
         status, body = self.request("GET", "/results/recent", bearer="host-token")
         self.assertEqual(status, 200)
         self.assertEqual(body["games"][0]["sessionID"], "recent-game")
+
+    def test_account_deletion_requires_auth_and_targets_current_user(self) -> None:
+        class Accounts:
+            def __init__(self) -> None:
+                self.deleted: list[str] = []
+
+            def delete(self, user_id: str) -> None:
+                self.deleted.append(user_id)
+
+        accounts = Accounts()
+        self.application.accounts = accounts  # type: ignore[assignment]
+        missing, _ = self.request("DELETE", "/account")
+        self.assertEqual(missing, 401)
+        status, body = self.request("DELETE", "/account", bearer="host-token")
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"deleted": True})
+        self.assertEqual(accounts.deleted, ["host"])
+
+    def test_commerce_claim_is_authenticated_and_returns_entitlement(self) -> None:
+        class Verifier:
+            provider = "apple"
+
+            def verify_purchase(self, value: str) -> VerifiedPurchase:
+                if value != "signed-transaction":
+                    raise PurchaseVerificationError("invalid")
+                return VerifiedPurchase(
+                    provider="apple",
+                    original_transaction_id="transaction-1",
+                    product_id="full-game",
+                    account_reference="host",
+                    active=True,
+                )
+
+            def verify_notification(self, value: str) -> VerifiedPurchase | None:
+                return None
+
+        self.application.commerce = CommerceService(
+            InMemoryEntitlementRepository(), {"apple": Verifier()}
+        )
+        missing, _ = self.request("GET", "/commerce/entitlements")
+        self.assertEqual(missing, 401)
+        status, initial = self.request(
+            "GET", "/commerce/entitlements", bearer="host-token"
+        )
+        self.assertEqual(status, 200)
+        self.assertFalse(initial["fullGame"])
+        claimed_status, claimed = self.request(
+            "POST",
+            "/commerce/purchases/claim",
+            {"provider": "apple", "verificationData": "signed-transaction"},
+            bearer="host-token",
+        )
+        self.assertEqual(claimed_status, 200)
+        self.assertTrue(claimed["fullGame"])
+        self.application.require_full_game = True
+        guest_status, _ = self.request("GET", "/sessions", bearer="guest-token")
+        self.assertEqual(guest_status, 403)
+        owner_status, _ = self.request("GET", "/sessions", bearer="host-token")
+        self.assertEqual(owner_status, 200)
+
+    def test_installation_registration_is_authenticated_and_owned(self) -> None:
+        class Installations:
+            def __init__(self) -> None:
+                self.registered: list[dict[str, object]] = []
+                self.deleted: list[dict[str, object]] = []
+
+            def register_installation(self, **values: object) -> None:
+                self.registered.append(values)
+
+            def delete_installation(self, **values: object) -> bool:
+                self.deleted.append(values)
+                return True
+
+        installations = Installations()
+        self.application.notification_repository = installations  # type: ignore[assignment]
+        path = "/installations/device-12345678"
+        missing, _ = self.request(
+            "PUT", path, {"platform": "ios", "token": "valid-token-value"}
+        )
+        self.assertEqual(missing, 401)
+        status, body = self.request(
+            "PUT",
+            path,
+            {"platform": "ios", "token": "valid-token-value"},
+            bearer="host-token",
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(body["registered"])
+        self.assertEqual(installations.registered[0]["user_id"], "host")
+        deleted, _ = self.request("DELETE", path, bearer="guest-token")
+        self.assertEqual(deleted, 200)
+        self.assertEqual(installations.deleted[0]["user_id"], "guest")
 
     def test_daily_challenge_returns_shared_seed_and_personal_best(self) -> None:
         status, body = self.request("GET", "/challenges/daily", bearer="host-token")

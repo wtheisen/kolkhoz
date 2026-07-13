@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'art_direction.dart';
 import 'design_tokens.dart';
+import 'field_plan_assets.dart';
 import 'game_constants.dart';
 import 'pixel_text.dart';
 import 'render_model.dart';
@@ -91,8 +93,37 @@ String faceAssetPath(TableCard card) {
     return 'assets/ui/Cards/face-wrecker.png';
   }
   final rank = faceRankName(card);
+  if (configuredKolkhozArtStyle.usesNewArt) {
+    final fieldPlanPath = fieldPlanCardFaceAssetPath(
+      suit: card.suit,
+      rank: rank,
+      nomenclature: card.nomenclature,
+    );
+    if (fieldPlanPath != null) {
+      return fieldPlanPath;
+    }
+  }
   final variant = card.nomenclature ? '-nomenklatura' : '';
   return 'assets/ui/Cards/face-$rank-${card.suit}$variant.png';
+}
+
+bool cardUsesFieldPlanFaceArt(TableCard card) =>
+    configuredKolkhozArtStyle.usesNewArt &&
+    fieldPlanCardFaceAssetPath(
+          suit: card.suit,
+          rank: faceRankName(card),
+          nomenclature: card.nomenclature,
+        ) !=
+        null;
+
+String suitAssetPath(String suit, {bool mip = false}) {
+  if (configuredKolkhozArtStyle.usesNewArt) {
+    final fieldPlanPath = fieldPlanCardSuitAssetPath(suit, mip: mip);
+    if (fieldPlanPath != null) {
+      return fieldPlanPath;
+    }
+  }
+  return 'assets/ui/Icons/icon-$suit.png';
 }
 
 String genericFaceAssetPath(TableCard card) {
@@ -125,6 +156,18 @@ String cardRankDisplayLabel(TableCard card) {
 }
 
 String portraitAssetPath(Seat seat) {
+  if (configuredKolkhozArtStyle.usesNewArt) {
+    final asset = switch (seat.portraitAsset) {
+      'worker1' || 'worker-forewoman' => fieldPlanPlayerForewoman,
+      'worker2' || 'worker-mechanic' => fieldPlanPlayerMechanic,
+      'worker3' || 'worker-agronomist' => fieldPlanPlayerAgronomist,
+      'worker4' || 'worker-beekeeper' => fieldPlanPlayerBeekeeper,
+      _ => null,
+    };
+    if (asset != null) {
+      return asset.pathFor(configuredKolkhozArtStyle);
+    }
+  }
   return 'assets/ui/${seat.portraitAsset}.png';
 }
 
