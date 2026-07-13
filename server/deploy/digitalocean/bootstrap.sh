@@ -82,11 +82,12 @@ umask 077
 database_url=$(sed -n 's/^DATABASE_URL=//p' "$SERVER_ENV" | tail -n 1)
 supabase_url=$(sed -n 's/^KOLKHOZ_SUPABASE_URL=//p' "$SERVER_ENV" | tail -n 1)
 publishable=$(sed -n 's/^KOLKHOZ_SUPABASE_PUBLISHABLE_KEY=//p' "$SERVER_ENV" | tail -n 1)
-[ -n "$database_url" ] && [ -n "$supabase_url" ] && [ -n "$publishable" ] || { echo "database/Supabase settings incomplete" >&2; exit 1; }
-for schema in postgres_schema.sql lobby_schema.sql distributed_schema.sql command_schema.sql population_schema.sql notifications_schema.sql; do
+secret_key=$(sed -n 's/^KOLKHOZ_SUPABASE_SECRET_KEY=//p' "$SERVER_ENV" | tail -n 1)
+[ -n "$database_url" ] && [ -n "$supabase_url" ] && [ -n "$publishable" ] && [ -n "$secret_key" ] || { echo "database/Supabase settings incomplete" >&2; exit 1; }
+for schema in postgres_schema.sql lobby_schema.sql distributed_schema.sql command_schema.sql population_schema.sql notifications_schema.sql commerce_schema.sql; do
   DATABASE_URL="$database_url" psql "$database_url" -v ON_ERROR_STOP=1 -f "$ROOT/server/$schema" >/dev/null
 done
-unset database_url supabase_url publishable
+unset database_url supabase_url publishable secret_key
 install -d -o redis -g redis /var/lib/redis-greenfield
 install -o root -g redis -m 0640 "$here/redis-greenfield.conf" /etc/redis/kolkhoz-greenfield.conf
 install -o root -g root -m 0644 "$here/kolkhoz-greenfield-redis.service" /etc/systemd/system/kolkhoz-greenfield-redis.service

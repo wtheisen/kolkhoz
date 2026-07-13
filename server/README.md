@@ -69,7 +69,8 @@ python3 -m server.kolkhoz_server.production
 
 Operators must set both `KOLKHOZ_SUPABASE_URL` and
 `KOLKHOZ_SUPABASE_PUBLISHABLE_KEY`; production startup fails closed when either is
-missing.
+missing. `KOLKHOZ_SUPABASE_SECRET_KEY` is also required for the authenticated
+account-deletion endpoint and must never be exposed to the Flutter app.
 
 The production WebSocket endpoint is:
 

@@ -26,6 +26,11 @@ from .lobby import PostgresLobbyRepository
 from .metrics import ServerMetrics
 from .population import PopulationScheduler, PostgresPopulationRepository
 from .preflight import verify_production_assets
+from .commerce import (
+    ApplePurchaseVerifier,
+    CommerceService,
+    PostgresEntitlementRepository,
+)
 from .runtime import GameRuntime, GatewayRuntimeContext
 from .results import PostgresResultsRepository
 from .scheduler import DeadlineScheduler
@@ -40,6 +45,11 @@ from .notifications import (
     PostgresNotificationRepository,
 )
 from .operations import PostgresOperationsRepository
+from .accounts import (
+    AccountDeletionService,
+    PostgresAccountCleaner,
+    SupabaseAccountDeleter,
+)
 
 
 def _production_auth_verifier() -> CachingAuthVerifier | StagingAuthVerifier:
@@ -129,6 +139,23 @@ def create_asgi_application() -> ASGIApplication:
     results = PostgresResultsRepository(pool=pool, json_value=Jsonb)
     notification_repository = PostgresNotificationRepository(pool)
     notifications = NotificationService(notification_repository)
+    apple_verifier = ApplePurchaseVerifier.from_environment()
+    commerce = CommerceService(
+        PostgresEntitlementRepository(pool),
+        {"apple": apple_verifier} if apple_verifier is not None else {},
+    )
+    account_deleter = SupabaseAccountDeleter.from_environment()
+    if account_deleter is None and not os.environ.get(
+        "KOLKHOZ_STAGING_STATIC_AUTH_TOKENS"
+    ):
+        raise RuntimeError(
+            "KOLKHOZ_SUPABASE_SECRET_KEY is required for account deletion"
+        )
+    accounts = (
+        AccountDeletionService(account_deleter, PostgresAccountCleaner(pool))
+        if account_deleter is not None
+        else None
+    )
     notification_worker = None
     firebase_project_id = os.environ.get("KOLKHOZ_FIREBASE_PROJECT_ID")
     if firebase_project_id and _enabled("KOLKHOZ_RUN_NOTIFICATION_WORKER"):
@@ -237,6 +264,9 @@ def create_asgi_application() -> ASGIApplication:
         notifications=notifications,
         notification_repository=notification_repository,
         operations=PostgresOperationsRepository(pool),
+        commerce=commerce,
+        accounts=accounts,
+        require_full_game=_enabled("KOLKHOZ_ENFORCE_FULL_GAME", False),
         admin_user_ids=frozenset(
             value.strip()
             for value in os.environ.get("KOLKHOZ_ADMIN_USER_IDS", "").split(",")

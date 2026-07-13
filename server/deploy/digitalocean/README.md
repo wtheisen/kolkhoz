@@ -14,7 +14,8 @@ Caddy retries unavailable loopback connections for up to five seconds, bridging 
 short bind gap during application restarts without immediately returning 502 responses.
 
 The installer reads normalized database, Redis, and production Supabase authentication
-settings from `/etc/kolkhoz-greenfield.env` without printing values. The six server
+settings, including `KOLKHOZ_SUPABASE_SECRET_KEY`, from
+`/etc/kolkhoz-greenfield.env` without printing values. The seven server
 schemas are applied explicitly with `ON_ERROR_STOP`; application startup never migrates
 the database.
 

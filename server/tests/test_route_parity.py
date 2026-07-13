@@ -103,6 +103,14 @@ class FakeSocialRepository:
         }
 
 
+class FakeAccountDeletionService:
+    def __init__(self) -> None:
+        self.deleted: list[str] = []
+
+    def delete(self, user_id: str) -> None:
+        self.deleted.append(user_id)
+
+
 class CanonicalRouteParityTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
@@ -124,6 +132,7 @@ class CanonicalRouteParityTests(unittest.TestCase):
                 }
             ),
             social=SocialService(FakeSocialRepository()),
+            accounts=FakeAccountDeletionService(),  # type: ignore[arg-type]
             lobby_countdown_seconds=0,
         )
         self.exercised: set[tuple[str, str]] = set()
@@ -170,6 +179,19 @@ class CanonicalRouteParityTests(unittest.TestCase):
         self.assert_ok(self.request("GET", "/metrics"))
         self.assert_ok(self.request("GET", "/canary"))
         self.request("GET", "/admin/operations", bearer="host-token")
+        self.assert_ok(self.request("DELETE", "/account", bearer="host-token"))
+        self.request("GET", "/commerce/entitlements", bearer="host-token")
+        self.request(
+            "POST",
+            "/commerce/purchases/claim",
+            {"provider": "apple", "verificationData": "test"},
+            bearer="host-token",
+        )
+        self.request(
+            "POST",
+            "/commerce/providers/apple/notifications",
+            {"signedPayload": "test"},
+        )
         self.request(
             "PUT",
             "/installations/device-12345678",

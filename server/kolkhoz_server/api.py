@@ -28,6 +28,8 @@ from .social import SocialService
 from .results import ResultsRepository
 from .notifications import NotificationService, NotificationRepository
 from .operations import PostgresOperationsRepository
+from .commerce import CommerceService, PurchaseAlreadyClaimed, PurchaseVerificationError
+from .accounts import AccountDeletionError, AccountDeletionService
 
 
 REACTION_IDS = frozenset(
@@ -67,6 +69,9 @@ class OnlineApplication:
         notifications: NotificationService | None = None,
         notification_repository: NotificationRepository | None = None,
         operations: PostgresOperationsRepository | None = None,
+        commerce: CommerceService | None = None,
+        accounts: AccountDeletionService | None = None,
+        require_full_game: bool = False,
         admin_user_ids: frozenset[str] = frozenset(),
         deployment_version: str = "unknown",
         session_ttl_seconds: float = 1800,
@@ -81,6 +86,9 @@ class OnlineApplication:
         self.notifications = notifications
         self.notification_repository = notification_repository
         self.operations = operations
+        self.commerce = commerce
+        self.accounts = accounts
+        self.require_full_game = require_full_game
         self.admin_user_ids = admin_user_ids
         self.deployment_version = deployment_version
         self.session_ttl_seconds = session_ttl_seconds
@@ -111,6 +119,21 @@ class OnlineApplication:
                     "routeContract": resolve_route("POST", "/sessions") is not None,
                 },
             )
+        if operation == "account.delete":
+            if self.accounts is None:
+                raise ServerError(
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    "account deletion is not configured",
+                )
+            try:
+                deleted_user_id = self._require_user(user_id)
+                self.accounts.delete(deleted_user_id)
+            except AccountDeletionError as error:
+                raise ServerError(HTTPStatus.BAD_GATEWAY, str(error)) from error
+            invalidate_user = getattr(self.auth, "invalidate_user", None)
+            if invalidate_user is not None:
+                invalidate_user(deleted_user_id)
+            return Response(HTTPStatus.OK, {"deleted": True})
         if operation == "admin.operations":
             admin_id = self._require_user(user_id)
             if admin_id not in self.admin_user_ids:
@@ -165,6 +188,56 @@ class OnlineApplication:
                 HTTPStatus.OK,
                 self._installation(operation, params, request.body, user_id),
             )
+        if operation == "commerce.entitlements":
+            if self.commerce is None:
+                raise ServerError(
+                    HTTPStatus.SERVICE_UNAVAILABLE, "commerce is not configured"
+                )
+            return Response(
+                HTTPStatus.OK,
+                self.commerce.status(user_id=self._require_user(user_id)),
+            )
+        if operation == "commerce.purchases.claim":
+            if self.commerce is None:
+                raise ServerError(
+                    HTTPStatus.SERVICE_UNAVAILABLE, "commerce is not configured"
+                )
+            try:
+                value = self.commerce.claim(
+                    user_id=self._require_user(user_id),
+                    provider=str(request.body.get("provider") or "").strip(),
+                    verification_data=str(
+                        request.body.get("verificationData") or ""
+                    ).strip(),
+                )
+            except PurchaseAlreadyClaimed as error:
+                raise ServerError(HTTPStatus.CONFLICT, str(error)) from error
+            except PurchaseVerificationError as error:
+                raise ServerError(HTTPStatus.BAD_REQUEST, str(error)) from error
+            return Response(HTTPStatus.OK, value)
+        if operation == "commerce.apple.notifications":
+            if self.commerce is None:
+                raise ServerError(
+                    HTTPStatus.SERVICE_UNAVAILABLE, "commerce is not configured"
+                )
+            try:
+                self.commerce.notification(
+                    provider="apple",
+                    signed_payload=str(
+                        request.body.get("signedPayload") or ""
+                    ).strip(),
+                )
+            except PurchaseVerificationError as error:
+                raise ServerError(HTTPStatus.BAD_REQUEST, str(error)) from error
+            return Response(HTTPStatus.OK, {"accepted": True})
+        if self.require_full_game and operation.startswith(
+            ("sessions.", "results.", "challenges.", "comrades.")
+        ):
+            premium_user_id = self._require_user(user_id)
+            if self.commerce is None or not self.commerce.status(
+                user_id=premium_user_id
+            )["fullGame"]:
+                raise ServerError(HTTPStatus.FORBIDDEN, "full game required")
         if operation.startswith("profiles.") or operation.startswith("comrades."):
             value = self._social(operation, params, request.body, user_id)
             if self.notifications is not None and operation == "comrades.request":

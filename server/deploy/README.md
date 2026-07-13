@@ -17,11 +17,24 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/distributed_schema.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/command_schema.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/population_schema.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/notifications_schema.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/commerce_schema.sql
 sudo install -o root -g root -m 0600 \
   server/deploy/kolkhoz-server.env.example /etc/kolkhoz-server.env
 sudo install -o root -g root -m 0644 \
   server/deploy/kolkhoz-server.service /etc/systemd/system/kolkhoz-server.service
 ```
+
+Account deletion also requires `KOLKHOZ_SUPABASE_SECRET_KEY` on the server.
+Use the project secret key (or the legacy service-role key); never copy it into
+Flutter configuration. The authenticated `DELETE /account` route permanently
+removes the Supabase user and their profile/entitlement data while retaining the
+minimal store-purchase tombstone that prevents a surrendered purchase from being
+linked to a new account.
+
+Commerce claims require `APPLE_ROOT_CERTIFICATE_PATHS`, `APPLE_APP_ID`,
+`APPLE_APP_BUNDLE_ID`, and `KOLKHOZ_APPLE_FULL_GAME_PRODUCT_ID`. Keep
+`KOLKHOZ_ENFORCE_FULL_GAME=false` while configuring and testing the first
+storefront, then enable it for the paid-access release.
 
 Edit `/etc/kolkhoz-server.env` with the production database URL, then start the
 service:

@@ -147,3 +147,9 @@ class CachingAuthVerifier:
             while len(self._entries) > self._capacity:
                 self._entries.popitem(last=False)
         return user_id
+
+    def invalidate_user(self, user_id: str) -> None:
+        with self._lock:
+            for authorization, cached in list(self._entries.items()):
+                if cached[0] == user_id:
+                    self._entries.pop(authorization, None)
