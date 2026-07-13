@@ -270,11 +270,20 @@ def create_asgi_application() -> ASGIApplication:
             "policyModels": not run_command_worker or models.sha256() is not None,
             "population": population.healthy,
             "lifecycle": lifecycle.healthy,
+            "automaticProgress": False,
         }
         try:
             with pool.connection() as connection:
                 row = connection.execute("select 1").fetchone()  # type: ignore[attr-defined]
                 checks["postgres"] = row is not None and int(row[0]) == 1
+                stalled = connection.execute(  # type: ignore[attr-defined]
+                    """select 1 from server_sessions
+                         where status = 'active' and turn_player_id is null
+                           and expires_at > now()
+                           and updated_at < now() - interval '30 seconds'
+                         limit 1"""
+                ).fetchone()
+                checks["automaticProgress"] = stalled is None
         except Exception:
             pass
         try:
