@@ -20,9 +20,7 @@ class OnlineSmokeTests(unittest.TestCase):
     def test_append_result_creates_jsonl_record(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "smoke.jsonl"
-            with mock.patch.dict(
-                os.environ, {"KOLKHOZ_SMOKE_RESULT_LOG": str(path)}
-            ):
+            with mock.patch.dict(os.environ, {"KOLKHOZ_SMOKE_RESULT_LOG": str(path)}):
                 online_smoke._append_result({"status": "passed", "actions": 12})
 
             self.assertEqual(
@@ -30,20 +28,24 @@ class OnlineSmokeTests(unittest.TestCase):
                 {"status": "passed", "actions": 12},
             )
 
-    def test_progression_games_handles_missing_row(self) -> None:
+    def test_games_played_handles_missing_row(self) -> None:
         with mock.patch.object(online_smoke, "request_json", return_value=[]):
             self.assertEqual(
-                online_smoke._progression_games("url", "key", "token", "user"),
+                online_smoke._games_played("url", "key", "token", "user"),
                 0,
             )
 
-    def test_progression_games_reads_game_counter(self) -> None:
-        payload = [{"progress": {"challenge.games_5": 7}}]
-        with mock.patch.object(online_smoke, "request_json", return_value=payload):
+    def test_games_played_reads_uncapped_stats_counter(self) -> None:
+        payload = [{"games_played": 7}]
+        with mock.patch.object(
+            online_smoke, "request_json", return_value=payload
+        ) as request_json:
             self.assertEqual(
-                online_smoke._progression_games("url", "key", "token", "user"),
+                online_smoke._games_played("url", "key", "token", "user"),
                 7,
             )
+        self.assertIn("/rest/v1/profile_stats?", request_json.call_args.args[0])
+        self.assertIn("select=games_played", request_json.call_args.args[0])
 
 
 if __name__ == "__main__":

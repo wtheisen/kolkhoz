@@ -29,30 +29,33 @@ def request_json(
         url,
         data=data,
         method=method,
-        headers={"Accept": "application/json", "Content-Type": "application/json", **(headers or {})},
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            **(headers or {}),
+        },
     )
     with urlrequest.urlopen(request, timeout=15) as response:
         return json.loads(response.read().decode("utf-8"))
 
 
-def _progression_games(
+def _games_played(
     supabase_url: str,
     publishable_key: str,
     token: str,
     user_id: str,
 ) -> int:
     query = urlencode(
-        {"select": "progress", "user_id": f"eq.{user_id}", "limit": "1"}
+        {"select": "games_played", "user_id": f"eq.{user_id}", "limit": "1"}
     )
     payload = request_json(
-        f"{supabase_url}/rest/v1/profile_progression?{query}",
+        f"{supabase_url}/rest/v1/profile_stats?{query}",
         headers={"apikey": publishable_key, "Authorization": f"Bearer {token}"},
     )
     if not isinstance(payload, list) or not payload:
         return 0
     row = payload[0] if isinstance(payload[0], dict) else {}
-    progress = row.get("progress") if isinstance(row.get("progress"), dict) else {}
-    return int(progress.get("challenge.games_5", 0))
+    return int(row.get("games_played", 0))
 
 
 def run_smoke() -> dict[str, object]:
@@ -80,9 +83,7 @@ def run_smoke() -> dict[str, object]:
     user = auth.get("user") if isinstance(auth.get("user"), dict) else {}
     user_id = str(user.get("id") or "")
     headers = {"Authorization": f"Bearer {token}"}
-    games_before = _progression_games(
-        supabase_url, publishable_key, token, user_id
-    )
+    games_before = _games_played(supabase_url, publishable_key, token, user_id)
 
     created = request_json(
         f"{online_url}/sessions",
@@ -110,12 +111,10 @@ def run_smoke() -> dict[str, object]:
     while time.monotonic() < deadline:
         snapshot = update.get("snapshot")
         if isinstance(snapshot, dict) and int(snapshot.get("winnerID", -1)) >= 0:
-            games_after = _progression_games(
-                supabase_url, publishable_key, token, user_id
-            )
+            games_after = _games_played(supabase_url, publishable_key, token, user_id)
             if games_after != games_before + 1:
                 raise RuntimeError(
-                    "progression game count did not advance exactly once "
+                    "games-played count did not advance exactly once "
                     f"({games_before} -> {games_after})"
                 )
             return {
@@ -124,7 +123,7 @@ def run_smoke() -> dict[str, object]:
                 "sessionID": session_id,
                 "actionsSubmitted": actions_submitted,
                 "winnerID": snapshot["winnerID"],
-                "progressionGames": games_after,
+                "gamesPlayed": games_after,
                 "scores": snapshot.get("scores", []),
             }
 
