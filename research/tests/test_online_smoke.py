@@ -6,6 +6,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from urllib.error import HTTPError
 from unittest import mock
 
 
@@ -46,6 +47,26 @@ class OnlineSmokeTests(unittest.TestCase):
             )
         self.assertIn("/rest/v1/profile_stats?", request_json.call_args.args[0])
         self.assertIn("select=games_played", request_json.call_args.args[0])
+
+    def test_action_conflict_refreshes_current_state(self) -> None:
+        conflict = HTTPError("url", 409, "conflict", None, None)
+        with mock.patch.object(
+            online_smoke,
+            "request_json",
+            side_effect=[conflict, {"actionLogCount": 2}],
+        ) as request_json:
+            update = online_smoke._submit_or_refresh(
+                "https://online",
+                "session",
+                0,
+                1,
+                {"type": "pass"},
+                {"Authorization": "Bearer token"},
+            )
+
+        self.assertEqual(update, {"actionLogCount": 2})
+        self.assertEqual(request_json.call_count, 2)
+        self.assertIn("/state?viewerID=0", request_json.call_args_list[1].args[0])
 
 
 if __name__ == "__main__":

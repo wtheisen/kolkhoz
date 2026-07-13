@@ -8,6 +8,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.error import HTTPError
 from urllib import request as urlrequest
 from urllib.parse import urlencode
 
@@ -56,6 +57,35 @@ def _games_played(
         return 0
     row = payload[0] if isinstance(payload[0], dict) else {}
     return int(row.get("games_played", 0))
+
+
+def _submit_or_refresh(
+    online_url: str,
+    session_id: str,
+    player_id: int,
+    action_log_count: int,
+    action: object,
+    headers: dict[str, str],
+) -> object:
+    try:
+        return request_json(
+            f"{online_url}/sessions/{session_id}/actions",
+            method="POST",
+            body={
+                "sessionID": session_id,
+                "playerID": player_id,
+                "actionLogCount": action_log_count,
+                "action": action,
+            },
+            headers=headers,
+        )
+    except HTTPError as error:
+        if error.code != 409:
+            raise
+    query = urlencode({"viewerID": player_id})
+    return request_json(
+        f"{online_url}/sessions/{session_id}/state?{query}", headers=headers
+    )
 
 
 def run_smoke() -> dict[str, object]:
@@ -130,16 +160,13 @@ def run_smoke() -> dict[str, object]:
         legal_actions = update.get("legalActions")
         if isinstance(legal_actions, list) and legal_actions:
             action = rng.choice(legal_actions)
-            update = request_json(
-                f"{online_url}/sessions/{session_id}/actions",
-                method="POST",
-                body={
-                    "sessionID": session_id,
-                    "playerID": player_id,
-                    "actionLogCount": int(update.get("actionLogCount", 0)),
-                    "action": action,
-                },
-                headers={**headers, "X-Kolkhoz-Seat-Token": seat_token},
+            update = _submit_or_refresh(
+                online_url,
+                session_id,
+                player_id,
+                int(update.get("actionLogCount", 0)),
+                action,
+                {**headers, "X-Kolkhoz-Seat-Token": seat_token},
             )
             if not isinstance(update, dict):
                 raise RuntimeError("online server returned an invalid action update")
