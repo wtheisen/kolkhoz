@@ -622,6 +622,13 @@ class GatewayRuntimeContext:
     def events(self, session_id: str, *, after_revision: int = 0):
         return self.store.events(session_id, after_revision=after_revision)
 
+    def health_state(self) -> dict[str, object]:
+        return {
+            "status": "ok",
+            "gitSHA": os.environ.get("KOLKHOZ_BUILD_SHA", "unknown"),
+            "engineSHA256": "remote",
+        }
+
     def metrics_state(self) -> dict[str, object]:
         return {
             "activeSessions": 0,

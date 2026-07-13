@@ -125,6 +125,8 @@ class RuntimeTests(unittest.TestCase):
 
         self.assertEqual(context.metrics_state()["shards"], 0)
         self.assertEqual(context.owner_id, "gateway-a")
+        self.assertEqual(context.health_state()["status"], "ok")
+        self.assertEqual(context.health_state()["engineSHA256"], "remote")
         context.close()
         store.close()
 
