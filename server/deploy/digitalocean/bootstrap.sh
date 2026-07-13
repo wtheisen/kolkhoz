@@ -40,7 +40,7 @@ if ! $apply; then
   echo "DRY RUN: would install redis-server, PostgreSQL client, Python venv, clang, and git"
   echo "DRY RUN: would clone/update $repo at requested ref into $ROOT"
   echo "DRY RUN: would read database and Supabase auth from $SERVER_ENV without displaying values"
-  echo "DRY RUN: would apply five server schemas explicitly"
+  echo "DRY RUN: would apply six server schemas explicitly"
   echo "DRY RUN: would install capped Redis on 127.0.0.1:$REDIS_PORT and the server on 127.0.0.1:$PORT"
   echo "DRY RUN: would configure Caddy to bridge short upstream restart gaps"
   exit 0
