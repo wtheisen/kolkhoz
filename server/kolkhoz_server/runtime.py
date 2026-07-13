@@ -98,7 +98,22 @@ class _Shard:
                 if event.payload.get("source") == "automatic":
                     engine.apply_ai_action(event.payload)
                 else:
-                    engine.apply(event.payload)
+                    player_id = int(event.payload.get("playerID", -1))
+                    if player_id < 0:
+                        engine.apply(event.payload)
+                        continue
+                    controller = engine.controller(player_id)  # type: ignore[attr-defined]
+                    if (
+                        controller != HUMAN and engine.waiting_player() != player_id  # type: ignore[attr-defined]
+                    ):
+                        # A later durable autopilot override can make engine
+                        # creation perform this formerly-manual action already.
+                        continue
+                    engine.set_controller(player_id, HUMAN)  # type: ignore[attr-defined]
+                    try:
+                        engine.apply(event.payload)
+                    finally:
+                        engine.set_controller(player_id, controller)  # type: ignore[attr-defined]
         self.engines[session_id] = engine
         self.automatic_states[session_id] = desired
         self.update_buffers[session_id] = ShardUpdateBuffer(
