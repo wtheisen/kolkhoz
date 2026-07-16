@@ -1,37 +1,27 @@
-# Field-Plan Gameplay Backgrounds
+# Field-Plan Gameplay Background
 
-`trick-field-light.png` is the light-mode environmental plate for the trick area. It is
-a 1672 x 941 RGB landscape asset rather than a 512 x 512 pictogram because it must retain
-detail across the full gameplay surface.
+`brigade-plot-light.png` is the light-mode environmental plate for the combined brigade
+and plot area. It is a 1672 x 941 RGB landscape asset because it must retain detail
+across the full gameplay surface.
 
-The plate contains only environment: four continuous agricultural parcels, connecting
-roads, distant fields, farm infrastructure, equipment, utilities, and small ordinary
-workers for scale. Flutter must overlay cards, player identity, state, controls, and all
-live text.
+The plate contains four farmsteads around a central crossroads, connecting roads,
+distant fields, farm infrastructure, equipment, and utilities. Flutter overlays cards,
+player identity, cellar and plot state, controls, and all live text.
 
-The composition targets the full 16:9 board rather than the post-rail content rectangle.
-The leftmost 11 percent is a low-detail paper and distant-landscape safety zone for the
-60-72 px Flutter board rail. The four playable parcel centers sit in the remaining area.
-Top, right, and bottom edge scenery is expendable under responsive cropping; parcel
-boundaries and distant landmarks stay inset.
+The composition targets the full 16:9 board. The central crossroads is reserved for
+live trick cards. The fenced farmsteads carry each player's identity, cellar, and
+revealed plot state.
 
-## Card perspective calibration
+Run `python3 tool/field_plan_calibration_overlay.py --serve` from `app/`, then choose
+**Brigade / plots** to position each player's portrait, name, plot cards, and cellar
+count; the four crop job signs; the crossroads cards; or the planning panel directly
+on this plate. The editor retains changes in the browser and emits plate-pixel Dart
+constants for `lib/src/board/brigade_panel.dart`.
 
-To align the four played-card homographies against the painted parcels, run:
+`fields-light.png` is the working-fields layer directly above the farmstead view. A
+vertical swipe up transitions to its four crop fields; swiping down returns to the
+brigade and plots.
 
-```bash
-cd app
-python3 tool/field_plan_calibration_overlay.py --serve
-```
-
-The local page shows the current Flutter screenshot and lets each card corner be dragged
-in screenshot coordinates. A horizontal guide flashes when top or bottom edge points
-align within three screenshot pixels. It previews the warped cards and emits a complete
-`fieldPlanCardQuad` Dart snippet normalized to the four Flutter card slots. The static
-PNG comparison remains available by running the script without `--serve`.
-
-Composition reference: the approved integrated Field Plan trick mockup. Prompt direction:
-early-1930s agricultural publishing illustration and technical field-plan diagram; muted
-color lithograph; calm parcel centers; detail concentrated at roads, boundaries, and the
-distant horizon. Do not add card holders, blank UI plates, labels, meters, portraits, or
-controls to the environment asset.
+`north-light.png` is the North layer above the fields. A second upward swipe reveals
+the barracks and the five-year exile archive; downward swipes retrace the route through
+the fields to the brigade and plots.

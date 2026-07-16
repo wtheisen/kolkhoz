@@ -1,0 +1,256 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "fileKey": "MQdTuEmeZVkWS79EJcLEOF",
+    "nodeId": "103:2",
+    "fileName": "Kolkhoz 2.5D World Depth Layers",
+    "frameName": "WORLD CAMERA VIEW · Near World V2 Runtime Plates",
+    "lastModified": "2026-07-15T16:13:59Z",
+    "version": "2376479300364086992",
+    "transport": "figma-rest"
+  },
+  "viewport": {
+    "width": 1672.0,
+    "height": 941.0
+  },
+  "camera": {
+    "status": "locked",
+    "initialZ": -2.0,
+    "terminalZ": 8.05,
+    "focalLength": 2.0,
+    "vanishingPoint": [
+      0.5,
+      0.4
+    ],
+    "pitchDegrees": 0.0,
+    "yawDegrees": 0.0,
+    "nearPlane": 0.08,
+    "minimumScale": 0.04,
+    "maximumScale": 8.0,
+    "plateExitDistance": 0.55,
+    "stops": [
+      {
+        "id": "menu",
+        "label": "MENU",
+        "z": -2.0
+      },
+      {
+        "id": "brigade",
+        "label": "BRIGADE",
+        "z": 0.0
+      },
+      {
+        "id": "fields",
+        "label": "FIELDS",
+        "z": 3.0
+      },
+      {
+        "id": "north",
+        "label": "NORTH",
+        "z": 5.0
+      },
+      {
+        "id": "camp",
+        "label": "CAMP",
+        "z": 8.05
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "U00",
+      "name": "Continuous full-canvas underpaint",
+      "nodeId": "105:2",
+      "worldZ": 7.75,
+      "assetPath": "assets/art/field_plan/world_depth/u00.png",
+      "initialRect": [
+        -0.10256410443611692,
+        -0.08205122750066418,
+        1.205128208872234,
+        1.2051281984756907
+      ]
+    },
+    {
+      "id": "N00",
+      "name": "Sky and distant atmosphere",
+      "nodeId": "103:3",
+      "worldZ": 7.75,
+      "assetPath": "assets/art/field_plan/world_depth/n00.png",
+      "initialRect": [
+        -0.10256410443611692,
+        -0.08205122750066418,
+        1.205128208872234,
+        1.2051281984756907
+      ]
+    },
+    {
+      "id": "N10",
+      "name": "North landmark",
+      "nodeId": "103:8",
+      "worldZ": 7.4,
+      "assetPath": "assets/art/field_plan/world_depth/n10.png",
+      "initialRect": [
+        -0.10638298144180809,
+        -0.08510635813795164,
+        1.2127659263793362,
+        1.2127659602068943
+      ]
+    },
+    {
+      "id": "N20",
+      "name": "Ridge and distant forest",
+      "nodeId": "103:21",
+      "worldZ": 6.7,
+      "assetPath": "assets/art/field_plan/world_depth/n20.png",
+      "initialRect": [
+        -0.11494253240703967,
+        -0.09195397080067746,
+        1.2298851195704994,
+        1.229885121587739
+      ]
+    },
+    {
+      "id": "M10",
+      "name": "Far settlement and fields",
+      "nodeId": "103:25",
+      "worldZ": 3.2,
+      "assetPath": "assets/art/field_plan/world_depth/m10.png",
+      "initialRect": [
+        -0.19230768669164922,
+        -0.1538462137187832,
+        1.3846153733832984,
+        1.3846154045729278
+      ]
+    },
+    {
+      "id": "R10",
+      "name": "Continuous railway and crossing",
+      "nodeId": "103:31",
+      "worldZ": 30.0,
+      "assetPath": "assets/art/field_plan/world_depth/r10.png",
+      "initialRect": [
+        0.0234375,
+        0.018750051889612113,
+        0.953125,
+        0.953125
+      ]
+    },
+    {
+      "id": "T20",
+      "name": "Transition station and buildings",
+      "nodeId": "103:51",
+      "worldZ": 2.65,
+      "assetPath": "assets/art/field_plan/world_depth/t20.png",
+      "initialRect": [
+        0.16129032846843228,
+        0.12903221203340862,
+        0.6774193430631354,
+        0.6774193401924482
+      ]
+    },
+    {
+      "id": "T30",
+      "name": "Transition corridor objects",
+      "nodeId": "103:64",
+      "worldZ": 2.25,
+      "assetPath": "assets/art/field_plan/world_depth/t30.png",
+      "initialRect": [
+        0.17647059682453647,
+        0.14117645685274974,
+        0.647058806350927,
+        0.6470587930061105
+      ]
+    },
+    {
+      "id": "T40",
+      "name": "Transition near fields and fences",
+      "nodeId": "103:83",
+      "worldZ": 1.85,
+      "assetPath": "assets/art/field_plan/world_depth/t40.png",
+      "initialRect": [
+        0.19480520002009197,
+        0.1558442232332625,
+        0.6103895999598161,
+        0.6103896365028892
+      ]
+    },
+    {
+      "id": "B20",
+      "name": "Brigade houses and plots",
+      "nodeId": "103:90",
+      "worldZ": 1.05,
+      "assetPath": "assets/art/field_plan/world_depth/b20.png",
+      "initialRect": [
+        0.0,
+        0.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "id": "B30",
+      "name": "Brigade corridor objects",
+      "nodeId": "103:112",
+      "worldZ": 0.35,
+      "assetPath": "assets/art/field_plan/world_depth/b30.png",
+      "initialRect": [
+        0.0,
+        0.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "id": "B40",
+      "name": "Brigade foreground framing",
+      "nodeId": "103:130",
+      "worldZ": 0.15,
+      "assetPath": "assets/art/field_plan/world_depth/b40.png",
+      "initialRect": [
+        0.0,
+        0.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "id": "M20",
+      "name": "Menu entrance buildings",
+      "nodeId": "103:139",
+      "worldZ": -0.35,
+      "assetPath": "assets/art/field_plan/world_depth/m20.png",
+      "initialRect": [
+        -0.6060605938925127,
+        -0.4848484927105473,
+        2.2121212607935856,
+        2.212121102052338
+      ]
+    },
+    {
+      "id": "M30",
+      "name": "Menu corridor objects",
+      "nodeId": "103:160",
+      "worldZ": -0.7,
+      "assetPath": "assets/art/field_plan/world_depth/m30.png",
+      "initialRect": [
+        -0.7692307467665969,
+        -0.6153845954270722,
+        2.5384614935331937,
+        2.538461618291711
+      ]
+    },
+    {
+      "id": "M40",
+      "name": "Menu foreground framing",
+      "nodeId": "103:181",
+      "worldZ": -1.25,
+      "assetPath": "assets/art/field_plan/world_depth/m40.png",
+      "initialRect": [
+        -1.33333328466096,
+        -1.066666670990801,
+        3.66666656932192,
+        3.6666665801839797
+      ]
+    }
+  ]
+}

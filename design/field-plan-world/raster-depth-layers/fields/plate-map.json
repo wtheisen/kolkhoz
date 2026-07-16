@@ -1,0 +1,17 @@
+{
+  "scene": "fields",
+  "source": "app/assets/art/field_plan/game/backgrounds/fields-light-v2.png",
+  "registration": {"aspectRatio": "16:9", "vanishingPoint": [0.5, 0.115], "cameraStopZ": 3.0},
+  "layers": [
+    {"id": "F00", "worldZ": 4.75, "name": "far sky and mosaic", "fullCanvasOpaque": false,
+     "owns": "sky, mountains and distant field mosaic"},
+    {"id": "F10", "worldZ": 4.40, "name": "station and railway horizon", "fullCanvasOpaque": false,
+     "owns": "railway, station, horizon fence and utility details"},
+    {"id": "F20", "worldZ": 4.05, "name": "upper fields", "fullCanvasOpaque": false,
+     "owns": "upper wheat and sunflower fields with fences"},
+    {"id": "F30", "worldZ": 3.70, "name": "lower fields", "fullCanvasOpaque": false,
+     "owns": "potato and beet fields with fences"},
+    {"id": "F40", "worldZ": 3.35, "name": "foreground crop edge", "fullCanvasOpaque": false,
+     "owns": "nearest wheat, sunflower, hedge and road-edge details"}
+  ]
+}

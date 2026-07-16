@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_settings.dart';
 import '../app_text.dart';
+import '../art_direction.dart';
 import '../chrome_button.dart';
 import '../design_tokens.dart';
 import '../game_constants.dart';
@@ -257,27 +258,29 @@ List<Widget> boardRailButtons({
       metrics: metrics,
       onTap: () => onPanelSelected?.call(panelJobs),
     ),
-    RailButton(
-      asset: 'icon-north.png',
-      active: activePanel == panelNorth,
-      action: actionPanel == panelNorth,
-      label: language.t(KolkhozText.boardBoardrailTheNorth),
-      muted: activePanel != panelNorth,
-      motionKey: northCardMotionTargetKey,
-      tokens: tokens,
-      metrics: metrics,
-      onTap: () => onPanelSelected?.call(panelNorth),
-    ),
-    RailButton(
-      asset: 'icon-plot.png',
-      active: activePanel == panelPlot,
-      action: actionPanel == panelPlot,
-      label: language.t(KolkhozText.boardBoardrailCellar),
-      muted: activePanel != panelPlot,
-      tokens: tokens,
-      metrics: metrics,
-      onTap: () => onPanelSelected?.call(panelPlot),
-    ),
+    if (!configuredKolkhozArtStyle.usesNewArt)
+      RailButton(
+        asset: 'icon-north.png',
+        active: activePanel == panelNorth,
+        action: actionPanel == panelNorth,
+        label: language.t(KolkhozText.boardBoardrailTheNorth),
+        muted: activePanel != panelNorth,
+        motionKey: northCardMotionTargetKey,
+        tokens: tokens,
+        metrics: metrics,
+        onTap: () => onPanelSelected?.call(panelNorth),
+      ),
+    if (!configuredKolkhozArtStyle.usesNewArt)
+      RailButton(
+        asset: 'icon-plot.png',
+        active: activePanel == panelPlot,
+        action: actionPanel == panelPlot,
+        label: language.t(KolkhozText.boardBoardrailCellar),
+        muted: activePanel != panelPlot,
+        tokens: tokens,
+        metrics: metrics,
+        onTap: () => onPanelSelected?.call(panelPlot),
+      ),
     RailButton(
       asset: 'icon-game-log.png',
       active: activePanel == panelLog,

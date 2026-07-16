@@ -8,6 +8,25 @@ Read the agent documentation in `agent-docs/`:
 3. `GAME_STATE.md` - State shape and state mutations
 4. `PHASES.md` - Game phase flow and transitions
 
+### Isolated World-Depth Research
+
+For tasks scoped entirely to `research/world_depth/` that do not modify production
+Flutter, engine, server, or Figma assets, read only:
+
+1. `design/field-plan-world/DEPTH_CARD_PIPELINE.md`
+2. `research/world_depth/AGENTS.md`
+3. `research/world_depth/BRIEF.md`
+4. The JSON configuration named by that brief
+
+The four game documents above are not required for those isolated research tasks. If
+the work expands into production code or assets, stop and read the normal documentation
+before continuing.
+
+For any task that generates raster masters, segments depth, creates or edits depth
+cards, changes the Figma world file, or exports world plates, always read
+`design/field-plan-world/DEPTH_CARD_PIPELINE.md` even when the task is not otherwise
+isolated to `research/world_depth/`.
+
 ## Code Principles
 
 **Keep it simple.** This is a card game, not enterprise software. Prefer straightforward

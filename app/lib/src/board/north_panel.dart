@@ -33,75 +33,224 @@ class NorthPanel extends StatelessWidget {
     required this.model,
     required this.tokens,
     required this.language,
+    this.fieldPlanEnvironment = false,
     super.key,
   });
 
   final TableViewModel model;
   final DesignTokens tokens;
   final KolkhozLanguage language;
+  final bool fieldPlanEnvironment;
 
   @override
   Widget build(BuildContext context) {
     final exiledByYear = model.table.exiledByYear;
-    return CommandPanelSurface(
-      tokens: tokens,
-      child: Stack(
-        children: [
-          Positioned(
-            right: 14,
-            bottom: 8,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final width = clampDouble(constraints.maxWidth * 0.44, 0, 300);
-                return Opacity(
-                  opacity: 0.16,
-                  child: Image.asset(
-                    'assets/ui/Embellishments/art-north-requisition-banner.png',
-                    width: width,
-                    height: 58,
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.none,
-                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                  ),
-                );
-              },
-            ),
-          ),
-          LayoutBuilder(
+    if (fieldPlanEnvironment) {
+      return FieldPlanNorthArchive(
+        exiledByYear: exiledByYear,
+        currentYear: model.table.year,
+        tokens: tokens,
+      );
+    }
+    final content = Stack(
+      children: [
+        Positioned(
+          right: 14,
+          bottom: 8,
+          child: LayoutBuilder(
             builder: (context, constraints) {
-              const spacing = 10.0;
-              final columnHeight = math.max(
-                0.0,
-                constraints.maxHeight - northColumnVerticalInset,
-              );
-              const headerHeight = northHeaderHeight;
-              final cardScrollHeight = northCardScrollHeight(
-                columnHeight: columnHeight,
-                headerHeight: headerHeight,
-              );
-              return Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: spacing,
-                  children: [
-                    for (var year = 1; year <= finalGameYear; year++)
-                      Expanded(
-                        child: NorthYearColumn(
-                          year: year,
-                          cards: exiledByYear[year] ?? const [],
-                          seats: model.table.seats,
-                          currentYear: model.table.year,
-                          headerHeight: headerHeight,
-                          columnHeight: columnHeight,
-                          cardScrollHeight: cardScrollHeight,
-                          tokens: tokens,
-                        ),
-                      ),
-                  ],
+              final width = clampDouble(constraints.maxWidth * 0.44, 0, 300);
+              return Opacity(
+                opacity: 0.16,
+                child: Image.asset(
+                  'assets/ui/Embellishments/art-north-requisition-banner.png',
+                  width: width,
+                  height: 58,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.none,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
                 ),
               );
             },
+          ),
+        ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const spacing = 10.0;
+            final columnHeight = math.max(
+              0.0,
+              constraints.maxHeight - northColumnVerticalInset,
+            );
+            const headerHeight = northHeaderHeight;
+            final cardScrollHeight = northCardScrollHeight(
+              columnHeight: columnHeight,
+              headerHeight: headerHeight,
+            );
+            return Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: spacing,
+                children: [
+                  for (var year = 1; year <= finalGameYear; year++)
+                    Expanded(
+                      child: NorthYearColumn(
+                        year: year,
+                        cards: exiledByYear[year] ?? const [],
+                        seats: model.table.seats,
+                        currentYear: model.table.year,
+                        headerHeight: headerHeight,
+                        columnHeight: columnHeight,
+                        cardScrollHeight: cardScrollHeight,
+                        tokens: tokens,
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+    );
+    return CommandPanelSurface(tokens: tokens, child: content);
+  }
+}
+
+class FieldPlanNorthArchive extends StatelessWidget {
+  const FieldPlanNorthArchive({
+    required this.exiledByYear,
+    required this.currentYear,
+    required this.tokens,
+    super.key,
+  });
+
+  final Map<int, List<TableCard>> exiledByYear;
+  final int currentYear;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = constraints.biggest;
+        final rowHeight = size.height * 0.115;
+        const rowTopFactors = [0.015, 0.125, 0.245, 0.38, 0.525];
+        return Stack(
+          children: [
+            for (var year = 1; year <= finalGameYear; year++)
+              Positioned(
+                top: size.height * rowTopFactors[year - 1],
+                left: size.width * (1 - (0.44 + year * 0.055)) / 2,
+                width: size.width * (0.44 + year * 0.055),
+                height: rowHeight,
+                child: FieldPlanNorthYearRow(
+                  year: year,
+                  cards: exiledByYear[year] ?? const [],
+                  current: year == currentYear,
+                  tokens: tokens,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class FieldPlanNorthYearRow extends StatelessWidget {
+  const FieldPlanNorthYearRow({
+    required this.year,
+    required this.cards,
+    required this.current,
+    required this.tokens,
+    super.key,
+  });
+
+  final int year;
+  final List<TableCard> cards;
+  final bool current;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: ValueKey('field-plan-north-year-$year'),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: tokens.colors.black.withValues(alpha: current ? 0.34 : 0.18),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: current
+              ? tokens.colors.redBright
+              : tokens.colors.cream.withValues(alpha: 0.36),
+          width: current ? 2 : 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Image.asset(
+            'assets/ui/Icons/icon-year-$year.png',
+            width: 29,
+            height: 29,
+            filterQuality: FilterQuality.none,
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: cards.isEmpty
+                ? Align(
+                    alignment: Alignment.centerLeft,
+                    child: PixelText(
+                      '-',
+                      size: PixelTextSize.title,
+                      variant: PixelTextVariant.heavy,
+                      color: tokens.colors.creamDim.withValues(alpha: 0.72),
+                    ),
+                  )
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      final cardHeight = math.max(0.0, constraints.maxHeight);
+                      final cardWidth = cardHeight / tokens.card.aspectRatio;
+                      final cardScale = cardWidth / tokens.card.small.width;
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          spacing: 4,
+                          children: [
+                            for (final card in cards)
+                              SizedBox(
+                                key: ValueKey(
+                                  'field-plan-north-card-${card.id}',
+                                ),
+                                width: cardWidth,
+                                height: cardHeight,
+                                child: NaturalSizeViewport(
+                                  width: cardWidth,
+                                  height: cardHeight,
+                                  naturalWidth: tokens.card.small.width,
+                                  naturalHeight: tokens.card.small.height,
+                                  child: Transform.scale(
+                                    alignment: Alignment.topLeft,
+                                    scale: cardScale,
+                                    child: GameCard(
+                                      card: card,
+                                      tokens: tokens,
+                                      small: true,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          const SizedBox(width: 7),
+          PixelText(
+            '${cards.length}',
+            size: PixelTextSize.caption,
+            variant: PixelTextVariant.heavy,
+            color: tokens.colors.cream,
           ),
         ],
       ),

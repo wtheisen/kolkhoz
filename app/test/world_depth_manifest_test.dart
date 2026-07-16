@@ -1,0 +1,353 @@
+import 'dart:convert';
+
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:kolkhoz_app/src/north_threat_state.dart';
+import 'package:kolkhoz_app/src/world_depth_camera.dart';
+import 'package:kolkhoz_app/src/world_depth_manifest.dart';
+import 'package:kolkhoz_app/src/world_depth_scene.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('checked-in Figma manifest preserves the near-world V2 stack', () async {
+    final manifest = await WorldDepthManifest.load();
+
+    expect(manifest.layers.map((layer) => layer.id), [
+      'U00',
+      'N00',
+      'N10',
+      'N20',
+      'M10',
+      'R10',
+      'T20',
+      'T30',
+      'T40',
+      'B20',
+      'B30',
+      'B40',
+      'M20',
+      'M30',
+      'M40',
+    ]);
+    expect(manifest.stops.map((stop) => stop.z), [-2, 0, 3, 5]);
+  });
+
+  test('camera contract owns stops and continuous route interpolation', () {
+    final camera = worldDepthCameraCalibration;
+
+    expect(camera.status, 'locked');
+    expect(camera.vanishingPointY, 0.40);
+    expect(camera.stops.map((stop) => stop.id), [
+      'menu',
+      'brigade',
+      'fields',
+      'north',
+    ]);
+    expect(camera.zAtProgress(0), -2);
+    expect(camera.zAtProgress(2 / 7), closeTo(0, 0.000001));
+    expect(camera.zAtProgress(5 / 7), closeTo(3, 0.000001));
+    expect(camera.zAtProgress(1), 5);
+    expect(camera.zAtProgress(3.25 / 7), closeTo(1.25, 0.000001));
+    expect(camera.progressAtZ(1.25), closeTo(3.25 / 7, 0.000001));
+    expect(camera.zAtProgress(-1), camera.startZ);
+    expect(camera.zAtProgress(2), camera.terminalZ);
+  });
+
+  test('stale generated camera metadata is rejected', () async {
+    final source = await rootBundle.loadString(worldDepthManifestAssetPath);
+    final json = jsonDecode(source) as Map<String, Object?>;
+    final camera = json['camera']! as Map<String, Object?>;
+    camera['vanishingPoint'] = <double>[0.5, 0.11];
+
+    expect(
+      () => WorldDepthManifest.fromJson(json),
+      throwsA(
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          contains('stale vanishing point'),
+        ),
+      ),
+    );
+  });
+
+  test('railway sleepers begin at the station and continue toward North', () {
+    const horizonY = 941 * 0.4;
+    final route = [-2.0, 0.0, 1.5, 3.0, 5.0].map(
+      (cameraZ) => projectNorthRailwaySleepers(
+        cameraZ: cameraZ,
+        horizonY: horizonY,
+        viewportHeight: 941,
+      ),
+    );
+
+    for (final sleepers in route) {
+      expect(sleepers, isNotEmpty);
+      expect(
+        sleepers.every((sleeper) => sleeper.worldZ >= worldDepthStationWorldZ),
+        isTrue,
+      );
+      expect(sleepers.every((sleeper) => sleeper.worldZ.isFinite), isTrue);
+      expect(
+        sleepers.every((sleeper) => sleeper.y > horizonY && sleeper.y <= 941),
+        isTrue,
+      );
+    }
+
+    final before = projectNorthRailwaySleepers(
+      cameraZ: 0,
+      horizonY: horizonY,
+      viewportHeight: 941,
+    );
+    final after = projectNorthRailwaySleepers(
+      cameraZ: 0.2,
+      horizonY: horizonY,
+      viewportHeight: 941,
+    );
+    final sharedWorldZ = before
+        .map((sleeper) => sleeper.worldZ)
+        .firstWhere(
+          (worldZ) => after.any((sleeper) => sleeper.worldZ == worldZ),
+        );
+    final beforeY = before
+        .singleWhere((sleeper) => sleeper.worldZ == sharedWorldZ)
+        .y;
+    final afterY = after
+        .singleWhere((sleeper) => sleeper.worldZ == sharedWorldZ)
+        .y;
+    expect(afterY, greaterThan(beforeY));
+  });
+
+  test(
+    'station crosses the foreground continuously before railway takeover',
+    () {
+      expect(worldDepthStationWorldZ, 4.85);
+      expect(worldDepthStationPassageStartZ, closeTo(3.8, 0.000001));
+      expect(worldDepthStationPassageEndZ, 4.25);
+      expect(worldDepthStationPassageProgress(3.75), 0);
+      expect(
+        worldDepthStationPassageProgress(4),
+        closeTo(0.197530864, 0.000001),
+      );
+      expect(worldDepthStationPassageProgress(4.25), 1);
+      expect(worldDepthStationPassageProgress(5), 1);
+    },
+  );
+
+  test('foreground scales and moves more strongly than corridor objects', () {
+    const viewport = Size(1672, 941);
+    expect(northForegroundWorldZ, 11.0);
+    expect(northForegroundWorldZ, lessThan(northCorridorObjectsWorldZ));
+
+    final objectStart = projectNorthCalibrationLayer(
+      viewport: viewport,
+      worldZ: northCorridorObjectsWorldZ,
+      cameraZ: 3,
+    );
+    final objectEnd = projectNorthCalibrationLayer(
+      viewport: viewport,
+      worldZ: northCorridorObjectsWorldZ,
+      cameraZ: 5,
+    );
+    final foregroundStart = projectNorthCalibrationLayer(
+      viewport: viewport,
+      worldZ: northForegroundWorldZ,
+      cameraZ: 3,
+    );
+    final foregroundEnd = projectNorthCalibrationLayer(
+      viewport: viewport,
+      worldZ: northForegroundWorldZ,
+      cameraZ: 5,
+    );
+
+    expect(
+      foregroundEnd.scale - foregroundStart.scale,
+      greaterThan(objectEnd.scale - objectStart.scale),
+    );
+    expect(
+      foregroundEnd.rect.bottom - foregroundStart.rect.bottom,
+      greaterThan(objectEnd.rect.bottom - objectStart.rect.bottom),
+    );
+    expect(
+      northForegroundPassageOffset(viewportHeight: viewport.height, cameraZ: 5),
+      greaterThan(0),
+    );
+  });
+
+  test('hybrid transition is continuous and preserves the approved bounds', () {
+    expect(northHybridTransitionStartZ, 2.65);
+    expect(northHybridTransitionEndZ, 3.0);
+    expect(northHybridOpacity(2.64), 0);
+    expect(northHybridOpacity(2.65), 0);
+    expect(northHybridOpacity(2.825), closeTo(0.5, 0.000001));
+    expect(northHybridOpacity(3), 1);
+    expect(northHybridOpacity(3.01), 1);
+  });
+
+  test('atmosphere haze is feathered and preserves year ordering', () {
+    final year1 = threatHazeGradient(NorthThreatState.year1);
+    final year3 = threatHazeGradient(NorthThreatState.year3);
+    final year5 = threatHazeGradient(NorthThreatState.year5);
+
+    for (final gradient in [year1, year3, year5]) {
+      expect(gradient.colors.first.a, 0);
+      expect(gradient.colors.last.a, 0);
+      expect(gradient.stops, orderedEquals([0, 0.24, 0.48, 0.72, 1]));
+    }
+    expect(year1.colors[2].a, greaterThan(year3.colors[2].a));
+    expect(year3.colors[2].a, greaterThan(year5.colors[2].a));
+
+    final smoke1 = threatSmokeGradient(NorthThreatState.year1);
+    final smoke3 = threatSmokeGradient(NorthThreatState.year3);
+    final smoke5 = threatSmokeGradient(NorthThreatState.year5);
+    for (final gradient in [smoke1, smoke3, smoke5]) {
+      expect(gradient.colors.first.a, 0);
+      expect(gradient.colors.last.a, 0);
+    }
+    expect(smoke5.colors[2].a, greaterThan(smoke3.colors[2].a));
+    expect(smoke3.colors[2].a, greaterThan(smoke1.colors[2].a));
+  });
+
+  test('camera zero reproduces Figma and near plates grow faster', () async {
+    final manifest = await WorldDepthManifest.load();
+    final near = manifest.layers.singleWhere((layer) => layer.id == 'B40');
+    final far = manifest.layers.singleWhere((layer) => layer.id == 'N00');
+
+    final initial = projectWorldDepthLayer(
+      manifest: manifest,
+      layer: near,
+      cameraZ: 0,
+    );
+    expect(initial.rect.left, closeTo(0, 0.001));
+    expect(initial.rect.width, closeTo(manifest.viewportSize.width, 0.001));
+
+    double growth(WorldDepthLayer layer) {
+      final before = projectWorldDepthLayer(
+        manifest: manifest,
+        layer: layer,
+        cameraZ: 0,
+      ).rect.width;
+      final after = projectWorldDepthLayer(
+        manifest: manifest,
+        layer: layer,
+        cameraZ: 0.2,
+      ).rect.width;
+      return after / before;
+    }
+
+    expect(growth(near), greaterThan(growth(far)));
+  });
+
+  test(
+    'passed plates stay opaque while translating below the viewport',
+    () async {
+      final manifest = await WorldDepthManifest.load();
+      final layer = manifest.layers.singleWhere((layer) => layer.id == 'B40');
+      final before = projectWorldDepthLayer(
+        manifest: manifest,
+        layer: layer,
+        cameraZ: layer.worldZ,
+      );
+      final exiting = projectWorldDepthLayer(
+        manifest: manifest,
+        layer: layer,
+        cameraZ: layer.worldZ + 0.2,
+      );
+      final exited = projectWorldDepthLayer(
+        manifest: manifest,
+        layer: layer,
+        cameraZ: layer.worldZ + worldDepthCameraCalibration.plateExitDistance,
+      );
+
+      expect(before.opacity, 1);
+      expect(exiting.opacity, 1);
+      expect(exiting.rect.top, greaterThan(before.rect.top));
+      expect(exiting.rect.height, greaterThan(before.rect.height));
+      expect(exited.rect.top, closeTo(manifest.viewportSize.height, 0.001));
+      expect(exited.opacity, 0);
+    },
+  );
+
+  test('passed plates exit at a constant screen-space rate', () async {
+    final manifest = await WorldDepthManifest.load();
+    final layer = manifest.layers.singleWhere((layer) => layer.id == 'B40');
+    final projections = [0, 0.25, 0.5, 0.75].map((progress) {
+      return projectWorldDepthLayer(
+        manifest: manifest,
+        layer: layer,
+        cameraZ:
+            layer.worldZ +
+            worldDepthCameraCalibration.plateExitDistance * progress,
+      );
+    }).toList();
+
+    final topSteps = [
+      for (var index = 1; index < projections.length; index++)
+        projections[index].rect.top - projections[index - 1].rect.top,
+    ];
+    final heightSteps = [
+      for (var index = 1; index < projections.length; index++)
+        projections[index].rect.height - projections[index - 1].rect.height,
+    ];
+    expect(topSteps[1], closeTo(topSteps[0], 0.001));
+    expect(topSteps[2], closeTo(topSteps[0], 0.001));
+    expect(heightSteps[1], closeTo(heightSteps[0], 0.001));
+    expect(heightSteps[2], closeTo(heightSteps[0], 0.001));
+  });
+
+  test(
+    'projection stays finite and scale-bounded over the supported path',
+    () async {
+      final manifest = await WorldDepthManifest.load();
+      final camera = worldDepthCameraCalibration;
+
+      for (var z = camera.startZ; z <= camera.terminalZ; z += 0.02) {
+        for (final layer in manifest.layers) {
+          final projection = projectWorldDepthLayer(
+            manifest: manifest,
+            layer: layer,
+            cameraZ: z,
+          );
+          expect(
+            projection.rect.left.isFinite,
+            isTrue,
+            reason: '${layer.id} $z',
+          );
+          expect(
+            projection.rect.top.isFinite,
+            isTrue,
+            reason: '${layer.id} $z',
+          );
+          expect(
+            projection.rect.width.isFinite,
+            isTrue,
+            reason: '${layer.id} $z',
+          );
+          expect(
+            projection.rect.height.isFinite,
+            isTrue,
+            reason: '${layer.id} $z',
+          );
+          expect(
+            projection.scale,
+            inInclusiveRange(camera.minimumScale, camera.maximumScale),
+            reason: '${layer.id} $z',
+          );
+        }
+      }
+    },
+  );
+
+  test('North is terminal and settles on the North-only plate stack', () async {
+    final manifest = await WorldDepthManifest.load();
+    final camera = worldDepthCameraCalibration;
+    expect(camera.stops.last.id, 'north');
+    expect(camera.stops.last.z, camera.terminalZ);
+    expect(northHybridOpacity(camera.terminalZ), 1);
+    expect(
+      manifest.layers.singleWhere((layer) => layer.id == 'R10').worldZ,
+      30,
+    );
+  });
+}

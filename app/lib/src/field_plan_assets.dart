@@ -1,16 +1,24 @@
 import 'art_direction.dart';
 
-const fieldPlanTrickFieldBackgroundPath =
-    'assets/art/field_plan/game/backgrounds/trick-field-light.png';
+const fieldPlanBrigadePlotBackgroundPath =
+    'assets/art/field_plan/game/backgrounds/brigade-plot-light.png';
+const fieldPlanFieldsBackgroundPath =
+    'assets/art/field_plan/game/backgrounds/fields-light.png';
+const fieldPlanNorthBackgroundPath =
+    'assets/art/field_plan/game/backgrounds/north-light.png';
+
 const fieldPlanSignAssetPath =
     'assets/art/field_plan/shared/signs/field-sign.png';
 
-String fieldPlanPlantedCardFacePath(int seatID) =>
-    'assets/art/field_plan/cards/planted/seat-$seatID.png';
 const fieldPlanPlantedSunflowerPath =
     'assets/art/field_plan/cards/planted/pip-sunflower-isometric.png';
 const fieldPlanPlantedSunflowerMipPath =
     'assets/art/field_plan/cards/planted/pip-sunflower-isometric-mip.png';
+const fieldPlanCardBackAssetPath =
+    'assets/art/field_plan/cards/backs/card-back-kolkhoz.png';
+
+String fieldPlanPlantedCardFacePath(int seatID) =>
+    'assets/art/field_plan/cards/planted/seat-$seatID.png';
 
 const fieldPlanCardSuitAssetPaths = <String, String>{
   'wheat': 'assets/art/field_plan/cards/suits/suit-wheat.png',
@@ -45,12 +53,14 @@ String? fieldPlanCardFaceAssetPath({
 }
 
 const fieldPlanCardArtAssetPaths = <String>[
+  fieldPlanCardBackAssetPath,
+  fieldPlanPlantedSunflowerPath,
+  fieldPlanPlantedSunflowerMipPath,
   'assets/art/field_plan/cards/planted/seat-0.png',
   'assets/art/field_plan/cards/planted/seat-1.png',
   'assets/art/field_plan/cards/planted/seat-2.png',
   'assets/art/field_plan/cards/planted/seat-3.png',
-  fieldPlanPlantedSunflowerPath,
-  fieldPlanPlantedSunflowerMipPath,
+  'assets/art/field_plan/cards/planted/frame-paper-overlay.png',
   'assets/art/field_plan/cards/suits/suit-wheat.png',
   'assets/art/field_plan/cards/suits/suit-sunflower.png',
   'assets/art/field_plan/cards/suits/suit-potato.png',

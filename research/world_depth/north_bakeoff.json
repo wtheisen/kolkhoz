@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "experimentId": "north-depth-bakeoff",
+  "source": {
+    "path": "app/assets/art/field_plan/game/backgrounds/north-light.png",
+    "width": 1672,
+    "height": 941,
+    "sha256": "97e06307514d18f128b166f76d9f2f23dc228f33353d681c5ad290d61ba5aadf"
+  },
+  "cameraContract": "research/world_depth/camera_contract.json",
+  "outputRoot": "research/runs/world_depth",
+  "normalizedDepth": {
+    "far": 0.0,
+    "near": 1.0,
+    "preserveRawOutput": true
+  },
+  "models": [
+    {
+      "id": "depth-anything-v2-small",
+      "name": "Depth Anything V2 Small",
+      "officialRepository": "https://github.com/DepthAnything/Depth-Anything-V2",
+      "revision": null,
+      "checkpoint": null,
+      "licenseStatus": "verify-repository-and-weights"
+    },
+    {
+      "id": "depth-pro",
+      "name": "Apple Depth Pro",
+      "officialRepository": "https://github.com/apple/ml-depth-pro",
+      "revision": null,
+      "checkpoint": null,
+      "licenseStatus": "verify-repository-and-weights"
+    },
+    {
+      "id": "marigold",
+      "name": "Marigold",
+      "officialRepository": "https://github.com/prs-eth/marigold",
+      "revision": null,
+      "checkpoint": null,
+      "licenseStatus": "verify-repository-and-weights"
+    }
+  ],
+  "quantization": {
+    "bandCounts": [5, 8, 12],
+    "methods": ["equal-range", "quantile"],
+    "emitAlphaMattes": true
+  },
+  "semanticTargets": [
+    {"id": "N00", "worldZ": 7.75, "owns": "far sky, mountains and foundational snow terrain"},
+    {"id": "N10", "worldZ": 7.40, "owns": "distant and mid-distance conifer groups with shadows"},
+    {"id": "N20", "worldZ": 7.05, "owns": "southern valley, roads, village, pylons and river"},
+    {"id": "N30", "worldZ": 6.70, "owns": "railway, boundary and near tree line"},
+    {"id": "N40", "worldZ": 6.35, "owns": "nearest crops or foreground occluders if supported by the source"}
+  ],
+  "evaluationCrops": [
+    {"id": "horizon", "label": "Horizon and mountains", "rect": [0.0, 0.12, 1.0, 0.20]},
+    {"id": "forest", "label": "Dense forest boundary", "rect": [0.0, 0.20, 1.0, 0.18]},
+    {"id": "isolated-trees", "label": "Isolated trees and shadows", "rect": [0.08, 0.36, 0.84, 0.46]},
+    {"id": "approach", "label": "Central approach corridor", "rect": [0.38, 0.24, 0.24, 0.76]}
+  ],
+  "decisionOptions": [
+    "abandon-automatic-depth",
+    "use-best-model-for-draft-ordering",
+    "combine-depth-with-semantic-masking",
+    "run-one-narrow-followup"
+  ]
+}

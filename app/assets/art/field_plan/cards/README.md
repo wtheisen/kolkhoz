@@ -38,3 +38,12 @@ leaders, invented folk costume, military styling, and monumental heroic poses.
 
 All source images were independently generated on flat magenta, processed with
 `remove_chroma_key.py`, downsampled, and validated for a full alpha range.
+
+## Back
+
+`backs/card-back-kolkhoz.png` is the fixed card back for field-plan builds. It was
+generated from a user-supplied 1930s collective-farm publishing poster reference, then
+iterated to use one upright reading direction. The production prompt called for an
+aged color lithograph with converging fields, workers, tractors, a grain elevator, the
+four crop suits, and one centered `KOLKHOZ` placard; it explicitly excluded pixel art,
+modern vector polish, mirrored scenery, and upside-down objects.

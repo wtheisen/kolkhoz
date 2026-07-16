@@ -4,9 +4,11 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 
 import 'app_text.dart';
+import 'art_direction.dart';
 import 'c_engine_bridge.dart';
 
 import 'design_tokens.dart';
+import 'field_plan_assets.dart';
 import 'game_constants.dart';
 import 'progression/progression.dart';
 
@@ -495,6 +497,16 @@ enum KolkhozCardBack {
 
   final String assetPath;
   final String iconAssetPath;
+
+  String assetPathFor(KolkhozArtStyle style) =>
+      style.usesNewArt ? fieldPlanCardBackAssetPath : assetPath;
+
+  String iconAssetPathFor(KolkhozArtStyle style) =>
+      style.usesNewArt ? fieldPlanCardBackAssetPath : iconAssetPath;
+
+  String get displayedAssetPath => assetPathFor(configuredKolkhozArtStyle);
+  String get displayedIconAssetPath =>
+      iconAssetPathFor(configuredKolkhozArtStyle);
 
   static KolkhozCardBack fromStoredValue(String? value) {
     return KolkhozCardBack.values.firstWhere(

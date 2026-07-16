@@ -8,7 +8,9 @@ import 'package:kolkhoz_app/src/art_direction.dart';
 import 'package:kolkhoz_app/src/board_view.dart';
 import 'package:kolkhoz_app/src/field_plan_assets.dart';
 import 'package:kolkhoz_app/src/field_plan_typography.dart';
+import 'package:kolkhoz_app/src/game_constants.dart';
 import 'package:kolkhoz_app/src/pixel_text.dart';
+import 'package:kolkhoz_app/src/table_projection_helpers.dart';
 
 import 'support/layout_scenarios.dart';
 
@@ -20,6 +22,11 @@ void main() {
   };
 
   testWidgets('field-plan trick screen across landscape sizes', (tester) async {
+    final plotActionPanel = configuredKolkhozArtStyle.usesNewArt
+        ? panelBrigade
+        : panelPlot;
+    expect(actionPanelForPhase(phaseSwap), plotActionPanel);
+    expect(actionPanelForPhase(phaseRequisition), plotActionPanel);
     debugPaintBaselinesEnabled = false;
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final model = fieldPlanFourCardTrickModel();
@@ -51,7 +58,15 @@ void main() {
     await tester.runAsync(() async {
       await Future.wait([
         precacheImage(
-          const AssetImage(fieldPlanTrickFieldBackgroundPath),
+          const AssetImage(fieldPlanBrigadePlotBackgroundPath),
+          imageContext,
+        ),
+        precacheImage(
+          const AssetImage(fieldPlanFieldsBackgroundPath),
+          imageContext,
+        ),
+        precacheImage(
+          const AssetImage(fieldPlanNorthBackgroundPath),
           imageContext,
         ),
         precacheImage(const AssetImage(fieldPlanSignAssetPath), imageContext),
@@ -101,6 +116,16 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
+      if (configuredKolkhozArtStyle.usesNewArt) {
+        expect(find.byType(BoardRail), findsNothing);
+        expect(find.byType(TopInfoStrip), findsNothing);
+        final environmentRect = tester.getRect(
+          find.byKey(const Key('field-plan-brigade-environment')),
+        );
+        final handRect = tester.getRect(find.byType(HandTray));
+        expect(environmentRect.bottom, closeTo(handRect.top, 0.5));
+      }
+
       await expectLater(
         find.byKey(const Key('field-plan-trick-screenshot')),
         matchesGoldenFile(
@@ -108,5 +133,120 @@ void main() {
         ),
       );
     }
+
+    if (configuredKolkhozArtStyle.usesNewArt) {
+      await tester.fling(
+        find.byKey(const Key('brigade-fields-swipe-surface')),
+        const Offset(0, 220),
+        900,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('fields-brigade-board')), findsOneWidget);
+      expect(
+        find.byKey(const Key('field-plan-fields-environment')),
+        findsOneWidget,
+      );
+      await expectLater(
+        find.byKey(const Key('field-plan-trick-screenshot')),
+        matchesGoldenFile(
+          'layout_goldens/field_plan_fields__phone_landscape_large.png',
+        ),
+      );
+
+      await tester.fling(
+        find.byKey(const Key('brigade-fields-swipe-surface')),
+        const Offset(0, 220),
+        900,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('north-brigade-board')), findsOneWidget);
+      expect(
+        find.byKey(const Key('field-plan-north-environment')),
+        findsOneWidget,
+      );
+      await expectLater(
+        find.byKey(const Key('field-plan-trick-screenshot')),
+        matchesGoldenFile(
+          'layout_goldens/field_plan_north__phone_landscape_large.png',
+        ),
+      );
+
+      await tester.fling(
+        find.byKey(const Key('brigade-fields-swipe-surface')),
+        const Offset(0, -220),
+        900,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('fields-brigade-board')), findsOneWidget);
+
+      await tester.fling(
+        find.byKey(const Key('brigade-fields-swipe-surface')),
+        const Offset(0, -220),
+        900,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('farmstead-brigade-plot-board')),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(const Key('player-portrait-0-inspect')),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('field-plan-surface-dismiss')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('field-plan-surface-dismiss')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('field-plan-surface-dismiss')), findsNothing);
+
+      await tester.longPress(find.byKey(const Key('field-plan-world-scene')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('field-plan-world-editor-toggle')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('field-plan-world-editor-toggle')));
+      await tester.pumpAndSettle();
+    }
+  });
+
+  testWidgets('assignment uses only job overlays on the Fields plate', (
+    tester,
+  ) async {
+    if (!configuredKolkhozArtStyle.usesNewArt) {
+      return;
+    }
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(932, 430));
+    final model = layoutScenarios
+        .firstWhere((scenario) => scenario.name == 'assignment_jobs')
+        .model;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: KolkhozBoard(
+          model: model,
+          tokens: KolkhozAppearance.light.tokens,
+          language: KolkhozLanguage.en,
+          appearance: KolkhozAppearance.light,
+          animationSpeed: GameAnimationSpeed.instant,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const Key('field-plan-fields-environment')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('fields-brigade-board')), findsOneWidget);
+    expect(find.byType(FieldsJobPile), findsNWidgets(4));
+    expect(find.byType(FarmsteadJobSign), findsNWidgets(4));
+    expect(find.byType(FarmsteadPlayerPortrait), findsNothing);
+    expect(find.byType(FarmsteadPlotCards), findsNothing);
   });
 }

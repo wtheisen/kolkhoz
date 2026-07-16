@@ -12,12 +12,13 @@ import 'chrome_button.dart';
 import 'render_model.dart';
 import 'design_tokens.dart';
 import 'game_constants.dart';
-import 'field_plan_assets.dart';
 import 'field_plan_sign.dart';
 import 'field_plan_typography.dart';
+import 'field_plan_world_scene.dart';
 import 'online_game_models.dart';
 import 'pixel_text.dart';
 import 'player_profile_panel.dart';
+import 'plot_display.dart';
 import 'table_display.dart';
 import 'table_projection_helpers.dart';
 import 'board/board_chrome.dart';
@@ -361,6 +362,278 @@ bool shouldUseCompactBoardShell({
       contentHeight >= contentWidth;
 }
 
+double fieldPlanCameraTravelProgress(double dragProgress) {
+  final progress = clampDouble(dragProgress, 0, 1);
+  return progress * progress * (3 - 2 * progress);
+}
+
+const fieldPlanCameraFullTravelDuration = Duration(milliseconds: 760);
+
+Duration fieldPlanCameraTravelDuration(
+  double distance, {
+  int minimumMilliseconds = 80,
+}) {
+  return Duration(
+    milliseconds: math.max(
+      minimumMilliseconds,
+      (fieldPlanCameraFullTravelDuration.inMilliseconds *
+              clampDouble(distance, 0, 1))
+          .round(),
+    ),
+  );
+}
+
+class BrigadeFieldsCoordinator extends StatefulWidget {
+  const BrigadeFieldsCoordinator({
+    required this.active,
+    required this.builder,
+    super.key,
+  });
+
+  final bool active;
+  final Widget Function(BuildContext context, int verticalPage) builder;
+
+  @override
+  State<BrigadeFieldsCoordinator> createState() =>
+      _BrigadeFieldsCoordinatorState();
+}
+
+class _BrigadeFieldsCoordinatorState extends State<BrigadeFieldsCoordinator>
+    with TickerProviderStateMixin {
+  int verticalPage = 0;
+  late final AnimationController snapController;
+  late final AnimationController focusController;
+  double cameraPosition = 0;
+  double rawCameraPosition = 0;
+  int? dragStartPage;
+  bool settlingTransition = false;
+  String? focusedSurfaceID;
+
+  @override
+  void initState() {
+    super.initState();
+    snapController = AnimationController(vsync: this, upperBound: 2)
+      ..addListener(() {
+        if (mounted) {
+          setState(() => cameraPosition = snapController.value);
+        }
+      });
+    focusController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 440),
+          reverseDuration: const Duration(milliseconds: 320),
+        )..addListener(() {
+          if (mounted) setState(() {});
+        });
+  }
+
+  @override
+  void didUpdateWidget(BrigadeFieldsCoordinator oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.active && verticalPage != 0) {
+      verticalPage = 0;
+    }
+    if (!widget.active &&
+        (dragStartPage != null ||
+            cameraPosition != 0 ||
+            focusedSurfaceID != null)) {
+      snapController.stop();
+      focusController.stop();
+      dragStartPage = null;
+      cameraPosition = 0;
+      rawCameraPosition = 0;
+      snapController.value = 0;
+      focusController.value = 0;
+      focusedSurfaceID = null;
+      settlingTransition = false;
+    }
+  }
+
+  void handleVerticalDragUpdate(DragUpdateDetails details) {
+    if (!widget.active || settlingTransition || focusedSurfaceID != null) {
+      return;
+    }
+    final delta = details.primaryDelta ?? 0;
+    if (delta == 0) return;
+    if (dragStartPage == null) {
+      final targetPage = verticalPage + (delta > 0 ? 1 : -1);
+      if (targetPage < 0 || targetPage > 2) return;
+      dragStartPage = verticalPage;
+      rawCameraPosition = verticalPage.toDouble();
+      snapController.value = rawCameraPosition;
+    }
+
+    final dragDistance = math.max(1.0, (context.size?.height ?? 600) * 0.8);
+    rawCameraPosition = clampDouble(
+      rawCameraPosition + delta / dragDistance,
+      0,
+      2,
+    );
+    final followDistance = (snapController.value - rawCameraPosition).abs();
+    unawaited(
+      snapController.animateTo(
+        rawCameraPosition,
+        duration: Duration(
+          milliseconds: math.max(45, (180 * followDistance).round()),
+        ),
+        curve: Curves.easeOut,
+      ),
+    );
+  }
+
+  void handleVerticalDragEnd(DragEndDetails details) {
+    if (!widget.active || settlingTransition) return;
+    final startPage = dragStartPage;
+    if (startPage == null) return;
+    final velocity = details.primaryVelocity ?? 0;
+    final movement = rawCameraPosition - startPage;
+    final direction = movement == 0
+        ? (velocity >= 0 ? 1 : -1)
+        : movement.sign.toInt();
+    final complete = movement.abs() >= 0.35 || velocity.abs() > 250;
+    final target = complete ? (startPage + direction).clamp(0, 2) : startPage;
+    unawaited(_settleTransition(target));
+  }
+
+  void handleVerticalDragCancel() {
+    final startPage = dragStartPage;
+    if (startPage != null && !settlingTransition) {
+      unawaited(_settleTransition(startPage));
+    }
+  }
+
+  Future<void> _settleTransition(int targetPage) async {
+    settlingTransition = true;
+    final target = targetPage.toDouble();
+    final distance = (cameraPosition - target).abs();
+    await snapController.animateTo(
+      target,
+      duration: fieldPlanCameraTravelDuration(
+        distance,
+        minimumMilliseconds: 180,
+      ),
+      curve: Curves.easeOutCubic,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      verticalPage = targetPage;
+      cameraPosition = target;
+      rawCameraPosition = target;
+      dragStartPage = null;
+      settlingTransition = false;
+    });
+  }
+
+  Future<void> focusSurface(String? surfaceID) async {
+    if (surfaceID == focusedSurfaceID && surfaceID != null) surfaceID = null;
+    if (surfaceID == null) {
+      await focusController.reverse();
+      if (mounted) setState(() => focusedSurfaceID = null);
+      return;
+    }
+    setState(() => focusedSurfaceID = surfaceID);
+    await focusController.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    snapController.dispose();
+    focusController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        BrigadeFieldsScope(
+          verticalPage: verticalPage,
+          transitionProgress: dragStartPage == null && !settlingTransition
+              ? null
+              : cameraPosition,
+          focusedSurfaceID: focusedSurfaceID,
+          focusProgress: focusController.value,
+          onFocusSurface: focusSurface,
+          child: GestureDetector(
+            key: const Key('brigade-fields-swipe-surface'),
+            behavior: HitTestBehavior.translucent,
+            onVerticalDragUpdate: widget.active
+                ? handleVerticalDragUpdate
+                : null,
+            onVerticalDragEnd: widget.active ? handleVerticalDragEnd : null,
+            onVerticalDragCancel: widget.active
+                ? handleVerticalDragCancel
+                : null,
+            child: Builder(
+              builder: (context) => widget.builder(context, verticalPage),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class BrigadeFieldsScope extends InheritedWidget {
+  const BrigadeFieldsScope({
+    required this.verticalPage,
+    required this.transitionProgress,
+    required this.focusedSurfaceID,
+    required this.focusProgress,
+    required this.onFocusSurface,
+    required super.child,
+    super.key,
+  });
+
+  final int verticalPage;
+  final double? transitionProgress;
+  final String? focusedSurfaceID;
+  final double focusProgress;
+  final ValueChanged<String?> onFocusSurface;
+
+  static int verticalPageOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<BrigadeFieldsScope>()
+          ?.verticalPage ??
+      0;
+
+  static double? transitionProgressOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<BrigadeFieldsScope>()
+      ?.transitionProgress;
+
+  static double cameraPositionOf(BuildContext context) {
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<BrigadeFieldsScope>();
+    return scope?.transitionProgress ?? scope?.verticalPage.toDouble() ?? 0;
+  }
+
+  static String? focusedSurfaceOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<BrigadeFieldsScope>()
+      ?.focusedSurfaceID;
+
+  static double focusProgressOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<BrigadeFieldsScope>()
+          ?.focusProgress ??
+      0;
+
+  static ValueChanged<String?>? focusSurfaceHandlerOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<BrigadeFieldsScope>()
+          ?.onFocusSurface;
+
+  @override
+  bool updateShouldNotify(BrigadeFieldsScope oldWidget) =>
+      verticalPage != oldWidget.verticalPage ||
+      transitionProgress != oldWidget.transitionProgress ||
+      focusedSurfaceID != oldWidget.focusedSurfaceID ||
+      focusProgress != oldWidget.focusProgress;
+}
+
 class KolkhozBoard extends StatelessWidget {
   const KolkhozBoard({
     required this.model,
@@ -462,256 +735,272 @@ class KolkhozBoard extends StatelessWidget {
   final Future<void> Function(String userID)? onComradeRequestToUser;
   @override
   Widget build(BuildContext context) {
-    return KolkhozCardBackScope(
-      cardBack: cardBack,
-      child: DefaultTextStyle.merge(
-        style: kolkhozFontStyle,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final metrics = ResponsiveBoardMetrics.fromSize(
-              constraints.biggest,
-              tokens,
-            );
-            final margin = metrics.margin;
-            final contentWidth = constraints.maxWidth - margin * 2;
-            final contentHeight = constraints.maxHeight - margin * 2;
-            final boardWidth = boardPlayableContentWidth(contentWidth);
-            final railWidth = metrics.railWidth(boardWidth);
-            final separatorWidth = metrics.separatorWidth;
-            final gameWidth = boardWidth - railWidth - separatorWidth;
-            final safePadding = MediaQuery.paddingOf(context);
-            final compact = shouldUseCompactBoardShell(
-              contentWidth: contentWidth,
-              contentHeight: contentHeight,
-            );
-            final showFieldPlanTrickEnvironment =
-                configuredKolkhozArtStyle.usesNewArt &&
-                !compact &&
-                model.panels.active == panelBrigade &&
-                model.table.phase == phaseTrick;
+    final fieldsNavigationActive =
+        configuredKolkhozArtStyle.usesNewArt &&
+        (model.panels.active == panelBrigade ||
+            model.panels.active == panelPlot) &&
+        model.table.phase != phaseGameOver;
+    return BrigadeFieldsCoordinator(
+      active: fieldsNavigationActive,
+      builder: (context, verticalPage) => KolkhozCardBackScope(
+        cardBack: cardBack,
+        child: DefaultTextStyle.merge(
+          style: kolkhozFontStyle,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final metrics = ResponsiveBoardMetrics.fromSize(
+                constraints.biggest,
+                tokens,
+              );
+              final margin = metrics.margin;
+              final contentWidth = constraints.maxWidth - margin * 2;
+              final contentHeight = constraints.maxHeight - margin * 2;
+              final boardWidth = boardPlayableContentWidth(contentWidth);
+              final railWidth = metrics.railWidth(boardWidth);
+              final separatorWidth = metrics.separatorWidth;
+              final safePadding = MediaQuery.paddingOf(context);
+              final compact = shouldUseCompactBoardShell(
+                contentWidth: contentWidth,
+                contentHeight: contentHeight,
+              );
+              final showFieldPlanBrigadeEnvironment =
+                  configuredKolkhozArtStyle.usesNewArt &&
+                  !compact &&
+                  (model.table.phase == phaseAssignment ||
+                      model.panels.active == panelBrigade ||
+                      model.panels.active == panelPlot) &&
+                  model.table.phase != phaseGameOver;
+              final fieldPlanEnvironmentPage = showFieldPlanBrigadeEnvironment
+                  ? model.table.phase == phaseAssignment
+                        ? 1
+                        : verticalPage
+                  : null;
+              final gameWidth = showFieldPlanBrigadeEnvironment
+                  ? boardWidth
+                  : boardWidth - railWidth - separatorWidth;
 
-            return DecoratedBox(
-              decoration: boardBackdropDecoration(tokens),
-              child: CardMotionLayer(
-                model: model,
-                tokens: tokens,
-                speed: animationSpeed,
-                presentationRevision: presentationRevision,
-                assignmentPresentationCardIDs: assignmentPresentationCardIDs,
-                onPresentationComplete: onPresentationComplete,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  fit: StackFit.expand,
-                  children: [
-                    if (safePadding.left > 0)
-                      Positioned(
-                        left: boardLeftGutterOffset(safePadding.left),
-                        top: 0,
-                        bottom: 0,
-                        child: BoardGutterInfill(
-                          side: BoardGutterInfillSide.left,
-                          width: boardLeftGutterWidth(safePadding.left),
-                          light: appearance == KolkhozAppearance.light,
+              return DecoratedBox(
+                decoration: boardBackdropDecoration(tokens),
+                child: CardMotionLayer(
+                  model: model,
+                  tokens: tokens,
+                  speed: animationSpeed,
+                  presentationRevision: presentationRevision,
+                  assignmentPresentationCardIDs: assignmentPresentationCardIDs,
+                  onPresentationComplete: onPresentationComplete,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    fit: StackFit.expand,
+                    children: [
+                      if (safePadding.left > 0)
+                        Positioned(
+                          left: boardLeftGutterOffset(safePadding.left),
+                          top: 0,
+                          bottom: 0,
+                          child: BoardGutterInfill(
+                            side: BoardGutterInfillSide.left,
+                            width: boardLeftGutterWidth(safePadding.left),
+                            light: appearance == KolkhozAppearance.light,
+                          ),
                         ),
-                      ),
-                    if (safePadding.right > 0)
-                      Positioned(
-                        right: boardRightGutterOffset(safePadding.right),
-                        top: 0,
-                        bottom: 0,
-                        child: BoardGutterInfill(
-                          side: BoardGutterInfillSide.right,
-                          width: boardRightGutterWidth(safePadding.right),
-                          light: appearance == KolkhozAppearance.light,
+                      if (safePadding.right > 0)
+                        Positioned(
+                          right: boardRightGutterOffset(safePadding.right),
+                          top: 0,
+                          bottom: 0,
+                          child: BoardGutterInfill(
+                            side: BoardGutterInfillSide.right,
+                            width: boardRightGutterWidth(safePadding.right),
+                            light: appearance == KolkhozAppearance.light,
+                          ),
                         ),
-                      ),
-                    Padding(
-                      padding: EdgeInsets.all(margin),
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: SizedBox(
-                          width: boardWidth,
-                          height: contentHeight,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              if (showFieldPlanTrickEnvironment)
-                                Image.asset(
-                                  fieldPlanTrickFieldBackgroundPath,
-                                  key: const Key(
-                                    'field-plan-trick-environment',
-                                  ),
-                                  fit: BoxFit.cover,
-                                  alignment: Alignment.center,
-                                  filterQuality: FilterQuality.medium,
-                                ),
-                              if (compact)
-                                CompactBoardShell(
-                                  model: model,
-                                  tokens: tokens,
-                                  metrics: metrics,
-                                  language: language,
-                                  appearance: appearance,
-                                  heroOfSovietUnion: heroOfSovietUnion,
-                                  cardBack: cardBack,
-                                  onAction: onAction,
-                                  onPanelSelected: onPanelSelected,
-                                  onSwapHandCardTap: onSwapHandCardTap,
-                                  onTrickHandCardTap: onTrickHandCardTap,
-                                  onPlotCardTap: onPlotCardTap,
-                                  onAssignmentCardTap: onAssignmentCardTap,
-                                  onInvalidHandCardTap: onInvalidHandCardTap,
-                                  canUndo: canUndo,
-                                  onUndo: onUndo,
-                                  onNewGame: onNewGame,
-                                  onReturnToLobby: onReturnToLobby,
-                                  onCopyGameResult: onCopyGameResult,
-                                  onSaveGameLog: onSaveGameLog,
-                                  gameLogActions: gameLogActions,
-                                  gameReactions: gameReactions,
-                                  hasUnreadLogMessages: hasUnreadLogMessages,
-                                  canSendReaction: canSendReaction,
-                                  onReaction: onReaction,
-                                  activeReaction: activeReaction,
-                                  gameOverReturnsToLobby:
-                                      gameOverReturnsToLobby,
-                                  onTutorial: onTutorial,
-                                  animationSpeed: animationSpeed,
-                                  onAnimationSpeedChanged:
-                                      onAnimationSpeedChanged,
-                                  confirmNewGame: confirmNewGame,
-                                  onConfirmNewGameChanged:
-                                      onConfirmNewGameChanged,
-                                  confirmMainMenu: confirmMainMenu,
-                                  onConfirmMainMenuChanged:
-                                      onConfirmMainMenuChanged,
-                                  showInvalidTapHints: showInvalidTapHints,
-                                  onShowInvalidTapHintsChanged:
-                                      onShowInvalidTapHintsChanged,
-                                  currentProfileUserID: currentProfileUserID,
-                                  comradeUserIDs: comradeUserIDs,
-                                  incomingComradeRequestUserIDs:
-                                      incomingComradeRequestUserIDs,
-                                  outgoingComradeRequestUserIDs:
-                                      outgoingComradeRequestUserIDs,
-                                  onComradeRequestToUser:
-                                      onComradeRequestToUser,
-                                  onLanguageToggle: onLanguageToggle,
-                                  onAppearanceToggle: onAppearanceToggle,
-                                  onCardBackChanged: onCardBackChanged,
-                                )
-                              else
-                                Row(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    SizedBox(
-                                      width: railWidth,
-                                      child: BoardRail(
-                                        activePanel: model.panels.active,
-                                        actionPanel: actionPanelForPhase(
-                                          model.table.phase,
+                      Padding(
+                        padding: EdgeInsets.all(margin),
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: SizedBox(
+                            width: boardWidth,
+                            height: contentHeight,
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                if (compact)
+                                  CompactBoardShell(
+                                    model: model,
+                                    tokens: tokens,
+                                    metrics: metrics,
+                                    language: language,
+                                    appearance: appearance,
+                                    heroOfSovietUnion: heroOfSovietUnion,
+                                    cardBack: cardBack,
+                                    onAction: onAction,
+                                    onPanelSelected: onPanelSelected,
+                                    onSwapHandCardTap: onSwapHandCardTap,
+                                    onTrickHandCardTap: onTrickHandCardTap,
+                                    onPlotCardTap: onPlotCardTap,
+                                    onAssignmentCardTap: onAssignmentCardTap,
+                                    onInvalidHandCardTap: onInvalidHandCardTap,
+                                    canUndo: canUndo,
+                                    onUndo: onUndo,
+                                    onNewGame: onNewGame,
+                                    onReturnToLobby: onReturnToLobby,
+                                    onCopyGameResult: onCopyGameResult,
+                                    onSaveGameLog: onSaveGameLog,
+                                    gameLogActions: gameLogActions,
+                                    gameReactions: gameReactions,
+                                    hasUnreadLogMessages: hasUnreadLogMessages,
+                                    canSendReaction: canSendReaction,
+                                    onReaction: onReaction,
+                                    activeReaction: activeReaction,
+                                    gameOverReturnsToLobby:
+                                        gameOverReturnsToLobby,
+                                    onTutorial: onTutorial,
+                                    animationSpeed: animationSpeed,
+                                    onAnimationSpeedChanged:
+                                        onAnimationSpeedChanged,
+                                    confirmNewGame: confirmNewGame,
+                                    onConfirmNewGameChanged:
+                                        onConfirmNewGameChanged,
+                                    confirmMainMenu: confirmMainMenu,
+                                    onConfirmMainMenuChanged:
+                                        onConfirmMainMenuChanged,
+                                    showInvalidTapHints: showInvalidTapHints,
+                                    onShowInvalidTapHintsChanged:
+                                        onShowInvalidTapHintsChanged,
+                                    currentProfileUserID: currentProfileUserID,
+                                    comradeUserIDs: comradeUserIDs,
+                                    incomingComradeRequestUserIDs:
+                                        incomingComradeRequestUserIDs,
+                                    outgoingComradeRequestUserIDs:
+                                        outgoingComradeRequestUserIDs,
+                                    onComradeRequestToUser:
+                                        onComradeRequestToUser,
+                                    onLanguageToggle: onLanguageToggle,
+                                    onAppearanceToggle: onAppearanceToggle,
+                                    onCardBackChanged: onCardBackChanged,
+                                  )
+                                else
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      if (!showFieldPlanBrigadeEnvironment) ...[
+                                        SizedBox(
+                                          width: railWidth,
+                                          child: BoardRail(
+                                            activePanel: model.panels.active,
+                                            actionPanel: actionPanelForPhase(
+                                              model.table.phase,
+                                            ),
+                                            tokens: tokens,
+                                            metrics: metrics,
+                                            language: language,
+                                            year: model.table.year,
+                                            hasUnreadLogMessages:
+                                                hasUnreadLogMessages,
+                                            onPanelSelected: onPanelSelected,
+                                          ),
                                         ),
-                                        tokens: tokens,
-                                        metrics: metrics,
-                                        language: language,
-                                        year: model.table.year,
-                                        hasUnreadLogMessages:
-                                            hasUnreadLogMessages,
-                                        onPanelSelected: onPanelSelected,
+                                        BoardSeparator(
+                                          tokens: tokens,
+                                          vertical: true,
+                                          thickness: separatorWidth,
+                                        ),
+                                      ],
+                                      SizedBox(
+                                        width: gameWidth,
+                                        height: contentHeight,
+                                        child: BoardPlayArea(
+                                          model: model,
+                                          tokens: tokens,
+                                          metrics: metrics,
+                                          fieldPlanBoardWidth: boardWidth,
+                                          fieldPlanBoardHeight: contentHeight,
+                                          fieldPlanBoardLeftInset:
+                                              showFieldPlanBrigadeEnvironment
+                                              ? 0
+                                              : railWidth + separatorWidth,
+                                          fieldPlanEnvironmentPage:
+                                              fieldPlanEnvironmentPage,
+                                          heroOfSovietUnion: heroOfSovietUnion,
+                                          onAction: onAction,
+                                          onPanelSelected: onPanelSelected,
+                                          onSwapHandCardTap: onSwapHandCardTap,
+                                          onTrickHandCardTap:
+                                              onTrickHandCardTap,
+                                          onPlotCardTap: onPlotCardTap,
+                                          onAssignmentCardTap:
+                                              onAssignmentCardTap,
+                                          onInvalidHandCardTap:
+                                              onInvalidHandCardTap,
+                                          canUndo: canUndo,
+                                          onUndo: onUndo,
+                                          onNewGame: onNewGame,
+                                          onReturnToLobby: onReturnToLobby,
+                                          onCopyGameResult: onCopyGameResult,
+                                          onSaveGameLog: onSaveGameLog,
+                                          gameLogActions: gameLogActions,
+                                          gameReactions: gameReactions,
+                                          canSendReaction: canSendReaction,
+                                          onReaction: onReaction,
+                                          activeReaction: activeReaction,
+                                          gameOverReturnsToLobby:
+                                              gameOverReturnsToLobby,
+                                          onTutorial: onTutorial,
+                                          animationSpeed: animationSpeed,
+                                          onAnimationSpeedChanged:
+                                              onAnimationSpeedChanged,
+                                          confirmNewGame: confirmNewGame,
+                                          onConfirmNewGameChanged:
+                                              onConfirmNewGameChanged,
+                                          confirmMainMenu: confirmMainMenu,
+                                          onConfirmMainMenuChanged:
+                                              onConfirmMainMenuChanged,
+                                          showInvalidTapHints:
+                                              showInvalidTapHints,
+                                          onShowInvalidTapHintsChanged:
+                                              onShowInvalidTapHintsChanged,
+                                          currentProfileUserID:
+                                              currentProfileUserID,
+                                          comradeUserIDs: comradeUserIDs,
+                                          incomingComradeRequestUserIDs:
+                                              incomingComradeRequestUserIDs,
+                                          outgoingComradeRequestUserIDs:
+                                              outgoingComradeRequestUserIDs,
+                                          onComradeRequestToUser:
+                                              onComradeRequestToUser,
+                                          language: language,
+                                          appearance: appearance,
+                                          cardBack: cardBack,
+                                          onLanguageToggle: onLanguageToggle,
+                                          onAppearanceToggle:
+                                              onAppearanceToggle,
+                                          onCardBackChanged: onCardBackChanged,
+                                        ),
                                       ),
-                                    ),
-                                    BoardSeparator(
-                                      tokens: tokens,
-                                      vertical: true,
-                                      thickness: separatorWidth,
-                                    ),
-                                    SizedBox(
-                                      width: gameWidth,
-                                      height: contentHeight,
-                                      child: BoardPlayArea(
-                                        model: model,
-                                        tokens: tokens,
-                                        metrics: metrics,
-                                        fieldPlanBoardWidth: boardWidth,
-                                        fieldPlanBoardHeight: contentHeight,
-                                        fieldPlanBoardLeftInset:
-                                            railWidth + separatorWidth,
-                                        heroOfSovietUnion: heroOfSovietUnion,
-                                        onAction: onAction,
-                                        onPanelSelected: onPanelSelected,
-                                        onSwapHandCardTap: onSwapHandCardTap,
-                                        onTrickHandCardTap: onTrickHandCardTap,
-                                        onPlotCardTap: onPlotCardTap,
-                                        onAssignmentCardTap:
-                                            onAssignmentCardTap,
-                                        onInvalidHandCardTap:
-                                            onInvalidHandCardTap,
-                                        canUndo: canUndo,
-                                        onUndo: onUndo,
-                                        onNewGame: onNewGame,
-                                        onReturnToLobby: onReturnToLobby,
-                                        onCopyGameResult: onCopyGameResult,
-                                        onSaveGameLog: onSaveGameLog,
-                                        gameLogActions: gameLogActions,
-                                        gameReactions: gameReactions,
-                                        canSendReaction: canSendReaction,
-                                        onReaction: onReaction,
-                                        activeReaction: activeReaction,
-                                        gameOverReturnsToLobby:
-                                            gameOverReturnsToLobby,
-                                        onTutorial: onTutorial,
-                                        animationSpeed: animationSpeed,
-                                        onAnimationSpeedChanged:
-                                            onAnimationSpeedChanged,
-                                        confirmNewGame: confirmNewGame,
-                                        onConfirmNewGameChanged:
-                                            onConfirmNewGameChanged,
-                                        confirmMainMenu: confirmMainMenu,
-                                        onConfirmMainMenuChanged:
-                                            onConfirmMainMenuChanged,
-                                        showInvalidTapHints:
-                                            showInvalidTapHints,
-                                        onShowInvalidTapHintsChanged:
-                                            onShowInvalidTapHintsChanged,
-                                        currentProfileUserID:
-                                            currentProfileUserID,
-                                        comradeUserIDs: comradeUserIDs,
-                                        incomingComradeRequestUserIDs:
-                                            incomingComradeRequestUserIDs,
-                                        outgoingComradeRequestUserIDs:
-                                            outgoingComradeRequestUserIDs,
-                                        onComradeRequestToUser:
-                                            onComradeRequestToUser,
-                                        language: language,
-                                        appearance: appearance,
-                                        cardBack: cardBack,
-                                        onLanguageToggle: onLanguageToggle,
-                                        onAppearanceToggle: onAppearanceToggle,
-                                        onCardBackChanged: onCardBackChanged,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                            ],
+                                    ],
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    if (model.viewer.privacyMode == viewerPrivacyHotSeatHidden)
-                      Positioned.fill(
-                        child: HotSeatPrivacyOverlay(
-                          model: model,
-                          tokens: tokens,
-                          language: language,
-                          onReady: onHotSeatReady,
+                      if (model.viewer.privacyMode ==
+                          viewerPrivacyHotSeatHidden)
+                        Positioned.fill(
+                          child: HotSeatPrivacyOverlay(
+                            model: model,
+                            tokens: tokens,
+                            language: language,
+                            onReady: onHotSeatReady,
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -1071,6 +1360,7 @@ class BoardPlayArea extends StatelessWidget {
     this.fieldPlanBoardWidth,
     this.fieldPlanBoardHeight,
     this.fieldPlanBoardLeftInset = 0,
+    this.fieldPlanEnvironmentPage,
     this.heroOfSovietUnion = true,
     this.onAction,
     this.onPanelSelected,
@@ -1121,6 +1411,7 @@ class BoardPlayArea extends StatelessWidget {
   final double? fieldPlanBoardWidth;
   final double? fieldPlanBoardHeight;
   final double fieldPlanBoardLeftInset;
+  final int? fieldPlanEnvironmentPage;
   final bool heroOfSovietUnion;
   final ValueChanged<LegalAction>? onAction;
   final ValueChanged<String>? onPanelSelected;
@@ -1165,6 +1456,23 @@ class BoardPlayArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fieldPlanEnvironmentActive = fieldPlanEnvironmentPage != null;
+    final topInfoHeight = fieldPlanEnvironmentActive
+        ? 0.0
+        : metrics.topInfoHeight;
+    final fieldPlanTransitionProgress = BrigadeFieldsScope.transitionProgressOf(
+      context,
+    );
+    final fieldPlanCameraPosition = BrigadeFieldsScope.cameraPositionOf(
+      context,
+    );
+    final fieldPlanFocusedSurface = BrigadeFieldsScope.focusedSurfaceOf(
+      context,
+    );
+    final fieldPlanFocusProgress = BrigadeFieldsScope.focusProgressOf(context);
+    final fieldPlanFocusHandler = BrigadeFieldsScope.focusSurfaceHandlerOf(
+      context,
+    );
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: metrics.playAreaHorizontalPadding,
@@ -1181,7 +1489,7 @@ class BoardPlayArea extends StatelessWidget {
           final gameOver = model.table.phase == phaseGameOver;
           final remainingHeight = math.max(
             0.0,
-            constraints.maxHeight - metrics.topInfoHeight,
+            constraints.maxHeight - topInfoHeight,
           );
           final panelHeight = gameOver
               ? remainingHeight
@@ -1217,103 +1525,133 @@ class BoardPlayArea extends StatelessWidget {
                   planningTrumpAction,
                   onPlanningTrumpActionSelected,
                 ) {
-                  final activePanelWithFocus = Stack(
-                    children: [
-                      if (!(configuredKolkhozArtStyle.usesNewArt &&
-                          model.panels.active == panelBrigade &&
-                          model.table.phase == phaseTrick))
+                  final activePanelWithFocus = IgnorePointer(
+                    ignoring: fieldPlanTransitionProgress != null,
+                    child: Stack(
+                      children: [
+                        if (fieldPlanEnvironmentPage == null)
+                          Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: playAreaBackdropDecoration(tokens),
+                            ),
+                          ),
                         Positioned.fill(
-                          child: DecoratedBox(
-                            decoration: playAreaBackdropDecoration(tokens),
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              bottom: metrics.panelContentBottomPadding,
+                            ),
+                            child: ActivePanelView(
+                              model: model,
+                              tokens: tokens,
+                              heroOfSovietUnion: heroOfSovietUnion,
+                              onAction: onAction,
+                              onPlotCardTap: onPlotCardTap,
+                              onNewGame: onNewGame,
+                              onReturnToLobby: onReturnToLobby,
+                              onCopyGameResult: onCopyGameResult,
+                              onSaveGameLog: onSaveGameLog,
+                              gameLogActions: gameLogActions,
+                              gameReactions: gameReactions,
+                              activeReaction: activeReaction,
+                              gameOverReturnsToLobby: gameOverReturnsToLobby,
+                              onTutorial: onTutorial,
+                              animationSpeed: animationSpeed,
+                              onAnimationSpeedChanged: onAnimationSpeedChanged,
+                              confirmNewGame: confirmNewGame,
+                              onConfirmNewGameChanged: onConfirmNewGameChanged,
+                              confirmMainMenu: confirmMainMenu,
+                              onConfirmMainMenuChanged:
+                                  onConfirmMainMenuChanged,
+                              showInvalidTapHints: showInvalidTapHints,
+                              onShowInvalidTapHintsChanged:
+                                  onShowInvalidTapHintsChanged,
+                              language: language,
+                              appearance: appearance,
+                              cardBack: cardBack,
+                              compact: compact,
+                              planningTrumpFocusedSuit:
+                                  planningTrumpFocusedSuit,
+                              onPlanningTrumpActionSelected:
+                                  onPlanningTrumpActionSelected,
+                              currentProfileUserID: currentProfileUserID,
+                              comradeUserIDs: comradeUserIDs,
+                              incomingComradeRequestUserIDs:
+                                  incomingComradeRequestUserIDs,
+                              outgoingComradeRequestUserIDs:
+                                  outgoingComradeRequestUserIDs,
+                              onComradeRequestToUser: onComradeRequestToUser,
+                              onLanguageToggle: onLanguageToggle,
+                              onAppearanceToggle: onAppearanceToggle,
+                              onCardBackChanged: onCardBackChanged,
+                              fieldPlanBoardWidth: fieldPlanBoardWidth,
+                              fieldPlanBoardHeight: fieldPlanBoardHeight,
+                              fieldPlanBoardLeftInset:
+                                  fieldPlanBoardLeftInset +
+                                  metrics.playAreaHorizontalPadding,
+                              fieldPlanBoardTopInset: topInfoHeight,
+                              fieldPlanEnvironmentPage:
+                                  fieldPlanEnvironmentPage,
+                            ),
                           ),
                         ),
-                      Positioned.fill(
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                            bottom: metrics.panelContentBottomPadding,
+                        if (!fieldPlanEnvironmentActive) ...[
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            child: BoardSeparator(
+                              tokens: tokens,
+                              thickness: metrics.playAreaSeparatorThickness,
+                            ),
                           ),
-                          child: ActivePanelView(
-                            model: model,
-                            tokens: tokens,
-                            heroOfSovietUnion: heroOfSovietUnion,
-                            onAction: onAction,
-                            onPlotCardTap: onPlotCardTap,
-                            onNewGame: onNewGame,
-                            onReturnToLobby: onReturnToLobby,
-                            onCopyGameResult: onCopyGameResult,
-                            onSaveGameLog: onSaveGameLog,
-                            gameLogActions: gameLogActions,
-                            gameReactions: gameReactions,
-                            activeReaction: activeReaction,
-                            gameOverReturnsToLobby: gameOverReturnsToLobby,
-                            onTutorial: onTutorial,
-                            animationSpeed: animationSpeed,
-                            onAnimationSpeedChanged: onAnimationSpeedChanged,
-                            confirmNewGame: confirmNewGame,
-                            onConfirmNewGameChanged: onConfirmNewGameChanged,
-                            confirmMainMenu: confirmMainMenu,
-                            onConfirmMainMenuChanged: onConfirmMainMenuChanged,
-                            showInvalidTapHints: showInvalidTapHints,
-                            onShowInvalidTapHintsChanged:
-                                onShowInvalidTapHintsChanged,
-                            language: language,
-                            appearance: appearance,
-                            cardBack: cardBack,
-                            compact: compact,
-                            planningTrumpFocusedSuit: planningTrumpFocusedSuit,
-                            onPlanningTrumpActionSelected:
-                                onPlanningTrumpActionSelected,
-                            currentProfileUserID: currentProfileUserID,
-                            comradeUserIDs: comradeUserIDs,
-                            incomingComradeRequestUserIDs:
-                                incomingComradeRequestUserIDs,
-                            outgoingComradeRequestUserIDs:
-                                outgoingComradeRequestUserIDs,
-                            onComradeRequestToUser: onComradeRequestToUser,
-                            onLanguageToggle: onLanguageToggle,
-                            onAppearanceToggle: onAppearanceToggle,
-                            onCardBackChanged: onCardBackChanged,
-                            fieldPlanBoardWidth: fieldPlanBoardWidth,
-                            fieldPlanBoardHeight: fieldPlanBoardHeight,
-                            fieldPlanBoardLeftInset:
-                                fieldPlanBoardLeftInset +
-                                metrics.playAreaHorizontalPadding,
-                            fieldPlanBoardTopInset: metrics.topInfoHeight,
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            child: BoardSeparator(
+                              tokens: tokens,
+                              thickness: metrics.playAreaSeparatorThickness,
+                            ),
                           ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: BoardSeparator(
-                          tokens: tokens,
-                          thickness: metrics.playAreaSeparatorThickness,
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        child: BoardSeparator(
-                          tokens: tokens,
-                          thickness: metrics.playAreaSeparatorThickness,
-                        ),
-                      ),
-                    ],
+                        ],
+                      ],
+                    ),
                   );
                   return Stack(
                     clipBehavior: Clip.none,
                     children: [
+                      if (fieldPlanEnvironmentPage case final page?)
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: handTrayHeight,
+                          child: FieldPlanWorldScene(
+                            key: const Key('field-plan-world-scene'),
+                            cameraPosition: fieldPlanCameraPosition,
+                            overlayPage: page,
+                            focusedSurfaceID: fieldPlanFocusedSurface,
+                            focusProgress: fieldPlanFocusProgress,
+                            onFocusSurface: fieldPlanFocusHandler ?? (_) {},
+                            overlay: activePanelWithFocus,
+                          ),
+                        ),
                       Column(
                         children: [
-                          SizedBox(height: metrics.topInfoHeight),
+                          if (topInfoHeight > 0)
+                            SizedBox(height: topInfoHeight),
                           if (panelHeight == null)
-                            Expanded(child: activePanelWithFocus)
+                            Expanded(
+                              child: fieldPlanEnvironmentActive
+                                  ? const SizedBox.expand()
+                                  : activePanelWithFocus,
+                            )
                           else
                             SizedBox(
                               height: panelHeight,
-                              child: activePanelWithFocus,
+                              child: fieldPlanEnvironmentActive
+                                  ? const SizedBox.expand()
+                                  : activePanelWithFocus,
                             ),
                           if (!gameOver)
                             SizedBox(
@@ -1352,32 +1690,33 @@ class BoardPlayArea extends StatelessWidget {
                             ),
                         ],
                       ),
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: compact
-                            ? SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: SizedBox(
-                                  width: math.max(640, constraints.maxWidth),
-                                  child: TopInfoStrip(
-                                    model: model,
-                                    tokens: tokens,
-                                    metrics: metrics,
-                                    language: language,
-                                    animationSpeed: animationSpeed,
+                      if (!fieldPlanEnvironmentActive)
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: compact
+                              ? SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: SizedBox(
+                                    width: math.max(640, constraints.maxWidth),
+                                    child: TopInfoStrip(
+                                      model: model,
+                                      tokens: tokens,
+                                      metrics: metrics,
+                                      language: language,
+                                      animationSpeed: animationSpeed,
+                                    ),
                                   ),
+                                )
+                              : TopInfoStrip(
+                                  model: model,
+                                  tokens: tokens,
+                                  metrics: metrics,
+                                  language: language,
+                                  animationSpeed: animationSpeed,
                                 ),
-                              )
-                            : TopInfoStrip(
-                                model: model,
-                                tokens: tokens,
-                                metrics: metrics,
-                                language: language,
-                                animationSpeed: animationSpeed,
-                              ),
-                      ),
+                        ),
                     ],
                   );
                 },
@@ -2172,6 +2511,7 @@ class ActivePanelView extends StatelessWidget {
     this.fieldPlanBoardHeight,
     this.fieldPlanBoardLeftInset = 0,
     this.fieldPlanBoardTopInset = 0,
+    this.fieldPlanEnvironmentPage,
     super.key,
   });
 
@@ -2215,6 +2555,7 @@ class ActivePanelView extends StatelessWidget {
   final double? fieldPlanBoardHeight;
   final double fieldPlanBoardLeftInset;
   final double fieldPlanBoardTopInset;
+  final int? fieldPlanEnvironmentPage;
 
   @override
   Widget build(BuildContext context) {
@@ -2240,6 +2581,19 @@ class ActivePanelView extends StatelessWidget {
           reactions: gameReactions,
         );
       case panelJobs:
+        if (configuredKolkhozArtStyle.usesNewArt &&
+            model.table.phase == phaseAssignment) {
+          return BrigadePanel(
+            model: model,
+            tokens: tokens,
+            language: language,
+            heroOfSovietUnion: heroOfSovietUnion,
+            activeReaction: activeReaction,
+            compact: compact,
+            onAction: onAction,
+            fieldPlanEnvironmentPage: fieldPlanEnvironmentPage,
+          );
+        }
         return JobsPanel(
           model: model,
           tokens: tokens,
@@ -2247,10 +2601,34 @@ class ActivePanelView extends StatelessWidget {
           onAction: onAction,
         );
       case panelPlot:
-        return PlotPanel(
+        if (!configuredKolkhozArtStyle.usesNewArt) {
+          return PlotPanel(
+            model: model,
+            tokens: tokens,
+            onPlotCardTap: onPlotCardTap,
+          );
+        }
+        return BrigadePanel(
           model: model,
           tokens: tokens,
+          language: language,
+          heroOfSovietUnion: heroOfSovietUnion,
+          activeReaction: activeReaction,
+          compact: compact,
+          planningTrumpFocusedSuit: planningTrumpFocusedSuit,
+          onPlanningTrumpActionSelected: onPlanningTrumpActionSelected,
+          currentProfileUserID: currentProfileUserID,
+          comradeUserIDs: comradeUserIDs,
+          incomingComradeRequestUserIDs: incomingComradeRequestUserIDs,
+          outgoingComradeRequestUserIDs: outgoingComradeRequestUserIDs,
+          onComradeRequestToUser: onComradeRequestToUser,
+          onAction: onAction,
           onPlotCardTap: onPlotCardTap,
+          fieldPlanBoardWidth: fieldPlanBoardWidth,
+          fieldPlanBoardHeight: fieldPlanBoardHeight,
+          fieldPlanBoardLeftInset: fieldPlanBoardLeftInset,
+          fieldPlanBoardTopInset: fieldPlanBoardTopInset,
+          fieldPlanEnvironmentPage: fieldPlanEnvironmentPage,
         );
       case panelNorth:
         return NorthPanel(model: model, tokens: tokens, language: language);
@@ -2292,10 +2670,12 @@ class ActivePanelView extends StatelessWidget {
           outgoingComradeRequestUserIDs: outgoingComradeRequestUserIDs,
           onComradeRequestToUser: onComradeRequestToUser,
           onAction: onAction,
+          onPlotCardTap: onPlotCardTap,
           fieldPlanBoardWidth: fieldPlanBoardWidth,
           fieldPlanBoardHeight: fieldPlanBoardHeight,
           fieldPlanBoardLeftInset: fieldPlanBoardLeftInset,
           fieldPlanBoardTopInset: fieldPlanBoardTopInset,
+          fieldPlanEnvironmentPage: fieldPlanEnvironmentPage,
         );
     }
   }

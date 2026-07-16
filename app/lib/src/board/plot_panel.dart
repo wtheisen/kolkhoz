@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../app_settings.dart';
 import '../app_text.dart';
+import '../art_direction.dart';
 import '../chrome_button.dart';
 import '../design_tokens.dart';
 import '../game_constants.dart';
@@ -1421,9 +1422,11 @@ class CardBackMini extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(cardViewCornerRadius),
           child: Image.asset(
-            cardBack.assetPath,
+            cardBack.displayedAssetPath,
             fit: BoxFit.cover,
-            filterQuality: FilterQuality.none,
+            filterQuality: configuredKolkhozArtStyle.usesNewArt
+                ? FilterQuality.medium
+                : FilterQuality.none,
             errorBuilder: (_, _, _) => ColoredBox(color: tokens.colors.iron),
           ),
         ),

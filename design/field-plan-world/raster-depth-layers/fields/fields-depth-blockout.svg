@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1672 941" width="1672" height="941">
+  <title>Fields raster depth blockout</title>
+  <desc>Registered semantic placeholders. Each Fxx group is a replaceable depth plate, not finished art.</desc>
+  <defs><style>
+    .edge{stroke:#10282d;stroke-width:5;stroke-linejoin:round}.guide{stroke:#f7e2a2;stroke-width:2;stroke-dasharray:12 10;opacity:.75}
+    .chip{fill:#10282d;stroke:#f7e2a2;stroke-width:2}.label{font-family:Arial,sans-serif;font-weight:700;fill:#fff4c9;letter-spacing:1px}.note{font-family:Arial,sans-serif;fill:#fff4c9}.register{fill:#fff;fill-opacity:.001}
+  </style></defs>
+  <g id="F00_PAINTED_TERRAIN_BASE" data-depth="0.00">
+    <rect class="register" width="1672" height="941"/><rect width="1672" height="941" fill="#26383d"/>
+    <path d="M0 0H1672V116H0Z" fill="#17272c"/><path d="M0 116H1672V941H0Z" fill="#718443" class="edge"/>
+    <path d="M806 112H866L882 244 893 436 919 744 1015 941H657L753 744 779 436 790 244Z" fill="#d8b96d" class="edge"/>
+    <g transform="translate(30 28)"><rect class="chip" width="420" height="64" rx="8"/><text class="label" x="18" y="27" font-size="20">F00 · DEPTH 0.00 · OPAQUE BASE</text><text class="note" x="18" y="50" font-size="15">Sky · mountains · mosaic · completed terrain · road</text></g>
+  </g>
+  <g id="F10_STATION_RAILWAY_HORIZON" data-depth="0.18">
+    <rect class="register" width="1672" height="941"/>
+    <path d="M0 112H1672V270H0Z" fill="#4ec6d8" fill-opacity=".35" class="edge"/>
+    <path d="M800 112H872L860 235H812Z" fill="#4ec6d8" fill-opacity=".72" class="edge"/>
+    <rect x="725" y="205" width="222" height="74" fill="#4ec6d8" fill-opacity=".72" class="edge"/>
+    <g transform="translate(30 178)"><rect class="chip" width="430" height="58" rx="8"/><text class="label" x="16" y="25" font-size="19">F10 · DEPTH 0.18 · STATION + RAILWAY</text><text class="note" x="16" y="47" font-size="14">Rail horizon · station · boundary fence</text></g>
+  </g>
+  <g id="F20_UPPER_FIELDS" data-depth="0.43">
+    <rect class="register" width="1672" height="941"/>
+    <path d="M0 248 786 248 768 449H0ZM886 248H1430L1672 373V449H904Z" fill="#e6c64c" fill-opacity=".48" class="edge"/>
+    <g transform="translate(52 330)"><rect class="chip" width="350" height="58" rx="8"/><text class="label" x="16" y="25" font-size="19">F20 · DEPTH 0.43 · UPPER FIELDS</text><text class="note" x="16" y="47" font-size="14">Wheat · sunflowers · fences</text></g>
+  </g>
+  <g id="F30_LOWER_FIELDS" data-depth="0.72">
+    <rect class="register" width="1672" height="941"/>
+    <path d="M0 466H780L742 746H0ZM892 466H1672V746H930Z" fill="#e78a43" fill-opacity=".47" class="edge"/>
+    <g transform="translate(56 612)"><rect class="chip" width="350" height="58" rx="8"/><text class="label" x="16" y="25" font-size="19">F30 · DEPTH 0.72 · LOWER FIELDS</text><text class="note" x="16" y="47" font-size="14">Potatoes · beets · fences</text></g>
+  </g>
+  <g id="F40_FOREGROUND_CROP_EDGE" data-depth="1.00">
+    <rect class="register" width="1672" height="941"/>
+    <path d="M0 770H690L657 941H0ZM982 770H1672V941H1015Z" fill="#d94b5d" fill-opacity=".42" class="edge"/>
+    <path d="M0 770H690M982 770H1672" class="guide"/>
+    <g transform="translate(1050 818)"><rect class="chip" width="500" height="58" rx="8"/><text class="label" x="16" y="25" font-size="19">F40 · DEPTH 1.00 · FOREGROUND CROP EDGE</text><text class="note" x="16" y="47" font-size="14">Nearest crops · hedge · road-edge detail</text></g>
+  </g>
+  <g id="FIELDS_REGISTRATION_GUIDES"><path d="M836 0V941" class="guide"/><path d="M0 108H1672" class="guide"/><circle cx="836" cy="108" r="9" fill="#f7e2a2"/><text class="note" x="852" y="100" font-size="15">vanishing point 0.500 / 0.115</text></g>
+</svg>

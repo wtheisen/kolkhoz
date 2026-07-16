@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1672 941" width="1672" height="941">
+  <title>Brigade physical dolly plates</title>
+  <desc>Five full-registration, partially transparent planes ordered camera to far sky as B40, B30, B20, B10, B00.</desc>
+  <defs><style>
+    .reg{fill:#fff;fill-opacity:.001}.edge{stroke:#10282d;stroke-width:5;stroke-linejoin:round}.guide{stroke:#f7e2a2;stroke-width:2;stroke-dasharray:12 10}
+    .chip{fill:#10282d;stroke:#f7e2a2;stroke-width:2}.label{font-family:Arial,sans-serif;font-weight:700;fill:#fff4c9}.note{font-family:Arial,sans-serif;fill:#fff4c9}
+  </style></defs>
+  <g id="B00_FAR_SKY_HORIZON" data-world-z="1.75" data-pass-order="5">
+    <rect class="reg" width="1672" height="941"/><path d="M0 0H1672V142Q1260 108 836 132T0 142Z" fill="#26383d" class="edge"/>
+    <g transform="translate(26 25)"><rect class="chip" width="370" height="58" rx="8"/><text class="label" x="16" y="25" font-size="19">B00 · WORLD Z 1.75 · FAR SKY</text><text class="note" x="16" y="47" font-size="14">Sky · mountains · rolling horizon</text></g>
+  </g>
+  <g id="B10_FAR_CROP_BELT" data-world-z="1.40" data-pass-order="4">
+    <rect class="reg" width="1672" height="941"/><path d="M0 104H1672V268H0Z" fill="#58b7bc" class="edge"/>
+    <path d="M0 122H397L381 229H0ZM414 122H775L760 229H425ZM897 122h361l-11 107H912ZM1275 122h397v107h-381Z" fill="#78d2cb" class="edge"/>
+    <path d="M805 104H867L879 268H793Z" fill="#d8b96d" class="edge"/>
+    <g transform="translate(28 174)"><rect class="chip" width="380" height="58" rx="8"/><text class="label" x="16" y="25" font-size="19">B10 · WORLD Z 1.40 · FAR BELT</text><text class="note" x="16" y="47" font-size="14">Distant crops · trees · horizon fence · road</text></g>
+  </g>
+  <g id="B20_UPPER_HOMESTEADS" data-world-z="1.05" data-pass-order="3">
+    <rect class="reg" width="1672" height="941"/><path d="M0 220H1672V526H0Z" fill="#aaa74b" class="edge"/>
+    <path d="M755 220H917L943 451 1055 526H617L729 451Z" fill="#d8b96d" class="edge"/>
+    <path d="M210 246H698L671 494H191Z M974 246H1462L1481 494H1001Z" fill="#d5bd45" fill-opacity=".72" class="edge"/>
+    <path d="M260 270H663V360H239ZM1009 270H1412L1433 360H1030Z" fill="#ead66c" class="edge"/>
+    <g transform="translate(244 400)"><rect class="chip" width="430" height="58" rx="8"/><text class="label" x="16" y="25" font-size="19">B20 · WORLD Z 1.05 · UPPER HOMESTEADS</text><text class="note" x="16" y="47" font-size="14">Two upper buildings · yards · fences · road segment</text></g>
+  </g>
+  <g id="B30_LOWER_HOMESTEADS" data-world-z="0.70" data-pass-order="2">
+    <rect class="reg" width="1672" height="941"/><path d="M0 478H1672V838H0Z" fill="#9a8d42" class="edge"/>
+    <path d="M699 478H973L1034 610 976 838H696L638 610Z" fill="#d8b96d" class="edge"/>
+    <path d="M25 519H645L584 817H12ZM1027 519H1647L1660 817H1088Z" fill="#db8b42" fill-opacity=".65" class="edge"/>
+    <path d="M82 551H598V702H48ZM1074 551H1590L1624 702H1108Z" fill="#edaa58" class="edge"/>
+    <g transform="translate(60 744)"><rect class="chip" width="425" height="58" rx="8"/><text class="label" x="16" y="25" font-size="19">B30 · WORLD Z 0.70 · LOWER HOMESTEADS</text><text class="note" x="16" y="47" font-size="14">Two near buildings · yards · fences · road segment</text></g>
+  </g>
+  <g id="B40_FOREGROUND_ROAD_EDGE" data-world-z="0.35" data-pass-order="1">
+    <rect class="reg" width="1672" height="941"/><path d="M0 790H1672V941H0Z" fill="#8b674a" class="edge"/>
+    <path d="M680 790H992L1018 941H654Z" fill="#d8b96d" class="edge"/>
+    <path d="M0 868H630M1042 868H1672" class="guide"/>
+    <g transform="translate(1100 830)"><rect class="chip" width="485" height="58" rx="8"/><text class="label" x="16" y="25" font-size="19">B40 · WORLD Z 0.35 · FOREGROUND ROAD EDGE</text><text class="note" x="16" y="47" font-size="14">Near road · fence rails · foreground texture</text></g>
+  </g>
+  <g id="BRIGADE_DOLLY_GUIDES"><path d="M836 0V941" class="guide"/><circle cx="836" cy="105" r="9" fill="#f7e2a2"/></g>
+</svg>

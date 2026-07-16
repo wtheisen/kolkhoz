@@ -76,9 +76,13 @@ flutter:
     - assets/art/field_plan/ledger/actions/
     - assets/art/field_plan/game/players/
     - assets/art/field_plan/game/backgrounds/
+    - assets/art/field_plan/world_depth/
+    - assets/art/field_plan/world_lab_north/
+    - assets/art/field_plan/world_lab_corridor_proof/
     - assets/art/field_plan/cards/suits/
     - assets/art/field_plan/cards/suits/mip/
     - assets/art/field_plan/cards/faces/
+    - assets/art/field_plan/cards/backs/
     - assets/art/field_plan/cards/planted/
     - assets/audio/
     - assets/audio/voice_lines/

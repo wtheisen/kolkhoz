@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     viewBox="0 0 1000 2108" width="1000" height="2108">
+  <title>Kolkhoz world depth plates v1</title>
+  <desc>Seven independent, registered depth plates reconstructed as editable vector artwork from the supplied world reference. The 1000-unit width is logical, not an export resolution.</desc>
+
+  <defs>
+    <filter id="print-wobble" x="-4%" y="-4%" width="108%" height="108%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018 0.07" numOctaves="2" seed="19" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.1" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="paper-grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.38" numOctaves="3" seed="8" result="grain"/>
+      <feColorMatrix in="grain" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 .14 0"/>
+    </filter>
+
+    <pattern id="wheat-print" width="14" height="17" patternUnits="userSpaceOnUse">
+      <path d="M2 17 4 3M4 7l-3-3m3 7 4-4m3 10L12 6m0 5-3-3m3 6 3-3" fill="none" stroke="#d6a532" stroke-width="1.35" opacity=".74"/>
+    </pattern>
+    <pattern id="potato-print" width="44" height="45" patternUnits="userSpaceOnUse">
+      <g transform="translate(22 25)">
+        <path d="M0 15V-5M0 4-8-3M0 2 9-6M0 9-11 6M0 8 11 5" fill="none" stroke="#d7d08a" stroke-width="2"/>
+        <circle cy="-8" r="5" fill="#dfd38b" stroke="#162827" stroke-width="1.5"/>
+        <circle cx="-7" cy="-3" r="4" fill="#dfd38b" stroke="#162827" stroke-width="1.5"/>
+        <circle cx="7" cy="-3" r="4" fill="#dfd38b" stroke="#162827" stroke-width="1.5"/>
+      </g>
+    </pattern>
+    <pattern id="beet-print" width="53" height="51" patternUnits="userSpaceOnUse">
+      <g transform="translate(26 28)">
+        <path d="M0 4-8-10M0 4 1-12M0 4 9-9" fill="none" stroke="#18322d" stroke-width="2.1"/>
+        <path d="M-8 3Q0-4 8 3L5 14Q0 20-5 14Z" fill="#a73731" stroke="#152624" stroke-width="1.6"/>
+      </g>
+    </pattern>
+    <pattern id="sunflower-print" width="70" height="71" patternUnits="userSpaceOnUse">
+      <g transform="translate(35 42)">
+        <path d="M0 20V-4M0 7l-8-7M0 12l9-8" fill="none" stroke="#23432f" stroke-width="2.2"/>
+        <g transform="translate(0 -9)">
+          <g fill="#d5a72e">
+            <ellipse rx="4" ry="11" transform="rotate(0) translate(0 -11)"/>
+            <ellipse rx="4" ry="11" transform="rotate(45) translate(0 -11)"/>
+            <ellipse rx="4" ry="11" transform="rotate(90) translate(0 -11)"/>
+            <ellipse rx="4" ry="11" transform="rotate(135) translate(0 -11)"/>
+          </g>
+          <circle r="8" fill="#1e2825"/>
+        </g>
+      </g>
+    </pattern>
+    <pattern id="cabbage-print" width="80" height="74" patternUnits="userSpaceOnUse">
+      <g transform="translate(40 38)" fill="#8b9d52" stroke="#172826" stroke-width="1.7">
+        <ellipse rx="17" ry="12"/><ellipse rx="9" ry="17"/><ellipse rx="12" ry="9" transform="rotate(38)"/>
+        <path d="M-9 5Q0-8 9 5Q0 13-9 5Z" fill="#a8ad64"/>
+      </g>
+    </pattern>
+
+    <g id="tree">
+      <path d="M0 11V30" stroke="#1b2827" stroke-width="3"/>
+      <path d="M0-15C-17-6-15 9 0 14 15 9 17-6 0-15Z" fill="#244130" stroke="#142624" stroke-width="2"/>
+    </g>
+    <g id="pole">
+      <path d="M0 0V48M-10 10H10M-7 18H7" fill="none" stroke="#172526" stroke-width="3"/>
+      <path d="M-10 10Q0 14 10 10" fill="none" stroke="#c7b16e" stroke-width="1.2"/>
+    </g>
+    <g id="guard-tower">
+      <path d="M-16 56 0 12 16 56M-10 42H10M-13 51H13" fill="none" stroke="#172526" stroke-width="3"/>
+      <rect x="-11" y="0" width="22" height="17" fill="#c49a45" stroke="#172526" stroke-width="3"/>
+      <path d="m-14 0 14-9 14 9" fill="#172526"/>
+    </g>
+    <g id="barn">
+      <path d="M-55 10-38-8H40L56 10V58H-55Z" fill="#c89b4c" stroke="#172526" stroke-width="4"/>
+      <path d="M-45-11H43L61 11H-58Z" fill="#182424" stroke="#172526" stroke-width="3"/>
+      <rect x="-16" y="22" width="31" height="36" fill="#876030" stroke="#172526" stroke-width="3"/>
+      <path d="M-5 22V58M-16 40H15" stroke="#172526" stroke-width="2"/>
+    </g>
+    <g id="hut">
+      <path d="M-33 5-22-10H20L34 5V42H-33Z" fill="#c79749" stroke="#172526" stroke-width="3"/>
+      <path d="M-39 5-19-17H22L39 5Z" fill="#172526"/>
+      <rect x="-7" y="18" width="14" height="24" fill="#77542c" stroke="#172526" stroke-width="2"/>
+    </g>
+    <g id="tractor">
+      <circle cx="-22" cy="12" r="11" fill="#172526"/><circle cx="27" cy="12" r="8" fill="#172526"/>
+      <path d="M-27 6-17-17H18L24 8H-27Z" fill="#b23b31" stroke="#172526" stroke-width="3"/>
+      <rect x="-14" y="-29" width="20" height="17" fill="#c8a45e" stroke="#172526" stroke-width="3"/>
+      <path d="M17-8H38" stroke="#172526" stroke-width="5"/>
+    </g>
+    <g id="person">
+      <circle cy="-16" r="7" fill="#c99d5b" stroke="#172526" stroke-width="2"/>
+      <path d="M0-9-9 23H9Z" fill="#182625"/>
+    </g>
+    <g id="cow">
+      <path d="M-42-8Q-15-27 25-15L42-4 26 17H-28Q-47 9-42-8Z" fill="#e5d48e" stroke="#172526" stroke-width="4"/>
+      <path d="M25-11 48-16 59-5 48 7 28 3Z" fill="#e5d48e" stroke="#172526" stroke-width="4"/>
+      <path d="M-25 13v29M15 14v28" stroke="#172526" stroke-width="5"/>
+      <path d="M-25-11Q-10 4 2-12M8-13Q20 1 29-13" fill="#172526"/>
+      <path d="M52-13 59-21M48-14 43-22" stroke="#172526" stroke-width="3"/>
+    </g>
+
+    <linearGradient id="field-green" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#a9a958"/><stop offset="1" stop-color="#788d47"/>
+    </linearGradient>
+    <linearGradient id="north-ground" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#6f7163"/><stop offset="1" stop-color="#8b8b68"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Each plate includes a nearly transparent registration rect. It is intentional: it keeps every imported group on the same normalized canvas. -->
+
+  <g id="P00_SKYLINE_FAR_NORTH" data-depth-start="0" data-depth-end="0.09">
+    <rect width="1000" height="2108" fill="#fff" fill-opacity=".001"/>
+    <path d="M0 0H1000V139H0Z" fill="#172324"/>
+    <g fill="none" stroke="#c7a75b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" filter="url(#print-wobble)">
+      <path d="M0 115H1000"/>
+      <path d="M7 108h50V94h26v14h54M66 92V78l18-10 23 7 19-4 16 5"/>
+      <path d="M153 108h82V91h57v17h61V77h12v31h81"/>
+      <path d="M255 91V47M277 91V61M299 91V33M322 92V68"/>
+      <path d="M365 77h97l14 12v19H352Z"/>
+      <path d="M548 108h79V91h45v17h46V79l20-10 19 9v30h70"/>
+      <path d="M835 108h72V95h35v13h51"/>
+      <path d="M22 105q-5-18 7-24m-2 1q5-10 16-7M956 105q-4-25 11-31m-4 2q7-11 20-7"/>
+      <path d="M99 101C270 92 368 108 503 96S766 88 901 102" stroke-width="1.8"/>
+    </g>
+    <g fill="#c7a75b" stroke="#172324" stroke-width="2">
+      <rect x="465" y="42" width="71" height="29" rx="2"/>
+      <text x="500" y="62" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="700" fill="#172324">NORTH</text>
+    </g>
+  </g>
+
+  <g id="P10_NORTH_WORKS" data-depth-start="0.05" data-depth-end="0.21">
+    <rect width="1000" height="2108" fill="#fff" fill-opacity=".001"/>
+    <path d="M0 116H1000V362H0Z" fill="url(#north-ground)" stroke="#172526" stroke-width="4"/>
+    <path d="M500 114 527 362H473Z" fill="#dfc37a" stroke="#172526" stroke-width="3"/>
+    <path d="M480 116 440 349M520 116 560 349" fill="none" stroke="#b69a60" stroke-width="2"/>
+    <g fill="none" stroke="#172526" stroke-width="3">
+      <path d="M111 333 175 157H825L889 333Z"/>
+      <path d="M111 333H889M124 304H876M139 270H861M151 237H849" stroke-width="2"/>
+      <path d="M100 333H900"/>
+    </g>
+    <g fill="#d2b969" stroke="#172526" stroke-width="3" filter="url(#print-wobble)">
+      <path d="M258 300h206l8-29H266Z"/><path d="M536 300h206l-8-29H528Z"/>
+      <path d="M279 253h176l7-24H286Z"/><path d="M545 253h176l-7-24H538Z"/>
+      <path d="M300 211h147l6-21H306Z"/><path d="M553 211h147l-6-21H547Z"/>
+      <path d="M320 174h120l5-18H325Z"/><path d="M560 174h120l-5-18H555Z"/>
+    </g>
+    <g fill="#172526">
+      <path d="M277 282h8v7h-8m19-7h8v7h-8m19-7h8v7h-8m19-7h8v7h-8m19-7h8v7h-8m19-7h8v7h-8m19-7h8v7h-8"/>
+      <path d="M546 282h8v7h-8m19-7h8v7h-8m19-7h8v7h-8m19-7h8v7h-8m19-7h8v7h-8m19-7h8v7h-8m19-7h8v7h-8"/>
+      <path d="M294 237h7v6h-7m20-6h7v6h-7m20-6h7v6h-7m20-6h7v6h-7m20-6h7v6h-7m20-6h7v6h-7"/>
+      <path d="M560 237h7v6h-7m20-6h7v6h-7m20-6h7v6h-7m20-6h7v6h-7m20-6h7v6h-7m20-6h7v6h-7"/>
+    </g>
+    <use xlink:href="#guard-tower" transform="translate(118 290) scale(.75)"/>
+    <use xlink:href="#guard-tower" transform="translate(882 290) scale(.75)"/>
+    <use xlink:href="#guard-tower" transform="translate(174 150) scale(.5)"/>
+    <use xlink:href="#guard-tower" transform="translate(826 150) scale(.5)"/>
+    <g fill="none" stroke="#172526" stroke-width="3">
+      <path d="M458 350V212m-15 22h30M544 350V202m-14 22h28"/>
+      <path d="M460 235Q500 220 542 230M460 260Q500 244 540 254M462 289Q500 271 538 283" stroke-width="1.4"/>
+    </g>
+  </g>
+
+  <g id="P20_RIVER_UPPER_FARMSTEADS" data-depth-start="0.16" data-depth-end="0.31">
+    <rect width="1000" height="2108" fill="#fff" fill-opacity=".001"/>
+    <path d="M0 330Q250 365 498 352T1000 329V580H0Z" fill="#9a9d53"/>
+    <path d="M0 358Q250 402 500 380T1000 355V433Q750 466 500 445T0 435Z" fill="#57737a" stroke="#172526" stroke-width="4"/>
+    <path d="M0 352Q250 389 500 371T1000 348" fill="none" stroke="#ddc87c" stroke-width="14"/>
+    <path d="M0 445Q250 475 500 454T1000 441" fill="none" stroke="#ddc87c" stroke-width="13"/>
+    <path d="M500 317 531 580H469Z" fill="#dfc37a" stroke="#172526" stroke-width="3"/>
+    <path d="M477 397h46v77h-46Z" fill="#bd9650" stroke="#172526" stroke-width="4"/>
+    <path d="m472 397 28-18 28 18" fill="#172526"/>
+    <g>
+      <use xlink:href="#tree" transform="translate(37 338) scale(.7)"/><use xlink:href="#tree" transform="translate(92 351) scale(.62)"/>
+      <use xlink:href="#tree" transform="translate(157 347) scale(.55)"/><use xlink:href="#tree" transform="translate(225 361) scale(.61)"/>
+      <use xlink:href="#tree" transform="translate(302 357) scale(.52)"/><use xlink:href="#tree" transform="translate(381 371) scale(.65)"/>
+      <use xlink:href="#tree" transform="translate(620 368) scale(.62)"/><use xlink:href="#tree" transform="translate(705 354) scale(.52)"/>
+      <use xlink:href="#tree" transform="translate(790 350) scale(.68)"/><use xlink:href="#tree" transform="translate(861 342) scale(.53)"/>
+      <use xlink:href="#tree" transform="translate(939 334) scale(.62)"/>
+    </g>
+    <g transform="translate(210 483) scale(1.18)"><use xlink:href="#barn"/></g>
+    <g transform="translate(750 483) scale(1.18)"><use xlink:href="#barn"/></g>
+    <g fill="none" stroke="#172526" stroke-width="3">
+      <path d="M72 549 81 487 355 486 369 548M630 548 644 486 922 487 932 550"/>
+      <path d="M75 530H366M634 530H928" stroke-width="2"/>
+    </g>
+    <use xlink:href="#guard-tower" transform="translate(338 475) scale(.75)"/>
+    <use xlink:href="#tractor" transform="translate(281 531) scale(.58)"/>
+    <use xlink:href="#tractor" transform="translate(698 529) scale(.58)"/>
+    <use xlink:href="#pole" transform="translate(426 490) scale(.8)"/>
+    <use xlink:href="#pole" transform="translate(574 489) scale(.8)"/>
+    <g transform="translate(847 486)" fill="none" stroke="#172526" stroke-width="4">
+      <path d="M0 66V0M-28 66 0 0 28 66M-22 18H22M-15 36H15"/>
+      <circle cy="-2" r="4" fill="#c9a33d"/>
+      <path d="M0-2-28-14M0-2 22-25M0-2 31 10M0-2-23 23"/>
+    </g>
+  </g>
+
+  <g id="P30_UPPER_FIELDS" data-depth-start="0.26" data-depth-end="0.47">
+    <rect width="1000" height="2108" fill="#fff" fill-opacity=".001"/>
+    <path d="M0 548H1000V1051H0Z" fill="#89994b"/>
+    <path d="M0 588 456 565 431 1023 0 957Z" fill="#bd8833" stroke="#172526" stroke-width="4"/>
+    <path d="M544 565 1000 590V958L569 1024Z" fill="#899c47" stroke="#172526" stroke-width="4"/>
+    <path d="M9 599 442 578 419 1009 4 946Z" fill="url(#wheat-print)"/>
+    <path d="M558 578 991 602V945L582 1008Z" fill="url(#sunflower-print)"/>
+    <path d="M478 550 523 550 548 1039H452Z" fill="#dfc37a" stroke="#172526" stroke-width="4"/>
+    <path d="M435 570 468 569 444 1019 411 1013Z" fill="#58757b" stroke="#172526" stroke-width="3"/>
+    <path d="M532 570 565 571 589 1014 556 1020Z" fill="#58757b" stroke="#172526" stroke-width="3"/>
+    <path d="M0 570Q250 550 468 550M532 550Q760 550 1000 575" fill="none" stroke="#e0c77a" stroke-width="14"/>
+    <path d="M0 966Q230 1002 452 1039M548 1039Q770 1003 1000 966" fill="none" stroke="#e0c77a" stroke-width="15"/>
+    <use xlink:href="#tractor" transform="translate(250 762) rotate(-7) scale(.85)"/>
+    <use xlink:href="#tractor" transform="translate(792 655) rotate(7) scale(.72)"/>
+    <g fill="#d7b35b" stroke="#172526" stroke-width="2">
+      <path d="M326 848 342 817 358 848Z"/><path d="M295 884 311 850 328 884Z"/><path d="M360 913 379 876 396 913Z"/>
+    </g>
+    <use xlink:href="#pole" transform="translate(426 809)"/>
+    <use xlink:href="#pole" transform="translate(575 812)"/>
+    <use xlink:href="#pole" transform="translate(448 948) scale(1.1)"/>
+    <use xlink:href="#pole" transform="translate(552 948) scale(1.1)"/>
+  </g>
+
+  <g id="P40_LOWER_FIELDS" data-depth-start="0.42" data-depth-end="0.69">
+    <rect width="1000" height="2108" fill="#fff" fill-opacity=".001"/>
+    <path d="M0 986H1000V1517H0Z" fill="#8e9d53"/>
+    <path d="M0 1015 431 1056 388 1458 0 1471Z" fill="#436340" stroke="#172526" stroke-width="4"/>
+    <path d="M569 1056 1000 1016V1471L612 1458Z" fill="#98a856" stroke="#172526" stroke-width="4"/>
+    <path d="M10 1029 416 1068 375 1444 5 1456Z" fill="url(#potato-print)"/>
+    <path d="M584 1068 990 1029V1456L625 1444Z" fill="url(#beet-print)"/>
+    <path d="M452 1000H548L564 1483H436Z" fill="#dfc37a" stroke="#172526" stroke-width="4"/>
+    <path d="M414 1042 446 1048 430 1463 396 1455Z" fill="#58757b" stroke="#172526" stroke-width="3"/>
+    <path d="M554 1048 586 1042 604 1455 570 1463Z" fill="#58757b" stroke="#172526" stroke-width="3"/>
+    <path d="M0 995Q220 1015 446 1042M554 1042Q780 1015 1000 996" fill="none" stroke="#dec67a" stroke-width="16"/>
+    <path d="M0 1480 402 1464 436 1483M564 1483 598 1464 1000 1480" fill="none" stroke="#dec67a" stroke-width="18"/>
+    <use xlink:href="#tractor" transform="translate(190 1172) rotate(-8) scale(.9)"/>
+    <use xlink:href="#tractor" transform="translate(735 1272) rotate(6) scale(.9)"/>
+    <use xlink:href="#person" transform="translate(618 1190) scale(.8)"/>
+    <use xlink:href="#pole" transform="translate(428 1161) scale(1.1)"/>
+    <use xlink:href="#pole" transform="translate(572 1161) scale(1.1)"/>
+    <use xlink:href="#pole" transform="translate(415 1385) scale(1.2)"/>
+    <use xlink:href="#pole" transform="translate(585 1385) scale(1.2)"/>
+  </g>
+
+  <g id="P50_PLOT_HUB" data-depth-start="0.64" data-depth-end="0.88">
+    <rect width="1000" height="2108" fill="#fff" fill-opacity=".001"/>
+    <path d="M0 1432H1000V1908H0Z" fill="#8e9e50"/>
+    <path d="M435 1420H565L568 1908H432Z" fill="#dfc37a" stroke="#172526" stroke-width="4"/>
+    <path d="M500 1466 408 1546 0 1567M500 1466l92 80 408 21M500 1732 405 1790 0 1815M500 1732l95 58 405 25" fill="none" stroke="#dfc37a" stroke-width="28"/>
+    <g stroke="#172526" stroke-width="4">
+      <path d="M84 1515 398 1540 367 1696 57 1662Z" fill="#5c7440"/>
+      <path d="M602 1540 916 1515 943 1662 633 1696Z" fill="#6f8247"/>
+      <path d="M57 1736 367 1713 397 1885 75 1898Z" fill="#617642"/>
+      <path d="M633 1713 943 1736 925 1898 603 1885Z" fill="#728448"/>
+    </g>
+    <path d="M100 1530 383 1552 355 1682 77 1651Z" fill="url(#potato-print)"/>
+    <path d="M617 1552 900 1530 923 1651 645 1682Z" fill="url(#beet-print)"/>
+    <path d="M77 1750 355 1728 382 1870 92 1882Z" fill="url(#cabbage-print)"/>
+    <path d="M645 1728 923 1750 908 1882 618 1870Z" fill="url(#beet-print)"/>
+    <g fill="none" stroke="#172526" stroke-width="5">
+      <path d="M80 1510 402 1536 371 1701 52 1667Z M80 1526 397 1551M58 1652 373 1684"/>
+      <path d="M598 1536 920 1510 948 1667 629 1701Z M603 1551 920 1526M627 1684 942 1652"/>
+      <path d="M52 1731 371 1708 402 1890 70 1904Z M59 1747 373 1724M74 1887 398 1874"/>
+      <path d="M629 1708 948 1731 930 1904 598 1890Z M627 1724 941 1747M602 1874 926 1887"/>
+    </g>
+    <use xlink:href="#hut" transform="translate(342 1661) scale(.8)"/>
+    <use xlink:href="#hut" transform="translate(658 1661) scale(.8)"/>
+    <use xlink:href="#hut" transform="translate(339 1862) scale(.9)"/>
+    <use xlink:href="#hut" transform="translate(661 1862) scale(.9)"/>
+    <g transform="translate(500 1587)">
+      <path d="M-43 17-30-5H31L45 17V74H-43Z" fill="#c89b4c" stroke="#172526" stroke-width="4"/>
+      <path d="M-50 17-26-14H28L51 17Z" fill="#172526"/>
+      <rect x="-10" y="35" width="20" height="39" fill="#705029" stroke="#172526" stroke-width="3"/>
+      <path d="M0-13V-66" stroke="#172526" stroke-width="3"/><circle cy="-69" r="4" fill="#c3a252"/>
+    </g>
+    <g transform="translate(430 1608)">
+      <rect x="-24" y="-18" width="48" height="38" fill="#b33b32" stroke="#172526" stroke-width="4"/>
+      <path d="M0-18V20M-24 1H24" stroke="#e2c879" stroke-width="2"/>
+    </g>
+    <use xlink:href="#person" transform="translate(456 1674) scale(.8)"/><use xlink:href="#person" transform="translate(501 1688) scale(.88)"/>
+    <use xlink:href="#person" transform="translate(542 1671) scale(.74)"/>
+    <g fill="#c8a75b" stroke="#172526" stroke-width="3">
+      <rect x="465" y="1736" width="70" height="30" rx="2"/>
+      <text x="500" y="1758" text-anchor="middle" font-family="sans-serif" font-size="17" font-weight="700" fill="#172526">PLOTS</text>
+    </g>
+  </g>
+
+  <g id="P60_FOREGROUND_FARM_EDGE" data-depth-start="0.83" data-depth-end="1">
+    <rect width="1000" height="2108" fill="#fff" fill-opacity=".001"/>
+    <path d="M0 1842 155 1788 354 1844 500 1900 646 1844 845 1788 1000 1842V2108H0Z" fill="#111f1f"/>
+    <path d="M441 1827H559L564 2108H436Z" fill="#dfc37a" stroke="#172526" stroke-width="5"/>
+    <g transform="translate(155 1960) scale(1.55)"><use xlink:href="#barn"/></g>
+    <g transform="translate(845 1960) scale(1.55)"><use xlink:href="#barn"/></g>
+    <path d="M0 1934 115 1872 290 1898 417 1950V2108H0Z" fill="#111f1f" stroke="#172526" stroke-width="5"/>
+    <path d="M1000 1934 885 1872 710 1898 583 1950V2108H1000Z" fill="#111f1f" stroke="#172526" stroke-width="5"/>
+    <g fill="none" stroke="#c49a51" stroke-width="5">
+      <path d="M12 1887 61 1818 105 1890M84 1869l45-63 48 68M823 1874l48-68 45 63M895 1890l44-72 49 69"/>
+      <path d="M28 2027h170M39 2011v32M88 2011v32M140 2011v32M189 2011v32"/>
+    </g>
+    <use xlink:href="#person" transform="translate(445 1982) scale(1.35)"/>
+    <use xlink:href="#person" transform="translate(510 1950) scale(1.5)"/>
+    <use xlink:href="#person" transform="translate(551 1988) scale(1.08)"/>
+    <use xlink:href="#cow" transform="translate(826 1994) scale(1.28)"/>
+    <g transform="translate(694 2041)" fill="#b47b3b" stroke="#172526" stroke-width="4">
+      <ellipse rx="33" ry="11"/><path d="M-26 0v28q26 12 52 0V0"/><path d="M-29 13h58" fill="none"/>
+    </g>
+    <path d="M325 2079q35-45 78-21M603 2073q-22-48-60-25" fill="none" stroke="#8c6336" stroke-width="8"/>
+  </g>
+
+  <rect width="1000" height="2108" fill="#b5a56d" opacity=".08" filter="url(#paper-grain)" pointer-events="none"/>
+</svg>

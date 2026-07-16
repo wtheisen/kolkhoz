@@ -1,5 +1,9 @@
 # Field-Plan Art Assets
 
+World raster masters, depth segmentation, Figma card ownership, and runtime plate exports
+follow `design/field-plan-world/DEPTH_CARD_PIPELINE.md`. Read that contract before adding
+or replacing anything under `world_depth/`.
+
 This is the incremental non-pixel asset family described in
 `agent-docs/NEW_VISUAL_DESIGN.md`.
 

@@ -16,10 +16,12 @@ class BrigadePanel extends StatefulWidget {
     this.outgoingComradeRequestUserIDs = const {},
     this.onComradeRequestToUser,
     this.onAction,
+    this.onPlotCardTap,
     this.fieldPlanBoardWidth,
     this.fieldPlanBoardHeight,
     this.fieldPlanBoardLeftInset = 0,
     this.fieldPlanBoardTopInset = 0,
+    this.fieldPlanEnvironmentPage,
     super.key,
   });
 
@@ -37,10 +39,12 @@ class BrigadePanel extends StatefulWidget {
   final Set<String> outgoingComradeRequestUserIDs;
   final Future<void> Function(String userID)? onComradeRequestToUser;
   final ValueChanged<LegalAction>? onAction;
+  final void Function(String cardID, String zone)? onPlotCardTap;
   final double? fieldPlanBoardWidth;
   final double? fieldPlanBoardHeight;
   final double fieldPlanBoardLeftInset;
   final double fieldPlanBoardTopInset;
+  final int? fieldPlanEnvironmentPage;
 
   @override
   State<BrigadePanel> createState() => _BrigadePanelState();
@@ -77,6 +81,65 @@ class _BrigadePanelState extends State<BrigadePanel> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final playerOrder = orderedSeats(seats);
+        if (configuredKolkhozArtStyle.usesNewArt && !widget.compact) {
+          final verticalPage =
+              widget.fieldPlanEnvironmentPage ??
+              BrigadeFieldsScope.verticalPageOf(context);
+          if (verticalPage == 2) {
+            return Stack(
+              key: const Key('north-brigade-board'),
+              children: [
+                Positioned.fill(
+                  child: NorthPanel(
+                    model: model,
+                    tokens: tokens,
+                    language: language,
+                    fieldPlanEnvironment: true,
+                  ),
+                ),
+                Positioned(
+                  left: constraints.maxWidth * 0.43,
+                  right: constraints.maxWidth * 0.43,
+                  bottom: 3,
+                  child: Semantics(
+                    label: 'Swipe down to return to the fields',
+                    child: Icon(
+                      Icons.keyboard_arrow_down,
+                      color: tokens.colors.cream.withValues(alpha: 0.88),
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+          if (verticalPage == 1) {
+            return FieldsBrigadeBoard(
+              model: model,
+              tokens: tokens,
+              language: language,
+              onAction: widget.onAction,
+              onInspectField: (index) =>
+                  BrigadeFieldsScope.focusSurfaceHandlerOf(
+                    context,
+                  )?.call('field-$index'),
+            );
+          }
+          return FarmsteadBrigadePlotBoard(
+            model: model,
+            playerOrder: playerOrder,
+            trick: trick,
+            tokens: tokens,
+            language: language,
+            activeReaction: widget.activeReaction,
+            planningTrumpFocusedSuit: widget.planningTrumpFocusedSuit,
+            onPlanningTrumpActionSelected: widget.onPlanningTrumpActionSelected,
+            onInspectSeat: (seatID) => BrigadeFieldsScope.focusSurfaceHandlerOf(
+              context,
+            )?.call('plot-$seatID'),
+            onPlotCardTap: widget.onPlotCardTap,
+          );
+        }
         final spacing = brigadeColumnSpacing(constraints.maxWidth);
         final columnWidth = brigadeExpandedColumnWidth(
           maxWidth: constraints.maxWidth,
@@ -136,7 +199,7 @@ class _BrigadePanelState extends State<BrigadePanel> {
           );
         }
 
-        final calibratedSigns =
+        final calibratedFieldPlan =
             configuredKolkhozArtStyle.usesNewArt &&
             model.table.phase == phaseTrick &&
             widget.fieldPlanBoardWidth != null &&
@@ -196,7 +259,8 @@ class _BrigadePanelState extends State<BrigadePanel> {
                         outgoingComradeRequestUserIDs:
                             widget.outgoingComradeRequestUserIDs,
                         onComradeRequestToUser: widget.onComradeRequestToUser,
-                        hidePlayerBadge: calibratedSigns,
+                        hidePlayerBadge: calibratedFieldPlan,
+                        hidePlayArea: calibratedFieldPlan,
                       ),
                     ),
                   ),
@@ -204,27 +268,91 @@ class _BrigadePanelState extends State<BrigadePanel> {
             ),
           ),
         );
-        if (!calibratedSigns) {
+        if (!calibratedFieldPlan) {
           return columns;
         }
         final boardWidth = widget.fieldPlanBoardWidth!;
         final boardHeight = widget.fieldPlanBoardHeight!;
+        final boardSize = Size(boardWidth, boardHeight);
         return Stack(
           clipBehavior: Clip.none,
           children: [
             columns,
             for (final seat in playerOrder)
+              Builder(
+                builder: (context) {
+                  final play = trick.playForSeat(seat.id);
+                  final pending = selectedTrickPreviewCard(model, seat, play);
+                  final destination = fieldPlanCardDestinationQuad(
+                    seat.id,
+                    boardSize,
+                    Offset(
+                      widget.fieldPlanBoardLeftInset,
+                      widget.fieldPlanBoardTopInset,
+                    ),
+                  );
+                  final sourceSize = Size(playObjectWidth, playObjectHeight);
+                  final child = play == null
+                      ? pending == null
+                            ? CardSlot(
+                                active: seat.isCurrentTurn,
+                                human: seat.isViewer,
+                                width: playObjectWidth,
+                                height: playObjectHeight,
+                                tokens: tokens,
+                                language: language,
+                              )
+                            : PendingTrickPreview(
+                                card: pending,
+                                active: seat.isCurrentTurn,
+                                human: seat.isViewer,
+                                width: playObjectWidth,
+                                height: playObjectHeight,
+                                trump: model.table.trump,
+                                tokens: tokens,
+                                language: language,
+                              )
+                      : MotionTrackedRegion(
+                          motionKey: trickCardMotionSourceKey(play.card.id),
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            child: GameCard(
+                              card: play.card,
+                              tokens: tokens,
+                              trump: model.table.trump,
+                              sizeOverride: tokens.card.large,
+                              fieldPlanSeatID: seat.id,
+                            ),
+                          ),
+                        );
+                  return Positioned(
+                    left: 0,
+                    top: 0,
+                    width: sourceSize.width,
+                    height: sourceSize.height,
+                    child: Transform(
+                      alignment: Alignment.topLeft,
+                      transform: fieldPlanCardHomographyToQuad(
+                        sourceSize,
+                        destination,
+                      ),
+                      transformHitTests: false,
+                      child: child,
+                    ),
+                  );
+                },
+              ),
+            for (final seat in playerOrder)
               if (inspectedSeatID != seat.id)
                 Builder(
                   builder: (context) {
-                    final normalized = fieldPlanSignRect(seat.id);
-                    final rect = Rect.fromLTWH(
-                      normalized.left * boardWidth -
-                          widget.fieldPlanBoardLeftInset,
-                      normalized.top * boardHeight -
-                          widget.fieldPlanBoardTopInset,
-                      normalized.width * boardWidth,
-                      normalized.height * boardHeight,
+                    final rect = fieldPlanSignDestinationRect(
+                      seat.id,
+                      boardSize,
+                      Offset(
+                        widget.fieldPlanBoardLeftInset,
+                        widget.fieldPlanBoardTopInset,
+                      ),
                     );
                     final play = trick.playForSeat(seat.id);
                     final active = seat.isCurrentTurn && play == null;
@@ -437,6 +565,902 @@ extension on Trick {
   }
 }
 
+class FieldsBrigadeBoard extends StatelessWidget {
+  const FieldsBrigadeBoard({
+    required this.model,
+    required this.tokens,
+    required this.language,
+    this.onAction,
+    this.onInspectField,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final ValueChanged<LegalAction>? onAction;
+  final ValueChanged<int>? onInspectField;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = constraints.biggest;
+        final jobs = jobsInDisplayOrder(model.table.jobs);
+        return Stack(
+          key: const Key('fields-brigade-board'),
+          children: [
+            for (final (index, job) in jobs.indexed)
+              FarmsteadPerspectivePositioned(
+                sourceQuad: fieldPlanFieldsJobPileSourceQuad(index),
+                surfaceID: 'field-$index',
+                child: FieldsJobPile(
+                  job: job,
+                  model: model,
+                  tokens: tokens,
+                  language: language,
+                  onAction: onAction,
+                  onInspect: onInspectField == null
+                      ? null
+                      : () => onInspectField!(index),
+                ),
+              ),
+            for (final (index, job) in jobs.indexed)
+              FarmsteadPerspectivePositioned(
+                sourceQuad: fieldPlanFieldsJobSignSourceQuad(index),
+                child: FarmsteadJobSign(
+                  job: job,
+                  tokens: tokens,
+                  language: language,
+                  highlighted: model.table.trump == job.suit,
+                ),
+              ),
+            Positioned(
+              left: size.width * 0.43,
+              right: size.width * 0.43,
+              top: 3,
+              child: Semantics(
+                label: 'Swipe up to view the North',
+                child: MotionTrackedRegion(
+                  motionKey: northCardMotionTargetKey,
+                  child: Icon(
+                    Icons.keyboard_arrow_up,
+                    color: tokens.colors.cream.withValues(alpha: 0.88),
+                    size: 22,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: size.width * 0.43,
+              right: size.width * 0.43,
+              bottom: 3,
+              child: Semantics(
+                label: 'Swipe down to return to the brigade and plots',
+                child: Icon(
+                  Icons.keyboard_arrow_down,
+                  color: tokens.colors.cream.withValues(alpha: 0.88),
+                  size: 22,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class FieldsJobPile extends StatelessWidget {
+  const FieldsJobPile({
+    required this.job,
+    required this.model,
+    required this.tokens,
+    required this.language,
+    this.onAction,
+    this.onInspect,
+    super.key,
+  });
+
+  final Job job;
+  final TableViewModel model;
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final ValueChanged<LegalAction>? onAction;
+  final VoidCallback? onInspect;
+
+  @override
+  Widget build(BuildContext context) {
+    final assignmentAction = assignmentActionForJob(model, job);
+    final actionHandler = onAction;
+    final canAssign = assignmentAction != null && actionHandler != null;
+    return Semantics(
+      button: canAssign,
+      label: language.suitName(job.suit),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: assignmentAction != null && actionHandler != null
+            ? () => actionHandler(assignmentAction)
+            : onInspect,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: canAssign
+                ? tokens.colors.cream.withValues(alpha: 0.08)
+                : Colors.transparent,
+            border: Border.all(
+              color: canAssign
+                  ? tokens.colors.gold.withValues(alpha: 0.55)
+                  : Colors.transparent,
+              width: 2,
+            ),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: job.assignedCards.isEmpty
+                ? const SizedBox.expand()
+                : AssignedJobCardStack(
+                    cards: job.assignedCards,
+                    tokens: tokens,
+                    trump: model.table.trump,
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class FarmsteadBrigadePlotBoard extends StatelessWidget {
+  const FarmsteadBrigadePlotBoard({
+    required this.model,
+    required this.playerOrder,
+    required this.trick,
+    required this.tokens,
+    required this.language,
+    required this.onInspectSeat,
+    this.activeReaction,
+    this.planningTrumpFocusedSuit,
+    this.onPlanningTrumpActionSelected,
+    this.onPlotCardTap,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final List<Seat> playerOrder;
+  final Trick trick;
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final OnlineReaction? activeReaction;
+  final String? planningTrumpFocusedSuit;
+  final ValueChanged<LegalAction>? onPlanningTrumpActionSelected;
+  final ValueChanged<int> onInspectSeat;
+  final void Function(String cardID, String zone)? onPlotCardTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = constraints.biggest;
+        return Stack(
+          key: const Key('farmstead-brigade-plot-board'),
+          clipBehavior: Clip.none,
+          children: [
+            for (var index = 0; index < playerOrder.length; index++)
+              FarmsteadPerspectivePositioned(
+                sourceQuad: fieldPlanPlayerPortraitSourceQuad(index),
+                child: FarmsteadPlayerPortrait(
+                  seat: playerOrder[index],
+                  tokens: tokens,
+                  reaction: activeReaction?.playerID == playerOrder[index].id
+                      ? activeReaction
+                      : null,
+                  onInspect: () => onInspectSeat(playerOrder[index].id),
+                ),
+              ),
+            for (var index = 0; index < playerOrder.length; index++)
+              FarmsteadPerspectivePositioned(
+                sourceQuad: fieldPlanPlayerNameSourceQuad(index),
+                child: FarmsteadPlayerName(
+                  seat: playerOrder[index],
+                  language: language,
+                  tokens: tokens,
+                ),
+              ),
+            for (var index = 0; index < playerOrder.length; index++)
+              FarmsteadPerspectivePositioned(
+                sourceQuad: fieldPlanCellarCountSourceQuad(index),
+                child: FarmsteadCellarCount(
+                  seat: playerOrder[index],
+                  tokens: tokens,
+                ),
+              ),
+            for (var index = 0; index < playerOrder.length; index++)
+              FarmsteadPerspectivePositioned(
+                sourceQuad: fieldPlanPlotCardsSourceQuad(index),
+                surfaceID: 'plot-${playerOrder[index].id}',
+                child: FarmsteadPlotCards(
+                  seat: playerOrder[index],
+                  model: model,
+                  tokens: tokens,
+                  onPlotCardTap: onPlotCardTap,
+                ),
+              ),
+            for (final (index, job) in jobsInDisplayOrder(
+              model.table.jobs,
+            ).indexed)
+              FarmsteadPerspectivePositioned(
+                sourceQuad: fieldPlanJobSignSourceQuad(index),
+                child: FarmsteadJobSign(
+                  job: job,
+                  tokens: tokens,
+                  language: language,
+                  highlighted: model.table.trump == job.suit,
+                ),
+              ),
+            for (var index = 0; index < playerOrder.length; index++)
+              FarmsteadPerspectivePositioned(
+                sourceQuad: fieldPlanCrossroadsCardSourceQuad(index),
+                child: FarmsteadTrickCard(
+                  seat: playerOrder[index],
+                  play: trick.playForSeat(playerOrder[index].id),
+                  pendingPlayCard: selectedTrickPreviewCard(
+                    model,
+                    playerOrder[index],
+                    trick.playForSeat(playerOrder[index].id),
+                  ),
+                  phase: model.table.phase,
+                  trump: model.table.trump,
+                  tokens: tokens,
+                  language: language,
+                ),
+              ),
+            if (model.table.phase == phasePlanning)
+              FarmsteadPerspectivePositioned(
+                sourceQuad: fieldPlanPlanningSourceQuad(0),
+                child: PlanningTrumpPanel(
+                  model: model,
+                  tokens: tokens,
+                  language: language,
+                  focusedSuit: planningTrumpFocusedSuit,
+                  onAction: onPlanningTrumpActionSelected,
+                ),
+              ),
+            Positioned(
+              left: size.width * 0.43,
+              right: size.width * 0.43,
+              top: 2,
+              child: Semantics(
+                label: 'Swipe up to view the fields',
+                child: MotionTrackedRegion(
+                  motionKey: northCardMotionTargetKey,
+                  child: Icon(
+                    Icons.keyboard_arrow_up,
+                    color: tokens.colors.cream.withValues(alpha: 0.88),
+                    size: 22,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class FarmsteadPerspectivePositioned extends StatelessWidget {
+  const FarmsteadPerspectivePositioned({
+    required this.sourceQuad,
+    required this.child,
+    this.surfaceID,
+    super.key,
+  });
+
+  final FieldPlanCardQuad sourceQuad;
+  final Widget child;
+  final String? surfaceID;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          var destination = fieldPlanBackgroundDestinationQuad(
+            sourceQuad,
+            constraints.biggest,
+          );
+          final focus = FieldPlanWorldFocusScope.maybeOf(context);
+          if (surfaceID != null && focus?.surfaceID == surfaceID) {
+            final progress = Curves.easeInOutCubic.transform(
+              focus!.progress.clamp(0, 1),
+            );
+            final center = fieldPlanQuadCenter(destination);
+            final flatRect = Rect.fromCenter(
+              center: center,
+              width: constraints.maxWidth * 0.42,
+              height: constraints.maxHeight * 0.34,
+            );
+            destination = fieldPlanLerpQuad(
+              destination,
+              FieldPlanCardQuad(
+                flatRect.topLeft,
+                flatRect.topRight,
+                flatRect.bottomRight,
+                flatRect.bottomLeft,
+              ),
+              progress,
+            );
+          }
+          final width =
+              <double>[
+                destination.topLeft.dx,
+                destination.topRight.dx,
+                destination.bottomRight.dx,
+                destination.bottomLeft.dx,
+              ].reduce(math.max) -
+              <double>[
+                destination.topLeft.dx,
+                destination.topRight.dx,
+                destination.bottomRight.dx,
+                destination.bottomLeft.dx,
+              ].reduce(math.min);
+          final height =
+              <double>[
+                destination.topLeft.dy,
+                destination.topRight.dy,
+                destination.bottomRight.dy,
+                destination.bottomLeft.dy,
+              ].reduce(math.max) -
+              <double>[
+                destination.topLeft.dy,
+                destination.topRight.dy,
+                destination.bottomRight.dy,
+                destination.bottomLeft.dy,
+              ].reduce(math.min);
+          final childSize = Size(width, height);
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Transform(
+                alignment: Alignment.topLeft,
+                transform: fieldPlanCardHomographyToQuad(
+                  childSize,
+                  destination,
+                ),
+                child: SizedBox.fromSize(size: childSize, child: child),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class FarmsteadPlayerPortrait extends StatelessWidget {
+  const FarmsteadPlayerPortrait({
+    required this.seat,
+    required this.tokens,
+    required this.onInspect,
+    this.reaction,
+    super.key,
+  });
+
+  final Seat seat;
+  final DesignTokens tokens;
+  final OnlineReaction? reaction;
+  final VoidCallback onInspect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: seat.name,
+      child: GestureDetector(
+        key: Key('player-portrait-${seat.id}-inspect'),
+        behavior: HitTestBehavior.opaque,
+        onTap: onInspect,
+        child: LayoutBuilder(
+          builder: (context, constraints) => Stack(
+            fit: StackFit.expand,
+            children: [
+              PlayerPortrait(
+                seat: seat,
+                tokens: tokens,
+                width: constraints.maxWidth,
+                height: constraints.maxHeight,
+                badgeVisible: false,
+              ),
+              if (reaction != null)
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: tokens.colors.black.withValues(alpha: 0.62),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Image.asset(
+                      'assets/ui/Icons/${reactionAsset(reaction!.reactionID)}',
+                      filterQuality: FilterQuality.none,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class FarmsteadPlayerName extends StatelessWidget {
+  const FarmsteadPlayerName({
+    required this.seat,
+    required this.language,
+    required this.tokens,
+    super.key,
+  });
+
+  final Seat seat;
+  final KolkhozLanguage language;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        seatDisplayName(seat, language: language).toUpperCase(),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: fieldPlanDisplayTextStyle.copyWith(
+          color: seat.isCurrentTurn
+              ? tokens.colors.red
+              : const Color(0xff24251d),
+          fontSize: 18,
+          shadows: const [Shadow(color: Color(0xbbe8d9ad), blurRadius: 3)],
+        ),
+      ),
+    );
+  }
+}
+
+class FarmsteadCellarCount extends StatelessWidget {
+  const FarmsteadCellarCount({
+    required this.seat,
+    required this.tokens,
+    super.key,
+  });
+
+  final Seat seat;
+  final DesignTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.contain,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(
+            'assets/ui/Icons/icon-cellar.png',
+            width: 30,
+            height: 30,
+            filterQuality: FilterQuality.none,
+          ),
+          const SizedBox(width: 4),
+          PixelText(
+            '${seat.plot.effectiveHiddenCardCount}',
+            size: PixelTextSize.title,
+            variant: PixelTextVariant.heavy,
+            color: tokens.colors.cream,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class FarmsteadPlotCards extends StatelessWidget {
+  const FarmsteadPlotCards({
+    required this.seat,
+    required this.model,
+    required this.tokens,
+    this.onPlotCardTap,
+    super.key,
+  });
+
+  final Seat seat;
+  final TableViewModel model;
+  final DesignTokens tokens;
+  final void Function(String cardID, String zone)? onPlotCardTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final hiddenExiledCardIDs = hiddenExiledPlotCardIDs(model);
+    final cards = visiblePlotCards(seat.plot.revealed, hiddenExiledCardIDs);
+    final exiledCardIDs = requisitionExiledCardIDs(model);
+    final selectable = seat.isViewer && model.table.phase == phaseSwap;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scale = constraints.maxHeight / tokens.card.small.height;
+        final cardSize = scaledPlotCardSize(tokens.card.small, scale);
+        return ClipRect(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: OverlappedCardRow(
+              itemWidth: cardSize.width,
+              itemHeight: cardSize.height,
+              spacing: -cardSize.width * 0.32,
+              children: plotOverviewCardItems(
+                cards: cards,
+                stacks: seat.plot.stacks,
+                hiddenCards: false,
+                cardSize: cardSize,
+                selectedCardID: model.selection.plotCardID,
+                selectable: selectable,
+                zone: plotZoneRevealed,
+                exiledCardIDs: exiledCardIDs,
+                tokens: tokens,
+                onPlotCardTap: onPlotCardTap,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class FarmsteadJobSign extends StatelessWidget {
+  const FarmsteadJobSign({
+    required this.job,
+    required this.tokens,
+    required this.language,
+    required this.highlighted,
+    super.key,
+  });
+
+  final Job job;
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = highlighted ? tokens.colors.red : const Color(0xff24251d);
+    return MotionTrackedRegion(
+      motionKey: jobGaugeMotionTargetKey(job.suit),
+      child: FieldPlanSign(
+        borderColor: highlighted ? tokens.colors.red : Colors.transparent,
+        borderWidth: highlighted ? 2 : 0,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: SizedBox(
+            width: 210,
+            height: 42,
+            child: Row(
+              children: [
+                SuitMark(suit: job.suit, tokens: tokens, size: 26),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    language.suitName(job.suit).toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: fieldPlanBodyStrongTextStyle.copyWith(
+                      color: color,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${displayedJobHours(job)}/$jobRequiredHours',
+                  style: fieldPlanDisplayTextStyle.copyWith(
+                    color: color,
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class FarmsteadSeatOverlay extends StatelessWidget {
+  const FarmsteadSeatOverlay({
+    required this.seat,
+    required this.model,
+    required this.tokens,
+    required this.language,
+    required this.maxTricks,
+    required this.heroWithinReach,
+    required this.inspecting,
+    required this.onInspect,
+    this.reaction,
+    this.onPlotCardTap,
+    super.key,
+  });
+
+  final Seat seat;
+  final TableViewModel model;
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final int maxTricks;
+  final bool heroWithinReach;
+  final OnlineReaction? reaction;
+  final bool inspecting;
+  final VoidCallback onInspect;
+  final void Function(String cardID, String zone)? onPlotCardTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final viewer = seat.isViewer;
+    final hiddenExiledCardIDs = hiddenExiledPlotCardIDs(model);
+    final exiledCardIDs = requisitionExiledCardIDs(model);
+    final hiddenCards = visiblePlotCards(seat.plot.hidden, hiddenExiledCardIDs);
+    final revealedCards = visiblePlotCards(
+      seat.plot.revealed,
+      hiddenExiledCardIDs,
+    );
+    final selectable = viewer && model.table.phase == phaseSwap;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final badgeHeight = math.min(44.0, constraints.maxHeight * 0.46);
+        final badgeWidth = math.min(172.0, constraints.maxWidth * 0.72);
+        final plotHeight = math.min(52.0, constraints.maxHeight * 0.56);
+        return Stack(
+          children: [
+            Align(
+              alignment: viewer ? Alignment.topRight : Alignment.topLeft,
+              child: SizedBox(
+                width: badgeWidth,
+                height: badgeHeight,
+                child: PlayerBadge(
+                  seat: seat,
+                  tokens: tokens,
+                  active: seat.isCurrentTurn,
+                  width: badgeWidth,
+                  height: badgeHeight,
+                  maxTricks: maxTricks,
+                  heroWithinReach: heroWithinReach,
+                  language: language,
+                  reaction: reaction,
+                  onInspect: onInspect,
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                height: plotHeight,
+                padding: const EdgeInsets.fromLTRB(5, 3, 5, 4),
+                decoration: BoxDecoration(
+                  color: tokens.colors.black.withValues(alpha: 0.66),
+                  borderRadius: BorderRadius.circular(tokens.radius.sm),
+                  border: Border.all(
+                    color: seat.isCurrentTurn
+                        ? tokens.colors.gold
+                        : tokens.colors.cream.withValues(alpha: 0.45),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: tokens.colors.black.withValues(alpha: 0.3),
+                      blurRadius: 5,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: FarmsteadPlotZone(
+                        iconPath: 'assets/ui/Icons/icon-cellar.png',
+                        cards: hiddenCards,
+                        hidden: true,
+                        redactedCount: viewer
+                            ? null
+                            : seat.plot.effectiveHiddenCardCount,
+                        selectable: selectable,
+                        selectedCardID: model.selection.plotCardID,
+                        exiledCardIDs: exiledCardIDs,
+                        tokens: tokens,
+                        onCardTap: (cardID) =>
+                            onPlotCardTap?.call(cardID, plotZoneHidden),
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      color: tokens.colors.cream.withValues(alpha: 0.35),
+                    ),
+                    Expanded(
+                      child: FarmsteadPlotZone(
+                        iconPath: 'assets/ui/Icons/icon-plot.png',
+                        cards: revealedCards,
+                        stacks: seat.plot.stacks,
+                        hidden: false,
+                        selectable: selectable,
+                        selectedCardID: model.selection.plotCardID,
+                        exiledCardIDs: exiledCardIDs,
+                        tokens: tokens,
+                        onCardTap: (cardID) =>
+                            onPlotCardTap?.call(cardID, plotZoneRevealed),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class FarmsteadPlotZone extends StatelessWidget {
+  const FarmsteadPlotZone({
+    required this.iconPath,
+    required this.cards,
+    required this.hidden,
+    required this.selectable,
+    required this.selectedCardID,
+    required this.exiledCardIDs,
+    required this.tokens,
+    required this.onCardTap,
+    this.stacks = const [],
+    this.redactedCount,
+    super.key,
+  });
+
+  final String iconPath;
+  final List<TableCard> cards;
+  final List<PlotStackState> stacks;
+  final bool hidden;
+  final int? redactedCount;
+  final bool selectable;
+  final String? selectedCardID;
+  final Set<String> exiledCardIDs;
+  final DesignTokens tokens;
+  final ValueChanged<String> onCardTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cardSize = scaledPlotCardSize(tokens.card.small, 0.48);
+    final count = redactedCount ?? cards.length;
+    return Row(
+      children: [
+        SizedBox(
+          width: 24,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(
+                iconPath,
+                width: 17,
+                height: 17,
+                filterQuality: FilterQuality.none,
+              ),
+              PixelText(
+                '$count',
+                size: PixelTextSize.caption2,
+                variant: PixelTextVariant.heavy,
+                color: tokens.colors.cream,
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ClipRect(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: OverlappedCardRow(
+                itemWidth: cardSize.width,
+                itemHeight: cardSize.height,
+                spacing: -cardSize.width * 0.42,
+                children: redactedCount != null
+                    ? [
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            ScaledCardBack(tokens: tokens, size: cardSize),
+                            PixelText(
+                              '$redactedCount',
+                              size: PixelTextSize.caption,
+                              variant: PixelTextVariant.heavy,
+                              color: tokens.colors.gold,
+                            ),
+                          ],
+                        ),
+                      ]
+                    : plotOverviewCardItems(
+                        cards: cards,
+                        stacks: stacks,
+                        hiddenCards: hidden,
+                        cardSize: cardSize,
+                        selectedCardID: selectedCardID,
+                        selectable: selectable,
+                        zone: hidden ? plotZoneHidden : plotZoneRevealed,
+                        exiledCardIDs: exiledCardIDs,
+                        tokens: tokens,
+                        onPlotCardTap: (cardID, _) => onCardTap(cardID),
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class FarmsteadTrickCard extends StatelessWidget {
+  const FarmsteadTrickCard({
+    required this.seat,
+    required this.play,
+    required this.pendingPlayCard,
+    required this.phase,
+    required this.trump,
+    required this.tokens,
+    required this.language,
+    super.key,
+  });
+
+  final Seat seat;
+  final TrickPlay? play;
+  final TableCard? pendingPlayCard;
+  final String phase;
+  final String? trump;
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = phase == phaseTrick && seat.isCurrentTurn && play == null;
+    if (play != null) {
+      return MotionTrackedRegion(
+        motionKey: trickCardMotionSourceKey(play!.card.id),
+        child: FittedBox(
+          fit: BoxFit.contain,
+          child: GameCard(
+            card: play!.card,
+            tokens: tokens,
+            trump: trump,
+            sizeOverride: tokens.card.medium,
+          ),
+        ),
+      );
+    }
+    if (pendingPlayCard != null) {
+      return PendingTrickPreview(
+        card: pendingPlayCard!,
+        active: active,
+        human: seat.isViewer,
+        width: tokens.card.medium.width,
+        height: tokens.card.medium.height,
+        trump: trump,
+        tokens: tokens,
+        language: language,
+      );
+    }
+    return CardSlot(
+      active: active,
+      human: seat.isViewer,
+      width: tokens.card.medium.width,
+      height: tokens.card.medium.height,
+      tokens: tokens,
+      language: language,
+    );
+  }
+}
+
 TableCard? selectedTrickPreviewCard(
   TableViewModel model,
   Seat seat,
@@ -484,6 +1508,7 @@ class BrigadePlayerColumn extends StatelessWidget {
     this.outgoingComradeRequestUserIDs = const {},
     this.onComradeRequestToUser,
     this.hidePlayerBadge = false,
+    this.hidePlayArea = false,
     super.key,
   });
 
@@ -512,6 +1537,7 @@ class BrigadePlayerColumn extends StatelessWidget {
   final Set<String> outgoingComradeRequestUserIDs;
   final Future<void> Function(String userID)? onComradeRequestToUser;
   final bool hidePlayerBadge;
+  final bool hidePlayArea;
 
   @override
   Widget build(BuildContext context) {
@@ -560,7 +1586,9 @@ class BrigadePlayerColumn extends StatelessWidget {
               ),
             ),
           );
-    final presentedPlayAreaChild = fieldPlanTrick
+    final presentedPlayAreaChild = hidePlayArea
+        ? const SizedBox.shrink()
+        : fieldPlanTrick
         ? FieldPlanCardPerspective(seatID: seat.id, child: playAreaChild)
         : playAreaChild;
 
@@ -674,6 +1702,20 @@ class FieldPlanCardQuad {
   final Offset bottomLeft;
 }
 
+Offset fieldPlanQuadCenter(FieldPlanCardQuad quad) =>
+    (quad.topLeft + quad.topRight + quad.bottomRight + quad.bottomLeft) / 4;
+
+FieldPlanCardQuad fieldPlanLerpQuad(
+  FieldPlanCardQuad begin,
+  FieldPlanCardQuad end,
+  double progress,
+) => FieldPlanCardQuad(
+  Offset.lerp(begin.topLeft, end.topLeft, progress)!,
+  Offset.lerp(begin.topRight, end.topRight, progress)!,
+  Offset.lerp(begin.bottomRight, end.bottomRight, progress)!,
+  Offset.lerp(begin.bottomLeft, end.bottomLeft, progress)!,
+);
+
 FieldPlanCardQuad fieldPlanCardQuad(int seatID) => switch (seatID) {
   1 => const FieldPlanCardQuad(
     Offset(0.492, 0.241),
@@ -701,6 +1743,377 @@ FieldPlanCardQuad fieldPlanCardQuad(int seatID) => switch (seatID) {
   ),
 };
 
+const fieldPlanBackgroundSourceSize = Size(1672, 941);
+
+// Coordinates are pixels in brigade-plot-light.png. The calibration editor emits
+// replacements for these groups.
+Rect fieldPlanPlayerPortraitSourceRect(int index) => switch (index) {
+  0 => const Rect.fromLTWH(589.718, 211.857, 93.743, 63.96),
+  1 => const Rect.fromLTWH(991.441, 214.903, 111.361, 60.713),
+  2 => const Rect.fromLTWH(485.937, 531.789, 103.846, 83.807),
+  _ => const Rect.fromLTWH(1059.383, 531.789, 95.946, 81.25),
+};
+
+Rect fieldPlanPlayerNameSourceRect(int index) => switch (index) {
+  0 => const Rect.fromLTWH(344.148, 214.234, 241.581, 56.603),
+  1 => const Rect.fromLTWH(1108.429, 214.961, 238.614, 59.479),
+  2 => const Rect.fromLTWH(252.35, 531.083, 231.786, 83.547),
+  _ => const Rect.fromLTWH(1154.775, 532.293, 241.878, 80.359),
+};
+
+Rect fieldPlanPlotCardsSourceRect(int index) => switch (index) {
+  0 => const Rect.fromLTWH(308.284, 322.991, 324.44, 104.793),
+  1 => const Rect.fromLTWH(1033.278, 319.69, 332.018, 107.171),
+  2 => const Rect.fromLTWH(127.093, 680.503, 418.505, 135.796),
+  _ => const Rect.fromLTWH(1081.238, 673.378, 455.249, 141.466),
+};
+
+Rect fieldPlanCellarCountSourceRect(int index) => switch (index) {
+  0 => const Rect.fromLTWH(248.829, 277.215, 102.499, 48.608),
+  1 => const Rect.fromLTWH(1330.285, 275.89, 89.523, 45.554),
+  2 => const Rect.fromLTWH(51.319, 616.2, 126.601, 69.916),
+  _ => const Rect.fromLTWH(1483.228, 619.455, 139.635, 69.93),
+};
+
+Rect fieldPlanJobSignSourceRect(int index) => switch (index) {
+  0 => const Rect.fromLTWH(120.318, 65.836, 241.387, 77.002),
+  1 => const Rect.fromLTWH(903.589, 68.715, 240.269, 75.608),
+  2 => const Rect.fromLTWH(506.602, 67.856, 238.972, 77.623),
+  _ => const Rect.fromLTWH(1323.521, 69.153, 240.712, 77.622),
+};
+
+Rect fieldPlanCrossroadsCardSourceRect(int index) => switch (index) {
+  0 => const Rect.fromLTWH(848.559, 573.584, 201.829, 247.27),
+  1 => const Rect.fromLTWH(841.091, 364.535, 201.751, 186.387),
+  2 => const Rect.fromLTWH(621.006, 366.861, 191.072, 182.224),
+  _ => const Rect.fromLTWH(617.99, 568.169, 194.557, 244.712),
+};
+
+Rect fieldPlanPlanningSourceRect(int index) =>
+    const Rect.fromLTWH(634.746, 340.152, 382.792, 289.341);
+
+FieldPlanCardQuad fieldPlanPlayerPortraitSourceQuad(int index) =>
+    switch (index) {
+      0 => const FieldPlanCardQuad(
+        Offset(601.499, 211.857),
+        Offset(683.461, 212.534),
+        Offset(671.229, 275.74),
+        Offset(589.718, 275.818),
+      ),
+      1 => const FieldPlanCardQuad(
+        Offset(991.441, 215.638),
+        Offset(1095.791, 214.903),
+        Offset(1102.802, 275.617),
+        Offset(998.066, 275.407),
+      ),
+      2 => const FieldPlanCardQuad(
+        Offset(501.433, 533.072),
+        Offset(589.783, 531.789),
+        Offset(574.675, 614.299),
+        Offset(485.937, 615.595),
+      ),
+      _ => const FieldPlanCardQuad(
+        Offset(1059.383, 531.789),
+        Offset(1143.016, 532.106),
+        Offset(1155.329, 613.039),
+        Offset(1069.493, 612.391),
+      ),
+    };
+
+FieldPlanCardQuad fieldPlanPlayerNameSourceQuad(int index) => switch (index) {
+  0 => const FieldPlanCardQuad(
+    Offset(361.662, 214.817),
+    Offset(585.729, 214.234),
+    Offset(574.148, 270.836),
+    Offset(344.148, 270.836),
+  ),
+  1 => const FieldPlanCardQuad(
+    Offset(1108.429, 215.357),
+    Offset(1336.86, 214.961),
+    Offset(1347.043, 274.44),
+    Offset(1117.043, 274.44),
+  ),
+  2 => const FieldPlanCardQuad(
+    Offset(280.261, 531.083),
+    Offset(484.137, 531.652),
+    Offset(467.473, 614.631),
+    Offset(252.35, 614.256),
+  ),
+  _ => const FieldPlanCardQuad(
+    Offset(1154.775, 532.502),
+    Offset(1384.66, 532.293),
+    Offset(1396.653, 612.651),
+    Offset(1166.653, 612.651),
+  ),
+};
+
+FieldPlanCardQuad fieldPlanPlotCardsSourceQuad(int index) => switch (index) {
+  0 => const FieldPlanCardQuad(
+    Offset(355.01, 324.553),
+    Offset(632.724, 322.991),
+    Offset(600.594, 427.784),
+    Offset(308.284, 425.761),
+  ),
+  1 => const FieldPlanCardQuad(
+    Offset(1033.278, 320.977),
+    Offset(1318.809, 319.69),
+    Offset(1365.295, 426.861),
+    Offset(1066.952, 425.317),
+  ),
+  2 => const FieldPlanCardQuad(
+    Offset(189.791, 682.73),
+    Offset(545.598, 680.503),
+    Offset(522.057, 816.299),
+    Offset(127.093, 815.554),
+  ),
+  _ => const FieldPlanCardQuad(
+    Offset(1081.238, 673.378),
+    Offset(1475.51, 674.3),
+    Offset(1536.486, 812.51),
+    Offset(1108.727, 814.844),
+  ),
+};
+
+FieldPlanCardQuad fieldPlanCellarCountSourceQuad(int index) => switch (index) {
+  0 => const FieldPlanCardQuad(
+    Offset(270.266, 277.769),
+    Offset(351.328, 277.215),
+    Offset(335.054, 324.879),
+    Offset(248.829, 325.822),
+  ),
+  1 => const FieldPlanCardQuad(
+    Offset(1330.285, 276.026),
+    Offset(1404.765, 275.89),
+    Offset(1419.808, 321.444),
+    Offset(1343.377, 320.825),
+  ),
+  2 => const FieldPlanCardQuad(
+    Offset(81.621, 616.388),
+    Offset(177.92, 616.2),
+    Offset(157.462, 685.979),
+    Offset(51.319, 686.116),
+  ),
+  _ => const FieldPlanCardQuad(
+    Offset(1483.228, 619.455),
+    Offset(1595.24, 619.815),
+    Offset(1622.863, 689.385),
+    Offset(1512.349, 688.142),
+  ),
+};
+
+FieldPlanCardQuad fieldPlanJobSignSourceQuad(int index) => switch (index) {
+  0 => const FieldPlanCardQuad(
+    Offset(120.318, 65.836),
+    Offset(361.704, 65.836),
+    Offset(361.704, 142.838),
+    Offset(120.318, 142.838),
+  ),
+  1 => const FieldPlanCardQuad(
+    Offset(903.589, 68.715),
+    Offset(1143.857, 68.715),
+    Offset(1143.857, 144.323),
+    Offset(903.589, 144.323),
+  ),
+  2 => const FieldPlanCardQuad(
+    Offset(506.602, 67.856),
+    Offset(745.574, 67.856),
+    Offset(745.574, 145.478),
+    Offset(506.602, 145.478),
+  ),
+  _ => const FieldPlanCardQuad(
+    Offset(1323.521, 69.153),
+    Offset(1564.233, 69.153),
+    Offset(1564.233, 146.775),
+    Offset(1323.521, 146.775),
+  ),
+};
+
+FieldPlanCardQuad fieldPlanFieldsJobPileSourceQuad(int index) =>
+    switch (index) {
+      0 => const FieldPlanCardQuad(
+        Offset(313.035, 181.186),
+        Offset(752.564, 179.234),
+        Offset(734.615, 332.289),
+        Offset(110.111, 329.644),
+      ),
+      1 => const FieldPlanCardQuad(
+        Offset(906.639, 174.294),
+        Offset(1340.058, 176.067),
+        Offset(1567.682, 330.037),
+        Offset(939.518, 333.031),
+      ),
+      2 => const FieldPlanCardQuad(
+        Offset(243.909, 503.519),
+        Offset(702.933, 507.148),
+        Offset(628.734, 802.201),
+        Offset(21.959, 798.046),
+      ),
+      _ => const FieldPlanCardQuad(
+        Offset(960.722, 513.846),
+        Offset(1379.459, 515.95),
+        Offset(1653.82, 818.011),
+        Offset(1021.954, 821.449),
+      ),
+    };
+
+FieldPlanCardQuad fieldPlanFieldsJobSignSourceQuad(int index) =>
+    switch (index) {
+      0 => const FieldPlanCardQuad(
+        Offset(544.001, 30.917),
+        Offset(784.001, 30.917),
+        Offset(784.001, 108.917),
+        Offset(544.001, 108.917),
+      ),
+      1 => const FieldPlanCardQuad(
+        Offset(888.451, 30.781),
+        Offset(1128.451, 30.781),
+        Offset(1128.451, 108.781),
+        Offset(888.451, 108.781),
+      ),
+      2 => const FieldPlanCardQuad(
+        Offset(488.552, 350.096),
+        Offset(728.552, 350.096),
+        Offset(728.552, 428.096),
+        Offset(488.552, 428.096),
+      ),
+      _ => const FieldPlanCardQuad(
+        Offset(923.039, 353.347),
+        Offset(1163.039, 353.347),
+        Offset(1163.039, 431.347),
+        Offset(923.039, 431.347),
+      ),
+    };
+
+FieldPlanCardQuad fieldPlanCrossroadsCardSourceQuad(int index) =>
+    switch (index) {
+      0 => const FieldPlanCardQuad(
+        Offset(848.559, 573.584),
+        Offset(1012.231, 574.571),
+        Offset(1050.387, 820.854),
+        Offset(870.392, 818.394),
+      ),
+      1 => const FieldPlanCardQuad(
+        Offset(841.091, 365.212),
+        Offset(1002.668, 364.535),
+        Offset(1042.842, 550.922),
+        Offset(863.53, 548.661),
+      ),
+      2 => const FieldPlanCardQuad(
+        Offset(662.218, 366.861),
+        Offset(812.078, 367.005),
+        Offset(787.688, 548.323),
+        Offset(621.006, 549.086),
+      ),
+      _ => const FieldPlanCardQuad(
+        Offset(647.196, 568.169),
+        Offset(812.546, 570.488),
+        Offset(796.927, 811.574),
+        Offset(617.99, 812.88),
+      ),
+    };
+
+FieldPlanCardQuad fieldPlanPlanningSourceQuad(int index) =>
+    const FieldPlanCardQuad(
+      Offset(700.635, 340.152),
+      Offset(967.909, 340.152),
+      Offset(1017.538, 629.494),
+      Offset(634.746, 627.888),
+    );
+
+FieldPlanCardQuad fieldPlanCardSourceQuad(int seatID) => switch (seatID) {
+  1 => const FieldPlanCardQuad(
+    Offset(353.936, 404.533),
+    Offset(541.687, 404.533),
+    Offset(411.023, 720.412),
+    Offset(149.693, 720.412),
+  ),
+  2 => const FieldPlanCardQuad(
+    Offset(638.1, 404.533),
+    Offset(827.12, 404.533),
+    Offset(809.36, 720.412),
+    Offset(535.344, 720.412),
+  ),
+  3 => const FieldPlanCardQuad(
+    Offset(924.801, 404.533),
+    Offset(1108.747, 404.533),
+    Offset(1229.263, 720.412),
+    Offset(941.293, 720.412),
+  ),
+  _ => const FieldPlanCardQuad(
+    Offset(1211.502, 404.533),
+    Offset(1400.522, 404.533),
+    Offset(1654.24, 720.412),
+    Offset(1356.121, 720.412),
+  ),
+};
+
+Rect fieldPlanSignSourceRect(int seatID) => switch (seatID) {
+  1 => const Rect.fromLTWH(377.872, 262.855, 178.904, 74.492),
+  2 => const Rect.fromLTWH(648.736, 262.855, 178.904, 74.492),
+  3 => const Rect.fromLTWH(912.912, 262.855, 178.904, 74.492),
+  _ => const Rect.fromLTWH(1190.464, 262.855, 178.904, 74.492),
+};
+
+Offset fieldPlanBackgroundPoint(Offset source, Size destination) {
+  final scale = math.min(
+    destination.width / fieldPlanBackgroundSourceSize.width,
+    destination.height / fieldPlanBackgroundSourceSize.height,
+  );
+  final offset = Offset(
+    (destination.width - fieldPlanBackgroundSourceSize.width * scale) / 2,
+    (destination.height - fieldPlanBackgroundSourceSize.height * scale) / 2,
+  );
+  return offset + source * scale;
+}
+
+Rect fieldPlanBackgroundRect(Rect source, Size destination) {
+  return Rect.fromPoints(
+    fieldPlanBackgroundPoint(source.topLeft, destination),
+    fieldPlanBackgroundPoint(source.bottomRight, destination),
+  );
+}
+
+FieldPlanCardQuad fieldPlanBackgroundDestinationQuad(
+  FieldPlanCardQuad source,
+  Size destination,
+) {
+  return FieldPlanCardQuad(
+    fieldPlanBackgroundPoint(source.topLeft, destination),
+    fieldPlanBackgroundPoint(source.topRight, destination),
+    fieldPlanBackgroundPoint(source.bottomRight, destination),
+    fieldPlanBackgroundPoint(source.bottomLeft, destination),
+  );
+}
+
+FieldPlanCardQuad fieldPlanCardDestinationQuad(
+  int seatID,
+  Size boardSize,
+  Offset panelOrigin,
+) {
+  final source = fieldPlanCardSourceQuad(seatID);
+  Offset destination(Offset point) =>
+      fieldPlanBackgroundPoint(point, boardSize) - panelOrigin;
+  return FieldPlanCardQuad(
+    destination(source.topLeft),
+    destination(source.topRight),
+    destination(source.bottomRight),
+    destination(source.bottomLeft),
+  );
+}
+
+Rect fieldPlanSignDestinationRect(
+  int seatID,
+  Size boardSize,
+  Offset panelOrigin,
+) {
+  final source = fieldPlanSignSourceRect(seatID);
+  final topLeft =
+      fieldPlanBackgroundPoint(source.topLeft, boardSize) - panelOrigin;
+  final bottomRight =
+      fieldPlanBackgroundPoint(source.bottomRight, boardSize) - panelOrigin;
+  return Rect.fromPoints(topLeft, bottomRight);
+}
+
 Rect fieldPlanSignRect(int seatID) => switch (seatID) {
   1 => const Rect.fromLTWH(0.226, 0.277, 0.107, 0.08),
   2 => const Rect.fromLTWH(0.388, 0.277, 0.107, 0.08),
@@ -725,6 +2138,17 @@ Matrix4 fieldPlanCardHomography(Size size, FieldPlanCardQuad normalized) {
     normalized.bottomLeft.dx * size.width,
     normalized.bottomLeft.dy * size.height,
   );
+  return fieldPlanCardHomographyToQuad(size, FieldPlanCardQuad(p0, p1, p2, p3));
+}
+
+Matrix4 fieldPlanCardHomographyToQuad(
+  Size size,
+  FieldPlanCardQuad destination,
+) {
+  final p0 = destination.topLeft;
+  final p1 = destination.topRight;
+  final p2 = destination.bottomRight;
+  final p3 = destination.bottomLeft;
   final dx1 = p1.dx - p2.dx;
   final dx2 = p3.dx - p2.dx;
   final dx3 = p0.dx - p1.dx + p2.dx - p3.dx;
@@ -1736,9 +3160,11 @@ class PlayerCardBackThumbnail extends StatelessWidget {
           ),
         ),
         child: Image.asset(
-          cardBack.iconAssetPath,
+          cardBack.displayedIconAssetPath,
           fit: BoxFit.cover,
-          filterQuality: FilterQuality.none,
+          filterQuality: configuredKolkhozArtStyle.usesNewArt
+              ? FilterQuality.medium
+              : FilterQuality.none,
         ),
       ),
     );

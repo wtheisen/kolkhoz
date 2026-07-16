@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "canvas": [
+    1672,
+    941
+  ],
+  "underpaint": {
+    "id": "underpaint-far",
+    "path": "underpaint-far.png",
+    "source": "equal-range-08/infill-generated/band-00-far.png",
+    "worldZ": 9.0,
+    "purpose": "Completed far backing revealed as nearer depth plates pass the camera"
+  },
+  "plates": [
+    {
+      "id": "band-00-far",
+      "path": "band-00-far.png",
+      "pixelBounds": [
+        0,
+        0,
+        1672,
+        419
+      ],
+      "initialRect": [
+        0.0,
+        0.0,
+        1.0,
+        0.4452709883103082
+      ]
+    },
+    {
+      "id": "band-01-mid",
+      "path": "band-01-mid.png",
+      "pixelBounds": [
+        0,
+        325,
+        1672,
+        442
+      ],
+      "initialRect": [
+        0.0,
+        0.34537725823591925,
+        1.0,
+        0.12433581296493093
+      ]
+    },
+    {
+      "id": "band-02-mid",
+      "path": "band-02-mid.png",
+      "pixelBounds": [
+        0,
+        354,
+        1672,
+        478
+      ],
+      "initialRect": [
+        0.0,
+        0.37619553666312433,
+        1.0,
+        0.13177470775770456
+      ]
+    },
+    {
+      "id": "band-03-mid",
+      "path": "band-03-mid.png",
+      "pixelBounds": [
+        0,
+        374,
+        1672,
+        527
+      ],
+      "initialRect": [
+        0.0,
+        0.39744952178533477,
+        1.0,
+        0.16259298618490967
+      ]
+    },
+    {
+      "id": "band-04-mid",
+      "path": "band-04-mid.png",
+      "pixelBounds": [
+        0,
+        403,
+        1672,
+        591
+      ],
+      "initialRect": [
+        0.0,
+        0.42826780021253985,
+        1.0,
+        0.1997874601487779
+      ]
+    },
+    {
+      "id": "band-05-mid",
+      "path": "band-05-mid.png",
+      "pixelBounds": [
+        0,
+        405,
+        1672,
+        691
+      ],
+      "initialRect": [
+        0.0,
+        0.4303931987247609,
+        1.0,
+        0.30393198724760895
+      ]
+    },
+    {
+      "id": "band-06-mid",
+      "path": "band-06-mid.png",
+      "pixelBounds": [
+        0,
+        407,
+        1672,
+        825
+      ],
+      "initialRect": [
+        0.0,
+        0.43251859723698194,
+        1.0,
+        0.4442082890541977
+      ]
+    },
+    {
+      "id": "band-07-near",
+      "path": "band-07-near.png",
+      "pixelBounds": [
+        0,
+        413,
+        1672,
+        941
+      ],
+      "initialRect": [
+        0.0,
+        0.43889479277364507,
+        1.0,
+        0.5611052072263549
+      ]
+    }
+  ]
+}

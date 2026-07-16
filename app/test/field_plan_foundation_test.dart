@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kolkhoz_app/src/app_settings.dart';
 import 'package:kolkhoz_app/src/art_direction.dart';
 import 'package:kolkhoz_app/src/field_plan_assets.dart';
 import 'package:kolkhoz_app/src/field_plan_typography.dart';
@@ -74,14 +75,42 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('generated trick environment is bundled and decodes', (
+  testWidgets('generated brigade plot environment is bundled and decodes', (
     tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: SizedBox()));
     final context = tester.element(find.byType(SizedBox));
     await tester.runAsync(() async {
       await precacheImage(
-        const AssetImage(fieldPlanTrickFieldBackgroundPath),
+        const AssetImage(fieldPlanBrigadePlotBackgroundPath),
+        context,
+      );
+    });
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('generated fields environment is bundled and decodes', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    final context = tester.element(find.byType(SizedBox));
+    await tester.runAsync(() async {
+      await precacheImage(
+        const AssetImage(fieldPlanFieldsBackgroundPath),
+        context,
+      );
+    });
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('generated North environment is bundled and decodes', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    final context = tester.element(find.byType(SizedBox));
+    await tester.runAsync(() async {
+      await precacheImage(
+        const AssetImage(fieldPlanNorthBackgroundPath),
         context,
       );
     });
@@ -112,6 +141,18 @@ void main() {
   });
 
   test('field-plan card mappings preserve incomplete-family fallbacks', () {
+    expect(
+      KolkhozCardBack.classic.assetPathFor(KolkhozArtStyle.fieldPlan),
+      fieldPlanCardBackAssetPath,
+    );
+    expect(
+      KolkhozCardBack.winter.iconAssetPathFor(KolkhozArtStyle.fieldPlan),
+      fieldPlanCardBackAssetPath,
+    );
+    expect(
+      KolkhozCardBack.classic.assetPathFor(KolkhozArtStyle.legacy),
+      KolkhozCardBack.classic.assetPath,
+    );
     expect(
       fieldPlanCardSuitAssetPath('beet'),
       'assets/art/field_plan/cards/suits/suit-beet.png',

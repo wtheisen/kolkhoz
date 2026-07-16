@@ -1,0 +1,17 @@
+{
+  "scene": "north",
+  "source": "app/assets/art/field_plan/game/backgrounds/north-light.png",
+  "registration": {"aspectRatio": "16:9", "vanishingPoint": [0.515, 0.112], "cameraStopZ": 6.0},
+  "layers": [
+    {"id": "N00", "worldZ": 7.75, "name": "far sky and mountains", "fullCanvasOpaque": false,
+     "owns": "sky, mountain line and distant snow"},
+    {"id": "N10", "worldZ": 7.40, "name": "snow forest", "fullCanvasOpaque": false,
+     "owns": "distant and mid-distance conifer groups with shadows"},
+    {"id": "N20", "worldZ": 7.05, "name": "southern valley", "fullCanvasOpaque": false,
+     "owns": "rolling fields, roads, village, pylons and river"},
+    {"id": "N30", "worldZ": 6.70, "name": "railway and boundary", "fullCanvasOpaque": false,
+     "owns": "railway, fence and near tree line"},
+    {"id": "N40", "worldZ": 6.35, "name": "foreground crops", "fullCanvasOpaque": false,
+     "owns": "nearest wheat and sunflower crop beds"}
+  ]
+}

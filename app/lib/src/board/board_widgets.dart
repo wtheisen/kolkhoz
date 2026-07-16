@@ -505,7 +505,7 @@ class GameCard extends StatelessWidget {
       width: size.width,
       height: size.height,
       decoration: BoxDecoration(
-        color: tokens.colors.panel,
+        color: plantedFace ? Colors.transparent : tokens.colors.panel,
         borderRadius: BorderRadius.circular(
           plantedFace ? 0 : cardViewCornerRadius,
         ),
@@ -522,39 +522,29 @@ class GameCard extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          Positioned.fill(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(
-                plantedFace ? 0 : cardViewCornerRadius,
-              ),
-              child: Image.asset(
-                plantedFace
-                    ? fieldPlanPlantedCardFacePath(fieldPlanSeatID!)
-                    : cardTemplateAssetPath(
-                        card: card,
-                        tokens: tokens,
-                        trump: trump,
-                      ),
-                fit: BoxFit.cover,
-                filterQuality: plantedFace
-                    ? FilterQuality.high
-                    : FilterQuality.none,
-                isAntiAlias: plantedFace,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+          if (!plantedFace)
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(cardViewCornerRadius),
+                child: Image.asset(
+                  cardTemplateAssetPath(
+                    card: card,
+                    tokens: tokens,
+                    trump: trump,
+                  ),
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.none,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
               ),
             ),
-          ),
           if (plantedFace)
             Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: fieldPlanCardPaper,
-                      width: (size.width * 0.026).clamp(2.5, 5),
-                    ),
-                  ),
-                ),
+              child: Image.asset(
+                fieldPlanPlantedCardFacePath(fieldPlanSeatID!),
+                fit: BoxFit.fill,
+                filterQuality: FilterQuality.high,
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
             ),
           Padding(
@@ -571,31 +561,28 @@ class GameCard extends StatelessWidget {
                   ),
                 ),
                 Positioned(
-                  left: cardCornerHorizontalInset(size),
-                  top: cardTopCornerVerticalInset(size),
-                  child: FieldPlanCardCornerPaper(
-                    visible: plantedFace,
-                    child: CardCornerIndex(
-                      card: card,
-                      size: size,
-                      tokens: tokens,
-                      placement: CardCornerPlacement.top,
-                      trump: trump,
-                    ),
+                  left: cardCornerHorizontalInset(size) + (plantedFace ? 4 : 0),
+                  top: cardTopCornerVerticalInset(size) + (plantedFace ? 2 : 0),
+                  child: CardCornerIndex(
+                    card: card,
+                    size: size,
+                    tokens: tokens,
+                    placement: CardCornerPlacement.top,
+                    trump: trump,
                   ),
                 ),
                 Positioned(
-                  right: cardCornerHorizontalInset(size),
-                  bottom: cardBottomCornerVerticalInset(size),
-                  child: FieldPlanCardCornerPaper(
-                    visible: plantedFace,
-                    child: CardCornerIndex(
-                      card: card,
-                      size: size,
-                      tokens: tokens,
-                      placement: CardCornerPlacement.bottom,
-                      trump: trump,
-                    ),
+                  right:
+                      cardCornerHorizontalInset(size) + (plantedFace ? 4 : 0),
+                  bottom:
+                      cardBottomCornerVerticalInset(size) +
+                      (plantedFace ? 2 : 0),
+                  child: CardCornerIndex(
+                    card: card,
+                    size: size,
+                    tokens: tokens,
+                    placement: CardCornerPlacement.bottom,
+                    trump: trump,
                   ),
                 ),
               ],
@@ -612,19 +599,6 @@ class GameCard extends StatelessWidget {
                         alpha: tokens.colors.cardStrokeOpacity,
                       ),
                       width: cardViewStrokeWidth,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          if (plantedFace)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: const Color(0xff4a402a).withValues(alpha: 0.72),
-                      width: 0.8,
                     ),
                   ),
                 ),
@@ -692,40 +666,6 @@ double cardCornerRankVisualHeight(TokenCardSize size) {
 }
 
 enum CardCornerPlacement { top, bottom }
-
-const fieldPlanCardPaper = Color(0xffead9ad);
-
-class FieldPlanCardCornerPaper extends StatelessWidget {
-  const FieldPlanCardCornerPaper({
-    required this.visible,
-    required this.child,
-    super.key,
-  });
-
-  final bool visible;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!visible) {
-      return child;
-    }
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: fieldPlanCardPaper.withValues(alpha: 0.96),
-        border: Border.all(
-          color: const Color(0xff4a402a).withValues(alpha: 0.72),
-          width: 0.8,
-        ),
-        borderRadius: BorderRadius.circular(2),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        child: child,
-      ),
-    );
-  }
-}
 
 class CardCornerIndex extends StatelessWidget {
   const CardCornerIndex({

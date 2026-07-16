@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1672 941" width="1672" height="941">
+  <title>Brigade raster depth blockout</title>
+  <desc>Registered semantic placeholders. Each Bxx group is a replaceable depth plate, not finished art.</desc>
+  <defs>
+    <style>
+      .edge{stroke:#10282d;stroke-width:5;stroke-linejoin:round}.guide{stroke:#f7e2a2;stroke-width:2;stroke-dasharray:12 10;opacity:.75}
+      .chip{fill:#10282d;stroke:#f7e2a2;stroke-width:2}.label{font-family:Arial,sans-serif;font-weight:700;fill:#fff4c9;letter-spacing:1px}
+      .note{font-family:Arial,sans-serif;fill:#fff4c9}.register{fill:#fff;fill-opacity:.001}
+    </style>
+  </defs>
+  <g id="B00_PAINTED_TERRAIN_BASE" data-depth="0.00">
+    <rect class="register" width="1672" height="941"/>
+    <rect width="1672" height="941" fill="#26383d"/>
+    <path d="M0 0H1672V105Q1250 92 836 104T0 105Z" fill="#17272c"/>
+    <path d="M0 105Q410 82 836 104T1672 105V941H0Z" fill="#718443" class="edge"/>
+    <path d="M790 104H882L918 452 1076 555 975 644 1014 941H658L697 644 596 555 754 452Z" fill="#d8b96d" class="edge"/>
+    <g transform="translate(30 28)"><rect class="chip" width="420" height="64" rx="8"/><text class="label" x="18" y="27" font-size="20">B00 · DEPTH 0.00 · OPAQUE BASE</text><text class="note" x="18" y="50" font-size="15">Sky · horizon · completed terrain · center road</text></g>
+  </g>
+  <g id="B10_FAR_CROP_BELT" data-depth="0.18">
+    <rect class="register" width="1672" height="941"/>
+    <path d="M0 102H1672V229H0Z" fill="#4ec6d8" fill-opacity=".36" class="edge"/>
+    <path d="M0 118 396 118 380 208H0ZM410 118H775L760 208H421ZM897 118h365l-11 90H912ZM1276 118h396v90h-380Z" fill="#4ec6d8" fill-opacity=".55" class="edge"/>
+    <g transform="translate(30 142)"><rect class="chip" width="360" height="58" rx="8"/><text class="label" x="16" y="25" font-size="19">B10 · DEPTH 0.18 · FAR BELT</text><text class="note" x="16" y="47" font-size="14">Crop beds · trees · horizon fence</text></g>
+  </g>
+  <g id="B20_UPPER_HOMESTEADS" data-depth="0.43">
+    <rect class="register" width="1672" height="941"/>
+    <path d="M214 228H707L674 484H198Z" fill="#e6c64c" fill-opacity=".40" class="edge"/>
+    <path d="M965 228H1458L1474 484H998Z" fill="#e6c64c" fill-opacity=".40" class="edge"/>
+    <path d="M265 250H670V342H245ZM1002 250H1407L1427 342H1022Z" fill="#e6c64c" fill-opacity=".72" class="edge"/>
+    <g transform="translate(250 370)"><rect class="chip" width="395" height="58" rx="8"/><text class="label" x="16" y="25" font-size="19">B20 · DEPTH 0.43 · UPPER HOMESTEADS</text><text class="note" x="16" y="47" font-size="14">Two buildings · yards · fences</text></g>
+  </g>
+  <g id="B30_LOWER_HOMESTEADS" data-depth="0.72">
+    <rect class="register" width="1672" height="941"/>
+    <path d="M34 524H640L576 882H18Z" fill="#e78a43" fill-opacity=".42" class="edge"/>
+    <path d="M1032 524H1638L1654 882H1096Z" fill="#e78a43" fill-opacity=".42" class="edge"/>
+    <path d="M88 552H590V700H50ZM1082 552H1584L1622 700H1120Z" fill="#e78a43" fill-opacity=".72" class="edge"/>
+    <g transform="translate(70 756)"><rect class="chip" width="395" height="58" rx="8"/><text class="label" x="16" y="25" font-size="19">B30 · DEPTH 0.72 · LOWER HOMESTEADS</text><text class="note" x="16" y="47" font-size="14">Two near buildings · yards · fences</text></g>
+  </g>
+  <g id="B40_FOREGROUND_ACCENTS" data-depth="1.00">
+    <rect class="register" width="1672" height="941"/>
+    <path d="M0 806 650 780 658 941H0ZM1672 806 1022 780 1014 941H1672Z" fill="#d94b5d" fill-opacity=".32" class="edge"/>
+    <path d="M0 876H636M1036 876H1672" class="guide"/>
+    <g transform="translate(1130 824)"><rect class="chip" width="475" height="58" rx="8"/><text class="label" x="16" y="25" font-size="19">B40 · DEPTH 1.00 · FOREGROUND ACCENTS</text><text class="note" x="16" y="47" font-size="14">Near fence rails · road shoulders · texture</text></g>
+  </g>
+  <g id="BRIGADE_REGISTRATION_GUIDES">
+    <path d="M836 0V941" class="guide"/><path d="M0 105H1672" class="guide"/>
+    <circle cx="836" cy="105" r="9" fill="#f7e2a2"/><text class="note" x="852" y="97" font-size="15">vanishing point 0.500 / 0.105</text>
+  </g>
+</svg>

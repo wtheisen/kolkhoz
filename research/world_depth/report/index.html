@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kolkhoz North Depth Workbench</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f5e7c1;
+      --muted: #b4b7aa;
+      --panel: #142326;
+      --panel-2: #1b3032;
+      --line: #365053;
+      --gold: #e1b84d;
+      --red: #d66c51;
+      --green: #74a684;
+      --shadow: rgba(0, 0, 0, 0.34);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #0b1517;
+      color: var(--ink);
+      font: 15px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    button, input, select, textarea { font: inherit; }
+    button, select, input[type="range"], input[type="file"] { width: 100%; }
+    button, select, input[type="file"] {
+      color: var(--ink);
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px 10px;
+    }
+    button { cursor: pointer; }
+    button:hover { border-color: var(--gold); }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { color: var(--gold); font-size: clamp(22px, 3vw, 38px); margin-bottom: 6px; }
+    h2 { font-size: 17px; color: var(--gold); }
+    h3 { font-size: 14px; margin-bottom: 8px; }
+    code { color: #f3cd68; }
+    .shell { width: min(1500px, 100%); margin: 0 auto; padding: 22px; }
+    .lede { color: var(--muted); max-width: 90ch; }
+    .grid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 18px; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: 0 12px 34px var(--shadow);
+      padding: 16px;
+    }
+    .controls { display: grid; gap: 14px; align-content: start; }
+    .field { display: grid; gap: 6px; }
+    .label-row { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); }
+    .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .preset.active { border-color: var(--gold); color: var(--gold); }
+    .viewer { min-width: 0; }
+    .canvas {
+      position: relative;
+      aspect-ratio: 1672 / 941;
+      overflow: hidden;
+      background:
+        linear-gradient(90deg, transparent 49.85%, rgba(225,184,77,.45) 50%, transparent 50.15%),
+        linear-gradient(#101f21, #091214);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+    .canvas img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .canvas .source { opacity: 1; }
+    .canvas .result { opacity: 0; mix-blend-mode: normal; }
+    .canvas.overlay .result { opacity: var(--overlay-opacity); mix-blend-mode: screen; }
+    .canvas.result-only .source { opacity: 0; }
+    .canvas.result-only .result { opacity: 1; }
+    .canvas.split .source { clip-path: inset(0 50% 0 0); }
+    .canvas.split .result { opacity: 1; clip-path: inset(0 0 0 50%); }
+    .divider { position: absolute; inset: 0 auto 0 50%; width: 1px; background: var(--gold); display: none; }
+    .canvas.split .divider { display: block; }
+    .empty {
+      position: absolute;
+      inset: auto 18px 18px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      color: var(--muted);
+      background: rgba(11, 21, 23, .86);
+      border: 1px solid var(--line);
+    }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+    .stat { background: var(--panel-2); border-radius: 8px; padding: 10px; }
+    .stat b { display: block; color: var(--gold); font-size: 17px; }
+    .output { margin-top: 18px; }
+    textarea {
+      width: 100%;
+      min-height: 210px;
+      resize: vertical;
+      color: var(--ink);
+      background: #091214;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .copy-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; margin-top: 10px; }
+    .copy-row button { width: auto; min-width: 120px; }
+    .feedback { color: var(--green); min-height: 1.4em; }
+    details { border-top: 1px solid var(--line); padding-top: 12px; }
+    summary { cursor: pointer; color: var(--gold); }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 520px) {
+      .shell { padding: 12px; }
+      .presets, .stats { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <h1>North Depth Workbench</h1>
+    <p class="lede">Load one model result or matte overlay and compare it against the authoritative North source. This viewer does not alter production assets.</p>
+
+    <section class="grid">
+      <aside class="panel controls">
+        <div class="field">
+          <h2>Inspection preset</h2>
+          <div class="presets" id="presets"></div>
+        </div>
+
+        <label class="field">
+          <span class="label-row"><span>Model</span></span>
+          <select id="model">
+            <option value="depth-anything-v2-small">Depth Anything V2 Small</option>
+            <option value="depth-pro">Apple Depth Pro</option>
+            <option value="marigold">Marigold</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="label-row"><span>Band count</span><strong id="bandValue">5</strong></span>
+          <input id="bands" type="range" min="0" max="2" step="1" value="0">
+        </label>
+
+        <label class="field">
+          <span class="label-row"><span>Quantization</span></span>
+          <select id="method">
+            <option value="equal-range">Equal range</option>
+            <option value="quantile">Quantile</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="label-row"><span>View</span></span>
+          <select id="view">
+            <option value="split">Split comparison</option>
+            <option value="overlay">Boundary overlay</option>
+            <option value="source">Source only</option>
+            <option value="result-only">Result only</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="label-row"><span>Overlay opacity</span><strong id="opacityValue">65%</strong></span>
+          <input id="opacity" type="range" min="0" max="100" value="65">
+        </label>
+
+        <label class="field">
+          <span class="label-row"><span>Load result image</span></span>
+          <input id="resultFile" type="file" accept="image/*">
+        </label>
+
+        <details>
+          <summary>Advanced</summary>
+          <label class="field" style="margin-top: 12px">
+            <span class="label-row"><span>Override source image</span></span>
+            <input id="sourceFile" type="file" accept="image/*">
+          </label>
+        </details>
+      </aside>
+
+      <section class="panel viewer">
+        <div class="canvas split" id="canvas">
+          <img class="source" id="sourceImage" alt="Authoritative North source" src="../../../app/assets/art/field_plan/game/backgrounds/north-light.png">
+          <img class="result" id="resultImage" alt="Loaded depth or matte result">
+          <div class="divider"></div>
+          <div class="empty" id="empty">Load a generated depth visualization, matte, boundary overlay, or contact-sheet crop.</div>
+        </div>
+        <div class="stats">
+          <div class="stat"><b id="statModel">DA V2 Small</b>model</div>
+          <div class="stat"><b id="statBands">5</b>bands</div>
+          <div class="stat"><b id="statMethod">equal-range</b>quantization</div>
+          <div class="stat"><b>0 far / 1 near</b>depth convention</div>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel output">
+      <h2>Generated review instruction</h2>
+      <textarea id="prompt" readonly></textarea>
+      <div class="copy-row">
+        <span class="feedback" id="feedback" aria-live="polite"></span>
+        <button id="copy">Copy instruction</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const bandOptions = [5, 8, 12];
+    const presets = {
+      depth: { label: 'Depth inspection', view: 'split', bands: 5, method: 'equal-range', opacity: 65 },
+      mattes: { label: 'Matte bands', view: 'result-only', bands: 5, method: 'quantile', opacity: 100 },
+      edges: { label: 'Edge cleanup', view: 'overlay', bands: 8, method: 'quantile', opacity: 72 },
+      parallax: { label: 'Parallax prep', view: 'split', bands: 12, method: 'equal-range', opacity: 55 }
+    };
+
+    const state = {
+      preset: 'depth',
+      model: 'depth-anything-v2-small',
+      bands: 5,
+      method: 'equal-range',
+      view: 'split',
+      opacity: 65,
+      resultName: ''
+    };
+
+    const labels = {
+      'depth-anything-v2-small': 'Depth Anything V2 Small',
+      'depth-pro': 'Apple Depth Pro',
+      'marigold': 'Marigold'
+    };
+
+    const shortLabels = {
+      'depth-anything-v2-small': 'DA V2 Small',
+      'depth-pro': 'Depth Pro',
+      'marigold': 'Marigold'
+    };
+
+    const elements = Object.fromEntries([
+      'presets', 'model', 'bands', 'bandValue', 'method', 'view', 'opacity',
+      'opacityValue', 'resultFile', 'sourceFile', 'canvas', 'sourceImage',
+      'resultImage', 'empty', 'statModel', 'statBands', 'statMethod',
+      'prompt', 'feedback', 'copy'
+    ].map(id => [id, document.getElementById(id)]));
+
+    function renderPresets() {
+      elements.presets.innerHTML = '';
+      Object.entries(presets).forEach(([id, preset]) => {
+        const button = document.createElement('button');
+        button.className = 'preset' + (state.preset === id ? ' active' : '');
+        button.textContent = preset.label;
+        button.addEventListener('click', () => {
+          Object.assign(state, preset, { preset: id });
+          updateControls();
+          render();
+        });
+        elements.presets.appendChild(button);
+      });
+    }
+
+    function updateControls() {
+      elements.model.value = state.model;
+      elements.bands.value = String(bandOptions.indexOf(state.bands));
+      elements.method.value = state.method;
+      elements.view.value = state.view;
+      elements.opacity.value = String(state.opacity);
+    }
+
+    function reviewPrompt() {
+      const artifact = state.resultName ? `the loaded artifact ${state.resultName}` : 'the next matching generated artifact';
+      const focus = state.preset === 'edges'
+        ? 'Focus on tree/snow boundaries, shadows, fragmentation, and paper-grain false depth.'
+        : state.preset === 'parallax'
+          ? 'Focus on whether these bands would move as coherent depth planes during the continuous dolly.'
+          : state.preset === 'mattes'
+            ? 'Focus on whether the matte bands correspond to semantic plates instead of arbitrary image slices.'
+            : 'Focus on horizon ordering, forest depth, isolated trees, and the central approach corridor.';
+
+      return `Review ${artifact} from ${labels[state.model]} against the authoritative North source.\n\n` +
+        `Interpret depth as 0 = far and 1 = near. Inspect the ${state.bands}-band ${state.method} quantization using the ${state.view} view at ${state.opacity}% overlay opacity. ${focus}\n\n` +
+        'Report concrete source-space evidence, estimated manual cleanup, licensing status, and whether this model should be abandoned, used for draft ordering, combined with semantic masking, or followed by one narrow experiment. Do not modify Figma or production assets.';
+    }
+
+    function render() {
+      renderPresets();
+      elements.bandValue.textContent = String(state.bands);
+      elements.opacityValue.textContent = `${state.opacity}%`;
+      elements.statModel.textContent = shortLabels[state.model];
+      elements.statBands.textContent = String(state.bands);
+      elements.statMethod.textContent = state.method;
+      elements.canvas.className = `canvas ${state.view}`;
+      elements.canvas.style.setProperty('--overlay-opacity', String(state.opacity / 100));
+      elements.empty.hidden = Boolean(elements.resultImage.src);
+      elements.prompt.value = reviewPrompt();
+    }
+
+    function updateState(key, value) {
+      state[key] = value;
+      state.preset = '';
+      render();
+    }
+
+    elements.model.addEventListener('change', event => updateState('model', event.target.value));
+    elements.bands.addEventListener('input', event => updateState('bands', bandOptions[Number(event.target.value)]));
+    elements.method.addEventListener('change', event => updateState('method', event.target.value));
+    elements.view.addEventListener('change', event => updateState('view', event.target.value));
+    elements.opacity.addEventListener('input', event => updateState('opacity', Number(event.target.value)));
+
+    function loadImage(input, image, isResult) {
+      const [file] = input.files;
+      if (!file) return;
+      const reader = new FileReader();
+      reader.addEventListener('load', () => {
+        image.src = reader.result;
+        if (isResult) state.resultName = file.name;
+        render();
+      });
+      reader.readAsDataURL(file);
+    }
+
+    elements.resultFile.addEventListener('change', () => loadImage(elements.resultFile, elements.resultImage, true));
+    elements.sourceFile.addEventListener('change', () => loadImage(elements.sourceFile, elements.sourceImage, false));
+    elements.copy.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(elements.prompt.value);
+        elements.feedback.textContent = 'Copied.';
+      } catch (error) {
+        elements.feedback.textContent = 'Copy failed; select the text manually.';
+      }
+    });
+
+    updateControls();
+    render();
+  </script>
+</body>
+</html>

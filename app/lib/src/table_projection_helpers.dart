@@ -1,3 +1,4 @@
+import 'art_direction.dart';
 import 'game_constants.dart';
 import 'game_ui_state.dart';
 import 'render_model.dart';
@@ -43,7 +44,8 @@ String activePanelForPhase(
 String actionPanelForPhase(String phase) {
   return switch (phase) {
     phaseAssignment => panelJobs,
-    phaseSwap || phaseRequisition => panelPlot,
+    phaseSwap || phaseRequisition =>
+      configuredKolkhozArtStyle.usesNewArt ? panelBrigade : panelPlot,
     _ => panelBrigade,
   };
 }

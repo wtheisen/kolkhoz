@@ -1,0 +1,17 @@
+{
+  "scene": "brigade",
+  "source": "app/assets/art/field_plan/game/backgrounds/brigade-plot-light-v10.png",
+  "registration": {"aspectRatio": "16:9", "vanishingPoint": [0.5, 0.105], "cameraStopZ": 0.0},
+  "layers": [
+    {"id": "B00", "worldZ": 1.75, "name": "far sky and horizon", "fullCanvasOpaque": false,
+     "owns": "sky, mountains and rolling horizon"},
+    {"id": "B10", "worldZ": 1.40, "name": "far crop belt", "fullCanvasOpaque": false,
+     "owns": "four distant crop beds, horizon fence, trees"},
+    {"id": "B20", "worldZ": 1.05, "name": "upper homesteads", "fullCanvasOpaque": false,
+     "owns": "upper two buildings, yards, plot fences"},
+    {"id": "B30", "worldZ": 0.70, "name": "lower homesteads", "fullCanvasOpaque": false,
+     "owns": "lower two buildings, yards, plot fences"},
+    {"id": "B40", "worldZ": 0.35, "name": "foreground road and fence accents", "fullCanvasOpaque": false,
+     "owns": "near road shoulders, nearest fence rails and foreground texture accents"}
+  ]
+}

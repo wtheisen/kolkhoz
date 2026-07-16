@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "status": "locked",
+  "coordinateConvention": {
+    "cameraTravel": "positive-z",
+    "normalizedDepth": {
+      "far": 0.0,
+      "near": 1.0
+    }
+  },
+  "viewport": {
+    "width": 1672,
+    "height": 941,
+    "aspectRatio": "16:9",
+    "role": "legacy-calibration-space"
+  },
+  "authoringViewport": {
+    "width": 1920,
+    "height": 800,
+    "aspectRatio": "12:5",
+    "status": "locked-for-new-production",
+    "actionSafeFraction": [0.86, 0.86]
+  },
+  "projection": {
+    "focalLength": 2.0,
+    "vanishingPoint": [0.5, 0.4],
+    "pitchDegrees": 0.0,
+    "yawDegrees": 0.0,
+    "nearPlane": 0.08,
+    "minimumScale": 0.04,
+    "maximumScale": 8.0,
+    "plateExitDistance": 0.55
+  },
+  "cameraTrack": {
+    "startZ": -2.0,
+    "terminalZ": 8.05,
+    "stops": [
+      {"id": "menu", "label": "MENU", "z": -2.0},
+      {"id": "brigade", "label": "BRIGADE", "z": 0.0},
+      {"id": "fields", "label": "FIELDS", "z": 3.0},
+      {"id": "north", "label": "NORTH", "z": 5.0},
+      {"id": "camp", "label": "CAMP", "z": 8.05}
+    ]
+  },
+  "notes": [
+    "Camera contract is artistically locked; Flutter is authoritative.",
+    "North marks the start of the deep approach; Camp follows the railway past the fields and snowy farms to the base of the forest artwork.",
+    "The 1672 x 941 viewport is the legacy calibrated proof space. New Figma raster masters and depth-card registration use the locked 12:5, 1920 x 800 authoring viewport defined by design/field-plan-world/DEPTH_CARD_PIPELINE.md.",
+    "Aspect migration preserves normalized camera geometry and precedes production-master approval; it does not authorize route or perspective redesign."
+  ]
+}

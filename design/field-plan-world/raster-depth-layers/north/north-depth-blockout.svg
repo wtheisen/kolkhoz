@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1672 941" width="1672" height="941">
+  <title>North raster depth blockout</title>
+  <desc>Registered semantic placeholders. Each Nxx group is a replaceable depth plate, not finished art.</desc>
+  <defs><style>
+    .edge{stroke:#10282d;stroke-width:5;stroke-linejoin:round}.guide{stroke:#f7e2a2;stroke-width:2;stroke-dasharray:12 10;opacity:.75}
+    .chip{fill:#10282d;stroke:#f7e2a2;stroke-width:2}.label{font-family:Arial,sans-serif;font-weight:700;fill:#fff4c9;letter-spacing:1px}.note{font-family:Arial,sans-serif;fill:#fff4c9}.register{fill:#fff;fill-opacity:.001}
+  </style></defs>
+  <g id="N00_PAINTED_SNOW_BASE" data-depth="0.00">
+    <rect class="register" width="1672" height="941"/><rect width="1672" height="941" fill="#26383d"/>
+    <path d="M0 0H1672V112H0Z" fill="#17272c"/><path d="M0 112H1672V690Q1200 640 836 682T0 690Z" fill="#ead99e" class="edge"/>
+    <path d="M0 690Q450 625 836 682T1672 690V941H0Z" fill="#718443" class="edge"/>
+    <g transform="translate(30 28)"><rect class="chip" width="430" height="64" rx="8"/><text class="label" x="18" y="27" font-size="20">N00 · DEPTH 0.00 · OPAQUE SNOW BASE</text><text class="note" x="18" y="50" font-size="15">Sky · mountains · completed snowfield · valley terrain</text></g>
+  </g>
+  <g id="N10_SNOW_FOREST" data-depth="0.20">
+    <rect class="register" width="1672" height="941"/>
+    <path d="M0 118Q350 130 600 185T836 300Q1080 170 1672 120V665Q1250 560 836 650T0 665Z" fill="#4ec6d8" fill-opacity=".36" class="edge"/>
+    <path d="M0 145Q360 110 700 210M972 205Q1260 110 1672 145M0 410Q360 340 720 480M952 470Q1260 335 1672 410" class="guide"/>
+    <g transform="translate(40 250)"><rect class="chip" width="355" height="58" rx="8"/><text class="label" x="16" y="25" font-size="19">N10 · DEPTH 0.20 · SNOW FOREST</text><text class="note" x="16" y="47" font-size="14">Conifer groups · bare trees · shadows</text></g>
+  </g>
+  <g id="N20_SOUTHERN_VALLEY" data-depth="0.48">
+    <rect class="register" width="1672" height="941"/>
+    <path d="M0 650Q420 600 836 670T1672 650V824H0Z" fill="#e6c64c" fill-opacity=".46" class="edge"/>
+    <path d="M80 744Q410 670 760 733M912 733Q1250 665 1600 744" class="guide"/>
+    <g transform="translate(42 685)"><rect class="chip" width="410" height="58" rx="8"/><text class="label" x="16" y="25" font-size="19">N20 · DEPTH 0.48 · SOUTHERN VALLEY</text><text class="note" x="16" y="47" font-size="14">Rolling fields · roads · village · pylons · river</text></g>
+  </g>
+  <g id="N30_RAILWAY_BOUNDARY" data-depth="0.75">
+    <rect class="register" width="1672" height="941"/>
+    <path d="M808 662H864L1010 941H662Z" fill="#e78a43" fill-opacity=".62" class="edge"/>
+    <path d="M0 786H708M964 786H1672" fill="none" stroke="#e78a43" stroke-width="24" opacity=".55"/>
+    <g transform="translate(1030 720)"><rect class="chip" width="440" height="58" rx="8"/><text class="label" x="16" y="25" font-size="19">N30 · DEPTH 0.75 · RAILWAY + BOUNDARY</text><text class="note" x="16" y="47" font-size="14">Track · fence · near tree line</text></g>
+  </g>
+  <g id="N40_FOREGROUND_CROPS" data-depth="1.00">
+    <rect class="register" width="1672" height="941"/>
+    <path d="M0 804H708L662 941H0ZM964 804H1672V941H1010Z" fill="#d94b5d" fill-opacity=".45" class="edge"/>
+    <g transform="translate(70 842)"><rect class="chip" width="385" height="58" rx="8"/><text class="label" x="16" y="25" font-size="19">N40 · DEPTH 1.00 · FOREGROUND CROPS</text><text class="note" x="16" y="47" font-size="14">Nearest wheat · sunflowers · crop fence</text></g>
+  </g>
+  <g id="NORTH_REGISTRATION_GUIDES"><path d="M861 0V941" class="guide"/><path d="M0 105H1672" class="guide"/><circle cx="861" cy="105" r="9" fill="#f7e2a2"/><text class="note" x="877" y="97" font-size="15">vanishing point 0.515 / 0.112</text></g>
+</svg>

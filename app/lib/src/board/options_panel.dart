@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../animation_speed.dart';
 import '../app_settings.dart';
 import '../app_text.dart';
+import '../art_direction.dart';
 import '../chrome_button.dart';
 import '../design_tokens.dart';
 import '../pixel_text.dart';
@@ -837,13 +838,14 @@ class OptionsDisplayControls extends StatelessWidget {
             onChanged: onAnimationSpeedChanged,
           ),
         ),
-        OptionsCardBackPicker(
-          selected: cardBack,
-          tokens: tokens,
-          language: language,
-          onChanged: onCardBackChanged,
-          unlockedCardBacks: unlockedCardBacks,
-        ),
+        if (!configuredKolkhozArtStyle.usesNewArt)
+          OptionsCardBackPicker(
+            selected: cardBack,
+            tokens: tokens,
+            language: language,
+            onChanged: onCardBackChanged,
+            unlockedCardBacks: unlockedCardBacks,
+          ),
       ],
     );
   }
@@ -959,9 +961,11 @@ class OptionsCardBackButton extends StatelessWidget {
                       fit: StackFit.expand,
                       children: [
                         Image.asset(
-                          cardBack.assetPath,
+                          cardBack.displayedAssetPath,
                           fit: BoxFit.cover,
-                          filterQuality: FilterQuality.none,
+                          filterQuality: configuredKolkhozArtStyle.usesNewArt
+                              ? FilterQuality.medium
+                              : FilterQuality.none,
                           color: unlocked
                               ? null
                               : tokens.colors.black.withValues(alpha: 0.58),
