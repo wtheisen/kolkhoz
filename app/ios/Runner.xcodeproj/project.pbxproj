@@ -423,6 +423,7 @@
 						"$(inherited)",
 						"-Wl,-export_dynamic",
 					);
+					STRIP_INSTALLED_PRODUCT = NO;
 						PRODUCT_BUNDLE_IDENTIFIER = com.williamtheisen.kolkhoz;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				VERSIONING_SYSTEM = "apple-generic";
@@ -632,6 +633,7 @@
 						"$(inherited)",
 						"-Wl,-export_dynamic",
 					);
+					STRIP_INSTALLED_PRODUCT = NO;
 						PRODUCT_BUNDLE_IDENTIFIER = com.williamtheisen.kolkhoz;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				VERSIONING_SYSTEM = "apple-generic";

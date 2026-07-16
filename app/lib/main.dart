@@ -1,19 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import 'src/kolkhoz_app.dart';
-import 'src/push_notifications.dart';
 
 final _semanticsHandles = <SemanticsHandle>[];
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeKolkhozFirebase();
-  await _lockMobileLandscape();
   _semanticsHandles.add(SemanticsBinding.instance.ensureSemantics());
   runApp(const KolkhozApp());
+  unawaited(_lockMobileLandscape());
 }
 
 Future<void> _lockMobileLandscape() async {
