@@ -20,7 +20,6 @@ class AppDelegate: FlutterAppDelegate {
       }
     }
 
-    super.applicationDidFinishLaunching(notification)
   }
 
   override func applicationShouldTerminateAfterLastWindowClosed(

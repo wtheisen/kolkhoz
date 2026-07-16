@@ -36,6 +36,14 @@ Commerce claims require `APPLE_ROOT_CERTIFICATE_PATHS`, `APPLE_APP_ID`,
 `KOLKHOZ_ENFORCE_FULL_GAME=false` while configuring and testing the first
 storefront, then enable it for the paid-access release.
 
+App Store Server API operations also require `APPLE_IAP_KEY_ID`,
+`APPLE_IAP_ISSUER_ID`, and `APPLE_IAP_PRIVATE_KEY_PATH`. The private `.p8` key can
+be downloaded only once. Store it outside the checkout with mode `0600`; never
+commit it or print its contents. Sandbox signed-notification delivery was verified
+against the production webhook on July 14, 2026. Apple does not enable production
+App Store Server API access until the app has a production release, so repeat the
+production `TEST` notification after launch.
+
 Edit `/etc/kolkhoz-server.env` with the production database URL, then start the
 service:
 

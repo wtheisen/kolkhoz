@@ -27,23 +27,35 @@ real-money gambling, purchasable randomized items, user-generated chat, or polit
 
 ## Submission blockers
 
-- [ ] Apple Developer Program enrollment approved
-- [ ] App record created for bundle ID `com.williamtheisen.kolkhoz`
+- [x] Apple Developer Program enrollment approved
+- [x] App record created for bundle ID `com.williamtheisen.kolkhoz` (Apple ID `6790769553`)
 - [ ] Current paid-applications agreement accepted, if required by the chosen price
-- [ ] Non-consumable `com.williamtheisen.kolkhoz.fullgame` created and submitted with the app version
-- [ ] App Store Server Notification V2 production and sandbox URLs configured
-- [ ] Apple root certificates and App Apple ID configured on the Kolkhoz server
+- [x] Non-consumable `com.williamtheisen.kolkhoz.fullgame` created (Apple ID `6790770004`)
+- [ ] Non-consumable submitted with the app version
+- [x] App Store Server Notification V2 production and sandbox URLs configured
+- [x] Apple root certificates and App Apple ID configured on the Kolkhoz server
+- [x] Apple sandbox signed `TEST` notification delivered successfully
+- [ ] Apple production signed `TEST` notification verified after the first production release
 - [ ] Purchase, restore, refund, and account-link conflict tested in StoreKit sandbox
 - [ ] APNs authentication key created and installed in Firebase
 - [ ] Push notifications verified on a physical iPhone with a release/profile build
-- [ ] In-app account-deletion initiation added in an easy-to-find account/settings location
+- [x] In-app account-deletion initiation added in Profile → Account; deletion surrenders the Full Game Unlock
 - [ ] App Review account created and verified against production
+- [x] App Review contact information and detailed review instructions saved on iOS version 1.0
 - [ ] Updated privacy and support pages published and checked publicly
+- [x] App Information subtitle, Games/Card/Strategy classification, content rights, and age rating saved
+- [x] iOS 1.0 product description, promotional text, keywords, URLs, and copyright saved
 - [ ] Five final 6.9-inch landscape screenshots captured and uploaded
-- [ ] Release archive built, signed, uploaded, and processed by App Store Connect
-- [ ] App Privacy questionnaire reconciled with the final build and SDK versions
-- [ ] Age-rating questionnaire completed
-- [ ] Full Game Unlock price and availability selected
+- [x] Release archive `1.0.0 (1)` built, signed, and uploaded to App Store Connect
+- [x] Release archive `1.0.0 (1)` processed and export-compliance cleared by App Store Connect
+- [x] Release build `1.0.0 (1)` attached to iOS version 1.0
+- [x] Internal TestFlight group created with automatic distribution; Account Holder invited to build `1.0.0 (1)`
+- [x] External TestFlight group created with one tester; build `1.0.0 (1)` submitted to Beta App Review
+- [ ] External build `1.0.0 (1)` approved and available to testers
+- [x] App Privacy questionnaire reconciled with the final build and SDK versions and published July 14, 2026
+- [x] Age-rating questionnaire completed; global 12+ with regional equivalents
+- [x] Full Game Unlock price set to $4.99 USD with availability in all current and future storefronts
+- [ ] Full Game Unlock review screenshot captured and uploaded
 
 ## Account deletion
 

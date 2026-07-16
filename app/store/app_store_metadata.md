@@ -38,7 +38,7 @@ Highest final plot score wins. Plan carefully: the State remembers a failed harv
 - Primary category: Games
 - Primary subcategory: Card
 - Secondary subcategory: Strategy
-- Suggested age rating: complete the App Store Connect questionnaire; the game contains no gambling, graphic violence, sexual content, or user-generated chat
+- Age rating: global 12+ for current systems, with regional equivalents; questionnaire records frequent competitive contests/rankings and an infrequent alcohol reference for the “Drunkard” role, with no gambling, violence, sexual content, or user-generated chat
 - Copyright: © 2026 William Theisen
 - Version: 1.0
 
@@ -50,7 +50,7 @@ Highest final plot score wins. Plan carefully: the State remembers a failed harv
 
 ## Decisions still needed
 
-- App price: Free; Full Game Unlock price still to be selected
-- Availability countries/regions
+- App price: Free; Full Game Unlock: $4.99 USD base price with Apple's regional equivalents
+- Availability: all current App Store countries/regions and future storefronts automatically
 - Whether Game Center will be added in 1.0 (the current app does not use it)
 - Final subtitle choice after reviewing the product page in App Store Connect
