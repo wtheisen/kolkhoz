@@ -30,7 +30,7 @@ void main() {
       'M30',
       'M40',
     ]);
-    expect(manifest.stops.map((stop) => stop.z), [-2, 0, 3, 5]);
+    expect(manifest.stops.map((stop) => stop.z), [-2, 0, 3, 5, 8.05]);
   });
 
   test('camera contract owns stops and continuous route interpolation', () {
@@ -43,13 +43,15 @@ void main() {
       'brigade',
       'fields',
       'north',
+      'camp',
     ]);
     expect(camera.zAtProgress(0), -2);
-    expect(camera.zAtProgress(2 / 7), closeTo(0, 0.000001));
-    expect(camera.zAtProgress(5 / 7), closeTo(3, 0.000001));
-    expect(camera.zAtProgress(1), 5);
-    expect(camera.zAtProgress(3.25 / 7), closeTo(1.25, 0.000001));
-    expect(camera.progressAtZ(1.25), closeTo(3.25 / 7, 0.000001));
+    expect(camera.zAtProgress(2 / 10.05), closeTo(0, 0.000001));
+    expect(camera.zAtProgress(5 / 10.05), closeTo(3, 0.000001));
+    expect(camera.zAtProgress(7 / 10.05), closeTo(5, 0.000001));
+    expect(camera.zAtProgress(1), 8.05);
+    expect(camera.zAtProgress(3.25 / 10.05), closeTo(1.25, 0.000001));
+    expect(camera.progressAtZ(1.25), closeTo(3.25 / 10.05, 0.000001));
     expect(camera.zAtProgress(-1), camera.startZ);
     expect(camera.zAtProgress(2), camera.terminalZ);
   });
@@ -339,12 +341,14 @@ void main() {
     },
   );
 
-  test('North is terminal and settles on the North-only plate stack', () async {
+  test('Camp is terminal after the North approach', () async {
     final manifest = await WorldDepthManifest.load();
     final camera = worldDepthCameraCalibration;
-    expect(camera.stops.last.id, 'north');
+    expect(camera.stops[camera.stops.length - 2].id, 'north');
+    expect(camera.stops[camera.stops.length - 2].z, 5);
+    expect(camera.stops.last.id, 'camp');
     expect(camera.stops.last.z, camera.terminalZ);
-    expect(northHybridOpacity(camera.terminalZ), 1);
+    expect(northHybridOpacity(5), 1);
     expect(
       manifest.layers.singleWhere((layer) => layer.id == 'R10').worldZ,
       30,
