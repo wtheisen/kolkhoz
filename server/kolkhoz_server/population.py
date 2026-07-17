@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 PROFILE_BOT_TARGET_WAIT_SECONDS = 90
 DEFAULT_BATCH_SIZE = 256
 DEFAULT_LEASE_SECONDS = 25
+DEFAULT_HEALTH_TIMEOUT_SECONDS = 5 * 60
 
 
 @dataclass(frozen=True)
@@ -117,9 +118,13 @@ class PopulationScheduler:
         planner: PopulationPlanner | None = None,
         on_filled: Callable[[str], None] | None = None,
         metrics: ServerMetrics | None = None,
+        clock: Callable[[], float] = time.monotonic,
+        health_timeout_seconds: float = DEFAULT_HEALTH_TIMEOUT_SECONDS,
     ) -> None:
         if batch_size < 1:
             raise ValueError("batch_size must be positive")
+        if health_timeout_seconds <= 0:
+            raise ValueError("health_timeout_seconds must be positive")
         self.repository = repository
         self.owner_id = owner_id or str(uuid.uuid4())
         self.batch_size = batch_size
@@ -127,9 +132,12 @@ class PopulationScheduler:
         self.planner = planner or PopulationPlanner()
         self.on_filled = on_filled
         self.metrics = metrics
+        self.clock = clock
+        self.health_timeout_seconds = health_timeout_seconds
         self.consecutive_failures = 0
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._last_tick_completed_at: float | None = None
 
     def tick(self, *, now: float) -> PopulationTickResult:
         seeded = self._seed(now)
@@ -235,6 +243,7 @@ class PopulationScheduler:
         if self._thread is not None:
             raise RuntimeError("population scheduler is already running")
         self._stop.clear()
+        self._last_tick_completed_at = self.clock()
 
         def run() -> None:
             while not self._stop.wait(interval_seconds):
@@ -246,6 +255,8 @@ class PopulationScheduler:
                     logging.exception("population scheduler tick failed")
                     if self.metrics is not None:
                         self.metrics.increment("population.failures")
+                finally:
+                    self._last_tick_completed_at = self.clock()
                 if self.metrics is not None:
                     self.metrics.gauge("population.healthy", int(self.healthy))
 
@@ -264,8 +275,14 @@ class PopulationScheduler:
 
     @property
     def healthy(self) -> bool:
-        return self.consecutive_failures == 0 and (
-            self._thread is None or self._thread.is_alive()
+        if self.consecutive_failures != 0:
+            return False
+        if self._thread is None:
+            return True
+        if not self._thread.is_alive() or self._last_tick_completed_at is None:
+            return False
+        return (
+            self.clock() - self._last_tick_completed_at <= self.health_timeout_seconds
         )
 
     def _profiles(

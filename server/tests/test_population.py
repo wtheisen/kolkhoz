@@ -149,3 +149,25 @@ def test_profile_bot_start_failure_is_not_swallowed() -> None:
         assert "cannot start broken" in str(error)
     else:
         raise AssertionError("population failure was swallowed")
+
+
+def test_health_fails_when_started_thread_stops_completing_ticks() -> None:
+    now = [100.0]
+
+    class LiveThread:
+        @staticmethod
+        def is_alive() -> bool:
+            return True
+
+    scheduler = PopulationScheduler(
+        Repository(),
+        clock=lambda: now[0],
+        health_timeout_seconds=10,
+    )
+    scheduler._thread = LiveThread()  # type: ignore[assignment]
+    scheduler._last_tick_completed_at = now[0]
+
+    now[0] = 110.0
+    assert scheduler.healthy
+    now[0] = 110.1
+    assert not scheduler.healthy

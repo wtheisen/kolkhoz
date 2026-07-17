@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from server.kolkhoz_server.api import OnlineApplication, Request
 from server.kolkhoz_server.auth import StaticAuthVerifier
@@ -440,7 +441,12 @@ class CompatibilityApiTests(unittest.TestCase):
             )
             connection.commit()
 
-        self.application.population_seat_filled(session_id)
+        with patch.object(
+            self.runtime,
+            "events",
+            side_effect=AssertionError("population advancement read event history"),
+        ):
+            self.application.population_seat_filled(session_id)
 
         self.assertEqual(lobby.session(session_id).status, "active")
 

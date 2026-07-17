@@ -128,6 +128,11 @@ def create_asgi_application() -> ASGIApplication:
             autocommit=False,
             prepare_threshold=None,
             connect_timeout=5,
+            keepalives=1,
+            keepalives_idle=10,
+            keepalives_interval=5,
+            keepalives_count=3,
+            tcp_user_timeout=15_000,
             options="-c statement_timeout=5000 -c lock_timeout=3000",
         ),
         size=args.db_pool_size,
@@ -301,6 +306,9 @@ def create_asgi_application() -> ASGIApplication:
         batch_size=int(os.environ.get("KOLKHOZ_POPULATION_BATCH_SIZE", "256")),
         on_filled=application.population_seat_filled,
         metrics=metrics,
+        health_timeout_seconds=float(
+            os.environ.get("KOLKHOZ_POPULATION_HEALTH_TIMEOUT", "300")
+        ),
     )
     if _enabled("KOLKHOZ_RUN_POPULATION_SCHEDULER"):
         population.start(

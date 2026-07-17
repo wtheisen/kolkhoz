@@ -1034,6 +1034,19 @@ class OnlineApplication:
         )
 
     def _command_update(self, session_id: str, viewer_id: int | None) -> JsonObject:
+        resolved_session_id, state, revision = self._advance_and_sync(
+            session_id, viewer_id
+        )
+        return self._build_update(
+            resolved_session_id,
+            viewer_id,
+            state,
+            revision,
+        )
+
+    def _advance_and_sync(
+        self, session_id: str, viewer_id: int | None
+    ) -> tuple[str, Mapping[str, object], int]:
         record = self._sync_lobby(session_id)
         if record.status == "active":
             now = time.time()
@@ -1048,12 +1061,7 @@ class OnlineApplication:
         self._sync_turn_deadline(
             current, seats, runtime_update.state.get("waitingPlayer")
         )
-        return self._build_update(
-            record.session_id,
-            viewer_id,
-            runtime_update.state,
-            runtime_update.revision,
-        )
+        return record.session_id, runtime_update.state, runtime_update.revision
 
     def _build_update(
         self,
@@ -1299,14 +1307,9 @@ class OnlineApplication:
         if started:
             previous_revision = -1
             for _ in range(64):
-                update = self._command_update(session_id, None)
-                snapshot = update.get("snapshot", {})
-                if (
-                    isinstance(snapshot, Mapping)
-                    and optional_int(snapshot.get("phase"), -1) == 5
-                ):
+                _, state, revision = self._advance_and_sync(session_id, None)
+                if optional_int(state.get("phase"), -1) == 5:
                     return
-                revision = optional_int(update.get("actionLogCount"), -1)
                 if revision <= previous_revision:
                     return
                 previous_revision = revision
