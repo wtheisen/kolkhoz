@@ -7,6 +7,12 @@ REPO_ROOT="$(cd "$APP_DIR/.." && pwd)"
 DEVICE_ID="${1:-${KOLKHOZ_IOS_DEVICE_ID:-00008110-000C515934E3A01E}}"
 ENV_FILE="${KOLKHOZ_ONLINE_ENV_FILE:-$REPO_ROOT/.env.kolkhoz-online}"
 FLUTTER="${FLUTTER:-flutter}"
+BETA_BUILD="${KOLKHOZ_BETA:-true}"
+
+if [[ "$BETA_BUILD" != "true" && "$BETA_BUILD" != "false" ]]; then
+  echo "KOLKHOZ_BETA must be true or false." >&2
+  exit 1
+fi
 
 if ! command -v "$FLUTTER" >/dev/null 2>&1; then
   if [[ -x /opt/homebrew/bin/flutter ]]; then
@@ -22,6 +28,7 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 DART_DEFINES=()
+DART_DEFINES+=("--dart-define=KOLKHOZ_BETA=$BETA_BUILD")
 if [[ -n "${KOLKHOZ_SUPABASE_URL:-}" && -n "${KOLKHOZ_SUPABASE_PUBLISHABLE_KEY:-}" ]]; then
   DART_DEFINES+=("--dart-define=KOLKHOZ_SUPABASE_URL=$KOLKHOZ_SUPABASE_URL")
   DART_DEFINES+=("--dart-define=KOLKHOZ_SUPABASE_PUBLISHABLE_KEY=$KOLKHOZ_SUPABASE_PUBLISHABLE_KEY")
@@ -35,6 +42,7 @@ cd "$APP_DIR"
 "${DART:-dart}" run tool/sync_policy_assets.dart
 
 echo "Deploying Kolkhoz to iOS device $DEVICE_ID in profile mode."
+echo "Beta full-game access: $BETA_BUILD"
 echo "Do not use debug mode for physical iPhone home-screen installs."
 
 "$FLUTTER" build ios --profile -d "$DEVICE_ID" "${DART_DEFINES[@]}"

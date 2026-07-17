@@ -9,6 +9,7 @@ import 'online_game_client.dart';
 const fullGameEntitlementID = 'full_game';
 const appleFullGameProductID = 'com.williamtheisen.kolkhoz.fullgame';
 const googleFullGameProductID = 'com.williamtheisen.kolkhoz.fullgame';
+const kolkhozBetaBuild = bool.fromEnvironment('KOLKHOZ_BETA');
 
 abstract interface class KolkhozPurchaseStore {
   Stream<List<PurchaseDetails>> get purchaseStream;
@@ -55,12 +56,14 @@ class KolkhozCommerceController extends ChangeNotifier {
     this.purchaseStore = const FlutterPurchaseStore(),
     String? productID,
     String? provider,
+    this.betaBuild = kolkhozBetaBuild,
   }) : _productID = productID ?? _defaultProductID,
        _provider = provider ?? _defaultProvider;
 
   final KolkhozOnlineClient Function() clientFactory;
   final void Function(String userID, bool unlocked) onFullGameChanged;
   final KolkhozPurchaseStore purchaseStore;
+  final bool betaBuild;
   final String? _productID;
   final String? _provider;
 
@@ -72,7 +75,7 @@ class KolkhozCommerceController extends ChangeNotifier {
   bool _storeAvailable = false;
   String? _message;
 
-  bool get fullGameUnlocked => _fullGameUnlocked;
+  bool get fullGameUnlocked => betaBuild || _fullGameUnlocked;
   bool get busy => _busy;
   bool get storeAvailable => _storeAvailable && _product != null;
   String? get message => _message;

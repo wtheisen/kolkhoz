@@ -105,6 +105,10 @@ void main() {
     await store.close();
   });
 
+  test('default full-game access follows the compile-time beta flag', () {
+    expect(commerce.fullGameUnlocked, kolkhozBetaBuild);
+  });
+
   test('verified purchase is linked before it is completed', () async {
     await commerce.attachUser('account-1', cachedFullGame: false);
     await commerce.purchase();
@@ -137,11 +141,30 @@ void main() {
     expect(commerce.fullGameUnlocked, isTrue);
   });
 
-  test('signing out immediately returns to demo state', () async {
+  test('signing out clears ownership but preserves beta access', () async {
     client.entitlement = true;
     await commerce.attachUser('account-1', cachedFullGame: true);
     await commerce.attachUser(null, cachedFullGame: false);
-    expect(commerce.fullGameUnlocked, isFalse);
+    expect(commerce.fullGameUnlocked, kolkhozBetaBuild);
+  });
+
+  test('beta builds unlock the full game without an entitlement', () async {
+    final betaCommerce = KolkhozCommerceController(
+      clientFactory: () => client,
+      onFullGameChanged: (_, _) {},
+      purchaseStore: store,
+      productID: appleFullGameProductID,
+      provider: 'apple',
+      betaBuild: true,
+    );
+    addTearDown(betaCommerce.dispose);
+
+    expect(betaCommerce.fullGameUnlocked, isTrue);
+    await betaCommerce.attachUser('playtester', cachedFullGame: false);
+    expect(client.entitlement, isFalse);
+    expect(betaCommerce.fullGameUnlocked, isTrue);
+    await betaCommerce.attachUser(null, cachedFullGame: false);
+    expect(betaCommerce.fullGameUnlocked, isTrue);
   });
 
   test('restore is scoped to the signed-in Kolkhoz account', () async {
