@@ -20,4 +20,23 @@ void main() {
     expect(payload.sessionID, '00000000-0000-4000-8000-000000000001');
     expect(payload.body, 'A human move is waiting for you.');
   });
+
+  test('push authorization maps Apple permission states', () {
+    expect(
+      kolkhozPushAuthorizationFor(AuthorizationStatus.notDetermined),
+      KolkhozPushAuthorization.notDetermined,
+    );
+    expect(
+      kolkhozPushAuthorizationFor(AuthorizationStatus.denied),
+      KolkhozPushAuthorization.denied,
+    );
+    expect(
+      kolkhozPushAuthorizationFor(AuthorizationStatus.authorized),
+      KolkhozPushAuthorization.authorized,
+    );
+    expect(
+      kolkhozPushAuthorizationFor(AuthorizationStatus.provisional),
+      KolkhozPushAuthorization.authorized,
+    );
+  });
 }

@@ -48,6 +48,19 @@ class KolkhozPushPayload {
   }
 }
 
+enum KolkhozPushAuthorization { unavailable, notDetermined, denied, authorized }
+
+KolkhozPushAuthorization kolkhozPushAuthorizationFor(
+  AuthorizationStatus status,
+) {
+  return switch (status) {
+    AuthorizationStatus.authorized ||
+    AuthorizationStatus.provisional => KolkhozPushAuthorization.authorized,
+    AuthorizationStatus.notDetermined => KolkhozPushAuthorization.notDetermined,
+    AuthorizationStatus.denied => KolkhozPushAuthorization.denied,
+  };
+}
+
 class KolkhozPushNotifications {
   KolkhozPushNotifications({
     required this.installationID,
@@ -128,6 +141,20 @@ class KolkhozPushNotifications {
     }
     await _register(token);
     return true;
+  }
+
+  Future<KolkhozPushAuthorization> authorization() async {
+    await initialize();
+    if (!_initialized) {
+      return KolkhozPushAuthorization.unavailable;
+    }
+    try {
+      final settings = await FirebaseMessaging.instance
+          .getNotificationSettings();
+      return kolkhozPushAuthorizationFor(settings.authorizationStatus);
+    } catch (_) {
+      return KolkhozPushAuthorization.unavailable;
+    }
   }
 
   Future<void> _register(String token) async {

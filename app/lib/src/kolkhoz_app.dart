@@ -101,6 +101,71 @@ Future<bool> showGameControlConfirmation({
   return result ?? false;
 }
 
+Future<bool> showPushNotificationOffer({
+  required BuildContext context,
+  DesignTokens tokens = defaultDesignTokens,
+}) async {
+  final actionTextStyle = kolkhozFontStyle.copyWith(
+    fontSize: 15,
+    fontWeight: FontWeight.w800,
+  );
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: tokens.colors.panel,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(tokens.radius.md),
+        side: BorderSide(color: tokens.colors.gold.withValues(alpha: 0.7)),
+      ),
+      titleTextStyle: kolkhozFontStyle.copyWith(
+        color: tokens.colors.gold,
+        fontSize: 21,
+        fontWeight: FontWeight.w900,
+      ),
+      contentTextStyle: kolkhozFontStyle.copyWith(
+        color: tokens.colors.cream,
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+      ),
+      title: const Text('Stay informed'),
+      content: const Text(
+        'Kolkhoz can notify you about comrade requests, invitations, and '
+        'when a human move is waiting for you. Notifications never contain '
+        'private game state.',
+      ),
+      actions: [
+        TextButton(
+          style: TextButton.styleFrom(
+            foregroundColor: tokens.colors.creamDim,
+            textStyle: actionTextStyle,
+          ),
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Not now'),
+        ),
+        TextButton(
+          style: TextButton.styleFrom(
+            foregroundColor: tokens.colors.goldBright,
+            textStyle: actionTextStyle,
+          ),
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Enable'),
+        ),
+      ],
+    ),
+  );
+  return result ?? false;
+}
+
+bool shouldShowStandaloneLobby({
+  required bool hasModel,
+  required bool showingLobby,
+  required bool isOnlineGame,
+  required bool onlineStarted,
+}) {
+  return !hasModel || (showingLobby && (!isOnlineGame || !onlineStarted));
+}
+
 class KolkhozApp extends StatefulWidget {
   const KolkhozApp({super.key});
 
@@ -408,11 +473,12 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
           late final Widget content;
           if (store.error != null && store.model == null) {
             content = StandaloneErrorView(error: store.error!, tokens: tokens);
-          } else if (store.model == null ||
-              (showingLobby &&
-                  store.model?.table.phase != phaseGameOver &&
-                  (!store.isOnlineGame ||
-                      !(store.onlineUpdate?.started ?? false)))) {
+          } else if (shouldShowStandaloneLobby(
+            hasModel: store.model != null,
+            showingLobby: showingLobby,
+            isOnlineGame: store.isOnlineGame,
+            onlineStarted: store.onlineUpdate?.started ?? false,
+          )) {
             content = StandaloneLobby(
               tokens: tokens,
               language: language,
@@ -1426,31 +1492,25 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     if (!mounted || notificationPromptShown || supabaseCurrentUser == null) {
       return;
     }
-    final dialogContext = navigatorKey.currentContext;
-    if (dialogContext == null) {
+    notificationPromptShown = true;
+    final authorization = await pushNotifications.authorization();
+    if (!mounted) {
       return;
     }
-    notificationPromptShown = true;
-    final enable = await showDialog<bool>(
+    if (authorization == KolkhozPushAuthorization.authorized) {
+      unawaited(pushNotifications.requestPermissionAndRegister());
+      return;
+    }
+    if (authorization != KolkhozPushAuthorization.notDetermined) {
+      return;
+    }
+    final dialogContext = navigatorKey.currentContext;
+    if (dialogContext == null || !dialogContext.mounted) {
+      return;
+    }
+    final enable = await showPushNotificationOffer(
       context: dialogContext,
-      builder: (context) => AlertDialog(
-        title: const Text('Stay informed'),
-        content: const Text(
-          'Kolkhoz can notify you about comrade requests, invitations, and '
-          'when a human move is waiting for you. Notifications never contain '
-          'private game state.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Not now'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Enable'),
-          ),
-        ],
-      ),
+      tokens: settings.appearance.tokens,
     );
     if (enable != true) {
       return;
