@@ -166,6 +166,11 @@ bool shouldShowStandaloneLobby({
   return !hasModel || (showingLobby && (!isOnlineGame || !onlineStarted));
 }
 
+bool canAccessOnlinePlay({
+  required bool fullGameUnlocked,
+  required bool signedIn,
+}) => fullGameUnlocked && signedIn;
+
 class KolkhozApp extends StatefulWidget {
   const KolkhozApp({super.key});
 
@@ -235,6 +240,10 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   bool get showingProfile => destination == _AppDestination.profile;
 
   bool get demoMode => !commerce.fullGameUnlocked;
+  bool get onlinePlayAllowed => canAccessOnlinePlay(
+    fullGameUnlocked: commerce.fullGameUnlocked,
+    signedIn: supabaseCurrentUser != null,
+  );
 
   ProgressionState get effectiveProgression => mergeProgressionStates(
     settings.progression,
@@ -605,9 +614,12 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
               },
               onOnlinePressed: () {
                 setState(() {
-                  destination = demoMode
+                  destination = !onlinePlayAllowed
                       ? _AppDestination.profile
                       : _AppDestination.online;
+                  if (!onlinePlayAllowed) {
+                    selectedSettingsTab = KolkhozSettingsTab.profile;
+                  }
                 });
               },
               onProfilePressed: () {
@@ -1924,7 +1936,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     bool browserJoinable,
     int bestOf,
   ) async {
-    if (demoMode) {
+    if (!onlinePlayAllowed) {
       throw HttpException(
         settings.language.t(
           KolkhozText.kolkhozappSignInBeforeJoiningOnlinePlay,
@@ -1968,7 +1980,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     String inviteCode,
     int? preferredPlayerID,
   ) async {
-    if (demoMode) {
+    if (!onlinePlayAllowed) {
       throw HttpException(
         settings.language.t(
           KolkhozText.kolkhozappSignInBeforeJoiningOnlinePlay,
@@ -1993,7 +2005,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     bool rankedOnly,
     bool comradesOnly,
   ) async {
-    if (demoMode) {
+    if (!onlinePlayAllowed) {
       throw HttpException(
         settings.language.t(
           KolkhozText.kolkhozappSignInBeforeJoiningOnlinePlay,

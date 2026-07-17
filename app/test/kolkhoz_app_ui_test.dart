@@ -4,6 +4,18 @@ import 'package:kolkhoz_app/src/app_settings.dart';
 import 'package:kolkhoz_app/src/kolkhoz_app.dart';
 
 void main() {
+  test('online play requires both full-game access and an account', () {
+    expect(
+      canAccessOnlinePlay(fullGameUnlocked: true, signedIn: false),
+      isFalse,
+    );
+    expect(
+      canAccessOnlinePlay(fullGameUnlocked: false, signedIn: true),
+      isFalse,
+    );
+    expect(canAccessOnlinePlay(fullGameUnlocked: true, signedIn: true), isTrue);
+  });
+
   test('completed local game returns to the standalone lobby', () {
     expect(
       shouldShowStandaloneLobby(
