@@ -1156,7 +1156,10 @@ class _CloudAuthPanelState extends State<_CloudAuthPanel> {
             tokens: widget.tokens,
             controller: emailController,
             label: widget.language.t(KolkhozText.kolkhozappEmail),
-            maxLength: 72,
+            keyboardType: TextInputType.emailAddress,
+            autocorrect: false,
+            enableSuggestions: false,
+            maxLength: maxAccountEmailLength,
             onChanged: (_) => clearLocalMessage(),
           ),
           _ProfileTextField(
@@ -2035,6 +2038,9 @@ class _ProfileTextField extends StatelessWidget {
     required this.controller,
     required this.label,
     this.obscureText = false,
+    this.keyboardType,
+    this.autocorrect = true,
+    this.enableSuggestions = true,
     this.maxLength = 24,
     this.onChanged,
   });
@@ -2043,6 +2049,9 @@ class _ProfileTextField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
   final bool obscureText;
+  final TextInputType? keyboardType;
+  final bool autocorrect;
+  final bool enableSuggestions;
   final int maxLength;
   final ValueChanged<String>? onChanged;
 
@@ -2057,6 +2066,9 @@ class _ProfileTextField extends StatelessWidget {
       child: TextField(
         controller: controller,
         obscureText: obscureText,
+        keyboardType: keyboardType,
+        autocorrect: autocorrect,
+        enableSuggestions: enableSuggestions,
         maxLength: maxLength,
         onChanged: onChanged,
         minLines: 1,

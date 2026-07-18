@@ -812,7 +812,15 @@ void registerLobbyAndProfileTests() {
       ),
     );
 
-    await tester.enterText(textFieldWithLabel('EMAIL'), 'mira@example.com');
+    final emailField = tester.widget<TextField>(textFieldWithLabel('EMAIL'));
+    expect(emailField.maxLength, maxAccountEmailLength);
+    expect(emailField.keyboardType, TextInputType.emailAddress);
+    expect(emailField.autocorrect, isFalse);
+    expect(emailField.enableSuggestions, isFalse);
+
+    const plusEmail =
+        'mira+collective-harvest-cooperative-account-application@example.com';
+    await tester.enterText(textFieldWithLabel('EMAIL'), plusEmail);
     await tester.enterText(textFieldWithLabel('PASSWORD'), 'tractor-1');
     await tester.enterText(textFieldWithLabel('CONFIRM PASSWORD'), 'tractor-2');
     await tester.ensureVisible(commandButton('Create'));
@@ -826,7 +834,7 @@ void registerLobbyAndProfileTests() {
     await tester.tap(commandButton('Create'));
     await tester.pump();
 
-    expect(signUpEmail, 'mira@example.com');
+    expect(signUpEmail, plusEmail);
     expect(signUpPassword, 'tractor-1');
   });
 

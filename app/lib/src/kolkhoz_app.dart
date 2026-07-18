@@ -171,6 +171,43 @@ bool canAccessOnlinePlay({
   required bool signedIn,
 }) => fullGameUnlocked && signedIn;
 
+String normalizeAccountEmail(String email) => email.trim();
+
+const maxAccountEmailLength = 254;
+
+String safeAccountErrorMessage(Object exception, KolkhozLanguage language) {
+  if (exception is FormatException) {
+    return exception.message;
+  }
+  if (exception is AuthRetryableFetchException) {
+    return language.t(KolkhozText.kolkhozappAccountServiceUnavailable);
+  }
+  if (exception is AuthException) {
+    return switch (exception.code) {
+      'email_address_invalid' || 'validation_failed' => language.t(
+        KolkhozText.kolkhozappAccountInvalidEmail,
+      ),
+      'email_exists' || 'user_already_exists' => language.t(
+        KolkhozText.kolkhozappAccountAlreadyExists,
+      ),
+      'over_request_rate_limit' || 'over_email_send_rate_limit' => language.t(
+        KolkhozText.kolkhozappAccountRateLimited,
+      ),
+      'signup_disabled' || 'email_provider_disabled' || 'provider_disabled' =>
+        language.t(KolkhozText.kolkhozappAccountCreationUnavailable),
+      'weak_password' => language.t(KolkhozText.kolkhozappAccountWeakPassword),
+      'invalid_credentials' => language.t(
+        KolkhozText.kolkhozappAccountInvalidCredentials,
+      ),
+      'request_timeout' => language.t(
+        KolkhozText.kolkhozappAccountServiceUnavailable,
+      ),
+      _ => language.t(KolkhozText.kolkhozappAccountRequestFailed),
+    };
+  }
+  return language.t(KolkhozText.kolkhozappAccountRequestFailed);
+}
+
 class KolkhozApp extends StatefulWidget {
   const KolkhozApp({super.key});
 
@@ -1428,7 +1465,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     await runCloudAuthAction(() async {
       final client = KolkhozSupabaseRuntime.instance.client!;
       await client.auth.signInWithPassword(
-        email: email.trim(),
+        email: normalizeAccountEmail(email),
         password: password,
       );
       await loadCloudProfile();
@@ -1445,7 +1482,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
       final client = KolkhozSupabaseRuntime.instance.client!;
       final displayName = normalizedDisplayName;
       final response = await client.auth.signUp(
-        email: email.trim(),
+        email: normalizeAccountEmail(email),
         password: password,
         emailRedirectTo: KolkhozSupabaseConfig.authRedirectUrl,
         data: {'display_name': displayName},
@@ -1576,7 +1613,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
 
   Future<void> resetSupabasePassword(String email) async {
     await runCloudAuthAction(() async {
-      final trimmed = email.trim();
+      final trimmed = normalizeAccountEmail(email);
       if (trimmed.isEmpty) {
         throw const FormatException('Enter an email first.');
       }
@@ -1884,10 +1921,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   }
 
   String accountErrorMessage(Object exception) {
-    if (exception is FormatException) {
-      return exception.message;
-    }
-    return settings.language.t(KolkhozText.kolkhozappAccountRequestFailed);
+    return safeAccountErrorMessage(exception, settings.language);
   }
 
   String syncErrorMessage(Object exception) {
