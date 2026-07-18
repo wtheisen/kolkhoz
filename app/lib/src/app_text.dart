@@ -86,6 +86,13 @@ enum KolkhozText {
   kolkhozappProfileSaved,
   kolkhozappProfileLoaded,
   kolkhozappAccountRequestFailed,
+  kolkhozappAccountInvalidEmail,
+  kolkhozappAccountAlreadyExists,
+  kolkhozappAccountRateLimited,
+  kolkhozappAccountCreationUnavailable,
+  kolkhozappAccountWeakPassword,
+  kolkhozappAccountServiceUnavailable,
+  kolkhozappAccountInvalidCredentials,
   kolkhozappProfileSyncFailed,
   kolkhozappSignInBeforeJoiningOnlinePlay,
   kolkhozappOnlineSignInExpiredSignInAgain,
@@ -565,8 +572,36 @@ const Map<KolkhozText, ({String en, String ru})> kolkhozText = {
     ru: 'Профиль загружен.',
   ),
   KolkhozText.kolkhozappAccountRequestFailed: (
-    en: 'Account request failed.',
-    ru: 'Запрос аккаунта не удался.',
+    en: 'Account request failed. Try again in a moment.',
+    ru: 'Запрос аккаунта не удался. Повторите попытку через минуту.',
+  ),
+  KolkhozText.kolkhozappAccountInvalidEmail: (
+    en: 'Enter a valid email address, including any + tag.',
+    ru: 'Введите действительный email, включая метку после +.',
+  ),
+  KolkhozText.kolkhozappAccountAlreadyExists: (
+    en: 'An account already exists for this email. Sign in or reset the password.',
+    ru: 'Аккаунт с таким email уже существует. Войдите или сбросьте пароль.',
+  ),
+  KolkhozText.kolkhozappAccountRateLimited: (
+    en: 'Too many account attempts. Wait a few minutes and try again.',
+    ru: 'Слишком много попыток. Подождите несколько минут и повторите.',
+  ),
+  KolkhozText.kolkhozappAccountCreationUnavailable: (
+    en: 'Account creation is temporarily unavailable. Try again later.',
+    ru: 'Создание аккаунта временно недоступно. Повторите позже.',
+  ),
+  KolkhozText.kolkhozappAccountWeakPassword: (
+    en: 'Choose a stronger password and try again.',
+    ru: 'Выберите более надёжный пароль и повторите.',
+  ),
+  KolkhozText.kolkhozappAccountServiceUnavailable: (
+    en: 'Could not reach the account service. Check your connection and try again.',
+    ru: 'Не удалось связаться с сервисом аккаунтов. Проверьте подключение и повторите.',
+  ),
+  KolkhozText.kolkhozappAccountInvalidCredentials: (
+    en: 'Email or password is incorrect. Try again or reset the password.',
+    ru: 'Неверный email или пароль. Повторите или сбросьте пароль.',
   ),
   KolkhozText.kolkhozappProfileSyncFailed: (
     en: 'Profile sync failed.',
