@@ -478,6 +478,13 @@ void registerBoardTests() {
     );
   });
 
+  test('pass icons mirror for left-facing even years', () {
+    expect(passIconFlipsHorizontally(2), isTrue);
+    expect(passIconFlipsHorizontally(3), isFalse);
+    expect(passIconFlipsHorizontally(4), isTrue);
+    expect(passIconFlipsHorizontally(5), isFalse);
+  });
+
   test('swap console confirms only before selection or after staged swap', () {
     final confirmAction = testLegalAction(
       kind: actionConfirmSwap,

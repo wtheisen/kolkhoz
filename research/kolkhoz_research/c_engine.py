@@ -37,6 +37,10 @@ class KCVariants(ctypes.Structure):
         ("accumulate_jobs", ctypes.c_bool),
         ("hero_of_soviet_union", ctypes.c_bool),
         ("wrecker", ctypes.c_bool),
+        ("final_year_trump", ctypes.c_bool),
+        ("pass_cards", ctypes.c_bool),
+        ("highest_cards_requisition", ctypes.c_bool),
+        ("lotto_rewards", ctypes.c_bool),
     ]
 
 
@@ -157,6 +161,9 @@ class KCEngineSnapshot(ctypes.Structure):
         ("last_swap_plot_index", ctypes.c_int32),
         ("last_swap_hand_index", ctypes.c_int32),
         ("last_swap_new_plot_card", KCCard),
+        ("pass_confirmed", ctypes.c_bool * PLAYER_COUNT),
+        ("pass_cards", KCCard * PLAYER_COUNT),
+        ("final_year_trump_card", KCCard),
         ("requisition_plan", KCRequisitionEvent * MAX_CARDS),
         ("requisition_plan_count", ctypes.c_int32),
         ("requisition_plan_index", ctypes.c_int32),

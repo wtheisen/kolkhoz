@@ -1228,6 +1228,10 @@ int32_t kc_engine_state_features(const KCEngine *engine, int32_t perspective_pla
     kc_state_add_feature(features, limit, 47, engine->variants.accumulate_jobs ? 1.0 : 0.0);
     kc_state_add_feature(features, limit, 48, engine->variants.hero_of_soviet_union ? 1.0 : 0.0);
     kc_state_add_feature(features, limit, 49, engine->variants.wrecker ? 1.0 : 0.0);
+    kc_state_add_feature(features, limit, 50, engine->variants.final_year_trump ? 1.0 : 0.0);
+    kc_state_add_feature(features, limit, 51, engine->variants.pass_cards ? 1.0 : 0.0);
+    kc_state_add_feature(features, limit, 52, engine->variants.highest_cards_requisition ? 1.0 : 0.0);
+    kc_state_add_feature(features, limit, 53, engine->variants.lotto_rewards ? 1.0 : 0.0);
 
     for (int32_t seat = 0; seat < KC_PLAYER_COUNT; seat++) {
         const KCPlayer *seat_player = &engine->players[seat];
@@ -2204,6 +2208,9 @@ bool kc_engine_policy_action_with_workspace(const KCEngine *engine, KCPolicyMode
     }
     if (engine->phase == KC_PHASE_PLANNING && engine->is_famine) {
         return false;
+    }
+    if (engine->phase == KC_PHASE_PASS) {
+        return kc_engine_heuristic_action(engine, selected);
     }
     int32_t player_id = engine->phase == KC_PHASE_ASSIGNMENT ? engine->last_winner : engine->current_player;
     if (player_id < 0 ||

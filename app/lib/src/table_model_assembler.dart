@@ -22,6 +22,7 @@ TableViewModel buildTableViewModel({
   required int winnerSeatID,
   required List<Score> finalScoreboard,
   required List<LegalAction> legalActions,
+  TableCard? finalYearTrumpCard,
 }) {
   return TableViewModel(
     viewer: viewer,
@@ -45,6 +46,7 @@ TableViewModel buildTableViewModel({
         winnerSeatID: winnerSeatID,
         scores: finalScoreboard,
       ),
+      finalYearTrumpCard: finalYearTrumpCard,
     ),
     panels: panelsForPhase(
       uiState,

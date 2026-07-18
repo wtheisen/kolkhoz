@@ -34,6 +34,14 @@ enum KolkhozText {
   variantAccumulationDescription,
   variantWreckerTitle,
   variantWreckerDescription,
+  variantFinalYearTrumpTitle,
+  variantFinalYearTrumpDescription,
+  variantPassCardsTitle,
+  variantPassCardsDescription,
+  variantHighestCardsRequisitionTitle,
+  variantHighestCardsRequisitionDescription,
+  variantLottoRewardsTitle,
+  variantLottoRewardsDescription,
   variantDemoModeTitle,
   variantDemoModeDescription,
   appsettingsDark,
@@ -450,6 +458,35 @@ const Map<KolkhozText, ({String en, String ru})> kolkhozText = {
   KolkhozText.variantWreckerDescription: (
     en: 'Add a 14-value all-suit face card that wrecks its job at requisition.',
     ru: 'Добавляет фигуру со значением 14: она считается всеми мастями и проваливает свою работу при реквизиции.',
+  ),
+  KolkhozText.variantFinalYearTrumpTitle: (
+    en: 'Final Year Trump',
+    ru: 'Козырь последнего года',
+  ),
+  KolkhozText.variantFinalYearTrumpDescription: (
+    en: 'Reveal the leftover fifth-year card for trump; Saboteur means no trump.',
+    ru: 'Оставшаяся карта пятого года определяет козырь; вредитель означает игру без козыря.',
+  ),
+  KolkhozText.variantPassCardsTitle: (en: 'Pass', ru: 'Передача'),
+  KolkhozText.variantPassCardsDescription: (
+    en: 'Pass one hidden card left, then right, alternating from years 2 through 5.',
+    ru: 'Передавайте одну скрытую карту влево и вправо по очереди со второго по пятый год.',
+  ),
+  KolkhozText.variantHighestCardsRequisitionTitle: (
+    en: 'Highest Cards Requisition',
+    ru: 'Реквизиция старших карт',
+  ),
+  KolkhozText.variantHighestCardsRequisitionDescription: (
+    en: 'Lose your highest cards across failed crops, one for each failed job.',
+    ru: 'Теряйте старшие карты проваленных культур — по одной за каждую проваленную работу.',
+  ),
+  KolkhozText.variantLottoRewardsTitle: (
+    en: 'Lotto Rewards',
+    ru: 'Лотерейные награды',
+  ),
+  KolkhozText.variantLottoRewardsDescription: (
+    en: 'Each crop replaces its 5 reward with a hidden random card from 5 through King.',
+    ru: 'В каждой культуре награда 5 заменяется скрытой случайной картой от 5 до короля.',
   ),
   KolkhozText.variantDemoModeTitle: (en: 'Demo Mode', ru: 'ДЕМО-РЕЖИМ'),
   KolkhozText.variantDemoModeDescription: (
@@ -1061,8 +1098,8 @@ const Map<KolkhozText, ({String en, String ru})> kolkhozText = {
     ru: 'Осмотрите доску работ',
   ),
   KolkhozText.tutorialStep2Body: (
-    en: 'Four jobs each year, one per crop. The card by each job is its reward; the counter is work hours — 40 completes the job.',
-    ru: 'Каждый год четыре работы, по одной на культуру. Карта у работы — награда; счётчик — часы: 40 закрывают работу.',
+    en: 'Four jobs each year, one per crop. Each reward pile has ranks 1–4 plus one hidden lotto rank from 5–K; the counter is work hours — 40 completes the job.',
+    ru: 'Каждый год четыре работы, по одной на культуру. В наградах всегда 1–4 и один тайный случайный ранг от 5 до К; счётчик — часы: 40 закрывают работу.',
   ),
   KolkhozText.tutorialStep2Tip: (
     en: 'Failed jobs summon requisition at year\'s end. Remember which crops look doomed.',
@@ -1077,8 +1114,8 @@ const Map<KolkhozText, ({String en, String ru})> kolkhozText = {
     ru: 'Козырная культура',
   ),
   KolkhozText.tutorialStep3Body: (
-    en: 'In planning, one crop is declared the State\'s main task — trump. Trump cards beat the led crop in any trick.',
-    ru: 'В планировании одну культуру объявляют главной задачей — козырем. Козырь бьёт ведущую масть в любой взятке.',
+    en: 'In planning, one crop is declared the State\'s main task — trump. In year five, the leftover deal card is revealed to set trump; Saboteur means no trump.',
+    ru: 'В планировании одну культуру объявляют главной задачей — козырем. В пятом году лишнюю карту сдачи открывают для выбора козыря; Вредитель означает игру без козыря.',
   ),
   KolkhozText.tutorialStep3Tip: (
     en: 'Pick trump for the hand you expect to play, not only for the biggest card you see.',
@@ -1164,8 +1201,8 @@ const Map<KolkhozText, ({String en, String ru})> kolkhozText = {
     ru: 'Это реквизиция',
   ),
   KolkhozText.tutorialStep9Body: (
-    en: 'For every failed crop, trick winners reveal their highest matching cellar card — and it is exiled North, gone for good.',
-    ru: 'За каждую проваленную культуру бравшие взятки открывают старшую карту этой масти из подвала — и она уходит на Север навсегда.',
+    en: 'If N crop suits fail, each vulnerable player loses their N highest cellar cards across those suits. Party Official adds one; Drunkard removes its suit from the quota.',
+    ru: 'Если провалены N культур, каждый уязвимый игрок теряет N старших карт этих мастей из подвала. Парторг добавляет одну, а Пьяница исключает свою масть из нормы.',
   ),
   KolkhozText.tutorialStep9Tip: (
     en: 'Never won a trick? Nothing to confess. Cowardice has its rewards.',
@@ -1180,16 +1217,16 @@ const Map<KolkhozText, ({String en, String ru})> kolkhozText = {
     ru: 'Ежегодный обмен',
   ),
   KolkhozText.tutorialStep10Body: (
-    en: 'From year two, planning ends with a swap: trade one hand card for one cellar card — or pass. Once per year.',
-    ru: 'Со второго года после планирования — обмен: одна карта руки на одну карту подвала, или пас. Раз в год.',
+    en: 'From year two, everyone first passes one hand card simultaneously — left in even years, right in odd years. Then you may trade one hand card for one cellar card.',
+    ru: 'Со второго года все одновременно передают по карте с руки: влево в чётные годы, вправо в нечётные. Затем можно обменять карту руки на карту подвала.',
   ),
   KolkhozText.tutorialStep10Tip: (
     en: 'Bury high cards while they are safe; pull out crops that look doomed.',
     ru: 'Прячьте старшие карты, пока безопасно; вытаскивайте обречённые культуры.',
   ),
   KolkhozText.tutorialStep10Callout: (
-    en: 'Try a swap when the new year begins.',
-    ru: 'Попробуйте обмен в начале нового года.',
+    en: 'Choose a card to pass, then consider your swap.',
+    ru: 'Выберите карту для передачи, затем решите вопрос с обменом.',
   ),
   KolkhozText.tutorialStep11Title: (
     en: 'Beware the Wrecker',

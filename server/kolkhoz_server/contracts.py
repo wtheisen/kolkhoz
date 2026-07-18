@@ -41,6 +41,10 @@ DEFAULT_VARIANTS: JsonObject = {
     "accumulateJobs": False,
     "heroOfSovietUnion": True,
     "wrecker": True,
+    "finalYearTrump": True,
+    "passCards": True,
+    "highestCardsRequisition": True,
+    "lottoRewards": True,
 }
 
 
@@ -53,6 +57,10 @@ def normalize_variants(value: object) -> JsonObject:
     for key in result:
         if key in value:
             result[key] = value[key]
+    if not bool(result["wrecker"]):
+        result["finalYearTrump"] = False
+    if int(result["deckType"]) == 36:
+        result["lottoRewards"] = False
     return result
 
 
@@ -69,6 +77,10 @@ def variants_native(variants: Mapping[str, object]) -> KCVariants:
         bool(variants["accumulateJobs"]),
         bool(variants["heroOfSovietUnion"]),
         bool(variants["wrecker"]),
+        bool(variants["finalYearTrump"]),
+        bool(variants["passCards"]),
+        bool(variants["highestCardsRequisition"]),
+        bool(variants["lottoRewards"]),
     )
 
 
@@ -179,6 +191,11 @@ def privacy_safe_action_log(
         ):
             value["handCard"] = {"suit": -1, "value": -1}
             value["plotCard"] = {"suit": -1, "value": -1}
+        if (
+            optional_int(value.get("playerID")) != viewer_id
+            and value.get("kind") == 9
+        ):
+            value["card"] = {"suit": -1, "value": -1}
         result.append(value)
     return result
 
@@ -235,6 +252,10 @@ def snapshot_json(
             i for i in range(PLAYER_COUNT) if bool(state.swap_confirmed[i])
         ],
         "swapCount": [i for i in range(PLAYER_COUNT) if bool(state.swap_count[i])],
+        "passConfirmed": [
+            i for i in range(PLAYER_COUNT) if bool(state.pass_confirmed[i])
+        ],
+        "finalYearTrumpCard": card_to_json(state.final_year_trump_card),
     }
 
 

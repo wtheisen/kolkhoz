@@ -85,18 +85,25 @@ so promoted baselines and active/recent research state stay protected.
 
 ## Game Flow
 
-1. **Planning** - Reveal jobs and set trump. Year 5 is famine: no trump.
-2. **Swap** - In years 2-5, each player may swap one hand card with a hidden or revealed plot card when `allowSwap` is enabled.
-3. **Trick** - Play 4 tricks in normal years, 3 tricks in famine. Players must follow the lead suit if able.
-4. **Assignment** - Every completed trick enters assignment. The brigade leader assigns trick cards to one of the suits present in that trick.
-5. **Year end** - After the final trick, remaining hand cards move to hidden plots.
-6. **Requisition** - Failed jobs may reveal and exile matching plot cards.
-7. Repeat for 5 years. **Highest final plot score wins**.
+1. **Planning** - Reveal jobs and set trump. With Final Year Trump, the leftover fifth-year deal card is revealed for trump; Saboteur means no trump.
+2. **Pass** - In years 2-5, each player simultaneously passes one hand card, alternating left then right by year.
+3. **Swap** - In years 2-5, each player may swap one hand card with a hidden or revealed plot card when `allowSwap` is enabled.
+4. **Trick** - Play 4 tricks in normal years, 3 tricks in famine. Players must follow the lead suit if able.
+5. **Assignment** - Every completed trick enters assignment. The brigade leader assigns trick cards to one of the suits present in that trick.
+6. **Year end** - After the final trick, remaining hand cards move to hidden plots.
+7. **Requisition** - Failed jobs may reveal and exile matching plot cards.
+8. Repeat for 5 years. **Highest final plot score wins**.
 
 Default Kolkhoz includes the Saboteur variant. Saboteur is a dedicated `wrecker-14` worker
 card that matches every crop suit. It can follow any suit, can make any crop assignment
 target legal, adds 14 work hours, and still causes any job bucket containing it to be
 processed as failed during requisition.
+
+Default Kolkhoz also enables Final Year Trump, Pass, Highest Cards Requisition, and
+Lotto Rewards. Lotto job piles contain ranks 1-4 plus one seeded random rank from 5-K
+per crop. Highest Cards Requisition takes a vulnerable player's highest cards across all
+active failed crops, with a quota equal to the number of those crops; Party Official adds
+one and Drunkard removes its crop before the quota is counted.
 
 ## Key Files To Read First
 

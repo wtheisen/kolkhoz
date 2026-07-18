@@ -144,6 +144,25 @@ const fieldPlanVariantSwapCards = ArtAssetRef(
   legacyPath: 'assets/ui/Icons/icon-variant-swap.png',
   fieldPlanPath: 'assets/art/field_plan/ledger/variants/variant_swap_cards.png',
 );
+const fieldPlanVariantPassCards = ArtAssetRef(
+  legacyPath: 'assets/ui/Icons/icon-pass.png',
+  fieldPlanPath: 'assets/art/field_plan/ledger/variants/variant_pass_cards.png',
+);
+const fieldPlanVariantFinalYearTrump = ArtAssetRef(
+  legacyPath: 'assets/ui/Icons/icon-final-year-trump.png',
+  fieldPlanPath:
+      'assets/art/field_plan/ledger/variants/variant_final_year_trump.png',
+);
+const fieldPlanVariantHighestCardsRequisition = ArtAssetRef(
+  legacyPath: 'assets/ui/Icons/icon-highest-cards-requisition.png',
+  fieldPlanPath:
+      'assets/art/field_plan/ledger/variants/variant_highest_cards_requisition.png',
+);
+const fieldPlanVariantLottoRewards = ArtAssetRef(
+  legacyPath: 'assets/ui/Icons/icon-lotto-rewards.png',
+  fieldPlanPath:
+      'assets/art/field_plan/ledger/variants/variant_lotto_rewards.png',
+);
 const fieldPlanVariantStakhanovite = ArtAssetRef(
   legacyPath: 'assets/ui/Icons/icon-variant-accumulation.png',
   fieldPlanPath:
@@ -162,6 +181,10 @@ const fieldPlanLedgerIllustrations = <ArtAssetRef>[
   fieldPlanVariantDeck,
   fieldPlanVariantFiveYearPlan,
   fieldPlanVariantSwapCards,
+  fieldPlanVariantPassCards,
+  fieldPlanVariantFinalYearTrump,
+  fieldPlanVariantHighestCardsRequisition,
+  fieldPlanVariantLottoRewards,
   fieldPlanVariantStakhanovite,
   fieldPlanVariantSaboteur,
 ];

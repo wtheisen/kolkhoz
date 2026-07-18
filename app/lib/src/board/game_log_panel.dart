@@ -93,6 +93,9 @@ class GameLogPanel extends StatelessWidget {
                             language,
                           ),
                           iconAsset: _phaseIconAsset(year.phases[index].phase),
+                          flipIconHorizontally:
+                              year.phases[index].phase == phasePass &&
+                              year.year.isEven,
                           initiallyExpanded:
                               year.year == latestYear &&
                               index == year.phases.length - 1,
@@ -181,6 +184,7 @@ class _LogExpansion extends StatefulWidget {
     required this.initiallyExpanded,
     required this.tokens,
     required this.children,
+    this.flipIconHorizontally = false,
     super.key,
   });
 
@@ -189,6 +193,7 @@ class _LogExpansion extends StatefulWidget {
   final bool initiallyExpanded;
   final DesignTokens tokens;
   final List<Widget> children;
+  final bool flipIconHorizontally;
 
   @override
   State<_LogExpansion> createState() => _LogExpansionState();
@@ -246,11 +251,14 @@ class _LogExpansionState extends State<_LogExpansion> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Image.asset(
-                      widget.iconAsset,
-                      width: 24,
-                      height: 24,
-                      filterQuality: FilterQuality.none,
+                    Transform.flip(
+                      flipX: widget.flipIconHorizontally,
+                      child: Image.asset(
+                        widget.iconAsset,
+                        width: 24,
+                        height: 24,
+                        filterQuality: FilterQuality.none,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -580,12 +588,14 @@ String _phaseNameFromCode(int phase) => switch (phase) {
   2 => phaseTrick,
   3 => phaseAssignment,
   4 => phaseRequisition,
+  6 => phasePass,
   _ => 'events',
 };
 
 String _phaseForAction(String kind) => switch (kind) {
   actionSetTrump => phasePlanning,
   actionSwap || actionUndoSwap || actionConfirmSwap => phaseSwap,
+  actionPassCard => phasePass,
   actionPlayCard => phaseTrick,
   actionAssign || actionSubmitAssignments => phaseAssignment,
   actionContinueAfterRequisition => phaseRequisition,
@@ -598,6 +608,7 @@ String _phaseLabel(String phase, KolkhozLanguage language) {
   return switch (phase) {
     phasePlanning => english ? 'Planning' : 'Планирование',
     phaseSwap => english ? 'Plot exchange' : 'Обмен с участком',
+    phasePass => english ? 'Pass' : 'Передача',
     phaseTrick => english ? 'Tricks' : 'Взятки',
     phaseAssignment => english ? 'Job assignment' : 'Назначение работ',
     phaseRequisition => english ? 'Requisition' : 'Реквизиция',
@@ -609,6 +620,7 @@ String _phaseIconAsset(String phase) {
   final icon = switch (phase) {
     phasePlanning => 'icon-crop-seal.png',
     phaseSwap => 'icon-toolbar-swap.png',
+    phasePass => 'icon-pass.png',
     phaseTrick => 'icon-toolbar-play.png',
     phaseAssignment => 'icon-toolbar-assign.png',
     phaseRequisition => 'icon-requisition-north.png',
@@ -652,6 +664,9 @@ List<Widget> _actionWidgets(
     ],
     actionConfirmSwap => [
       text('confirmed the plot exchange.', 'подтвердил обмен.'),
+    ],
+    actionPassCard => [
+      text('locked a card for the pass.', 'выбрал карту для передачи.'),
     ],
     actionPlayCard =>
       card == null

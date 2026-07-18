@@ -67,6 +67,9 @@ class TableViewProjection {
       winnerSeatID: bridge.winnerID(engine),
       finalScoreboard: scoreboard(finalScores: true),
       legalActions: legalActions,
+      finalYearTrumpCard: bridge.finalYearTrumpCard(engine).isValid
+          ? projectEngineCard(bridge.finalYearTrumpCard(engine))
+          : null,
     );
   }
 

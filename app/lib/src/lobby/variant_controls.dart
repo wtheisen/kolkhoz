@@ -195,7 +195,41 @@ class _VariantRowData {
     descriptionKey: KolkhozText.variantWreckerDescription,
     iconAsset: 'assets/ui/Icons/icon-variant-saboteur.png',
     valueOf: (variants) => variants.wreckerCard,
-    withValue: (variants, value) => variants.copyWith(wreckerCard: value),
+    withValue: (variants, value) => variants.copyWith(
+      wreckerCard: value,
+      finalYearTrump: value ? variants.finalYearTrump : false,
+    ),
+  );
+  static final finalYearTrump = _VariantRowData(
+    titleKey: KolkhozText.variantFinalYearTrumpTitle,
+    descriptionKey: KolkhozText.variantFinalYearTrumpDescription,
+    iconAsset: 'assets/ui/Icons/icon-final-year-trump.png',
+    valueOf: (variants) => variants.finalYearTrump,
+    withValue: (variants, value) => variants.copyWith(finalYearTrump: value),
+    visibleInCustom: (variants) => variants.wreckerCard,
+  );
+  static final passCards = _VariantRowData(
+    titleKey: KolkhozText.variantPassCardsTitle,
+    descriptionKey: KolkhozText.variantPassCardsDescription,
+    iconAsset: 'assets/ui/Icons/icon-pass.png',
+    valueOf: (variants) => variants.passCards,
+    withValue: (variants, value) => variants.copyWith(passCards: value),
+  );
+  static final highestCardsRequisition = _VariantRowData(
+    titleKey: KolkhozText.variantHighestCardsRequisitionTitle,
+    descriptionKey: KolkhozText.variantHighestCardsRequisitionDescription,
+    iconAsset: 'assets/ui/Icons/icon-highest-cards-requisition.png',
+    valueOf: (variants) => variants.highestCardsRequisition,
+    withValue: (variants, value) =>
+        variants.copyWith(highestCardsRequisition: value),
+  );
+  static final lottoRewards = _VariantRowData(
+    titleKey: KolkhozText.variantLottoRewardsTitle,
+    descriptionKey: KolkhozText.variantLottoRewardsDescription,
+    iconAsset: 'assets/ui/Icons/icon-lotto-rewards.png',
+    valueOf: (variants) => variants.lottoRewards,
+    withValue: (variants, value) => variants.copyWith(lottoRewards: value),
+    visibleInCustom: (variants) => variants.deckType != 36,
   );
   static final demoMode = _VariantRowData(
     titleKey: KolkhozText.variantDemoModeTitle,
@@ -216,6 +250,10 @@ class _VariantRowData {
     heroOfSovietUnion,
     accumulateJobs,
     wrecker,
+    finalYearTrump,
+    passCards,
+    highestCardsRequisition,
+    lottoRewards,
   ];
 
   static List<_VariantRowData> enabledRows(
@@ -543,7 +581,11 @@ class _DeckVariantToggleRow extends StatelessWidget {
             horizontalPadding: deckPadding,
             contentSpacing: deckSpacing,
             onPressed: () => onChanged(
-              variants.copyWith(deckType: 36, accumulateJobs: false),
+              variants.copyWith(
+                deckType: 36,
+                accumulateJobs: false,
+                lottoRewards: false,
+              ),
             ),
           ),
         ),

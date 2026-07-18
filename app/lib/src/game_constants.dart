@@ -17,6 +17,7 @@ const plotZoneHidden = 'hidden';
 const plotZoneRevealed = 'revealed';
 
 const phasePlanning = 'planning';
+const phasePass = 'pass';
 const phaseSwap = 'swap';
 const phaseTrick = 'trick';
 const phaseAssignment = 'assignment';
@@ -46,5 +47,6 @@ const actionAssign = 'assign';
 const actionSubmitAssignments = 'submitAssignments';
 const actionContinueAfterRequisition = 'continueAfterRequisition';
 const actionUndoSwap = 'undoSwap';
+const actionPassCard = 'passCard';
 const actionRequisitionEvent = 'requisitionEvent';
 const actionUnknown = 'unknown';

@@ -6,12 +6,6 @@ KolkhozGamePreset presetForVariants(KolkhozGameVariants variants) {
   if (sameVariants(variants, KolkhozGameVariants.kolkhoz)) {
     return KolkhozGamePreset.kolkhoz;
   }
-  if (sameVariants(variants, KolkhozGameVariants.littleKolkhoz)) {
-    return KolkhozGamePreset.littleKolkhoz;
-  }
-  if (sameVariants(variants, KolkhozGameVariants.campStyle)) {
-    return KolkhozGamePreset.campStyle;
-  }
   return KolkhozGamePreset.custom;
 }
 
@@ -26,7 +20,11 @@ bool sameVariants(KolkhozGameVariants left, KolkhozGameVariants right) {
       left.medalsCount == right.medalsCount &&
       left.accumulateJobs == right.accumulateJobs &&
       left.heroOfSovietUnion == right.heroOfSovietUnion &&
-      left.wreckerCard == right.wreckerCard;
+      left.wreckerCard == right.wreckerCard &&
+      left.finalYearTrump == right.finalYearTrump &&
+      left.passCards == right.passCards &&
+      left.highestCardsRequisition == right.highestCardsRequisition &&
+      left.lottoRewards == right.lottoRewards;
 }
 
 String gameResultShareText({
@@ -97,6 +95,8 @@ enum KolkhozGamePreset {
     };
   }
 }
+
+const betaGamePresets = [KolkhozGamePreset.kolkhoz, KolkhozGamePreset.custom];
 
 class StandaloneLobby extends StatelessWidget {
   const StandaloneLobby({

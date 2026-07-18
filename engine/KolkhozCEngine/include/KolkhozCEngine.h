@@ -34,7 +34,8 @@ enum {
     KC_PHASE_TRICK = 2,
     KC_PHASE_ASSIGNMENT = 3,
     KC_PHASE_REQUISITION = 4,
-    KC_PHASE_GAME_OVER = 5
+    KC_PHASE_GAME_OVER = 5,
+    KC_PHASE_PASS = 6
 };
 
 enum {
@@ -45,7 +46,8 @@ enum {
     KC_ACTION_ASSIGN = 5,
     KC_ACTION_SUBMIT_ASSIGNMENTS = 6,
     KC_ACTION_CONTINUE_AFTER_REQUISITION = 7,
-    KC_ACTION_UNDO_SWAP = 8
+    KC_ACTION_UNDO_SWAP = 8,
+    KC_ACTION_PASS_CARD = 9
 };
 
 enum {
@@ -110,6 +112,10 @@ typedef struct {
     bool accumulate_jobs;
     bool hero_of_soviet_union;
     bool wrecker;
+    bool final_year_trump;
+    bool pass_cards;
+    bool highest_cards_requisition;
+    bool lotto_rewards;
 } KCVariants;
 
 typedef struct {
@@ -349,6 +355,9 @@ typedef struct {
     int32_t last_swap_plot_index;
     int32_t last_swap_hand_index;
     KCCard last_swap_new_plot_card;
+    bool pass_confirmed[KC_PLAYER_COUNT];
+    KCCard pass_cards[KC_PLAYER_COUNT];
+    KCCard final_year_trump_card;
     KCRequisitionEvent requisition_plan[KC_MAX_CARDS];
     int32_t requisition_plan_count;
     int32_t requisition_plan_index;
@@ -440,6 +449,8 @@ KCCard kc_requisition_event_card(const KCEngine *engine, int32_t index);
 int32_t kc_requisition_event_message_kind(const KCEngine *engine, int32_t index);
 bool kc_swap_count(const KCEngine *engine, int32_t player_id);
 bool kc_swap_confirmed(const KCEngine *engine, int32_t player_id);
+bool kc_pass_confirmed(const KCEngine *engine, int32_t player_id);
+KCCard kc_final_year_trump_card(const KCEngine *engine);
 int32_t kc_legal_action_count(const KCEngine *engine);
 int32_t kc_legal_action_kind_at(const KCEngine *engine, int32_t index);
 int32_t kc_legal_action_player_at(const KCEngine *engine, int32_t index);
@@ -451,11 +462,13 @@ int32_t kc_legal_action_plot_zone_at(const KCEngine *engine, int32_t index);
 int32_t kc_legal_action_target_suit_at(const KCEngine *engine, int32_t index);
 int32_t kc_engine_apply_set_trump(KCEngine *engine, int32_t player_id, int32_t suit);
 int32_t kc_engine_apply_play_card(KCEngine *engine, int32_t player_id, int32_t suit, int32_t value);
+int32_t kc_engine_apply_pass_card(KCEngine *engine, int32_t player_id, int32_t suit, int32_t value);
 int32_t kc_engine_apply_swap(KCEngine *engine, int32_t player_id, int32_t hand_suit, int32_t hand_value, int32_t plot_suit, int32_t plot_value, int32_t plot_zone);
 int32_t kc_engine_apply_assign(KCEngine *engine, int32_t player_id, int32_t suit, int32_t value, int32_t target_suit);
 int32_t kc_engine_apply_simple(KCEngine *engine, int32_t kind, int32_t player_id);
 int32_t kc_engine_apply_set_trump_manual(KCEngine *engine, int32_t player_id, int32_t suit);
 int32_t kc_engine_apply_play_card_manual(KCEngine *engine, int32_t player_id, int32_t suit, int32_t value);
+int32_t kc_engine_apply_pass_card_manual(KCEngine *engine, int32_t player_id, int32_t suit, int32_t value);
 int32_t kc_engine_apply_swap_manual(KCEngine *engine, int32_t player_id, int32_t hand_suit, int32_t hand_value, int32_t plot_suit, int32_t plot_value, int32_t plot_zone);
 int32_t kc_engine_apply_assign_manual(KCEngine *engine, int32_t player_id, int32_t suit, int32_t value, int32_t target_suit);
 int32_t kc_engine_apply_simple_manual(KCEngine *engine, int32_t kind, int32_t player_id);

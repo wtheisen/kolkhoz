@@ -71,7 +71,8 @@ bool isHumanAssignmentController(String controller) {
 }
 
 bool phaseRequiresViewerAction(String phase) {
-  return phase == phaseSwap ||
+  return phase == phasePass ||
+      phase == phaseSwap ||
       phase == phaseAssignment ||
       phase == phaseRequisition;
 }
@@ -79,6 +80,7 @@ bool phaseRequiresViewerAction(String phase) {
 bool viewerHasPhaseAction(String phase, List<LegalAction> legalActions) {
   return legalActions.any((action) {
     return switch (phase) {
+      phasePass => action.kind == actionPassCard,
       phaseSwap =>
         action.kind == actionSwap ||
             action.kind == actionUndoSwap ||
@@ -102,6 +104,10 @@ Prompt phasePromptForPhase(String phase, {required bool isFamine}) {
     phaseSwap => const Prompt(
       title: 'Swap',
       body: 'Confirm to keep your hand.',
+    ),
+    phasePass => const Prompt(
+      title: 'Pass a card',
+      body: 'Choose one card. It stays private until everyone locks in.',
     ),
     phaseAssignment => const Prompt(
       title: 'Assign work',

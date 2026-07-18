@@ -23,6 +23,27 @@ create table if not exists server_game_events (
 create index if not exists server_game_events_created_at_idx
     on server_game_events (created_at);
 
+update server_games
+set variants = case
+    when variants ? 'variants' then jsonb_set(
+        variants,
+        '{variants}',
+        jsonb_build_object(
+            'finalYearTrump', false,
+            'passCards', false,
+            'highestCardsRequisition', false,
+            'lottoRewards', false
+        ) || coalesce(variants->'variants', '{}'::jsonb)
+    )
+    else jsonb_build_object(
+        'finalYearTrump', false,
+        'passCards', false,
+        'highestCardsRequisition', false,
+        'lottoRewards', false
+    ) || variants
+end
+where not (coalesce(variants->'variants', variants) ? 'finalYearTrump');
+
 -- A production adapter performs this comparison and event insert in one
 -- transaction. Exactly one process may advance a given revision.
 --

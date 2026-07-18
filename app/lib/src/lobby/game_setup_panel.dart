@@ -1162,7 +1162,7 @@ class _FieldPlanPresetSelector extends StatelessWidget {
                 ? constraints.maxWidth / 2 / height
                 : constraints.maxWidth / 4 / height,
             children: [
-              for (final preset in KolkhozGamePreset.values)
+              for (final preset in betaGamePresets)
                 Semantics(
                   button: true,
                   selected: selectedPreset == preset,
@@ -1234,6 +1234,18 @@ class _FieldPlanVariantLedger extends StatelessWidget {
     }
     if (identical(row, _VariantRowData.allowSwap)) {
       return fieldPlanVariantSwapCards;
+    }
+    if (identical(row, _VariantRowData.passCards)) {
+      return fieldPlanVariantPassCards;
+    }
+    if (identical(row, _VariantRowData.finalYearTrump)) {
+      return fieldPlanVariantFinalYearTrump;
+    }
+    if (identical(row, _VariantRowData.highestCardsRequisition)) {
+      return fieldPlanVariantHighestCardsRequisition;
+    }
+    if (identical(row, _VariantRowData.lottoRewards)) {
+      return fieldPlanVariantLottoRewards;
     }
     if (identical(row, _VariantRowData.accumulateJobs)) {
       return fieldPlanVariantStakhanovite;
@@ -1352,9 +1364,8 @@ class _PresetSelector extends StatelessWidget {
             .toDouble();
         final spacing = compact ? 6.0 : 6 + 6 * scale;
         final buttonWidth =
-            (constraints.maxWidth -
-                spacing * (KolkhozGamePreset.values.length - 1)) /
-            KolkhozGamePreset.values.length;
+            (constraints.maxWidth - spacing * (betaGamePresets.length - 1)) /
+            betaGamePresets.length;
         final buttonHeight = compact
             ? 52.0
             : (buttonWidth * 0.21).clamp(58.0, 88.0);
@@ -1371,7 +1382,7 @@ class _PresetSelector extends StatelessWidget {
         return Row(
           spacing: spacing,
           children: [
-            for (final preset in KolkhozGamePreset.values)
+            for (final preset in betaGamePresets)
               Expanded(
                 child: _ImageTabButton(
                   tokens: tokens,

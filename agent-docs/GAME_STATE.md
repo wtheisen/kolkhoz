@@ -30,8 +30,10 @@ The C engine uses numeric suit codes:
 4 wrecker
 ```
 
-Cards use a suit plus value. Values `1...5` are job rewards; values `6...13` are normal
-worker cards. Face cards are `11` jack, `12` queen, and `13` king. The Saboteur variant
+Cards use a suit plus value. Normally values `1...5` are job rewards and values `6...13`
+are worker cards. With Lotto Rewards, each crop instead uses `1...4` plus one seeded
+random value from `5...13` as rewards; the selected lotto card is removed from the worker
+deck. Face cards are `11` jack, `12` queen, and `13` king. The Saboteur variant
 adds a special `wrecker-14` worker card. It counts as matching every crop suit, but it
 does not add a fifth job suit or a fifth job pile.
 
@@ -56,6 +58,7 @@ Saboteur-specific behavior:
 3 assignment
 4 requisition
 5 gameOver
+6 pass
 ```
 
 There is no separate plot-selection phase. At year end, the engine immediately moves all
@@ -76,6 +79,10 @@ The C `KCVariants` struct owns:
 - `accumulate_jobs`
 - `hero_of_soviet_union`
 - `wrecker`
+- `final_year_trump`
+- `pass_cards`
+- `highest_cards_requisition`
+- `lotto_rewards`
 
 ## Key State Mutations
 

@@ -38,7 +38,7 @@ Set<String> handActionCardIDs(List<CEngineActionValue> actions, int playerID) {
     for (final action in actions)
       if (action.playerID == playerID &&
           action.card.isValid &&
-          action.kind == kcActionPlayCard)
+          (action.kind == kcActionPlayCard || action.kind == kcActionPassCard))
         cardID(action.card),
     for (final action in actions)
       if (action.playerID == playerID &&
@@ -99,6 +99,7 @@ int? suitCode(String? suit) {
 String phaseName(int phase) {
   return switch (phase) {
     kcPhasePlanning => phasePlanning,
+    kcPhasePass => phasePass,
     kcPhaseSwap => phaseSwap,
     kcPhaseTrick => phaseTrick,
     kcPhaseAssignment => phaseAssignment,
@@ -118,6 +119,7 @@ String actionKindName(int kind) {
     kcActionSubmitAssignments => actionSubmitAssignments,
     kcActionContinueAfterRequisition => actionContinueAfterRequisition,
     kcActionUndoSwap => actionUndoSwap,
+    kcActionPassCard => actionPassCard,
     _ => actionUnknown,
   };
 }
@@ -132,6 +134,7 @@ int? actionKindCode(String kind) {
     actionSubmitAssignments => kcActionSubmitAssignments,
     actionContinueAfterRequisition => kcActionContinueAfterRequisition,
     actionUndoSwap => kcActionUndoSwap,
+    actionPassCard => kcActionPassCard,
     _ => null,
   };
 }
@@ -146,6 +149,7 @@ String actionLabel(int kind) {
     kcActionSubmitAssignments => 'Confirm',
     kcActionContinueAfterRequisition => 'Continue',
     kcActionUndoSwap => 'Undo',
+    kcActionPassCard => 'Pass',
     _ => 'Action',
   };
 }

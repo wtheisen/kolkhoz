@@ -44,6 +44,9 @@ class OnlineTableProjection {
       winnerSeatID: snapshot.winnerID,
       finalScoreboard: scoreboard(finalScores: true),
       legalActions: projectedActions,
+      finalYearTrumpCard: snapshot.finalYearTrumpCard.isValid
+          ? projectOnlineCard(snapshot.finalYearTrumpCard.valueObject)
+          : null,
     );
   }
 

@@ -52,6 +52,7 @@ class TableState {
     required this.exiledByYear,
     required this.scoreboard,
     required this.gameResult,
+    this.finalYearTrumpCard,
   });
 
   final int year;
@@ -69,6 +70,7 @@ class TableState {
   final Map<int, List<TableCard>> exiledByYear;
   final List<Score> scoreboard;
   final GameResult? gameResult;
+  final TableCard? finalYearTrumpCard;
 }
 
 class Prompt {

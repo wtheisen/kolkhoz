@@ -131,9 +131,11 @@ const handTraySwapHighlightCornerRadius = 7.0;
 const handTrayCardHeightFillFactor = 1.0;
 const handTrayCardMaxScale = 3.0;
 
+bool passIconFlipsHorizontally(int year) => year.isEven;
+
 bool handCardCanReceiveTap(TableViewModel model, TableCard card) {
   return switch (model.table.phase) {
-    phaseTrick || phaseSwap => card.highlighted,
+    phaseTrick || phaseSwap || phasePass => card.highlighted,
     _ => false,
   };
 }
@@ -150,6 +152,17 @@ LegalAction? handCardPlayAction(TableViewModel model, TableCard card) {
   }
   for (final action in model.legalActions) {
     if (action.kind == actionPlayCard &&
+        action.engineAction.card?.id == card.id) {
+      return action;
+    }
+  }
+  return null;
+}
+
+LegalAction? handCardPassAction(TableViewModel model, TableCard card) {
+  if (model.table.phase != phasePass) return null;
+  for (final action in model.legalActions) {
+    if (action.kind == actionPassCard &&
         action.engineAction.card?.id == card.id) {
       return action;
     }
@@ -187,6 +200,7 @@ LegalAction? handConsoleConfirmAction(TableViewModel model) {
       handConsoleLegalAction(model, {actionSwap}) == null
           ? handConsoleLegalAction(model, {actionConfirmSwap})
           : null,
+    phasePass => null,
     phaseAssignment => handConsoleLegalAction(model, {actionSubmitAssignments}),
     phaseRequisition => handConsoleLegalAction(model, {
       actionContinueAfterRequisition,
@@ -229,6 +243,7 @@ String handConsoleStatus(
   required bool compact,
 }) {
   final currentSeat = seatByID(model, model.table.currentPlayerID);
+  final english = language == KolkhozLanguage.en;
   return switch (model.table.phase) {
     phasePlanning =>
       handConsoleSeatIsLocal(currentSeat)
@@ -239,6 +254,31 @@ String handConsoleStatus(
               compact: true,
               detailedKey: KolkhozText.handConsoleWaitingForValue1,
             ),
+    phasePass => () {
+      final direction = model.table.year.isEven
+          ? (english ? 'left' : 'влево')
+          : (english ? 'right' : 'вправо');
+      final canChoose = model.legalActions.any(
+        (action) => action.kind == actionPassCard,
+      );
+      if (!canChoose) {
+        return english
+            ? 'Card locked · waiting for the others'
+            : 'Карта выбрана · ждём остальных';
+      }
+      final revealed = model.table.finalYearTrumpCard;
+      if (revealed != null && model.table.year == finalGameYear) {
+        final result = revealed.suit == wreckerSuit
+            ? (english ? 'no trump' : 'без козыря')
+            : (english ? '${revealed.suit} trump' : 'козырь: ${revealed.suit}');
+        return english
+            ? 'Pass $direction · ${revealed.rank} revealed · $result'
+            : 'Передайте $direction · открыта ${revealed.rank} · $result';
+      }
+      return english
+          ? 'Choose one card to pass $direction'
+          : 'Выберите карту для передачи $direction';
+    }(),
     phaseSwap =>
       handConsoleSeatIsLocal(currentSeat)
           ? compact
@@ -327,7 +367,7 @@ TableCard handTrayCard(
   String? planningTrumpFocusedSuit,
 }) {
   final showHighlight = switch (model.table.phase) {
-    phaseTrick || phaseSwap => card.highlighted,
+    phaseTrick || phaseSwap || phasePass => card.highlighted,
     phasePlanning => handCardMatchesPlanningTrumpFocus(
       model,
       card,
@@ -364,6 +404,9 @@ Color? handTrayHighlightColor(
     return swapHighlightColor;
   }
   if (model.table.phase == phaseTrick && card.highlighted) {
+    return playableHighlightColor;
+  }
+  if (model.table.phase == phasePass && card.highlighted) {
     return playableHighlightColor;
   }
   return null;
@@ -574,6 +617,16 @@ class HandTray extends StatelessWidget {
             ? null
             : () => onAction!(swapSecondaryAction),
       ),
+      phasePass => HandTrayCommand(
+        label: model.table.year.isEven
+            ? (language == KolkhozLanguage.en ? 'Pass left' : 'Передать влево')
+            : (language == KolkhozLanguage.en
+                  ? 'Pass right'
+                  : 'Передать вправо'),
+        iconAsset: 'icon-pass.png',
+        flipHorizontally: passIconFlipsHorizontally(model.table.year),
+        prominent: false,
+      ),
       phaseAssignment => HandTrayCommand(
         label: language.t(KolkhozText.boardHandtrayUndo),
         iconAsset: 'icon-toolbar-undo.png',
@@ -654,6 +707,10 @@ class HandTray extends StatelessWidget {
                                         model,
                                         card,
                                       );
+                                      final passAction = handCardPassAction(
+                                        model,
+                                        card,
+                                      );
                                       final onTap = switch (model.table.phase) {
                                         phaseTrick =>
                                           playAction != null &&
@@ -671,6 +728,10 @@ class HandTray extends StatelessWidget {
                                               ? null
                                               : () =>
                                                     onSwapHandCardTap!(card.id),
+                                        phasePass =>
+                                          passAction == null || onAction == null
+                                              ? null
+                                              : () => onAction!(passAction),
                                         _ => null,
                                       };
                                       final displayCard = handTrayCard(
@@ -683,6 +744,7 @@ class HandTray extends StatelessWidget {
                                           switch (model.table.phase) {
                                             phaseTrick => playAction != null,
                                             phaseSwap => card.highlighted,
+                                            phasePass => passAction != null,
                                             _ => displayCard.highlighted,
                                           };
                                       final invalid =
@@ -696,6 +758,7 @@ class HandTray extends StatelessWidget {
                                             phaseTrick =>
                                               playAction != null || invalid,
                                             phaseSwap => card.highlighted,
+                                            phasePass => passAction != null,
                                             _ => false,
                                           };
                                       return NaturalSizeViewport(
@@ -981,6 +1044,7 @@ class HandConsole extends StatelessWidget {
                 iconAsset: primary.iconAsset,
                 tokens: tokens,
                 prominent: primary.prominent,
+                flipHorizontally: primary.flipHorizontally,
                 scale: buttonScale,
                 onPressed: primary.onPressed,
               ),
@@ -990,6 +1054,7 @@ class HandConsole extends StatelessWidget {
                 iconAsset: secondary.iconAsset,
                 tokens: tokens,
                 prominent: secondary.prominent,
+                flipHorizontally: secondary.flipHorizontally,
                 scale: buttonScale,
                 onPressed: secondary.onPressed,
               ),
@@ -1006,12 +1071,14 @@ class HandTrayCommand {
     required this.label,
     required this.iconAsset,
     required this.prominent,
+    this.flipHorizontally = false,
     this.onPressed,
   });
 
   final String label;
   final String iconAsset;
   final bool prominent;
+  final bool flipHorizontally;
   final VoidCallback? onPressed;
 }
 
@@ -1187,6 +1254,7 @@ class ActionIconButton extends StatelessWidget {
     required this.iconAsset,
     required this.tokens,
     required this.prominent,
+    this.flipHorizontally = false,
     this.scale = 1,
     this.onPressed,
     super.key,
@@ -1196,6 +1264,7 @@ class ActionIconButton extends StatelessWidget {
   final String iconAsset;
   final DesignTokens tokens;
   final bool prominent;
+  final bool flipHorizontally;
   final double scale;
   final VoidCallback? onPressed;
 
@@ -1211,12 +1280,15 @@ class ActionIconButton extends StatelessWidget {
           Positioned.fill(
             child: ChromeButtonBackground(asset: chromeButtonSecondaryAsset),
           ),
-          ChromeAssetIcon(
-            asset: 'assets/ui/Icons/$iconAsset',
-            width: handTrayActionIconSize * scale,
-            height: handTrayActionIconSize * scale,
-            fit: BoxFit.contain,
-            muted: !enabled,
+          Transform.flip(
+            flipX: flipHorizontally,
+            child: ChromeAssetIcon(
+              asset: 'assets/ui/Icons/$iconAsset',
+              width: handTrayActionIconSize * scale,
+              height: handTrayActionIconSize * scale,
+              fit: BoxFit.contain,
+              muted: !enabled,
+            ),
           ),
         ],
       ),

@@ -92,6 +92,17 @@ class ActionContractTests(unittest.TestCase):
         self.assertEqual(owner["handCard"], {"suit": 0, "value": 6})
         self.assertEqual(finished["plotCard"], {"suit": 2, "value": 9})
 
+    def test_pass_card_is_never_exposed_to_other_viewers(self) -> None:
+        action = action_to_json(
+            KCAction(9, 2, -1, KCCard(3, 12), KCCard(-1, 0), KCCard(-1, 0), -1, -1)
+        )
+        other = privacy_safe_action_log([action], 0, game_over=False)[0]
+        owner = privacy_safe_action_log([action], 2, game_over=False)[0]
+        finished = privacy_safe_action_log([action], 0, game_over=True)[0]
+        self.assertEqual(other["card"], {"suit": -1, "value": -1})
+        self.assertEqual(owner["card"], {"suit": 3, "value": 12})
+        self.assertEqual(finished["card"], {"suit": -1, "value": -1})
+
 
 class ProjectionContractTests(unittest.TestCase):
     @classmethod
@@ -149,6 +160,8 @@ class ProjectionContractTests(unittest.TestCase):
                 "winnerID",
                 "swapConfirmed",
                 "swapCount",
+                "passConfirmed",
+                "finalYearTrumpCard",
             },
         )
 

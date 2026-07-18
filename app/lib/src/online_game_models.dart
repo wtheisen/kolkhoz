@@ -458,6 +458,8 @@ class OnlineEngineSnapshot {
     required this.winnerID,
     required this.swapConfirmed,
     required this.swapCount,
+    this.passConfirmed = const [],
+    this.finalYearTrumpCard = const OnlineEngineCard(suit: -1, value: 0),
   });
 
   final int year;
@@ -488,6 +490,8 @@ class OnlineEngineSnapshot {
   final int winnerID;
   final List<int> swapConfirmed;
   final List<int> swapCount;
+  final List<int> passConfirmed;
+  final OnlineEngineCard finalYearTrumpCard;
 
   static OnlineEngineSnapshot fromJson(Map<String, Object?> json) {
     return OnlineEngineSnapshot(
@@ -543,6 +547,12 @@ class OnlineEngineSnapshot {
       winnerID: json['winnerID'] as int,
       swapConfirmed: _ints(json['swapConfirmed']),
       swapCount: _ints(json['swapCount']),
+      passConfirmed: _ints(json['passConfirmed'] ?? const []),
+      finalYearTrumpCard: OnlineEngineCard.fromJson(
+        _objectMap(
+          json['finalYearTrumpCard'] ?? const {'suit': -1, 'value': 0},
+        ),
+      ),
     );
   }
 }

@@ -83,6 +83,10 @@ class KolkhozGameVariants {
     this.accumulateJobs = false,
     this.heroOfSovietUnion = true,
     this.wreckerCard = false,
+    this.finalYearTrump = false,
+    this.passCards = false,
+    this.highestCardsRequisition = false,
+    this.lottoRewards = false,
   });
 
   final int deckType;
@@ -96,6 +100,10 @@ class KolkhozGameVariants {
   final bool accumulateJobs;
   final bool heroOfSovietUnion;
   final bool wreckerCard;
+  final bool finalYearTrump;
+  final bool passCards;
+  final bool highestCardsRequisition;
+  final bool lottoRewards;
 
   KolkhozGameVariants copyWith({
     int? deckType,
@@ -109,6 +117,10 @@ class KolkhozGameVariants {
     bool? accumulateJobs,
     bool? heroOfSovietUnion,
     bool? wreckerCard,
+    bool? finalYearTrump,
+    bool? passCards,
+    bool? highestCardsRequisition,
+    bool? lottoRewards,
   }) {
     return KolkhozGameVariants(
       deckType: deckType ?? this.deckType,
@@ -122,17 +134,30 @@ class KolkhozGameVariants {
       accumulateJobs: accumulateJobs ?? this.accumulateJobs,
       heroOfSovietUnion: heroOfSovietUnion ?? this.heroOfSovietUnion,
       wreckerCard: wreckerCard ?? this.wreckerCard,
+      finalYearTrump: finalYearTrump ?? this.finalYearTrump,
+      passCards: passCards ?? this.passCards,
+      highestCardsRequisition:
+          highestCardsRequisition ?? this.highestCardsRequisition,
+      lottoRewards: lottoRewards ?? this.lottoRewards,
     );
   }
 
   static const kolkhoz = KolkhozGameVariants(
     nomenclature: false,
     wreckerCard: true,
+    finalYearTrump: true,
+    passCards: true,
+    highestCardsRequisition: true,
+    lottoRewards: true,
   );
   static const demoKolkhoz = KolkhozGameVariants(
     maxYears: 2,
     nomenclature: false,
     wreckerCard: true,
+    finalYearTrump: true,
+    passCards: true,
+    highestCardsRequisition: true,
+    lottoRewards: true,
   );
   static const littleKolkhoz = KolkhozGameVariants(
     deckType: 36,
@@ -252,6 +277,8 @@ class KolkhozCEngineBridge {
   late final int Function(Pointer<KCEngine>, int) _requisitionEventMessageKind;
   late final bool Function(Pointer<KCEngine>, int) _swapCount;
   late final bool Function(Pointer<KCEngine>, int) _swapConfirmed;
+  late final bool Function(Pointer<KCEngine>, int) _passConfirmed;
+  late final KCCardNative Function(Pointer<KCEngine>) _finalYearTrumpCard;
   late final int Function(Pointer<KCEngine>) _legalActionCount;
   late final int Function(Pointer<KCEngine>, int) _legalActionKind;
   late final int Function(Pointer<KCEngine>, int) _legalActionPlayer;
@@ -263,6 +290,7 @@ class KolkhozCEngineBridge {
   late final int Function(Pointer<KCEngine>, int) _legalActionTargetSuit;
   late final int Function(Pointer<KCEngine>, int, int) _applySetTrump;
   late final int Function(Pointer<KCEngine>, int, int, int) _applyPlayCard;
+  late final int Function(Pointer<KCEngine>, int, int, int) _applyPassCard;
   late final int Function(Pointer<KCEngine>, int, int, int, int, int, int)
   _applySwap;
   late final int Function(Pointer<KCEngine>, int, int, int, int) _applyAssign;
@@ -292,6 +320,8 @@ class KolkhozCEngineBridge {
   late final int Function(Pointer<KCEngine>, int, int) _applySetTrumpManual;
   late final int Function(Pointer<KCEngine>, int, int, int)
   _applyPlayCardManual;
+  late final int Function(Pointer<KCEngine>, int, int, int)
+  _applyPassCardManual;
   late final int Function(Pointer<KCEngine>, int, int, int, int, int, int)
   _applySwapManual;
   late final int Function(Pointer<KCEngine>, int, int, int, int)
@@ -340,6 +370,10 @@ class KolkhozCEngineBridge {
         accumulateJobs: nativeVariants.ref.accumulateJobs,
         heroOfSovietUnion: nativeVariants.ref.heroOfSovietUnion,
         wreckerCard: nativeVariants.ref.wrecker,
+        finalYearTrump: nativeVariants.ref.finalYearTrump,
+        passCards: nativeVariants.ref.passCards,
+        highestCardsRequisition: nativeVariants.ref.highestCardsRequisition,
+        lottoRewards: nativeVariants.ref.lottoRewards,
       );
     } finally {
       arena.releaseAll();
@@ -358,7 +392,11 @@ class KolkhozCEngineBridge {
       ..medalsCount = variants.medalsCount
       ..accumulateJobs = variants.accumulateJobs
       ..heroOfSovietUnion = variants.heroOfSovietUnion
-      ..wrecker = variants.wreckerCard;
+      ..wrecker = variants.wreckerCard
+      ..finalYearTrump = variants.finalYearTrump && variants.wreckerCard
+      ..passCards = variants.passCards
+      ..highestCardsRequisition = variants.highestCardsRequisition
+      ..lottoRewards = variants.lottoRewards && variants.deckType != 36;
   }
 
   void _writeControllers(
@@ -501,6 +539,10 @@ class KolkhozCEngineBridge {
       _swapCount(engine, playerID);
   bool swapConfirmed(Pointer<KCEngine> engine, int playerID) =>
       _swapConfirmed(engine, playerID);
+  bool passConfirmed(Pointer<KCEngine> engine, int playerID) =>
+      _passConfirmed(engine, playerID);
+  EngineCardValue finalYearTrumpCard(Pointer<KCEngine> engine) =>
+      _cardValue(_finalYearTrumpCard(engine));
 
   List<CEngineActionValue> legalActions(Pointer<KCEngine> engine) {
     final count = _legalActionCount(engine);
@@ -523,6 +565,12 @@ class KolkhozCEngineBridge {
     return switch (action.kind) {
       kcActionSetTrump => _applySetTrump(engine, action.playerID, action.suit),
       kcActionPlayCard => _applyPlayCard(
+        engine,
+        action.playerID,
+        action.card.suit,
+        action.card.value,
+      ),
+      kcActionPassCard => _applyPassCard(
         engine,
         action.playerID,
         action.card.suit,
@@ -556,6 +604,12 @@ class KolkhozCEngineBridge {
         action.suit,
       ),
       kcActionPlayCard => _applyPlayCardManual(
+        engine,
+        action.playerID,
+        action.card.suit,
+        action.card.value,
+      ),
+      kcActionPassCard => _applyPassCardManual(
         engine,
         action.playerID,
         action.card.suit,
@@ -738,6 +792,8 @@ class KolkhozCEngineBridge {
     _requisitionEventMessageKind = _int1('kc_requisition_event_message_kind');
     _swapCount = _bool1('kc_swap_count');
     _swapConfirmed = _bool1('kc_swap_confirmed');
+    _passConfirmed = _bool1('kc_pass_confirmed');
+    _finalYearTrumpCard = _card0('kc_final_year_trump_card');
     _legalActionCount = _int0('kc_legal_action_count');
     _legalActionKind = _int1('kc_legal_action_kind_at');
     _legalActionPlayer = _int1('kc_legal_action_player_at');
@@ -757,6 +813,11 @@ class KolkhozCEngineBridge {
           Int32 Function(Pointer<KCEngine>, Int32, Int32, Int32),
           int Function(Pointer<KCEngine>, int, int, int)
         >('kc_engine_apply_play_card');
+    _applyPassCard = _lib
+        .lookupFunction<
+          Int32 Function(Pointer<KCEngine>, Int32, Int32, Int32),
+          int Function(Pointer<KCEngine>, int, int, int)
+        >('kc_engine_apply_pass_card');
     _applySwap = _lib
         .lookupFunction<
           Int32 Function(
@@ -844,6 +905,11 @@ class KolkhozCEngineBridge {
           Int32 Function(Pointer<KCEngine>, Int32, Int32, Int32),
           int Function(Pointer<KCEngine>, int, int, int)
         >('kc_engine_apply_play_card_manual');
+    _applyPassCardManual = _lib
+        .lookupFunction<
+          Int32 Function(Pointer<KCEngine>, Int32, Int32, Int32),
+          int Function(Pointer<KCEngine>, int, int, int)
+        >('kc_engine_apply_pass_card_manual');
     _applySwapManual = _lib
         .lookupFunction<
           Int32 Function(
@@ -901,6 +967,13 @@ class KolkhozCEngineBridge {
     return _lib.lookupFunction<
       Bool Function(Pointer<KCEngine>, Int32),
       bool Function(Pointer<KCEngine>, int)
+    >(name);
+  }
+
+  KCCardNative Function(Pointer<KCEngine>) _card0(String name) {
+    return _lib.lookupFunction<
+      KCCardNative Function(Pointer<KCEngine>),
+      KCCardNative Function(Pointer<KCEngine>)
     >(name);
   }
 
@@ -1016,6 +1089,18 @@ final class KCVariantsNative extends Struct {
 
   @Bool()
   external bool wrecker;
+
+  @Bool()
+  external bool finalYearTrump;
+
+  @Bool()
+  external bool passCards;
+
+  @Bool()
+  external bool highestCardsRequisition;
+
+  @Bool()
+  external bool lottoRewards;
 }
 
 final class KCControllersNative extends Struct {
@@ -1066,6 +1151,7 @@ const kcActionAssign = 5;
 const kcActionSubmitAssignments = 6;
 const kcActionContinueAfterRequisition = 7;
 const kcActionUndoSwap = 8;
+const kcActionPassCard = 9;
 
 const kcPhasePlanning = 0;
 const kcPhaseSwap = 1;
@@ -1073,6 +1159,7 @@ const kcPhaseTrick = 2;
 const kcPhaseAssignment = 3;
 const kcPhaseRequisition = 4;
 const kcPhaseGameOver = 5;
+const kcPhasePass = 6;
 
 const kcControllerExternal = 0;
 const kcControllerHeuristicAI = 1;

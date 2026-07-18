@@ -219,3 +219,12 @@ create table if not exists server_session_updates (
 
 create index if not exists server_session_updates_stream_idx
     on server_session_updates (session_id, update_id);
+
+update server_sessions
+set variants = jsonb_build_object(
+    'finalYearTrump', false,
+    'passCards', false,
+    'highestCardsRequisition', false,
+    'lottoRewards', false
+) || variants
+where not (variants ? 'finalYearTrump');

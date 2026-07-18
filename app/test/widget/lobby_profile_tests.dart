@@ -47,20 +47,20 @@ void registerLobbyAndProfileTests() {
       ),
     );
 
-    for (final label in ['Kolkhoz', 'Little Kolkhoz', 'Camp Style']) {
-      final tab = find.bySemanticsLabel(label);
-      final icon = find.descendant(
-        of: tab,
-        matching: find.byType(ChromeAssetIcon),
-      );
-      final text = find.descendant(
-        of: tab,
-        matching: find.byType(ChromeScaledLabel),
-      );
-      expect(icon, findsOneWidget);
-      expect(text, findsOneWidget);
-      expect(tester.getRect(icon).overlaps(tester.getRect(text)), isFalse);
-    }
+    final kolkhozTab = find.bySemanticsLabel('Kolkhoz');
+    final icon = find.descendant(
+      of: kolkhozTab,
+      matching: find.byType(ChromeAssetIcon),
+    );
+    final text = find.descendant(
+      of: kolkhozTab,
+      matching: find.byType(ChromeScaledLabel),
+    );
+    expect(icon, findsOneWidget);
+    expect(text, findsOneWidget);
+    expect(tester.getRect(icon).overlaps(tester.getRect(text)), isFalse);
+
+    expect(find.bySemanticsLabel('Custom'), findsOneWidget);
   });
 
   testWidgets('lobby utility icon row controls are interactive', (
@@ -1337,7 +1337,7 @@ void registerLobbyAndProfileTests() {
     );
     expect(KolkhozGameVariants.demoKolkhoz.wreckerCard, isTrue);
 
-    await tester.tap(find.bySemanticsLabel('Little Kolkhoz'));
+    await tester.tap(find.bySemanticsLabel('Custom'));
     await tester.pumpAndSettle();
 
     expect(presetChanges, 0);

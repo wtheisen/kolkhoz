@@ -290,6 +290,10 @@ class KolkhozFavoriteSetup {
         'accumulateJobs': variants.accumulateJobs,
         'heroOfSovietUnion': variants.heroOfSovietUnion,
         'wrecker': variants.wreckerCard,
+        'finalYearTrump': variants.finalYearTrump,
+        'passCards': variants.passCards,
+        'highestCardsRequisition': variants.highestCardsRequisition,
+        'lottoRewards': variants.lottoRewards,
       },
       'controllers': controllers.map((controller) => controller.name).toList(),
       if (lobbySeats.isNotEmpty) 'lobby-seats': lobbySeats,
@@ -317,6 +321,11 @@ class KolkhozFavoriteSetup {
           accumulateJobs: variantsJson['accumulateJobs'] as bool,
           heroOfSovietUnion: variantsJson['heroOfSovietUnion'] as bool,
           wreckerCard: variantsJson['wrecker'] as bool? ?? false,
+          finalYearTrump: variantsJson['finalYearTrump'] as bool? ?? false,
+          passCards: variantsJson['passCards'] as bool? ?? false,
+          highestCardsRequisition:
+              variantsJson['highestCardsRequisition'] as bool? ?? false,
+          lottoRewards: variantsJson['lottoRewards'] as bool? ?? false,
         ),
         controllers: KolkhozPlayerController.normalized([
           for (final controller in _objectList(json['controllers']))

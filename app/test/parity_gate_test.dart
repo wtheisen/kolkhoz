@@ -56,8 +56,8 @@ void main() {
           openingFingerprint(model),
           '''
 year=1 phase=planning current=2 trump=null viewer=0 privacy=none
-seats=0:human:hand=beet-10,potato-8,sunflower-8,wheat-12,wheat-6:hidden=0:score=0|1:heuristicAI:hand=beet-13,potato-11,potato-6,sunflower-6,wheat-8:hidden=5:score=0|2:heuristicAI:hand=beet-12,beet-6,beet-9,sunflower-13,wheat-9:hidden=5:score=0|3:heuristicAI:hand=potato-9,sunflower-10,sunflower-11,sunflower-9,wheat-10:hidden=5:score=0
-jobs=beet:beet-2:0:false|potato:potato-2:0:false|sunflower:sunflower-3:0:false|wheat:wheat-1:0:false
+seats=0:human:hand=beet-8,potato-13,sunflower-7,sunflower-8,wheat-8:hidden=0:score=0|1:heuristicAI:hand=beet-10,potato-8,sunflower-11,sunflower-12,sunflower-9:hidden=5:score=0|2:heuristicAI:hand=beet-11,beet-6,beet-7,sunflower-6,wheat-11:hidden=5:score=0|3:heuristicAI:hand=beet-13,sunflower-10,wheat-10,wheat-13,wheat-9:hidden=5:score=0
+jobs=beet:beet-3:0:false|potato:potato-4:0:false|sunflower:sunflower-5:0:false|wheat:wheat-4:0:false
 actions=
 '''
               .trim(),
@@ -331,9 +331,9 @@ actions=
         expect(
           gameOverFingerprint(model, appliedActions),
           '''
-actions=40 winner=3
-scores=0:visible=0:final=23|1:visible=11:final=24|2:visible=8:final=19|3:visible=10:final=37
-exiled=1:beet-3,wheat-10,wheat-4|2:potato-1,potato-4|3:sunflower-3,sunflower-4,wheat-12,wheat-2,wheat-6|4:beet-12,beet-4,sunflower-2,sunflower-7,sunflower-8,wheat-13,wheat-7|5:potato-2,potato-7,sunflower-1,sunflower-9,wheat-1,wheat-11
+actions=59 winner=0
+scores=0:visible=14:final=28|1:visible=0:final=0|2:visible=3:final=26|3:visible=0:final=17
+exiled=1:beet-2,potato-1,wrecker-14|2:beet-13,beet-4,beet-8,potato-2,potato-6,sunflower-13,sunflower-3,sunflower-4,sunflower-5|3:beet-1,beet-10,sunflower-10,sunflower-11,wheat-2,wheat-3|4:beet-3,beet-5,sunflower-1,sunflower-5,sunflower-7,wheat-1,wheat-11,wheat-13,wheat-6,wheat-7,wheat-9|5:beet-12,potato-4,potato-7,sunflower-12,sunflower-2
 '''
               .trim(),
         );
@@ -717,6 +717,10 @@ String variantsFingerprint(KolkhozGameVariants variants) {
     variants.accumulateJobs,
     variants.heroOfSovietUnion,
     variants.wreckerCard,
+    variants.finalYearTrump,
+    variants.passCards,
+    variants.highestCardsRequisition,
+    variants.lottoRewards,
   ].join(':');
 }
 

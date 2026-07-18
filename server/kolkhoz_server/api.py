@@ -17,6 +17,7 @@ from .contracts import (
     normalize_variants,
     optional_bool,
     optional_int,
+    privacy_safe_action_log,
 )
 from .errors import ServerError
 from .lobby import LobbyRepository, SeatRecord, SeatUnavailable, SessionRecord
@@ -1198,19 +1199,28 @@ class OnlineApplication:
         record = self.lobby.session(session_id)
         snapshot = dict(state)
         legal_actions = snapshot.pop("legalActions", [])
-        actions = [
+        raw_actions = [
             event.payload
             for event in self.runtime.events(
                 record.session_id, after_revision=max(0, revision - 64)
             )
         ]
+        actions = privacy_safe_action_log(
+            raw_actions,
+            viewer_id,
+            game_over=int(snapshot.get("phase", -1)) == 5,
+        )
         seats = self.lobby.seats(record.session_id)
         player_profiles = (
             self.social.player_profiles(seats, record.controllers)
             if self.social is not None
             else []
         )
-        waiting = snapshot.get("waitingPlayer")
+        viewer_legal_actions = [
+            action
+            for action in legal_actions
+            if viewer_id is not None and action.get("playerID") == viewer_id
+        ]
         turn_player_id, turn_deadline_at = self.lobby.turn_state(session_id)
         update = {
             "sessionID": record.session_id,
@@ -1222,12 +1232,8 @@ class OnlineApplication:
             "lobbyCountdownEndsAt": record.lobby_countdown_ends_at,
             "gameLogActions": actions,
             "reactions": self.lobby.reactions(record.session_id),
-            "isViewerTurn": record.status == "active" and waiting == viewer_id,
-            "legalActions": [
-                action
-                for action in legal_actions
-                if viewer_id is not None and action.get("playerID") == viewer_id
-            ],
+            "isViewerTurn": record.status == "active" and bool(viewer_legal_actions),
+            "legalActions": viewer_legal_actions,
             "variants": record.variants,
             "controllers": record.controllers,
             "ranked": record.ranked,
