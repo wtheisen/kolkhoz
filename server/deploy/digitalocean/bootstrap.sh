@@ -40,7 +40,7 @@ if ! $apply; then
   echo "DRY RUN: would install redis-server, PostgreSQL client, Python venv, clang, and git"
   echo "DRY RUN: would clone/update $repo at requested ref into $ROOT"
   echo "DRY RUN: would read database and Supabase auth from $SERVER_ENV without displaying values"
-  echo "DRY RUN: would apply six server schemas explicitly"
+  echo "DRY RUN: would apply nine server schemas explicitly"
   echo "DRY RUN: would install capped Redis on 127.0.0.1:$REDIS_PORT and the server on 127.0.0.1:$PORT"
   echo "DRY RUN: would schedule daily deletion of email accounts unconfirmed for more than seven days"
   echo "DRY RUN: would configure Caddy to bridge short upstream restart gaps"
@@ -85,7 +85,7 @@ supabase_url=$(sed -n 's/^KOLKHOZ_SUPABASE_URL=//p' "$SERVER_ENV" | tail -n 1)
 publishable=$(sed -n 's/^KOLKHOZ_SUPABASE_PUBLISHABLE_KEY=//p' "$SERVER_ENV" | tail -n 1)
 secret_key=$(sed -n 's/^KOLKHOZ_SUPABASE_SECRET_KEY=//p' "$SERVER_ENV" | tail -n 1)
 [ -n "$database_url" ] && [ -n "$supabase_url" ] && [ -n "$publishable" ] && [ -n "$secret_key" ] || { echo "database/Supabase settings incomplete" >&2; exit 1; }
-for schema in postgres_schema.sql lobby_schema.sql distributed_schema.sql command_schema.sql population_schema.sql notifications_schema.sql commerce_schema.sql tournament_schema.sql; do
+for schema in postgres_schema.sql lobby_schema.sql distributed_schema.sql command_schema.sql population_schema.sql notifications_schema.sql commerce_schema.sql tournament_schema.sql identity_schema.sql; do
   DATABASE_URL="$database_url" psql "$database_url" -v ON_ERROR_STOP=1 -f "$ROOT/server/$schema" >/dev/null
 done
 unset database_url supabase_url publishable secret_key

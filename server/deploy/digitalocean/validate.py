@@ -15,7 +15,7 @@ account_cleanup_timer = (root / "kolkhoz-unconfirmed-account-cleanup.timer").rea
 assert "ROOT=/opt/kolkhoz-greenfield" in bootstrap
 assert "SERVER_ENV=/etc/kolkhoz-greenfield.env" in bootstrap
 assert "KOLKHOZ_ONLINE_DATABASE_URL" not in bootstrap
-assert bootstrap.count("_schema.sql") == 8
+assert bootstrap.count("_schema.sql") == 9
 assert "--apply" in bootstrap and "DRY RUN:" in bootstrap
 assert bootstrap.index('cd "$ROOT"') < bootstrap.index(
     "from research.kolkhoz_research.c_engine"

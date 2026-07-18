@@ -517,10 +517,14 @@ void registerLobbyAndProfileTests() {
   testWidgets('profile panel edits display name and portrait', (tester) async {
     String? displayName;
     String? portraitAsset;
-    var signedOut = false;
     var accountDeleted = false;
-    final signOutLabel = find.byWidgetPredicate(
-      (widget) => widget is PixelText && widget.text == 'SIGN OUT',
+    KolkhozIdentityRuntime.instance.setTestState(
+      identity: const KolkhozPlayerIdentity(
+        id: 'player-mira',
+        displayName: 'Mira',
+        guest: false,
+        provider: 'game_center',
+      ),
     );
 
     await tester.pumpWidget(
@@ -570,17 +574,15 @@ void registerLobbyAndProfileTests() {
             onAppearanceToggle: () {},
             onDisplayNameChanged: (value) => displayName = value,
             onPortraitChanged: (value) => portraitAsset = value,
-            onCloudSignOut: () async => signedOut = true,
             onCloudDeleteAccount: () async => accountDeleted = true,
           ),
         ),
       ),
     );
 
-    expect(findAppText('Signed in as mira@example.com'), findsOneWidget);
+    expect(find.text('GAME CENTER — CONNECTED'), findsOneWidget);
     expect(findAppText('Profile loaded.'), findsNothing);
-    expect(signOutLabel, findsOneWidget);
-    expect(find.text('Delete account'), findsOneWidget);
+    expect(find.text('DELETE ACCOUNT'), findsOneWidget);
     expect(findAppText('DISPLAY NAME'), findsNothing);
     expect(findAppText('STATS'), findsOneWidget);
     expect(findAppText('OFFLINE'), findsOneWidget);
@@ -600,34 +602,38 @@ void registerLobbyAndProfileTests() {
     await tester.pumpAndSettle();
     await tester.tap(find.bySemanticsLabel('worker3'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Delete account'));
-    await tester.tap(find.text('Delete account'));
+    await tester.ensureVisible(find.text('DELETE ACCOUNT'));
+    await tester.tap(find.text('DELETE ACCOUNT'));
     await tester.pumpAndSettle();
-    expect(find.text('Delete your account?'), findsOneWidget);
+    expect(find.text('DELETE YOUR ACCOUNT?'), findsOneWidget);
     expect(
-      find.textContaining('full-game purchase will be surrendered'),
+      find.textContaining('Purchases and histories are not transferred'),
       findsOneWidget,
     );
     await tester.tap(
       find.descendant(
         of: find.byType(AlertDialog),
-        matching: find.text('Delete account'),
+        matching: find.text('DELETE ACCOUNT'),
       ),
     );
     await tester.pumpAndSettle();
     expect(accountDeleted, isTrue);
-    await tester.ensureVisible(signOutLabel);
-    await tester.tap(signOutLabel);
-    await tester.pump();
 
     expect(displayName, 'Nadia');
     expect(portraitAsset, 'worker3');
-    expect(signedOut, isTrue);
   });
 
   testWidgets('profile panel hides player card and stats while signed out', (
     tester,
   ) async {
+    KolkhozIdentityRuntime.instance.setTestState(
+      identity: const KolkhozPlayerIdentity(
+        id: 'guest-mira',
+        displayName: 'Mira',
+        guest: true,
+      ),
+      statusMessage: 'Guest progress may be lost.',
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: SizedBox(
@@ -668,10 +674,11 @@ void registerLobbyAndProfileTests() {
     );
 
     expect(findAppText('STATS'), findsNothing);
-    expect(findAppText('Mira'), findsNothing);
+    expect(find.text('Mira'), findsOneWidget);
     expect(findAppText('1125'), findsNothing);
     expect(find.bySemanticsLabel('worker1'), findsNothing);
-    expect(find.byType(TextField), findsNWidgets(3));
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text('GUEST — LOCAL DEVICE ONLY'), findsOneWidget);
   });
 
   testWidgets('profile panel loads recent games after signing in', (
@@ -753,25 +760,17 @@ void registerLobbyAndProfileTests() {
     expect(find.byKey(const Key('recent-game-recent-game')), findsNothing);
   });
 
-  testWidgets('profile account creation requires matching passwords', (
+  testWidgets('profile account is passwordless with guest recovery warning', (
     tester,
   ) async {
-    String? signUpEmail;
-    String? signUpPassword;
-
-    Finder textFieldWithLabel(String label) {
-      return find.byWidgetPredicate(
-        (widget) =>
-            widget is TextField && widget.decoration?.labelText == label,
-      );
-    }
-
-    Finder commandButton(String label) {
-      return find.byWidgetPredicate(
-        (widget) => widget is ChromeAssetButton && widget.label == label,
-      );
-    }
-
+    KolkhozIdentityRuntime.instance.setTestState(
+      identity: const KolkhozPlayerIdentity(
+        id: 'guest-passwordless',
+        displayName: 'Guest',
+        guest: true,
+      ),
+      statusMessage: 'Guest progress may be lost if this app is deleted.',
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: SizedBox(
@@ -802,40 +801,16 @@ void registerLobbyAndProfileTests() {
             onTutorialPressed: () {},
             onLanguageToggle: () {},
             onAppearanceToggle: () {},
-            onCloudSignIn: (_, _) async {},
-            onCloudSignUp: (email, password) async {
-              signUpEmail = email;
-              signUpPassword = password;
-            },
           ),
         ),
       ),
     );
 
-    final emailField = tester.widget<TextField>(textFieldWithLabel('EMAIL'));
-    expect(emailField.maxLength, maxAccountEmailLength);
-    expect(emailField.keyboardType, TextInputType.emailAddress);
-    expect(emailField.autocorrect, isFalse);
-    expect(emailField.enableSuggestions, isFalse);
-
-    const plusEmail =
-        'mira+collective-harvest-cooperative-account-application@example.com';
-    await tester.enterText(textFieldWithLabel('EMAIL'), plusEmail);
-    await tester.enterText(textFieldWithLabel('PASSWORD'), 'tractor-1');
-    await tester.enterText(textFieldWithLabel('CONFIRM PASSWORD'), 'tractor-2');
-    await tester.ensureVisible(commandButton('Create'));
-    await tester.tap(commandButton('Create'));
-    await tester.pump();
-
-    expect(findAppText('Passwords do not match.'), findsOneWidget);
-    expect(signUpEmail, isNull);
-
-    await tester.enterText(textFieldWithLabel('CONFIRM PASSWORD'), 'tractor-1');
-    await tester.tap(commandButton('Create'));
-    await tester.pump();
-
-    expect(signUpEmail, plusEmail);
-    expect(signUpPassword, 'tractor-1');
+    expect(find.textContaining('PASSWORD'), findsNothing);
+    expect(find.textContaining('EMAIL'), findsNothing);
+    expect(find.text('GUEST — LOCAL DEVICE ONLY'), findsOneWidget);
+    expect(find.textContaining('may be lost'), findsOneWidget);
+    expect(find.byKey(const Key('link-another-device')), findsOneWidget);
   });
 
   testWidgets('offline lobby seat icons open controller chooser', (

@@ -179,6 +179,19 @@ class CanonicalRouteParityTests(unittest.TestCase):
         self.assert_ok(self.request("GET", "/metrics"))
         self.assert_ok(self.request("GET", "/canary"))
         self.request("GET", "/admin/operations", bearer="host-token")
+        self.request("POST", "/identity/platform/game_center")
+        self.request("POST", "/identity/guest")
+        self.request("POST", "/identity/device-links", bearer="host-token")
+        self.request("GET", "/identity/device-links/request-1", bearer="host-token")
+        self.request(
+            "DELETE", "/identity/device-links/request-1", bearer="host-token"
+        )
+        self.request("POST", "/identity/device-links/redeem", bearer="host-token")
+        self.request(
+            "POST",
+            "/identity/device-links/request-1/approve",
+            bearer="host-token",
+        )
         self.assert_ok(self.request("DELETE", "/account", bearer="host-token"))
         self.request("GET", "/commerce/entitlements", bearer="host-token")
         self.request(

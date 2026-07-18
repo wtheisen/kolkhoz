@@ -1260,12 +1260,8 @@ final Uri _onlineServerURL = Uri.parse(
 );
 
 Future<String?> _currentSupabaseAccessToken() async {
-  return KolkhozSupabaseRuntime
-      .instance
-      .client
-      ?.auth
-      .currentSession
-      ?.accessToken;
+  return KolkhozIdentityRuntime.instance.accessToken ??
+      KolkhozSupabaseRuntime.instance.client?.auth.currentSession?.accessToken;
 }
 
 class _WeeklyTournamentCard extends StatelessWidget {

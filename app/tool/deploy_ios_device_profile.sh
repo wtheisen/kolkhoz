@@ -33,8 +33,10 @@ if [[ -n "${KOLKHOZ_SUPABASE_URL:-}" && -n "${KOLKHOZ_SUPABASE_PUBLISHABLE_KEY:-
   DART_DEFINES+=("--dart-define=KOLKHOZ_SUPABASE_URL=$KOLKHOZ_SUPABASE_URL")
   DART_DEFINES+=("--dart-define=KOLKHOZ_SUPABASE_PUBLISHABLE_KEY=$KOLKHOZ_SUPABASE_PUBLISHABLE_KEY")
 else
-  echo "Warning: Supabase env values not found; cloud profiles will be disabled." >&2
-  echo "Set KOLKHOZ_ONLINE_ENV_FILE or create $ENV_FILE from .env.example to enable them." >&2
+  echo "Refusing to deploy without Supabase configuration." >&2
+  echo "Existing accounts cannot be migrated safely without KOLKHOZ_SUPABASE_URL and KOLKHOZ_SUPABASE_PUBLISHABLE_KEY." >&2
+  echo "Set KOLKHOZ_ONLINE_ENV_FILE or create $ENV_FILE from .env.example." >&2
+  exit 1
 fi
 
 cd "$APP_DIR"

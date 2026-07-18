@@ -27,6 +27,7 @@ import 'pixel_text.dart';
 import 'push_notifications.dart';
 import 'printed_underlay.dart';
 import 'player_profile_panel.dart';
+import 'player_identity.dart';
 import 'progression/progression.dart';
 import 'progression/progression_notice.dart';
 import 'progression/progression_overview.dart';
@@ -279,12 +280,12 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   bool get demoMode => !commerce.fullGameUnlocked;
   bool get onlinePlayAllowed => canAccessOnlinePlay(
     fullGameUnlocked: commerce.fullGameUnlocked,
-    signedIn: supabaseCurrentUser != null,
+    signedIn: onlineSignedIn,
   );
 
   ProgressionState get effectiveProgression => mergeProgressionStates(
     settings.progression,
-    settings.onlineProgressionUserID == supabaseCurrentUser?.id
+    settings.onlineProgressionUserID == onlineUserID
         ? settings.onlineProgression
         : const ProgressionState(),
   );
@@ -346,7 +347,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
               ),
       deleteInstallation: (installationID) =>
           onlineClient().deleteInstallation(installationID),
-      isSignedIn: () => supabaseCurrentUser != null,
+      isSignedIn: () => onlineSignedIn,
       onForegroundMessage: handleForegroundPush,
       onOpenMessage: handleOpenedPush,
     );
@@ -355,8 +356,9 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
       playerControllers = List.of(store.controllers);
     }
     KolkhozSupabaseRuntime.instance.addListener(handleSupabaseRuntimeChanged);
-    KolkhozSupabaseRuntime.instance.start();
+    KolkhozIdentityRuntime.instance.addListener(handlePlayerIdentityChanged);
     attachSupabaseAuthSubscription();
+    unawaited(startPlayerIdentity());
     startOnlinePresenceHeartbeat();
     startOnlineInvitePolling();
   }
@@ -377,6 +379,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     KolkhozSupabaseRuntime.instance.removeListener(
       handleSupabaseRuntimeChanged,
     );
+    KolkhozIdentityRuntime.instance.removeListener(handlePlayerIdentityChanged);
     WidgetsBinding.instance.removeObserver(this);
     store.dispose();
     super.dispose();
@@ -413,7 +416,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
         child: Stack(
           children: [
             child ?? const SizedBox.shrink(),
-            if (showingLobby && demoMode && supabaseCurrentUser != null)
+            if (showingLobby && demoMode && onlineSignedIn)
               Positioned(
                 key: const ValueKey('unlock-full-game'),
                 right: 16,
@@ -593,8 +596,10 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
               comradesSummary: comradesSummary,
               cloudConfigured: KolkhozSupabaseRuntime.instance.isConfigured,
               cloudReady: KolkhozSupabaseRuntime.instance.isReady,
-              cloudSignedIn: supabaseCurrentUser != null,
-              cloudEmail: supabaseCurrentUser?.email,
+              cloudSignedIn: onlineSignedIn,
+              cloudEmail:
+                  supabaseCurrentUser?.email ??
+                  KolkhozIdentityRuntime.instance.player?.displayName,
               cloudAuthBusy: cloudAuthBusy || cloudProfileBusy,
               cloudAuthMessage: cloudAuthMessage,
               cloudAuthIsError: cloudAuthIsError,
@@ -864,13 +869,42 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     return KolkhozSupabaseRuntime.instance.client?.auth.currentUser;
   }
 
+  String? get onlineUserID =>
+      KolkhozIdentityRuntime.instance.player?.id ?? supabaseCurrentUser?.id;
+
+  bool get onlineSignedIn => onlineUserID != null;
+
   Future<String?> supabaseAccessToken() async {
-    return KolkhozSupabaseRuntime
-        .instance
-        .client
-        ?.auth
-        .currentSession
-        ?.accessToken;
+    return KolkhozIdentityRuntime.instance.accessToken ??
+        KolkhozSupabaseRuntime
+            .instance
+            .client
+            ?.auth
+            .currentSession
+            ?.accessToken;
+  }
+
+  Future<void> startPlayerIdentity() async {
+    final legacy = KolkhozSupabaseRuntime.instance;
+    await legacy.start();
+    if (legacy.isConfigured && !legacy.isReady) {
+      return;
+    }
+    attachSupabaseAuthSubscription();
+    await KolkhozIdentityRuntime.instance.start(
+      baseURL: _onlineServerURL,
+      installationID: onlineDeviceID,
+      displayName: settings.displayName,
+      legacyAccessToken: legacy.client?.auth.currentSession?.accessToken,
+    );
+  }
+
+  void handlePlayerIdentityChanged() {
+    if (!mounted) return;
+    setState(() {});
+    syncCommerceUser();
+    unawaited(loadComradesSummary());
+    if (onlineSignedIn) unawaited(offerPushNotifications());
   }
 
   void handleSupabaseRuntimeChanged() {
@@ -911,7 +945,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   }
 
   void syncCommerceUser() {
-    final userID = supabaseCurrentUser?.id;
+    final userID = onlineUserID;
     unawaited(
       commerce.attachUser(
         userID,
@@ -931,7 +965,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   }
 
   Future<void> showFullGameUnlock() async {
-    if (supabaseCurrentUser == null) {
+    if (!onlineSignedIn) {
       setState(() {
         destination = _AppDestination.profile;
         selectedSettingsTab = KolkhozSettingsTab.profile;
@@ -1256,7 +1290,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
 
   Future<void> pollSessionInvites() async {
     if (sessionInviteBusy ||
-        supabaseCurrentUser == null ||
+        !onlineSignedIn ||
         store.onlineSessionID != null ||
         activeInviteDialogSessionID != null) {
       return;
@@ -1550,10 +1584,12 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
 
   Future<void> deleteSupabaseAccount() async {
     await runCloudAuthAction(() async {
-      final client = KolkhozSupabaseRuntime.instance.client!;
       await pushNotifications.unregister();
       await onlineClient().deleteAccount();
-      await client.auth.signOut();
+      if (KolkhozIdentityRuntime.instance.accessToken != null) {
+        await KolkhozIdentityRuntime.instance.clear();
+      }
+      await KolkhozSupabaseRuntime.instance.client?.auth.signOut();
       await commerce.attachUser(null, cachedFullGame: false);
       settings = settings.copyWith(
         clearFullGameEntitlement: true,
@@ -1571,7 +1607,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   }
 
   Future<void> offerPushNotifications() async {
-    if (!mounted || notificationPromptShown || supabaseCurrentUser == null) {
+    if (!mounted || notificationPromptShown || !onlineSignedIn) {
       return;
     }
     notificationPromptShown = true;
@@ -1817,7 +1853,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   KolkhozOnlineClient onlineClient() {
     return KolkhozOnlineClient(
       _onlineServerURL,
-      accessTokenProvider: _currentSupabaseAccessToken,
+      accessTokenProvider: supabaseAccessToken,
       deviceID: onlineDeviceID,
     );
   }
@@ -1854,7 +1890,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     if (comradesSummaryBusy) {
       return;
     }
-    if (supabaseCurrentUser == null) {
+    if (!onlineSignedIn) {
       if (mounted && comradesSummary.userID != null) {
         setState(() => comradesSummary = const OnlineComradesResponse());
       }

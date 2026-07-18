@@ -31,6 +31,7 @@ from .notifications import NotificationService, NotificationRepository
 from .operations import PostgresOperationsRepository
 from .commerce import CommerceService, PurchaseAlreadyClaimed, PurchaseVerificationError
 from .accounts import AccountDeletionError, AccountDeletionService
+from .identity import CredentialError, IdentityService, LinkError
 from .tournament import TournamentRepository, TournamentTablePlan
 
 
@@ -74,6 +75,7 @@ class OnlineApplication:
         operations: PostgresOperationsRepository | None = None,
         commerce: CommerceService | None = None,
         accounts: AccountDeletionService | None = None,
+        identity: IdentityService | None = None,
         require_full_game: bool = False,
         admin_user_ids: frozenset[str] = frozenset(),
         deployment_version: str = "unknown",
@@ -92,6 +94,7 @@ class OnlineApplication:
         self.operations = operations
         self.commerce = commerce
         self.accounts = accounts
+        self.identity = identity
         self.require_full_game = require_full_game
         self.admin_user_ids = admin_user_ids
         self.deployment_version = deployment_version
@@ -123,14 +126,81 @@ class OnlineApplication:
                     "routeContract": resolve_route("POST", "/sessions") is not None,
                 },
             )
+        if operation.startswith("identity."):
+            if self.identity is None:
+                raise ServerError(
+                    HTTPStatus.SERVICE_UNAVAILABLE, "player identity is not configured"
+                )
+            try:
+                if operation == "identity.platform":
+                    credential = request.body.get("credential")
+                    if not isinstance(credential, dict):
+                        raise CredentialError("platform credential is required")
+                    return Response(
+                        HTTPStatus.OK,
+                        self.identity.authenticate(
+                            params["provider"],
+                            credential,
+                            display_name=str(request.body.get("displayName") or ""),
+                            device_id=_header(request.headers, "X-Kolkhoz-Device-ID") or "",
+                            claim_player_id=user_id,
+                        ),
+                    )
+                if operation == "identity.guest":
+                    return Response(
+                        HTTPStatus.OK,
+                        self.identity.guest(
+                            str(request.body.get("installationID") or ""),
+                            display_name=str(request.body.get("displayName") or ""),
+                            device_id=_header(request.headers, "X-Kolkhoz-Device-ID") or "",
+                        ),
+                    )
+                player_id = self._require_user(user_id)
+                if operation == "identity.links.create":
+                    return Response(HTTPStatus.OK, self.identity.create_link(player_id))
+                if operation == "identity.links.status":
+                    return Response(
+                        HTTPStatus.OK,
+                        self.identity.repository.link_status(
+                            player_id, params["requestID"], time.time()
+                        ),
+                    )
+                if operation == "identity.links.cancel":
+                    return Response(
+                        HTTPStatus.OK,
+                        self.identity.repository.cancel_link(
+                            player_id, params["requestID"], time.time()
+                        ),
+                    )
+                if operation == "identity.links.redeem":
+                    return Response(
+                        HTTPStatus.OK,
+                        self.identity.redeem(player_id, str(request.body.get("code") or "")),
+                    )
+                return Response(
+                    HTTPStatus.OK,
+                    self.identity.repository.approve_link(
+                        player_id, params["requestID"], time.time()
+                    ),
+                )
+            except CredentialError as error:
+                raise ServerError(HTTPStatus.UNAUTHORIZED, str(error)) from error
+            except LinkError as error:
+                raise ServerError(HTTPStatus.CONFLICT, str(error)) from error
         if operation == "account.delete":
+            deleted_user_id = self._require_user(user_id)
+            identity_session = str(
+                _header(request.headers, "Authorization") or ""
+            ).startswith("Bearer khz_")
+            if identity_session and self.accounts is None and self.identity is not None:
+                self.identity.repository.delete_player(deleted_user_id, time.time())
+                return Response(HTTPStatus.OK, {"deleted": True})
             if self.accounts is None:
                 raise ServerError(
                     HTTPStatus.SERVICE_UNAVAILABLE,
                     "account deletion is not configured",
                 )
             try:
-                deleted_user_id = self._require_user(user_id)
                 self.accounts.delete(deleted_user_id)
             except AccountDeletionError as error:
                 raise ServerError(HTTPStatus.BAD_GATEWAY, str(error)) from error

@@ -9,6 +9,7 @@ PRODUCT_NAME = kolkhoz_app
 
 // The application's bundle identifier
 PRODUCT_BUNDLE_IDENTIFIER = com.williamtheisen.kolkhoz
+DEVELOPMENT_TEAM = 3U7P49BAHE
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 William Theisen. All rights reserved.

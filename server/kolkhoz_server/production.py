@@ -51,6 +51,11 @@ from .accounts import (
     PostgresAccountCleaner,
     SupabaseAccountDeleter,
 )
+from .identity import (
+    CompositeAuthVerifier,
+    IdentitySessionVerifier,
+    identity_service_from_environment,
+)
 
 
 def _production_auth_verifier() -> CachingAuthVerifier | StagingAuthVerifier:
@@ -114,7 +119,7 @@ def create_asgi_application() -> ASGIApplication:
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
         parser.error("DATABASE_URL is required")
-    auth_verifier = _production_auth_verifier()
+    legacy_auth_verifier = _production_auth_verifier()
     metrics = ServerMetrics()
 
     try:
@@ -138,6 +143,10 @@ def create_asgi_application() -> ASGIApplication:
         ),
         size=args.db_pool_size,
         metrics=metrics,
+    )
+    identity = identity_service_from_environment(pool)
+    auth_verifier = CompositeAuthVerifier(
+        IdentitySessionVerifier(identity.repository), legacy_auth_verifier
     )
     store = PostgresEventStore(pool=pool)
     lobby = PostgresLobbyRepository(pool)
@@ -281,6 +290,7 @@ def create_asgi_application() -> ASGIApplication:
         operations=PostgresOperationsRepository(pool),
         commerce=commerce,
         accounts=accounts,
+        identity=identity,
         require_full_game=_enabled("KOLKHOZ_ENFORCE_FULL_GAME", False),
         admin_user_ids=frozenset(
             value.strip()

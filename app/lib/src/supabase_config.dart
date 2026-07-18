@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -23,6 +21,7 @@ class KolkhozSupabaseRuntime extends ChangeNotifier {
   bool _started = false;
   bool _ready = false;
   Object? _error;
+  Future<void>? _initialization;
 
   bool get isConfigured => KolkhozSupabaseConfig.isConfigured;
   bool get isReady => _ready;
@@ -35,12 +34,15 @@ class KolkhozSupabaseRuntime extends ChangeNotifier {
     return Supabase.instance.client;
   }
 
-  void start() {
-    if (!isConfigured || _started) {
-      return;
+  Future<void> start() {
+    if (!isConfigured) {
+      return Future<void>.value();
+    }
+    if (_started) {
+      return _initialization ?? Future<void>.value();
     }
     _started = true;
-    unawaited(_initialize());
+    return _initialization = _initialize();
   }
 
   Future<void> _initialize() async {

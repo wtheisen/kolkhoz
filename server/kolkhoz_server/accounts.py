@@ -113,6 +113,11 @@ class PostgresAccountCleaner:
                 connection.execute(  # type: ignore[attr-defined]
                     f"delete from {table} where user_id = %s", (user_id,)
                 )
+            # identity_schema makes server_players the canonical owner and
+            # public.profiles its cascading projection.
+            connection.execute(  # type: ignore[attr-defined]
+                "delete from server_players where id = %s", (user_id,)
+            )
 
 
 class AccountDeletionService:

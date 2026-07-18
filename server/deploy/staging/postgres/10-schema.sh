@@ -13,7 +13,8 @@ for schema in \
   population_schema.sql \
   notifications_schema.sql \
   commerce_schema.sql \
-  tournament_schema.sql
+  tournament_schema.sql \
+  identity_schema.sql
 do
   psql -X -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -1 -f "/schema/server/$schema"
 done

@@ -30,6 +30,7 @@ import 'package:kolkhoz_app/src/online_table_projection.dart';
 import 'package:kolkhoz_app/src/pixel_text.dart';
 import 'package:kolkhoz_app/src/policy_model.dart';
 import 'package:kolkhoz_app/src/player_profile_panel.dart';
+import 'package:kolkhoz_app/src/player_identity.dart';
 import 'package:kolkhoz_app/src/plot_display.dart';
 import 'package:kolkhoz_app/src/render_model.dart';
 import 'package:kolkhoz_app/src/rule_content.dart';
