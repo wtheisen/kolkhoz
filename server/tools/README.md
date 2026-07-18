@@ -46,3 +46,16 @@ repeated active-game runs. For non-staging deployments, pass `--identities` with
 JSON list of bearer tokens or `{ "token", "deviceID" }` objects. The report labels
 this evidence `deployed-http-websocket-stack`; it still describes only the host and
 resource limits on which it was run.
+
+## Unconfirmed account cleanup
+
+Preview Supabase email accounts that are still completely unconfirmed after seven
+days without printing addresses or user IDs:
+
+```bash
+python3 -m server.tools.cleanup_unconfirmed_accounts --older-than-days 7
+```
+
+Production runs the same command daily with `--delete` from a hardened systemd
+oneshot service. The command requires `KOLKHOZ_SUPABASE_URL` and the server-only
+`KOLKHOZ_SUPABASE_SECRET_KEY`; never expose that secret to Flutter.

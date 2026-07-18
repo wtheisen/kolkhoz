@@ -42,6 +42,7 @@ if ! $apply; then
   echo "DRY RUN: would read database and Supabase auth from $SERVER_ENV without displaying values"
   echo "DRY RUN: would apply six server schemas explicitly"
   echo "DRY RUN: would install capped Redis on 127.0.0.1:$REDIS_PORT and the server on 127.0.0.1:$PORT"
+  echo "DRY RUN: would schedule daily deletion of email accounts unconfirmed for more than seven days"
   echo "DRY RUN: would configure Caddy to bridge short upstream restart gaps"
   exit 0
 fi
@@ -99,6 +100,8 @@ install -o root -g root -m 0644 "$here/kolkhoz-health-watch.service" /etc/system
 install -o root -g root -m 0644 "$here/kolkhoz-health-watch.timer" /etc/systemd/system/kolkhoz-health-watch.timer
 install -o root -g root -m 0644 "$here/kolkhoz-ai-canary.service" /etc/systemd/system/kolkhoz-ai-canary.service
 install -o root -g root -m 0644 "$here/kolkhoz-ai-canary.timer" /etc/systemd/system/kolkhoz-ai-canary.timer
+install -o root -g root -m 0644 "$here/kolkhoz-unconfirmed-account-cleanup.service" /etc/systemd/system/kolkhoz-unconfirmed-account-cleanup.service
+install -o root -g root -m 0644 "$here/kolkhoz-unconfirmed-account-cleanup.timer" /etc/systemd/system/kolkhoz-unconfirmed-account-cleanup.timer
 install -o root -g root -m 0644 "$here/Caddyfile" /etc/caddy/Caddyfile
 caddy validate --config /etc/caddy/Caddyfile
 systemctl reload caddy
@@ -109,6 +112,7 @@ systemctl enable --now kolkhoz-admin-control.service
 systemctl restart kolkhoz-greenfield.service
 systemctl enable --now kolkhoz-health-watch.timer
 systemctl enable --now kolkhoz-ai-canary.timer
+systemctl enable --now kolkhoz-unconfirmed-account-cleanup.timer
 ready=false
 for _ in $(seq 1 30); do
   if curl --fail --silent --max-time 2 http://127.0.0.1:18787/ready >/dev/null; then
