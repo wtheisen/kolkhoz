@@ -196,6 +196,27 @@ class KolkhozOnlineClient {
     return OnlineSessionResponse.fromJson(json);
   }
 
+  Future<OnlineWeeklyTournament> fetchWeeklyTournament() async {
+    final json = await _sendJson(method: 'GET', path: 'tournaments/weekly');
+    return OnlineWeeklyTournament.fromJson(json);
+  }
+
+  Future<OnlineWeeklyTournament> joinWeeklyTournament() async {
+    final json = await _sendJson(
+      method: 'POST',
+      path: 'tournaments/weekly/join',
+    );
+    return OnlineWeeklyTournament.fromJson(json);
+  }
+
+  Future<OnlineWeeklyTournament> leaveWeeklyTournament() async {
+    final json = await _sendJson(
+      method: 'POST',
+      path: 'tournaments/weekly/leave',
+    );
+    return OnlineWeeklyTournament.fromJson(json);
+  }
+
   Future<OnlineComradeProfile> fetchPublicProfile(String userID) async {
     final decoded = await _send(method: 'GET', path: 'profiles/$userID');
     return OnlineComradeProfile.fromJson(onlineObjectMap(decoded));

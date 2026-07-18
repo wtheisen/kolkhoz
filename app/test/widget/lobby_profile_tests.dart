@@ -1487,6 +1487,62 @@ void registerLobbyAndProfileTests() {
     },
   );
 
+  testWidgets('online lobby exposes the live weekly tournament join window', (
+    tester,
+  ) async {
+    final httpClient = TournamentFakeOnlineHttpClient();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 844,
+          height: 390,
+          child: StandaloneLobby(
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
+            appearance: KolkhozAppearance.dark,
+            onStart: () {},
+            selectedPreset: KolkhozGamePreset.kolkhoz,
+            customVariants: KolkhozGameVariants.kolkhoz,
+            playerControllers: KolkhozPlayerController.defaultControllers,
+            showingRules: false,
+            showingOnline: true,
+            onHostOnline: (_, _, _, _, _) async => 'session',
+            onJoinOnline: (_, _, _) async {},
+            onEnterOnlineGame: () {},
+            onPresetChanged: (_) {},
+            onCustomVariantsChanged: (_) {},
+            onPlayerControllersChanged: (_) {},
+            onRulesPressed: () {},
+            onOfflinePressed: () {},
+            onOnlinePressed: () {},
+            onTutorialPressed: () {},
+            onLanguageToggle: () {},
+            onAppearanceToggle: () {},
+            onlineClientFactory: () => KolkhozOnlineClient(
+              Uri.parse('http://127.0.0.1:8080'),
+              httpClient: httpClient,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('weekly-tournament-card')),
+      findsOneWidget,
+    );
+    expect(findAppText('WEEKLY KOLKHOZ TOURNAMENT'), findsOneWidget);
+    expect(findAppText('JOIN TOURNAMENT'), findsOneWidget);
+
+    await tester.tap(findAppText('JOIN TOURNAMENT'));
+    await tester.pumpAndSettle();
+
+    expect(httpClient.joined, isTrue);
+    expect(findAppText('ENTRY CONFIRMED • 5 PLAYERS'), findsOneWidget);
+  });
+
   testWidgets('online lobby invite code entry changes assign action to join', (
     tester,
   ) async {

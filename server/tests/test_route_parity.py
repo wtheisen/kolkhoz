@@ -210,6 +210,9 @@ class CanonicalRouteParityTests(unittest.TestCase):
         self.request("POST", "/results/missing/rematch", bearer="host-token")
         self.request("GET", "/challenges/daily", bearer="host-token")
         self.request("POST", "/challenges/daily/start", bearer="host-token")
+        self.request("GET", "/tournaments/weekly", bearer="host-token")
+        self.request("POST", "/tournaments/weekly/join", bearer="host-token")
+        self.request("POST", "/tournaments/weekly/leave", bearer="host-token")
         self.assert_ok(self.request("GET", "/comrades", bearer="host-token"))
         self.assert_ok(
             self.request(

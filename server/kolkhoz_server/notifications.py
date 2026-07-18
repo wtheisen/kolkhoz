@@ -19,6 +19,7 @@ PREFERENCE_FOR_EVENT = {
     "game_started": "invites",
     "your_turn": "turns",
     "game_finished": "results",
+    "tournament_round": "results",
 }
 
 

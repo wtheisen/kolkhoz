@@ -1,5 +1,7 @@
 part of '../kolkhoz_app.dart';
 
+Future<void> _noopOnlineSync() async {}
+
 KolkhozGamePreset presetForVariants(KolkhozGameVariants variants) {
   if (sameVariants(variants, KolkhozGameVariants.kolkhoz)) {
     return KolkhozGamePreset.kolkhoz;
@@ -123,6 +125,7 @@ class StandaloneLobby extends StatelessWidget {
     this.onMatchmakeOnline,
     this.onKickOnlinePlayer,
     required this.onEnterOnlineGame,
+    this.onSyncActiveSession = _noopOnlineSync,
     this.onCancelOnlineGame,
     required this.onPresetChanged,
     required this.onCustomVariantsChanged,
@@ -259,6 +262,7 @@ class StandaloneLobby extends StatelessWidget {
   onMatchmakeOnline;
   final Future<void> Function(int playerID)? onKickOnlinePlayer;
   final VoidCallback onEnterOnlineGame;
+  final Future<void> Function() onSyncActiveSession;
   final VoidCallback? onCancelOnlineGame;
   final ValueChanged<KolkhozGamePreset> onPresetChanged;
   final ValueChanged<KolkhozGameVariants> onCustomVariantsChanged;
@@ -428,6 +432,7 @@ class StandaloneLobby extends StatelessWidget {
                   onMatchmakeOnline: onMatchmakeOnline,
                   onKickOnlinePlayer: onKickOnlinePlayer,
                   onEnterOnlineGame: onEnterOnlineGame,
+                  onSyncActiveSession: onSyncActiveSession,
                   onCancelOnlineGame: onCancelOnlineGame,
                   onPresetChanged: onPresetChanged,
                   onCustomVariantsChanged: onCustomVariantsChanged,
@@ -1026,6 +1031,7 @@ class _LobbyPanel extends StatelessWidget {
     required this.onMatchmakeOnline,
     required this.onKickOnlinePlayer,
     required this.onEnterOnlineGame,
+    required this.onSyncActiveSession,
     required this.onCancelOnlineGame,
     required this.onPresetChanged,
     required this.onCustomVariantsChanged,
@@ -1131,6 +1137,7 @@ class _LobbyPanel extends StatelessWidget {
   onMatchmakeOnline;
   final Future<void> Function(int playerID)? onKickOnlinePlayer;
   final VoidCallback onEnterOnlineGame;
+  final Future<void> Function() onSyncActiveSession;
   final VoidCallback? onCancelOnlineGame;
   final ValueChanged<KolkhozGamePreset> onPresetChanged;
   final ValueChanged<KolkhozGameVariants> onCustomVariantsChanged;
@@ -1272,6 +1279,7 @@ class _LobbyPanel extends StatelessWidget {
               onMatchmakeOnline: onMatchmakeOnline,
               onKickOnlinePlayer: onKickOnlinePlayer,
               onEnterOnlineGame: onEnterOnlineGame,
+              onSyncActiveSession: onSyncActiveSession,
               onCancelOnlineGame: onCancelOnlineGame,
               comradesSummary: comradesSummary,
               onComradesChanged: onComradesChanged,

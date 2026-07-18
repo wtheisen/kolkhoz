@@ -915,6 +915,54 @@ class EmptySessionsFakeOnlineHttpClient extends FakeOnlineHttpClient {
   }
 }
 
+class TournamentFakeOnlineHttpClient extends EmptySessionsFakeOnlineHttpClient {
+  bool joined = false;
+
+  Map<String, Object?> tournamentJson() {
+    final now = DateTime.now().millisecondsSinceEpoch / 1000;
+    return {
+      'available': true,
+      'tournamentID': 'weekly-1',
+      'startsAt': now + 900,
+      'joinOpensAt': now - 60,
+      'joinClosesAt': now + 900,
+      'status': 'enrollment',
+      'roundNumber': 0,
+      'totalRounds': 4,
+      'joined': joined,
+      'forfeited': false,
+      'entrantCount': joined ? 5 : 4,
+      'standings': <Object?>[],
+      'table': null,
+    };
+  }
+
+  @override
+  FakeOnlineHttpClientResponse route(
+    String method,
+    Uri uri,
+    String body,
+    Map<String, List<Object>> headers,
+  ) {
+    if (uri.path == '/tournaments/weekly' ||
+        uri.path == '/tournaments/weekly/join') {
+      requests.add(
+        FakeOnlineRequestRecord(
+          method: method,
+          uri: uri,
+          body: body,
+          headers: headers,
+        ),
+      );
+      if (method == 'POST') {
+        joined = true;
+      }
+      return FakeOnlineHttpClientResponse.json(tournamentJson());
+    }
+    return super.route(method, uri, body, headers);
+  }
+}
+
 class BannedSessionsFakeOnlineHttpClient extends FakeOnlineHttpClient {
   @override
   FakeOnlineHttpClientResponse route(

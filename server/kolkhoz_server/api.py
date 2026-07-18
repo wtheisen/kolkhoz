@@ -19,7 +19,7 @@ from .contracts import (
     optional_int,
 )
 from .errors import ServerError
-from .lobby import LobbyRepository, SeatRecord, SeatUnavailable
+from .lobby import LobbyRepository, SeatRecord, SeatUnavailable, SessionRecord
 from .matchmaking import Matchmaker, MatchmakingSession, MatchRequest
 from .model import JsonObject
 from .routes import resolve_route
@@ -30,6 +30,7 @@ from .notifications import NotificationService, NotificationRepository
 from .operations import PostgresOperationsRepository
 from .commerce import CommerceService, PurchaseAlreadyClaimed, PurchaseVerificationError
 from .accounts import AccountDeletionError, AccountDeletionService
+from .tournament import TournamentRepository, TournamentTablePlan
 
 
 REACTION_IDS = frozenset(
@@ -66,6 +67,7 @@ class OnlineApplication:
         auth: AuthVerifier | None = None,
         social: SocialService | None = None,
         results: ResultsRepository | None = None,
+        tournaments: TournamentRepository | None = None,
         notifications: NotificationService | None = None,
         notification_repository: NotificationRepository | None = None,
         operations: PostgresOperationsRepository | None = None,
@@ -83,6 +85,7 @@ class OnlineApplication:
         self.auth = auth
         self.social = social
         self.results = results
+        self.tournaments = tournaments
         self.notifications = notifications
         self.notification_repository = notification_repository
         self.operations = operations
@@ -229,7 +232,7 @@ class OnlineApplication:
                 raise ServerError(HTTPStatus.BAD_REQUEST, str(error)) from error
             return Response(HTTPStatus.OK, {"accepted": True})
         if self.require_full_game and operation.startswith(
-            ("sessions.", "results.", "challenges.", "comrades.")
+            ("sessions.", "results.", "challenges.", "tournaments.", "comrades.")
         ):
             premium_user_id = self._require_user(user_id)
             if (
@@ -295,6 +298,15 @@ class OnlineApplication:
             return Response(
                 HTTPStatus.OK,
                 self._start_daily_challenge(
+                    self._require_user(user_id),
+                    _header(request.headers, "X-Kolkhoz-Device-ID"),
+                ),
+            )
+        if operation.startswith("tournaments.weekly."):
+            return Response(
+                HTTPStatus.OK,
+                self._weekly_tournament(
+                    operation,
                     self._require_user(user_id),
                     _header(request.headers, "X-Kolkhoz-Device-ID"),
                 ),
@@ -511,6 +523,119 @@ class OnlineApplication:
             "variants": normalize_variants(None),
             **status,
         }
+
+    def _weekly_tournament(
+        self, operation: str, user_id: str, device_id: str | None
+    ) -> JsonObject:
+        if self.tournaments is None:
+            raise ServerError(
+                HTTPStatus.SERVICE_UNAVAILABLE, "weekly tournament is unavailable"
+            )
+        now = time.time()
+        if operation == "tournaments.weekly.status":
+            return self.tournaments.status(user_id=user_id, now=now)
+        if operation == "tournaments.weekly.join":
+            self._ensure_no_active(user_id)
+            self._ensure_not_banned(user_id)
+            try:
+                return self.tournaments.join(user_id=user_id, now=now)
+            except ValueError as error:
+                raise ServerError(HTTPStatus.CONFLICT, str(error)) from error
+        before = self.tournaments.status(user_id=user_id, now=now)
+        try:
+            status = self.tournaments.withdraw(user_id=user_id, now=now)
+        except ValueError as error:
+            raise ServerError(HTTPStatus.CONFLICT, str(error)) from error
+        active = self.lobby.active_for_user(user_id)
+        if before.get("status") == "playing" and active is not None:
+            record, seat = active
+            self.lobby.abandon_seat(record.session_id, seat.player_id, now=now)
+            if self.results is not None:
+                self.results.record_abandonment(
+                    session_id=record.session_id,
+                    player_id=seat.player_id,
+                    user_id=user_id,
+                    updated_at=now,
+                    revision=self.runtime.store.game(record.session_id).revision,
+                )
+            self.runtime.set_autopilot(record.session_id, seat.player_id)
+        return status
+
+    def provision_tournament_table(self, plan: TournamentTablePlan) -> None:
+        try:
+            self.lobby.session(plan.session_id)
+            return
+        except Exception:
+            pass
+        now = time.time()
+        controllers = [value.controller for value in plan.participants]
+        seed = int.from_bytes(
+            hashlib.sha256(plan.session_id.encode()).digest()[:8], "big"
+        ) & ((1 << 63) - 1)
+        variants = normalize_variants(None)
+        record = SessionRecord(
+            plan.session_id,
+            plan.session_id.replace("-", "")[:8].upper(),
+            seed,
+            variants,
+            controllers,
+            False,
+            False,
+            "open",
+            next(
+                (
+                    value.user_id
+                    for value in plan.participants
+                    if value.controller == "human"
+                ),
+                plan.participants[0].user_id,
+            ),
+            now,
+            now,
+            now + 6 * 60 * 60,
+            None,
+        )
+        seats = [
+            SeatRecord(
+                player_id,
+                participant.controller,
+                True,
+                participant.user_id,
+                hashlib.sha256(
+                    f"{plan.table_id}:{participant.user_id}".encode()
+                ).hexdigest(),
+                now,
+                0,
+                False,
+                participant.controller != "human",
+            )
+            for player_id, participant in enumerate(plan.participants)
+        ]
+        self.lobby.create(record, seats)
+        try:
+            self.runtime.create_game(
+                seed=seed,
+                variants={"variants": variants, "controllers": controllers},
+                session_id=plan.session_id,
+            )
+            self.lobby.complete_lifecycle_intent(plan.session_id, "provision")
+            self.lobby.set_status(plan.session_id, "active", now=now)
+            self._command_update(plan.session_id, None)
+        except Exception:
+            self.lobby.delete_session(plan.session_id)
+            raise
+        if self.notifications is not None:
+            for participant in plan.participants:
+                if participant.controller != "human":
+                    continue
+                self.notifications.notify(
+                    user_id=participant.user_id,
+                    event_type="tournament_round",
+                    dedupe_key=f"tournament-round:{plan.table_id}:{participant.user_id}",
+                    session_id=plan.session_id,
+                    title=f"Tournament round {plan.round_number}",
+                    body=f"Table {plan.table_number} is ready.",
+                )
 
     def _start_daily_challenge(self, user_id: str, device_id: str | None) -> JsonObject:
         challenge = self._daily_challenge(user_id)
@@ -1116,6 +1241,10 @@ class OnlineApplication:
         series = self._series_status(record.session_id)
         if series is not None:
             update["series"] = series
+        if self.tournaments is not None:
+            tournament = self.tournaments.session_context(session_id=record.session_id)
+            if tournament is not None:
+                update["tournament"] = tournament
         if self.notifications is not None and turn_player_id is not None:
             turn_seat = next(
                 (seat for seat in seats if seat.player_id == turn_player_id), None
@@ -1216,6 +1345,10 @@ class OnlineApplication:
         self.lobby.finish_session(
             record.session_id, now=now, expires_at=record.expires_at
         )
+        if self.tournaments is not None:
+            self.tournaments.record_game_finished(
+                session_id=record.session_id, results=results, now=now
+            )
         if self.notifications is not None:
             for seat in seats:
                 if seat.controller != "human" or not seat.user_id:
@@ -1479,6 +1612,15 @@ class OnlineApplication:
     def _ensure_no_active(self, user_id: str) -> None:
         if self.lobby.active_for_user(user_id) is not None:
             raise ServerError(HTTPStatus.CONFLICT, "user already has an active game")
+        if self.tournaments is not None:
+            tournament = self.tournaments.status(user_id=user_id, now=time.time())
+            if tournament.get("joined") is True and tournament.get("status") in {
+                "enrollment",
+                "playing",
+            }:
+                raise ServerError(
+                    HTTPStatus.CONFLICT, "user is entered in the weekly tournament"
+                )
 
     def _ensure_not_banned(self, user_id: str) -> None:
         if self.results is None:

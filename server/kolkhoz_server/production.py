@@ -45,6 +45,7 @@ from .notifications import (
     PostgresNotificationRepository,
 )
 from .operations import PostgresOperationsRepository
+from .tournament import PostgresTournamentRepository, TournamentScheduler
 from .accounts import (
     AccountDeletionService,
     PostgresAccountCleaner,
@@ -142,6 +143,14 @@ def create_asgi_application() -> ASGIApplication:
     lobby = PostgresLobbyRepository(pool)
     social = PostgresSocialRepository(pool=pool)
     results = PostgresResultsRepository(pool=pool, json_value=Jsonb)
+    tournaments = PostgresTournamentRepository(
+        pool,
+        weekday=int(os.environ.get("KOLKHOZ_TOURNAMENT_WEEKDAY", "5")),
+        hour=int(os.environ.get("KOLKHOZ_TOURNAMENT_HOUR", "19")),
+        timezone_name=os.environ.get(
+            "KOLKHOZ_TOURNAMENT_TIMEZONE", "America/Indiana/Indianapolis"
+        ),
+    )
     notification_repository = PostgresNotificationRepository(pool)
     notifications = NotificationService(notification_repository)
     apple_verifier = ApplePurchaseVerifier.from_environment()
@@ -266,6 +275,7 @@ def create_asgi_application() -> ASGIApplication:
             ),
         ),
         results=results,
+        tournaments=tournaments,
         notifications=notifications,
         notification_repository=notification_repository,
         operations=PostgresOperationsRepository(pool),
@@ -314,6 +324,13 @@ def create_asgi_application() -> ASGIApplication:
         population.start(
             interval_seconds=float(os.environ.get("KOLKHOZ_POPULATION_INTERVAL", "1"))
         )
+    tournament_scheduler = TournamentScheduler(
+        tournaments, application.provision_tournament_table
+    )
+    if _enabled("KOLKHOZ_RUN_TOURNAMENT_SCHEDULER"):
+        tournament_scheduler.start(
+            interval_seconds=float(os.environ.get("KOLKHOZ_TOURNAMENT_INTERVAL", "1"))
+        )
     lifecycle = LifecycleReconciler(
         lobby,
         runtime,
@@ -342,6 +359,7 @@ def create_asgi_application() -> ASGIApplication:
         automatic.close()
         lifecycle.close()
         population.close()
+        tournament_scheduler.close()
         scheduler.close()
         for command_worker in command_workers:
             command_worker.close()
@@ -356,6 +374,7 @@ def create_asgi_application() -> ASGIApplication:
             "redisRealtime": False,
             "policyModels": not run_command_worker or models.sha256() is not None,
             "population": population.healthy,
+            "tournaments": tournament_scheduler.healthy,
             "lifecycle": lifecycle.healthy,
             "automaticProgress": False,
             "automaticScheduler": not run_automatic_scheduler or automatic.healthy,

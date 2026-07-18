@@ -151,4 +151,45 @@ void main() {
     expect(series.winsFor(0), 2);
     expect(series.winsFor(1), 0);
   });
+
+  test('weekly tournament preserves enrollment, table, and standings', () {
+    final tournament = OnlineWeeklyTournament.fromJson({
+      'available': true,
+      'tournamentID': 'weekly-1',
+      'startsAt': 1000,
+      'joinOpensAt': 900,
+      'joinClosesAt': 1000,
+      'status': 'playing',
+      'roundNumber': 2,
+      'totalRounds': 4,
+      'joined': true,
+      'forfeited': false,
+      'entrantCount': 8,
+      'standings': [
+        {
+          'rank': 1,
+          'userID': 'player-1',
+          'displayName': 'Mira',
+          'points': 8.0,
+          'wins': 1,
+          'gameScore': 230,
+          'isBot': false,
+          'forfeited': false,
+        },
+      ],
+      'table': {
+        'tableID': 'table-1',
+        'sessionID': 'session-1',
+        'roundNumber': 2,
+        'tableNumber': 1,
+        'status': 'active',
+        'playerID': 3,
+      },
+    });
+
+    expect(tournament.roundNumber, 2);
+    expect(tournament.standings.single.displayName, 'Mira');
+    expect(tournament.table?.sessionID, 'session-1');
+    expect(tournament.table?.playerID, 3);
+  });
 }

@@ -71,6 +71,9 @@ schemas=(
   server/distributed_schema.sql
   server/command_schema.sql
   server/population_schema.sql
+  server/notifications_schema.sql
+  server/commerce_schema.sql
+  server/tournament_schema.sql
 )
 
 # New server schemas are rerunnable deployment inputs. Applying them twice

@@ -693,6 +693,158 @@ class OnlineDailyChallenge {
   }
 }
 
+class OnlineTournamentStanding {
+  const OnlineTournamentStanding({
+    required this.rank,
+    required this.userID,
+    required this.displayName,
+    required this.points,
+    required this.wins,
+    required this.gameScore,
+    required this.isBot,
+    required this.forfeited,
+  });
+
+  final int rank;
+  final String userID;
+  final String displayName;
+  final double points;
+  final int wins;
+  final int gameScore;
+  final bool isBot;
+  final bool forfeited;
+
+  factory OnlineTournamentStanding.fromJson(Map<String, Object?> json) =>
+      OnlineTournamentStanding(
+        rank: json['rank'] as int,
+        userID: json['userID'] as String,
+        displayName: json['displayName'] as String? ?? 'Player',
+        points: (json['points'] as num).toDouble(),
+        wins: json['wins'] as int? ?? 0,
+        gameScore: json['gameScore'] as int? ?? 0,
+        isBot: json['isBot'] as bool? ?? false,
+        forfeited: json['forfeited'] as bool? ?? false,
+      );
+}
+
+class OnlineTournamentTable {
+  const OnlineTournamentTable({
+    required this.tableID,
+    required this.sessionID,
+    required this.roundNumber,
+    required this.tableNumber,
+    required this.status,
+    required this.playerID,
+  });
+
+  final String tableID;
+  final String sessionID;
+  final int roundNumber;
+  final int tableNumber;
+  final String status;
+  final int playerID;
+
+  factory OnlineTournamentTable.fromJson(Map<String, Object?> json) =>
+      OnlineTournamentTable(
+        tableID: json['tableID'] as String,
+        sessionID: json['sessionID'] as String,
+        roundNumber: json['roundNumber'] as int,
+        tableNumber: json['tableNumber'] as int,
+        status: json['status'] as String,
+        playerID: json['playerID'] as int,
+      );
+}
+
+class OnlineTournamentGameStatus {
+  const OnlineTournamentGameStatus({
+    required this.tournamentID,
+    required this.roundNumber,
+    required this.tableNumber,
+    required this.totalRounds,
+    required this.status,
+  });
+
+  final String tournamentID;
+  final int roundNumber;
+  final int tableNumber;
+  final int totalRounds;
+  final String status;
+
+  factory OnlineTournamentGameStatus.fromJson(Map<String, Object?> json) =>
+      OnlineTournamentGameStatus(
+        tournamentID: json['tournamentID'] as String,
+        roundNumber: json['roundNumber'] as int,
+        tableNumber: json['tableNumber'] as int,
+        totalRounds: json['totalRounds'] as int? ?? 4,
+        status: json['status'] as String,
+      );
+}
+
+class OnlineWeeklyTournament {
+  const OnlineWeeklyTournament({
+    required this.available,
+    this.tournamentID,
+    this.startsAt,
+    this.joinOpensAt,
+    this.joinClosesAt,
+    this.status = 'unavailable',
+    this.roundNumber = 0,
+    this.totalRounds = 4,
+    this.joined = false,
+    this.forfeited = false,
+    this.entrantCount = 0,
+    this.standings = const [],
+    this.table,
+  });
+
+  final bool available;
+  final String? tournamentID;
+  final double? startsAt;
+  final double? joinOpensAt;
+  final double? joinClosesAt;
+  final String status;
+  final int roundNumber;
+  final int totalRounds;
+  final bool joined;
+  final bool forfeited;
+  final int entrantCount;
+  final List<OnlineTournamentStanding> standings;
+  final OnlineTournamentTable? table;
+
+  bool get enrollmentOpen {
+    final now = DateTime.now().millisecondsSinceEpoch / 1000;
+    return status == 'enrollment' &&
+        joinOpensAt != null &&
+        joinClosesAt != null &&
+        now >= joinOpensAt! &&
+        now < joinClosesAt!;
+  }
+
+  factory OnlineWeeklyTournament.fromJson(Map<String, Object?> json) {
+    final rawTable = json['table'];
+    return OnlineWeeklyTournament(
+      available: json['available'] as bool? ?? false,
+      tournamentID: json['tournamentID'] as String?,
+      startsAt: (json['startsAt'] as num?)?.toDouble(),
+      joinOpensAt: (json['joinOpensAt'] as num?)?.toDouble(),
+      joinClosesAt: (json['joinClosesAt'] as num?)?.toDouble(),
+      status: json['status'] as String? ?? 'unavailable',
+      roundNumber: json['roundNumber'] as int? ?? 0,
+      totalRounds: json['totalRounds'] as int? ?? 4,
+      joined: json['joined'] as bool? ?? false,
+      forfeited: json['forfeited'] as bool? ?? false,
+      entrantCount: json['entrantCount'] as int? ?? 0,
+      standings: [
+        for (final value in _objectList(json['standings'] ?? const []))
+          OnlineTournamentStanding.fromJson(_objectMap(value)),
+      ],
+      table: rawTable is Map
+          ? OnlineTournamentTable.fromJson(_objectMap(rawTable))
+          : null,
+    );
+  }
+}
+
 class OnlineSessionUpdate {
   const OnlineSessionUpdate({
     required this.sessionID,
@@ -715,6 +867,7 @@ class OnlineSessionUpdate {
     this.gameLogActions = const [],
     this.reactions = const [],
     this.series,
+    this.tournament,
     required this.snapshot,
   });
 
@@ -738,6 +891,7 @@ class OnlineSessionUpdate {
   final List<OnlineEngineAction> gameLogActions;
   final List<OnlineReaction> reactions;
   final OnlineSeriesStatus? series;
+  final OnlineTournamentGameStatus? tournament;
   final OnlineEngineSnapshot snapshot;
 
   int? get lobbyCountdownSeconds {
@@ -791,6 +945,9 @@ class OnlineSessionUpdate {
       series: json['series'] is Map
           ? OnlineSeriesStatus.fromJson(_objectMap(json['series']))
           : null,
+      tournament: json['tournament'] is Map
+          ? OnlineTournamentGameStatus.fromJson(_objectMap(json['tournament']))
+          : null,
       snapshot: OnlineEngineSnapshot.fromJson(_objectMap(json['snapshot'])),
     );
   }
@@ -817,6 +974,7 @@ class OnlineSessionUpdate {
       gameLogActions: gameLogActions,
       reactions: reactions,
       series: series,
+      tournament: tournament,
       snapshot: snapshot,
     );
   }

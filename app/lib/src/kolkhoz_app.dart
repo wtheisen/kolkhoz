@@ -469,6 +469,37 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
                   ),
                 ),
               ),
+            if (store.onlineUpdate?.tournament case final tournament?)
+              Positioned(
+                key: const ValueKey('tournament-round-banner'),
+                top: 12,
+                left: 76,
+                child: SafeArea(
+                  child: IgnorePointer(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: settings.appearance.tokens.colors.redDark
+                            .withValues(alpha: 0.88),
+                        border: Border.all(
+                          color: settings.appearance.tokens.colors.gold,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'TOURNAMENT • ROUND ${tournament.roundNumber}/${tournament.totalRounds} • TABLE ${tournament.tableNumber}',
+                        style: kolkhozFontStyle.copyWith(
+                          color: settings.appearance.tokens.colors.goldBright,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -550,6 +581,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
               onMatchmakeOnline: matchmakeOnlineGame,
               onKickOnlinePlayer: kickOnlinePlayer,
               onEnterOnlineGame: enterOnlineGame,
+              onSyncActiveSession: syncActiveSession,
               onCancelOnlineGame: returnToLobby,
               onStart: () {
                 final controllers = activePlayerControllers;
@@ -698,6 +730,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
                   onReaction: store.sendReaction,
                   activeReaction: store.activeReaction,
                   gameOverReturnsToLobby:
+                      store.onlineUpdate?.tournament != null ||
                       !(store.isOnlineGame &&
                           store.onlineUpdate?.ranked == false &&
                           store.onlineUpdate?.series?.completed != true &&

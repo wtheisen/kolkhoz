@@ -542,6 +542,12 @@ class PostgresPopulationRepository:
                   join public.server_bot_profiles b on b.user_id::text = seat.user_id
                  where seat.occupied and s.status in ('open', 'active')
                    and s.expires_at > to_timestamp(%s)
+                union
+                select entry.user_id::text
+                  from server_tournament_entries entry
+                  join server_tournaments tournament using (tournament_id)
+                 where entry.is_bot and entry.status = 'active'
+                   and tournament.status in ('enrollment', 'playing')
                 """,
                 (now,),
             ).fetchall()

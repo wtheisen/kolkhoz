@@ -12,6 +12,7 @@ class _OnlinePanel extends StatefulWidget {
     required this.onMatchmakeOnline,
     required this.onKickOnlinePlayer,
     required this.onEnterOnlineGame,
+    required this.onSyncActiveSession,
     required this.onCancelOnlineGame,
     required this.comradesSummary,
     required this.onComradesChanged,
@@ -43,6 +44,7 @@ class _OnlinePanel extends StatefulWidget {
   onMatchmakeOnline;
   final Future<void> Function(int playerID)? onKickOnlinePlayer;
   final VoidCallback onEnterOnlineGame;
+  final Future<void> Function() onSyncActiveSession;
   final VoidCallback? onCancelOnlineGame;
 
   @override
@@ -66,6 +68,7 @@ class _OnlinePanelState extends State<_OnlinePanel> {
   Set<String> outgoingComradeRequestUserIDs = const {};
   String? currentUserID;
   String? selectedSessionID;
+  OnlineWeeklyTournament? weeklyTournament;
 
   void setStatus(String? message) {
     status = message;
@@ -144,6 +147,11 @@ class _OnlinePanelState extends State<_OnlinePanel> {
         // Older servers can still provide the joinable-session browser.
       }
       var nextCitizensOnline = _citizensOnlineFromSessions(sessions);
+      try {
+        weeklyTournament = await client.fetchWeeklyTournament();
+      } catch (_) {
+        // Tournament rollout is additive; older servers keep normal online play.
+      }
       try {
         nextCitizensOnline = (await client.fetchServerStatus()).citizensOnline;
       } catch (_) {
@@ -313,6 +321,32 @@ class _OnlinePanelState extends State<_OnlinePanel> {
     await matchmake();
   }
 
+  Future<void> joinWeeklyTournament() async {
+    await runOnlineAction(() async {
+      weeklyTournament = await _onlineClient().joinWeeklyTournament();
+      setStatus('YOU ARE ENTERED IN THE WEEKLY TOURNAMENT');
+    });
+  }
+
+  Future<void> leaveWeeklyTournament() async {
+    await runOnlineAction(() async {
+      final forfeiting = weeklyTournament?.status == 'playing';
+      weeklyTournament = await _onlineClient().leaveWeeklyTournament();
+      setStatus(
+        forfeiting
+            ? 'TOURNAMENT ENTRY FORFEITED'
+            : 'TOURNAMENT ENTRY WITHDRAWN',
+      );
+    });
+  }
+
+  Future<void> enterTournamentRound() async {
+    await runOnlineAction(() async {
+      await widget.onSyncActiveSession();
+      setStatus('TOURNAMENT TABLE READY');
+    });
+  }
+
   Future<void> runOnlineAction(Future<void> Function() action) async {
     if (busy) {
       return;
@@ -423,6 +457,15 @@ class _OnlinePanelState extends State<_OnlinePanel> {
             language: widget.language,
             inviteCode: widget.hostedInviteCode!,
             onCopy: () => copyInviteCode(widget.hostedInviteCode!),
+          ),
+        if (weeklyTournament case final tournament?)
+          _WeeklyTournamentCard(
+            tokens: widget.tokens,
+            tournament: tournament,
+            busy: busy,
+            onJoin: joinWeeklyTournament,
+            onLeave: leaveWeeklyTournament,
+            onEnterRound: enterTournamentRound,
           ),
         if (browserHiddenByBan)
           Expanded(
@@ -1223,6 +1266,190 @@ Future<String?> _currentSupabaseAccessToken() async {
       ?.auth
       .currentSession
       ?.accessToken;
+}
+
+class _WeeklyTournamentCard extends StatelessWidget {
+  const _WeeklyTournamentCard({
+    required this.tokens,
+    required this.tournament,
+    required this.busy,
+    required this.onJoin,
+    required this.onLeave,
+    required this.onEnterRound,
+  });
+
+  final DesignTokens tokens;
+  final OnlineWeeklyTournament tournament;
+  final bool busy;
+  final VoidCallback onJoin;
+  final VoidCallback onLeave;
+  final VoidCallback onEnterRound;
+
+  String _timeLabel(BuildContext context) {
+    final seconds = tournament.startsAt;
+    if (seconds == null) {
+      return 'SCHEDULE PENDING';
+    }
+    final date = DateTime.fromMillisecondsSinceEpoch((seconds * 1000).round());
+    final time = MaterialLocalizations.of(
+      context,
+    ).formatTimeOfDay(TimeOfDay.fromDateTime(date));
+    return '${_weekday(date.weekday)} $time';
+  }
+
+  String _statusLabel(BuildContext context) {
+    if (tournament.forfeited) {
+      return 'FORFEITED • PROFILE BOT CONTINUES';
+    }
+    if (tournament.status == 'playing') {
+      final table = tournament.table;
+      return table == null
+          ? 'ROUND ${tournament.roundNumber} • WAITING FOR TABLES'
+          : 'ROUND ${tournament.roundNumber} OF ${tournament.totalRounds} • TABLE ${table.tableNumber}';
+    }
+    if (tournament.status == 'completed') {
+      return 'TOURNAMENT COMPLETE';
+    }
+    if (tournament.enrollmentOpen) {
+      return tournament.joined
+          ? 'ENTRY CONFIRMED • ${tournament.entrantCount} PLAYERS'
+          : 'JOIN WINDOW OPEN • ${tournament.entrantCount} ENTERED';
+    }
+    return 'ENROLLMENT OPENS 30 MINUTES BEFORE START';
+  }
+
+  static String _weekday(int weekday) => const {
+    DateTime.monday: 'MON',
+    DateTime.tuesday: 'TUE',
+    DateTime.wednesday: 'WED',
+    DateTime.thursday: 'THU',
+    DateTime.friday: 'FRI',
+    DateTime.saturday: 'SAT',
+    DateTime.sunday: 'SUN',
+  }[weekday]!;
+
+  @override
+  Widget build(BuildContext context) {
+    final tableReady =
+        tournament.joined && tournament.table?.status == 'active';
+    final canJoin = tournament.enrollmentOpen && !tournament.joined;
+    final canLeave = tournament.joined && tournament.status != 'completed';
+    final leaders = tournament.standings.take(4).toList();
+    final label = tableReady
+        ? 'ENTER ROUND'
+        : canJoin
+        ? 'JOIN TOURNAMENT'
+        : canLeave
+        ? tournament.status == 'playing'
+              ? 'FORFEIT'
+              : 'LEAVE'
+        : tournament.status == 'completed'
+        ? 'FINAL'
+        : 'WEEKLY';
+    final action = tableReady
+        ? onEnterRound
+        : canJoin
+        ? onJoin
+        : canLeave
+        ? onLeave
+        : null;
+    return Container(
+      key: const ValueKey('weekly-tournament-card'),
+      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: tokens.colors.redDark.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: tokens.colors.gold.withValues(alpha: 0.72)),
+        boxShadow: [
+          BoxShadow(
+            color: tokens.colors.black.withValues(alpha: 0.24),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _AssetIcon('assets/ui/Icons/icon-medal-star.png', size: 34),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'WEEKLY KOLKHOZ TOURNAMENT',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: kolkhozFontStyle.copyWith(
+                          color: tokens.colors.goldBright,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      _timeLabel(context),
+                      style: kolkhozFontStyle.copyWith(
+                        color: tokens.colors.cream,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _statusLabel(context),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: kolkhozFontStyle.copyWith(
+                    color: tokens.colors.creamDim,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (leaders.isNotEmpty &&
+                    tournament.status != 'enrollment') ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    leaders
+                        .map(
+                          (value) =>
+                              '${value.rank}. ${value.displayName} ${value.points.toStringAsFixed(value.points % 1 == 0 ? 0 : 1)}',
+                        )
+                        .join('   '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: kolkhozFontStyle.copyWith(
+                      color: tokens.colors.gold,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 154,
+            height: 38,
+            child: ChromeAssetButton.command(
+              label: label,
+              prominent: tableReady || canJoin,
+              tokens: tokens,
+              iconAsset: 'assets/ui/Icons/icon-medal-star.png',
+              onPressed: busy ? null : action,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _HostedInviteCodeCard extends StatelessWidget {

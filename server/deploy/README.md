@@ -18,6 +18,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/command_schema.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/population_schema.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/notifications_schema.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/commerce_schema.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/tournament_schema.sql
 sudo install -o root -g root -m 0600 \
   server/deploy/kolkhoz-server.env.example /etc/kolkhoz-server.env
 sudo install -o root -g root -m 0644 \
@@ -35,6 +36,11 @@ Commerce claims require `APPLE_ROOT_CERTIFICATE_PATHS`, `APPLE_APP_ID`,
 `APPLE_APP_BUNDLE_ID`, and `KOLKHOZ_APPLE_FULL_GAME_PRODUCT_ID`. Keep
 `KOLKHOZ_ENFORCE_FULL_GAME=false` while configuring and testing the first
 storefront, then enable it for the paid-access release.
+
+Weekly tournaments default to Saturday at 7 PM in
+`America/Indiana/Indianapolis`. Configure the recurring event with
+`KOLKHOZ_TOURNAMENT_WEEKDAY` (Monday is `0`), `KOLKHOZ_TOURNAMENT_HOUR`, and
+`KOLKHOZ_TOURNAMENT_TIMEZONE`. Enrollment opens 30 minutes before the start.
 
 App Store Server API operations also require `APPLE_IAP_KEY_ID`,
 `APPLE_IAP_ISSUER_ID`, and `APPLE_IAP_PRIVATE_KEY_PATH`. The private `.p8` key can
