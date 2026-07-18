@@ -37,7 +37,10 @@ void main() {
     final camera = worldDepthCameraCalibration;
 
     expect(camera.status, 'locked');
-    expect(camera.vanishingPointY, 0.40);
+    expect(camera.viewportWidth, 1920);
+    expect(camera.viewportHeight, 800);
+    expect(camera.vanishingPointX, 0.481);
+    expect(camera.vanishingPointY, 0.637);
     expect(camera.stops.map((stop) => stop.id), [
       'menu',
       'brigade',
@@ -75,12 +78,16 @@ void main() {
   });
 
   test('railway sleepers begin at the station and continue toward North', () {
-    const horizonY = 941 * 0.4;
+    final viewportWidth = worldDepthCameraCalibration.viewportWidth;
+    final viewportHeight = worldDepthCameraCalibration.viewportHeight;
+    final horizonY =
+        viewportHeight * worldDepthCameraCalibration.vanishingPointY;
     final route = [-2.0, 0.0, 1.5, 3.0, 5.0].map(
       (cameraZ) => projectNorthRailwaySleepers(
         cameraZ: cameraZ,
         horizonY: horizonY,
-        viewportHeight: 941,
+        viewportWidth: viewportWidth,
+        viewportHeight: viewportHeight,
       ),
     );
 
@@ -90,9 +97,22 @@ void main() {
         sleepers.every((sleeper) => sleeper.worldZ >= worldDepthStationWorldZ),
         isTrue,
       );
-      expect(sleepers.every((sleeper) => sleeper.worldZ.isFinite), isTrue);
       expect(
-        sleepers.every((sleeper) => sleeper.y > horizonY && sleeper.y <= 941),
+        sleepers.every(
+          (sleeper) => sleeper.worldZ <= northRailwayTerminalWorldZ,
+        ),
+        isTrue,
+      );
+      expect(sleepers.every((sleeper) => sleeper.worldZ.isFinite), isTrue);
+      expect(sleepers.every((sleeper) => sleeper.x.isFinite), isTrue);
+      expect(
+        sleepers.every((sleeper) => sleeper.rotationRadians.isFinite),
+        isTrue,
+      );
+      expect(
+        sleepers.every(
+          (sleeper) => sleeper.y > horizonY && sleeper.y <= viewportHeight,
+        ),
         isTrue,
       );
     }
@@ -100,12 +120,14 @@ void main() {
     final before = projectNorthRailwaySleepers(
       cameraZ: 0,
       horizonY: horizonY,
-      viewportHeight: 941,
+      viewportWidth: viewportWidth,
+      viewportHeight: viewportHeight,
     );
     final after = projectNorthRailwaySleepers(
       cameraZ: 0.2,
       horizonY: horizonY,
-      viewportHeight: 941,
+      viewportWidth: viewportWidth,
+      viewportHeight: viewportHeight,
     );
     final sharedWorldZ = before
         .map((sleeper) => sleeper.worldZ)
@@ -119,6 +141,47 @@ void main() {
         .singleWhere((sleeper) => sleeper.worldZ == sharedWorldZ)
         .y;
     expect(afterY, greaterThan(beforeY));
+    expect(
+      before.map((sleeper) => sleeper.x.toStringAsFixed(3)).toSet().length,
+      greaterThan(3),
+    );
+    expect(northRailwayRouteOffset(worldDepthStationWorldZ), 0);
+    expect(northRailwayRouteOffset(6.6), greaterThan(0));
+    expect(northRailwayRouteOffset(8.4), lessThan(0));
+    expect(
+      northRailwayRouteOffset(northRailwayTerminalWorldZ),
+      lessThan(-0.25),
+    );
+  });
+
+  test('railway has one fixed terminal beyond the playable camp camera', () {
+    expect(northRailwayTerminalWorldZ, greaterThan(8.05));
+    final viewportHeight = worldDepthCameraCalibration.viewportHeight;
+    final terminalSleepers = projectNorthRailwaySleepers(
+      cameraZ: 8.05,
+      horizonY: viewportHeight * worldDepthCameraCalibration.vanishingPointY,
+      viewportWidth: worldDepthCameraCalibration.viewportWidth,
+      viewportHeight: viewportHeight,
+    );
+    expect(terminalSleepers, isNotEmpty);
+    expect(
+      terminalSleepers.every(
+        (sleeper) => sleeper.worldZ <= northRailwayTerminalWorldZ,
+      ),
+      isTrue,
+    );
+    expect(
+      terminalSleepers.first.x,
+      lessThan(worldDepthCameraCalibration.viewportWidth * 0.49),
+    );
+    expect(
+      northRailwayRouteCenterX(
+        worldZ: northRailwayTerminalWorldZ,
+        cameraZ: 8.05,
+        viewportWidth: worldDepthCameraCalibration.viewportWidth,
+      ),
+      lessThan(worldDepthCameraCalibration.viewportWidth * 0.49),
+    );
   });
 
   test(
@@ -138,7 +201,7 @@ void main() {
   );
 
   test('foreground scales and moves more strongly than corridor objects', () {
-    const viewport = Size(1672, 941);
+    const viewport = Size(1920, 800);
     expect(northForegroundWorldZ, 11.0);
     expect(northForegroundWorldZ, lessThan(northCorridorObjectsWorldZ));
 
@@ -185,6 +248,58 @@ void main() {
     expect(northHybridOpacity(2.825), closeTo(0.5, 0.000001));
     expect(northHybridOpacity(3), 1);
     expect(northHybridOpacity(3.01), 1);
+  });
+
+  test('twelve persistent terrain cards span station to camp', () {
+    expect(northRouteCards, hasLength(12));
+    expect(northRouteCards.first.id, 'a01');
+    expect(northRouteCards.first.worldZ, greaterThan(northRouteCardStartZ));
+    expect(northRouteCards.last.id, 'a12');
+    expect(northRouteCards.last.worldZ, lessThan(rm40ReferenceCameraZ));
+    expect(
+      northRouteCards.map((card) => card.worldZ),
+      orderedEquals(
+        northRouteCards.map((card) => card.worldZ).toList()..sort(),
+      ),
+    );
+    expect(
+      northRouteCards.every(
+        (card) => card.assetPath.contains('world_lab_north_route_cards'),
+      ),
+      isTrue,
+    );
+    expect(
+      northRouteCards.map((card) => card.nodeId).toSet(),
+      hasLength(northRouteCards.length),
+    );
+    expect(
+      northRouteCards.every((card) => card.nodeId.startsWith('225:')),
+      isTrue,
+    );
+
+    expect(rm40ReferenceCameraZ, greaterThan(northRouteCards.last.worldZ));
+  });
+
+  test('RM40 cards reproduce master registration at the Camp stop', () {
+    const viewport = Size(1920, 800);
+    for (final worldZ in [14.0, 12.0, 10.0, 9.1, 8.7]) {
+      final atCamp = projectNorthCalibrationLayer(
+        viewport: viewport,
+        worldZ: worldZ,
+        cameraZ: rm40ReferenceCameraZ,
+        referenceCameraZ: rm40ReferenceCameraZ,
+      );
+      final before = projectNorthCalibrationLayer(
+        viewport: viewport,
+        worldZ: worldZ,
+        cameraZ: 7.35,
+        referenceCameraZ: rm40ReferenceCameraZ,
+      );
+      expect(atCamp.scale, closeTo(1, 0.000001));
+      expect(atCamp.rect, Offset.zero & viewport);
+      expect(before.scale, lessThan(1));
+      expect(before.opacity, 1);
+    }
   });
 
   test('atmosphere haze is feathered and preserves year ordering', () {

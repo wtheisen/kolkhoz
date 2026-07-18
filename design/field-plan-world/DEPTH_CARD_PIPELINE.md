@@ -33,7 +33,8 @@ Use these terms consistently:
 | **Matte / mask** | The exact per-pixel alpha ownership for a region. |
 | **Depth card** | One world-space plane that the camera can approach and pass. This is the preferred term for the scroll-passable unit. |
 | **Plate** | The raster artwork registered to a depth card. |
-| **Underpaint** | A completed far background that prevents holes behind all nearer cards. |
+| **Underpaint** | A completed far background that prevents holes behind all nearer cards. It may be procedural, raster, or a registered combination of both. |
+| **Procedural atmosphere** | A deterministic runtime-rendered sky, color, and print-grain layer. It is registered in Figma but is not exported as a unique scene raster. |
 | **Disocclusion** | Previously hidden artwork revealed when a nearer card moves away. |
 | **Infill** | Reconstructed artwork for a disoccluded area. |
 | **Bleed** | Extra artwork beyond the initially visible mask edge, needed for motion. |
@@ -111,7 +112,7 @@ Each master page contains:
 The final card component on this page owns the editable artwork. Do not maintain an
 unlinked duplicate on another page.
 
-### `Depth Cards · World Stack`
+### `Depth Cards`
 
 This is the complete global dolly assembly. It contains instances of every approved card
 component from every master page.
@@ -122,6 +123,8 @@ component from every master page.
 - Figma lists frontmost layers first, so the Layers panel reads near/start at the top and
   far/destination toward the bottom.
 - The underpaint is at the back.
+- Procedural underpaint owners appear as named toggleable Figma groups or components;
+  do not flatten them into scene-specific raster plates merely to fit the stack model.
 - A continuous route-spine card may have special projection semantics, but it must remain
   visually registered with every contributing master.
 - Depth estimates, comparison grids, prompts, and rejected variants do not belong here.
@@ -130,11 +133,23 @@ The master page is authoritative for a card's art. The world-stack page is autho
 for the complete order and assembly. Component instances prevent those two views from
 drifting.
 
-As of 2026-07-16, frame `22:3` on the existing `Depth Cards` page is the structural
-baseline. It contains 24 toggleable world layers: 21 ordinary depth cards, two
-underpaints, and one continuous railway/route spine. Fifteen came from the earlier
-runtime stack and nine from the Fields-to-Camp proof. The art is intentionally mixed and
-unfinished; preserve its topology while replacing it card by card.
+As of 2026-07-17, frame `225:3` on the `Depth Cards` page is the canonical new-pass
+assembly. It contains the twelve A01-A12 station-to-North approach cards, the valid RM40
+Y0 terminal layers, and explicit named owners for the programmatic sky, ground
+underpaint, and railway route spine. The obsolete baked railway raster is not part of
+this stack.
+
+### `Old Depth Cards`
+
+This page is a non-destructive archive of the earlier mixed structural proof. Frame
+`22:3` preserves the superseded DC01-DC07 cards, the old Menu/Brigade/transition layers,
+the earlier route raster, and copies of the new-pass layers as they appeared at the time
+of the split. It is reference material only:
+
+- do not export runtime art from this page;
+- do not add newly approved cards here;
+- do not use its layer order as the current world contract;
+- do not delete it while older experiments or screenshots still refer to its node IDs.
 
 ## Raster-master to depth-card pipeline
 
@@ -167,6 +182,25 @@ relationship, author another registered raster master for that camera station. F
 example, the zoomed-out snowy approach to North and the close camp-at-the-forest
 terminal backplate are separate masters. Define their overlap and route-spine
 registration explicitly so Flutter can transition between them without a scale pop.
+
+Do not manufacture a new full-scene raster master for every hill merely to make a journey
+feel long. Full masters are sparse anchor views: they lock art direction, route
+registration, and materially different terminal framing. Travel through the land comes
+from persistent world-space terrain cards positioned at successive Z depths. Those cards
+remain visible together, scale independently, occlude one another, and leave the frame
+after the camera passes them. A full-master crossfade is not a substitute for travel.
+
+The current station-to-camp proof uses twelve approach terrain cards arranged as six
+left/right pairs, followed by the RM40 terminal stack. The intermediate RM18-RM38 images
+are route storyboards and palette references, not runtime full-screen plates. The
+railway remains one continuous route-spine owner rather than being baked independently
+into each terrain card.
+
+Railway surface art may be modular without becoming a second route owner. The current
+proof repeats one alpha raster sleeper/fastener/ballast tile at stable world-space
+positions while the programmatic spine owns the continuous rail centerline, perspective,
+station boundary, and terminal endpoint. Do not tile a complete screen-space railway;
+that bakes perspective and produces stepped or misregistered rails during travel.
 
 Time progression is a separate axis from camera distance. Do not treat years as depth
 cards. When progression is mostly additive, prefer one registered base master plus
@@ -208,6 +242,12 @@ objects and silhouettes.
 The visible pixels on each card come from the approved master whenever possible. Do not
 ask the image generator to recreate every card independently from a blank mask; doing so
 causes inconsistent houses, colors, texture, perspective, and railway registration.
+
+Do not extract a unique sky raster when the scene only needs a flat printed atmosphere.
+Use the shared procedural sky owner: a registered color field, repeatable paper texture,
+and deterministic sparse cloud marks. Treat master sky pixels as palette, registration,
+and cloud-shape reference rather than a required exported plate. Keep ground behind the
+horizon as a separate owner so clearing a forest reveals snow below the horizon, not sky.
 
 ### 5. Reconstruct hidden pixels
 
@@ -322,11 +362,81 @@ runtime texture-size requirement. Individual cards may use denser rasters based 
 closest projected view. Runtime exports may be smaller or tightly cropped while retaining
 the same logical bounds.
 
-The existing `1672 x 941` Figma/runtime stack remains a legacy proof until it is migrated.
-Do not create new production raster masters in that legacy aspect. Migrate the Figma
-master/world-stack frames and normalized card bounds to 12:5 before the first production
-master is approved. Preserve the locked normalized vanishing point and camera geometry;
-the aspect migration is not permission to redesign the route.
+The Flutter camera contract was migrated to `1920 x 800` on 2026-07-17. The former
+canonical `Depth Cards` frame `225:3` is now empty; the active approach components live
+on `CARDS · Station to North Approach` (`209:2`). The `Old Depth Cards` archive and its
+earlier near-world rasters remain legacy `1672 x 941` evidence; Flutter may temporarily
+scale those old Menu/Brigade/Fields assets while they are replaced, but they are not
+production aspect or perspective references. Do not create new production raster masters
+in the legacy aspect.
+
+The active normalized vanishing point is `(0.481, 0.637)`. It is measured from the RM40
+Y0 railway master: the long rail edges converge at approximately pixel `(923, 509)` on
+the `1920 x 800` plate. The former `(0.50, 0.40)` point belongs to the previous near-world
+backplate and must not drive current approach-card projection.
+
+### 2026-07-17 motion review notes
+
+The first browser motion pass at the 12:5 aperture found two runtime-only failures that
+were not visible in the static Figma composite:
+
+- the approach scene's positioned cards could paint outside a zero-sized background,
+  revealing the dark scaffold color around camera Z 6.29; the hybrid scene and its
+  internal stacks now receive tight full-frame constraints;
+- treating RM40 as a late crossfade left an empty beige interval around camera Z 7.28
+  and hid the destination during most of the approach. RM40 is now the persistent
+  farthest backplate: it is visible behind every approach card from the beginning and
+  reaches full registration at Z 8.05 through projection alone.
+
+The railway route spine was corrected in the following motion pass. One shared
+world-space curve now owns the ballast centerline, rail paths, raster sleeper positions,
+and sleeper rotation. Lateral bends are attenuated by camera distance, so they compress
+near the horizon and open as the camera approaches. The closest visible track point stays
+centered while the route winds through the terrain, and the final bend terminates beside
+the Y0 utility hut.
+
+Keep the rail `Paint` in explicit `PaintingStyle.stroke`. Flutter's default fill style
+implicitly closes an open curved path and creates a large dark polygon; a straight route
+can hide that bug. Do not add separate per-card railway curves or independently move the
+sleeper tiles.
+
+The active modular sleeper art must contain only one timber and its fasteners. Do not
+compress a full track slice into each sleeper position: embedded rail pixels become
+upright posts and duplicate the continuous route rails. Draw variable-width rails over
+the repeated sleepers so the steel remains continuous and narrows toward the horizon.
+
+The railway is one continuous world-space route, but it must not be composited once
+above the completed terrain stack. Split its rendering at the same world-Z midpoint
+boundaries as the approach cards. Paint each terrain card, then only the matching route
+interval; all nearer cards are painted afterward and therefore occlude that interval.
+This makes the railway pass behind hill crests instead of floating over them while
+preserving one curve, one set of sleeper positions, and continuous registration.
+
+The ballast underlay is a narrow translucent terrain stain, not an opaque road or
+bridge deck. Keep the underlying field or snow visible beneath it. Sleepers and rails
+provide the readable track structure; a broad flat ballast polygon makes the route look
+detached from the landscape even when its depth ordering is correct.
+
+Continuous review from Fields through Camp found that a single hard-edged ballast stain
+still widened into a beige ribbon at close camera positions. The active proof therefore
+uses a narrower two-density multiply stain: a faint terrain-colored outer contact and a
+slightly stronger inner overstrike. Railway geometry also extends a very small distance
+past each terrain-card midpoint before the nearer card occludes it. That overlap closes
+sampling hairlines at interval boundaries without creating a second route, duplicating
+sleepers, or changing the terrain-first compositing order.
+
+The same review exposed an art gap behind the route around camera Z 6.1-7.5: the A09/A10
+side hills left the central snow basin visually empty, so the railway still read against
+a smooth underpaint. The current Flutter proof registers a supplemental central
+valley-floor plate to A09 at exactly the same world Z. It paints behind A09 and before
+A09's railway interval, preserving twelve terrain cards and one programmatic route.
+This supplement is runtime motion evidence only until its matte and artwork are promoted
+to an editable A09 component on the canonical Figma `Depth Cards` stack.
+
+The World Lab defaults to `NEW PASS ONLY`. Its Legacy history toggle restores the
+superseded Menu/Brigade/Fields stack only for registration comparisons. Keep that old
+art opt-in: new route cards, procedural underpaint, railway spine, and RM40 terminal
+must remain reviewable without obsolete scenery obscuring them.
 
 Do not assume that requesting a `2048 x 1152` or 4K image fixes generator blur. The
 approved style-pass output was natively about `1671 x 941` and still contained softness

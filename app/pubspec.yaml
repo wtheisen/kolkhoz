@@ -79,6 +79,9 @@ flutter:
     - assets/art/field_plan/world_depth/
     - assets/art/field_plan/world_lab_north/
     - assets/art/field_plan/world_lab_corridor_proof/
+    - assets/art/field_plan/world_lab_rm40_y0/
+    - assets/art/field_plan/world_lab_north_route_cards/
+    - assets/art/field_plan/world_lab_route_components/
     - assets/art/field_plan/cards/suits/
     - assets/art/field_plan/cards/suits/mip/
     - assets/art/field_plan/cards/faces/

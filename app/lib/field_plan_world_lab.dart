@@ -15,6 +15,7 @@ void main() {
       initialCameraZ: 3,
       initialGuidesEnabled: false,
       initialCorridorProofEnabled: true,
+      initialLegacyAssetsEnabled: false,
     ),
   );
 }
@@ -27,6 +28,7 @@ class FieldPlanWorldLabApp extends StatelessWidget {
     this.initialAtmosphereEnabled = true,
     this.initialGuidesEnabled = true,
     this.initialCorridorProofEnabled = false,
+    this.initialLegacyAssetsEnabled = true,
     super.key,
   });
 
@@ -36,6 +38,7 @@ class FieldPlanWorldLabApp extends StatelessWidget {
   final bool initialAtmosphereEnabled;
   final bool initialGuidesEnabled;
   final bool initialCorridorProofEnabled;
+  final bool initialLegacyAssetsEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +60,7 @@ class FieldPlanWorldLabApp extends StatelessWidget {
         initialAtmosphereEnabled: initialAtmosphereEnabled,
         initialGuidesEnabled: initialGuidesEnabled,
         initialCorridorProofEnabled: initialCorridorProofEnabled,
+        initialLegacyAssetsEnabled: initialLegacyAssetsEnabled,
       ),
     );
   }
@@ -70,6 +74,7 @@ class FieldPlanWorldLabScreen extends StatefulWidget {
     this.initialAtmosphereEnabled = true,
     this.initialGuidesEnabled = true,
     this.initialCorridorProofEnabled = false,
+    this.initialLegacyAssetsEnabled = true,
     super.key,
   });
 
@@ -79,6 +84,7 @@ class FieldPlanWorldLabScreen extends StatefulWidget {
   final bool initialAtmosphereEnabled;
   final bool initialGuidesEnabled;
   final bool initialCorridorProofEnabled;
+  final bool initialLegacyAssetsEnabled;
 
   @override
   State<FieldPlanWorldLabScreen> createState() =>
@@ -99,6 +105,7 @@ class _FieldPlanWorldLabScreenState extends State<FieldPlanWorldLabScreen>
   late bool showCalibrationGuides;
   late bool atmosphereEnabled;
   late bool corridorProofEnabled;
+  late bool legacyAssetsEnabled;
 
   @override
   void initState() {
@@ -110,6 +117,7 @@ class _FieldPlanWorldLabScreenState extends State<FieldPlanWorldLabScreen>
     showCalibrationGuides = widget.initialGuidesEnabled;
     atmosphereEnabled = widget.initialAtmosphereEnabled;
     corridorProofEnabled = widget.initialCorridorProofEnabled;
+    legacyAssetsEnabled = widget.initialLegacyAssetsEnabled;
     travelController =
         AnimationController(
           vsync: this,
@@ -248,6 +256,7 @@ class _FieldPlanWorldLabScreenState extends State<FieldPlanWorldLabScreen>
                     threatState: threatState,
                     atmosphereEnabled: atmosphereEnabled,
                     corridorProofEnabled: corridorProofEnabled,
+                    showLegacyAssets: legacyAssetsEnabled,
                     showPlateLabels: showPlateLabels,
                     showCalibrationGuides: showCalibrationGuides,
                   ),
@@ -259,6 +268,7 @@ class _FieldPlanWorldLabScreenState extends State<FieldPlanWorldLabScreen>
                       cameraZ: cameraZ,
                       layerCount: manifest.layers.length,
                       corridorProofEnabled: corridorProofEnabled,
+                      legacyAssetsEnabled: legacyAssetsEnabled,
                     ),
                   ),
                   Positioned(
@@ -270,6 +280,7 @@ class _FieldPlanWorldLabScreenState extends State<FieldPlanWorldLabScreen>
                       showPlateLabels: showPlateLabels,
                       showCalibrationGuides: showCalibrationGuides,
                       corridorProofEnabled: corridorProofEnabled,
+                      legacyAssetsEnabled: legacyAssetsEnabled,
                       onSelected: (stop) => _animateTo(stop.z),
                       onToggleLabels: () =>
                           setState(() => showPlateLabels = !showPlateLabels),
@@ -278,6 +289,9 @@ class _FieldPlanWorldLabScreenState extends State<FieldPlanWorldLabScreen>
                       ),
                       onToggleCorridorProof: () => setState(
                         () => corridorProofEnabled = !corridorProofEnabled,
+                      ),
+                      onToggleLegacyAssets: () => setState(
+                        () => legacyAssetsEnabled = !legacyAssetsEnabled,
                       ),
                     ),
                   ),
@@ -334,12 +348,14 @@ class _WorldLabTitle extends StatelessWidget {
     required this.cameraZ,
     required this.layerCount,
     required this.corridorProofEnabled,
+    required this.legacyAssetsEnabled,
   });
 
   final WorldDepthStop stop;
   final double cameraZ;
   final int layerCount;
   final bool corridorProofEnabled;
+  final bool legacyAssetsEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -362,7 +378,8 @@ class _WorldLabTitle extends StatelessWidget {
               ),
               Text(
                 '${stop.label} · Z ${cameraZ.toStringAsFixed(2)} · '
-                '${corridorProofEnabled ? '8 DEPTH PLATES · TEMPORARY' : '$layerCount FIGMA PLATES'}',
+                '${corridorProofEnabled ? '12 PERSISTENT TERRAIN CARDS · ROUTE PROOF' : '$layerCount FIGMA PLATES'}'
+                '${legacyAssetsEnabled ? '' : ' · NEW PASS ONLY'}',
                 style: const TextStyle(
                   color: Color(0xffe3bd51),
                   fontSize: 12,
@@ -385,10 +402,12 @@ class _DepthNavigation extends StatelessWidget {
     required this.showPlateLabels,
     required this.showCalibrationGuides,
     required this.corridorProofEnabled,
+    required this.legacyAssetsEnabled,
     required this.onSelected,
     required this.onToggleLabels,
     required this.onToggleGuides,
     required this.onToggleCorridorProof,
+    required this.onToggleLegacyAssets,
   });
 
   final List<WorldDepthStop> stops;
@@ -396,10 +415,12 @@ class _DepthNavigation extends StatelessWidget {
   final bool showPlateLabels;
   final bool showCalibrationGuides;
   final bool corridorProofEnabled;
+  final bool legacyAssetsEnabled;
   final ValueChanged<WorldDepthStop> onSelected;
   final VoidCallback onToggleLabels;
   final VoidCallback onToggleGuides;
   final VoidCallback onToggleCorridorProof;
+  final VoidCallback onToggleLegacyAssets;
 
   @override
   Widget build(BuildContext context) {
@@ -427,11 +448,24 @@ class _DepthNavigation extends StatelessWidget {
             ),
           IconButton(
             key: const Key('toggle-corridor-proof'),
-            tooltip: 'Toggle temporary corridor proof plates',
+            tooltip: 'Toggle persistent station-to-camp terrain cards',
             onPressed: onToggleCorridorProof,
             icon: Icon(
               corridorProofEnabled ? Icons.layers : Icons.layers_outlined,
               color: corridorProofEnabled
+                  ? const Color(0xffe3bd51)
+                  : const Color(0xffffe8aa),
+            ),
+          ),
+          IconButton(
+            key: const Key('toggle-legacy-assets'),
+            tooltip: legacyAssetsEnabled
+                ? 'Hide legacy world artwork'
+                : 'Show legacy world artwork',
+            onPressed: onToggleLegacyAssets,
+            icon: Icon(
+              legacyAssetsEnabled ? Icons.history : Icons.history_toggle_off,
+              color: legacyAssetsEnabled
                   ? const Color(0xffe3bd51)
                   : const Color(0xffffe8aa),
             ),

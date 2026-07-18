@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "masterId": "RM40-Y0",
+  "logicalCanvas": [1920, 800],
+  "referenceCameraZ": 8.05,
+  "transition": {
+    "startZ": 6.6,
+    "endZ": 7.35
+  },
+  "figma": {
+    "fileKey": "MQdTuEmeZVkWS79EJcLEOF",
+    "masterPageId": "157:3",
+    "depthCardsPageId": "22:2",
+    "globalStackFrameId": "22:3"
+  },
+  "layersBackToFront": [
+    {
+      "id": "rm40-y0-sky",
+      "owner": "procedural",
+      "componentNodeId": "192:2",
+      "instanceNodeId": "194:2"
+    },
+    {
+      "id": "rm40-y0-snow",
+      "path": "snow-ground.png",
+      "worldZ": 14.0,
+      "componentNodeId": "192:3",
+      "instanceNodeId": "194:11",
+      "sha256": "893466d49a939afa3243340ad32fbfe9aef3f8c8a51e669f00f7ebc6ab4ac841"
+    },
+    {
+      "id": "rm40-y0-forest",
+      "path": "forest.png",
+      "worldZ": 12.0,
+      "componentNodeId": "193:2",
+      "instanceNodeId": "194:31",
+      "sha256": "9289c63404b3d2ad7a8c1c92da887c349c02a12612a62610d54c885775d7aeca"
+    },
+    {
+      "id": "rm40-y0-hut",
+      "path": "hut.png",
+      "worldZ": 10.0,
+      "componentNodeId": "193:3",
+      "instanceNodeId": "194:71",
+      "sha256": "f201d83b135dbd510c6a20f28829e719da9e00f609c81d7b0fb4b8f57b3d033e"
+    },
+    {
+      "id": "rm40-y0-railway",
+      "path": "railway.png",
+      "worldZ": 9.1,
+      "componentNodeId": "193:4",
+      "instanceNodeId": "194:115",
+      "sha256": "57b0e60eb588ea990b5ad6526bb096ae5832d61ab9b4a64e0bea1c8f7515cdfd"
+    },
+    {
+      "id": "rm40-y0-foreground",
+      "path": "foreground-terrain.png",
+      "worldZ": 8.7,
+      "componentNodeId": "193:5",
+      "instanceNodeId": "194:163",
+      "sha256": "2ab94fbe760819b4190c3f43c63b57e0566c43782c87eea9cafb05e8bc71eb5e"
+    }
+  ]
+}

@@ -10,8 +10,8 @@
     "transport": "figma-rest"
   },
   "viewport": {
-    "width": 1672.0,
-    "height": 941.0
+    "width": 1920.0,
+    "height": 800.0
   },
   "camera": {
     "status": "locked",
@@ -19,8 +19,8 @@
     "terminalZ": 8.05,
     "focalLength": 2.0,
     "vanishingPoint": [
-      0.5,
-      0.4
+      0.481,
+      0.637
     ],
     "pitchDegrees": 0.0,
     "yawDegrees": 0.0,

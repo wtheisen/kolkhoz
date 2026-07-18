@@ -23,7 +23,7 @@
   },
   "projection": {
     "focalLength": 2.0,
-    "vanishingPoint": [0.5, 0.4],
+    "vanishingPoint": [0.481, 0.637],
     "pitchDegrees": 0.0,
     "yawDegrees": 0.0,
     "nearPlane": 0.08,
@@ -46,6 +46,7 @@
     "Camera contract is artistically locked; Flutter is authoritative.",
     "North marks the start of the deep approach; Camp follows the railway past the fields and snowy farms to the base of the forest artwork.",
     "The 1672 x 941 viewport is the legacy calibrated proof space. New Figma raster masters and depth-card registration use the locked 12:5, 1920 x 800 authoring viewport defined by design/field-plan-world/DEPTH_CARD_PIPELINE.md.",
-    "Aspect migration preserves normalized camera geometry and precedes production-master approval; it does not authorize route or perspective redesign."
+    "The active vanishing point is registered to the RM40 Y0 railway master: its rail edges converge at approximately pixel 923, 509 on the 1920 x 800 authoring plate.",
+    "The earlier normalized point [0.5, 0.4] belongs to the legacy near-world calibration and must not be reused for current route-card projection."
   ]
 }

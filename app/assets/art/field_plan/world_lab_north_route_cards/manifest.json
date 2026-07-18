@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "status": "motion-proof",
+  "logicalViewport": [1920, 800],
+  "nativeRaster": [1942, 809],
+  "routeSpineOwner": "procedural-flutter",
+  "terminalAnchor": "RM40-Y0",
+  "cards": [
+    {"id":"A01","worldZ":4.72,"side":"left","stage":"warm-farms","asset":"a01.png","figmaComponentId":"210:2","figmaInstanceId":"214:169"},
+    {"id":"A02","worldZ":4.92,"side":"right","stage":"warm-farms","asset":"a02.png","figmaComponentId":"211:2","figmaInstanceId":"214:155"},
+    {"id":"A03","worldZ":5.14,"side":"left","stage":"farm-hills","asset":"a03.png","figmaComponentId":"211:3","figmaInstanceId":"214:141"},
+    {"id":"A04","worldZ":5.36,"side":"right","stage":"farm-hills","asset":"a04.png","figmaComponentId":"211:4","figmaInstanceId":"214:127"},
+    {"id":"A05","worldZ":5.60,"side":"left","stage":"first-snow","asset":"a05.png","figmaComponentId":"211:5","figmaInstanceId":"214:113"},
+    {"id":"A06","worldZ":5.84,"side":"right","stage":"first-snow","asset":"a06.png","figmaComponentId":"211:6","figmaInstanceId":"214:99"},
+    {"id":"A07","worldZ":6.10,"side":"left","stage":"mixed-snow","asset":"a07.png","figmaComponentId":"211:7","figmaInstanceId":"214:72"},
+    {"id":"A08","worldZ":6.36,"side":"right","stage":"mixed-snow","asset":"a08.png","figmaComponentId":"211:8","figmaInstanceId":"214:58"},
+    {"id":"A09","worldZ":6.64,"side":"left","stage":"deep-snow","asset":"a09.png","supplementalAsset":"a09-valley-floor-proof.png","supplementalStatus":"flutter-motion-proof-pending-figma-component","figmaComponentId":"211:9","figmaInstanceId":"214:44"},
+    {"id":"A10","worldZ":6.92,"side":"right","stage":"deep-snow","asset":"a10.png","figmaComponentId":"211:10","figmaInstanceId":"214:30"},
+    {"id":"A11","worldZ":7.22,"side":"left","stage":"forest-threshold","asset":"a11.png","figmaComponentId":"211:11","figmaInstanceId":"214:16"},
+    {"id":"A12","worldZ":7.49,"side":"right","stage":"forest-threshold","asset":"a12.png","figmaComponentId":"211:12","figmaInstanceId":"214:2"}
+  ]
+}

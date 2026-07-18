@@ -3,12 +3,16 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'north_threat_state.dart';
+import 'printed_underlay.dart';
 import 'world_depth_camera.dart';
 import 'world_depth_manifest.dart';
 
 const northCalibrationAssetDirectory = 'assets/art/field_plan/world_lab_north';
-const corridorProofAssetDirectory =
-    'assets/art/field_plan/world_lab_corridor_proof';
+const northRouteCardAssetDirectory =
+    'assets/art/field_plan/world_lab_north_route_cards';
+const railwaySleeperTileAssetPath =
+    'assets/art/field_plan/world_lab_route_components/rail-sleeper-only.png';
+const rm40Y0AssetDirectory = 'assets/art/field_plan/world_lab_rm40_y0';
 const northRidgeWorldZ = 30.0;
 const northValleyWorldZ = 16.0;
 const northCorridorObjectsWorldZ = 12.5;
@@ -17,84 +21,143 @@ const northHybridTransitionStartZ = 2.65;
 const northHybridTransitionEndZ = 3.0;
 const worldDepthStationWorldZ = 4.85;
 const worldDepthStationNearestDistance = 1.05;
+const northRailwayTerminalWorldZ = 10.15;
 const worldDepthStationPassageStartZ =
     worldDepthStationWorldZ - worldDepthStationNearestDistance;
 const worldDepthStationPassageEndZ = 4.25;
 const _northReferenceCameraZ = 3.0;
+const rm40ReferenceCameraZ = 8.05;
+const northRouteCardStartZ = 4.35;
+const _railwayIntervalOverlap = 0.035;
 
-const _corridorProofUnderpaint = WorldDepthLayer(
-  id: 'proof-underpaint',
-  name: 'Completed forest and snow backing',
-  nodeId: 'depth-infill-00',
-  worldZ: 9.0,
-  assetPath: '$corridorProofAssetDirectory/underpaint-far.png',
-  initialRect: Rect.fromLTWH(0, 0, 1, 1),
-);
+@immutable
+class NorthRouteCard {
+  const NorthRouteCard({
+    required this.id,
+    required this.nodeId,
+    required this.worldZ,
+    required this.assetPath,
+    this.supplementalAssetPath,
+  });
 
-const _corridorProofLayers = <WorldDepthLayer>[
+  final String id;
+  final String nodeId;
+  final double worldZ;
+  final String assetPath;
+  final String? supplementalAssetPath;
+
+  double get referenceCameraZ => worldZ - 1.2;
+}
+
+const northRouteCards = <NorthRouteCard>[
+  NorthRouteCard(
+    id: 'a01',
+    nodeId: '225:22',
+    worldZ: 4.72,
+    assetPath: '$northRouteCardAssetDirectory/a01.png',
+  ),
+  NorthRouteCard(
+    id: 'a02',
+    nodeId: '225:21',
+    worldZ: 4.92,
+    assetPath: '$northRouteCardAssetDirectory/a02.png',
+  ),
+  NorthRouteCard(
+    id: 'a03',
+    nodeId: '225:20',
+    worldZ: 5.14,
+    assetPath: '$northRouteCardAssetDirectory/a03.png',
+  ),
+  NorthRouteCard(
+    id: 'a04',
+    nodeId: '225:19',
+    worldZ: 5.36,
+    assetPath: '$northRouteCardAssetDirectory/a04.png',
+  ),
+  NorthRouteCard(
+    id: 'a05',
+    nodeId: '225:18',
+    worldZ: 5.60,
+    assetPath: '$northRouteCardAssetDirectory/a05.png',
+  ),
+  NorthRouteCard(
+    id: 'a06',
+    nodeId: '225:17',
+    worldZ: 5.84,
+    assetPath: '$northRouteCardAssetDirectory/a06.png',
+  ),
+  NorthRouteCard(
+    id: 'a07',
+    nodeId: '225:16',
+    worldZ: 6.10,
+    assetPath: '$northRouteCardAssetDirectory/a07.png',
+  ),
+  NorthRouteCard(
+    id: 'a08',
+    nodeId: '225:15',
+    worldZ: 6.36,
+    assetPath: '$northRouteCardAssetDirectory/a08.png',
+  ),
+  NorthRouteCard(
+    id: 'a09',
+    nodeId: '225:14',
+    worldZ: 6.64,
+    assetPath: '$northRouteCardAssetDirectory/a09.png',
+    supplementalAssetPath:
+        '$northRouteCardAssetDirectory/a09-valley-floor-proof.png',
+  ),
+  NorthRouteCard(
+    id: 'a10',
+    nodeId: '225:13',
+    worldZ: 6.92,
+    assetPath: '$northRouteCardAssetDirectory/a10.png',
+  ),
+  NorthRouteCard(
+    id: 'a11',
+    nodeId: '225:12',
+    worldZ: 7.22,
+    assetPath: '$northRouteCardAssetDirectory/a11.png',
+  ),
+  NorthRouteCard(
+    id: 'a12',
+    nodeId: '225:11',
+    worldZ: 7.49,
+    assetPath: '$northRouteCardAssetDirectory/a12.png',
+  ),
+];
+
+const _rm40Y0Layers = <WorldDepthLayer>[
   WorldDepthLayer(
-    id: 'proof-depth-00-far',
-    name: 'Forest and camp',
-    nodeId: 'depth-estimate-00',
-    worldZ: 9.0,
-    assetPath: '$corridorProofAssetDirectory/band-00-far.png',
-    initialRect: Rect.fromLTWH(0, 0, 1, 0.4452709883103082),
+    id: 'rm40-y0-snow',
+    name: 'Completed snow ground',
+    nodeId: '225:5',
+    worldZ: 14.0,
+    assetPath: '$rm40Y0AssetDirectory/snow-ground.png',
+    initialRect: Rect.fromLTWH(0, 0, 1, 1),
   ),
   WorldDepthLayer(
-    id: 'proof-depth-01',
-    name: 'Distant snow country',
-    nodeId: 'depth-estimate-01',
-    worldZ: 7.8,
-    assetPath: '$corridorProofAssetDirectory/band-01-mid.png',
-    initialRect: Rect.fromLTWH(0, 0.34537725823591925, 1, 0.12433581296493093),
+    id: 'rm40-y0-forest',
+    name: 'Forest mass',
+    nodeId: '225:6',
+    worldZ: 12.0,
+    assetPath: '$rm40Y0AssetDirectory/forest.png',
+    initialRect: Rect.fromLTWH(0, 0, 1, 1),
   ),
   WorldDepthLayer(
-    id: 'proof-depth-02',
-    name: 'Far snow farms',
-    nodeId: 'depth-estimate-02',
-    worldZ: 7.2,
-    assetPath: '$corridorProofAssetDirectory/band-02-mid.png',
-    initialRect: Rect.fromLTWH(0, 0.37619553666312433, 1, 0.13177470775770456),
+    id: 'rm40-y0-hut',
+    name: 'Utility hut',
+    nodeId: '225:7',
+    worldZ: 10.0,
+    assetPath: '$rm40Y0AssetDirectory/hut.png',
+    initialRect: Rect.fromLTWH(0, 0, 1, 1),
   ),
   WorldDepthLayer(
-    id: 'proof-depth-03',
-    name: 'Near snow farms',
-    nodeId: 'depth-estimate-03',
-    worldZ: 6.6,
-    assetPath: '$corridorProofAssetDirectory/band-03-mid.png',
-    initialRect: Rect.fromLTWH(0, 0.39744952178533477, 1, 0.16259298618490967),
-  ),
-  WorldDepthLayer(
-    id: 'proof-depth-04',
-    name: 'Far fields',
-    nodeId: 'depth-estimate-04',
-    worldZ: 6.0,
-    assetPath: '$corridorProofAssetDirectory/band-04-mid.png',
-    initialRect: Rect.fromLTWH(0, 0.42826780021253985, 1, 0.1997874601487779),
-  ),
-  WorldDepthLayer(
-    id: 'proof-depth-05',
-    name: 'Middle fields',
-    nodeId: 'depth-estimate-05',
-    worldZ: 5.4,
-    assetPath: '$corridorProofAssetDirectory/band-05-mid.png',
-    initialRect: Rect.fromLTWH(0, 0.4303931987247609, 1, 0.30393198724760895),
-  ),
-  WorldDepthLayer(
-    id: 'proof-depth-06',
-    name: 'Near fields',
-    nodeId: 'depth-estimate-06',
-    worldZ: 4.8,
-    assetPath: '$corridorProofAssetDirectory/band-06-mid.png',
-    initialRect: Rect.fromLTWH(0, 0.43251859723698194, 1, 0.4442082890541977),
-  ),
-  WorldDepthLayer(
-    id: 'proof-depth-07-near',
-    name: 'Station approach',
-    nodeId: 'depth-estimate-07',
-    worldZ: 4.2,
-    assetPath: '$corridorProofAssetDirectory/band-07-near.png',
-    initialRect: Rect.fromLTWH(0, 0.43889479277364507, 1, 0.5611052072263549),
+    id: 'rm40-y0-foreground',
+    name: 'Foreground terrain',
+    nodeId: '225:10',
+    worldZ: 8.7,
+    assetPath: '$rm40Y0AssetDirectory/foreground-terrain.png',
+    initialRect: Rect.fromLTWH(0, 0, 1, 1),
   ),
 ];
 
@@ -176,10 +239,49 @@ class WorldDepthProjection {
 
 @immutable
 class RailwaySleeperProjection {
-  const RailwaySleeperProjection({required this.worldZ, required this.y});
+  const RailwaySleeperProjection({
+    required this.worldZ,
+    required this.x,
+    required this.y,
+    required this.rotationRadians,
+  });
 
   final double worldZ;
+  final double x;
   final double y;
+  final double rotationRadians;
+}
+
+double northRailwayRouteOffset(double worldZ) {
+  double smoothStep(double start, double end) {
+    final linear = ((worldZ - start) / (end - start))
+        .clamp(0.0, 1.0)
+        .toDouble();
+    return linear * linear * (3 - 2 * linear);
+  }
+
+  final initialDrift = 0.025 * smoothStep(worldDepthStationWorldZ, 6.35);
+  final northwardTurn = 0.305 * smoothStep(6.0, northRailwayTerminalWorldZ);
+  return initialDrift - northwardTurn;
+}
+
+double northRailwayRouteCenterX({
+  required double worldZ,
+  required double cameraZ,
+  required double viewportWidth,
+}) {
+  final trackingWorldZ = math.max(
+    worldDepthStationWorldZ,
+    cameraZ + worldDepthStationNearestDistance,
+  );
+  final relativeOffset =
+      northRailwayRouteOffset(worldZ) - northRailwayRouteOffset(trackingWorldZ);
+  final distance = math.max(worldDepthStationNearestDistance, worldZ - cameraZ);
+  final perspective = (worldDepthStationNearestDistance / distance)
+      .clamp(0.0, 1.0)
+      .toDouble();
+  return viewportWidth * worldDepthCameraCalibration.vanishingPointX +
+      relativeOffset * viewportWidth * perspective;
 }
 
 /// Projects stable world-space sleepers beyond the station toward North.
@@ -190,11 +292,11 @@ class RailwaySleeperProjection {
 List<RailwaySleeperProjection> projectNorthRailwaySleepers({
   required double cameraZ,
   required double horizonY,
+  required double viewportWidth,
   required double viewportHeight,
 }) {
-  const sleeperSpacing = 0.55;
+  const sleeperSpacing = 0.28;
   const nearestDistance = worldDepthStationNearestDistance;
-  const farthestDistance = 72.0;
   const minimumScreenSpacing = 2.5;
   final groundHeight = viewportHeight - horizonY;
   final perspectiveExtent = groundHeight * nearestDistance;
@@ -202,15 +304,57 @@ List<RailwaySleeperProjection> projectNorthRailwaySleepers({
       (math.max(cameraZ + nearestDistance, worldDepthStationWorldZ) /
               sleeperSpacing)
           .ceil();
-  final lastIndex = ((cameraZ + farthestDistance) / sleeperSpacing).floor();
+  final lastIndex = (northRailwayTerminalWorldZ / sleeperSpacing).floor();
   final candidates = <RailwaySleeperProjection>[];
   for (var index = firstIndex; index <= lastIndex; index++) {
     final worldZ = index * sleeperSpacing;
     final distance = worldZ - cameraZ;
-    if (distance < nearestDistance || distance > farthestDistance) continue;
+    if (distance < nearestDistance || worldZ > northRailwayTerminalWorldZ) {
+      continue;
+    }
     final y = horizonY + perspectiveExtent / distance;
     if (y > horizonY && y <= viewportHeight) {
-      candidates.add(RailwaySleeperProjection(worldZ: worldZ, y: y));
+      const tangentDelta = 0.025;
+      final farWorldZ = math.min(
+        northRailwayTerminalWorldZ,
+        worldZ + tangentDelta,
+      );
+      final nearWorldZ = math.max(
+        worldDepthStationWorldZ,
+        worldZ - tangentDelta,
+      );
+      double projectedY(double sampleWorldZ) {
+        final sampleDistance = sampleWorldZ - cameraZ;
+        return horizonY + perspectiveExtent / sampleDistance;
+      }
+
+      final farX = northRailwayRouteCenterX(
+        worldZ: farWorldZ,
+        cameraZ: cameraZ,
+        viewportWidth: viewportWidth,
+      );
+      final nearX = northRailwayRouteCenterX(
+        worldZ: nearWorldZ,
+        cameraZ: cameraZ,
+        viewportWidth: viewportWidth,
+      );
+      final tangentX = nearX - farX;
+      final tangentY = projectedY(nearWorldZ) - projectedY(farWorldZ);
+      candidates.add(
+        RailwaySleeperProjection(
+          worldZ: worldZ,
+          x: northRailwayRouteCenterX(
+            worldZ: worldZ,
+            cameraZ: cameraZ,
+            viewportWidth: viewportWidth,
+          ),
+          y: y,
+          rotationRadians: (-math.atan2(
+            tangentX,
+            tangentY,
+          )).clamp(-0.24, 0.24).toDouble(),
+        ),
+      );
     }
   }
   candidates.sort((a, b) => a.y.compareTo(b.y));
@@ -297,6 +441,7 @@ WorldDepthProjection projectNorthCalibrationLayer({
   required Size viewport,
   required double worldZ,
   required double cameraZ,
+  double referenceCameraZ = _northReferenceCameraZ,
 }) {
   final calibration = worldDepthCameraCalibration;
   final vanishingPoint = Offset(
@@ -304,7 +449,7 @@ WorldDepthProjection projectNorthCalibrationLayer({
     calibration.vanishingPointY * viewport.height,
   );
   final initialRect = Offset.zero & viewport;
-  final numerator = calibration.focalLength + worldZ - _northReferenceCameraZ;
+  final numerator = calibration.focalLength + worldZ - referenceCameraZ;
   final distance = worldZ - cameraZ;
   final projectedScale =
       (numerator /
@@ -353,73 +498,6 @@ WorldDepthProjection projectNorthCalibrationLayer({
   );
 }
 
-WorldDepthProjection projectCorridorProofLayer({
-  required Size viewport,
-  required WorldDepthLayer layer,
-  required double cameraZ,
-}) {
-  final calibration = worldDepthCameraCalibration;
-  final initialRect = Rect.fromLTWH(
-    layer.initialRect.left * viewport.width,
-    layer.initialRect.top * viewport.height,
-    layer.initialRect.width * viewport.width,
-    layer.initialRect.height * viewport.height,
-  );
-  final vanishingPoint = Offset(
-    calibration.vanishingPointX * viewport.width,
-    calibration.vanishingPointY * viewport.height,
-  );
-  final numerator =
-      calibration.focalLength + layer.worldZ - _northReferenceCameraZ;
-  final distance = layer.worldZ - cameraZ;
-  final projectedScale =
-      (numerator /
-              math.max(
-                calibration.nearPlane,
-                calibration.focalLength + distance,
-              ))
-          .clamp(calibration.minimumScale, calibration.maximumScale)
-          .toDouble();
-  final exitT = ((-distance) / calibration.plateExitDistance)
-      .clamp(0.0, 1.0)
-      .toDouble();
-  final crossingScale = (numerator / calibration.focalLength)
-      .clamp(calibration.minimumScale, calibration.maximumScale)
-      .toDouble();
-  final exitedScale =
-      (numerator /
-              math.max(
-                calibration.nearPlane,
-                calibration.focalLength - calibration.plateExitDistance,
-              ))
-          .clamp(calibration.minimumScale, calibration.maximumScale)
-          .toDouble();
-  final scale = distance >= 0
-      ? projectedScale
-      : crossingScale + (exitedScale - crossingScale) * exitT;
-  final center = vanishingPoint + (initialRect.center - vanishingPoint) * scale;
-  final size = initialRect.size * scale;
-  final scaledRect = Rect.fromCenter(
-    center: center,
-    width: size.width,
-    height: size.height,
-  );
-  final crossingCenter =
-      vanishingPoint + (initialRect.center - vanishingPoint) * crossingScale;
-  final crossingTop =
-      crossingCenter.dy - initialRect.height * crossingScale / 2;
-  final exitTop = crossingTop + (viewport.height - crossingTop) * exitT;
-  final rect = distance >= 0
-      ? scaledRect
-      : scaledRect.translate(0, exitTop - scaledRect.top);
-  final visible = exitT < 1 && rect.top < viewport.height && rect.bottom > 0;
-  return WorldDepthProjection(
-    rect: rect,
-    opacity: visible ? 1 : 0,
-    scale: scale,
-  );
-}
-
 class WorldDepthScene extends StatelessWidget {
   const WorldDepthScene({
     required this.manifest,
@@ -427,6 +505,7 @@ class WorldDepthScene extends StatelessWidget {
     required this.threatState,
     required this.atmosphereEnabled,
     this.corridorProofEnabled = false,
+    this.showLegacyAssets = true,
     this.showPlateLabels = false,
     this.showCalibrationGuides = false,
     this.atmosphereDiagnostic = false,
@@ -438,6 +517,7 @@ class WorldDepthScene extends StatelessWidget {
   final NorthThreatState threatState;
   final bool atmosphereEnabled;
   final bool corridorProofEnabled;
+  final bool showLegacyAssets;
   final bool showPlateLabels;
   final bool showCalibrationGuides;
   final bool atmosphereDiagnostic;
@@ -445,6 +525,9 @@ class WorldDepthScene extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hybridOpacity = northHybridOpacity(cameraZ);
+    final routeCardsOwnRailway =
+        corridorProofEnabled &&
+        (!showLegacyAssets || cameraZ >= northRouteCardStartZ);
     return ColoredBox(
       color: const Color(0xff091315),
       child: ClipRect(
@@ -458,7 +541,19 @@ class WorldDepthScene extends StatelessWidget {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  if (hybridOpacity < 1)
+                  if (!showLegacyAssets)
+                    Positioned.fill(
+                      child: corridorProofEnabled
+                          ? _NorthRouteCardScene(
+                              cameraZ: cameraZ,
+                              threatState: threatState,
+                              atmosphereEnabled: atmosphereEnabled,
+                              atmosphereDiagnostic: atmosphereDiagnostic,
+                              showLabels: showPlateLabels,
+                            )
+                          : const _RouteProceduralUnderpaint(),
+                    ),
+                  if (showLegacyAssets && hybridOpacity < 1)
                     Positioned.fill(
                       child: Opacity(
                         opacity: 1 - hybridOpacity,
@@ -473,13 +568,15 @@ class WorldDepthScene extends StatelessWidget {
                         ),
                       ),
                     ),
-                  if (hybridOpacity == 0)
+                  if (showLegacyAssets && hybridOpacity == 0)
                     _NearWorldPlateStack(
                       manifest: manifest,
                       cameraZ: cameraZ,
                       showPlateLabels: showPlateLabels,
                     ),
-                  if (hybridOpacity > 0 && hybridOpacity < 1)
+                  if (showLegacyAssets &&
+                      hybridOpacity > 0 &&
+                      hybridOpacity < 1)
                     Opacity(
                       opacity: 1 - hybridOpacity,
                       child: _NearWorldPlateStack(
@@ -488,30 +585,42 @@ class WorldDepthScene extends StatelessWidget {
                         showPlateLabels: showPlateLabels,
                       ),
                     ),
-                  if (hybridOpacity > 0)
-                    Opacity(
-                      opacity: hybridOpacity,
-                      child: corridorProofEnabled
-                          ? _CorridorProofScene(
-                              cameraZ: cameraZ,
-                              threatState: threatState,
-                              atmosphereEnabled: atmosphereEnabled,
-                              atmosphereDiagnostic: atmosphereDiagnostic,
-                              showLabels: showPlateLabels,
-                            )
-                          : _ArtBackedNorthScene(
-                              cameraZ: cameraZ,
-                              threatState: threatState,
-                              atmosphereEnabled: atmosphereEnabled,
-                              atmosphereDiagnostic: atmosphereDiagnostic,
-                              showLabels: showPlateLabels,
-                            ),
+                  if (showLegacyAssets && hybridOpacity > 0)
+                    Positioned.fill(
+                      child: Opacity(
+                        opacity: hybridOpacity,
+                        child: corridorProofEnabled
+                            ? cameraZ < northRouteCardStartZ
+                                  ? _ArtBackedNorthScene(
+                                      cameraZ: cameraZ,
+                                      threatState: threatState,
+                                      atmosphereEnabled: atmosphereEnabled,
+                                      atmosphereDiagnostic:
+                                          atmosphereDiagnostic,
+                                      showLabels: showPlateLabels,
+                                    )
+                                  : _NorthRouteCardScene(
+                                      cameraZ: cameraZ,
+                                      threatState: threatState,
+                                      atmosphereEnabled: atmosphereEnabled,
+                                      atmosphereDiagnostic:
+                                          atmosphereDiagnostic,
+                                      showLabels: showPlateLabels,
+                                    )
+                            : _ArtBackedNorthScene(
+                                cameraZ: cameraZ,
+                                threatState: threatState,
+                                atmosphereEnabled: atmosphereEnabled,
+                                atmosphereDiagnostic: atmosphereDiagnostic,
+                                showLabels: showPlateLabels,
+                              ),
+                      ),
                     ),
-                  if (!corridorProofEnabled)
-                    _WorldRouteCorridor(
-                      cameraZ: cameraZ,
-                      showLabel: showPlateLabels,
-                    ),
+                  _WorldRouteCorridor(
+                    cameraZ: cameraZ,
+                    showLabel: showPlateLabels,
+                    paintRailway: !routeCardsOwnRailway,
+                  ),
                   if (showCalibrationGuides)
                     Positioned.fill(
                       child: CustomPaint(
@@ -549,6 +658,7 @@ class _NearWorldPlateStack extends StatelessWidget {
   Widget build(BuildContext context) {
     final layers = manifest.layers.where((layer) => layer.id != 'U00').toList();
     return Stack(
+      fit: StackFit.expand,
       clipBehavior: Clip.none,
       children: [
         for (final layer in layers) ...[
@@ -849,8 +959,8 @@ class _ArtBackedNorthScene extends StatelessWidget {
   }
 }
 
-class _CorridorProofScene extends StatelessWidget {
-  const _CorridorProofScene({
+class _NorthRouteCardScene extends StatelessWidget {
+  const _NorthRouteCardScene({
     required this.cameraZ,
     required this.threatState,
     required this.atmosphereEnabled,
@@ -870,28 +980,51 @@ class _CorridorProofScene extends StatelessWidget {
       worldDepthCameraCalibration.viewportWidth,
       worldDepthCameraCalibration.viewportHeight,
     );
+    double lowerBoundary(int index) => index == 0
+        ? worldDepthStationWorldZ
+        : (northRouteCards[index - 1].worldZ + northRouteCards[index].worldZ) /
+              2;
+    double upperBoundary(int index) => index == northRouteCards.length - 1
+        ? (northRouteCards[index].worldZ + northRailwayTerminalWorldZ) / 2
+        : (northRouteCards[index].worldZ + northRouteCards[index + 1].worldZ) /
+              2;
+    final terminalBoundary = upperBoundary(northRouteCards.length - 1);
     return Stack(
+      fit: StackFit.expand,
       clipBehavior: Clip.none,
       children: [
-        _DepthPlate(
-          layer: _corridorProofUnderpaint,
-          projection: projectCorridorProofLayer(
-            viewport: viewport,
-            layer: _corridorProofUnderpaint,
-            cameraZ: cameraZ,
-          ),
-          showLabel: showLabels,
+        const Positioned.fill(child: _RouteProceduralUnderpaint()),
+        Positioned.fill(
+          child: _Rm40Y0TerminalScene(cameraZ: cameraZ, showLabels: showLabels),
         ),
-        for (final layer in _corridorProofLayers)
-          _DepthPlate(
-            layer: layer,
-            projection: projectCorridorProofLayer(
+        _WorldRouteCorridor(
+          cameraZ: cameraZ,
+          showLabel: false,
+          railwayMinWorldZ: terminalBoundary,
+          paintRoadAndStation: false,
+          evidenceOwner: false,
+        ),
+        for (var index = northRouteCards.length - 1; index >= 0; index--) ...[
+          _NorthRouteTerrainCard(
+            card: northRouteCards[index],
+            projection: projectNorthCalibrationLayer(
               viewport: viewport,
-              layer: layer,
+              worldZ: northRouteCards[index].worldZ,
               cameraZ: cameraZ,
+              referenceCameraZ: northRouteCards[index].referenceCameraZ,
             ),
             showLabel: showLabels,
           ),
+          _WorldRouteCorridor(
+            key: Key('world-depth-route-segment-${northRouteCards[index].id}'),
+            cameraZ: cameraZ,
+            showLabel: false,
+            railwayMinWorldZ: lowerBoundary(index),
+            railwayMaxWorldZ: upperBoundary(index),
+            paintRoadAndStation: false,
+            evidenceOwner: false,
+          ),
+        ],
         if (atmosphereEnabled)
           Positioned.fill(
             child: IgnorePointer(
@@ -904,6 +1037,256 @@ class _CorridorProofScene extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _RouteProceduralUnderpaint extends StatelessWidget {
+  const _RouteProceduralUnderpaint();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox.expand(
+      key: Key('world-depth-new-pass-underpaint'),
+      child: PrintedPaperSurface(
+        color: Color(0xffd6cda9),
+        textureOpacity: 0.30,
+        child: CustomPaint(painter: _RouteUnderpaintPainter()),
+      ),
+    );
+  }
+}
+
+class _RouteUnderpaintPainter extends CustomPainter {
+  const _RouteUnderpaintPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final horizon = worldDepthCameraCalibration.vanishingPointY * size.height;
+    canvas.drawRect(
+      Rect.fromLTRB(0, horizon, size.width, size.height),
+      Paint()..color = const Color(0xffc1ad72),
+    );
+    final farBand = Path()
+      ..moveTo(0, horizon + size.height * 0.08)
+      ..quadraticBezierTo(
+        size.width * 0.23,
+        horizon + size.height * 0.01,
+        size.width * 0.46,
+        horizon + size.height * 0.10,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.73,
+        horizon + size.height * 0.18,
+        size.width,
+        horizon + size.height * 0.06,
+      )
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(farBand, Paint()..color = const Color(0xffaaa368));
+  }
+
+  @override
+  bool shouldRepaint(_RouteUnderpaintPainter oldDelegate) => false;
+}
+
+class _NorthRouteTerrainCard extends StatelessWidget {
+  const _NorthRouteTerrainCard({
+    required this.card,
+    required this.projection,
+    required this.showLabel,
+  });
+
+  final NorthRouteCard card;
+  final WorldDepthProjection projection;
+  final bool showLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    if (projection.opacity <= 0) return const SizedBox.shrink();
+    return Positioned.fromRect(
+      rect: projection.rect,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (card.supplementalAssetPath case final supplementalAssetPath?)
+            Image.asset(
+              supplementalAssetPath,
+              key: Key('world-depth-route-card-${card.id}-supplement'),
+              fit: BoxFit.fill,
+              filterQuality: FilterQuality.high,
+              gaplessPlayback: true,
+            ),
+          Image.asset(
+            card.assetPath,
+            key: Key('world-depth-route-card-${card.id}'),
+            fit: BoxFit.fill,
+            filterQuality: FilterQuality.high,
+            gaplessPlayback: true,
+          ),
+          if (showLabel)
+            Align(
+              alignment: Alignment.topLeft,
+              child: DecoratedBox(
+                decoration: const BoxDecoration(color: Color(0xcc091315)),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  child: Text(
+                    '${card.id.toUpperCase()} · WORLD Z ${card.worldZ.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      color: Color(0xffffdf83),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Rm40Y0TerminalScene extends StatelessWidget {
+  const _Rm40Y0TerminalScene({required this.cameraZ, required this.showLabels});
+
+  final double cameraZ;
+  final bool showLabels;
+
+  @override
+  Widget build(BuildContext context) {
+    final viewport = Size(
+      worldDepthCameraCalibration.viewportWidth,
+      worldDepthCameraCalibration.viewportHeight,
+    );
+    return Stack(
+      fit: StackFit.expand,
+      clipBehavior: Clip.none,
+      children: [
+        const Positioned.fill(child: _Rm40ProceduralSky()),
+        for (final layer in _rm40Y0Layers)
+          _Rm40DepthCard(
+            layer: layer,
+            projection: projectNorthCalibrationLayer(
+              viewport: viewport,
+              worldZ: layer.worldZ,
+              cameraZ: cameraZ,
+              referenceCameraZ: rm40ReferenceCameraZ,
+            ),
+            showLabel: showLabels,
+          ),
+      ],
+    );
+  }
+}
+
+class _Rm40ProceduralSky extends StatelessWidget {
+  const _Rm40ProceduralSky();
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.cover,
+      clipBehavior: Clip.hardEdge,
+      child: SizedBox(
+        key: const Key('world-depth-layer-rm40-y0-sky'),
+        width: 1920,
+        height: 800,
+        child: const PrintedPaperSurface(
+          color: Color(0xffd4d2c8),
+          textureOpacity: 0.32,
+          child: CustomPaint(painter: _Rm40CloudPainter()),
+        ),
+      ),
+    );
+  }
+}
+
+class _Rm40CloudPainter extends CustomPainter {
+  const _Rm40CloudPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = const Color(0xff9ca6aa);
+    for (final spec in const <Rect>[
+      Rect.fromLTWH(236, 90, 320, 22),
+      Rect.fromLTWH(1230, 176, 270, 20),
+      Rect.fromLTWH(1400, 86, 410, 24),
+      Rect.fromLTWH(1820, 126, 180, 20),
+    ]) {
+      final path = Path()
+        ..moveTo(spec.left, spec.top + spec.height * 0.65)
+        ..lineTo(spec.left + spec.width * 0.19, spec.top + spec.height * 0.35)
+        ..lineTo(spec.left + spec.width * 0.72, spec.top + spec.height * 0.40)
+        ..lineTo(spec.right, spec.top + spec.height * 0.60)
+        ..lineTo(spec.left + spec.width * 0.80, spec.top + spec.height * 0.78)
+        ..lineTo(spec.left + spec.width * 0.22, spec.top + spec.height * 0.78)
+        ..close();
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_Rm40CloudPainter oldDelegate) => false;
+}
+
+class _Rm40DepthCard extends StatelessWidget {
+  const _Rm40DepthCard({
+    required this.layer,
+    required this.projection,
+    required this.showLabel,
+  });
+
+  final WorldDepthLayer layer;
+  final WorldDepthProjection projection;
+  final bool showLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    if (projection.opacity <= 0) return const SizedBox.shrink();
+    return Positioned.fromRect(
+      rect: projection.rect,
+      child: Opacity(
+        opacity: projection.opacity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              layer.assetPath,
+              key: Key('world-depth-layer-${layer.id}'),
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.high,
+              gaplessPlayback: true,
+            ),
+            if (showLabel)
+              Align(
+                alignment: Alignment.topLeft,
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(color: Color(0xcc091315)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: Text(
+                      '${layer.id.toUpperCase()} · Z ${layer.worldZ.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        color: Color(0xffffdf83),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1179,35 +1562,176 @@ class _DepthPlate extends StatelessWidget {
 }
 
 class _WorldRouteCorridor extends StatelessWidget {
-  const _WorldRouteCorridor({required this.cameraZ, required this.showLabel});
+  const _WorldRouteCorridor({
+    required this.cameraZ,
+    required this.showLabel,
+    this.railwayMinWorldZ = worldDepthStationWorldZ,
+    this.railwayMaxWorldZ = northRailwayTerminalWorldZ,
+    this.paintRailway = true,
+    this.paintRoadAndStation = true,
+    this.evidenceOwner = true,
+    super.key,
+  });
 
   final double cameraZ;
   final bool showLabel;
+  final double railwayMinWorldZ;
+  final double railwayMaxWorldZ;
+  final bool paintRailway;
+  final bool paintRoadAndStation;
+  final bool evidenceOwner;
 
   @override
   Widget build(BuildContext context) {
     return Positioned.fill(
       child: IgnorePointer(
-        child: CustomPaint(
-          key: const Key('world-depth-route-corridor'),
-          painter: _WorldRouteCorridorPainter(
-            cameraZ: cameraZ,
-            showLabel: showLabel,
-          ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            CustomPaint(
+              key: evidenceOwner
+                  ? const Key('world-depth-route-corridor')
+                  : null,
+              painter: _WorldRouteCorridorPainter(
+                cameraZ: cameraZ,
+                showLabel: showLabel,
+                pass: _RouteCorridorPaintPass.underlay,
+                railwayMinWorldZ: railwayMinWorldZ,
+                railwayMaxWorldZ: railwayMaxWorldZ,
+                paintRailway: paintRailway,
+                paintRoadAndStation: paintRoadAndStation,
+              ),
+            ),
+            if (paintRailway)
+              _WorldRailwayRasterTiles(
+                cameraZ: cameraZ,
+                railwayMinWorldZ: railwayMinWorldZ,
+                railwayMaxWorldZ: railwayMaxWorldZ,
+              ),
+            CustomPaint(
+              painter: _WorldRouteCorridorPainter(
+                cameraZ: cameraZ,
+                showLabel: showLabel,
+                pass: _RouteCorridorPaintPass.overlay,
+                railwayMinWorldZ: railwayMinWorldZ,
+                railwayMaxWorldZ: railwayMaxWorldZ,
+                paintRailway: paintRailway,
+                paintRoadAndStation: paintRoadAndStation,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
+class _WorldRailwayRasterTiles extends StatelessWidget {
+  const _WorldRailwayRasterTiles({
+    required this.cameraZ,
+    required this.railwayMinWorldZ,
+    required this.railwayMaxWorldZ,
+  });
+
+  final double cameraZ;
+  final double railwayMinWorldZ;
+  final double railwayMaxWorldZ;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = constraints.biggest;
+        final calibration = worldDepthCameraCalibration;
+        final horizonY = calibration.vanishingPointY * size.height;
+        final groundHeight = size.height + 2 - horizonY;
+        final sleepers =
+            projectNorthRailwaySleepers(
+                  cameraZ: cameraZ,
+                  horizonY: horizonY,
+                  viewportWidth: size.width,
+                  viewportHeight: size.height,
+                )
+                .where(
+                  (sleeper) =>
+                      sleeper.worldZ >= railwayMinWorldZ &&
+                      sleeper.worldZ <= railwayMaxWorldZ,
+                )
+                .toList();
+
+        double xAt(double farHalfWidth, double nearHalfWidth, double y) {
+          final t = ((y - horizonY) / groundHeight).clamp(0.0, 1.0);
+          return farHalfWidth + (nearHalfWidth - farHalfWidth) * t;
+        }
+
+        return Stack(
+          clipBehavior: Clip.hardEdge,
+          children: [
+            for (var index = 0; index < sleepers.length; index++)
+              Builder(
+                builder: (context) {
+                  final sleeper = sleepers[index];
+                  final gapAbove = index == 0
+                      ? (sleepers.length > 1 ? sleepers[1].y - sleeper.y : 8.0)
+                      : sleeper.y - sleepers[index - 1].y;
+                  final gapBelow = index == sleepers.length - 1
+                      ? gapAbove
+                      : sleepers[index + 1].y - sleeper.y;
+                  final perspective = ((sleeper.y - horizonY) / groundHeight)
+                      .clamp(0.0, 1.0);
+                  final availableHeight = (gapAbove + gapBelow) * 0.48;
+                  final tileHeight = math.max(
+                    5.0,
+                    math.min(availableHeight, 10 + 30 * perspective),
+                  );
+                  final halfWidth = xAt(7, 52, sleeper.y);
+                  return Positioned(
+                    left: sleeper.x - halfWidth,
+                    top: sleeper.y - tileHeight / 2,
+                    width: halfWidth * 2,
+                    height: tileHeight,
+                    child: Transform.rotate(
+                      angle: sleeper.rotationRadians,
+                      child: Image.asset(
+                        railwaySleeperTileAssetPath,
+                        key: Key(
+                          'world-depth-rail-tile-${sleeper.worldZ.toStringAsFixed(2)}',
+                        ),
+                        fit: BoxFit.fill,
+                        filterQuality: FilterQuality.medium,
+                        gaplessPlayback: true,
+                      ),
+                    ),
+                  );
+                },
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+enum _RouteCorridorPaintPass { underlay, overlay }
+
 class _WorldRouteCorridorPainter extends CustomPainter {
   const _WorldRouteCorridorPainter({
     required this.cameraZ,
     required this.showLabel,
+    required this.pass,
+    required this.railwayMinWorldZ,
+    required this.railwayMaxWorldZ,
+    required this.paintRailway,
+    required this.paintRoadAndStation,
   });
 
   final double cameraZ;
   final bool showLabel;
+  final _RouteCorridorPaintPass pass;
+  final double railwayMinWorldZ;
+  final double railwayMaxWorldZ;
+  final bool paintRailway;
+  final bool paintRoadAndStation;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1233,92 +1757,139 @@ class _WorldRouteCorridorPainter extends CustomPainter {
     }
 
     final stationGroundY = groundY(worldDepthStationWorldZ);
-    final railwayEndY = stationGroundY.clamp(horizonY, bottomY);
+    final railwayNearWorldZ = math.max(
+      railwayMinWorldZ - _railwayIntervalOverlap,
+      math.max(
+        worldDepthStationWorldZ,
+        cameraZ + worldDepthStationNearestDistance,
+      ),
+    );
+    final railwayFarWorldZ = math.min(
+      railwayMaxWorldZ + _railwayIntervalOverlap,
+      northRailwayTerminalWorldZ,
+    );
+    final routeSamples =
+        <
+          ({
+            double x,
+            double y,
+            double ballastHalfWidth,
+            double railHalfWidth,
+            double railStrokeHalfWidth,
+          })
+        >[];
+    if (paintRailway && railwayFarWorldZ > railwayNearWorldZ) {
+      const routeSampleCount = 24;
+      for (var index = 0; index <= routeSampleCount; index++) {
+        final t = index / routeSampleCount;
+        final worldZ =
+            railwayFarWorldZ + (railwayNearWorldZ - railwayFarWorldZ) * t;
+        final y = groundY(worldZ).clamp(horizonY, bottomY);
+        routeSamples.add((
+          x: northRailwayRouteCenterX(
+            worldZ: worldZ,
+            cameraZ: cameraZ,
+            viewportWidth: size.width,
+          ),
+          y: y,
+          ballastHalfWidth: xAt(4.5, 32, y),
+          railHalfWidth: xAt(2.5, 28, y),
+          railStrokeHalfWidth: xAt(0.65, 2.6, y),
+        ));
+      }
+    }
     final stationPassageProgress = worldDepthStationPassageProgress(cameraZ);
     final stationVisualY =
         stationGroundY + size.height * 0.38 * stationPassageProgress;
 
-    final ballast = Path()
-      ..moveTo(centerX - 18, horizonY)
-      ..lineTo(centerX - xAt(18, 292, railwayEndY), railwayEndY)
-      ..lineTo(centerX + xAt(18, 292, railwayEndY), railwayEndY)
-      ..lineTo(centerX + 18, horizonY)
-      ..close();
-    canvas.drawPath(ballast, Paint()..color = const Color(0xffdec286));
-    canvas.drawPath(
-      ballast,
-      Paint()
-        ..color = const Color(0xff192d2f)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 4,
-    );
+    if (pass == _RouteCorridorPaintPass.underlay) {
+      if (routeSamples.isNotEmpty) {
+        final railwayFar = routeSamples.first;
+        Path ballastPath(double widthScale) {
+          final ballast = Path()
+            ..moveTo(
+              railwayFar.x - railwayFar.ballastHalfWidth * widthScale,
+              railwayFar.y,
+            );
+          for (final sample in routeSamples.skip(1)) {
+            ballast.lineTo(
+              sample.x - sample.ballastHalfWidth * widthScale,
+              sample.y,
+            );
+          }
+          for (final sample in routeSamples.reversed) {
+            ballast.lineTo(
+              sample.x + sample.ballastHalfWidth * widthScale,
+              sample.y,
+            );
+          }
+          return ballast..close();
+        }
 
-    final railPaint = Paint()
-      ..color = const Color(0xff172b2d)
-      ..strokeWidth = 5
-      ..strokeCap = StrokeCap.square;
-    canvas.drawLine(
-      Offset(centerX - 6, horizonY),
-      Offset(centerX - xAt(6, 64, railwayEndY), railwayEndY),
-      railPaint,
-    );
-    canvas.drawLine(
-      Offset(centerX + 6, horizonY),
-      Offset(centerX + xAt(6, 64, railwayEndY), railwayEndY),
-      railPaint,
-    );
+        final contactPaint = Paint()..blendMode = BlendMode.multiply;
+        canvas.drawPath(
+          ballastPath(1),
+          contactPaint..color = const Color(0x24887860),
+        );
+        canvas.drawPath(
+          ballastPath(0.68),
+          contactPaint..color = const Color(0x38887860),
+        );
+      }
 
-    for (final sleeper in projectNorthRailwaySleepers(
-      cameraZ: cameraZ,
-      horizonY: horizonY,
-      viewportHeight: size.height,
-    )) {
-      if (sleeper.y > railwayEndY) continue;
-      final t = ((sleeper.y - horizonY) / groundHeight).clamp(0.0, 1.0);
-      final halfWidth = xAt(11, 91, sleeper.y);
-      final sleeperPaint = Paint()
-        ..color = const Color(0xff203234)
-        ..strokeWidth = 1 + 4 * t
-        ..strokeCap = StrokeCap.square;
-      canvas.drawLine(
-        Offset(centerX - halfWidth, sleeper.y),
-        Offset(centerX + halfWidth, sleeper.y),
-        sleeperPaint,
+      if (paintRoadAndStation && stationGroundY < bottomY) {
+        final roadHalfWidthAtStation = xAt(26, 292, stationGroundY);
+        final road = Path()
+          ..moveTo(centerX - roadHalfWidthAtStation, stationGroundY)
+          ..lineTo(centerX - 292, bottomY)
+          ..lineTo(centerX + 292, bottomY)
+          ..lineTo(centerX + roadHalfWidthAtStation, stationGroundY)
+          ..close();
+        canvas.drawPath(road, Paint()..color = const Color(0xff9c774e));
+        canvas.drawPath(
+          road,
+          Paint()
+            ..color = const Color(0xff27383a)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 4,
+        );
+        final rutPaint = Paint()
+          ..color = const Color(0xffc3a16a)
+          ..strokeWidth = 3;
+        canvas.drawLine(
+          Offset(centerX - roadHalfWidthAtStation * 0.35, stationGroundY),
+          Offset(centerX - 108, bottomY),
+          rutPaint,
+        );
+        canvas.drawLine(
+          Offset(centerX + roadHalfWidthAtStation * 0.35, stationGroundY),
+          Offset(centerX + 108, bottomY),
+          rutPaint,
+        );
+      }
+      return;
+    }
+
+    if (routeSamples.isNotEmpty) {
+      _paintVariableRail(canvas, routeSamples, side: -1);
+      _paintVariableRail(canvas, routeSamples, side: 1);
+    }
+
+    if (routeSamples.isNotEmpty &&
+        railwayMaxWorldZ >= northRailwayTerminalWorldZ &&
+        cameraZ >= 7.0) {
+      final railwayFar = routeSamples.first;
+      _paintRailwayEndStop(
+        canvas,
+        centerX: railwayFar.x,
+        terminalY: railwayFar.y,
+        horizonY: horizonY,
+        groundHeight: groundHeight,
+        railHalfWidth: railwayFar.railHalfWidth,
       );
     }
 
-    if (stationGroundY < bottomY) {
-      final roadHalfWidthAtStation = xAt(26, 292, stationGroundY);
-      final road = Path()
-        ..moveTo(centerX - roadHalfWidthAtStation, stationGroundY)
-        ..lineTo(centerX - 292, bottomY)
-        ..lineTo(centerX + 292, bottomY)
-        ..lineTo(centerX + roadHalfWidthAtStation, stationGroundY)
-        ..close();
-      canvas.drawPath(road, Paint()..color = const Color(0xff9c774e));
-      canvas.drawPath(
-        road,
-        Paint()
-          ..color = const Color(0xff27383a)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 4,
-      );
-      final rutPaint = Paint()
-        ..color = const Color(0xffc3a16a)
-        ..strokeWidth = 3;
-      canvas.drawLine(
-        Offset(centerX - roadHalfWidthAtStation * 0.35, stationGroundY),
-        Offset(centerX - 108, bottomY),
-        rutPaint,
-      );
-      canvas.drawLine(
-        Offset(centerX + roadHalfWidthAtStation * 0.35, stationGroundY),
-        Offset(centerX + 108, bottomY),
-        rutPaint,
-      );
-    }
-
-    if (stationPassageProgress < 1) {
+    if (paintRoadAndStation && stationPassageProgress < 1) {
       _paintStation(
         canvas,
         centerX: centerX,
@@ -1329,7 +1900,7 @@ class _WorldRouteCorridorPainter extends CustomPainter {
       );
     }
 
-    if (showLabel) {
+    if (paintRoadAndStation && showLabel) {
       final textPainter = TextPainter(
         text: const TextSpan(
           text: 'DIRT ROAD → STATION → NORTH RAILWAY',
@@ -1345,6 +1916,77 @@ class _WorldRouteCorridorPainter extends CustomPainter {
       )..layout();
       textPainter.paint(canvas, Offset(centerX + 34, horizonY + 16));
     }
+  }
+
+  void _paintVariableRail(
+    Canvas canvas,
+    List<
+      ({
+        double x,
+        double y,
+        double ballastHalfWidth,
+        double railHalfWidth,
+        double railStrokeHalfWidth,
+      })
+    >
+    samples, {
+    required double side,
+  }) {
+    final rail = Path();
+    final first = samples.first;
+    rail.moveTo(
+      first.x + side * first.railHalfWidth - first.railStrokeHalfWidth,
+      first.y,
+    );
+    for (final sample in samples.skip(1)) {
+      rail.lineTo(
+        sample.x + side * sample.railHalfWidth - sample.railStrokeHalfWidth,
+        sample.y,
+      );
+    }
+    for (final sample in samples.reversed) {
+      rail.lineTo(
+        sample.x + side * sample.railHalfWidth + sample.railStrokeHalfWidth,
+        sample.y,
+      );
+    }
+    rail.close();
+    canvas.drawPath(rail, Paint()..color = const Color(0xff243436));
+  }
+
+  void _paintRailwayEndStop(
+    Canvas canvas, {
+    required double centerX,
+    required double terminalY,
+    required double horizonY,
+    required double groundHeight,
+    required double railHalfWidth,
+  }) {
+    final perspective = ((terminalY - horizonY) / groundHeight)
+        .clamp(0.0, 1.0)
+        .toDouble();
+    final postHeight = 7 + 23 * perspective;
+    final strokeWidth = 2 + 5 * perspective;
+    final halfWidth = railHalfWidth * 1.75;
+    final paint = Paint()
+      ..color = const Color(0xff172b2d)
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.square;
+    canvas.drawLine(
+      Offset(centerX - railHalfWidth, terminalY),
+      Offset(centerX - railHalfWidth, terminalY - postHeight),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(centerX + railHalfWidth, terminalY),
+      Offset(centerX + railHalfWidth, terminalY - postHeight),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(centerX - halfWidth, terminalY - postHeight),
+      Offset(centerX + halfWidth, terminalY - postHeight),
+      paint,
+    );
   }
 
   void _paintStation(

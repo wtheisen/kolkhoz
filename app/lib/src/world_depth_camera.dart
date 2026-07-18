@@ -4,11 +4,11 @@
 /// instance.
 const worldDepthCameraCalibration = WorldDepthCameraCalibration(
   status: 'locked',
-  viewportWidth: 1672,
-  viewportHeight: 941,
+  viewportWidth: 1920,
+  viewportHeight: 800,
   focalLength: 2,
-  vanishingPointX: 0.5,
-  vanishingPointY: 0.40,
+  vanishingPointX: 0.481,
+  vanishingPointY: 0.637,
   pitchDegrees: 0,
   yawDegrees: 0,
   startZ: -2,

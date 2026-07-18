@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolkhoz_app/field_plan_world_lab.dart';
 import 'package:kolkhoz_app/src/world_depth_manifest.dart';
+import 'package:kolkhoz_app/src/world_depth_scene.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -112,7 +113,67 @@ void main() {
     expect(find.byKey(corridor), findsOneWidget);
   });
 
-  testWidgets('temporary proof plates can replace the generated North scene', (
+  testWidgets('legacy toggle isolates the new world pass', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 760));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      FieldPlanWorldLabApp(
+        manifest: manifest,
+        initialCameraZ: 0,
+        initialCorridorProofEnabled: true,
+        initialLegacyAssetsEnabled: false,
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const Key('world-depth-underpaint')), findsNothing);
+    expect(find.byKey(const Key('world-depth-layer-b20')), findsNothing);
+    expect(
+      find.byKey(const Key('world-depth-new-pass-underpaint')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('world-depth-route-card-a01')), findsOneWidget);
+    expect(find.byKey(const Key('world-depth-route-corridor')), findsOneWidget);
+    expect(
+      find.byKey(const Key('world-depth-route-segment-a01')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('world-depth-route-segment-a12')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('world-depth-layer-rm40-y0-sky')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('world-depth-layer-rm40-y0-snow')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('world-depth-layer-rm40-y0-forest')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('world-depth-layer-rm40-y0-hut')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('NEW PASS ONLY'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('toggle-legacy-assets')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('world-depth-underpaint')), findsOneWidget);
+    expect(find.byKey(const Key('world-depth-layer-b20')), findsOneWidget);
+    expect(
+      find.byKey(const Key('world-depth-new-pass-underpaint')),
+      findsNothing,
+    );
+    expect(find.byKey(const Key('world-depth-route-card-a01')), findsNothing);
+    expect(find.textContaining('NEW PASS ONLY'), findsNothing);
+  });
+
+  testWidgets('persistent terrain cards are passed before the RM40 stack', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 760));
@@ -122,50 +183,74 @@ void main() {
     );
     await tester.pump();
 
-    expect(
-      find.byKey(const Key('world-depth-layer-proof-depth-00-far')),
-      findsNothing,
-    );
+    expect(find.byKey(const Key('world-depth-route-card-a01')), findsNothing);
     expect(find.byKey(const Key('world-depth-route-corridor')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('toggle-corridor-proof')));
     await tester.pump();
 
+    expect(find.byKey(const Key('world-depth-route-card-a01')), findsNothing);
+    expect(find.byKey(const Key('world-depth-route-corridor')), findsOneWidget);
     expect(
-      find.byKey(const Key('world-depth-layer-proof-depth-00-far')),
+      find.textContaining('12 PERSISTENT TERRAIN CARDS · ROUTE PROOF'),
       findsOneWidget,
     );
-    expect(
-      find.byKey(const Key('world-depth-layer-proof-underpaint')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const Key('world-depth-layer-proof-depth-01')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const Key('world-depth-layer-proof-depth-06')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const Key('world-depth-layer-proof-depth-07-near')),
-      findsOneWidget,
-    );
-    expect(find.byKey(const Key('world-depth-route-corridor')), findsNothing);
-    expect(find.textContaining('8 DEPTH PLATES'), findsOneWidget);
 
     final slider = tester.widget<Slider>(
       find.byKey(const Key('camera-z-scrubber')),
     );
+    slider.onChanged!(northRouteCardStartZ);
+    await tester.pump();
+    expect(find.byKey(const Key('world-depth-route-card-a01')), findsOneWidget);
+    expect(find.byKey(const Key('world-depth-route-card-a12')), findsOneWidget);
+    expect(
+      find.byKey(const Key('world-depth-route-card-a09-supplement')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('world-depth-route-corridor')), findsOneWidget);
+
+    slider.onChanged!(5.5);
+    await tester.pump();
+    expect(find.byKey(const Key('world-depth-route-card-a01')), findsNothing);
+    expect(find.byKey(const Key('world-depth-route-card-a07')), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'world-depth-rail-tile-',
+            ),
+      ),
+      findsWidgets,
+    );
+
     slider.onChanged!(8.05);
     await tester.pump();
 
+    expect(find.byKey(const Key('world-depth-route-card-a12')), findsNothing);
     expect(
-      find.byKey(const Key('world-depth-layer-proof-depth-07-near')),
-      findsNothing,
+      find.byKey(const Key('world-depth-layer-rm40-y0-sky')),
+      findsOneWidget,
     );
     expect(
-      find.byKey(const Key('world-depth-layer-proof-depth-00-far')),
+      find.byKey(const Key('world-depth-layer-rm40-y0-snow')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('world-depth-layer-rm40-y0-forest')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('world-depth-layer-rm40-y0-hut')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('world-depth-layer-rm40-y0-railway')),
+      findsNothing,
+    );
+    expect(find.byKey(const Key('world-depth-route-corridor')), findsOneWidget);
+    expect(
+      find.byKey(const Key('world-depth-layer-rm40-y0-foreground')),
       findsOneWidget,
     );
   });
