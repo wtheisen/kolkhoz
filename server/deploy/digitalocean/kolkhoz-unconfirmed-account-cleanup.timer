@@ -1,0 +1,12 @@
+[Unit]
+Description=Clean stale unconfirmed Kolkhoz accounts daily
+
+[Timer]
+OnBootSec=15m
+OnUnitActiveSec=1d
+RandomizedDelaySec=30m
+Persistent=true
+Unit=kolkhoz-unconfirmed-account-cleanup.service
+
+[Install]
+WantedBy=timers.target

@@ -8,6 +8,10 @@ The current VPS has only 1 vCPU and roughly 1 GB RAM. This is therefore a correc
 deployment, not a capacity environment. One combined process owns gateways, all 16 command
 partitions, and the three schedulers. systemd allows it to use the single CPU and caps
 memory at 300 MB.
+A daily systemd timer deletes Supabase email accounts that remain completely
+unconfirmed for more than seven days. It uses the server-only Supabase secret,
+never logs email addresses or user IDs, and preserves any account with a confirmed
+email, phone number, or other confirmed identity.
 A dedicated Redis instance binds `127.0.0.1:16379`, uses database 15, has a 64 MB
 `noeviction` cap, and is separately resource limited. Do not expose either port.
 Caddy retries unavailable loopback connections for up to five seconds, bridging the

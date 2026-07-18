@@ -9,6 +9,8 @@ redis_service = (root / "kolkhoz-greenfield-redis.service").read_text()
 caddy = (root / "Caddyfile").read_text()
 watch = (root / "health-watch.sh").read_text()
 watch_timer = (root / "kolkhoz-health-watch.timer").read_text()
+account_cleanup = (root / "kolkhoz-unconfirmed-account-cleanup.service").read_text()
+account_cleanup_timer = (root / "kolkhoz-unconfirmed-account-cleanup.timer").read_text()
 
 assert "ROOT=/opt/kolkhoz-greenfield" in bootstrap
 assert "SERVER_ENV=/etc/kolkhoz-greenfield.env" in bootstrap
@@ -45,5 +47,9 @@ assert "KOLKHOZ_BUILD_SHA" in bootstrap and "kolkhoz-greenfield-build.env" in se
 assert "kolkhoz-health-watch.timer" in bootstrap
 assert "/ready" in watch and "lifecycle_healthy" in watch
 assert "OnUnitActiveSec=60s" in watch_timer
+assert "--older-than-days 7 --delete" in account_cleanup
+assert "KOLKHOZ_SUPABASE_SECRET_KEY" not in account_cleanup
+assert "OnUnitActiveSec=1d" in account_cleanup_timer
+assert "kolkhoz-unconfirmed-account-cleanup.timer" in bootstrap
 assert 'git -c safe.directory="$ROOT" -C "$ROOT"' in bootstrap
 print("DigitalOcean server package invariants valid")
