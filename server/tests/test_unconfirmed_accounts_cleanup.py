@@ -46,9 +46,7 @@ class UnconfirmedAccountCleanupTests(unittest.TestCase):
                 "created_at": "2026-07-01T00:00:00",
             },
         ):
-            self.assertFalse(
-                is_stale_unconfirmed_email_user(user, cutoff=self.cutoff)
-            )
+            self.assertFalse(is_stale_unconfirmed_email_user(user, cutoff=self.cutoff))
 
     def test_admin_listing_uses_secret_and_follows_pagination(self) -> None:
         class Response(BytesIO):
