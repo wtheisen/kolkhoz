@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -37,13 +36,6 @@ void main() {
   });
 
   test('checked-in plate exports are registered transparent PNGs', () async {
-    final manifest =
-        jsonDecode(
-              await File(
-                'assets/art/field_plan/world_depth/manifest.json',
-              ).readAsString(),
-            )
-            as Map<String, Object?>;
     for (final id in requiredBaseLayerIds) {
       final file = File(
         'assets/art/field_plan/world_depth/${id.toLowerCase()}.png',
