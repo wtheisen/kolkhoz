@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -10,6 +9,8 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import 'chrome_button.dart';
 import 'design_tokens.dart';
+import 'json_shape.dart';
+import 'online_game_client.dart';
 
 enum PlayerIdentityLinkState {
   idle,
@@ -55,7 +56,7 @@ class KolkhozIdentityRuntime extends ChangeNotifier {
   static const _storage = FlutterSecureStorage();
   static const _tokenKey = 'kolkhoz.player.session';
 
-  Uri? _baseURL;
+  KolkhozOnlineClient? _client;
   String? _installationID;
   bool _usingLegacySession = false;
   int _platformAuthenticationAttempts = 0;
@@ -66,9 +67,6 @@ class KolkhozIdentityRuntime extends ChangeNotifier {
   String? message;
   PlayerIdentityLinkState linkState = PlayerIdentityLinkState.idle;
   Map<String, Object?>? linkRequest;
-
-  bool get connected => player?.provider != null;
-  bool get guest => player?.guest ?? true;
 
   @visibleForTesting
   void setTestState({
@@ -88,8 +86,12 @@ class KolkhozIdentityRuntime extends ChangeNotifier {
     required String displayName,
     String? legacyAccessToken,
   }) async {
-    _baseURL = baseURL;
     _installationID = installationID;
+    _client = KolkhozOnlineClient(
+      baseURL,
+      deviceID: installationID,
+      accessTokenProvider: () async => accessToken,
+    );
     final storedIdentityToken = await _storage.read(key: _tokenKey);
     accessToken = playerIdentityBootstrapToken(
       storedIdentityToken: storedIdentityToken,
@@ -101,7 +103,7 @@ class KolkhozIdentityRuntime extends ChangeNotifier {
   }
 
   Future<void> authenticate({required String displayName}) async {
-    if (_baseURL == null || _installationID == null || busy) return;
+    if (_client == null || _installationID == null || busy) return;
     busy = true;
     message = null;
     notifyListeners();
@@ -134,14 +136,19 @@ class KolkhozIdentityRuntime extends ChangeNotifier {
         }
       }
       final response = credential == null || provider == null
-          ? await _post('identity/guest', {
-              'installationID': _installationID,
-              'displayName': displayName,
-            })
-          : await _post('identity/platform/$provider', {
-              'credential': credential,
-              'displayName': displayName,
-            });
+          ? await _client!.sendJson(
+              method: 'POST',
+              path: 'identity/guest',
+              body: {
+                'installationID': _installationID,
+                'displayName': displayName,
+              },
+            )
+          : await _client!.sendJson(
+              method: 'POST',
+              path: 'identity/platform/$provider',
+              body: {'credential': credential, 'displayName': displayName},
+            );
       await _acceptSession(response);
       message = player!.guest
           ? 'Guest progress may be lost if this app is deleted or this device is replaced.'
@@ -150,11 +157,14 @@ class KolkhozIdentityRuntime extends ChangeNotifier {
       message = error.message ?? 'Platform authentication is unavailable.';
       if (_schedulePlatformRetry(displayName)) return;
       if (_usingLegacySession) return;
-      final response = await _post('identity/guest', {
-        'installationID': _installationID,
-        'displayName': displayName,
-      });
+      final response = await _client!.sendJson(
+        method: 'POST',
+        path: 'identity/guest',
+        body: {'installationID': _installationID, 'displayName': displayName},
+      );
       await _acceptSession(response);
+    } on OnlineRequestException catch (error) {
+      message = error.message;
     } catch (error) {
       message = '$error';
     } finally {
@@ -164,7 +174,11 @@ class KolkhozIdentityRuntime extends ChangeNotifier {
   }
 
   Future<void> createLink() async {
-    linkRequest = await _post('identity/device-links', const {});
+    linkRequest = await _client!.sendJson(
+      method: 'POST',
+      path: 'identity/device-links',
+      body: const {},
+    );
     linkState = PlayerIdentityLinkState.pending;
     notifyListeners();
   }
@@ -173,11 +187,17 @@ class KolkhozIdentityRuntime extends ChangeNotifier {
     final requestID = linkRequest?['requestID'];
     if (requestID == null) return;
     try {
-      linkRequest = await _get('identity/device-links/$requestID');
+      linkRequest = await _client!.sendJson(
+        method: 'GET',
+        path: 'identity/device-links/$requestID',
+      );
       if (linkRequest!['accessToken'] is String) {
         await _acceptSession(linkRequest!);
       }
       linkState = _state('${linkRequest!['status']}');
+    } on OnlineRequestException catch (error) {
+      message = error.message;
+      linkState = PlayerIdentityLinkState.error;
     } catch (error) {
       message = '$error';
       linkState = PlayerIdentityLinkState.error;
@@ -188,14 +208,21 @@ class KolkhozIdentityRuntime extends ChangeNotifier {
   Future<void> cancelLink() async {
     final requestID = linkRequest?['requestID'];
     if (requestID == null) return;
-    linkRequest = await _delete('identity/device-links/$requestID');
+    linkRequest = await _client!.sendJson(
+      method: 'DELETE',
+      path: 'identity/device-links/$requestID',
+    );
     linkState = PlayerIdentityLinkState.cancelled;
     notifyListeners();
   }
 
   Future<Map<String, Object?>> redeem(String raw) async {
     final code = Uri.tryParse(raw)?.queryParameters['code'] ?? raw;
-    final result = await _post('identity/device-links/redeem', {'code': code});
+    final result = await _client!.sendJson(
+      method: 'POST',
+      path: 'identity/device-links/redeem',
+      body: {'code': code},
+    );
     linkRequest = result;
     linkState = PlayerIdentityLinkState.targetConfirmed;
     notifyListeners();
@@ -205,9 +232,10 @@ class KolkhozIdentityRuntime extends ChangeNotifier {
   Future<void> approveLink() async {
     final requestID = linkRequest?['requestID'];
     if (requestID == null) return;
-    final result = await _post(
-      'identity/device-links/$requestID/approve',
-      const {},
+    final result = await _client!.sendJson(
+      method: 'POST',
+      path: 'identity/device-links/$requestID/approve',
+      body: const {},
     );
     if (result['accessToken'] is String) await _acceptSession(result);
     linkRequest = result;
@@ -227,7 +255,7 @@ class KolkhozIdentityRuntime extends ChangeNotifier {
 
   Future<void> _acceptSession(Map<String, Object?> response) async {
     final token = response['accessToken'] as String;
-    final raw = Map<String, Object?>.from(response['player'] as Map);
+    final raw = jsonObject(response['player']);
     accessToken = token;
     _usingLegacySession = false;
     _platformAuthenticationAttempts = 0;
@@ -254,38 +282,6 @@ class KolkhozIdentityRuntime extends ChangeNotifier {
       }),
     );
     return true;
-  }
-
-  Future<Map<String, Object?>> _get(String path) => _request('GET', path);
-  Future<Map<String, Object?>> _delete(String path) => _request('DELETE', path);
-  Future<Map<String, Object?>> _post(String path, Map<String, Object?> body) =>
-      _request('POST', path, body: body);
-
-  Future<Map<String, Object?>> _request(
-    String method,
-    String path, {
-    Map<String, Object?>? body,
-  }) async {
-    final client = HttpClient();
-    try {
-      final request = await client.openUrl(method, _baseURL!.resolve(path));
-      request.headers.contentType = ContentType.json;
-      request.headers.set('X-Kolkhoz-Device-ID', _installationID!);
-      if (accessToken != null) {
-        request.headers.set('Authorization', 'Bearer $accessToken');
-      }
-      if (body != null) request.write(jsonEncode(body));
-      final response = await request.close();
-      final decoded = jsonDecode(await utf8.decoder.bind(response).join());
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw StateError(
-          decoded is Map ? '${decoded['error']}' : 'Identity request failed',
-        );
-      }
-      return Map<String, Object?>.from(decoded as Map);
-    } finally {
-      client.close(force: true);
-    }
   }
 
   static PlayerIdentityLinkState _state(String value) => switch (value) {
@@ -574,12 +570,8 @@ class PlayerIdentityPanel extends StatelessWidget {
             onPressed: () async {
               final preview = await runtime.redeem(controller.text);
               if (!context.mounted) return;
-              final source = Map<String, Object?>.from(
-                preview['source'] as Map,
-              );
-              final target = Map<String, Object?>.from(
-                preview['target'] as Map,
-              );
+              final source = jsonObject(preview['source']);
+              final target = jsonObject(preview['target']);
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (context) => AlertDialog(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolkhoz_app/src/art_direction.dart';
+import 'package:kolkhoz_app/src/chrome_button.dart';
 import 'package:kolkhoz_app/src/printed_underlay.dart';
 
 void main() {
@@ -40,12 +41,15 @@ void main() {
         ),
       ),
     );
+    final context = tester.element(find.byType(PrintedUnderlay).first);
     await tester.runAsync(() async {
       await Future.wait([
-        PrintedUnderlayImageCache.load(
+        ChromeImageCache.load(
+          context,
           'assets/art/field_plan/ledger/underlays/ledger-neutral.png',
         ),
-        PrintedUnderlayImageCache.load(
+        ChromeImageCache.load(
+          context,
           'assets/art/field_plan/ledger/underlays/ledger-primary.png',
         ),
       ]);

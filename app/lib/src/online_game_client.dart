@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'c_engine_bridge.dart';
+import 'json_shape.dart';
 import 'online_game_models.dart';
 import 'render_model.dart';
 import 'saved_game_store.dart';
@@ -33,21 +34,21 @@ class KolkhozOnlineClient {
   Future<List<OnlineSessionListing>> fetchSessions() async {
     final decoded = await _send(method: 'GET', path: 'sessions');
     return [
-      for (final value in onlineObjectList(decoded))
-        OnlineSessionListing.fromJson(onlineObjectMap(value)),
+      for (final value in jsonList(decoded))
+        OnlineSessionListing.fromJson(jsonObject(value)),
     ];
   }
 
   Future<List<OnlineSessionListing>> fetchWatchableSessions() async {
     final decoded = await _send(method: 'GET', path: 'sessions/watchable');
     return [
-      for (final value in onlineObjectList(decoded))
-        OnlineSessionListing.fromJson(onlineObjectMap(value)),
+      for (final value in jsonList(decoded))
+        OnlineSessionListing.fromJson(jsonObject(value)),
     ];
   }
 
   Future<OnlineSessionUpdate> fetchSpectatorUpdate(String sessionID) async {
-    final json = await _sendJson(
+    final json = await sendJson(
       method: 'GET',
       path: 'sessions/$sessionID/spectate',
     );
@@ -56,28 +57,28 @@ class KolkhozOnlineClient {
 
   Future<OnlineSessionListing> fetchSession(String sessionID) async {
     final decoded = await _send(method: 'GET', path: 'sessions/$sessionID');
-    return OnlineSessionListing.fromJson(onlineObjectMap(decoded));
+    return OnlineSessionListing.fromJson(jsonObject(decoded));
   }
 
   Future<List<OnlineSessionInvite>> fetchSessionInvites() async {
     final decoded = await _send(method: 'GET', path: 'sessions/invites');
     return [
-      for (final value in onlineObjectList(decoded))
-        OnlineSessionInvite.fromJson(onlineObjectMap(value)),
+      for (final value in jsonList(decoded))
+        OnlineSessionInvite.fromJson(jsonObject(value)),
     ];
   }
 
   Future<OnlineServerStatus> fetchServerStatus() async {
     final decoded = await _send(method: 'GET', path: 'metrics');
-    return OnlineServerStatus.fromJson(onlineObjectMap(decoded));
+    return OnlineServerStatus.fromJson(jsonObject(decoded));
   }
 
   Future<Map<String, Object?>> fetchAdminOperations() async {
-    return _sendJson(method: 'GET', path: 'admin/operations');
+    return sendJson(method: 'GET', path: 'admin/operations');
   }
 
   Future<void> restartProductionServer() async {
-    await _sendJson(
+    await sendJson(
       method: 'POST',
       path: 'admin/control/restart',
       headers: {'X-Kolkhoz-Restart-Confirm': 'restart'},
@@ -92,7 +93,7 @@ class KolkhozOnlineClient {
       path: 'presence',
       body: {'sessionID': ?sessionID},
     );
-    return OnlinePresenceHeartbeat.fromJson(onlineObjectMap(decoded));
+    return OnlinePresenceHeartbeat.fromJson(jsonObject(decoded));
   }
 
   Future<void> registerInstallation({
@@ -100,7 +101,7 @@ class KolkhozOnlineClient {
     required String platform,
     required String token,
   }) async {
-    await _sendJson(
+    await sendJson(
       method: 'PUT',
       path: 'installations/$installationID',
       body: {
@@ -125,7 +126,7 @@ class KolkhozOnlineClient {
   }
 
   Future<bool> fetchFullGameEntitlement() async {
-    final json = await _sendJson(method: 'GET', path: 'commerce/entitlements');
+    final json = await sendJson(method: 'GET', path: 'commerce/entitlements');
     return json['fullGame'] as bool? ?? false;
   }
 
@@ -133,7 +134,7 @@ class KolkhozOnlineClient {
     required String provider,
     required String verificationData,
   }) async {
-    final json = await _sendJson(
+    final json = await sendJson(
       method: 'POST',
       path: 'commerce/purchases/claim',
       body: {'provider': provider, 'verificationData': verificationData},
@@ -143,32 +144,32 @@ class KolkhozOnlineClient {
 
   Future<OnlineSessionResponse> syncActiveSession() async {
     final decoded = await _send(method: 'POST', path: 'active-session/sync');
-    return OnlineSessionResponse.fromJson(onlineObjectMap(decoded));
+    return OnlineSessionResponse.fromJson(jsonObject(decoded));
   }
 
   Future<OnlineComradesResponse> fetchComrades() async {
     final decoded = await _send(method: 'GET', path: 'comrades');
-    return OnlineComradesResponse.fromJson(onlineObjectMap(decoded));
+    return OnlineComradesResponse.fromJson(jsonObject(decoded));
   }
 
   Future<List<OnlineComradeProfile>> fetchLeaderboard() async {
-    final json = await _sendJson(method: 'GET', path: 'leaderboard');
+    final json = await sendJson(method: 'GET', path: 'leaderboard');
     return [
-      for (final value in onlineObjectList(json['players'] ?? const []))
-        OnlineComradeProfile.fromJson(onlineObjectMap(value)),
+      for (final value in jsonList(json['players'] ?? const []))
+        OnlineComradeProfile.fromJson(jsonObject(value)),
     ];
   }
 
   Future<List<OnlineRecentGame>> fetchRecentGames() async {
-    final json = await _sendJson(method: 'GET', path: 'results/recent');
+    final json = await sendJson(method: 'GET', path: 'results/recent');
     return [
-      for (final value in onlineObjectList(json['games'] ?? const []))
-        OnlineRecentGame.fromJson(onlineObjectMap(value)),
+      for (final value in jsonList(json['games'] ?? const []))
+        OnlineRecentGame.fromJson(jsonObject(value)),
     ];
   }
 
   Future<OnlineGameReplay> fetchReplay(String sessionID) async {
-    final json = await _sendJson(
+    final json = await sendJson(
       method: 'GET',
       path: 'results/$sessionID/replay',
     );
@@ -176,7 +177,7 @@ class KolkhozOnlineClient {
   }
 
   Future<OnlineSessionResponse> createRematch(String sessionID) async {
-    final json = await _sendJson(
+    final json = await sendJson(
       method: 'POST',
       path: 'results/$sessionID/rematch',
     );
@@ -184,25 +185,22 @@ class KolkhozOnlineClient {
   }
 
   Future<OnlineDailyChallenge> fetchDailyChallenge() async {
-    final json = await _sendJson(method: 'GET', path: 'challenges/daily');
+    final json = await sendJson(method: 'GET', path: 'challenges/daily');
     return OnlineDailyChallenge.fromJson(json);
   }
 
   Future<OnlineSessionResponse> startDailyChallenge() async {
-    final json = await _sendJson(
-      method: 'POST',
-      path: 'challenges/daily/start',
-    );
+    final json = await sendJson(method: 'POST', path: 'challenges/daily/start');
     return OnlineSessionResponse.fromJson(json);
   }
 
   Future<OnlineWeeklyTournament> fetchWeeklyTournament() async {
-    final json = await _sendJson(method: 'GET', path: 'tournaments/weekly');
+    final json = await sendJson(method: 'GET', path: 'tournaments/weekly');
     return OnlineWeeklyTournament.fromJson(json);
   }
 
   Future<OnlineWeeklyTournament> joinWeeklyTournament() async {
-    final json = await _sendJson(
+    final json = await sendJson(
       method: 'POST',
       path: 'tournaments/weekly/join',
     );
@@ -210,7 +208,7 @@ class KolkhozOnlineClient {
   }
 
   Future<OnlineWeeklyTournament> leaveWeeklyTournament() async {
-    final json = await _sendJson(
+    final json = await sendJson(
       method: 'POST',
       path: 'tournaments/weekly/leave',
     );
@@ -219,40 +217,36 @@ class KolkhozOnlineClient {
 
   Future<OnlineComradeProfile> fetchPublicProfile(String userID) async {
     final decoded = await _send(method: 'GET', path: 'profiles/$userID');
-    return OnlineComradeProfile.fromJson(onlineObjectMap(decoded));
+    return OnlineComradeProfile.fromJson(jsonObject(decoded));
   }
 
   Future<OnlineComradeProfile> sendComradeRequest(String comradeCode) async {
-    final json = await _sendJson(
+    final json = await sendJson(
       method: 'POST',
       path: 'comrades',
       body: {'comradeCode': comradeCode},
     );
     return OnlineComradeProfile.fromJson(
-      onlineObjectMap(json['request'] ?? json['comrade']),
+      jsonObject(json['request'] ?? json['comrade']),
     );
   }
 
   Future<OnlineComradeProfile> sendComradeRequestToUser(String userID) async {
-    final json = await _sendJson(
+    final json = await sendJson(
       method: 'POST',
       path: 'comrades',
       body: {'userID': userID},
     );
     return OnlineComradeProfile.fromJson(
-      onlineObjectMap(json['request'] ?? json['comrade']),
+      jsonObject(json['request'] ?? json['comrade']),
     );
-  }
-
-  Future<OnlineComradeProfile> addComrade(String comradeCode) {
-    return sendComradeRequest(comradeCode);
   }
 
   Future<void> respondToComradeRequest({
     required String userID,
     required bool accept,
   }) async {
-    await _sendJson(
+    await sendJson(
       method: 'POST',
       path: 'comrades/respond',
       body: {'userID': userID, 'accept': accept},
@@ -260,7 +254,7 @@ class KolkhozOnlineClient {
   }
 
   Future<void> removeComrade(String userID) async {
-    await _sendJson(
+    await sendJson(
       method: 'POST',
       path: 'comrades/remove',
       body: {'userID': userID},
@@ -285,7 +279,7 @@ class KolkhozOnlineClient {
     if (seed != null) {
       body['seed'] = seed;
     }
-    final json = await _sendJson(method: 'POST', path: 'sessions', body: body);
+    final json = await sendJson(method: 'POST', path: 'sessions', body: body);
     return OnlineSessionResponse.fromJson(json);
   }
 
@@ -293,7 +287,7 @@ class KolkhozOnlineClient {
     required String sessionID,
     required List<String> userIDs,
   }) async {
-    await _sendJson(
+    await sendJson(
       method: 'POST',
       path: 'sessions/$sessionID/invites',
       body: {'userIDs': userIDs},
@@ -301,7 +295,7 @@ class KolkhozOnlineClient {
   }
 
   Future<void> declineSessionInvite(String sessionID) async {
-    await _sendJson(
+    await sendJson(
       method: 'POST',
       path: 'sessions/$sessionID/invites/decline',
       body: {'sessionID': sessionID},
@@ -316,7 +310,7 @@ class KolkhozOnlineClient {
     if (preferredPlayerID != null) {
       body['preferredPlayerID'] = preferredPlayerID;
     }
-    final json = await _sendJson(
+    final json = await sendJson(
       method: 'POST',
       path: 'sessions/$sessionID/join',
       body: body,
@@ -328,7 +322,7 @@ class KolkhozOnlineClient {
     bool rankedOnly = false,
     bool comradesOnly = false,
   }) async {
-    final json = await _sendJson(
+    final json = await sendJson(
       method: 'POST',
       path: 'sessions/matchmake',
       body: {'rankedOnly': rankedOnly, 'comradesOnly': comradesOnly},
@@ -342,13 +336,13 @@ class KolkhozOnlineClient {
     required int targetPlayerID,
     required String seatToken,
   }) async {
-    final json = await _sendJson(
+    final json = await sendJson(
       method: 'POST',
       path: 'sessions/$sessionID/players/$targetPlayerID/kick',
       headers: {_seatTokenHeader: seatToken},
       body: {'hostPlayerID': hostPlayerID},
     );
-    return OnlineSessionUpdate.fromJson(onlineObjectMap(json['update']));
+    return OnlineSessionUpdate.fromJson(jsonObject(json['update']));
   }
 
   Future<OnlineSessionUpdate> fetchUpdate({
@@ -356,7 +350,7 @@ class KolkhozOnlineClient {
     required int playerID,
     required String seatToken,
   }) async {
-    final json = await _sendJson(
+    final json = await sendJson(
       method: 'GET',
       path: 'sessions/$sessionID/state',
       query: {'viewerID': '$playerID'},
@@ -371,7 +365,7 @@ class KolkhozOnlineClient {
     required String seatToken,
     required int afterRevision,
   }) async {
-    final json = await _sendJson(
+    final json = await sendJson(
       method: 'GET',
       path: 'sessions/$sessionID/actions',
       query: {'viewerID': '$playerID', 'afterRevision': '$afterRevision'},
@@ -391,8 +385,8 @@ class KolkhozOnlineClient {
       headers: {_seatTokenHeader: seatToken},
     );
     return [
-      for (final value in onlineObjectList(decoded))
-        OnlineEngineAction.fromJson(onlineObjectMap(value)),
+      for (final value in jsonList(decoded))
+        OnlineEngineAction.fromJson(jsonObject(value)),
     ];
   }
 
@@ -403,7 +397,7 @@ class KolkhozOnlineClient {
     required int actionLogCount,
     required EngineAction action,
   }) async {
-    final json = await _sendJson(
+    final json = await sendJson(
       method: 'POST',
       path: 'sessions/$sessionID/actions',
       headers: {_seatTokenHeader: seatToken},
@@ -423,7 +417,7 @@ class KolkhozOnlineClient {
     required String seatToken,
     required String reactionID,
   }) async {
-    final json = await _sendJson(
+    final json = await sendJson(
       method: 'POST',
       path: 'sessions/$sessionID/reactions',
       headers: {_seatTokenHeader: seatToken},
@@ -437,13 +431,13 @@ class KolkhozOnlineClient {
     required int playerID,
     required String seatToken,
   }) async {
-    final json = await _sendJson(
+    final json = await sendJson(
       method: 'POST',
       path: 'sessions/$sessionID/players/$playerID/leave',
       headers: {_seatTokenHeader: seatToken},
       body: {'sessionID': sessionID, 'playerID': playerID},
     );
-    return OnlineSessionUpdate.fromJson(onlineObjectMap(json['update']));
+    return OnlineSessionUpdate.fromJson(jsonObject(json['update']));
   }
 
   Uri realtimeURI({
@@ -481,7 +475,7 @@ class KolkhozOnlineClient {
     );
   }
 
-  Future<Map<String, Object?>> _sendJson({
+  Future<Map<String, Object?>> sendJson({
     required String method,
     required String path,
     Map<String, String> query = const {},
@@ -495,7 +489,7 @@ class KolkhozOnlineClient {
       headers: headers,
       body: body,
     );
-    return onlineObjectMap(decoded);
+    return jsonObject(decoded);
   }
 
   Future<Object?> _send({
@@ -571,12 +565,10 @@ class OnlineRealtimeFrame {
       type: type,
       revision: (json['revision'] as num?)?.toInt(),
       update: type == 'state'
-          ? OnlineSessionUpdate.fromJson(onlineObjectMap(json['update']))
+          ? OnlineSessionUpdate.fromJson(jsonObject(json['update']))
           : null,
       updates: type == 'catchUp' || type == 'committed'
-          ? OnlineActionUpdatesResponse.fromJson(
-              onlineObjectMap(json['updates']),
-            )
+          ? OnlineActionUpdatesResponse.fromJson(jsonObject(json['updates']))
           : null,
     );
   }
@@ -590,7 +582,7 @@ class OnlineRealtimeFrame {
     if (text == null) {
       throw const FormatException('Online realtime frame must be text');
     }
-    return fromJson(onlineObjectMap(jsonDecode(text)));
+    return fromJson(jsonObject(jsonDecode(text)));
   }
 }
 

@@ -802,6 +802,7 @@ class _VariantToggleRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = row.localizedTitle(language, variants);
+    final toggleSize = compact ? 30.0 : 34 + 12 * scale;
     return Semantics(
       button: true,
       toggled: value,
@@ -837,10 +838,27 @@ class _VariantToggleRow extends StatelessWidget {
                     compact: compact,
                   ),
                 ),
-                _VariantToggleMark(
-                  tokens: tokens,
-                  active: value,
-                  size: compact ? 30 : 34 + 12 * scale,
+                Container(
+                  width: toggleSize,
+                  height: toggleSize,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: value
+                        ? tokens.colors.gold.withValues(alpha: 0.82)
+                        : tokens.colors.black.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: value
+                          ? tokens.colors.goldBright
+                          : tokens.colors.steel.withValues(alpha: 0.45),
+                    ),
+                  ),
+                  child: value
+                      ? _AssetIcon(
+                          'assets/ui/Icons/icon-check.png',
+                          size: toggleSize * 0.63,
+                        )
+                      : null,
                 ),
               ],
             ),
@@ -881,41 +899,6 @@ class _VariantRowBackground extends StatelessWidget {
           Padding(padding: padding, child: child),
         ],
       ),
-    );
-  }
-}
-
-class _VariantToggleMark extends StatelessWidget {
-  const _VariantToggleMark({
-    required this.tokens,
-    required this.active,
-    this.size = 30,
-  });
-
-  final DesignTokens tokens;
-  final bool active;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: active
-            ? tokens.colors.gold.withValues(alpha: 0.82)
-            : tokens.colors.black.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: active
-              ? tokens.colors.goldBright
-              : tokens.colors.steel.withValues(alpha: 0.45),
-        ),
-      ),
-      child: active
-          ? _AssetIcon('assets/ui/Icons/icon-check.png', size: size * 0.63)
-          : null,
     );
   }
 }

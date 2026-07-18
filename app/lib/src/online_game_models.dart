@@ -1,6 +1,7 @@
 import 'c_engine_action_codec.dart';
 import 'c_engine_bridge.dart';
 import 'app_settings.dart';
+import 'json_shape.dart';
 import 'render_model.dart';
 import 'saved_game_store.dart';
 
@@ -87,9 +88,9 @@ class OnlineEngineAction {
       kind: json['kind'] as int,
       playerID: json['playerID'] as int,
       suit: json['suit'] as int? ?? -1,
-      card: OnlineEngineCard.fromJson(_objectMap(json['card'])),
-      handCard: OnlineEngineCard.fromJson(_objectMap(json['handCard'])),
-      plotCard: OnlineEngineCard.fromJson(_objectMap(json['plotCard'])),
+      card: OnlineEngineCard.fromJson(jsonObject(json['card'])),
+      handCard: OnlineEngineCard.fromJson(jsonObject(json['handCard'])),
+      plotCard: OnlineEngineCard.fromJson(jsonObject(json['plotCard'])),
       plotZone: json['plotZone'] as int? ?? -1,
       targetSuit: json['targetSuit'] as int? ?? -1,
     );
@@ -162,8 +163,8 @@ class OnlinePlayerSnapshot {
       brigadeLeader: json['brigadeLeader'] as bool,
       wonTrickThisYear: json['wonTrickThisYear'] as bool,
       stacks: [
-        for (final value in _objectList(json['stacks']))
-          OnlinePlotStackSnapshot.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['stacks']))
+          OnlinePlotStackSnapshot.fromJson(jsonObject(value)),
       ],
     );
   }
@@ -200,7 +201,7 @@ class OnlineTrickPlaySnapshot {
   static OnlineTrickPlaySnapshot fromJson(Map<String, Object?> json) {
     return OnlineTrickPlaySnapshot(
       playerID: json['playerID'] as int,
-      card: OnlineEngineCard.fromJson(_objectMap(json['card'])),
+      card: OnlineEngineCard.fromJson(jsonObject(json['card'])),
     );
   }
 }
@@ -258,7 +259,7 @@ class OnlineAssignmentSnapshot {
 
   static OnlineAssignmentSnapshot fromJson(Map<String, Object?> json) {
     return OnlineAssignmentSnapshot(
-      card: OnlineEngineCard.fromJson(_objectMap(json['card'])),
+      card: OnlineEngineCard.fromJson(jsonObject(json['card'])),
       targetSuit: json['targetSuit'] as int,
     );
   }
@@ -281,7 +282,7 @@ class OnlineRequisitionSnapshot {
     return OnlineRequisitionSnapshot(
       playerID: json['playerID'] as int,
       suit: json['suit'] as int,
-      card: OnlineEngineCard.fromJson(_objectMap(json['card'])),
+      card: OnlineEngineCard.fromJson(jsonObject(json['card'])),
       message: json['message'] as String,
     );
   }
@@ -413,16 +414,16 @@ class OnlineComradesResponse {
       userID: json['userID'] as String?,
       comradeCode: json['comradeCode'] as String?,
       comrades: [
-        for (final value in _objectList(json['comrades'] ?? const []))
-          OnlineComradeProfile.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['comrades'] ?? const []))
+          OnlineComradeProfile.fromJson(jsonObject(value)),
       ],
       incomingRequests: [
-        for (final value in _objectList(json['incomingRequests'] ?? const []))
-          OnlineComradeProfile.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['incomingRequests'] ?? const []))
+          OnlineComradeProfile.fromJson(jsonObject(value)),
       ],
       outgoingRequests: [
-        for (final value in _objectList(json['outgoingRequests'] ?? const []))
-          OnlineComradeProfile.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['outgoingRequests'] ?? const []))
+          OnlineComradeProfile.fromJson(jsonObject(value)),
       ],
     );
   }
@@ -506,50 +507,50 @@ class OnlineEngineSnapshot {
       trickCount: json['trickCount'] as int,
       isFamine: json['isFamine'] as bool,
       players: [
-        for (final value in _objectList(json['players']))
-          OnlinePlayerSnapshot.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['players']))
+          OnlinePlayerSnapshot.fromJson(jsonObject(value)),
       ],
       jobPiles: _suitCards(json['jobPiles']),
       revealedJobs: _suitCards(json['revealedJobs']),
       claimedJobs: _ints(json['claimedJobs']),
       workHours: [
-        for (final value in _objectList(json['workHours']))
-          OnlineSuitValueSnapshot.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['workHours']))
+          OnlineSuitValueSnapshot.fromJson(jsonObject(value)),
       ],
       jobBuckets: _suitCards(json['jobBuckets']),
       accumulatedJobCards: _suitCards(json['accumulatedJobCards']),
       currentTrick: [
-        for (final value in _objectList(json['currentTrick']))
-          OnlineTrickPlaySnapshot.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['currentTrick']))
+          OnlineTrickPlaySnapshot.fromJson(jsonObject(value)),
       ],
       lastTrick: [
-        for (final value in _objectList(json['lastTrick']))
-          OnlineTrickPlaySnapshot.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['lastTrick']))
+          OnlineTrickPlaySnapshot.fromJson(jsonObject(value)),
       ],
       lastWinner: json['lastWinner'] as int,
       exiled: _suitCards(json['exiled']),
       exiledPlayers: [
-        for (final value in _objectList(json['exiledPlayers'] ?? const []))
-          OnlineSuitPlayersSnapshot.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['exiledPlayers'] ?? const []))
+          OnlineSuitPlayersSnapshot.fromJson(jsonObject(value)),
       ],
       pendingAssignments: [
-        for (final value in _objectList(json['pendingAssignments']))
-          OnlineAssignmentSnapshot.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['pendingAssignments']))
+          OnlineAssignmentSnapshot.fromJson(jsonObject(value)),
       ],
       requisitionEvents: [
-        for (final value in _objectList(json['requisitionEvents']))
-          OnlineRequisitionSnapshot.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['requisitionEvents']))
+          OnlineRequisitionSnapshot.fromJson(jsonObject(value)),
       ],
       scores: [
-        for (final value in _objectList(json['scores']))
-          OnlineScoreSnapshot.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['scores']))
+          OnlineScoreSnapshot.fromJson(jsonObject(value)),
       ],
       winnerID: json['winnerID'] as int,
       swapConfirmed: _ints(json['swapConfirmed']),
       swapCount: _ints(json['swapCount']),
       passConfirmed: _ints(json['passConfirmed'] ?? const []),
       finalYearTrumpCard: OnlineEngineCard.fromJson(
-        _objectMap(
+        jsonObject(
           json['finalYearTrumpCard'] ?? const {'suit': -1, 'value': 0},
         ),
       ),
@@ -624,7 +625,7 @@ class OnlineReplayEvent {
       OnlineReplayEvent(
         revision: json['revision'] as int,
         kind: json['kind'] as String,
-        action: OnlineEngineAction.fromJson(_objectMap(json['action'])),
+        action: OnlineEngineAction.fromJson(jsonObject(json['action'])),
         createdAt: (json['createdAt'] as num).toDouble(),
       );
 }
@@ -650,19 +651,19 @@ class OnlineGameReplay {
       OnlineGameReplay(
         sessionID: json['sessionID'] as String,
         seed: json['seed'] as int,
-        variants: variantsFromJson(_objectMap(json['variants'])),
+        variants: variantsFromJson(jsonObject(json['variants'])),
         controllers: [
-          for (final value in _objectList(json['controllers']))
+          for (final value in jsonList(json['controllers']))
             controllerFromJson(value),
         ],
         ranked: json['ranked'] as bool? ?? false,
         results: [
-          for (final value in _objectList(json['results']))
-            OnlineReplayResult.fromJson(_objectMap(value)),
+          for (final value in jsonList(json['results']))
+            OnlineReplayResult.fromJson(jsonObject(value)),
         ],
         events: [
-          for (final value in _objectList(json['events']))
-            OnlineReplayEvent.fromJson(_objectMap(value)),
+          for (final value in jsonList(json['events']))
+            OnlineReplayEvent.fromJson(jsonObject(value)),
         ],
       );
 }
@@ -696,8 +697,8 @@ class OnlineDailyChallenge {
       seed: json['seed'] as int,
       bestScore: attempt is Map ? attempt['score'] as int? : null,
       leaders: [
-        for (final value in _objectList(json['leaders'] ?? const []))
-          OnlineDailyLeader.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['leaders'] ?? const []))
+          OnlineDailyLeader.fromJson(jsonObject(value)),
       ],
     );
   }
@@ -845,11 +846,11 @@ class OnlineWeeklyTournament {
       forfeited: json['forfeited'] as bool? ?? false,
       entrantCount: json['entrantCount'] as int? ?? 0,
       standings: [
-        for (final value in _objectList(json['standings'] ?? const []))
-          OnlineTournamentStanding.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['standings'] ?? const []))
+          OnlineTournamentStanding.fromJson(jsonObject(value)),
       ],
       table: rawTable is Map
-          ? OnlineTournamentTable.fromJson(_objectMap(rawTable))
+          ? OnlineTournamentTable.fromJson(jsonObject(rawTable))
           : null,
     );
   }
@@ -922,43 +923,43 @@ class OnlineSessionUpdate {
       actionLogCount: json['actionLogCount'] as int,
       isViewerTurn: json['isViewerTurn'] as bool? ?? false,
       legalActions: [
-        for (final value in _objectList(json['legalActions'] ?? const []))
-          OnlineEngineAction.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['legalActions'] ?? const []))
+          OnlineEngineAction.fromJson(jsonObject(value)),
       ],
-      variants: variantsFromJson(_objectMap(json['variants'])),
+      variants: variantsFromJson(jsonObject(json['variants'])),
       controllers: KolkhozPlayerController.normalized([
-        for (final value in _objectList(json['controllers']))
+        for (final value in jsonList(json['controllers']))
           controllerFromJson(value),
       ]),
       playerProfiles: [
-        for (final value in _objectList(json['playerProfiles'] ?? const []))
-          OnlinePlayerProfile.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['playerProfiles'] ?? const []))
+          OnlinePlayerProfile.fromJson(jsonObject(value)),
       ],
       ranked: json['ranked'] as bool? ?? true,
       browserJoinable: json['browserJoinable'] as bool? ?? true,
       seatPresence: [
-        for (final value in _objectList(json['seatPresence'] ?? const []))
-          OnlineSeatPresence.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['seatPresence'] ?? const []))
+          OnlineSeatPresence.fromJson(jsonObject(value)),
       ],
       turnPlayerID: json['turnPlayerID'] as int?,
       turnDeadlineAt: (json['turnDeadlineAt'] as num?)?.toDouble(),
       started: json['started'] as bool? ?? true,
       lobbyCountdownEndsAt: (json['lobbyCountdownEndsAt'] as num?)?.toDouble(),
       gameLogActions: [
-        for (final value in _objectList(json['gameLogActions'] ?? const []))
-          OnlineEngineAction.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['gameLogActions'] ?? const []))
+          OnlineEngineAction.fromJson(jsonObject(value)),
       ],
       reactions: [
-        for (final value in _objectList(json['reactions'] ?? const []))
-          OnlineReaction.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['reactions'] ?? const []))
+          OnlineReaction.fromJson(jsonObject(value)),
       ],
       series: json['series'] is Map
-          ? OnlineSeriesStatus.fromJson(_objectMap(json['series']))
+          ? OnlineSeriesStatus.fromJson(jsonObject(json['series']))
           : null,
       tournament: json['tournament'] is Map
-          ? OnlineTournamentGameStatus.fromJson(_objectMap(json['tournament']))
+          ? OnlineTournamentGameStatus.fromJson(jsonObject(json['tournament']))
           : null,
-      snapshot: OnlineEngineSnapshot.fromJson(_objectMap(json['snapshot'])),
+      snapshot: OnlineEngineSnapshot.fromJson(jsonObject(json['snapshot'])),
     );
   }
 
@@ -1009,7 +1010,7 @@ class OnlineSeriesStatus {
   int winsFor(int playerID) => wins[playerID] ?? 0;
 
   factory OnlineSeriesStatus.fromJson(Map<String, Object?> json) {
-    final rawWins = _objectMap(json['wins'] ?? const <String, Object?>{});
+    final rawWins = jsonObject(json['wins'] ?? const <String, Object?>{});
     return OnlineSeriesStatus(
       seriesID: json['seriesID'] as String,
       bestOf: json['bestOf'] as int,
@@ -1103,7 +1104,7 @@ class OnlineSessionResponse {
       inviteCode: json['inviteCode'] as String? ?? json['sessionID'] as String,
       playerID: json['playerID'] as int,
       seatToken: json['seatToken'] as String,
-      update: OnlineSessionUpdate.fromJson(_objectMap(json['update'])),
+      update: OnlineSessionUpdate.fromJson(jsonObject(json['update'])),
     );
   }
 }
@@ -1148,7 +1149,7 @@ class OnlinePresenceHeartbeat {
       status: OnlineServerStatus.fromJson(json),
       activeSession: active == null
           ? null
-          : OnlineActiveSession.fromJson(_objectMap(active)),
+          : OnlineActiveSession.fromJson(jsonObject(active)),
     );
   }
 }
@@ -1167,8 +1168,8 @@ class OnlineActionUpdate {
   static OnlineActionUpdate fromJson(Map<String, Object?> json) {
     return OnlineActionUpdate(
       revision: json['revision'] as int,
-      action: OnlineEngineAction.fromJson(_objectMap(json['action'])),
-      update: OnlineSessionUpdate.fromJson(_objectMap(json['update'])),
+      action: OnlineEngineAction.fromJson(jsonObject(json['action'])),
+      update: OnlineSessionUpdate.fromJson(jsonObject(json['update'])),
     );
   }
 }
@@ -1191,12 +1192,12 @@ class OnlineActionUpdatesResponse {
       sessionID: json['sessionID'] as String,
       actionLogCount: json['actionLogCount'] as int,
       updates: [
-        for (final value in _objectList(json['updates'] ?? const []))
-          OnlineActionUpdate.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['updates'] ?? const []))
+          OnlineActionUpdate.fromJson(jsonObject(value)),
       ],
       resyncUpdate: json['resyncUpdate'] == null
           ? null
-          : OnlineSessionUpdate.fromJson(_objectMap(json['resyncUpdate'])),
+          : OnlineSessionUpdate.fromJson(jsonObject(json['resyncUpdate'])),
     );
   }
 }
@@ -1268,18 +1269,18 @@ class OnlineSessionListing {
       openSeats: _ints(json['openSeats']),
       occupiedSeats: _ints(json['occupiedSeats']),
       controllers: KolkhozPlayerController.normalized([
-        for (final value in _objectList(json['controllers']))
+        for (final value in jsonList(json['controllers']))
           controllerFromJson(value),
       ]),
       playerProfiles: [
-        for (final value in _objectList(json['playerProfiles'] ?? const []))
-          OnlinePlayerProfile.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['playerProfiles'] ?? const []))
+          OnlinePlayerProfile.fromJson(jsonObject(value)),
       ],
       ranked: json['ranked'] as bool? ?? true,
       browserJoinable: json['browserJoinable'] as bool? ?? true,
       seatPresence: [
-        for (final value in _objectList(json['seatPresence'] ?? const []))
-          OnlineSeatPresence.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['seatPresence'] ?? const []))
+          OnlineSeatPresence.fromJson(jsonObject(value)),
       ],
       turnPlayerID: json['turnPlayerID'] as int?,
       turnDeadlineAt: (json['turnDeadlineAt'] as num?)?.toDouble(),
@@ -1336,15 +1337,15 @@ class OnlineSessionInvite {
       openSeats: _ints(json['openSeats']),
       occupiedSeats: _ints(json['occupiedSeats']),
       controllers: KolkhozPlayerController.normalized([
-        for (final value in _objectList(json['controllers']))
+        for (final value in jsonList(json['controllers']))
           controllerFromJson(value),
       ]),
       playerProfiles: [
-        for (final value in _objectList(json['playerProfiles'] ?? const []))
-          OnlinePlayerProfile.fromJson(_objectMap(value)),
+        for (final value in jsonList(json['playerProfiles'] ?? const []))
+          OnlinePlayerProfile.fromJson(jsonObject(value)),
       ],
       hostProfile: hostProfileJson is Map
-          ? OnlinePlayerProfile.fromJson(_objectMap(hostProfileJson))
+          ? OnlinePlayerProfile.fromJson(jsonObject(hostProfileJson))
           : null,
       ranked: json['ranked'] as bool? ?? false,
       browserJoinable: json['browserJoinable'] as bool? ?? false,
@@ -1362,7 +1363,7 @@ class OnlineServerStatus {
   final int citizensOnline;
 
   static OnlineServerStatus fromJson(Map<String, Object?> json) {
-    final service = _objectMap(json['service']);
+    final service = jsonObject(json['service']);
     return OnlineServerStatus(
       citizensOnline: _nonNegativeInt(
         service['citizensOnline'] ?? service['activeSeats'],
@@ -1373,44 +1374,24 @@ class OnlineServerStatus {
 
 List<OnlineEngineCard> _cards(Object? value) {
   return [
-    for (final card in _objectList(value))
-      OnlineEngineCard.fromJson(_objectMap(card)),
+    for (final card in jsonList(value))
+      OnlineEngineCard.fromJson(jsonObject(card)),
   ];
 }
 
 List<OnlineSuitCardsSnapshot> _suitCards(Object? value) {
   return [
-    for (final entry in _objectList(value))
-      OnlineSuitCardsSnapshot.fromJson(_objectMap(entry)),
+    for (final entry in jsonList(value))
+      OnlineSuitCardsSnapshot.fromJson(jsonObject(entry)),
   ];
 }
 
 List<int> _ints(Object? value) {
-  return [for (final entry in _objectList(value)) entry as int];
+  return [for (final entry in jsonList(value)) entry as int];
 }
 
 int _nonNegativeInt(Object? value) {
   return value is int && value >= 0 ? value : 0;
-}
-
-Map<String, Object?> _objectMap(Object? value) {
-  if (value is Map<String, Object?>) {
-    return value;
-  }
-  if (value is Map) {
-    return value.cast<String, Object?>();
-  }
-  throw const FormatException('Expected object');
-}
-
-List<Object?> _objectList(Object? value) {
-  if (value is List<Object?>) {
-    return value;
-  }
-  if (value is List) {
-    return value.cast<Object?>();
-  }
-  throw const FormatException('Expected list');
 }
 
 DateTime? _dateTimeFromEpochSeconds(Object? value) {
@@ -1425,7 +1406,3 @@ DateTime? _dateTimeFromEpochSeconds(Object? value) {
   }
   return null;
 }
-
-Map<String, Object?> onlineObjectMap(Object? value) => _objectMap(value);
-
-List<Object?> onlineObjectList(Object? value) => _objectList(value);

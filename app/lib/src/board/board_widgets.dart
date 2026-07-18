@@ -1388,37 +1388,3 @@ class PortraitFrame extends StatelessWidget {
     );
   }
 }
-
-class NegativeSpacingColumn extends StatelessWidget {
-  const NegativeSpacingColumn({
-    required this.children,
-    required this.spacing,
-    required this.itemHeight,
-    this.bottomPadding = 0,
-    super.key,
-  });
-
-  final List<Widget> children;
-  final double spacing;
-  final double itemHeight;
-  final double bottomPadding;
-
-  @override
-  Widget build(BuildContext context) {
-    if (children.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final step = itemHeight + spacing;
-    final height = itemHeight + step * (children.length - 1) + bottomPadding;
-    return SizedBox(
-      height: height,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          for (final (index, child) in children.indexed)
-            Positioned(top: index * step, left: 0, child: child),
-        ],
-      ),
-    );
-  }
-}

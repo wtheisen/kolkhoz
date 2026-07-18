@@ -21,6 +21,7 @@ import 'game_constants.dart';
 import 'game_sound.dart';
 import 'board_view.dart';
 import 'live_game_store.dart';
+import 'json_shape.dart';
 import 'online_game_models.dart';
 import 'online_game_client.dart';
 import 'pixel_text.dart';
@@ -715,7 +716,6 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
               onCloudSignIn: signInWithSupabase,
               onCloudSignUp: signUpWithSupabase,
               onCloudResetPassword: resetSupabasePassword,
-              onCloudSignOut: signOutOfSupabase,
               onCloudDeleteAccount: deleteSupabaseAccount,
               onComradesChanged: updateComradesSummary,
               onComradeRequestToUser: requestComradeByUserID,
@@ -1564,20 +1564,6 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
           KolkhozText.kolkhozappAccountCreated,
         );
       }
-      cloudAuthIsError = false;
-    });
-  }
-
-  Future<void> signOutOfSupabase() async {
-    await runCloudAuthAction(() async {
-      final client = KolkhozSupabaseRuntime.instance.client!;
-      await pushNotifications.unregister();
-      await client.auth.signOut();
-      await commerce.attachUser(null, cachedFullGame: false);
-      comradesSummary = const OnlineComradesResponse();
-      dismissedInviteSessionIDs.clear();
-      activeInviteDialogSessionID = null;
-      cloudAuthMessage = settings.language.t(KolkhozText.kolkhozappSignedOut);
       cloudAuthIsError = false;
     });
   }

@@ -105,19 +105,9 @@ class _ProfilePanel extends StatefulWidget {
     required this.portraitAsset,
     required this.profileStats,
     required this.progression,
-    required this.cloudConfigured,
-    required this.cloudReady,
     required this.cloudSignedIn,
-    required this.cloudEmail,
-    required this.cloudAuthBusy,
-    required this.cloudAuthMessage,
-    required this.cloudAuthIsError,
     required this.onDisplayNameChanged,
     required this.onPortraitChanged,
-    required this.onCloudSignIn,
-    required this.onCloudSignUp,
-    required this.onCloudResetPassword,
-    required this.onCloudSignOut,
     required this.onCloudDeleteAccount,
     required this.clientFactory,
     required this.onStartDailyChallenge,
@@ -129,19 +119,9 @@ class _ProfilePanel extends StatefulWidget {
   final String portraitAsset;
   final KolkhozProfileStats profileStats;
   final ProgressionState progression;
-  final bool cloudConfigured;
-  final bool cloudReady;
   final bool cloudSignedIn;
-  final String? cloudEmail;
-  final bool cloudAuthBusy;
-  final String? cloudAuthMessage;
-  final bool cloudAuthIsError;
   final ValueChanged<String>? onDisplayNameChanged;
   final ValueChanged<String>? onPortraitChanged;
-  final Future<void> Function(String email, String password)? onCloudSignIn;
-  final Future<void> Function(String email, String password)? onCloudSignUp;
-  final Future<void> Function(String email)? onCloudResetPassword;
-  final Future<void> Function()? onCloudSignOut;
   final Future<void> Function()? onCloudDeleteAccount;
   final KolkhozOnlineClient Function()? clientFactory;
   final Future<void> Function()? onStartDailyChallenge;
@@ -514,11 +494,9 @@ class _AdminOperationsPanelState extends State<_AdminOperationsPanel> {
       );
     }
     final operations = value ?? const <String, Object?>{};
-    final games = onlineObjectList(operations['games'] ?? const []);
-    final suspicious = onlineObjectList(
-      operations['suspiciousGames'] ?? const [],
-    );
-    final outbox = onlineObjectMap(
+    final games = jsonList(operations['games'] ?? const []);
+    final suspicious = jsonList(operations['suspiciousGames'] ?? const []);
+    final outbox = jsonObject(
       operations['notificationOutbox'] ?? const <String, Object?>{},
     );
     return Column(
@@ -554,7 +532,7 @@ class _AdminOperationsPanelState extends State<_AdminOperationsPanel> {
               for (final raw in games)
                 Builder(
                   builder: (_) {
-                    final game = onlineObjectMap(raw);
+                    final game = jsonObject(raw);
                     return ListTile(
                       dense: true,
                       title: Text('${game['sessionID']}'),
@@ -914,32 +892,24 @@ class _CloudAuthPanel extends StatefulWidget {
     required this.language,
     required this.configured,
     required this.ready,
-    required this.signedIn,
-    required this.email,
     required this.busy,
     required this.message,
     required this.messageIsError,
     required this.onSignIn,
     required this.onSignUp,
     required this.onResetPassword,
-    required this.onSignOut,
-    required this.onDeleteAccount,
   });
 
   final DesignTokens tokens;
   final KolkhozLanguage language;
   final bool configured;
   final bool ready;
-  final bool signedIn;
-  final String? email;
   final bool busy;
   final String? message;
   final bool messageIsError;
   final Future<void> Function(String email, String password)? onSignIn;
   final Future<void> Function(String email, String password)? onSignUp;
   final Future<void> Function(String email)? onResetPassword;
-  final Future<void> Function()? onSignOut;
-  final Future<void> Function()? onDeleteAccount;
 
   @override
   State<_CloudAuthPanel> createState() => _CloudAuthPanelState();
@@ -989,34 +959,6 @@ class _CloudAuthPanelState extends State<_CloudAuthPanel> {
     widget.onSignUp?.call(emailController.text, password);
   }
 
-  Future<void> confirmAccountDeletion() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          widget.language.t(KolkhozText.kolkhozappDeleteAccountQuestion),
-        ),
-        content: Text(
-          widget.language.t(KolkhozText.kolkhozappDeleteAccountWarning),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(widget.language.t(KolkhozText.kolkhozappCancel)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red.shade300),
-            child: Text(widget.language.t(KolkhozText.kolkhozappDeleteAccount)),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true && mounted) {
-      await widget.onDeleteAccount?.call();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final status = !widget.configured
@@ -1025,11 +967,6 @@ class _CloudAuthPanelState extends State<_CloudAuthPanel> {
           )
         : !widget.ready
         ? widget.language.t(KolkhozText.kolkhozappCloudProfilesAreStarting)
-        : widget.signedIn
-        ? widget.language.t(KolkhozText.kolkhozappSignedInAsValue1, {
-            'value1': widget.email ?? 'player',
-            'value2': widget.email ?? 'игрок',
-          })
         : widget.language.t(
             KolkhozText.kolkhozappSignInToSyncProfileAndOnlineSeats,
           );
@@ -1046,101 +983,31 @@ class _CloudAuthPanelState extends State<_CloudAuthPanel> {
             fontWeight: FontWeight.w700,
           ),
         ),
-        if (widget.configured && widget.ready && widget.signedIn)
-          Row(
-            spacing: 8,
-            children: [
-              Expanded(
-                child: _VariantRowBackground(
-                  tokens: widget.tokens,
-                  active: true,
-                  child: Row(
-                    spacing: 8,
-                    children: [
-                      const _AssetIcon(
-                        'assets/ui/Icons/icon-status-connected.png',
-                        size: 24,
-                      ),
-                      Expanded(
-                        child: Text(
-                          status,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: kolkhozFontStyle.copyWith(
-                            color: widget.tokens.colors.activeSurfaceText,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 142,
-                height: 42,
-                child: ChromeAssetButton.command(
-                  label: widget.busy
-                      ? widget.language.t(KolkhozText.kolkhozappWorking)
-                      : widget.language.t(KolkhozText.kolkhozappSignOut),
-                  prominent: false,
-                  tokens: widget.tokens,
-                  onPressed: widget.busy || widget.onSignOut == null
-                      ? null
-                      : widget.onSignOut,
-                ),
-              ),
-              SizedBox(
-                width: 128,
-                height: 42,
-                child: TextButton(
-                  onPressed: widget.busy || widget.onDeleteAccount == null
-                      ? null
-                      : confirmAccountDeletion,
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.red.shade300,
-                  ),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      widget.language.t(KolkhozText.kolkhozappDeleteAccount),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          )
-        else
-          _VariantRowBackground(
-            tokens: widget.tokens,
-            active: false,
-            child: Text(
-              status,
-              style: kolkhozFontStyle.copyWith(
-                color: widget.tokens.colors.creamDim,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
+        _VariantRowBackground(
+          tokens: widget.tokens,
+          active: false,
+          child: Text(
+            status,
+            style: kolkhozFontStyle.copyWith(
+              color: widget.tokens.colors.creamDim,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        if (widget.message != null &&
-            (!widget.signedIn || widget.messageIsError))
+        ),
+        if (widget.message != null)
           _OnlineStatusBanner(
             tokens: widget.tokens,
             message: widget.message!,
             isError: widget.messageIsError,
           ),
-        if (widget.configured &&
-            widget.ready &&
-            !widget.signedIn &&
-            localMessage != null)
+        if (widget.configured && widget.ready && localMessage != null)
           _OnlineStatusBanner(
             tokens: widget.tokens,
             message: localMessage!,
             isError: true,
           ),
-        if (widget.configured && widget.ready && !widget.signedIn) ...[
+        if (widget.configured && widget.ready) ...[
           _ProfileTextField(
             tokens: widget.tokens,
             controller: emailController,
@@ -1223,76 +1090,6 @@ class _CloudAuthPanelState extends State<_CloudAuthPanel> {
           ),
         ],
       ],
-    );
-  }
-}
-
-class _ComradesSettingsPanel extends StatefulWidget {
-  const _ComradesSettingsPanel({
-    required this.tokens,
-    required this.language,
-    required this.comradesSummary,
-    required this.cloudConfigured,
-    required this.cloudReady,
-    required this.cloudSignedIn,
-    required this.cloudEmail,
-    required this.cloudAuthBusy,
-    required this.cloudAuthMessage,
-    required this.cloudAuthIsError,
-    required this.onCloudSignIn,
-    required this.onCloudSignUp,
-    required this.onCloudResetPassword,
-    required this.onComradesChanged,
-  });
-
-  final DesignTokens tokens;
-  final KolkhozLanguage language;
-  final OnlineComradesResponse comradesSummary;
-  final bool cloudConfigured;
-  final bool cloudReady;
-  final bool cloudSignedIn;
-  final String? cloudEmail;
-  final bool cloudAuthBusy;
-  final String? cloudAuthMessage;
-  final bool cloudAuthIsError;
-  final Future<void> Function(String email, String password)? onCloudSignIn;
-  final Future<void> Function(String email, String password)? onCloudSignUp;
-  final Future<void> Function(String email)? onCloudResetPassword;
-  final ValueChanged<OnlineComradesResponse>? onComradesChanged;
-
-  @override
-  State<_ComradesSettingsPanel> createState() => _ComradesSettingsPanelState();
-}
-
-class _ComradesSettingsPanelState extends State<_ComradesSettingsPanel> {
-  @override
-  Widget build(BuildContext context) {
-    if (widget.cloudSignedIn) {
-      return _ComradesPanel(
-        tokens: widget.tokens,
-        language: widget.language,
-        initialComrades: widget.comradesSummary,
-        onComradesChanged: widget.onComradesChanged,
-      );
-    }
-
-    return SingleChildScrollView(
-      child: _CloudAuthPanel(
-        tokens: widget.tokens,
-        language: widget.language,
-        configured: widget.cloudConfigured,
-        ready: widget.cloudReady,
-        signedIn: widget.cloudSignedIn,
-        email: widget.cloudEmail,
-        busy: widget.cloudAuthBusy,
-        message: widget.cloudAuthMessage,
-        messageIsError: widget.cloudAuthIsError,
-        onSignIn: widget.onCloudSignIn,
-        onSignUp: widget.onCloudSignUp,
-        onResetPassword: widget.onCloudResetPassword,
-        onSignOut: null,
-        onDeleteAccount: null,
-      ),
     );
   }
 }

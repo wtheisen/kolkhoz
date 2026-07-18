@@ -315,10 +315,14 @@ class PlayerProfilePanel extends StatelessWidget {
                           spacing: 5,
                           children: [
                             if (subtitleIconAsset != null)
-                              _PlayerProfileAssetIcon(
+                              Image.asset(
                                 subtitleIconAsset!,
-                                size: 15,
-                                opacity: muted ? 0.58 : 1,
+                                width: 15,
+                                height: 15,
+                                opacity: AlwaysStoppedAnimation(
+                                  muted ? 0.58 : 1,
+                                ),
+                                filterQuality: FilterQuality.none,
                               ),
                             Expanded(
                               child: Text(
@@ -767,29 +771,6 @@ class _PlayerProfileStatRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _PlayerProfileAssetIcon extends StatelessWidget {
-  const _PlayerProfileAssetIcon(
-    this.asset, {
-    required this.size,
-    this.opacity = 1,
-  });
-
-  final String asset;
-  final double size;
-  final double opacity;
-
-  @override
-  Widget build(BuildContext context) {
-    return Image.asset(
-      asset,
-      width: size,
-      height: size,
-      opacity: AlwaysStoppedAnimation(opacity),
-      filterQuality: FilterQuality.none,
     );
   }
 }

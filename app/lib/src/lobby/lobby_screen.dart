@@ -176,7 +176,6 @@ class StandaloneLobby extends StatelessWidget {
     this.onCloudSignIn,
     this.onCloudSignUp,
     this.onCloudResetPassword,
-    this.onCloudSignOut,
     this.onCloudDeleteAccount,
     this.onComradesChanged,
     this.onComradeRequestToUser,
@@ -288,7 +287,6 @@ class StandaloneLobby extends StatelessWidget {
   final Future<void> Function(String email, String password)? onCloudSignIn;
   final Future<void> Function(String email, String password)? onCloudSignUp;
   final Future<void> Function(String email)? onCloudResetPassword;
-  final Future<void> Function()? onCloudSignOut;
   final Future<void> Function()? onCloudDeleteAccount;
   final ValueChanged<OnlineComradesResponse>? onComradesChanged;
   final Future<void> Function(String userID)? onComradeRequestToUser;
@@ -452,7 +450,6 @@ class StandaloneLobby extends StatelessWidget {
                   onCloudSignIn: onCloudSignIn,
                   onCloudSignUp: onCloudSignUp,
                   onCloudResetPassword: onCloudResetPassword,
-                  onCloudSignOut: onCloudSignOut,
                   onCloudDeleteAccount: onCloudDeleteAccount,
                   onComradesChanged: onComradesChanged,
                   onComradeRequestToUser: onComradeRequestToUser,
@@ -1051,7 +1048,6 @@ class _LobbyPanel extends StatelessWidget {
     required this.onCloudSignIn,
     required this.onCloudSignUp,
     required this.onCloudResetPassword,
-    required this.onCloudSignOut,
     required this.onCloudDeleteAccount,
     required this.onComradesChanged,
     required this.onComradeRequestToUser,
@@ -1157,7 +1153,6 @@ class _LobbyPanel extends StatelessWidget {
   final Future<void> Function(String email, String password)? onCloudSignIn;
   final Future<void> Function(String email, String password)? onCloudSignUp;
   final Future<void> Function(String email)? onCloudResetPassword;
-  final Future<void> Function()? onCloudSignOut;
   final Future<void> Function()? onCloudDeleteAccount;
   final ValueChanged<OnlineComradesResponse>? onComradesChanged;
   final Future<void> Function(String userID)? onComradeRequestToUser;
@@ -1261,7 +1256,6 @@ class _LobbyPanel extends StatelessWidget {
               onCloudSignIn: onCloudSignIn,
               onCloudSignUp: onCloudSignUp,
               onCloudResetPassword: onCloudResetPassword,
-              onCloudSignOut: onCloudSignOut,
               onCloudDeleteAccount: onCloudDeleteAccount,
               onComradesChanged: onComradesChanged,
               onlineClientFactory: onlineClientFactory,
@@ -1377,7 +1371,6 @@ class _SettingsPanel extends StatefulWidget {
     required this.onCloudSignIn,
     required this.onCloudSignUp,
     required this.onCloudResetPassword,
-    required this.onCloudSignOut,
     required this.onCloudDeleteAccount,
     required this.onComradesChanged,
     required this.onlineClientFactory,
@@ -1422,7 +1415,6 @@ class _SettingsPanel extends StatefulWidget {
   final Future<void> Function(String email, String password)? onCloudSignIn;
   final Future<void> Function(String email, String password)? onCloudSignUp;
   final Future<void> Function(String email)? onCloudResetPassword;
-  final Future<void> Function()? onCloudSignOut;
   final Future<void> Function()? onCloudDeleteAccount;
   final ValueChanged<OnlineComradesResponse>? onComradesChanged;
   final KolkhozOnlineClient Function()? onlineClientFactory;
@@ -1452,19 +1444,9 @@ class _SettingsPanelState extends State<_SettingsPanel> {
         portraitAsset: widget.portraitAsset,
         profileStats: widget.profileStats,
         progression: widget.progression,
-        cloudConfigured: widget.cloudConfigured,
-        cloudReady: widget.cloudReady,
         cloudSignedIn: widget.cloudSignedIn,
-        cloudEmail: widget.cloudEmail,
-        cloudAuthBusy: widget.cloudAuthBusy,
-        cloudAuthMessage: widget.cloudAuthMessage,
-        cloudAuthIsError: widget.cloudAuthIsError,
         onDisplayNameChanged: widget.onDisplayNameChanged,
         onPortraitChanged: widget.onPortraitChanged,
-        onCloudSignIn: widget.onCloudSignIn,
-        onCloudSignUp: widget.onCloudSignUp,
-        onCloudResetPassword: widget.onCloudResetPassword,
-        onCloudSignOut: widget.onCloudSignOut,
         onCloudDeleteAccount: widget.onCloudDeleteAccount,
         clientFactory: widget.onlineClientFactory,
         onStartDailyChallenge: widget.onStartDailyChallenge,
@@ -1479,22 +1461,28 @@ class _SettingsPanelState extends State<_SettingsPanel> {
         state: widget.progression,
         tokens: widget.tokens,
       ),
-      KolkhozSettingsTab.comrades => _ComradesSettingsPanel(
-        tokens: widget.tokens,
-        language: widget.language,
-        comradesSummary: widget.comradesSummary,
-        cloudConfigured: widget.cloudConfigured,
-        cloudReady: widget.cloudReady,
-        cloudSignedIn: widget.cloudSignedIn,
-        cloudEmail: widget.cloudEmail,
-        cloudAuthBusy: widget.cloudAuthBusy,
-        cloudAuthMessage: widget.cloudAuthMessage,
-        cloudAuthIsError: widget.cloudAuthIsError,
-        onCloudSignIn: widget.onCloudSignIn,
-        onCloudSignUp: widget.onCloudSignUp,
-        onCloudResetPassword: widget.onCloudResetPassword,
-        onComradesChanged: widget.onComradesChanged,
-      ),
+      KolkhozSettingsTab.comrades =>
+        widget.cloudSignedIn
+            ? _ComradesPanel(
+                tokens: widget.tokens,
+                language: widget.language,
+                initialComrades: widget.comradesSummary,
+                onComradesChanged: widget.onComradesChanged,
+              )
+            : SingleChildScrollView(
+                child: _CloudAuthPanel(
+                  tokens: widget.tokens,
+                  language: widget.language,
+                  configured: widget.cloudConfigured,
+                  ready: widget.cloudReady,
+                  busy: widget.cloudAuthBusy,
+                  message: widget.cloudAuthMessage,
+                  messageIsError: widget.cloudAuthIsError,
+                  onSignIn: widget.onCloudSignIn,
+                  onSignUp: widget.onCloudSignUp,
+                  onResetPassword: widget.onCloudResetPassword,
+                ),
+              ),
       KolkhozSettingsTab.admin => _AdminOperationsPanel(
         tokens: widget.tokens,
         clientFactory: widget.onlineClientFactory,

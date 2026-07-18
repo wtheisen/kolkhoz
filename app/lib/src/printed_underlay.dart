@@ -1,7 +1,6 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import 'art_direction.dart';
 import 'chrome_button.dart';
@@ -84,7 +83,7 @@ class _PrintedUnderlayBackground extends StatelessWidget {
       return ChromeButtonBackground(asset: asset.legacyPath);
     }
     return FutureBuilder<ui.Image>(
-      future: PrintedUnderlayImageCache.load(asset.fieldPlanPath!),
+      future: ChromeImageCache.load(context, asset.fieldPlanPath!),
       builder: (context, snapshot) {
         final image = snapshot.data;
         if (image == null) {
@@ -102,21 +101,6 @@ class _PrintedUnderlayBackground extends StatelessWidget {
         );
       },
     );
-  }
-}
-
-class PrintedUnderlayImageCache {
-  static final Map<String, Future<ui.Image>> _images = {};
-
-  static Future<ui.Image> load(String asset) {
-    return _images.putIfAbsent(asset, () async {
-      final bytes = await rootBundle.load(asset);
-      final codec = await ui.instantiateImageCodec(
-        bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes),
-      );
-      final frame = await codec.getNextFrame();
-      return frame.image;
-    });
   }
 }
 

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'c_engine_bridge.dart';
+import 'json_shape.dart';
 import 'render_model.dart';
 
 class KolkhozSavedGamePayload {
@@ -40,18 +41,18 @@ class KolkhozSavedGamePayload {
     return KolkhozSavedGamePayload(
       version: version as int,
       seed: json['seed'] as int,
-      variants: variantsFromJson(_objectMap(json['variants'])),
+      variants: variantsFromJson(jsonObject(json['variants'])),
       controllers: KolkhozPlayerController.normalized([
-        for (final value in _objectList(json['controllers']))
+        for (final value in jsonList(json['controllers']))
           controllerFromJson(value),
       ]),
       actions: [
-        for (final value in _objectList(json['actions']))
-          engineActionFromJson(_objectMap(value)),
+        for (final value in jsonList(json['actions']))
+          engineActionFromJson(jsonObject(value)),
       ],
       gameLogActions: [
-        for (final value in _objectList(json['gameLogActions'] ?? const []))
-          engineActionFromJson(_objectMap(value)),
+        for (final value in jsonList(json['gameLogActions'] ?? const []))
+          engineActionFromJson(jsonObject(value)),
       ],
     );
   }
@@ -221,26 +222,6 @@ EngineCard? optionalEngineCardFromJson(Object? value) {
   if (value == null) {
     return null;
   }
-  final json = _objectMap(value);
+  final json = jsonObject(value);
   return EngineCard(suit: json['suit'] as String, value: json['value'] as int);
-}
-
-Map<String, Object?> _objectMap(Object? value) {
-  if (value is Map<String, Object?>) {
-    return value;
-  }
-  if (value is Map) {
-    return value.cast<String, Object?>();
-  }
-  throw const FormatException('Expected object');
-}
-
-List<Object?> _objectList(Object? value) {
-  if (value is List<Object?>) {
-    return value;
-  }
-  if (value is List) {
-    return value.cast<Object?>();
-  }
-  throw const FormatException('Expected list');
 }

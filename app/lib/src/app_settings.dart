@@ -10,6 +10,7 @@ import 'c_engine_bridge.dart';
 import 'design_tokens.dart';
 import 'field_plan_assets.dart';
 import 'game_constants.dart';
+import 'json_shape.dart';
 import 'progression/progression.dart';
 
 const defaultProfileDisplayName = 'Player';
@@ -307,7 +308,7 @@ class KolkhozFavoriteSetup {
     }
     try {
       final json = value.cast<String, Object?>();
-      final variantsJson = _objectMap(json['variants']);
+      final variantsJson = jsonObject(json['variants']);
       return KolkhozFavoriteSetup(
         variants: KolkhozGameVariants(
           deckType: variantsJson['deckType'] as int,
@@ -328,11 +329,11 @@ class KolkhozFavoriteSetup {
           lottoRewards: variantsJson['lottoRewards'] as bool? ?? false,
         ),
         controllers: KolkhozPlayerController.normalized([
-          for (final controller in _objectList(json['controllers']))
+          for (final controller in jsonList(json['controllers']))
             _controllerFromJson(controller),
         ]),
         lobbySeats: [
-          for (final seat in _objectListOrEmpty(json['lobby-seats']))
+          for (final seat in _jsonListOrEmpty(json['lobby-seats']))
             if (seat is String) seat,
         ],
         browserJoinable: json['browser-joinable'] as bool? ?? true,
@@ -343,31 +344,11 @@ class KolkhozFavoriteSetup {
   }
 }
 
-Map<String, Object?> _objectMap(Object? value) {
-  if (value is Map<String, Object?>) {
-    return value;
-  }
-  if (value is Map) {
-    return value.cast<String, Object?>();
-  }
-  throw const FormatException('Expected object');
-}
-
-List<Object?> _objectList(Object? value) {
-  if (value is List<Object?>) {
-    return value;
-  }
-  if (value is List) {
-    return value.cast<Object?>();
-  }
-  throw const FormatException('Expected list');
-}
-
-List<Object?> _objectListOrEmpty(Object? value) {
+List<Object?> _jsonListOrEmpty(Object? value) {
   if (value == null) {
     return const [];
   }
-  return _objectList(value);
+  return jsonList(value);
 }
 
 KolkhozPlayerController _controllerFromJson(Object? value) {
