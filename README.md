@@ -58,8 +58,10 @@ Run the combined Flutter source gate:
 scripts/verify_flutter_source_gate.sh
 ```
 
-Windows release builds run in CI and can be produced on Windows from `app/` with
-`dart run tool/sync_policy_assets.dart` followed by `flutter build windows --release`.
+Windows release builds can be published on demand from the GitHub Actions
+`Publish Windows release` workflow. They can also be produced locally on Windows from
+`app/` with `dart run tool/sync_policy_assets.dart` followed by
+`flutter build windows --release`.
 
 ## Game Flow
 
