@@ -54,8 +54,8 @@ jobs:
           if ($env:RELEASE_TAG -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
             throw "Release tag may contain only letters, numbers, dots, underscores, and hyphens"
           }
-          gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY 2>$null
-          if ($LASTEXITCODE -eq 0) {
+          $existingTags = gh api "repos/$env:GITHUB_REPOSITORY/releases" --paginate --jq '.[].tag_name'
+          if ($existingTags -contains $env:RELEASE_TAG) {
             throw "Release $env:RELEASE_TAG already exists; choose a new tag"
           }
 
