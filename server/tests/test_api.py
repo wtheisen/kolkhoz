@@ -17,6 +17,11 @@ from server.kolkhoz_server.commerce import (
     PurchaseVerificationError,
     VerifiedPurchase,
 )
+from server.kolkhoz_server.steam_commerce import (
+    InMemorySteamOrderRepository,
+    SteamPurchaseService,
+    SteamTransaction,
+)
 from server.tests.test_runtime import FakeEngineFactory
 
 
@@ -185,6 +190,53 @@ class CompatibilityApiTests(unittest.TestCase):
         self.assertEqual(guest_status, 403)
         owner_status, _ = self.request("GET", "/sessions", bearer="host-token")
         self.assertEqual(owner_status, 200)
+
+    def test_steam_wallet_purchase_uses_authenticated_account(self) -> None:
+        class Gateway:
+            app_id = 1234
+
+            def authenticate_ticket(self, ticket: str) -> str:
+                self.ticket = ticket
+                return "76561198000000000"
+
+            def initialize_transaction(
+                self, *, order_id: int, steam_id: str, language: str
+            ) -> SteamTransaction:
+                return SteamTransaction(order_id, "steam-txn", "initialized")
+
+            def finalize_transaction(self, order_id: int) -> SteamTransaction:
+                return SteamTransaction(order_id, "steam-txn", "succeeded")
+
+            def query_transaction(self, order_id: int) -> SteamTransaction:
+                return SteamTransaction(order_id, "steam-txn", "succeeded")
+
+        commerce = CommerceService(InMemoryEntitlementRepository(), {})
+        gateway = Gateway()
+        self.application.commerce = commerce
+        self.application.steam_commerce = SteamPurchaseService(
+            commerce, InMemorySteamOrderRepository(), gateway
+        )
+
+        missing, _ = self.request(
+            "POST", "/commerce/providers/steam/purchases", {"ticket": "ticket"}
+        )
+        self.assertEqual(missing, 401)
+        started_status, started = self.request(
+            "POST",
+            "/commerce/providers/steam/purchases",
+            {"ticket": "ticket", "language": "en"},
+            bearer="host-token",
+        )
+        self.assertEqual(started_status, 200)
+        self.assertEqual(gateway.ticket, "ticket")
+        finalized_status, finalized = self.request(
+            "POST",
+            f"/commerce/providers/steam/purchases/{started['orderID']}/authorize",
+            {"authorized": True},
+            bearer="host-token",
+        )
+        self.assertEqual(finalized_status, 200)
+        self.assertTrue(finalized["fullGame"])
 
     def test_installation_registration_is_authenticated_and_owned(self) -> None:
         class Installations:

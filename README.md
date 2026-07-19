@@ -63,6 +63,10 @@ Windows release builds can be published on demand from the GitHub Actions
 `app/` with `dart run tool/sync_policy_assets.dart` followed by
 `flutter build windows --release`.
 
+Steam Early Access uses a separate Steamworks-enabled entrypoint, Steam Wallet
+checkout, account-wide entitlement linking, and refund reconciliation. See
+[`docs/STEAM_EARLY_ACCESS.md`](docs/STEAM_EARLY_ACCESS.md) for setup and release steps.
+
 ## Game Flow
 
 1. **Planning** - Reveal jobs and set trump. Year 5 is famine and has no trump.

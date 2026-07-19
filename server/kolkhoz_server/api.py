@@ -30,6 +30,7 @@ from .results import ResultsRepository
 from .notifications import NotificationService, NotificationRepository
 from .operations import PostgresOperationsRepository
 from .commerce import CommerceService, PurchaseAlreadyClaimed, PurchaseVerificationError
+from .steam_commerce import SteamCommerceError, SteamPurchaseService
 from .accounts import AccountDeletionError, AccountDeletionService
 from .identity import CredentialError, IdentityService, LinkError
 from .tournament import TournamentRepository, TournamentTablePlan
@@ -74,6 +75,7 @@ class OnlineApplication:
         notification_repository: NotificationRepository | None = None,
         operations: PostgresOperationsRepository | None = None,
         commerce: CommerceService | None = None,
+        steam_commerce: SteamPurchaseService | None = None,
         accounts: AccountDeletionService | None = None,
         identity: IdentityService | None = None,
         require_full_game: bool = False,
@@ -93,6 +95,7 @@ class OnlineApplication:
         self.notification_repository = notification_repository
         self.operations = operations
         self.commerce = commerce
+        self.steam_commerce = steam_commerce
         self.accounts = accounts
         self.identity = identity
         self.require_full_game = require_full_game
@@ -101,6 +104,13 @@ class OnlineApplication:
         self.session_ttl_seconds = session_ttl_seconds
         self.presence_ttl_seconds = presence_ttl_seconds
         self.lobby_countdown_seconds = max(0.0, lobby_countdown_seconds)
+
+    def _steam_commerce(self) -> SteamPurchaseService:
+        if self.steam_commerce is None:
+            raise ServerError(
+                HTTPStatus.SERVICE_UNAVAILABLE, "Steam commerce is not configured"
+            )
+        return self.steam_commerce
 
     def dispatch(self, request: Request) -> Response:
         parsed = urlsplit(request.target)
@@ -142,7 +152,8 @@ class OnlineApplication:
                             params["provider"],
                             credential,
                             display_name=str(request.body.get("displayName") or ""),
-                            device_id=_header(request.headers, "X-Kolkhoz-Device-ID") or "",
+                            device_id=_header(request.headers, "X-Kolkhoz-Device-ID")
+                            or "",
                             claim_player_id=user_id,
                         ),
                     )
@@ -152,7 +163,8 @@ class OnlineApplication:
                         self.identity.guest(
                             str(request.body.get("installationID") or ""),
                             display_name=str(request.body.get("displayName") or ""),
-                            device_id=_header(request.headers, "X-Kolkhoz-Device-ID") or "",
+                            device_id=_header(request.headers, "X-Kolkhoz-Device-ID")
+                            or "",
                         ),
                     )
                 player_id = self._require_user(user_id)
@@ -175,7 +187,9 @@ class OnlineApplication:
                 if operation == "identity.links.redeem":
                     return Response(
                         HTTPStatus.OK,
-                        self.identity.redeem(player_id, str(request.body.get("code") or "")),
+                        self.identity.redeem(
+                            player_id, str(request.body.get("code") or "")
+                        ),
                     )
                 return Response(
                     HTTPStatus.OK,
@@ -302,6 +316,38 @@ class OnlineApplication:
             except PurchaseVerificationError as error:
                 raise ServerError(HTTPStatus.BAD_REQUEST, str(error)) from error
             return Response(HTTPStatus.OK, {"accepted": True})
+        if operation == "commerce.steam.purchases.start":
+            steam = self._steam_commerce()
+            try:
+                value = steam.start(
+                    user_id=self._require_user(user_id),
+                    ticket=str(request.body.get("ticket") or "").strip(),
+                    language=str(request.body.get("language") or "en").strip(),
+                )
+            except SteamCommerceError as error:
+                raise ServerError(HTTPStatus.BAD_REQUEST, str(error)) from error
+            return Response(HTTPStatus.OK, value)
+        if operation == "commerce.steam.purchases.authorize":
+            steam = self._steam_commerce()
+            try:
+                value = steam.authorize(
+                    user_id=self._require_user(user_id),
+                    order_id=int(params["orderID"]),
+                    authorized=request.body.get("authorized") is True,
+                )
+            except (SteamCommerceError, ValueError) as error:
+                raise ServerError(HTTPStatus.BAD_REQUEST, str(error)) from error
+            return Response(HTTPStatus.OK, value)
+        if operation == "commerce.steam.sync":
+            steam = self._steam_commerce()
+            try:
+                value = steam.sync(
+                    user_id=self._require_user(user_id),
+                    ticket=str(request.body.get("ticket") or "").strip(),
+                )
+            except SteamCommerceError as error:
+                raise ServerError(HTTPStatus.BAD_REQUEST, str(error)) from error
+            return Response(HTTPStatus.OK, value)
         if self.require_full_game and operation.startswith(
             ("sessions.", "results.", "challenges.", "tournaments.", "comrades.")
         ):

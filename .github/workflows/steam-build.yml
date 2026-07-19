@@ -1,0 +1,176 @@
+name: Build Steam depot
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_id:
+        description: "Steam AppID"
+        required: true
+        type: string
+      depot_id:
+        description: "Windows depot ID"
+        required: true
+        type: string
+      description:
+        description: "Steam build description"
+        required: true
+        default: "Kolkhoz Early Access candidate"
+        type: string
+      upload_to_steam:
+        description: "Upload the built depot with SteamPipe"
+        required: true
+        default: false
+        type: boolean
+      set_live_branch:
+        description: "Optional Steam branch to set live after upload; blank leaves it unset"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: steam-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    env:
+      KOLKHOZ_SUPABASE_URL: ${{ secrets.KOLKHOZ_SUPABASE_URL }}
+      KOLKHOZ_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.KOLKHOZ_SUPABASE_PUBLISHABLE_KEY }}
+      STEAMWORKS_SDK_URL: ${{ secrets.STEAMWORKS_SDK_URL }}
+      STEAMWORKS_SDK_SHA256: ${{ secrets.STEAMWORKS_SDK_SHA256 }}
+      STEAMWORKS_SDK_AUTHORIZATION: ${{ secrets.STEAMWORKS_SDK_AUTHORIZATION }}
+      STEAM_BUILDER_USERNAME: ${{ secrets.STEAM_BUILDER_USERNAME }}
+      STEAM_BUILDER_PASSWORD: ${{ secrets.STEAM_BUILDER_PASSWORD }}
+      STEAM_CONFIG_VDF_BASE64: ${{ secrets.STEAM_CONFIG_VDF_BASE64 }}
+      STEAM_APP_ID: ${{ inputs.app_id }}
+      STEAM_DEPOT_ID: ${{ inputs.depot_id }}
+      STEAM_BUILD_DESCRIPTION: ${{ inputs.description }}
+      STEAM_LIVE_BRANCH: ${{ inputs.set_live_branch }}
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Validate inputs and unpack Steamworks SDK
+        shell: pwsh
+        run: |
+          if ($env:STEAM_APP_ID -notmatch '^\d+$') { throw 'AppID must be numeric' }
+          if ($env:STEAM_DEPOT_ID -notmatch '^\d+$') { throw 'Depot ID must be numeric' }
+          if ($env:STEAM_BUILD_DESCRIPTION -notmatch '^[A-Za-z0-9 ._-]+$') {
+            throw 'Description contains unsupported characters'
+          }
+          if ($env:STEAM_LIVE_BRANCH -notmatch '^[A-Za-z0-9._-]*$') {
+            throw 'Steam branch contains unsupported characters'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:STEAMWORKS_SDK_URL) -or
+              [string]::IsNullOrWhiteSpace($env:STEAMWORKS_SDK_SHA256)) {
+            throw 'Missing STEAMWORKS_SDK_URL or STEAMWORKS_SDK_SHA256 repository secret'
+          }
+          $archive = Join-Path $env:RUNNER_TEMP 'steamworks-sdk.zip'
+          $headers = @{}
+          if (-not [string]::IsNullOrWhiteSpace($env:STEAMWORKS_SDK_AUTHORIZATION)) {
+            $headers.Authorization = $env:STEAMWORKS_SDK_AUTHORIZATION
+          }
+          Invoke-WebRequest -Uri $env:STEAMWORKS_SDK_URL -Headers $headers -OutFile $archive
+          $actualHash = (Get-FileHash $archive -Algorithm SHA256).Hash
+          if ($actualHash -ne $env:STEAMWORKS_SDK_SHA256) {
+            throw 'Steamworks SDK archive checksum does not match STEAMWORKS_SDK_SHA256'
+          }
+          Expand-Archive $archive (Join-Path $env:RUNNER_TEMP 'steamworks') -Force
+          $sdk = Get-ChildItem (Join-Path $env:RUNNER_TEMP 'steamworks') -Directory -Recurse |
+            Where-Object { Test-Path (Join-Path $_.FullName 'redistributable_bin\win64\steam_api64.dll') } |
+            Select-Object -First 1
+          if ($null -eq $sdk) { throw 'Steamworks SDK archive has no SDK root' }
+          "STEAM_SDK=$($sdk.FullName)" | Out-File $env:GITHUB_ENV -Append
+
+      - name: Build Steam Windows bundle
+        shell: pwsh
+        run: |
+          .\tool\build_steam_windows.ps1 `
+            -AppID $env:STEAM_APP_ID `
+            -SteamSDKPath $env:STEAM_SDK `
+            -SupabaseURL $env:KOLKHOZ_SUPABASE_URL `
+            -SupabasePublishableKey $env:KOLKHOZ_SUPABASE_PUBLISHABLE_KEY
+
+      - name: Analyze and test
+        shell: pwsh
+        env:
+          KOLKHOZ_C_ENGINE_LIB: ${{ github.workspace }}\app\build\windows\x64\runner\Release\kolkhoz_c_engine.dll
+        run: |
+          flutter analyze
+          flutter test test/commerce_test.dart test/parity_gate_test.dart test/progression_test.dart
+
+      - name: Upload candidate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kolkhoz-steam-${{ inputs.app_id }}-${{ github.run_number }}
+          path: app/build/windows/x64/runner/Release/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Prepare SteamPipe build files
+        if: ${{ inputs.upload_to_steam }}
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:STEAM_BUILDER_USERNAME) -or
+              [string]::IsNullOrWhiteSpace($env:STEAM_BUILDER_PASSWORD)) {
+            throw 'Steam upload requires STEAM_BUILDER_USERNAME and STEAM_BUILDER_PASSWORD'
+          }
+          $content = (Resolve-Path 'build/windows/x64/runner/Release').Path
+          $scripts = Join-Path $env:RUNNER_TEMP 'steam-build-scripts'
+          $setLive = if ([string]::IsNullOrWhiteSpace($env:STEAM_LIVE_BRANCH)) {
+            ''
+          } else {
+            '"SetLive" "' + $env:STEAM_LIVE_BRANCH + '"'
+          }
+          New-Item -ItemType Directory $scripts -Force | Out-Null
+          @"
+          "DepotBuildConfig"
+          {
+            "DepotID" "$env:STEAM_DEPOT_ID"
+            "ContentRoot" "$($content.Replace('\', '\\'))"
+            "FileMapping" { "LocalPath" "*" "DepotPath" "." "recursive" "1" }
+            "FileExclusion" "steam_appid.txt"
+          }
+          "@ | Set-Content (Join-Path $scripts 'depot.vdf')
+          @"
+          "AppBuild"
+          {
+            "AppID" "$env:STEAM_APP_ID"
+            "Desc" "$env:STEAM_BUILD_DESCRIPTION"
+            "BuildOutput" "$((Join-Path $env:RUNNER_TEMP 'steam-output').Replace('\', '\\'))"
+            "ContentRoot" "$($content.Replace('\', '\\'))"
+            $setLive
+            "Depots" { "$env:STEAM_DEPOT_ID" "$(Join-Path $scripts 'depot.vdf')" }
+          }
+          "@ | Set-Content (Join-Path $scripts 'app.vdf')
+          "STEAM_BUILD_VDF=$(Join-Path $scripts 'app.vdf')" | Out-File $env:GITHUB_ENV -Append
+
+      - name: Upload with SteamPipe
+        if: ${{ inputs.upload_to_steam }}
+        shell: pwsh
+        run: |
+          $builder = Join-Path $env:STEAM_SDK 'tools\ContentBuilder\builder'
+          if (-not (Test-Path (Join-Path $builder 'steamcmd.exe'))) {
+            throw 'Steamworks SDK is missing ContentBuilder/builder/steamcmd.exe'
+          }
+          if (-not [string]::IsNullOrWhiteSpace($env:STEAM_CONFIG_VDF_BASE64)) {
+            $config = Join-Path $builder 'config\config.vdf'
+            New-Item -ItemType Directory (Split-Path $config) -Force | Out-Null
+            [IO.File]::WriteAllBytes($config, [Convert]::FromBase64String($env:STEAM_CONFIG_VDF_BASE64))
+          }
+          & (Join-Path $builder 'steamcmd.exe') `
+            +login $env:STEAM_BUILDER_USERNAME $env:STEAM_BUILDER_PASSWORD `
+            +run_app_build $env:STEAM_BUILD_VDF +quit
+          if ($LASTEXITCODE -ne 0) { throw "SteamPipe exited with $LASTEXITCODE" }

@@ -52,12 +52,17 @@ class InMemoryEntitlementRepository:
 
     def __init__(self) -> None:
         self.purchases: dict[tuple[str, str], tuple[str, VerifiedPurchase]] = {}
-        self.entitlements: dict[tuple[str, str], bool] = {}
+        self.entitlements: dict[tuple[str, str, str, str], bool] = {}
 
     def active_entitlements(self, *, user_id: str) -> set[str]:
         return {
             entitlement_id
-            for (owner_id, entitlement_id), active in self.entitlements.items()
+            for (
+                owner_id,
+                entitlement_id,
+                _provider,
+                _transaction_id,
+            ), active in self.entitlements.items()
             if owner_id == user_id and active
         }
 
@@ -71,7 +76,14 @@ class InMemoryEntitlementRepository:
                 "purchase is already linked to another account"
             )
         self.purchases[key] = (user_id, purchase)
-        self.entitlements[(user_id, entitlement_id)] = purchase.active
+        self.entitlements[
+            (
+                user_id,
+                entitlement_id,
+                purchase.provider,
+                purchase.original_transaction_id,
+            )
+        ] = purchase.active
 
     def apply_store_status(self, purchase: VerifiedPurchase) -> None:
         existing = self.purchases.get(
@@ -84,7 +96,14 @@ class InMemoryEntitlementRepository:
             user_id,
             purchase,
         )
-        self.entitlements[(user_id, FULL_GAME_ENTITLEMENT)] = purchase.active
+        self.entitlements[
+            (
+                user_id,
+                FULL_GAME_ENTITLEMENT,
+                purchase.provider,
+                purchase.original_transaction_id,
+            )
+        ] = purchase.active
 
 
 class PostgresEntitlementRepository:
@@ -144,10 +163,9 @@ class PostgresEntitlementRepository:
                        (user_id,entitlement_id,active,source_provider,
                         source_transaction_id,updated_at)
                      values (%s::uuid,%s,%s,%s,%s,now())
-                     on conflict (user_id,entitlement_id) do update set
+                     on conflict (user_id,entitlement_id,source_provider,
+                                  source_transaction_id) do update set
                        active=excluded.active,
-                       source_provider=excluded.source_provider,
-                       source_transaction_id=excluded.source_transaction_id,
                        updated_at=now()""",
                 (
                     user_id,
@@ -210,6 +228,11 @@ class CommerceService:
         purchase = verifier.verify_purchase(verification_data)
         if purchase.provider != provider:
             raise PurchaseVerificationError("purchase provider does not match")
+        return self.grant_verified(user_id=user_id, purchase=purchase)
+
+    def grant_verified(
+        self, *, user_id: str, purchase: VerifiedPurchase
+    ) -> dict[str, object]:
         if not purchase.active:
             raise PurchaseVerificationError("purchase is not active")
         if purchase.account_reference.lower() != user_id.lower():
@@ -222,6 +245,9 @@ class CommerceService:
             purchase=purchase,
         )
         return self.status(user_id=user_id)
+
+    def apply_verified_status(self, purchase: VerifiedPurchase) -> None:
+        self.repository.apply_store_status(purchase)
 
     def notification(self, *, provider: str, signed_payload: str) -> None:
         verifier = self.verifiers.get(provider)

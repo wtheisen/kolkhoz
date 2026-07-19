@@ -183,9 +183,7 @@ class CanonicalRouteParityTests(unittest.TestCase):
         self.request("POST", "/identity/guest")
         self.request("POST", "/identity/device-links", bearer="host-token")
         self.request("GET", "/identity/device-links/request-1", bearer="host-token")
-        self.request(
-            "DELETE", "/identity/device-links/request-1", bearer="host-token"
-        )
+        self.request("DELETE", "/identity/device-links/request-1", bearer="host-token")
         self.request("POST", "/identity/device-links/redeem", bearer="host-token")
         self.request(
             "POST",
@@ -204,6 +202,24 @@ class CanonicalRouteParityTests(unittest.TestCase):
             "POST",
             "/commerce/providers/apple/notifications",
             {"signedPayload": "test"},
+        )
+        self.request(
+            "POST",
+            "/commerce/providers/steam/purchases",
+            {"ticket": "test", "language": "en"},
+            bearer="host-token",
+        )
+        self.request(
+            "POST",
+            "/commerce/providers/steam/purchases/1/authorize",
+            {"authorized": True},
+            bearer="host-token",
+        )
+        self.request(
+            "POST",
+            "/commerce/providers/steam/sync",
+            {"ticket": "test"},
+            bearer="host-token",
         )
         self.request(
             "PUT",

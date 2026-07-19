@@ -39,6 +39,10 @@ flutter build windows --release
 The Windows CMake build compiles `kolkhoz_c_engine.dll` from the shared runtime engine
 and installs it beside `kolkhoz_app.exe` in the release bundle.
 
+Steam depot builds use `lib/main_steam.dart` and `tool/build_steam_windows.ps1` so the
+Steamworks runtime is included only in the Steam distribution. See
+`../docs/STEAM_EARLY_ACCESS.md` for Steamworks, server, and SteamPipe setup.
+
 Physical iPhone installs must use profile or release mode if the app needs to launch
 from the home screen. Do not use `flutter build ios --debug` or `flutter install --debug`
 for physical iPhone deployment; iOS 14+ only launches debug-mode Flutter apps from

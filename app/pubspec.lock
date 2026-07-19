@@ -773,6 +773,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.12.1"
+  steamworks:
+    dependency: "direct main"
+    description:
+      name: steamworks
+      sha256: d02d14c6b8fbd9fbe7a90f79ef21dc3fb6b11a582a0b0742744c36f1f43858b9
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.10"
   storage_client:
     dependency: transitive
     description:

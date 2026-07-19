@@ -211,7 +211,9 @@ String safeAccountErrorMessage(Object exception, KolkhozLanguage language) {
 }
 
 class KolkhozApp extends StatefulWidget {
-  const KolkhozApp({super.key});
+  const KolkhozApp({super.key, this.steamPurchaseStore});
+
+  final KolkhozSteamPurchaseStore? steamPurchaseStore;
 
   @override
   State<KolkhozApp> createState() => _KolkhozAppState();
@@ -334,6 +336,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     commerce = KolkhozCommerceController(
       clientFactory: onlineClient,
       onFullGameChanged: cacheFullGameEntitlement,
+      steamPurchaseStore: widget.steamPurchaseStore,
     );
     commerce.addListener(handleCommerceChanged);
     commerce.initialize();

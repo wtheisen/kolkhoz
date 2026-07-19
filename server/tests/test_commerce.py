@@ -79,6 +79,34 @@ class CommerceTests(unittest.TestCase):
         self.service.notification(provider="apple", signed_payload="refund")
         self.assertFalse(self.service.status(user_id="user-1")["fullGame"])
 
+    def test_refund_preserves_an_independent_store_grant(self) -> None:
+        class SteamVerifier:
+            provider = "steam"
+
+            def verify_purchase(self, value: str) -> VerifiedPurchase:
+                return VerifiedPurchase(
+                    provider="steam",
+                    original_transaction_id="steam-order-1",
+                    product_id="full_game",
+                    account_reference="user-1",
+                    active=True,
+                )
+
+            def verify_notification(self, value: str) -> VerifiedPurchase | None:
+                return None
+
+        self.service.verifiers["steam"] = SteamVerifier()
+        self.service.claim(
+            user_id="user-1", provider="apple", verification_data="valid"
+        )
+        self.service.claim(
+            user_id="user-1", provider="steam", verification_data="valid"
+        )
+
+        self.service.notification(provider="apple", signed_payload="refund")
+
+        self.assertTrue(self.service.status(user_id="user-1")["fullGame"])
+
     def test_apple_adapter_uses_storekit_2_signed_transaction(self) -> None:
         class SignedVerifier:
             def verify_and_decode_signed_transaction(self, value: str) -> object:

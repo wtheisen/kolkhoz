@@ -11,6 +11,32 @@ const appleFullGameProductID = 'com.williamtheisen.kolkhoz.fullgame';
 const googleFullGameProductID = 'com.williamtheisen.kolkhoz.fullgame';
 const kolkhozBetaBuild = bool.fromEnvironment('KOLKHOZ_BETA');
 
+class SteamAuthenticationTicket {
+  const SteamAuthenticationTicket({required this.value, required this.handle});
+
+  final String value;
+  final int handle;
+}
+
+class SteamPurchaseAuthorization {
+  const SteamPurchaseAuthorization({
+    required this.orderID,
+    required this.authorized,
+  });
+
+  final String orderID;
+  final bool authorized;
+}
+
+abstract interface class KolkhozSteamPurchaseStore {
+  Stream<SteamPurchaseAuthorization> get authorizationStream;
+
+  Future<bool> initialize();
+  Future<SteamAuthenticationTicket> authenticationTicket();
+  void cancelAuthenticationTicket(int handle);
+  void dispose();
+}
+
 abstract interface class KolkhozPurchaseStore {
   Stream<List<PurchaseDetails>> get purchaseStream;
 
@@ -54,6 +80,7 @@ class KolkhozCommerceController extends ChangeNotifier {
     required this.clientFactory,
     required this.onFullGameChanged,
     this.purchaseStore = const FlutterPurchaseStore(),
+    this.steamPurchaseStore,
     String? productID,
     String? provider,
     this.betaBuild = kolkhozBetaBuild,
@@ -63,11 +90,13 @@ class KolkhozCommerceController extends ChangeNotifier {
   final KolkhozOnlineClient Function() clientFactory;
   final void Function(String userID, bool unlocked) onFullGameChanged;
   final KolkhozPurchaseStore purchaseStore;
+  final KolkhozSteamPurchaseStore? steamPurchaseStore;
   final bool betaBuild;
   final String? _productID;
   final String? _provider;
 
   StreamSubscription<List<PurchaseDetails>>? _subscription;
+  StreamSubscription<SteamPurchaseAuthorization>? _steamSubscription;
   String? _userID;
   ProductDetails? _product;
   bool _fullGameUnlocked = false;
@@ -77,9 +106,11 @@ class KolkhozCommerceController extends ChangeNotifier {
 
   bool get fullGameUnlocked => betaBuild || _fullGameUnlocked;
   bool get busy => _busy;
-  bool get storeAvailable => _storeAvailable && _product != null;
+  bool get storeAvailable => steamPurchaseStore != null
+      ? _storeAvailable
+      : _storeAvailable && _product != null;
   String? get message => _message;
-  String? get price => _product?.price;
+  String? get price => steamPurchaseStore != null ? r'$4.99' : _product?.price;
 
   static String? get _defaultProvider {
     if (Platform.isIOS || Platform.isMacOS) return 'apple';
@@ -94,6 +125,18 @@ class KolkhozCommerceController extends ChangeNotifier {
   }
 
   void initialize() {
+    final steamStore = steamPurchaseStore;
+    if (steamStore != null) {
+      _steamSubscription ??= steamStore.authorizationStream.listen(
+        _handleSteamAuthorization,
+        onError: (Object error) {
+          _busy = false;
+          _message = 'Steam reported an error. Please try again.';
+          notifyListeners();
+        },
+      );
+      return;
+    }
     _subscription ??= purchaseStore.purchaseStream.listen(
       _handlePurchases,
       onError: (Object error) {
@@ -133,13 +176,16 @@ class KolkhozCommerceController extends ChangeNotifier {
 
   Future<void> purchase() async {
     final userID = _userID;
-    final product = _product;
     if (userID == null) {
       _message = 'Sign in before purchasing the full game.';
       notifyListeners();
       return;
     }
-    if (product == null) {
+    if (steamPurchaseStore != null) {
+      await _purchaseWithSteam(userID);
+      return;
+    }
+    if (_product == null) {
       await _loadProduct();
     }
     final loadedProduct = _product;
@@ -182,6 +228,14 @@ class KolkhozCommerceController extends ChangeNotifier {
     _message = null;
     notifyListeners();
     try {
+      if (steamPurchaseStore != null) {
+        final unlocked = await _syncSteam();
+        _setUnlocked(userID, unlocked);
+        if (!unlocked) {
+          _message = 'No full-game purchase was found for this account.';
+        }
+        return;
+      }
       await purchaseStore.restorePurchases(applicationUserName: userID);
       await refresh();
       if (!_fullGameUnlocked) {
@@ -196,6 +250,17 @@ class KolkhozCommerceController extends ChangeNotifier {
   }
 
   Future<void> _loadProduct() async {
+    final steamStore = steamPurchaseStore;
+    if (steamStore != null) {
+      if (_storeAvailable) return;
+      try {
+        _storeAvailable = await steamStore.initialize();
+      } catch (_) {
+        _storeAvailable = false;
+      }
+      notifyListeners();
+      return;
+    }
     final productID = _productID;
     if (productID == null || _product != null) return;
     try {
@@ -239,6 +304,81 @@ class KolkhozCommerceController extends ChangeNotifier {
     }
   }
 
+  Future<void> _purchaseWithSteam(String userID) async {
+    await _loadProduct();
+    final steamStore = steamPurchaseStore;
+    if (!_storeAvailable || steamStore == null) {
+      _message = 'Steam is not available. Launch Kolkhoz from Steam and retry.';
+      notifyListeners();
+      return;
+    }
+    _busy = true;
+    _message = null;
+    notifyListeners();
+    SteamAuthenticationTicket? ticket;
+    try {
+      ticket = await steamStore.authenticationTicket();
+      final orderID = await clientFactory().startSteamFullGamePurchase(
+        authenticationTicket: ticket.value,
+      );
+      if (_userID != userID) return;
+      if (orderID == null) {
+        await refresh();
+        _busy = false;
+        return;
+      }
+      _message = 'Complete the purchase in the Steam overlay.';
+    } catch (_) {
+      _busy = false;
+      _message = 'Steam could not start the purchase.';
+    } finally {
+      if (ticket != null) {
+        steamStore.cancelAuthenticationTicket(ticket.handle);
+      }
+      notifyListeners();
+    }
+  }
+
+  Future<void> _handleSteamAuthorization(
+    SteamPurchaseAuthorization authorization,
+  ) async {
+    final userID = _userID;
+    if (userID == null) return;
+    _busy = true;
+    notifyListeners();
+    try {
+      final unlocked = await clientFactory().authorizeSteamFullGamePurchase(
+        orderID: authorization.orderID,
+        authorized: authorization.authorized,
+      );
+      if (_userID != userID) return;
+      _setUnlocked(userID, unlocked);
+      _message = authorization.authorized && unlocked
+          ? 'The full game is unlocked on your account.'
+          : null;
+    } catch (_) {
+      _message = 'The Steam purchase could not be verified.';
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> _syncSteam() async {
+    final steamStore = steamPurchaseStore!;
+    SteamAuthenticationTicket? ticket;
+    try {
+      ticket = await steamStore.authenticationTicket();
+      return await clientFactory().syncSteamFullGamePurchase(
+        authenticationTicket: ticket.value,
+      );
+    } finally {
+      if (ticket != null) {
+        steamStore.cancelAuthenticationTicket(ticket.handle);
+      }
+    }
+  }
+
   Future<void> _verifyAndDeliver(PurchaseDetails purchase) async {
     final userID = _userID;
     final provider = _provider;
@@ -274,6 +414,8 @@ class KolkhozCommerceController extends ChangeNotifier {
   @override
   void dispose() {
     unawaited(_subscription?.cancel());
+    unawaited(_steamSubscription?.cancel());
+    steamPurchaseStore?.dispose();
     super.dispose();
   }
 }

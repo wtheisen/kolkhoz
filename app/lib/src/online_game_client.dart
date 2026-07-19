@@ -142,6 +142,41 @@ class KolkhozOnlineClient {
     return json['fullGame'] as bool? ?? false;
   }
 
+  Future<String?> startSteamFullGamePurchase({
+    required String authenticationTicket,
+    String language = 'en',
+  }) async {
+    final json = await sendJson(
+      method: 'POST',
+      path: 'commerce/providers/steam/purchases',
+      body: {'ticket': authenticationTicket, 'language': language},
+    );
+    return json['orderID'] as String?;
+  }
+
+  Future<bool> authorizeSteamFullGamePurchase({
+    required String orderID,
+    required bool authorized,
+  }) async {
+    final json = await sendJson(
+      method: 'POST',
+      path: 'commerce/providers/steam/purchases/$orderID/authorize',
+      body: {'authorized': authorized},
+    );
+    return json['fullGame'] as bool? ?? false;
+  }
+
+  Future<bool> syncSteamFullGamePurchase({
+    required String authenticationTicket,
+  }) async {
+    final json = await sendJson(
+      method: 'POST',
+      path: 'commerce/providers/steam/sync',
+      body: {'ticket': authenticationTicket},
+    );
+    return json['fullGame'] as bool? ?? false;
+  }
+
   Future<OnlineSessionResponse> syncActiveSession() async {
     final decoded = await _send(method: 'POST', path: 'active-session/sync');
     return OnlineSessionResponse.fromJson(jsonObject(decoded));

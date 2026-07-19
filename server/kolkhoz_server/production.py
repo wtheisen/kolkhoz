@@ -31,6 +31,12 @@ from .commerce import (
     CommerceService,
     PostgresEntitlementRepository,
 )
+from .steam_commerce import (
+    PostgresSteamOrderRepository,
+    SteamPurchaseService,
+    SteamReconciliationService,
+    SteamWebGateway,
+)
 from .runtime import GameRuntime, GatewayRuntimeContext
 from .results import PostgresResultsRepository
 from .scheduler import DeadlineScheduler
@@ -167,6 +173,16 @@ def create_asgi_application() -> ASGIApplication:
         PostgresEntitlementRepository(pool),
         {"apple": apple_verifier} if apple_verifier is not None else {},
     )
+    steam_gateway = SteamWebGateway.from_environment()
+    steam_commerce = (
+        SteamPurchaseService(
+            commerce,
+            PostgresSteamOrderRepository(pool),
+            steam_gateway,
+        )
+        if steam_gateway is not None
+        else None
+    )
     account_deleter = SupabaseAccountDeleter.from_environment()
     if account_deleter is None and not os.environ.get(
         "KOLKHOZ_STAGING_STATIC_AUTH_TOKENS"
@@ -197,6 +213,18 @@ def create_asgi_application() -> ASGIApplication:
         parser.error("REDIS_URL is required")
     realtime_bus = RedisRealtimeBus.from_url(redis_url, metrics=metrics)
     run_command_worker = _enabled("KOLKHOZ_RUN_COMMAND_WORKER")
+    steam_reconciler = (
+        SteamReconciliationService(
+            steam_commerce,
+            interval_seconds=float(
+                os.environ.get("KOLKHOZ_STEAM_RECONCILE_INTERVAL_SECONDS", "3600")
+            ),
+            batch_size=int(os.environ.get("KOLKHOZ_STEAM_RECONCILE_BATCH_SIZE", "100")),
+        )
+        if steam_commerce is not None
+        and _enabled("KOLKHOZ_RUN_STEAM_RECONCILER", run_command_worker)
+        else None
+    )
     run_automatic_scheduler = _enabled(
         "KOLKHOZ_RUN_AUTOMATIC_SCHEDULER", run_command_worker
     )
@@ -289,6 +317,7 @@ def create_asgi_application() -> ASGIApplication:
         notification_repository=notification_repository,
         operations=PostgresOperationsRepository(pool),
         commerce=commerce,
+        steam_commerce=steam_commerce,
         accounts=accounts,
         identity=identity,
         require_full_game=_enabled("KOLKHOZ_ENFORCE_FULL_GAME", False),
@@ -364,6 +393,8 @@ def create_asgi_application() -> ASGIApplication:
         )
 
     def shutdown() -> None:
+        if steam_reconciler is not None:
+            steam_reconciler.close()
         if notification_worker is not None:
             notification_worker.close()
         automatic.close()

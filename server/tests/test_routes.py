@@ -25,6 +25,12 @@ class RouteContractTests(unittest.TestCase):
             ("GET", "/commerce/entitlements"),
             ("POST", "/commerce/purchases/claim"),
             ("POST", "/commerce/providers/apple/notifications"),
+            ("POST", "/commerce/providers/steam/purchases"),
+            (
+                "POST",
+                "/commerce/providers/steam/purchases/{orderID}/authorize",
+            ),
+            ("POST", "/commerce/providers/steam/sync"),
             ("POST", "/presence"),
             ("POST", "/active-session/sync"),
             ("GET", "/leaderboard"),
