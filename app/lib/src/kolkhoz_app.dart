@@ -903,6 +903,9 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     if (!mounted) return;
     setState(() {});
     syncCommerceUser();
+    if (KolkhozIdentityRuntime.instance.player != null) {
+      unawaited(loadCloudProfile());
+    }
     unawaited(loadComradesSummary());
     if (onlineSignedIn) unawaited(offerPushNotifications());
   }
@@ -1752,13 +1755,39 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   Future<void> loadCloudProfile() async {
     final client = KolkhozSupabaseRuntime.instance.client;
     final user = client?.auth.currentUser;
-    if (user == null || cloudProfileBusy) {
+    final identityPlayer = KolkhozIdentityRuntime.instance.player;
+    if ((user == null && identityPlayer == null) || cloudProfileBusy) {
       return;
     }
     if (mounted) {
       setState(() => cloudProfileBusy = true);
     }
     try {
+      if (user == null) {
+        final profile = await onlineClient().fetchPublicProfile(
+          identityPlayer!.id,
+        );
+        final displayName = profile.displayName?.trim();
+        final portraitAsset = profile.portraitAsset;
+        final next = settings.copyWith(
+          displayName: displayName == null || displayName.isEmpty
+              ? settings.displayName
+              : displayName,
+          portraitAsset: portraitAsset ?? settings.portraitAsset,
+          profileStats: profile.stats,
+        );
+        settings = next;
+        settingsStore.save(next);
+        if (mounted) {
+          setState(() {
+            cloudAuthMessage = settings.language.t(
+              KolkhozText.kolkhozappProfileLoaded,
+            );
+            cloudAuthIsError = false;
+          });
+        }
+        return;
+      }
       final profile = await client!
           .from('profiles')
           .select('display_name, avatar_url')
