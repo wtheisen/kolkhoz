@@ -117,7 +117,7 @@ class GameUiState {
     return copyWith(selection: selection.copyWith(assignmentCardID: cardID));
   }
 
-  GameUiState selectTrickHandCard(String cardID) {
+  GameUiState selectHandCard(String cardID) {
     if (selection.handCardID == cardID) {
       return copyWith(selection: selection.copyWith(clearHandCardID: true));
     }
@@ -133,6 +133,7 @@ class GameUiState {
       ),
       actionAssign => selection.copyWith(clearAssignmentCardID: true),
       actionPlayCard ||
+      actionPassCard ||
       actionSubmitAssignments ||
       actionContinueAfterRequisition ||
       actionSetTrump => SelectionState.empty,

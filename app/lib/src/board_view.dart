@@ -648,7 +648,7 @@ class KolkhozBoard extends StatelessWidget {
     this.onAppearanceToggle,
     this.onCardBackChanged,
     this.onSwapHandCardTap,
-    this.onTrickHandCardTap,
+    this.onHandCardTap,
     this.onPlotCardTap,
     this.onAssignmentCardTap,
     this.onInvalidHandCardTap,
@@ -698,7 +698,7 @@ class KolkhozBoard extends StatelessWidget {
   final VoidCallback? onAppearanceToggle;
   final ValueChanged<KolkhozCardBack>? onCardBackChanged;
   final ValueChanged<String>? onSwapHandCardTap;
-  final ValueChanged<String>? onTrickHandCardTap;
+  final ValueChanged<String>? onHandCardTap;
   final void Function(String cardID, String zone)? onPlotCardTap;
   final ValueChanged<String>? onAssignmentCardTap;
   final VoidCallback? onInvalidHandCardTap;
@@ -836,7 +836,7 @@ class KolkhozBoard extends StatelessWidget {
                                     onAction: onAction,
                                     onPanelSelected: onPanelSelected,
                                     onSwapHandCardTap: onSwapHandCardTap,
-                                    onTrickHandCardTap: onTrickHandCardTap,
+                                    onHandCardTap: onHandCardTap,
                                     onPlotCardTap: onPlotCardTap,
                                     onAssignmentCardTap: onAssignmentCardTap,
                                     onInvalidHandCardTap: onInvalidHandCardTap,
@@ -926,8 +926,7 @@ class KolkhozBoard extends StatelessWidget {
                                           onAction: onAction,
                                           onPanelSelected: onPanelSelected,
                                           onSwapHandCardTap: onSwapHandCardTap,
-                                          onTrickHandCardTap:
-                                              onTrickHandCardTap,
+                                          onHandCardTap: onHandCardTap,
                                           onPlotCardTap: onPlotCardTap,
                                           onAssignmentCardTap:
                                               onAssignmentCardTap,
@@ -1019,7 +1018,7 @@ class CompactBoardShell extends StatelessWidget {
     this.onAction,
     this.onPanelSelected,
     this.onSwapHandCardTap,
-    this.onTrickHandCardTap,
+    this.onHandCardTap,
     this.onPlotCardTap,
     this.onAssignmentCardTap,
     this.onInvalidHandCardTap,
@@ -1066,7 +1065,7 @@ class CompactBoardShell extends StatelessWidget {
   final ValueChanged<LegalAction>? onAction;
   final ValueChanged<String>? onPanelSelected;
   final ValueChanged<String>? onSwapHandCardTap;
-  final ValueChanged<String>? onTrickHandCardTap;
+  final ValueChanged<String>? onHandCardTap;
   final void Function(String cardID, String zone)? onPlotCardTap;
   final ValueChanged<String>? onAssignmentCardTap;
   final VoidCallback? onInvalidHandCardTap;
@@ -1115,7 +1114,7 @@ class CompactBoardShell extends StatelessWidget {
             onAction: onAction,
             onPanelSelected: onPanelSelected,
             onSwapHandCardTap: onSwapHandCardTap,
-            onTrickHandCardTap: onTrickHandCardTap,
+            onHandCardTap: onHandCardTap,
             onPlotCardTap: onPlotCardTap,
             onAssignmentCardTap: onAssignmentCardTap,
             onInvalidHandCardTap: onInvalidHandCardTap,
@@ -1365,7 +1364,7 @@ class BoardPlayArea extends StatelessWidget {
     this.onAction,
     this.onPanelSelected,
     this.onSwapHandCardTap,
-    this.onTrickHandCardTap,
+    this.onHandCardTap,
     this.onPlotCardTap,
     this.onAssignmentCardTap,
     this.onInvalidHandCardTap,
@@ -1416,7 +1415,7 @@ class BoardPlayArea extends StatelessWidget {
   final ValueChanged<LegalAction>? onAction;
   final ValueChanged<String>? onPanelSelected;
   final ValueChanged<String>? onSwapHandCardTap;
-  final ValueChanged<String>? onTrickHandCardTap;
+  final ValueChanged<String>? onHandCardTap;
   final void Function(String cardID, String zone)? onPlotCardTap;
   final ValueChanged<String>? onAssignmentCardTap;
   final VoidCallback? onInvalidHandCardTap;
@@ -1671,7 +1670,7 @@ class BoardPlayArea extends StatelessWidget {
                                   onAction: onAction,
                                   onPanelSelected: onPanelSelected,
                                   onSwapHandCardTap: onSwapHandCardTap,
-                                  onTrickHandCardTap: onTrickHandCardTap,
+                                  onHandCardTap: onHandCardTap,
                                   onAssignmentCardTap: onAssignmentCardTap,
                                   onInvalidHandCardTap: onInvalidHandCardTap,
                                   canUndo: canUndo,

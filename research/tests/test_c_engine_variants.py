@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ctypes
 import unittest
 
 from research.kolkhoz_research.c_engine import CEngine, KCAction, KCCard, KCControllers
@@ -100,6 +101,29 @@ class VariantEngineTests(unittest.TestCase):
                         for index in range(int(resolved.players[recipient].hand.count))
                     )
                 )
+        finally:
+            self.engine.free_engine(pointer)
+
+    def test_pass_heuristic_never_selects_for_the_human_seat(self) -> None:
+        controllers = KCControllers()
+        controllers.seats[:] = (0, 2, 2, 2)
+        pointer = self.engine.new_engine(45, controllers=controllers)
+        try:
+            state = self.engine.snapshot(pointer)
+            state.phase = 6
+            state.year = 2
+            state.current_player = 0
+            selected = KCAction()
+            choose = self.engine.lib.kc_engine_heuristic_action
+            choose.argtypes = [ctypes.c_void_p, ctypes.POINTER(KCAction)]
+            choose.restype = ctypes.c_bool
+
+            self.assertFalse(choose(pointer, ctypes.byref(selected)))
+
+            state.current_player = 1
+            self.assertTrue(choose(pointer, ctypes.byref(selected)))
+            self.assertEqual(int(selected.kind), 9)
+            self.assertEqual(int(selected.player_id), 1)
         finally:
             self.engine.free_engine(pointer)
 

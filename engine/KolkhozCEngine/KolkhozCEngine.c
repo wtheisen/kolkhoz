@@ -1145,6 +1145,8 @@ bool kc_engine_heuristic_action(const KCEngine *engine, KCAction *selected) {
     }
     if (engine->phase == KC_PHASE_PASS &&
         kc_valid_player_id(engine->current_player) &&
+        !kc_controller_is_external(
+            engine->controllers.seats[engine->current_player]) &&
         engine->players[engine->current_player].hand.count > 0) {
         KCCard card = engine->players[engine->current_player].hand.cards[0];
         for (int32_t i = 1; i < engine->players[engine->current_player].hand.count; i++) {

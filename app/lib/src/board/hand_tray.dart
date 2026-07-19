@@ -184,6 +184,20 @@ LegalAction? selectedHandCardPlayAction(TableViewModel model) {
   return null;
 }
 
+LegalAction? selectedHandCardPassAction(TableViewModel model) {
+  final selectedCardID = model.selection.handCardID;
+  if (model.table.phase != phasePass || selectedCardID == null) {
+    return null;
+  }
+  for (final action in model.legalActions) {
+    if (action.kind == actionPassCard &&
+        action.engineAction.card?.id == selectedCardID) {
+      return action;
+    }
+  }
+  return null;
+}
+
 LegalAction? handConsoleLegalAction(TableViewModel model, Set<String> kinds) {
   for (final action in model.legalActions) {
     if (kinds.contains(action.kind)) {
@@ -200,7 +214,7 @@ LegalAction? handConsoleConfirmAction(TableViewModel model) {
       handConsoleLegalAction(model, {actionSwap}) == null
           ? handConsoleLegalAction(model, {actionConfirmSwap})
           : null,
-    phasePass => null,
+    phasePass => selectedHandCardPassAction(model),
     phaseAssignment => handConsoleLegalAction(model, {actionSubmitAssignments}),
     phaseRequisition => handConsoleLegalAction(model, {
       actionContinueAfterRequisition,
@@ -527,7 +541,7 @@ class HandTray extends StatelessWidget {
     required this.visibleTrayHeight,
     this.onAction,
     this.onSwapHandCardTap,
-    this.onTrickHandCardTap,
+    this.onHandCardTap,
     this.onAssignmentCardTap,
     this.onInvalidHandCardTap,
     this.onPanelSelected,
@@ -545,7 +559,7 @@ class HandTray extends StatelessWidget {
   final double visibleTrayHeight;
   final ValueChanged<LegalAction>? onAction;
   final ValueChanged<String>? onSwapHandCardTap;
-  final ValueChanged<String>? onTrickHandCardTap;
+  final ValueChanged<String>? onHandCardTap;
   final ValueChanged<String>? onAssignmentCardTap;
   final VoidCallback? onInvalidHandCardTap;
   final ValueChanged<String>? onPanelSelected;
@@ -594,9 +608,9 @@ class HandTray extends StatelessWidget {
         onPressed:
             !consoleActionsEnabled ||
                 selectedPlayAction == null ||
-                onTrickHandCardTap == null
+                onHandCardTap == null
             ? null
-            : () => onTrickHandCardTap!(model.selection.handCardID!),
+            : () => onHandCardTap!(model.selection.handCardID!),
       ),
       phaseSwap => HandTrayCommand(
         label: swapSecondaryAction == null
@@ -714,9 +728,8 @@ class HandTray extends StatelessWidget {
                                       final onTap = switch (model.table.phase) {
                                         phaseTrick =>
                                           playAction != null &&
-                                                  onTrickHandCardTap != null
-                                              ? () =>
-                                                    onTrickHandCardTap!(card.id)
+                                                  onHandCardTap != null
+                                              ? () => onHandCardTap!(card.id)
                                               : handCardCanShowInvalidHint(
                                                   model,
                                                   card,
@@ -729,9 +742,10 @@ class HandTray extends StatelessWidget {
                                               : () =>
                                                     onSwapHandCardTap!(card.id),
                                         phasePass =>
-                                          passAction == null || onAction == null
+                                          passAction == null ||
+                                                  onHandCardTap == null
                                               ? null
-                                              : () => onAction!(passAction),
+                                              : () => onHandCardTap!(card.id),
                                         _ => null,
                                       };
                                       final displayCard = handTrayCard(

@@ -754,7 +754,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
                   onAppearanceToggle: toggleAppearance,
                   onCardBackChanged: setCardBack,
                   onSwapHandCardTap: store.selectSwapHandCard,
-                  onTrickHandCardTap: store.selectTrickHandCard,
+                  onHandCardTap: store.selectHandCard,
                   onPlotCardTap: store.selectPlotCard,
                   onAssignmentCardTap: store.selectAssignmentCard,
                   onInvalidHandCardTap: showFollowSuitHint,

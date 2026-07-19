@@ -274,9 +274,9 @@ void registerBoardTests() {
   });
 
   test('game ui state toggles selected trick cards', () {
-    final selected = const GameUiState().selectTrickHandCard('wheat-11');
+    final selected = const GameUiState().selectHandCard('wheat-11');
     expect(selected.selection.handCardID, 'wheat-11');
-    final cleared = selected.selectTrickHandCard('wheat-11');
+    final cleared = selected.selectHandCard('wheat-11');
     expect(cleared.selection.handCardID, isNull);
   });
 
@@ -310,7 +310,7 @@ void registerBoardTests() {
             tokens: defaultDesignTokens,
             language: KolkhozLanguage.en,
             visibleTrayHeight: 150,
-            onTrickHandCardTap: (cardID) => selectedCardID = cardID,
+            onHandCardTap: (cardID) => selectedCardID = cardID,
             onAction: (action) => confirmedAction = action,
           ),
         ),
@@ -352,7 +352,7 @@ void registerBoardTests() {
             tokens: defaultDesignTokens,
             language: KolkhozLanguage.en,
             visibleTrayHeight: 150,
-            onTrickHandCardTap: (cardID) => selectedCardID = cardID,
+            onHandCardTap: (cardID) => selectedCardID = cardID,
             onAction: (action) => confirmedAction = action,
           ),
         ),
@@ -423,7 +423,7 @@ void registerBoardTests() {
             language: KolkhozLanguage.en,
             visibleTrayHeight: 150,
             onAction: (_) {},
-            onTrickHandCardTap: (_) {},
+            onHandCardTap: (_) {},
             contentOverride: const SizedBox(key: Key('game-log-reactions')),
           ),
         ),
@@ -483,6 +483,63 @@ void registerBoardTests() {
     expect(passIconFlipsHorizontally(3), isFalse);
     expect(passIconFlipsHorizontally(4), isTrue);
     expect(passIconFlipsHorizontally(5), isFalse);
+  });
+
+  testWidgets('pass hand card waits for selection and confirmation', (
+    tester,
+  ) async {
+    String? selectedCardID;
+    LegalAction? confirmedAction;
+    final passAction = testLegalAction(
+      kind: actionPassCard,
+      label: 'Pass',
+      engineAction: const EngineAction(
+        kind: actionPassCard,
+        playerID: 0,
+        card: EngineCard(suit: 'wheat', value: 11),
+      ),
+    );
+
+    Widget tray(SelectionState selection) => MaterialApp(
+      home: SizedBox(
+        width: 520,
+        height: 180,
+        child: HandTray(
+          model: runtimeModelWith(
+            phase: phasePass,
+            selection: selection,
+            jobs: runtimeModel().table.jobs,
+            legalActions: [passAction],
+          ),
+          tokens: defaultDesignTokens,
+          language: KolkhozLanguage.en,
+          visibleTrayHeight: 150,
+          onHandCardTap: (cardID) => selectedCardID = cardID,
+          onAction: (action) => confirmedAction = action,
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(tray(SelectionState.empty));
+    expect(
+      handConsoleConfirmAction(
+        runtimeModelWith(
+          phase: phasePass,
+          selection: SelectionState.empty,
+          jobs: runtimeModel().table.jobs,
+          legalActions: [passAction],
+        ),
+      ),
+      isNull,
+    );
+    await tester.tap(find.byType(GameCard));
+    expect(selectedCardID, 'wheat-11');
+    expect(confirmedAction, isNull);
+
+    final selected = SelectionState.empty.copyWith(handCardID: 'wheat-11');
+    await tester.pumpWidget(tray(selected));
+    await tester.tap(find.byKey(const Key('hand-console-primary')));
+    expect(confirmedAction, same(passAction));
   });
 
   test('swap console confirms only before selection or after staged swap', () {

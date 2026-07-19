@@ -669,11 +669,11 @@ class LiveGameStore extends ChangeNotifier {
     _sync();
   }
 
-  void selectTrickHandCard(String cardID) {
-    if (model?.table.phase != phaseTrick) {
+  void selectHandCard(String cardID) {
+    if (model?.table.phase != phaseTrick && model?.table.phase != phasePass) {
       return;
     }
-    uiState = uiState.selectTrickHandCard(cardID);
+    uiState = uiState.selectHandCard(cardID);
     _sync();
   }
 
