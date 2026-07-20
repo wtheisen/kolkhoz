@@ -32,8 +32,10 @@ def test_bootstrap_requires_explicit_apply_for_mutations() -> None:
     dry_run = source.index("if ! $apply; then")
     first_mutation = source.index("apt-get update")
     assert dry_run < first_mutation
-    assert "ROOT=/opt/kolkhoz-greenfield" in source
-    assert "SERVER_ENV=/etc/kolkhoz-greenfield.env" in source
+    assert "ROOT=/opt/kolkhoz-server" in source
+    assert "SERVER_ENV=/etc/kolkhoz-server.env" in source
+    assert "LEGACY_ROOT=/opt/kolkhoz-greenfield" in source
+    assert "rollback_legacy" in source
     assert "MemAvailable:" in source
     assert '. "$env_file"' not in source
     assert source.index('psql "$database_url"') < source.index("unset database_url")

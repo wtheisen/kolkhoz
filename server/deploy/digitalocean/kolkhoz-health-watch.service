@@ -1,8 +1,8 @@
 [Unit]
 Description=Kolkhoz production canary and readiness alarm
-After=kolkhoz-greenfield.service
+After=kolkhoz-server.service
 
 [Service]
 Type=oneshot
-EnvironmentFile=/etc/kolkhoz-greenfield.env
+EnvironmentFile=/etc/kolkhoz-server.env
 ExecStart=/usr/local/sbin/kolkhoz-health-watch

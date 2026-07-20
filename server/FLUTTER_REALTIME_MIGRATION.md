@@ -1,6 +1,6 @@
 # Flutter realtime migration contract
 
-The greenfield server must **not** insert compatibility rows into
+The production server must **not** insert compatibility rows into
 `public.game_updates`. That table is coupled by foreign keys and RLS to the legacy
 `public.game_sessions` and `public.game_seats` authority. Dual-writing enough legacy
 state to make those notifications visible would create two session authorities and
@@ -59,4 +59,3 @@ transport migration from weakening behavior.
 Removing that connected polling is a later optimization, not a parity requirement.
 It requires a durable cursor for non-action changes; publishing same-revision wake-ups
 would be lossy under reconnect and therefore is not an acceptable substitute.
-

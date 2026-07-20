@@ -1,4 +1,4 @@
-# Greenfield server parity gaps
+# Production server parity gaps
 
 Audit snapshot: 2026-07-11. The canonical 25-route matrix dispatches through
 `OnlineApplication`, and the implementation now covers the major gameplay, projection,

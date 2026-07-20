@@ -1,1 +1,1 @@
-"""Greenfield Kolkhoz server package root."""
+"""Kolkhoz production server package root."""

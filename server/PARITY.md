@@ -80,7 +80,7 @@ status and remaining scale gates are listed separately below and in
 
 ## Flutter integration
 
-Flutter uses the authenticated greenfield WebSocket for gameplay revisions and resumes
+Flutter uses the authenticated production WebSocket for gameplay revisions and resumes
 from its latest accepted durable revision after disconnects. Stale and duplicate frames
 cannot move client state backwards. The existing HTTP poll remains active for lobby and
 reaction metadata, which do not yet have a separate durable realtime cursor. The server

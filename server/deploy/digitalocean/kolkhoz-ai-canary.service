@@ -1,16 +1,16 @@
 [Unit]
 Description=Kolkhoz real C-engine AI policy canary
-After=kolkhoz-greenfield.service
+After=kolkhoz-server.service
 
 [Service]
 Type=oneshot
-User=kolkhoz-greenfield
-Group=kolkhoz-greenfield
-WorkingDirectory=/opt/kolkhoz-greenfield
-EnvironmentFile=/etc/kolkhoz-greenfield.env
+User=kolkhoz-server
+Group=kolkhoz-server
+WorkingDirectory=/opt/kolkhoz-server
+EnvironmentFile=/etc/kolkhoz-server.env
 ExecStart=/usr/local/sbin/kolkhoz-ai-canary
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true
 ProtectSystem=full
-ReadWritePaths=/opt/kolkhoz-greenfield/research/.build
+ReadWritePaths=/opt/kolkhoz-server/research/.build

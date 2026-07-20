@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Kolkhoz PostgreSQL backup
+
+[Timer]
+OnCalendar=*-*-* 05:15:00 UTC
+RandomizedDelaySec=30m
+Persistent=true
+Unit=kolkhoz-postgres-backup.service
+
+[Install]
+WantedBy=timers.target

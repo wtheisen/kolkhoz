@@ -71,7 +71,7 @@ create index if not exists server_open_human_seat_idx
     on server_seats (session_id, player_id)
     where controller = 'human' and not occupied;
 
--- Result/progression idempotency belongs to the greenfield session authority.
+-- Result/progression idempotency belongs to the production session authority.
 -- Do not reuse public.profile_progression_events: its session foreign key points
 -- at the retired legacy public.game_sessions table.
 create table if not exists server_progression_events (

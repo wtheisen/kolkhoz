@@ -1,4 +1,4 @@
-"""HTTP/WebSocket load probe for an actually deployed greenfield stack."""
+"""HTTP/WebSocket load probe for the deployed production stack."""
 
 from __future__ import annotations
 

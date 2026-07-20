@@ -453,7 +453,7 @@ class _AdminOperationsPanelState extends State<_AdminOperationsPanel> {
       builder: (context) => AlertDialog(
         title: const Text('Restart production server?'),
         content: const Text(
-          'This restarts only kolkhoz-greenfield.service. Active clients may '
+          'This restarts only kolkhoz-server.service. Active clients may '
           'briefly reconnect. A five-minute cooldown applies.',
         ),
         actions: [

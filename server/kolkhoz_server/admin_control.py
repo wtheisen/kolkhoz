@@ -62,7 +62,7 @@ class AdminControlApplication:
                 self.restart()
                 self._last_restart = now
             logging.warning(
-                "admin restarted kolkhoz-greenfield.service",
+                "admin restarted kolkhoz-server.service",
                 extra={"admin_user_id": user_id},
             )
             await self._respond(send, HTTPStatus.ACCEPTED, {"accepted": True})
@@ -87,7 +87,7 @@ class AdminControlApplication:
 
 def _restart_service() -> None:
     subprocess.run(
-        ["/bin/systemctl", "restart", "kolkhoz-greenfield.service"],
+        ["/bin/systemctl", "restart", "kolkhoz-server.service"],
         check=True,
         timeout=30,
         stdin=subprocess.DEVNULL,

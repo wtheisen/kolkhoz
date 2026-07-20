@@ -2412,7 +2412,7 @@ void registerStoreAndOnlineTests() {
     );
   });
 
-  test('greenfield realtime URI preserves the durable revision cursor', () {
+  test('production realtime URI preserves the durable revision cursor', () {
     final secure = KolkhozOnlineClient(
       Uri.parse('https://online.kolkhoz.example/api/'),
     );
@@ -2438,7 +2438,7 @@ void registerStoreAndOnlineTests() {
   });
 
   test(
-    'greenfield realtime performs an authenticated websocket handshake',
+    'production realtime performs an authenticated websocket handshake',
     () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => server.close(force: true));
@@ -2479,7 +2479,7 @@ void registerStoreAndOnlineTests() {
     },
   );
 
-  test('greenfield realtime decodes state catch-up and committed frames', () {
+  test('production realtime decodes state catch-up and committed frames', () {
     final stateJson = onlineUpdateJson()..['actionLogCount'] = 7;
     final state = OnlineRealtimeFrame.decode(
       jsonEncode({'type': 'state', 'update': stateJson}),

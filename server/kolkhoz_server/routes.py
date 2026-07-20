@@ -1,7 +1,7 @@
 """Canonical HTTP compatibility contract for the Flutter online client.
 
 Keeping the inventory separate from the transport makes missing parity visible while
-the greenfield gateway is implemented route by route.  Paths use ``{name}`` for one
+the production gateway is implemented route by route. Paths use ``{name}`` for one
 non-empty URL segment.
 """
 

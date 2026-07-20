@@ -1,0 +1,13 @@
+[Unit]
+Description=Back up the Kolkhoz PostgreSQL database
+After=postgresql@17-main.service
+Requires=postgresql@17-main.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/kolkhoz-postgres-backup
+Nice=10
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths=/var/backups/kolkhoz-postgres

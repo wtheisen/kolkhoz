@@ -84,7 +84,7 @@ BENCHMARK_BASE_URL=http://127.0.0.1:18787 ./benchmark.sh
 This smoke tier checks correctness and basic latency; it is not capacity evidence.
 It does not start the 4+4 Compose topology or alter the production Caddy route. The
 package in `../digitalocean/` installs the production service with
-systemd `CPUQuota`/`MemoryMax`, `/opt/kolkhoz-greenfield`, and a capped loopback Redis.
+systemd `CPUQuota`/`MemoryMax`, `/opt/kolkhoz-server`, and a capped loopback Redis.
 It uses the existing Supabase database's additive `server_*` tables and production
 authentication; it does not seed synthetic identities. A session smoke therefore
 requires a private identity file containing real bearer tokens. Without one, limit the

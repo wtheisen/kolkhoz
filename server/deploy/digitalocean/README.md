@@ -1,7 +1,7 @@
 # Current DigitalOcean VPS production deployment
 
 This package installs the production server on `192.241.150.25`. The checkout is
-`/opt/kolkhoz-greenfield`, the application binds `127.0.0.1:18787`, and Caddy routes
+`/opt/kolkhoz-server`, the application binds `127.0.0.1:18787`, and Caddy routes
 `online.kolkhoz.williamtheisen.com` to that loopback endpoint.
 
 The current VPS has only 1 vCPU and roughly 1 GB RAM. This is therefore a correctness
@@ -16,10 +16,12 @@ A dedicated Redis instance binds `127.0.0.1:16379`, uses database 15, has a 64 M
 `noeviction` cap, and is separately resource limited. Do not expose either port.
 Caddy retries unavailable loopback connections for up to five seconds, bridging the
 short bind gap during application restarts without immediately returning 502 responses.
+The installer also owns the existing daily PostgreSQL backup timer; its script reads
+the production environment from `/etc/kolkhoz-server.env` without displaying it.
 
 The installer reads normalized database, Redis, and production Supabase authentication
 settings, including `KOLKHOZ_SUPABASE_SECRET_KEY`, from
-`/etc/kolkhoz-greenfield.env` without printing values. The seven server
+`/etc/kolkhoz-server.env` without printing values. The nine server
 schemas are applied explicitly with `ON_ERROR_STOP`; application startup never migrates
 the database.
 
@@ -51,7 +53,7 @@ sudo server/deploy/digitalocean/bootstrap.sh \
   --ref IMMUTABLE_COMMIT_SHA --apply
 curl --fail --silent http://127.0.0.1:18787/ready
 curl --fail --silent http://127.0.0.1:18787/metrics/prometheus | head
-systemctl status kolkhoz-greenfield kolkhoz-greenfield-redis
+systemctl status kolkhoz-server kolkhoz-server-redis
 ```
 
 The service is routed through Caddy in production. Run at most the 25-session smoke tier
@@ -62,9 +64,20 @@ documented in `../staging/README.md`; the VPS preflight rejects 1K/5K/10K capaci
 Stopping preserves everything:
 
 ```bash
-sudo systemctl stop kolkhoz-greenfield kolkhoz-greenfield-redis
+sudo systemctl stop kolkhoz-server kolkhoz-server-redis
 ```
 
 `uninstall.sh` is also dry-run by default. `uninstall.sh --apply` removes only the two
-greenfield unit files and preserves the checkout, secret environment, Redis data, and
+production unit files and preserves the checkout, secret environment, Redis data, and
 additive database schemas for recovery.
+
+## Former installation name
+
+The production service was originally installed under a temporary `greenfield`
+namespace while it replaced the retired online server. The installer can migrate that
+layout once: it copies credentials without displaying them, preserves Redis state,
+cuts both services over together, and restores the former services if readiness fails.
+After readiness succeeds, it archives the replaced checkout, environment, credentials,
+and Redis data under `*.pre-rename` paths and removes the obsolete service account and
+unit files. New installations and all active services use only the `kolkhoz-server`
+namespace.
