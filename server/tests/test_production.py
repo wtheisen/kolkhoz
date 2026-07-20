@@ -25,10 +25,9 @@ class ProductionConfigurationTests(unittest.TestCase):
             run_worker = _enabled("KOLKHOZ_RUN_COMMAND_WORKER")
             self.assertFalse(_enabled("KOLKHOZ_RUN_AUTOMATIC_SCHEDULER", run_worker))
 
-    def test_auth_configuration_fails_closed(self) -> None:
+    def test_legacy_auth_configuration_is_optional(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            with self.assertRaisesRegex(RuntimeError, "required in production"):
-                _production_auth_verifier()
+            self.assertIsNone(_production_auth_verifier())
 
     def test_auth_configuration_builds_verifier(self) -> None:
         with patch.dict(

@@ -200,6 +200,44 @@ def privacy_safe_action_log(
     return result
 
 
+def merge_session_engine_projection(
+    base_update: Mapping[str, object],
+    state: Mapping[str, object],
+    *,
+    viewer_id: int | None,
+    revision: int,
+    started: bool,
+    game_log_actions: Sequence[Mapping[str, object]],
+    turn_player_id: int | None,
+    turn_deadline_at: float | None,
+) -> JsonObject:
+    """Merge volatile engine state into an established session update context."""
+
+    snapshot = dict(state)
+    raw_legal_actions = snapshot.pop("legalActions", [])
+    legal_actions = [
+        dict(action)
+        for action in raw_legal_actions
+        if isinstance(action, Mapping)
+        and viewer_id is not None
+        and optional_int(action.get("playerID")) == viewer_id
+    ]
+    update = dict(base_update)
+    update.update(
+        {
+            "viewerID": viewer_id,
+            "actionLogCount": revision,
+            "gameLogActions": [dict(action) for action in game_log_actions][-64:],
+            "isViewerTurn": started and bool(legal_actions),
+            "legalActions": legal_actions,
+            "turnPlayerID": turn_player_id,
+            "turnDeadlineAt": turn_deadline_at,
+            "snapshot": snapshot,
+        }
+    )
+    return update
+
+
 def snapshot_json(
     engine: object, pointer: ctypes.c_void_p, viewer_id: int | None
 ) -> JsonObject:

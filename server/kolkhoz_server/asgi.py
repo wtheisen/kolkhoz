@@ -12,6 +12,7 @@ from typing import Any, Mapping
 from urllib.parse import parse_qs
 
 from .api import OnlineApplication, Request
+from .contracts import merge_session_engine_projection, privacy_safe_action_log
 from .distributed import (
     BoundedEventBuffer,
     BoundedIdempotencyWindow,
@@ -245,6 +246,7 @@ class ASGIApplication:
                 viewer_id,
                 headers,
                 current_revision,
+                state,
             )
         except ServerError:
             await send({"type": "websocket.close", "code": 1008})
@@ -265,6 +267,7 @@ class ASGIApplication:
         viewer_id: int,
         headers: Mapping[str, str],
         revision: int,
+        current_update: Mapping[str, Any],
     ) -> None:
         stop = asyncio.Event()
         overflow = asyncio.Event()
@@ -305,12 +308,34 @@ class ASGIApplication:
                 highest = max(int(item.payload.get("revision", 0)) for item in messages)
                 if highest <= revision:
                     continue
+                direct = _direct_committed_updates(
+                    session_id,
+                    viewer_id,
+                    revision,
+                    current_update,
+                    messages,
+                )
+                if direct is not None:
+                    updates, current_update, revision = direct
+                    remember = getattr(
+                        self.application, "remember_update_context", None
+                    )
+                    if remember is not None:
+                        remember(current_update)
+                    self.metrics.increment("realtime.direct_projection")
+                    await _send_json(
+                        send,
+                        {"type": "committed", "revision": revision, "updates": updates},
+                    )
+                    continue
+                self.metrics.increment("realtime.catch_up")
                 updates = await self._coalesced_catch_up(
                     f"/sessions/{session_id}/actions?viewerID={viewer_id}"
                     f"&afterRevision={revision}",
                     headers,
                 )
                 revision = int(updates["actionLogCount"])
+                current_update = _latest_update(current_update, updates)
                 await _send_json(
                     send,
                     {"type": "committed", "revision": revision, "updates": updates},
@@ -432,6 +457,114 @@ def _realtime_session_id(path: str) -> str | None:
     if len(parts) == 3 and parts[0] == "sessions" and parts[2] == "realtime":
         return parts[1]
     return None
+
+
+def _direct_committed_updates(
+    session_id: str,
+    viewer_id: int,
+    revision: int,
+    current_update: Mapping[str, Any],
+    messages: list[Any],
+) -> tuple[dict[str, Any], dict[str, Any], int] | None:
+    """Build normal action frames without another authenticated state request.
+
+    The game owner publishes one privacy-scoped engine projection per player. The
+    gateway selects only the authenticated viewer's projection and carries forward
+    session metadata from the full state sent when the WebSocket connected. Missing
+    projections, revision gaps, and terminal transitions use durable catch-up.
+    """
+
+    pending = sorted(
+        (message for message in messages if int(message.payload.get("revision", 0)) > revision),
+        key=lambda message: int(message.payload.get("revision", 0)),
+    )
+    expected = revision + 1
+    latest = dict(current_update)
+    frames: list[dict[str, Any]] = []
+    for message in pending:
+        committed_revision = int(message.payload.get("revision", 0))
+        if committed_revision != expected:
+            return None
+        states = message.payload.get("statesByViewer")
+        if not isinstance(states, Mapping):
+            return None
+        raw_state = states.get(str(viewer_id), states.get(viewer_id))
+        action_payload = message.payload.get("payload")
+        if not isinstance(raw_state, Mapping) or not isinstance(
+            action_payload, Mapping
+        ):
+            return None
+
+        if int(raw_state.get("phase", -1)) == 5:
+            return None
+        safe_action = privacy_safe_action_log(
+            [action_payload], viewer_id, game_over=False
+        )[0]
+        action_log = [
+            dict(action)
+            for action in latest.get("gameLogActions", [])
+            if isinstance(action, Mapping)
+        ]
+        action_log.append(safe_action)
+
+        waiting = raw_state.get("waitingPlayer")
+        turn_player_id = (
+            waiting
+            if isinstance(waiting, int)
+            and not isinstance(waiting, bool)
+            and waiting >= 0
+            else None
+        )
+        turn_deadline_at = (
+            latest.get("turnDeadlineAt")
+            if latest.get("turnPlayerID") == turn_player_id
+            else None
+        )
+        latest = merge_session_engine_projection(
+            {**latest, "sessionID": session_id},
+            raw_state,
+            viewer_id=viewer_id,
+            revision=committed_revision,
+            started=bool(latest.get("started", True)),
+            game_log_actions=action_log,
+            turn_player_id=turn_player_id,
+            turn_deadline_at=turn_deadline_at,
+        )
+        frames.append(
+            {
+                "revision": committed_revision,
+                "action": safe_action,
+                "update": dict(latest),
+            }
+        )
+        expected += 1
+
+    if not frames:
+        return None
+    final_revision = expected - 1
+    response = {
+        "sessionID": session_id,
+        "actionLogCount": final_revision,
+        "reactionLogCount": len(latest.get("reactions", [])),
+        "updates": frames,
+        "reactions": [],
+        "resyncUpdate": None,
+    }
+    return response, latest, final_revision
+
+
+def _latest_update(
+    current: Mapping[str, Any], updates: Mapping[str, Any]
+) -> dict[str, Any]:
+    resync = updates.get("resyncUpdate")
+    if isinstance(resync, Mapping):
+        return dict(resync)
+    frames = updates.get("updates")
+    if isinstance(frames, list) and frames:
+        update = frames[-1].get("update") if isinstance(frames[-1], Mapping) else None
+        if isinstance(update, Mapping):
+            return dict(update)
+    return dict(current)
 
 
 def _route_label(path: str) -> str:

@@ -866,6 +866,14 @@ class RoutedGameRuntime:
         viewer_id: int | None = None,
         authorize: Callable[[], None] | None = None,
     ) -> Any:
+        if self._owns_all_partitions:
+            return self._local.submit_action(
+                session_id,
+                expected_revision=expected_revision,
+                action=action,
+                viewer_id=viewer_id,
+                authorize=authorize,
+            )
         if authorize is not None:
             authorize()
         return self._update(

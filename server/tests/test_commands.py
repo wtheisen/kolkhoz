@@ -432,7 +432,7 @@ def test_routed_runtime_executes_on_remote_worker_and_preserves_domain_errors():
             gateway_runtime,
             CommandClient(broker),
             timeout_seconds=1,
-            owns_all_partitions=True,
+            owns_all_partitions=False,
         )
         worker.start()
         try:
@@ -454,6 +454,41 @@ def test_routed_runtime_executes_on_remote_worker_and_preserves_domain_errors():
     assert updated.state["value"] == 12
     assert updated.revision == 1
     assert remote_state.state == {"value": 12, "viewerID": 2}
+
+
+def test_routed_runtime_submits_locally_when_it_owns_every_partition():
+    with TemporaryDirectory() as directory:
+        runtime = GameRuntime(
+            SQLiteEventStore(Path(directory) / "events.sqlite3"),
+            engine_factory=TinyFactory(),
+            shard_count=1,
+        )
+        runtime.create_game(seed=5, session_id="local-owner")
+
+        class FailingClient:
+            def execute(self, *_args, **_kwargs):
+                raise AssertionError("local action used the command broker")
+
+        routed = RoutedGameRuntime(
+            runtime,
+            FailingClient(),  # type: ignore[arg-type]
+            owns_all_partitions=True,
+        )
+        authorized = []
+        try:
+            updated = routed.submit_action(
+                "local-owner",
+                expected_revision=0,
+                action={"delta": 7},
+                viewer_id=2,
+                authorize=lambda: authorized.append(True),
+            )
+        finally:
+            runtime.close()
+
+    assert authorized == [True]
+    assert updated.revision == 1
+    assert updated.state == {"value": 12, "viewerID": 2}
 
 
 def test_two_gateway_apps_resync_without_replaying_history():

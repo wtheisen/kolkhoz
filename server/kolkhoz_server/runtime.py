@@ -21,6 +21,9 @@ from .updates import ShardUpdateBuffer
 from .distributed import SessionLease, SessionLeaseRepository
 from .errors import ServerError
 
+
+PLAYER_COUNT = 4
+
 if TYPE_CHECKING:
     from .metrics import ServerMetrics
 
@@ -390,7 +393,11 @@ class GameRuntime:
                 shard.engines.pop(session_id, None)
                 shard.automatic_states.pop(session_id, None)
                 raise
-            shard.hub.publish(event)
+            states_by_viewer = {
+                player_id: engine.view(player_id)
+                for player_id in range(PLAYER_COUNT)
+            }
+            shard.hub.publish(event, states_by_viewer)
             automatic = shard.automatic_states.get(session_id)
             if automatic is not None:
                 automatic.action_count = event.revision
@@ -430,7 +437,11 @@ class GameRuntime:
                     payload=payload,
                     fencing_token=fencing_token,
                 )
-                shard.hub.publish(event)
+                states_by_viewer = {
+                    player_id: engine.view(player_id)
+                    for player_id in range(PLAYER_COUNT)
+                }
+                shard.hub.publish(event, states_by_viewer)
 
             try:
                 return shard.advancer.advance(

@@ -3,7 +3,9 @@ from __future__ import annotations
 import queue
 import threading
 from collections import defaultdict
+from collections.abc import Mapping
 from contextlib import contextmanager
+from typing import Any
 from typing import Iterator
 
 from .model import StoredEvent
@@ -36,7 +38,11 @@ class EventHub:
                     if not subscribers:
                         self._subscribers.pop(session_id, None)
 
-    def publish(self, event: StoredEvent) -> None:
+    def publish(
+        self,
+        event: StoredEvent,
+        states_by_viewer: Mapping[int, Mapping[str, Any]] | None = None,
+    ) -> None:
         with self._lock:
             subscribers = tuple(self._subscribers.get(event.session_id, ()))
         for mailbox in subscribers:
@@ -48,16 +54,22 @@ class EventHub:
         if self._realtime_bus is not None:
             from .distributed import RealtimeMessage
 
+            payload: dict[str, object] = {
+                "sessionID": event.session_id,
+                "revision": event.revision,
+                "kind": event.kind,
+                "payload": event.payload,
+                "createdAt": event.created_at,
+            }
+            if states_by_viewer is not None:
+                payload["statesByViewer"] = {
+                    str(viewer_id): dict(state)
+                    for viewer_id, state in states_by_viewer.items()
+                }
             self._realtime_bus.publish(  # type: ignore[attr-defined]
                 RealtimeMessage(
                     topic=f"session:{event.session_id}",
                     event_id=f"{event.session_id}:{event.revision}",
-                    payload={
-                        "sessionID": event.session_id,
-                        "revision": event.revision,
-                        "kind": event.kind,
-                        "payload": event.payload,
-                        "createdAt": event.created_at,
-                    },
+                    payload=payload,
                 )
             )

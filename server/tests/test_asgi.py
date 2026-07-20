@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from server.kolkhoz_server.api import Request, Response
-from server.kolkhoz_server.asgi import ASGIApplication
+from server.kolkhoz_server.asgi import ASGIApplication, _direct_committed_updates
 from server.kolkhoz_server.distributed import RealtimeMessage
 from server.kolkhoz_server.errors import ServerError
 
@@ -307,7 +307,29 @@ def test_websocket_delivers_committed_viewer_safe_update() -> None:
             await asyncio.sleep(0)
         application.revision = 1
         bus.publish(
-            RealtimeMessage("session:s1", "s1:1", {"sessionID": "s1", "revision": 1})
+            RealtimeMessage(
+                "session:s1",
+                "s1:1",
+                {
+                    "sessionID": "s1",
+                    "revision": 1,
+                    "payload": {
+                        "kind": 2,
+                        "playerID": 1,
+                        "handCard": {"suit": 2, "value": 10},
+                        "plotCard": {"suit": 3, "value": 9},
+                    },
+                    "statesByViewer": {
+                        "1": {"private": "viewer-1"},
+                        "2": {
+                            "private": "direct-viewer-2",
+                            "phase": 2,
+                            "waitingPlayer": 2,
+                            "legalActions": [{"kind": 0, "playerID": 2}],
+                        },
+                    },
+                },
+            )
         )
         await asyncio.wait_for(task, 2)
 
@@ -320,6 +342,12 @@ def test_websocket_delivers_committed_viewer_safe_update() -> None:
     committed = next(item for item in payloads if item["type"] == "committed")
     assert committed["revision"] == 1
     assert committed["updates"]["updates"][0]["update"]["viewerID"] == 2
+    projected = committed["updates"]["updates"][0]
+    assert projected["update"]["snapshot"]["private"] == "direct-viewer-2"
+    assert projected["update"]["isViewerTurn"] is True
+    assert projected["action"]["handCard"] == {"suit": -1, "value": -1}
+    assert "viewer-1" not in json.dumps(committed)
+    assert not any("/actions?" in request.target for request in application.requests)
 
 
 def test_websocket_rejects_missing_credentials() -> None:
@@ -390,3 +418,42 @@ def test_websocket_suppresses_duplicate_committed_notifications() -> None:
         if item.get("type") == "websocket.send"
     ]
     assert [item["type"] for item in payloads].count("committed") == 1
+
+
+def test_direct_projections_are_ordered_and_gaps_use_catch_up() -> None:
+    current = {
+        "sessionID": "s1",
+        "viewerID": 2,
+        "actionLogCount": 0,
+        "gameLogActions": [],
+        "reactions": [],
+        "snapshot": {"phase": 2},
+    }
+
+    def message(revision: int, *, phase: int = 2) -> RealtimeMessage:
+        return RealtimeMessage(
+            "session:s1",
+            f"s1:{revision}",
+            {
+                "revision": revision,
+                "payload": {"kind": 0, "playerID": 2, "suit": revision},
+                "statesByViewer": {
+                    "2": {
+                        "phase": phase,
+                        "waitingPlayer": 2,
+                        "legalActions": [{"kind": 0, "playerID": 2}],
+                    }
+                },
+            },
+        )
+
+    direct = _direct_committed_updates(
+        "s1", 2, 0, current, [message(2), message(1)]
+    )
+    assert direct is not None
+    updates, latest, revision = direct
+    assert revision == 2
+    assert latest["actionLogCount"] == 2
+    assert [item["revision"] for item in updates["updates"]] == [1, 2]
+    assert _direct_committed_updates("s1", 2, 0, current, [message(2)]) is None
+    assert _direct_committed_updates("s1", 2, 0, current, [message(1, phase=5)]) is None

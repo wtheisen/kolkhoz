@@ -19,6 +19,14 @@ from server.kolkhoz_server.store import (
 )
 
 
+class CapturingRealtimeBus:
+    def __init__(self) -> None:
+        self.messages: list[object] = []
+
+    def publish(self, message: object) -> None:
+        self.messages.append(message)
+
+
 class FakeEngine:
     def __init__(self, seed: int, delay: float, tracker: "EngineTracker") -> None:
         self.value = seed
@@ -243,7 +251,8 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(recovered.state["value"], 17)
 
     def test_committed_event_is_published_to_realtime_boundary(self) -> None:
-        hub = EventHub()
+        realtime = CapturingRealtimeBus()
+        hub = EventHub(realtime)
         runtime = GameRuntime(
             SQLiteEventStore(self.database),
             engine_factory=FakeEngineFactory(),
@@ -260,6 +269,12 @@ class RuntimeTests(unittest.TestCase):
 
         self.assertEqual(event.revision, 1)
         self.assertEqual(event.payload, {"delta": 1})
+        message = realtime.messages[0]
+        self.assertEqual(message.payload["revision"], 1)
+        self.assertEqual(
+            message.payload["statesByViewer"]["2"],
+            {"value": 1, "viewerID": 2},
+        )
 
     def test_runtime_persists_automatic_actions_on_same_session_shard(self) -> None:
         factory = AutomaticFakeFactory()

@@ -15,11 +15,17 @@ KOLKHOZ_IDENTITY_SECRET=<at least 32 cryptographically random characters>
 KOLKHOZ_APPLE_BUNDLE_ID=com.williamtheisen.kolkhoz
 KOLKHOZ_PLAY_GAMES_SERVER_CLIENT_ID=<web OAuth client ID>
 KOLKHOZ_PLAY_GAMES_SERVER_CLIENT_SECRET=<web OAuth client secret>
+KOLKHOZ_RESEND_API_KEY=<server-only Resend API key>
+KOLKHOZ_RECOVERY_EMAIL_FROM=Kolkhoz <login@your-verified-domain.example>
 ```
 
 The identity secret HMACs guest installation identifiers and link codes. Rotate it only
 with a migration plan because outstanding link codes and guest restorations depend on it.
 Never log platform payloads, auth codes, raw link codes, or `khz_` session tokens.
+
+Resend is a delivery transport only. Kolkhoz generates, hashes, expires, rate-limits,
+and verifies six-digit email codes. A verified recovery email is an attached credential
+on the canonical player UUID; it never creates a second account type.
 
 ## App Store Connect and Game Center
 
@@ -90,15 +96,11 @@ iOS, macOS, and Android. Manual entry and QR scanning call the same redemption e
 - Console capabilities, OAuth credentials, testers, signing fingerprints, and regenerated
   provisioning profiles must be completed by an account owner; no real secrets belong in
   this repository.
-- Existing email/password Supabase sessions remain accepted during migration, but the
-  visible app flow is passwordless. When a device still has a valid legacy session and
-  no completed platform migration, the app sends that bearer with the verified Game
-  Center or Play Games credential. The server attaches the provider to the existing
-  player UUID and issues a `khz_` session; it never creates a replacement profile or
-  copies progress. A provider already attached to another player, or a second identity
-  from the same provider, fails closed for manual support. If platform authentication is
-  unavailable, the app keeps using the legacy account instead of creating a guest.
-  Remove the compatibility verifier only after active legacy sessions and account-support
-  obligations have expired.
+- The migration copies confirmed legacy email addresses onto the same canonical player
+  UUID. The new app does not start Supabase sessions. The server may continue accepting
+  old bearer tokens temporarily so installed older builds can migrate, but new builds
+  use only `khz_` sessions, platform credentials, device credentials, and recovery email
+  codes. Remove the compatibility verifier after older builds and support obligations
+  have expired.
 - Monitor unauthorized platform attempts, link conflicts, rate-limit responses, and
   session revocations without recording credential material.

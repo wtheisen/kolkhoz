@@ -58,7 +58,7 @@ from .identity import (
 )
 
 
-def _production_auth_verifier() -> CachingAuthVerifier | StagingAuthVerifier:
+def _production_auth_verifier() -> CachingAuthVerifier | StagingAuthVerifier | None:
     static_tokens = os.environ.get("KOLKHOZ_STAGING_STATIC_AUTH_TOKENS")
     if static_tokens is not None:
         if os.environ.get("KOLKHOZ_ENVIRONMENT") != "staging":
@@ -83,10 +83,7 @@ def _production_auth_verifier() -> CachingAuthVerifier | StagingAuthVerifier:
         return StagingAuthVerifier(decoded)
     verifier = SupabaseAuthVerifier.from_environment()
     if verifier is None:
-        raise RuntimeError(
-            "KOLKHOZ_SUPABASE_URL and KOLKHOZ_SUPABASE_PUBLISHABLE_KEY "
-            "are required in production"
-        )
+        return None
     return CachingAuthVerifier(
         verifier,
         ttl_seconds=float(os.environ.get("KOLKHOZ_AUTH_CACHE_TTL_SECONDS", "30")),
@@ -146,7 +143,8 @@ def create_asgi_application() -> ASGIApplication:
     )
     identity = identity_service_from_environment(pool)
     auth_verifier = CompositeAuthVerifier(
-        IdentitySessionVerifier(identity.repository), legacy_auth_verifier
+        IdentitySessionVerifier(identity.repository),
+        *(() if legacy_auth_verifier is None else (legacy_auth_verifier,)),
     )
     store = PostgresEventStore(pool=pool)
     lobby = PostgresLobbyRepository(pool)
@@ -168,12 +166,6 @@ def create_asgi_application() -> ASGIApplication:
         {"apple": apple_verifier} if apple_verifier is not None else {},
     )
     account_deleter = SupabaseAccountDeleter.from_environment()
-    if account_deleter is None and not os.environ.get(
-        "KOLKHOZ_STAGING_STATIC_AUTH_TOKENS"
-    ):
-        raise RuntimeError(
-            "KOLKHOZ_SUPABASE_SECRET_KEY is required for account deletion"
-        )
     accounts = (
         AccountDeletionService(account_deleter, PostgresAccountCleaner(pool))
         if account_deleter is not None

@@ -57,10 +57,19 @@ class FakeHTTPResponse:
         return self.body
 
 
+class FakeEmailSender:
+    def __init__(self) -> None:
+        self.sent: list[tuple[str, str]] = []
+
+    def send_login_code(self, email: str, code: str) -> None:
+        self.sent.append((email, code))
+
+
 class IdentityTests(unittest.TestCase):
     def setUp(self) -> None:
         self.now = [1_000.0]
         self.repository = InMemoryIdentityRepository()
+        self.email_sender = FakeEmailSender()
         self.service = IdentityService(
             self.repository,
             {
@@ -68,6 +77,7 @@ class IdentityTests(unittest.TestCase):
                 "play_games": FakeVerifier("play_games"),
             },
             secret=b"test-secret-that-is-long-enough-for-hmac",
+            email_sender=self.email_sender,
             clock=lambda: self.now[0],
         )
 
@@ -195,6 +205,31 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual(first["player"]["id"], returning["player"]["id"])  # type: ignore[index]
         self.assertNotEqual(first["player"]["id"], other["player"]["id"])  # type: ignore[index]
         self.assertNotIn("installation-1234567890", repr(self.repository.players))
+
+    def test_recovery_email_upgrades_guest_and_links_a_new_installation(self) -> None:
+        established = self.service.guest(
+            "installation-1234567890", display_name="Guest", device_id="one"
+        )
+        established_id = str(established["player"]["id"])  # type: ignore[index]
+        self.service.request_email_code(established_id, " Player@Example.com ")
+        email, code = self.email_sender.sent[-1]
+        upgraded = self.service.verify_email_code(
+            established_id, email, code, device_id="one"
+        )
+        self.assertTrue(upgraded["player"]["portable"])  # type: ignore[index]
+
+        provisional = self.service.guest(
+            "installation-abcdefghij", display_name="Guest", device_id="two"
+        )
+        provisional_id = str(provisional["player"]["id"])  # type: ignore[index]
+        self.service.request_email_code(provisional_id, email)
+        _, link_code = self.email_sender.sent[-1]
+        linked = self.service.verify_email_code(
+            provisional_id, email, link_code, device_id="two"
+        )
+        self.assertEqual(linked["player"]["id"], established_id)  # type: ignore[index]
+        self.assertEqual(linked["emailAction"], "existing_account_linked")
+        self.assertTrue(self.repository.players[provisional_id]["deleted"])
 
     def test_legacy_player_claim_keeps_uuid_and_rejects_cross_account_claim(self) -> None:
         legacy_id = "10000000-0000-4000-8000-000000000001"
@@ -508,7 +543,8 @@ class IdentityTests(unittest.TestCase):
             )
         )
         self.assertEqual(deleted.body, {"deleted": True})
-        self.assertEqual(accounts.deleted, [legacy_id])
+        self.assertEqual(accounts.deleted, [])
+        self.assertTrue(repository.players[legacy_id]["deleted"])
 
 
 if __name__ == "__main__":

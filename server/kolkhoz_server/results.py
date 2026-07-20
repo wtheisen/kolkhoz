@@ -581,6 +581,13 @@ class PostgresResultsRepository:
         updated_at: datetime,
     ) -> None:
         cursor.execute(
+            """select exists(select 1 from server_linked_identities where player_id=%s)
+                      or exists(select 1 from server_recovery_emails where player_id=%s)""",
+            (user_id, user_id),
+        )
+        if not bool(cursor.fetchone()[0]):
+            return
+        cursor.execute(
             """insert into server_progression_events (session_id, user_id)
                values (%s, %s) on conflict (session_id, user_id) do nothing
                returning user_id""",

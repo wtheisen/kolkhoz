@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from server.kolkhoz_server.api import OnlineApplication, Request
 from server.kolkhoz_server.auth import StaticAuthVerifier
@@ -181,6 +182,18 @@ class CanonicalRouteParityTests(unittest.TestCase):
         self.request("GET", "/admin/operations", bearer="host-token")
         self.request("POST", "/identity/platform/game_center")
         self.request("POST", "/identity/guest")
+        self.request(
+            "POST",
+            "/identity/email/code",
+            {"email": "host@example.com"},
+            bearer="host-token",
+        )
+        self.request(
+            "POST",
+            "/identity/email/verify",
+            {"email": "host@example.com", "code": "123456"},
+            bearer="host-token",
+        )
         self.request("POST", "/identity/device-links", bearer="host-token")
         self.request("GET", "/identity/device-links/request-1", bearer="host-token")
         self.request(
@@ -217,6 +230,8 @@ class CanonicalRouteParityTests(unittest.TestCase):
         )
         leaderboard = self.assert_ok(self.request("GET", "/leaderboard"))
         self.assertEqual(leaderboard["players"][0]["userID"], "host")
+        self.assert_ok(self.request("GET", "/profile", bearer="host-token"))
+        self.request("PATCH", "/profile", {"displayName": "Host"})
         self.assert_ok(self.request("GET", "/profiles/guest"))
         self.assert_ok(self.request("GET", "/results/recent", bearer="host-token"))
         self.request("GET", "/results/missing/replay", bearer="host-token")
@@ -352,19 +367,33 @@ class CanonicalRouteParityTests(unittest.TestCase):
             )
         )
         self.assertEqual(legal[0]["playerID"], 0)
-        updated = self.assert_ok(
-            self.request(
-                "POST",
-                f"/sessions/{session_id}/actions",
-                {
-                    "playerID": 0,
-                    "actionLogCount": 0,
-                    "action": {"type": "add", "delta": 2, "playerID": 0},
-                },
-                bearer="host-token",
-                seat_token=host_seat_token,
+        with (
+            patch.object(
+                self.runtime,
+                "advance_and_state",
+                wraps=self.runtime.advance_and_state,
+            ) as advance_and_state,
+            patch.object(
+                self.application.lobby,
+                "touch_seat",
+                wraps=self.application.lobby.touch_seat,
+            ) as touch_seat,
+        ):
+            updated = self.assert_ok(
+                self.request(
+                    "POST",
+                    f"/sessions/{session_id}/actions",
+                    {
+                        "playerID": 0,
+                        "actionLogCount": 0,
+                        "action": {"type": "add", "delta": 2, "playerID": 0},
+                    },
+                    bearer="host-token",
+                    seat_token=host_seat_token,
+                )
             )
-        )
+        advance_and_state.assert_not_called()
+        touch_seat.assert_called_once()
         self.assertEqual(updated["actionLogCount"], 1)
         incremental = self.assert_ok(
             self.request(

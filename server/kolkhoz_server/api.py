@@ -3,8 +3,11 @@ from __future__ import annotations
 import hashlib
 import re
 import secrets
+import threading
 import time
 import uuid
+from collections import OrderedDict
+from copy import deepcopy
 from datetime import datetime, timezone
 from dataclasses import dataclass
 from http import HTTPStatus
@@ -18,6 +21,7 @@ from .contracts import (
     optional_bool,
     optional_int,
     privacy_safe_action_log,
+    merge_session_engine_projection,
 )
 from .errors import ServerError
 from .lobby import LobbyRepository, SeatRecord, SeatUnavailable, SessionRecord
@@ -38,6 +42,7 @@ from .tournament import TournamentRepository, TournamentTablePlan
 REACTION_IDS = frozenset(
     ("comrade", "medal", "protected", "warning", "wheat", "wrecker")
 )
+UPDATE_CONTEXT_CACHE_LIMIT = 256
 
 
 @dataclass(frozen=True)
@@ -101,6 +106,10 @@ class OnlineApplication:
         self.session_ttl_seconds = session_ttl_seconds
         self.presence_ttl_seconds = presence_ttl_seconds
         self.lobby_countdown_seconds = max(0.0, lobby_countdown_seconds)
+        self._update_contexts: OrderedDict[
+            tuple[str, int | None], JsonObject
+        ] = OrderedDict()
+        self._update_context_lock = threading.Lock()
 
     def dispatch(self, request: Request) -> Response:
         parsed = urlsplit(request.target)
@@ -156,6 +165,26 @@ class OnlineApplication:
                         ),
                     )
                 player_id = self._require_user(user_id)
+                if operation == "identity.email.code":
+                    return Response(
+                        HTTPStatus.OK,
+                        self.identity.request_email_code(
+                            player_id, str(request.body.get("email") or "")
+                        ),
+                    )
+                if operation == "identity.email.verify":
+                    return Response(
+                        HTTPStatus.OK,
+                        self.identity.verify_email_code(
+                            player_id,
+                            str(request.body.get("email") or ""),
+                            str(request.body.get("code") or ""),
+                            device_id=_header(
+                                request.headers, "X-Kolkhoz-Device-ID"
+                            )
+                            or "",
+                        ),
+                    )
                 if operation == "identity.links.create":
                     return Response(HTTPStatus.OK, self.identity.create_link(player_id))
                 if operation == "identity.links.status":
@@ -192,7 +221,7 @@ class OnlineApplication:
             identity_session = str(
                 _header(request.headers, "Authorization") or ""
             ).startswith("Bearer khz_")
-            if identity_session and self.accounts is None and self.identity is not None:
+            if identity_session and self.identity is not None:
                 self.identity.repository.delete_player(deleted_user_id, time.time())
                 return Response(HTTPStatus.OK, {"deleted": True})
             if self.accounts is None:
@@ -362,10 +391,12 @@ class OnlineApplication:
                 ),
             )
         if operation == "challenges.daily":
+            self._require_portable_account(self._require_user(user_id))
             return Response(
                 HTTPStatus.OK, self._daily_challenge(self._require_user(user_id))
             )
         if operation == "challenges.daily.start":
+            self._require_portable_account(self._require_user(user_id))
             return Response(
                 HTTPStatus.OK,
                 self._start_daily_challenge(
@@ -1066,7 +1097,10 @@ class OnlineApplication:
             if operation in {"sessions.actions.submit", "sessions.reactions.submit"}
             else (query.get("viewerID") or [params.get("playerID")])[0]
         )
-        self._authenticate(record.session_id, viewer, request, user_id)
+        seats = self.lobby.seats(record.session_id)
+        self._authenticate(
+            record.session_id, viewer, request, user_id, seats=seats
+        )
         if operation == "sessions.state":
             return self._read_update(record.session_id, viewer)
         if operation == "sessions.actions.legal":
@@ -1100,15 +1134,40 @@ class OnlineApplication:
                     raise ServerError(HTTPStatus.CONFLICT, "game has not started")
                 if optional_int(action.get("playerID")) != viewer:
                     raise ServerError(HTTPStatus.CONFLICT, "wrong player")
-                self._authenticate(record.session_id, viewer, request, user_id)
 
-            self.runtime.submit_action(
+            runtime_update = self.runtime.submit_action(
                 record.session_id,
                 expected_revision=expected,
                 action=action,
                 viewer_id=viewer,
                 authorize=authorize_action,
             )
+            if self._update_waits_for_human(runtime_update.state, seats):
+                turn_player_id, turn_deadline_at = self._sync_turn_deadline(
+                    record, seats, runtime_update.state.get("waitingPlayer")
+                )
+                cached = self._cached_action_update(
+                    record,
+                    seats,
+                    viewer,
+                    runtime_update.state,
+                    runtime_update.revision,
+                    expected_revision=expected,
+                    action=action,
+                    turn_player_id=turn_player_id,
+                    turn_deadline_at=turn_deadline_at,
+                )
+                if cached is not None:
+                    return cached
+                return self._build_update(
+                    record.session_id,
+                    viewer,
+                    runtime_update.state,
+                    runtime_update.revision,
+                    record=record,
+                    seats=seats,
+                    turn_state=(turn_player_id, turn_deadline_at),
+                )
             return self._command_update(record.session_id, viewer)
         reaction_id = str(body.get("reactionID") or "")
         if record.status != "active":
@@ -1265,10 +1324,14 @@ class OnlineApplication:
         viewer_id: int | None,
         state: Mapping[str, object],
         revision: int,
+        *,
+        record: SessionRecord | None = None,
+        seats: list[SeatRecord] | None = None,
+        turn_state: tuple[int | None, float | None] | None = None,
     ) -> JsonObject:
-        record = self.lobby.session(session_id)
+        record = record or self.lobby.session(session_id)
         snapshot = dict(state)
-        legal_actions = snapshot.pop("legalActions", [])
+        snapshot.pop("legalActions", None)
         raw_actions = [
             event.payload
             for event in self.runtime.events(
@@ -1280,40 +1343,39 @@ class OnlineApplication:
             viewer_id,
             game_over=int(snapshot.get("phase", -1)) == 5,
         )
-        seats = self.lobby.seats(record.session_id)
+        seats = seats if seats is not None else self.lobby.seats(record.session_id)
         player_profiles = (
             self.social.player_profiles(seats, record.controllers)
             if self.social is not None
             else []
         )
-        viewer_legal_actions = [
-            action
-            for action in legal_actions
-            if viewer_id is not None and action.get("playerID") == viewer_id
-        ]
-        turn_player_id, turn_deadline_at = self.lobby.turn_state(session_id)
-        update = {
+        turn_player_id, turn_deadline_at = (
+            turn_state if turn_state is not None else self.lobby.turn_state(session_id)
+        )
+        base_update = {
             "sessionID": record.session_id,
             "seed": record.seed,
             "inviteCode": record.invite_code,
-            "viewerID": viewer_id,
-            "actionLogCount": revision,
             "started": record.status == "active",
             "lobbyCountdownEndsAt": record.lobby_countdown_ends_at,
-            "gameLogActions": actions,
             "reactions": self.lobby.reactions(record.session_id),
-            "isViewerTurn": record.status == "active" and bool(viewer_legal_actions),
-            "legalActions": viewer_legal_actions,
             "variants": record.variants,
             "controllers": record.controllers,
             "ranked": record.ranked,
             "browserJoinable": record.browser_joinable,
             "playerProfiles": player_profiles,
             "seatPresence": _seat_presence(seats),
-            "turnPlayerID": turn_player_id,
-            "turnDeadlineAt": turn_deadline_at,
-            "snapshot": snapshot,
         }
+        update = merge_session_engine_projection(
+            base_update,
+            state,
+            viewer_id=viewer_id,
+            revision=revision,
+            started=record.status == "active",
+            game_log_actions=actions,
+            turn_player_id=turn_player_id,
+            turn_deadline_at=turn_deadline_at,
+        )
         series = self._series_status(record.session_id)
         if series is not None:
             update["series"] = series
@@ -1321,25 +1383,114 @@ class OnlineApplication:
             tournament = self.tournaments.session_context(session_id=record.session_id)
             if tournament is not None:
                 update["tournament"] = tournament
-        if self.notifications is not None and turn_player_id is not None:
-            turn_seat = next(
-                (seat for seat in seats if seat.player_id == turn_player_id), None
-            )
-            if (
-                turn_seat is not None
-                and turn_seat.controller == "human"
-                and turn_seat.occupied
-                and not turn_seat.autopilot
-            ):
-                self.notifications.notify(
-                    user_id=turn_seat.user_id,
-                    event_type="your_turn",
-                    dedupe_key=f"your-turn:{record.session_id}:{revision}",
-                    session_id=record.session_id,
-                    title="Your turn",
-                    body="A human move is waiting for you.",
-                )
+        self._notify_turn(record, seats, turn_player_id, revision)
+        self._cache_update_context(update)
         return update
+
+    def _cached_action_update(
+        self,
+        record: SessionRecord,
+        seats: list[SeatRecord],
+        viewer_id: int | None,
+        state: Mapping[str, object],
+        revision: int,
+        *,
+        expected_revision: int,
+        action: Mapping[str, object],
+        turn_player_id: int | None,
+        turn_deadline_at: float | None,
+    ) -> JsonObject | None:
+        cached = self._update_context(record.session_id, viewer_id)
+        if cached is None or optional_int(cached.get("actionLogCount")) != expected_revision:
+            return None
+        game_log = [
+            value
+            for value in cached.get("gameLogActions", [])
+            if isinstance(value, Mapping)
+        ]
+        game_log.extend(privacy_safe_action_log([action], viewer_id, game_over=False))
+        cached.update(
+            {
+                "seed": record.seed,
+                "inviteCode": record.invite_code,
+                "started": record.status == "active",
+                "lobbyCountdownEndsAt": record.lobby_countdown_ends_at,
+                "reactions": self.lobby.reactions(record.session_id),
+                "variants": record.variants,
+                "controllers": record.controllers,
+                "ranked": record.ranked,
+                "browserJoinable": record.browser_joinable,
+                "seatPresence": _seat_presence(seats),
+            }
+        )
+        update = merge_session_engine_projection(
+            cached,
+            state,
+            viewer_id=viewer_id,
+            revision=revision,
+            started=record.status == "active",
+            game_log_actions=game_log,
+            turn_player_id=turn_player_id,
+            turn_deadline_at=turn_deadline_at,
+        )
+        self._notify_turn(record, seats, turn_player_id, revision)
+        self._cache_update_context(update)
+        return update
+
+    def _cache_update_context(self, update: Mapping[str, object]) -> None:
+        session_id = str(update.get("sessionID") or "")
+        viewer_id = optional_int(update.get("viewerID"))
+        if not session_id:
+            return
+        key = (session_id, viewer_id)
+        with self._update_context_lock:
+            self._update_contexts[key] = deepcopy(dict(update))
+            self._update_contexts.move_to_end(key)
+            while len(self._update_contexts) > UPDATE_CONTEXT_CACHE_LIMIT:
+                self._update_contexts.popitem(last=False)
+
+    def remember_update_context(self, update: Mapping[str, object]) -> None:
+        """Retain a complete WebSocket projection for the next local action."""
+
+        self._cache_update_context(update)
+
+    def _update_context(
+        self, session_id: str, viewer_id: int | None
+    ) -> JsonObject | None:
+        key = (session_id, viewer_id)
+        with self._update_context_lock:
+            update = self._update_contexts.get(key)
+            if update is None:
+                return None
+            self._update_contexts.move_to_end(key)
+            return deepcopy(update)
+
+    def _notify_turn(
+        self,
+        record: SessionRecord,
+        seats: list[SeatRecord],
+        turn_player_id: int | None,
+        revision: int,
+    ) -> None:
+        if self.notifications is None or turn_player_id is None:
+            return
+        turn_seat = next(
+            (seat for seat in seats if seat.player_id == turn_player_id), None
+        )
+        if (
+            turn_seat is not None
+            and turn_seat.controller == "human"
+            and turn_seat.occupied
+            and not turn_seat.autopilot
+        ):
+            self.notifications.notify(
+                user_id=turn_seat.user_id,
+                event_type="your_turn",
+                dedupe_key=f"your-turn:{record.session_id}:{revision}",
+                session_id=record.session_id,
+                title="Your turn",
+                body="A human move is waiting for you.",
+            )
 
     def _series_status(self, session_id: str) -> JsonObject | None:
         if self.results is None or not hasattr(self.results, "series_status"):
@@ -1575,16 +1726,35 @@ class OnlineApplication:
         )
         return desired, deadline
 
+    @staticmethod
+    def _update_waits_for_human(
+        state: Mapping[str, object], seats: list[SeatRecord]
+    ) -> bool:
+        if optional_int(state.get("phase"), -1) == 5:
+            return False
+        waiting = optional_int(state.get("waitingPlayer"))
+        if waiting is None:
+            return False
+        seat = next((value for value in seats if value.player_id == waiting), None)
+        return bool(
+            seat is not None
+            and seat.controller == "human"
+            and seat.occupied
+            and not seat.autopilot
+        )
+
     def _authenticate(
         self,
         session_id: str,
         player_id: int | None,
         request: Request,
         user_id: str | None,
+        *,
+        seats: list[SeatRecord] | None = None,
     ) -> None:
         if player_id is None:
             raise ServerError(HTTPStatus.UNAUTHORIZED, "missing player")
-        seats = self.lobby.seats(session_id)
+        seats = seats if seats is not None else self.lobby.seats(session_id)
         seat = next((value for value in seats if value.player_id == player_id), None)
         if seat is None or not seat.occupied:
             raise ServerError(HTTPStatus.CONFLICT, "seat not joined")
@@ -1626,6 +1796,20 @@ class OnlineApplication:
         if operation == "profiles.get_public":
             return self.social.public_profile(params["userID"])
         user_id = self._require_user(user_id)
+        if operation == "profiles.get_current":
+            value = self.social.public_profile(user_id)
+            if self.identity is not None:
+                value.update(self.identity.repository.account_status(user_id))
+            return value
+        if operation == "profiles.update_current":
+            self._require_portable_account(user_id)
+            try:
+                updated = self.social.update_profile(body, user_id=user_id)
+                with self._update_context_lock:
+                    self._update_contexts.clear()
+                return updated
+            except ValueError as error:
+                raise ServerError(HTTPStatus.BAD_REQUEST, str(error)) from error
         if operation == "comrades.list":
             return self.social.comrades(user_id=user_id)
         if operation == "comrades.request":
@@ -1633,6 +1817,15 @@ class OnlineApplication:
         if operation == "comrades.respond":
             return self.social.respond(body, user_id=user_id)
         return self.social.remove(body, user_id=user_id)
+
+    def _require_portable_account(self, user_id: str) -> None:
+        if self.identity is None:
+            return
+        if not bool(self.identity.repository.account_status(user_id).get("portable")):
+            raise ServerError(
+                HTTPStatus.FORBIDDEN,
+                "link an account or add a recovery email to use progression features",
+            )
 
     def _installation(
         self,

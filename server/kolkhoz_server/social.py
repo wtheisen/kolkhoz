@@ -11,6 +11,18 @@ from .store import ConnectionPool
 
 
 Profile = dict[str, object]
+PROFILE_PORTRAITS = frozenset(
+    (
+        "worker1",
+        "worker2",
+        "worker3",
+        "worker4",
+        "worker-agronomist",
+        "worker-mechanic",
+        "worker-beekeeper",
+        "worker-forewoman",
+    )
+)
 
 
 class SocialRepository(Protocol):
@@ -23,6 +35,10 @@ class SocialRepository(Protocol):
     def leaderboard(self, *, limit: int = 100) -> list[Profile]: ...
 
     def public_profile(self, *, user_id: str) -> Profile: ...
+
+    def update_profile(
+        self, *, user_id: str, display_name: str, avatar_url: str, updated_at: float
+    ) -> Profile: ...
 
     def profiles_for_user_ids(self, user_ids: list[str]) -> dict[str, Profile]: ...
 
@@ -176,6 +192,24 @@ class SocialService:
             self.repository.public_profile(user_id=_required(user_id, "userID"))
         )
 
+    def update_profile(
+        self, request: dict[str, object], *, user_id: str
+    ) -> dict[str, object]:
+        display_name = str(request.get("displayName") or "").strip()
+        avatar_url = str(request.get("portraitAsset") or "").strip()
+        if not display_name or len(display_name) > 24:
+            raise ValueError("display name must contain 1 to 24 characters")
+        if avatar_url not in PROFILE_PORTRAITS:
+            raise ValueError("invalid profile portrait")
+        return _public_profile_response(
+            self.repository.update_profile(
+                user_id=user_id,
+                display_name=display_name,
+                avatar_url=avatar_url,
+                updated_at=self.clock(),
+            )
+        )
+
     def comrades(self, *, user_id: str) -> dict[str, object]:
         user_id = _required(user_id, "userID")
         self.repository.ensure_comrade_code(
@@ -323,6 +357,22 @@ class PostgresSocialRepository:
 
     def public_profile(self, *, user_id: str) -> Profile:
         with self._cursor() as cursor:
+            return self._profile_for_user(cursor, user_id)
+
+    def update_profile(
+        self, *, user_id: str, display_name: str, avatar_url: str, updated_at: float
+    ) -> Profile:
+        with self._cursor() as cursor:
+            cursor.execute(
+                """update public.profiles
+                      set display_name=%s,avatar_url=%s,updated_at=%s
+                    where user_id=%s""",
+                (display_name, avatar_url, _timestamp(updated_at), user_id),
+            )
+            cursor.execute(
+                "update server_players set updated_at=%s where id=%s",
+                (_timestamp(updated_at), user_id),
+            )
             return self._profile_for_user(cursor, user_id)
 
     def profiles_for_user_ids(self, user_ids: list[str]) -> dict[str, Profile]:

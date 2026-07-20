@@ -8,7 +8,7 @@ from unittest.mock import patch
 from server.kolkhoz_server.api import OnlineApplication, Request
 from server.kolkhoz_server.auth import StaticAuthVerifier
 from server.kolkhoz_server.errors import ServerError
-from server.kolkhoz_server.lobby import SQLiteLobbyRepository
+from server.kolkhoz_server.lobby import SeatRecord, SQLiteLobbyRepository
 from server.kolkhoz_server.runtime import GameRuntime
 from server.kolkhoz_server.store import SQLiteEventStore
 from server.kolkhoz_server.commerce import (
@@ -126,6 +126,86 @@ class CompatibilityApiTests(unittest.TestCase):
         status, body = self.request("GET", "/results/recent", bearer="host-token")
         self.assertEqual(status, 200)
         self.assertEqual(body["games"][0]["sessionID"], "recent-game")
+
+    def test_committed_update_fast_path_requires_a_live_human_wait(self) -> None:
+        human = SeatRecord(1, "human", True, "guest", "token", 1.0, 0, False, False)
+        automatic = SeatRecord(
+            1, "heuristicAI", True, None, None, 1.0, 0, False, False
+        )
+        autopilot = SeatRecord(
+            1, "human", True, "guest", "token", 1.0, 2, True, True
+        )
+
+        self.assertTrue(
+            self.application._update_waits_for_human(
+                {"phase": 2, "waitingPlayer": 1}, [human]
+            )
+        )
+        self.assertFalse(
+            self.application._update_waits_for_human(
+                {"phase": 2, "waitingPlayer": 1}, [automatic]
+            )
+        )
+        self.assertFalse(
+            self.application._update_waits_for_human(
+                {"phase": 2, "waitingPlayer": 1}, [autopilot]
+            )
+        )
+        self.assertFalse(
+            self.application._update_waits_for_human(
+                {"phase": 5, "waitingPlayer": 1}, [human]
+            )
+        )
+
+    def test_cached_action_update_reuses_matching_full_session_context(self) -> None:
+        status, created = self.request(
+            "POST", "/sessions", {"seed": 3}, bearer="host-token"
+        )
+        self.assertEqual(status, 200)
+        session_id = created["sessionID"]
+        record = self.application.lobby.session(session_id)
+        seats = self.application.lobby.seats(session_id)
+        state = {
+            "phase": 2,
+            "waitingPlayer": 0,
+            "legalActions": [{"kind": 0, "playerID": 0}],
+        }
+
+        with patch.object(
+            self.application.lobby,
+            "reactions",
+            wraps=self.application.lobby.reactions,
+        ) as reactions:
+            update = self.application._cached_action_update(
+                record,
+                seats,
+                0,
+                state,
+                1,
+                expected_revision=0,
+                action={"kind": 0, "playerID": 0},
+                turn_player_id=0,
+                turn_deadline_at=100.0,
+            )
+
+        self.assertIsNotNone(update)
+        self.assertEqual(update["actionLogCount"], 1)
+        self.assertEqual(update["turnDeadlineAt"], 100.0)
+        self.assertEqual(update["gameLogActions"][-1]["playerID"], 0)
+        reactions.assert_called_once_with(session_id)
+        self.assertIsNone(
+            self.application._cached_action_update(
+                record,
+                seats,
+                0,
+                state,
+                3,
+                expected_revision=2,
+                action={"kind": 0, "playerID": 0},
+                turn_player_id=0,
+                turn_deadline_at=100.0,
+            )
+        )
 
     def test_account_deletion_requires_auth_and_targets_current_user(self) -> None:
         class Accounts:
@@ -368,19 +448,25 @@ class CompatibilityApiTests(unittest.TestCase):
         self.assertEqual(state_status, 200)
         self.assertEqual(state["actionLogCount"], 0)
 
-        action_status, update = self.request(
-            "POST",
-            f"/sessions/{session_id}/actions",
-            {
-                "playerID": 0,
-                "actionLogCount": 0,
-                "action": {"delta": 2, "playerID": 0},
-            },
-            bearer="host-token",
-            seat_token=host_seat,
-        )
+        with patch.object(
+            self.runtime,
+            "advance_and_state",
+            wraps=self.runtime.advance_and_state,
+        ) as advance_and_state:
+            action_status, update = self.request(
+                "POST",
+                f"/sessions/{session_id}/actions",
+                {
+                    "playerID": 0,
+                    "actionLogCount": 0,
+                    "action": {"delta": 2, "playerID": 0},
+                },
+                bearer="host-token",
+                seat_token=host_seat,
+            )
         self.assertEqual(action_status, 200)
         self.assertEqual(update["actionLogCount"], 1)
+        advance_and_state.assert_called_once()
 
         _, anonymous_presence = self.request("POST", "/presence", {})
         _, signed_in_presence = self.request(
