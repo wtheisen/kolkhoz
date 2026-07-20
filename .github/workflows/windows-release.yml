@@ -30,6 +30,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 30
     env:
+      KOLKHOZ_BETA: ${{ inputs.prerelease }}
       KOLKHOZ_SUPABASE_URL: ${{ secrets.KOLKHOZ_SUPABASE_URL }}
       KOLKHOZ_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.KOLKHOZ_SUPABASE_PUBLISHABLE_KEY }}
     defaults:
@@ -73,19 +74,26 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($env:KOLKHOZ_SUPABASE_PUBLISHABLE_KEY)) {
             throw "Missing KOLKHOZ_SUPABASE_PUBLISHABLE_KEY"
           }
+          if ($env:KOLKHOZ_BETA -notin @("true", "false")) {
+            throw "KOLKHOZ_BETA must be true or false"
+          }
           flutter build windows --release `
+            "--dart-define=KOLKHOZ_BETA=$env:KOLKHOZ_BETA" `
             "--dart-define=KOLKHOZ_SUPABASE_URL=$env:KOLKHOZ_SUPABASE_URL" `
             "--dart-define=KOLKHOZ_SUPABASE_PUBLISHABLE_KEY=$env:KOLKHOZ_SUPABASE_PUBLISHABLE_KEY"
 
       - name: Test Windows release
+        shell: pwsh
         env:
           KOLKHOZ_C_ENGINE_LIB: ${{ github.workspace }}\app\build\windows\x64\runner\Release\kolkhoz_c_engine.dll
-        run: >-
-          flutter test
-          test/commerce_test.dart
-          test/parity_gate_test.dart
-          test/progression_test.dart
-          test/online_action_retry_test.dart
+        run: |
+          flutter test `
+            "--dart-define=KOLKHOZ_BETA=$env:KOLKHOZ_BETA" `
+            "--dart-define=KOLKHOZ_EXPECTED_BETA=$env:KOLKHOZ_BETA" `
+            test/commerce_test.dart `
+            test/parity_gate_test.dart `
+            test/progression_test.dart `
+            test/online_action_retry_test.dart
 
       - name: Verify and package release bundle
         shell: pwsh
@@ -125,6 +133,7 @@ jobs:
             "Built UTC: $([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))"
             "Architecture: x64"
             "Cloud profiles: configured"
+            "Beta full-game unlock: $env:KOLKHOZ_BETA"
           ) | Set-Content "$bundle/BUILD_INFO.txt"
 
           $bundleChecksums = Get-ChildItem $bundle -File -Recurse |

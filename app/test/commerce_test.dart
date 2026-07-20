@@ -114,6 +114,13 @@ void main() {
     expect(commerce.fullGameUnlocked, kolkhozBetaBuild);
   });
 
+  test('release build receives the expected beta entitlement flag', () {
+    const expected = String.fromEnvironment('KOLKHOZ_EXPECTED_BETA');
+    if (expected.isEmpty) return;
+    expect(expected, anyOf('true', 'false'));
+    expect(kolkhozBetaBuild, expected == 'true');
+  });
+
   test('Windows startup does not initialize an unsupported purchase store', () {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
