@@ -1,6 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// Transitional access to an existing Supabase Auth session.
+///
+/// Profile data never flows through this client. Remove this bridge after the
+/// installed legacy population has exchanged its session for a Kolkhoz token.
 class KolkhozSupabaseConfig {
   const KolkhozSupabaseConfig._();
 
@@ -8,7 +12,6 @@ class KolkhozSupabaseConfig {
   static const publishableKey = String.fromEnvironment(
     'KOLKHOZ_SUPABASE_PUBLISHABLE_KEY',
   );
-  static const authRedirectUrl = 'com.williamtheisen.kolkhoz://login-callback/';
 
   static bool get isConfigured => url.isNotEmpty && publishableKey.isNotEmpty;
 }
@@ -27,20 +30,11 @@ class KolkhozSupabaseRuntime extends ChangeNotifier {
   bool get isReady => _ready;
   Object? get error => _error;
 
-  SupabaseClient? get client {
-    if (!_ready) {
-      return null;
-    }
-    return Supabase.instance.client;
-  }
+  SupabaseClient? get client => _ready ? Supabase.instance.client : null;
 
   Future<void> start() {
-    if (!isConfigured) {
-      return Future<void>.value();
-    }
-    if (_started) {
-      return _initialization ?? Future<void>.value();
-    }
+    if (!isConfigured) return Future<void>.value();
+    if (_started) return _initialization ?? Future<void>.value();
     _started = true;
     return _initialization = _initialize();
   }

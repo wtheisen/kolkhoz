@@ -206,6 +206,27 @@ class IdentityTests(unittest.TestCase):
         self.assertNotEqual(first["player"]["id"], other["player"]["id"])  # type: ignore[index]
         self.assertNotIn("installation-1234567890", repr(self.repository.players))
 
+    def test_legacy_session_migration_keeps_uuid_and_claims_device(self) -> None:
+        legacy_id = "10000000-0000-4000-8000-000000000001"
+        self.repository.players[legacy_id] = {
+            "displayName": "Legacy Player",
+            "guestHash": None,
+            "deleted": False,
+        }
+        migrated = self.service.migrate_legacy(
+            legacy_id,
+            "installation-1234567890",
+            device_id="windows-device",
+        )
+        returning = self.service.guest(
+            "installation-1234567890",
+            display_name="Ignored",
+            device_id="windows-device",
+        )
+        self.assertEqual(migrated["player"]["id"], legacy_id)  # type: ignore[index]
+        self.assertEqual(returning["player"]["id"], legacy_id)  # type: ignore[index]
+        self.assertTrue(migrated["player"]["portable"])  # type: ignore[index]
+
     def test_recovery_email_upgrades_guest_and_links_a_new_installation(self) -> None:
         established = self.service.guest(
             "installation-1234567890", display_name="Guest", device_id="one"
@@ -230,6 +251,28 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual(linked["player"]["id"], established_id)  # type: ignore[index]
         self.assertEqual(linked["emailAction"], "existing_account_linked")
         self.assertTrue(self.repository.players[provisional_id]["deleted"])
+
+    def test_recovery_email_preserves_meaningful_guest_on_conflict(self) -> None:
+        established = self.service.guest(
+            "installation-1234567890", display_name="Guest", device_id="one"
+        )
+        established_id = str(established["player"]["id"])  # type: ignore[index]
+        self.service.request_email_code(established_id, "player@example.com")
+        email, code = self.email_sender.sent[-1]
+        self.service.verify_email_code(established_id, email, code, device_id="one")
+
+        provisional = self.service.guest(
+            "installation-abcdefghij", display_name="Guest", device_id="two"
+        )
+        provisional_id = str(provisional["player"]["id"])  # type: ignore[index]
+        self.repository.meaningful_players.add(provisional_id)
+        self.service.request_email_code(provisional_id, email)
+        _, link_code = self.email_sender.sent[-1]
+        with self.assertRaisesRegex(LinkError, "contact support"):
+            self.service.verify_email_code(
+                provisional_id, email, link_code, device_id="two"
+            )
+        self.assertFalse(self.repository.players[provisional_id]["deleted"])
 
     def test_legacy_player_claim_keeps_uuid_and_rejects_cross_account_claim(self) -> None:
         legacy_id = "10000000-0000-4000-8000-000000000001"
@@ -502,6 +545,21 @@ class IdentityTests(unittest.TestCase):
             ),
             identity=service,
         )
+        migrated = application.dispatch(
+            Request(
+                "POST",
+                "/identity/legacy",
+                {
+                    "Authorization": "Bearer legacy-supabase-token",
+                    "X-Kolkhoz-Device-ID": "windows-legacy",
+                },
+                {"installationID": "installation-legacy-123456"},
+            )
+        )
+        self.assertEqual(migrated.status, HTTPStatus.OK)
+        self.assertEqual(migrated.body["player"]["id"], legacy_id)  # type: ignore[index]
+        self.assertTrue(str(migrated.body["accessToken"]).startswith("khz_"))  # type: ignore[index]
+
         response = application.dispatch(
             Request(
                 "POST",

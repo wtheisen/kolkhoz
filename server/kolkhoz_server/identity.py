@@ -205,6 +205,7 @@ class IdentityRepository(Protocol):
     def authenticate(self, identity: VerifiedIdentity, display_name: str, device_id: str, now: float) -> dict[str, object]: ...
     def claim(self, player_id: str, identity: VerifiedIdentity, device_id: str, now: float) -> dict[str, object]: ...
     def guest(self, guest_hash: str, display_name: str, device_id: str, now: float) -> dict[str, object]: ...
+    def migrate_legacy(self, player_id: str, guest_hash: str, device_id: str, now: float) -> dict[str, object]: ...
     def player_for_token(self, token_hash: str, now: float) -> str | None: ...
     def create_link(self, player_id: str, code_hash: str, expires_at: float, now: float) -> str: ...
     def link_status(self, player_id: str, request_id: str, now: float) -> dict[str, object]: ...
@@ -247,6 +248,18 @@ class IdentityService:
         if len(installation_id) < 16:
             raise CredentialError("invalid guest installation identity")
         return self.repository.guest(self._hash(f"guest:{installation_id}"), _name(display_name), device_id, self.clock())
+
+    def migrate_legacy(
+        self, player_id: str, installation_id: str, *, device_id: str
+    ) -> dict[str, object]:
+        if len(installation_id) < 16:
+            raise CredentialError("invalid installation identity")
+        return self.repository.migrate_legacy(
+            player_id,
+            self._hash(f"guest:{installation_id}"),
+            device_id,
+            self.clock(),
+        )
 
     def create_link(self, player_id: str) -> dict[str, object]:
         now = self.clock()
@@ -416,6 +429,40 @@ class PostgresIdentityRepository:
                 connection.execute("update server_device_credentials set last_authenticated_at=to_timestamp(%s) where installation_hash=%s", (now, guest_hash))  # type: ignore[attr-defined]
             return self._session(connection, player_id, device_id, now, None)
 
+    def migrate_legacy(
+        self, player_id: str, guest_hash: str, device_id: str, now: float
+    ) -> dict[str, object]:
+        with self.pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
+            player = connection.execute(
+                "select id from server_players where id=%s and status='active' for update",
+                (player_id,),
+            ).fetchone()
+            if player is None:
+                raise LinkError("the existing player profile was not found")
+            credential = connection.execute(
+                "select id::text,player_id::text from server_device_credentials where installation_hash=%s for update",
+                (guest_hash,),
+            ).fetchone()
+            if credential is not None and str(credential[1]) != player_id:
+                raise LinkError(
+                    "this device already has a different Kolkhoz profile; link it from Profile"
+                )
+            if credential is None:
+                connection.execute(
+                    "insert into server_device_credentials(id,player_id,installation_hash,last_authenticated_at) values(%s,%s,%s,to_timestamp(%s))",
+                    (str(uuid.uuid4()), player_id, guest_hash, now),
+                )
+            else:
+                connection.execute(
+                    "update server_device_credentials set last_authenticated_at=to_timestamp(%s) where id=%s",
+                    (now, credential[0]),
+                )
+            connection.execute(
+                "insert into server_identity_audit(player_id,event_type,metadata) values(%s,'legacy_session_migrated',%s::jsonb)",
+                (player_id, json.dumps({"deviceIDHash": hashlib.sha256(device_id.encode()).hexdigest()})),
+            )
+            return self._session(connection, player_id, device_id, now, None)
+
     def _session(self, connection: object, player_id: str, device_id: str, now: float, provider: str | None) -> dict[str, object]:
         token = "khz_" + secrets.token_urlsafe(32)
         connection.execute("insert into server_identity_sessions(id,player_id,token_hash,device_id,expires_at) values(%s,%s,%s,%s,to_timestamp(%s))", (str(uuid.uuid4()), player_id, hashlib.sha256(token.encode()).hexdigest(), device_id, now + SESSION_SECONDS))  # type: ignore[attr-defined]
@@ -502,13 +549,8 @@ class PostgresIdentityRepository:
                     )""",
                 (row[0], row[0], row[0], row[0]),
             ).fetchone()[0]  # type: ignore[attr-defined]
-            portable = connection.execute(
-                """select exists(select 1 from server_linked_identities where player_id=%s)
-                          or exists(select 1 from server_recovery_emails where player_id=%s)""",
-                (row[0], row[0]),
-            ).fetchone()[0]
-            if meaningful and portable:
-                connection.execute("update server_device_link_requests set status='conflict',conflict_reason='The target profile has progress or purchases and cannot be merged automatically.',updated_at=to_timestamp(%s) where id=%s", (now, request_id))  # type: ignore[attr-defined]
+            if meaningful:
+                connection.execute("update server_device_link_requests set status='conflict',conflict_reason='The target profile has games, progress, or purchases and cannot be merged automatically.',updated_at=to_timestamp(%s) where id=%s", (now, request_id))  # type: ignore[attr-defined]
                 connection.execute("insert into server_identity_audit(player_id,event_type,other_player_id,metadata) values(%s,'link_conflict',%s,%s::jsonb)", (source_player_id, row[0], json.dumps({"requestID": request_id})))  # type: ignore[attr-defined]
                 conflict = True
             else:
@@ -589,6 +631,7 @@ class PostgresIdentityRepository:
                 """select exists(select 1 from server_recovery_emails where player_id=%s)
                           or exists(select 1 from server_entitlements where user_id=%s)
                           or exists(select 1 from server_store_purchases where user_id=%s)
+                          or exists(select 1 from server_game_results where user_id=%s)
                           or exists(
                               select 1 from public.profile_progression
                                where user_id=%s and (
@@ -597,10 +640,12 @@ class PostgresIdentityRepository:
                                    or cardinality(unlocks)>0
                                )
                           )""",
-                (player_id, player_id, player_id, player_id),
+                (player_id, player_id, player_id, player_id, player_id),
             ).fetchone()[0]
             if established:
-                raise LinkError("this email belongs to another established Kolkhoz account")
+                raise LinkError(
+                    "this device's profile already has games, progress, or purchases; contact support to combine accounts"
+                )
             provider_conflict = connection.execute(
                 """select 1
                      from server_linked_identities source
@@ -682,6 +727,7 @@ class InMemoryIdentityRepository:
         self.links: dict[str, dict[str, object]] = {}
         self.recovery_emails: dict[str, str] = {}
         self.email_codes: dict[tuple[str, str], dict[str, object]] = {}
+        self.legacy_devices: dict[str, str] = {}
         self.meaningful_players: set[str] = set()
         self.attempts: dict[tuple[str, str], tuple[float, int]] = {}
         self.lock = threading.Lock()
@@ -735,10 +781,36 @@ class InMemoryIdentityRepository:
 
     def guest(self, guest_hash: str, display_name: str, device_id: str, now: float) -> dict[str, object]:
         with self.lock:
-            player_id = next((key for key, value in self.players.items() if value["guestHash"] == guest_hash), None)
+            player_id = self.legacy_devices.get(guest_hash)
+            if player_id is None:
+                player_id = next((key for key, value in self.players.items() if value["guestHash"] == guest_hash), None)
             if player_id is None:
                 player_id = str(uuid.uuid4())
                 self.players[player_id] = {"displayName": _guest_name(player_id), "guestHash": guest_hash, "deleted": False}
+            return self._session(player_id, device_id, now, None)
+
+    def migrate_legacy(
+        self, player_id: str, guest_hash: str, device_id: str, now: float
+    ) -> dict[str, object]:
+        with self.lock:
+            player = self.players.get(player_id)
+            if player is None or player["deleted"]:
+                raise LinkError("the existing player profile was not found")
+            current = self.legacy_devices.get(guest_hash)
+            guest_owner = next(
+                (
+                    key
+                    for key, value in self.players.items()
+                    if value["guestHash"] == guest_hash and not value["deleted"]
+                ),
+                None,
+            )
+            current = current or guest_owner
+            if current is not None and current != player_id:
+                raise LinkError(
+                    "this device already has a different Kolkhoz profile; link it from Profile"
+                )
+            self.legacy_devices[guest_hash] = player_id
             return self._session(player_id, device_id, now, None)
 
     def _session(self, player_id: str, device_id: str, now: float, provider: str | None) -> dict[str, object]:
@@ -819,8 +891,8 @@ class InMemoryIdentityRepository:
                 raise LinkError("link request is not ready for approval")
             target = str(link["targetPlayerID"])
             if target in self.meaningful_players:
-                link.update({"status": "conflict", "message": "The target profile has progress or purchases and cannot be merged automatically."})
-                raise LinkError("profiles with progress or purchases cannot be combined")
+                link.update({"status": "conflict", "message": "The target profile has games, progress, or purchases and cannot be merged automatically."})
+                raise LinkError("profiles with games, progress, or purchases cannot be combined")
             for identity in self.identities.values():
                 if link.get("targetIdentity") is not None and identity["id"] == link["targetIdentity"]:
                     identity["playerID"] = source_player_id
@@ -862,7 +934,9 @@ class InMemoryIdentityRepository:
                 result["emailAction"] = "already_linked"
                 return result
             if player_id in self.recovery_emails.values() or player_id in self.meaningful_players:
-                raise LinkError("this email belongs to another established Kolkhoz account")
+                raise LinkError(
+                    "this device's profile already has games, progress, or purchases; contact support to combine accounts"
+                )
             for identity in self.identities.values():
                 if identity["playerID"] == player_id:
                     identity["playerID"] = target

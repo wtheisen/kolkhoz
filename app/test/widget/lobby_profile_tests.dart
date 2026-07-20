@@ -523,6 +523,7 @@ void registerLobbyAndProfileTests() {
         id: 'player-mira',
         displayName: 'Mira',
         guest: false,
+        portable: true,
         provider: 'game_center',
       ),
     );
@@ -631,6 +632,7 @@ void registerLobbyAndProfileTests() {
         id: 'guest-mira',
         displayName: 'Mira',
         guest: true,
+        portable: false,
       ),
       statusMessage: 'Guest progress may be lost.',
     );
@@ -677,8 +679,8 @@ void registerLobbyAndProfileTests() {
     expect(find.text('Mira'), findsOneWidget);
     expect(findAppText('1125'), findsNothing);
     expect(find.bySemanticsLabel('worker1'), findsNothing);
-    expect(find.byType(TextField), findsNothing);
-    expect(find.text('GUEST — LOCAL DEVICE ONLY'), findsOneWidget);
+    expect(find.byKey(const Key('recovery-email-field')), findsOneWidget);
+    expect(find.text('DEVICE-ONLY GUEST'), findsOneWidget);
   });
 
   testWidgets('profile panel loads recent games after signing in', (
@@ -768,6 +770,7 @@ void registerLobbyAndProfileTests() {
         id: 'guest-passwordless',
         displayName: 'Guest',
         guest: true,
+        portable: false,
       ),
       statusMessage: 'Guest progress may be lost if this app is deleted.',
     );
@@ -807,8 +810,8 @@ void registerLobbyAndProfileTests() {
     );
 
     expect(find.textContaining('PASSWORD'), findsNothing);
-    expect(find.textContaining('EMAIL'), findsNothing);
-    expect(find.text('GUEST — LOCAL DEVICE ONLY'), findsOneWidget);
+    expect(find.textContaining('RECOVERY EMAIL'), findsWidgets);
+    expect(find.text('DEVICE-ONLY GUEST'), findsOneWidget);
     expect(find.textContaining('may be lost'), findsOneWidget);
     expect(find.byKey(const Key('link-another-device')), findsOneWidget);
   });

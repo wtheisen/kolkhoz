@@ -6,7 +6,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'animation_speed.dart';
 import 'app_settings.dart';
@@ -181,31 +180,16 @@ String safeAccountErrorMessage(Object exception, KolkhozLanguage language) {
   if (exception is FormatException) {
     return exception.message;
   }
-  if (exception is AuthRetryableFetchException) {
-    return language.t(KolkhozText.kolkhozappAccountServiceUnavailable);
+  final message = '$exception'.toLowerCase();
+  if (message.contains('valid recovery email')) {
+    return language.t(KolkhozText.kolkhozappAccountInvalidEmail);
   }
-  if (exception is AuthException) {
-    return switch (exception.code) {
-      'email_address_invalid' || 'validation_failed' => language.t(
-        KolkhozText.kolkhozappAccountInvalidEmail,
-      ),
-      'email_exists' || 'user_already_exists' => language.t(
-        KolkhozText.kolkhozappAccountAlreadyExists,
-      ),
-      'over_request_rate_limit' || 'over_email_send_rate_limit' => language.t(
-        KolkhozText.kolkhozappAccountRateLimited,
-      ),
-      'signup_disabled' || 'email_provider_disabled' || 'provider_disabled' =>
-        language.t(KolkhozText.kolkhozappAccountCreationUnavailable),
-      'weak_password' => language.t(KolkhozText.kolkhozappAccountWeakPassword),
-      'invalid_credentials' => language.t(
-        KolkhozText.kolkhozappAccountInvalidCredentials,
-      ),
-      'request_timeout' => language.t(
-        KolkhozText.kolkhozappAccountServiceUnavailable,
-      ),
-      _ => language.t(KolkhozText.kolkhozappAccountRequestFailed),
-    };
+  if (message.contains('too many')) {
+    return language.t(KolkhozText.kolkhozappAccountRateLimited);
+  }
+  if (message.contains('not configured') ||
+      message.contains('could not be sent')) {
+    return language.t(KolkhozText.kolkhozappAccountServiceUnavailable);
   }
   return language.t(KolkhozText.kolkhozappAccountRequestFailed);
 }
@@ -236,13 +220,13 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   late final LiveGameStore store;
   late final KolkhozCommerceController commerce;
   late final KolkhozAppSettingsStore settingsStore;
-  StreamSubscription<AuthState>? supabaseAuthSubscription;
   Timer? cloudProfileSyncTimer;
   Timer? onlinePresenceTimer;
   Timer? onlineInviteTimer;
   late final String onlineDeviceID;
   late final KolkhozPushNotifications pushNotifications;
   bool notificationPromptShown = false;
+  bool guestLinkNoticeShown = false;
   OnlineActiveSession? activeRemoteSession;
   bool activeSessionSyncBusy = false;
   KolkhozAppSettings settings = const KolkhozAppSettings();
@@ -284,12 +268,15 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     signedIn: onlineSignedIn,
   );
 
-  ProgressionState get effectiveProgression => mergeProgressionStates(
-    settings.progression,
-    settings.onlineProgressionUserID == onlineUserID
-        ? settings.onlineProgression
-        : const ProgressionState(),
-  );
+  ProgressionState get effectiveProgression =>
+      KolkhozIdentityRuntime.instance.player?.portable == false
+      ? const ProgressionState()
+      : mergeProgressionStates(
+          settings.progression,
+          settings.onlineProgressionUserID == onlineUserID
+              ? settings.onlineProgression
+              : const ProgressionState(),
+        );
 
   KolkhozGameVariants get activeVariants {
     if (demoMode) {
@@ -327,7 +314,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
       );
     }
     store = LiveGameStore(
-      onlineAccessTokenProvider: supabaseAccessToken,
+      onlineAccessTokenProvider: identityAccessToken,
       onlineDeviceID: onlineDeviceID,
     );
     store.addListener(handleStoreChanged);
@@ -356,9 +343,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     if (lastStartedSetup == null) {
       playerControllers = List.of(store.controllers);
     }
-    KolkhozSupabaseRuntime.instance.addListener(handleSupabaseRuntimeChanged);
     KolkhozIdentityRuntime.instance.addListener(handlePlayerIdentityChanged);
-    attachSupabaseAuthSubscription();
     unawaited(startPlayerIdentity());
     startOnlinePresenceHeartbeat();
     startOnlineInvitePolling();
@@ -371,15 +356,11 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     cloudProfileSyncTimer?.cancel();
     onlinePresenceTimer?.cancel();
     onlineInviteTimer?.cancel();
-    supabaseAuthSubscription?.cancel();
     store.removeListener(handleStoreChanged);
     commerce.removeListener(handleCommerceChanged);
     commerce.dispose();
     unawaited(gameSounds.dispose());
     unawaited(pushNotifications.dispose());
-    KolkhozSupabaseRuntime.instance.removeListener(
-      handleSupabaseRuntimeChanged,
-    );
     KolkhozIdentityRuntime.instance.removeListener(handlePlayerIdentityChanged);
     WidgetsBinding.instance.removeObserver(this);
     store.dispose();
@@ -595,12 +576,10 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
               favoriteSetup: settings.favoriteSetup,
               lastStartedSetup: settings.lastStartedSetup,
               comradesSummary: comradesSummary,
-              cloudConfigured: KolkhozSupabaseRuntime.instance.isConfigured,
-              cloudReady: KolkhozSupabaseRuntime.instance.isReady,
+              cloudConfigured: true,
+              cloudReady: true,
               cloudSignedIn: onlineSignedIn,
-              cloudEmail:
-                  supabaseCurrentUser?.email ??
-                  KolkhozIdentityRuntime.instance.player?.displayName,
+              cloudEmail: KolkhozIdentityRuntime.instance.player?.recoveryEmail,
               cloudAuthBusy: cloudAuthBusy || cloudProfileBusy,
               cloudAuthMessage: cloudAuthMessage,
               cloudAuthIsError: cloudAuthIsError,
@@ -709,14 +688,20 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
                   selectedSettingsTab = KolkhozSettingsTab.display;
                 });
               },
-              onDisplayNameChanged: setDisplayName,
-              onPortraitChanged: setPortraitAsset,
+              onDisplayNameChanged:
+                  KolkhozIdentityRuntime.instance.player?.portable == true
+                  ? setDisplayName
+                  : null,
+              onPortraitChanged:
+                  KolkhozIdentityRuntime.instance.player?.portable == true
+                  ? setPortraitAsset
+                  : null,
               onSaveFavoriteSetup: saveFavoriteSetup,
               onUseFavoriteSetup: useFavoriteSetup,
-              onCloudSignIn: signInWithSupabase,
-              onCloudSignUp: signUpWithSupabase,
-              onCloudResetPassword: resetSupabasePassword,
-              onCloudDeleteAccount: deleteSupabaseAccount,
+              onCloudSignIn: null,
+              onCloudSignUp: null,
+              onCloudResetPassword: null,
+              onCloudDeleteAccount: deleteAccount,
               onComradesChanged: updateComradesSummary,
               onComradeRequestToUser: requestComradeByUserID,
               onlineClientFactory: onlineClient,
@@ -865,32 +850,26 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     );
   }
 
-  User? get supabaseCurrentUser {
-    return KolkhozSupabaseRuntime.instance.client?.auth.currentUser;
-  }
-
-  String? get onlineUserID =>
-      KolkhozIdentityRuntime.instance.player?.id ?? supabaseCurrentUser?.id;
+  String? get onlineUserID => KolkhozIdentityRuntime.instance.player?.id;
 
   bool get onlineSignedIn => onlineUserID != null;
 
-  Future<String?> supabaseAccessToken() async {
-    return KolkhozIdentityRuntime.instance.accessToken ??
-        KolkhozSupabaseRuntime
-            .instance
-            .client
-            ?.auth
-            .currentSession
-            ?.accessToken;
-  }
+  Future<String?> identityAccessToken() async =>
+      KolkhozIdentityRuntime.instance.accessToken;
 
   Future<void> startPlayerIdentity() async {
     final legacy = KolkhozSupabaseRuntime.instance;
     await legacy.start();
     if (legacy.isConfigured && !legacy.isReady) {
+      if (mounted) {
+        setState(() {
+          cloudAuthMessage =
+              'Could not check for an existing account. No guest account was created.';
+          cloudAuthIsError = true;
+        });
+      }
       return;
     }
-    attachSupabaseAuthSubscription();
     await KolkhozIdentityRuntime.instance.start(
       baseURL: _onlineServerURL,
       installationID: onlineDeviceID,
@@ -905,42 +884,48 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     syncCommerceUser();
     if (KolkhozIdentityRuntime.instance.player != null) {
       unawaited(loadCloudProfile());
+      unawaited(showGuestLinkNotice());
     }
     unawaited(loadComradesSummary());
     if (onlineSignedIn) unawaited(offerPushNotifications());
   }
 
-  void handleSupabaseRuntimeChanged() {
-    attachSupabaseAuthSubscription();
-    if (!mounted) {
+  Future<void> showGuestLinkNotice() async {
+    if (guestLinkNoticeShown ||
+        KolkhozIdentityRuntime.instance.player?.portable != false) {
       return;
     }
-    setState(() {});
-    syncCommerceUser();
-    unawaited(loadCloudProfile());
-    unawaited(loadComradesSummary());
-  }
-
-  void attachSupabaseAuthSubscription() {
-    final client = KolkhozSupabaseRuntime.instance.client;
-    if (client == null || supabaseAuthSubscription != null) {
-      return;
+    guestLinkNoticeShown = true;
+    await WidgetsBinding.instance.endOfFrame;
+    final context = navigatorKey.currentContext;
+    if (context == null || !context.mounted) return;
+    final link = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: settings.appearance.tokens.colors.panel,
+        title: const Text('DEVICE-ONLY GUEST'),
+        content: const Text(
+          'This account is tied to this device. If you already have a Kolkhoz '
+          'account, link it now to keep your profile and progress together.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CONTINUE AS GUEST'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('LINK ACCOUNT'),
+          ),
+        ],
+      ),
+    );
+    if (link == true && mounted) {
+      setState(() {
+        destination = _AppDestination.profile;
+        selectedSettingsTab = KolkhozSettingsTab.profile;
+      });
     }
-    supabaseAuthSubscription = client.auth.onAuthStateChange.listen((_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {});
-      syncCommerceUser();
-      unawaited(loadCloudProfile());
-      unawaited(loadComradesSummary());
-      if (supabaseCurrentUser != null) {
-        unawaited(offerPushNotifications());
-      }
-    });
-    unawaited(loadCloudProfile());
-    unawaited(loadComradesSummary());
-    syncCommerceUser();
   }
 
   void handleCommerceChanged() {
@@ -1531,54 +1516,13 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     });
   }
 
-  Future<void> signInWithSupabase(String email, String password) async {
-    await runCloudAuthAction(() async {
-      final client = KolkhozSupabaseRuntime.instance.client!;
-      await client.auth.signInWithPassword(
-        email: normalizeAccountEmail(email),
-        password: password,
-      );
-      await loadCloudProfile();
-      unawaited(offerPushNotifications());
-      cloudAuthMessage = settings.language.t(
-        KolkhozText.kolkhozappSignedInProfileLoaded,
-      );
-      cloudAuthIsError = false;
-    });
-  }
-
-  Future<void> signUpWithSupabase(String email, String password) async {
-    await runCloudAuthAction(() async {
-      final client = KolkhozSupabaseRuntime.instance.client!;
-      final displayName = normalizedDisplayName;
-      final response = await client.auth.signUp(
-        email: normalizeAccountEmail(email),
-        password: password,
-        emailRedirectTo: KolkhozSupabaseConfig.authRedirectUrl,
-        data: {'display_name': displayName},
-      );
-      if (response.session == null) {
-        cloudAuthMessage = settings.language.t(
-          KolkhozText.kolkhozappAccountCreatedCheckYourEmailToConfirmItThe,
-        );
-      } else {
-        await syncCloudProfile();
-        cloudAuthMessage = settings.language.t(
-          KolkhozText.kolkhozappAccountCreated,
-        );
-      }
-      cloudAuthIsError = false;
-    });
-  }
-
-  Future<void> deleteSupabaseAccount() async {
+  Future<void> deleteAccount() async {
     await runCloudAuthAction(() async {
       await pushNotifications.unregister();
       await onlineClient().deleteAccount();
       if (KolkhozIdentityRuntime.instance.accessToken != null) {
         await KolkhozIdentityRuntime.instance.clear();
       }
-      await KolkhozSupabaseRuntime.instance.client?.auth.signOut();
       await commerce.attachUser(null, cachedFullGame: false);
       settings = settings.copyWith(
         clearFullGameEntitlement: true,
@@ -1669,26 +1613,8 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> resetSupabasePassword(String email) async {
-    await runCloudAuthAction(() async {
-      final trimmed = normalizeAccountEmail(email);
-      if (trimmed.isEmpty) {
-        throw const FormatException('Enter an email first.');
-      }
-      final client = KolkhozSupabaseRuntime.instance.client!;
-      await client.auth.resetPasswordForEmail(
-        trimmed,
-        redirectTo: KolkhozSupabaseConfig.authRedirectUrl,
-      );
-      cloudAuthMessage = settings.language.t(
-        KolkhozText.kolkhozappPasswordResetEmailSent,
-      );
-      cloudAuthIsError = false;
-    });
-  }
-
   Future<void> runCloudAuthAction(Future<void> Function() action) async {
-    if (KolkhozSupabaseRuntime.instance.client == null || cloudAuthBusy) {
+    if (cloudAuthBusy) {
       return;
     }
     setState(() {
@@ -1709,9 +1635,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   }
 
   Future<void> syncCloudProfile() async {
-    final client = KolkhozSupabaseRuntime.instance.client;
-    final user = client?.auth.currentUser;
-    if (user == null) {
+    if (KolkhozIdentityRuntime.instance.player?.portable != true) {
       return;
     }
     if (mounted) {
@@ -1724,12 +1648,11 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
       });
     }
     try {
-      await client!.from('profiles').upsert({
-        'user_id': user.id,
-        'display_name': normalizedDisplayName,
-        'avatar_url': settings.portraitAsset,
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-      });
+      await onlineClient().updateCurrentProfile(
+        displayName: normalizedDisplayName,
+        portraitAsset: settings.portraitAsset,
+      );
+      KolkhozIdentityRuntime.instance.updateDisplayName(normalizedDisplayName);
       if (mounted) {
         setState(() {
           cloudAuthMessage = settings.language.t(
@@ -1753,96 +1676,34 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   }
 
   Future<void> loadCloudProfile() async {
-    final client = KolkhozSupabaseRuntime.instance.client;
-    final user = client?.auth.currentUser;
     final identityPlayer = KolkhozIdentityRuntime.instance.player;
-    if ((user == null && identityPlayer == null) || cloudProfileBusy) {
+    if (identityPlayer == null || cloudProfileBusy) {
       return;
     }
     if (mounted) {
       setState(() => cloudProfileBusy = true);
     }
     try {
-      if (user == null) {
-        final profile = await onlineClient().fetchPublicProfile(
-          identityPlayer!.id,
-        );
-        final displayName = profile.displayName?.trim();
-        final portraitAsset = profile.portraitAsset;
-        final next = settings.copyWith(
-          displayName: displayName == null || displayName.isEmpty
-              ? settings.displayName
-              : displayName,
-          portraitAsset: portraitAsset ?? settings.portraitAsset,
-          profileStats: profile.stats,
-        );
-        settings = next;
-        settingsStore.save(next);
-        if (mounted) {
-          setState(() {
-            cloudAuthMessage = settings.language.t(
-              KolkhozText.kolkhozappProfileLoaded,
-            );
-            cloudAuthIsError = false;
-          });
-        }
-        return;
-      }
-      final profile = await client!
-          .from('profiles')
-          .select('display_name, avatar_url')
-          .eq('user_id', user.id)
-          .maybeSingle();
-      final stats = await client
-          .from('profile_stats')
-          .select()
-          .eq('user_id', user.id)
-          .maybeSingle();
-      final progression = await client
-          .from('profile_progression')
-          .select('progress, completed, unlocks')
-          .eq('user_id', user.id)
-          .maybeSingle();
-      if (profile == null) {
-        await syncCloudProfile();
-        return;
-      }
-      final displayName = profile['display_name'] as String?;
-      final avatarURL = profile['avatar_url'] as String?;
-      final previousCompleted = effectiveProgression.completed;
-      final loadedOnlineProgression = ProgressionState.fromJson(progression);
-      final loadedProgression = mergeProgressionStates(
-        settings.progression,
-        loadedOnlineProgression,
-      );
+      final profile = await onlineClient().fetchCurrentProfile();
+      final displayName = profile.displayName?.trim();
+      final portraitAsset = profile.portraitAsset;
+      final loadedProgression = identityPlayer.portable
+          ? profile.progression
+          : const ProgressionState();
       final next = settings.copyWith(
-        displayName: displayName == null || displayName.trim().isEmpty
+        displayName: displayName == null || displayName.isEmpty
             ? settings.displayName
             : displayName,
-        portraitAsset:
-            profilePortraitAssets.contains(avatarURL) &&
-                isProfilePortraitUnlocked(loadedProgression, avatarURL!)
-            ? avatarURL
-            : settings.portraitAsset,
-        profileStats: profileStatsFromSupabaseJson(stats),
-        onlineProgression: loadedOnlineProgression,
-        onlineProgressionUserID: user.id,
+        portraitAsset: identityPlayer.portable
+            ? portraitAsset ?? settings.portraitAsset
+            : defaultProfilePortraitAsset,
+        profileStats: profile.stats,
+        onlineProgression: loadedProgression,
+        onlineProgressionUserID: identityPlayer.id,
       );
       settings = next;
       settingsStore.save(next);
-      if (store.isOnlineGame && store.model?.table.gameResult != null) {
-        final nextCompleted = effectiveProgression.completed;
-        final newlyCompleted = progressionDefinitions
-            .where(
-              (definition) =>
-                  nextCompleted.contains(definition.id) &&
-                  !previousCompleted.contains(definition.id),
-            )
-            .toList();
-        if (newlyCompleted.isNotEmpty) {
-          showProgressionNotice(newlyCompleted);
-        }
-      }
+      KolkhozIdentityRuntime.instance.updateDisplayName(next.displayName);
       if (mounted) {
         setState(() {
           cloudAuthMessage = settings.language.t(
@@ -1868,7 +1729,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   KolkhozOnlineClient onlineClient() {
     return KolkhozOnlineClient(
       _onlineServerURL,
-      accessTokenProvider: supabaseAccessToken,
+      accessTokenProvider: identityAccessToken,
       deviceID: onlineDeviceID,
     );
   }
@@ -1940,25 +1801,6 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     updateComradesSummary(await client.fetchComrades());
   }
 
-  Future<void> recordOfflineResultInCloud(bool won) async {
-    final client = KolkhozSupabaseRuntime.instance.client;
-    final user = client?.auth.currentUser;
-    if (user == null) {
-      return;
-    }
-    try {
-      await client!.rpc('record_offline_result', params: {'won': won});
-      await loadCloudProfile();
-    } catch (exception) {
-      if (mounted) {
-        setState(() {
-          cloudAuthMessage = syncErrorMessage(exception);
-          cloudAuthIsError = true;
-        });
-      }
-    }
-  }
-
   void recordCompletedGameStats({
     required bool online,
     required bool won,
@@ -1968,7 +1810,9 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
       online: online,
       won: won,
     );
-    final update = progressionSummary == null
+    final update =
+        progressionSummary == null ||
+            KolkhozIdentityRuntime.instance.player?.portable != true
         ? null
         : evaluateProgression(settings.progression, progressionSummary);
     final next = settings.copyWith(
@@ -1979,9 +1823,6 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     settingsStore.save(next);
     if (update != null && update.newCompletions.isNotEmpty) {
       showProgressionNotice(update.newCompletions);
-    }
-    if (!online) {
-      unawaited(recordOfflineResultInCloud(won));
     }
   }
 

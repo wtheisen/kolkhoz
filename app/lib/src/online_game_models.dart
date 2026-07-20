@@ -4,6 +4,7 @@ import 'app_settings.dart';
 import 'json_shape.dart';
 import 'render_model.dart';
 import 'saved_game_store.dart';
+import 'progression/progression.dart';
 
 class OnlineEngineCard {
   const OnlineEngineCard({
@@ -332,7 +333,7 @@ class OnlinePlayerProfile {
       userID: json['userID'] as String?,
       displayName: json['displayName'] as String?,
       avatarURL: json['avatarURL'] as String?,
-      stats: profileStatsFromSupabaseJson(json['stats']),
+      stats: profileStatsFromJson(json['stats']),
     );
   }
 }
@@ -350,6 +351,7 @@ class OnlineComradeProfile {
     this.isComrade = false,
     this.rank,
     this.stats = defaultProfileStats,
+    this.progression = const ProgressionState(),
   });
 
   final String userID;
@@ -363,6 +365,7 @@ class OnlineComradeProfile {
   final bool isComrade;
   final int? rank;
   final KolkhozProfileStats stats;
+  final ProgressionState progression;
 
   String get displayLabel {
     final trimmed = displayName?.trim();
@@ -387,7 +390,8 @@ class OnlineComradeProfile {
       inLobby: json['inLobby'] as bool? ?? false,
       isComrade: json['isComrade'] as bool? ?? false,
       rank: json['rank'] as int?,
-      stats: profileStatsFromSupabaseJson(json['stats']),
+      stats: profileStatsFromJson(json['stats']),
+      progression: ProgressionState.fromJson(json['progression']),
     );
   }
 }

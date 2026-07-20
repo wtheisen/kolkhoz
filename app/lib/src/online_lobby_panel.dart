@@ -244,7 +244,7 @@ class _OnlinePanelState extends State<_OnlinePanel> {
     return widget.onlineClientFactory?.call() ??
         KolkhozOnlineClient(
           _onlineServerURL,
-          accessTokenProvider: _currentSupabaseAccessToken,
+          accessTokenProvider: _currentIdentityAccessToken,
         );
   }
 
@@ -1223,11 +1223,6 @@ String onlineFailureMessageFromServerError(
   if (normalized.contains('no open games')) {
     return language.t(KolkhozText.kolkhozappNoOpenGames);
   }
-  if (normalized.contains('supabase auth')) {
-    return language.t(
-      KolkhozText.kolkhozappCouldNotVerifyOnlineAccountTryAgain,
-    );
-  }
   final detail = onlineServerErrorDetail(message);
   if (detail == null) {
     return language.t(KolkhozText.kolkhozappTheOnlineServerRejectedTheRequest);
@@ -1259,10 +1254,8 @@ final Uri _onlineServerURL = Uri.parse(
   'https://online.kolkhoz.williamtheisen.com',
 );
 
-Future<String?> _currentSupabaseAccessToken() async {
-  return KolkhozIdentityRuntime.instance.accessToken ??
-      KolkhozSupabaseRuntime.instance.client?.auth.currentSession?.accessToken;
-}
+Future<String?> _currentIdentityAccessToken() async =>
+    KolkhozIdentityRuntime.instance.accessToken;
 
 class _WeeklyTournamentCard extends StatelessWidget {
   const _WeeklyTournamentCard({

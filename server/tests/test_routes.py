@@ -14,6 +14,7 @@ class RouteContractTests(unittest.TestCase):
             ("GET", "/admin/operations"),
             ("POST", "/identity/platform/{provider}"),
             ("POST", "/identity/guest"),
+            ("POST", "/identity/legacy"),
             ("POST", "/identity/email/code"),
             ("POST", "/identity/email/verify"),
             ("POST", "/identity/device-links"),

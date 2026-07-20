@@ -4,20 +4,33 @@ import 'package:kolkhoz_app/src/design_tokens.dart';
 import 'package:kolkhoz_app/src/player_identity.dart';
 
 void main() {
-  test('legacy Supabase session wins during one-time identity migration', () {
+  test('legacy Supabase session migrates exactly once', () {
     expect(
-      playerIdentityBootstrapToken(
-        storedIdentityToken: 'khz_previous',
-        legacyAccessToken: 'supabase_existing',
+      shouldMigrateLegacySession(
+        storedIdentityToken: null,
+        legacyAccessToken: 'legacy-token',
+        migrationCompleted: false,
       ),
-      'supabase_existing',
+      isTrue,
     );
     expect(
-      playerIdentityBootstrapToken(
-        storedIdentityToken: 'khz_returning',
-        legacyAccessToken: null,
+      shouldMigrateLegacySession(
+        storedIdentityToken: 'khz-current',
+        legacyAccessToken: 'legacy-token',
+        migrationCompleted: true,
       ),
-      'khz_returning',
+      isFalse,
+    );
+  });
+
+  test('legacy migration retries when its Kolkhoz token is missing', () {
+    expect(
+      shouldMigrateLegacySession(
+        storedIdentityToken: null,
+        legacyAccessToken: 'legacy-token',
+        migrationCompleted: true,
+      ),
+      isTrue,
     );
   });
 
@@ -45,6 +58,7 @@ void main() {
         id: 'guest',
         displayName: 'Comrade',
         guest: true,
+        portable: false,
       ),
     );
   });
@@ -55,6 +69,7 @@ void main() {
         id: 'player-apple',
         displayName: 'Misha',
         guest: false,
+        portable: true,
         provider: 'game_center',
       ),
     );
@@ -69,6 +84,7 @@ void main() {
         id: 'player-android',
         displayName: 'Nadia',
         guest: false,
+        portable: true,
         provider: 'play_games',
       ),
     );
@@ -82,11 +98,12 @@ void main() {
         id: 'guest-player',
         displayName: 'Guest',
         guest: true,
+        portable: false,
       ),
       statusMessage: 'Guest progress may be lost if this app is deleted.',
     );
     await tester.pumpWidget(subject());
-    expect(find.text('GUEST — LOCAL DEVICE ONLY'), findsOneWidget);
+    expect(find.text('DEVICE-ONLY GUEST'), findsOneWidget);
     expect(find.textContaining('may be lost'), findsOneWidget);
     expect(find.byKey(const Key('link-another-device')), findsOneWidget);
     expect(find.byKey(const Key('enter-device-link-code')), findsOneWidget);

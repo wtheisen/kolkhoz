@@ -148,7 +148,9 @@ class _ProfilePanelState extends State<_ProfilePanel> {
     displayNameController.addListener(notifyDisplayNameChanged);
     if (widget.cloudSignedIn) {
       unawaited(loadRecentGames());
-      unawaited(loadDailyChallenge());
+      if (KolkhozIdentityRuntime.instance.player?.portable == true) {
+        unawaited(loadDailyChallenge());
+      }
     }
   }
 
@@ -308,6 +310,7 @@ class _ProfilePanelState extends State<_ProfilePanel> {
                     portraitSemanticsLabel: widget.portraitAsset,
                     title: TextField(
                       controller: displayNameController,
+                      enabled: widget.onDisplayNameChanged != null,
                       maxLength: 24,
                       minLines: 1,
                       maxLines: 1,
@@ -369,12 +372,14 @@ class _ProfilePanelState extends State<_ProfilePanel> {
                         onRetry: loadRecentGames,
                         clientFactory: widget.clientFactory,
                       ),
-                      _DailyChallengePanel(
-                        tokens: widget.tokens,
-                        challenge: dailyChallenge,
-                        loading: dailyLoading,
-                        onPlay: widget.onStartDailyChallenge,
-                      ),
+                      if (KolkhozIdentityRuntime.instance.player?.portable ==
+                          true)
+                        _DailyChallengePanel(
+                          tokens: widget.tokens,
+                          challenge: dailyChallenge,
+                          loading: dailyLoading,
+                          onPlay: widget.onStartDailyChallenge,
+                        ),
                     ],
                   ),
                 ],
@@ -1143,7 +1148,7 @@ class _ComradesPanelState extends State<_ComradesPanel> {
   KolkhozOnlineClient _client() {
     return KolkhozOnlineClient(
       _onlineServerURL,
-      accessTokenProvider: _currentSupabaseAccessToken,
+      accessTokenProvider: _currentIdentityAccessToken,
     );
   }
 

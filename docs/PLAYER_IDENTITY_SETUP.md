@@ -97,10 +97,14 @@ iOS, macOS, and Android. Manual entry and QR scanning call the same redemption e
   provisioning profiles must be completed by an account owner; no real secrets belong in
   this repository.
 - The migration copies confirmed legacy email addresses onto the same canonical player
-  UUID. The new app does not start Supabase sessions. The server may continue accepting
-  old bearer tokens temporarily so installed older builds can migrate, but new builds
-  use only `khz_` sessions, platform credentials, device credentials, and recovery email
-  codes. Remove the compatibility verifier after older builds and support obligations
-  have expired.
+  UUID. During the transitional release, the app starts Supabase Auth only long enough
+  to read an existing local session and exchanges that bearer token at
+  `POST /identity/legacy` for a `khz_` session. It does not read or write profiles through
+  Supabase. If that exchange fails, the app preserves the old session and does not create
+  a replacement guest account. Once adoption and support obligations permit, remove the
+  app bridge and the server's legacy bearer-token verifier together.
+- After migration, app builds use only `khz_` sessions, verified platform credentials,
+  device credentials, and recovery-email codes. The Kolkhoz server and PostgreSQL
+  database are the only profile and identity source of truth.
 - Monitor unauthorized platform attempts, link conflicts, rate-limit responses, and
   session revocations without recording credential material.

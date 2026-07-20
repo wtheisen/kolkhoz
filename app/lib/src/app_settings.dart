@@ -181,7 +181,7 @@ class KolkhozProfileStats {
   }
 }
 
-KolkhozProfileStats profileStatsFromSupabaseJson(Object? value) {
+KolkhozProfileStats profileStatsFromJson(Object? value) {
   if (value is! Map) {
     return defaultProfileStats;
   }
@@ -218,7 +218,7 @@ KolkhozProfileStats profileStatsFromSupabaseJson(Object? value) {
   );
 }
 
-Map<String, Object?> profileStatsToSupabaseJson(KolkhozProfileStats stats) {
+Map<String, Object?> profileStatsToJson(KolkhozProfileStats stats) {
   return {
     'games_played': stats.gamesPlayed,
     'wins_total': stats.totalWins,
@@ -238,6 +238,14 @@ Map<String, Object?> profileStatsToSupabaseJson(KolkhozProfileStats stats) {
     'rating_games': stats.rankedPlays,
   };
 }
+
+// Transitional aliases for tests and older callers while profile persistence moves
+// from Supabase to the Kolkhoz server.
+KolkhozProfileStats profileStatsFromSupabaseJson(Object? value) =>
+    profileStatsFromJson(value);
+
+Map<String, Object?> profileStatsToSupabaseJson(KolkhozProfileStats stats) =>
+    profileStatsToJson(stats);
 
 int _dbInt(Object? value) {
   if (value is int && value >= 0) {

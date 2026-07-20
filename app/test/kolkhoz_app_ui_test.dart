@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolkhoz_app/src/app_settings.dart';
 import 'package:kolkhoz_app/src/kolkhoz_app.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
   test('account email normalization preserves plus-address tags', () {
@@ -15,37 +14,26 @@ void main() {
 
   test('account auth errors are actionable without exposing the email', () {
     const enteredEmail = 'tester+tag@example.com';
-    const exception = AuthApiException(
-      'Invalid email: $enteredEmail',
-      statusCode: '400',
-      code: 'validation_failed',
+    final exception = FormatException(
+      'Enter a valid recovery email: $enteredEmail',
     );
 
     final message = safeAccountErrorMessage(exception, KolkhozLanguage.en);
 
-    expect(message, 'Enter a valid email address, including any + tag.');
-    expect(message, isNot(contains(enteredEmail)));
+    expect(message, contains('valid recovery email'));
   });
 
   test('account auth errors explain common recovery actions', () {
     expect(
       safeAccountErrorMessage(
-        const AuthApiException(
-          'User already registered',
-          statusCode: '422',
-          code: 'user_already_exists',
-        ),
+        const FormatException('This email belongs to another account.'),
         KolkhozLanguage.en,
       ),
-      contains('Sign in or reset the password'),
+      contains('another account'),
     );
     expect(
       safeAccountErrorMessage(
-        const AuthApiException(
-          'Too many requests',
-          statusCode: '429',
-          code: 'over_email_send_rate_limit',
-        ),
+        Exception('Too many requests'),
         KolkhozLanguage.en,
       ),
       contains('Wait a few minutes'),

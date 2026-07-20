@@ -41,6 +41,7 @@ ROUTES: tuple[Route, ...] = (
     Route("GET", "/admin/operations", "admin.operations"),
     Route("POST", "/identity/platform/{provider}", "identity.platform"),
     Route("POST", "/identity/guest", "identity.guest"),
+    Route("POST", "/identity/legacy", "identity.legacy"),
     Route("POST", "/identity/email/code", "identity.email.code"),
     Route("POST", "/identity/email/verify", "identity.email.verify"),
     Route("POST", "/identity/device-links", "identity.links.create"),

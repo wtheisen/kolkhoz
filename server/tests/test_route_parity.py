@@ -182,6 +182,7 @@ class CanonicalRouteParityTests(unittest.TestCase):
         self.request("GET", "/admin/operations", bearer="host-token")
         self.request("POST", "/identity/platform/game_center")
         self.request("POST", "/identity/guest")
+        self.request("POST", "/identity/legacy", bearer="host-token")
         self.request(
             "POST",
             "/identity/email/code",

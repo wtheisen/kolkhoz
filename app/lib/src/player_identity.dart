@@ -24,10 +24,14 @@ enum PlayerIdentityLinkState {
 }
 
 @visibleForTesting
-String? playerIdentityBootstrapToken({
+bool shouldMigrateLegacySession({
   required String? storedIdentityToken,
   required String? legacyAccessToken,
-}) => legacyAccessToken ?? storedIdentityToken;
+  required bool migrationCompleted,
+}) =>
+    legacyAccessToken != null &&
+    legacyAccessToken.isNotEmpty &&
+    (!migrationCompleted || storedIdentityToken == null);
 
 @visibleForTesting
 bool shouldRetryPlatformAuthentication(int completedAttempts) =>
@@ -39,13 +43,17 @@ class KolkhozPlayerIdentity {
     required this.id,
     required this.displayName,
     required this.guest,
+    required this.portable,
     this.provider,
+    this.recoveryEmail,
   });
 
   final String id;
   final String displayName;
   final bool guest;
+  final bool portable;
   final String? provider;
+  final String? recoveryEmail;
 }
 
 class KolkhozIdentityRuntime extends ChangeNotifier {
@@ -55,10 +63,10 @@ class KolkhozIdentityRuntime extends ChangeNotifier {
   static const _channel = MethodChannel('com.williamtheisen.kolkhoz/identity');
   static const _storage = FlutterSecureStorage();
   static const _tokenKey = 'kolkhoz.player.session';
+  static const _legacyMigrationKey = 'kolkhoz.player.legacy-migrated';
 
   KolkhozOnlineClient? _client;
   String? _installationID;
-  bool _usingLegacySession = false;
   int _platformAuthenticationAttempts = 0;
   bool _platformRetryScheduled = false;
   String? accessToken;
@@ -80,6 +88,20 @@ class KolkhozIdentityRuntime extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateDisplayName(String displayName) {
+    final current = player;
+    if (current == null || current.displayName == displayName) return;
+    player = KolkhozPlayerIdentity(
+      id: current.id,
+      displayName: displayName,
+      guest: current.guest,
+      portable: current.portable,
+      provider: current.provider,
+      recoveryEmail: current.recoveryEmail,
+    );
+    notifyListeners();
+  }
+
   Future<void> start({
     required Uri baseURL,
     required String installationID,
@@ -93,13 +115,45 @@ class KolkhozIdentityRuntime extends ChangeNotifier {
       accessTokenProvider: () async => accessToken,
     );
     final storedIdentityToken = await _storage.read(key: _tokenKey);
-    accessToken = playerIdentityBootstrapToken(
+    final migrationCompleted =
+        await _storage.read(key: _legacyMigrationKey) == 'true';
+    final migrateLegacy = shouldMigrateLegacySession(
       storedIdentityToken: storedIdentityToken,
       legacyAccessToken: legacyAccessToken,
+      migrationCompleted: migrationCompleted,
     );
-    _usingLegacySession = legacyAccessToken != null;
+    accessToken = migrateLegacy ? legacyAccessToken : storedIdentityToken;
     notifyListeners();
+    if (migrateLegacy) {
+      await migrateLegacySession();
+      return;
+    }
     await authenticate(displayName: displayName);
+  }
+
+  Future<void> migrateLegacySession() async {
+    if (_client == null || _installationID == null || busy) return;
+    busy = true;
+    message = 'Moving your existing Kolkhoz account to the new login system…';
+    notifyListeners();
+    try {
+      final response = await _client!.sendJson(
+        method: 'POST',
+        path: 'identity/legacy',
+        body: {'installationID': _installationID},
+      );
+      await _acceptSession(response);
+      await _storage.write(key: _legacyMigrationKey, value: 'true');
+      message = 'Your existing Kolkhoz account is ready on this device.';
+    } on OnlineRequestException catch (error) {
+      message =
+          'Your existing account is safe, but could not be moved yet. ${error.message}';
+    } catch (_) {
+      message = 'Your existing account is safe, but could not be moved yet.';
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
   }
 
   Future<void> authenticate({required String displayName}) async {
@@ -129,11 +183,6 @@ class KolkhozIdentityRuntime extends ChangeNotifier {
               'Your existing Kolkhoz account remains active. Retrying platform authentication…';
           return;
         }
-        if (_usingLegacySession) {
-          message =
-              'Your existing Kolkhoz account remains active. Platform authentication is unavailable.';
-          return;
-        }
       }
       final response = credential == null || provider == null
           ? await _client!.sendJson(
@@ -156,7 +205,6 @@ class KolkhozIdentityRuntime extends ChangeNotifier {
     } on PlatformException catch (error) {
       message = error.message ?? 'Platform authentication is unavailable.';
       if (_schedulePlatformRetry(displayName)) return;
-      if (_usingLegacySession) return;
       final response = await _client!.sendJson(
         method: 'POST',
         path: 'identity/guest',
@@ -243,10 +291,56 @@ class KolkhozIdentityRuntime extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> requestEmailCode(String email) async {
+    if (_client == null || busy) return false;
+    busy = true;
+    message = null;
+    notifyListeners();
+    try {
+      await _client!.sendJson(
+        method: 'POST',
+        path: 'identity/email/code',
+        body: {'email': email.trim()},
+      );
+      message = 'A six-digit Kolkhoz verification code was sent to your email.';
+      return true;
+    } on OnlineRequestException catch (error) {
+      message = error.message;
+      return false;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> verifyEmailCode(String email, String code) async {
+    if (_client == null || busy) return false;
+    busy = true;
+    message = null;
+    notifyListeners();
+    try {
+      final response = await _client!.sendJson(
+        method: 'POST',
+        path: 'identity/email/verify',
+        body: {'email': email.trim(), 'code': code.trim()},
+      );
+      await _acceptSession(response);
+      message = response['emailAction'] == 'existing_account_linked'
+          ? 'Existing Kolkhoz account linked. The temporary guest profile was discarded.'
+          : 'This account can now be used on another device.';
+      return true;
+    } on OnlineRequestException catch (error) {
+      message = error.message;
+      return false;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> clear() async {
     accessToken = null;
     player = null;
-    _usingLegacySession = false;
     _platformAuthenticationAttempts = 0;
     _platformRetryScheduled = false;
     await _storage.delete(key: _tokenKey);
@@ -257,14 +351,15 @@ class KolkhozIdentityRuntime extends ChangeNotifier {
     final token = response['accessToken'] as String;
     final raw = jsonObject(response['player']);
     accessToken = token;
-    _usingLegacySession = false;
     _platformAuthenticationAttempts = 0;
     _platformRetryScheduled = false;
     player = KolkhozPlayerIdentity(
       id: raw['id'] as String,
       displayName: raw['displayName'] as String? ?? 'Comrade',
       guest: raw['guest'] as bool? ?? false,
+      portable: raw['portable'] as bool? ?? !(raw['guest'] as bool? ?? false),
       provider: raw['provider'] as String?,
+      recoveryEmail: raw['recoveryEmail'] as String?,
     );
     await _storage.write(key: _tokenKey, value: token);
   }
@@ -361,7 +456,9 @@ class PlayerIdentityPanel extends StatelessWidget {
                         ? 'GAME CENTER — CONNECTED'
                         : provider == 'play_games'
                         ? 'GOOGLE PLAY GAMES — CONNECTED'
-                        : 'GUEST — LOCAL DEVICE ONLY',
+                        : player?.recoveryEmail != null
+                        ? 'RECOVERY EMAIL — VERIFIED'
+                        : 'DEVICE-ONLY GUEST',
                     key: Key(provider ?? 'guest-identity-state'),
                     style: kolkhozFontStyle.copyWith(
                       color: provider == null
@@ -371,7 +468,10 @@ class PlayerIdentityPanel extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    runtime.message ?? 'Cloud synchronization is starting.',
+                    runtime.message ??
+                        (player?.portable == false
+                            ? 'This account cannot be recovered and is tied to this device. Add a recovery email to protect it.'
+                            : 'Your Kolkhoz account can be used on another device.'),
                     style: kolkhozFontStyle.copyWith(
                       color: tokens.colors.creamDim,
                     ),
@@ -379,6 +479,8 @@ class PlayerIdentityPanel extends StatelessWidget {
                 ],
               ),
             ),
+            if (player != null)
+              _RecoveryEmailControls(tokens: tokens, runtime: runtime),
             Wrap(
               alignment: WrapAlignment.end,
               spacing: 8,
@@ -635,6 +737,92 @@ class PlayerIdentityPanel extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _RecoveryEmailControls extends StatefulWidget {
+  const _RecoveryEmailControls({required this.tokens, required this.runtime});
+
+  final DesignTokens tokens;
+  final KolkhozIdentityRuntime runtime;
+
+  @override
+  State<_RecoveryEmailControls> createState() => _RecoveryEmailControlsState();
+}
+
+class _RecoveryEmailControlsState extends State<_RecoveryEmailControls> {
+  final emailController = TextEditingController();
+  final codeController = TextEditingController();
+  bool codeSent = false;
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    codeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final verified = widget.runtime.player?.recoveryEmail;
+    if (verified != null) {
+      return Text(
+        'RECOVERY EMAIL  $verified',
+        key: const Key('verified-recovery-email'),
+        style: kolkhozFontStyle.copyWith(color: widget.tokens.colors.creamDim),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 8,
+      children: [
+        TextField(
+          key: const Key('recovery-email-field'),
+          controller: emailController,
+          keyboardType: TextInputType.emailAddress,
+          autocorrect: false,
+          decoration: const InputDecoration(labelText: 'RECOVERY EMAIL'),
+        ),
+        if (codeSent)
+          TextField(
+            key: const Key('recovery-code-field'),
+            controller: codeController,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            decoration: const InputDecoration(
+              labelText: 'SIX-DIGIT LOGIN CODE',
+              counterText: '',
+            ),
+          ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: SizedBox(
+            width: 220,
+            height: 42,
+            child: ChromeAssetButton.command(
+              label: codeSent ? 'VERIFY EMAIL' : 'ADD RECOVERY EMAIL',
+              prominent: true,
+              tokens: widget.tokens,
+              onPressed: widget.runtime.busy
+                  ? null
+                  : () async {
+                      if (!codeSent) {
+                        final sent = await widget.runtime.requestEmailCode(
+                          emailController.text,
+                        );
+                        if (mounted && sent) setState(() => codeSent = true);
+                        return;
+                      }
+                      await widget.runtime.verifyEmailCode(
+                        emailController.text,
+                        codeController.text,
+                      );
+                    },
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -165,6 +165,18 @@ class OnlineApplication:
                         ),
                     )
                 player_id = self._require_user(user_id)
+                if operation == "identity.legacy":
+                    return Response(
+                        HTTPStatus.OK,
+                        self.identity.migrate_legacy(
+                            player_id,
+                            str(request.body.get("installationID") or ""),
+                            device_id=_header(
+                                request.headers, "X-Kolkhoz-Device-ID"
+                            )
+                            or "",
+                        ),
+                    )
                 if operation == "identity.email.code":
                     return Response(
                         HTTPStatus.OK,

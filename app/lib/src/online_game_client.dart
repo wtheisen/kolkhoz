@@ -220,6 +220,23 @@ class KolkhozOnlineClient {
     return OnlineComradeProfile.fromJson(jsonObject(decoded));
   }
 
+  Future<OnlineComradeProfile> fetchCurrentProfile() async {
+    final decoded = await _send(method: 'GET', path: 'profile');
+    return OnlineComradeProfile.fromJson(jsonObject(decoded));
+  }
+
+  Future<OnlineComradeProfile> updateCurrentProfile({
+    required String displayName,
+    required String portraitAsset,
+  }) async {
+    final decoded = await _send(
+      method: 'PATCH',
+      path: 'profile',
+      body: {'displayName': displayName, 'portraitAsset': portraitAsset},
+    );
+    return OnlineComradeProfile.fromJson(jsonObject(decoded));
+  }
+
   Future<OnlineComradeProfile> sendComradeRequest(String comradeCode) async {
     final json = await sendJson(
       method: 'POST',
