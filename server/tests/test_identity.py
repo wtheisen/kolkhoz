@@ -15,7 +15,6 @@ from server.kolkhoz_server.auth import StaticAuthVerifier
 from server.kolkhoz_server.errors import ServerError
 from server.kolkhoz_server.identity import (
     AppleGameCenterVerifier,
-    CompositeAuthVerifier,
     CredentialError,
     GooglePlayGamesVerifier,
     IdentityService,
@@ -539,10 +538,8 @@ class IdentityTests(unittest.TestCase):
         application = OnlineApplication(
             object(),  # type: ignore[arg-type]
             object(),  # type: ignore[arg-type]
-            auth=CompositeAuthVerifier(
-                IdentitySessionVerifier(repository),
-                StaticAuthVerifier({"legacy-supabase-token": legacy_id}),
-            ),
+            auth=IdentitySessionVerifier(repository),
+            legacy_auth=StaticAuthVerifier({"legacy-supabase-token": legacy_id}),
             identity=service,
         )
         migrated = application.dispatch(
@@ -579,6 +576,17 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual(response.status, HTTPStatus.OK)
         self.assertEqual(response.body["player"]["id"], legacy_id)  # type: ignore[index]
         self.assertTrue(str(response.body["accessToken"]).startswith("khz_"))  # type: ignore[index]
+
+        with self.assertRaises(ServerError) as legacy_only_bridge:
+            application.dispatch(
+                Request(
+                    "DELETE",
+                    "/account",
+                    {"Authorization": "Bearer legacy-supabase-token"},
+                    {},
+                )
+            )
+        self.assertEqual(legacy_only_bridge.exception.status, HTTPStatus.UNAUTHORIZED)
 
         class Accounts:
             def __init__(self) -> None:

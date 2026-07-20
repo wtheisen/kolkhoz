@@ -72,6 +72,7 @@ class OnlineApplication:
         lobby: LobbyRepository,
         *,
         auth: AuthVerifier | None = None,
+        legacy_auth: AuthVerifier | None = None,
         social: SocialService | None = None,
         results: ResultsRepository | None = None,
         tournaments: TournamentRepository | None = None,
@@ -91,6 +92,7 @@ class OnlineApplication:
         self.runtime = runtime
         self.lobby = lobby
         self.auth = auth
+        self.legacy_auth = legacy_auth
         self.social = social
         self.results = results
         self.tournaments = tournaments
@@ -151,8 +153,10 @@ class OnlineApplication:
                             params["provider"],
                             credential,
                             display_name=str(request.body.get("displayName") or ""),
-                            device_id=_header(request.headers, "X-Kolkhoz-Device-ID") or "",
-                            claim_player_id=user_id,
+                            device_id=_header(request.headers, "X-Kolkhoz-Device-ID")
+                            or "",
+                            claim_player_id=user_id
+                            or self._legacy_user_id(request.headers),
                         ),
                     )
                 if operation == "identity.guest":
@@ -161,22 +165,24 @@ class OnlineApplication:
                         self.identity.guest(
                             str(request.body.get("installationID") or ""),
                             display_name=str(request.body.get("displayName") or ""),
-                            device_id=_header(request.headers, "X-Kolkhoz-Device-ID") or "",
+                            device_id=_header(request.headers, "X-Kolkhoz-Device-ID")
+                            or "",
                         ),
                     )
-                player_id = self._require_user(user_id)
                 if operation == "identity.legacy":
+                    player_id = self._require_user(
+                        self._legacy_user_id(request.headers)
+                    )
                     return Response(
                         HTTPStatus.OK,
                         self.identity.migrate_legacy(
                             player_id,
                             str(request.body.get("installationID") or ""),
-                            device_id=_header(
-                                request.headers, "X-Kolkhoz-Device-ID"
-                            )
+                            device_id=_header(request.headers, "X-Kolkhoz-Device-ID")
                             or "",
                         ),
                     )
+                player_id = self._require_user(user_id)
                 if operation == "identity.email.code":
                     return Response(
                         HTTPStatus.OK,
@@ -191,9 +197,7 @@ class OnlineApplication:
                             player_id,
                             str(request.body.get("email") or ""),
                             str(request.body.get("code") or ""),
-                            device_id=_header(
-                                request.headers, "X-Kolkhoz-Device-ID"
-                            )
+                            device_id=_header(request.headers, "X-Kolkhoz-Device-ID")
                             or "",
                         ),
                     )
@@ -216,7 +220,9 @@ class OnlineApplication:
                 if operation == "identity.links.redeem":
                     return Response(
                         HTTPStatus.OK,
-                        self.identity.redeem(player_id, str(request.body.get("code") or "")),
+                        self.identity.redeem(
+                            player_id, str(request.body.get("code") or "")
+                        ),
                     )
                 return Response(
                     HTTPStatus.OK,
@@ -1884,6 +1890,14 @@ class OnlineApplication:
         return self.auth.user_id(
             headers.get("Authorization") or headers.get("authorization")
         )
+
+    def _legacy_user_id(self, headers: Mapping[str, str]) -> str | None:
+        if self.legacy_auth is None:
+            return None
+        authorization = headers.get("Authorization") or headers.get("authorization")
+        if authorization is None or authorization.startswith("Bearer khz_"):
+            return None
+        return self.legacy_auth.user_id(authorization)
 
     def _require_user(self, user_id: str | None) -> str:
         if self.auth is not None and user_id is None:

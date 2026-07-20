@@ -142,9 +142,11 @@ def create_asgi_application() -> ASGIApplication:
         metrics=metrics,
     )
     identity = identity_service_from_environment(pool)
-    auth_verifier = CompositeAuthVerifier(
-        IdentitySessionVerifier(identity.repository),
-        *(() if legacy_auth_verifier is None else (legacy_auth_verifier,)),
+    identity_auth_verifier = IdentitySessionVerifier(identity.repository)
+    auth_verifier = (
+        CompositeAuthVerifier(identity_auth_verifier, legacy_auth_verifier)
+        if isinstance(legacy_auth_verifier, StagingAuthVerifier)
+        else identity_auth_verifier
     )
     store = PostgresEventStore(pool=pool)
     lobby = PostgresLobbyRepository(pool)
@@ -268,6 +270,7 @@ def create_asgi_application() -> ASGIApplication:
         runtime,
         lobby,  # type: ignore[arg-type]
         auth=auth_verifier,
+        legacy_auth=legacy_auth_verifier,
         social=SocialService(
             social,
             presence=LobbyPresenceReader(

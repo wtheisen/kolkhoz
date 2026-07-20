@@ -21,19 +21,56 @@ alter table public.profiles drop constraint if exists profiles_user_id_server_pl
 alter table public.profiles add constraint profiles_user_id_server_player_fkey
     foreign key (user_id) references server_players(id) on delete cascade;
 
-create or replace function public.ensure_server_player_for_profile()
-returns trigger language plpgsql security definer set search_path = public as $$
+drop trigger if exists ensure_server_player_for_profile on public.profiles;
+drop function if exists public.ensure_server_player_for_profile();
+
+-- A profile is data owned by a player; inserting profile data must never create a
+-- second kind of account implicitly. Identity flows create server_players first.
+insert into public.profiles (user_id, display_name)
+select players.id, 'Comrade'
+  from server_players players
+  left join public.profiles profiles on profiles.user_id = players.id
+ where profiles.user_id is null;
+
+alter table server_players
+    drop constraint if exists server_players_status_deleted_check;
+alter table server_players
+    add constraint server_players_status_deleted_check check (
+        (status = 'active' and deleted_at is null)
+        or (status = 'deleted' and deleted_at is not null)
+    );
+
+create or replace function public.require_server_player_profile()
+returns trigger language plpgsql set search_path = public as $$
 begin
-    insert into public.server_players (id)
-    values (new.user_id)
-    on conflict (id) do nothing;
-    return new;
+    if new.status = 'active'
+       and not exists(select 1 from public.profiles where user_id = new.id) then
+        raise exception 'active server player % requires exactly one profile', new.id;
+    end if;
+    return null;
 end;
 $$;
-drop trigger if exists ensure_server_player_for_profile on public.profiles;
-create trigger ensure_server_player_for_profile
-before insert on public.profiles
-for each row execute function public.ensure_server_player_for_profile();
+drop trigger if exists server_player_profile_required on server_players;
+create constraint trigger server_player_profile_required
+after insert or update on server_players
+deferrable initially deferred
+for each row execute function public.require_server_player_profile();
+
+create or replace function public.prevent_orphan_server_player()
+returns trigger language plpgsql set search_path = public as $$
+begin
+    if exists(select 1 from public.server_players where id = old.user_id and status = 'active')
+       and not exists(select 1 from public.profiles where user_id = old.user_id) then
+        raise exception 'profile removal would orphan active server player %', old.user_id;
+    end if;
+    return null;
+end;
+$$;
+drop trigger if exists profile_server_player_required on public.profiles;
+create constraint trigger profile_server_player_required
+after delete or update of user_id on public.profiles
+deferrable initially deferred
+for each row execute function public.prevent_orphan_server_player();
 
 alter table server_players drop column if exists display_name;
 
@@ -90,18 +127,37 @@ create table if not exists server_recovery_emails (
 do $$
 begin
   if to_regclass('auth.users') is not null then
-    execute $legacy_email_backfill$
-      insert into server_recovery_emails
-          (id, player_id, normalized_email, verified_at)
-      select gen_random_uuid(), players.id, lower(trim(users.email)),
-             coalesce(users.email_confirmed_at, users.confirmed_at, now())
-        from server_players players
-        join auth.users users on users.id = players.id
-       where users.email is not null
-         and trim(users.email) <> ''
-         and (users.email_confirmed_at is not null or users.confirmed_at is not null)
-      on conflict do nothing
-    $legacy_email_backfill$;
+    if exists(
+        select 1 from information_schema.columns
+         where table_schema = 'auth' and table_name = 'users'
+           and column_name = 'confirmed_at'
+    ) then
+      execute $legacy_email_backfill$
+        insert into server_recovery_emails
+            (id, player_id, normalized_email, verified_at)
+        select gen_random_uuid(), players.id, lower(trim(users.email)),
+               coalesce(users.email_confirmed_at, users.confirmed_at, now())
+          from server_players players
+          join auth.users users on users.id = players.id
+         where users.email is not null
+           and trim(users.email) <> ''
+           and (users.email_confirmed_at is not null or users.confirmed_at is not null)
+        on conflict do nothing
+      $legacy_email_backfill$;
+    else
+      execute $legacy_email_backfill$
+        insert into server_recovery_emails
+            (id, player_id, normalized_email, verified_at)
+        select gen_random_uuid(), players.id, lower(trim(users.email)),
+               users.email_confirmed_at
+          from server_players players
+          join auth.users users on users.id = players.id
+         where users.email is not null
+           and trim(users.email) <> ''
+           and users.email_confirmed_at is not null
+        on conflict do nothing
+      $legacy_email_backfill$;
+    end if;
   end if;
 end
 $$;
@@ -179,3 +235,58 @@ create table if not exists server_identity_audit (
     metadata jsonb not null default '{}'::jsonb,
     created_at timestamptz not null default now()
 );
+
+-- Local auth.users data was imported only to bootstrap legacy profiles and recovery
+-- addresses. No public table may continue treating it as the player owner.
+do $$
+declare
+    dependency record;
+begin
+    for dependency in
+        select constraints.table_schema,
+               constraints.table_name,
+               constraints.constraint_name
+          from information_schema.table_constraints constraints
+          join information_schema.constraint_column_usage referenced
+            on referenced.constraint_schema = constraints.constraint_schema
+           and referenced.constraint_name = constraints.constraint_name
+         where constraints.constraint_type = 'FOREIGN KEY'
+           and constraints.table_schema = 'public'
+           and referenced.table_schema = 'auth'
+           and referenced.table_name = 'users'
+    loop
+        execute format(
+            'alter table %I.%I drop constraint %I',
+            dependency.table_schema,
+            dependency.table_name,
+            dependency.constraint_name
+        );
+    end loop;
+end
+$$;
+
+-- Operational visibility without inventing account types. Every row is a player;
+-- these booleans describe which recovery credentials that player has attached.
+create or replace view server_player_credential_summary as
+select players.id as player_id,
+       players.status,
+       exists(
+           select 1 from server_linked_identities identities
+            where identities.player_id = players.id
+       ) as has_platform_identity,
+       exists(
+           select 1 from server_recovery_emails emails
+            where emails.player_id = players.id
+       ) as has_recovery_email,
+       exists(
+           select 1 from server_device_credentials devices
+            where devices.player_id = players.id
+       ) as has_device_credential,
+       exists(
+           select 1 from server_linked_identities identities
+            where identities.player_id = players.id
+       ) or exists(
+           select 1 from server_recovery_emails emails
+            where emails.player_id = players.id
+       ) as recoverable
+  from server_players players;

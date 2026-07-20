@@ -24,7 +24,8 @@ Use `docker compose down -v` to erase all staging data and force the migration/b
 scripts to run again. Static bearer tokens and load-test tokens of the form
 `staging:<canonical-uuid>` work only when `KOLKHOZ_ENVIRONMENT=staging`; the production
 process refuses that token configuration otherwise. Load tests must provision matching
-`auth.users` and `public.profiles` rows before those users complete games.
+legacy `auth.users` bridge rows plus canonical `server_players` and
+`public.profiles` rows before those users complete games.
 
 The bootstrap provisions 1,024 deterministic load identities. Identity `n` uses UUID
 `20000000-0000-4000-8000-{n:012d}` and bearer token
@@ -85,7 +86,7 @@ This smoke tier checks correctness and basic latency; it is not capacity evidenc
 It does not start the 4+4 Compose topology or alter the production Caddy route. The
 package in `../digitalocean/` installs the production service with
 systemd `CPUQuota`/`MemoryMax`, `/opt/kolkhoz-server`, and a capped loopback Redis.
-It uses the existing Supabase database's additive `server_*` tables and production
+It uses the canonical PostgreSQL player model's additive `server_*` tables and production
 authentication; it does not seed synthetic identities. A session smoke therefore
 requires a private identity file containing real bearer tokens. Without one, limit the
 production verification to `/ready` and `/metrics/prometheus`.

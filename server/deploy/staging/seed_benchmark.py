@@ -55,6 +55,11 @@ def main() -> None:
                 [(user_id, email) for user_id, email, _ in rows],
             )
             cursor.executemany(
+                """insert into public.server_players (id) values (%s::uuid)
+                     on conflict (id) do nothing""",
+                [(user_id,) for user_id, _, _ in rows],
+            )
+            cursor.executemany(
                 """insert into public.profiles (user_id, display_name)
                      values (%s::uuid, %s)
                      on conflict (user_id) do update set display_name = excluded.display_name""",
