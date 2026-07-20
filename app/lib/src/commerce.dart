@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
@@ -82,18 +81,27 @@ class KolkhozCommerceController extends ChangeNotifier {
   String? get price => _product?.price;
 
   static String? get _defaultProvider {
-    if (Platform.isIOS || Platform.isMacOS) return 'apple';
-    if (Platform.isAndroid) return 'google';
-    return null;
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.iOS || TargetPlatform.macOS => 'apple',
+      TargetPlatform.android => 'google',
+      TargetPlatform.fuchsia ||
+      TargetPlatform.linux ||
+      TargetPlatform.windows => null,
+    };
   }
 
   static String? get _defaultProductID {
-    if (Platform.isIOS || Platform.isMacOS) return appleFullGameProductID;
-    if (Platform.isAndroid) return googleFullGameProductID;
-    return null;
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.iOS || TargetPlatform.macOS => appleFullGameProductID,
+      TargetPlatform.android => googleFullGameProductID,
+      TargetPlatform.fuchsia ||
+      TargetPlatform.linux ||
+      TargetPlatform.windows => null,
+    };
   }
 
   void initialize() {
+    if (_provider == null) return;
     _subscription ??= purchaseStore.purchaseStream.listen(
       _handlePurchases,
       onError: (Object error) {
@@ -175,6 +183,12 @@ class KolkhozCommerceController extends ChangeNotifier {
     final userID = _userID;
     if (userID == null) {
       _message = 'Sign in before restoring a purchase.';
+      notifyListeners();
+      return;
+    }
+    if (_provider == null) {
+      _message =
+          'The full-game purchase is not available on this platform yet.';
       notifyListeners();
       return;
     }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:kolkhoz_app/src/app_settings.dart';
@@ -35,6 +36,7 @@ class _FakeClient extends KolkhozOnlineClient {
 
 class _FakeStore implements KolkhozPurchaseStore {
   final controller = StreamController<List<PurchaseDetails>>.broadcast();
+  int purchaseStreamReads = 0;
   PurchaseParam? purchaseParam;
   String? restoredUserID;
   final List<PurchaseDetails> completed = [];
@@ -49,7 +51,10 @@ class _FakeStore implements KolkhozPurchaseStore {
   );
 
   @override
-  Stream<List<PurchaseDetails>> get purchaseStream => controller.stream;
+  Stream<List<PurchaseDetails>> get purchaseStream {
+    purchaseStreamReads += 1;
+    return controller.stream;
+  }
 
   @override
   Future<bool> isAvailable() async => true;
@@ -107,6 +112,21 @@ void main() {
 
   test('default full-game access follows the compile-time beta flag', () {
     expect(commerce.fullGameUnlocked, kolkhozBetaBuild);
+  });
+
+  test('Windows startup does not initialize an unsupported purchase store', () {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final windowsCommerce = KolkhozCommerceController(
+      clientFactory: () => client,
+      onFullGameChanged: (_, _) {},
+      purchaseStore: store,
+    );
+    addTearDown(windowsCommerce.dispose);
+
+    windowsCommerce.initialize();
+
+    expect(store.purchaseStreamReads, 0);
   });
 
   test('verified purchase is linked before it is completed', () async {

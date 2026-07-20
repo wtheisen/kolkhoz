@@ -82,6 +82,7 @@ jobs:
           KOLKHOZ_C_ENGINE_LIB: ${{ github.workspace }}\app\build\windows\x64\runner\Release\kolkhoz_c_engine.dll
         run: >-
           flutter test
+          test/commerce_test.dart
           test/parity_gate_test.dart
           test/progression_test.dart
           test/online_action_retry_test.dart
