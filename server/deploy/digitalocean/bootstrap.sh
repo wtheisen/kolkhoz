@@ -86,7 +86,7 @@ if ! $apply; then
   echo "DRY RUN: would clone/update $repo at requested ref into $ROOT"
   echo "DRY RUN: would read server credentials from $env_source without displaying values"
   $migrating && echo "DRY RUN: would migrate the existing production installation to the kolkhoz-server namespace"
-  echo "DRY RUN: would apply nine server schemas explicitly"
+  echo "DRY RUN: would apply nine server schemas, then retire legacy local Supabase objects"
   echo "DRY RUN: would install capped Redis on 127.0.0.1:$REDIS_PORT and the server on 127.0.0.1:$PORT"
   echo "DRY RUN: would schedule daily deletion of email accounts unconfirmed for more than seven days"
   echo "DRY RUN: would configure Caddy to bridge short upstream restart gaps"
@@ -145,6 +145,8 @@ secret_key=$(sed -n 's/^KOLKHOZ_SUPABASE_SECRET_KEY=//p' "$SERVER_ENV" | tail -n
 for schema in postgres_schema.sql lobby_schema.sql distributed_schema.sql command_schema.sql population_schema.sql notifications_schema.sql commerce_schema.sql tournament_schema.sql identity_schema.sql; do
   DATABASE_URL="$database_url" psql "$database_url" -v ON_ERROR_STOP=1 -f "$ROOT/server/$schema" >/dev/null
 done
+DATABASE_URL="$database_url" psql "$database_url" -v ON_ERROR_STOP=1 \
+  -f "$here/retire_legacy_supabase.sql" >/dev/null
 unset database_url supabase_url publishable secret_key
 
 install -d -o redis -g redis "$REDIS_DIR"

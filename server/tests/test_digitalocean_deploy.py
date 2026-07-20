@@ -39,9 +39,20 @@ def test_bootstrap_requires_explicit_apply_for_mutations() -> None:
     assert "MemAvailable:" in source
     assert '. "$env_file"' not in source
     assert source.index('psql "$database_url"') < source.index("unset database_url")
+    assert source.index("identity_schema.sql") < source.index(
+        'retire_legacy_supabase.sql'
+    )
     assert "redis_was_installed" in source
     assert "for _ in $(seq 1 30)" in source
     assert 'git -c safe.directory="$ROOT" -C "$ROOT"' in source
     assert source.index('cd "$ROOT"') < source.index(
         "from research.kolkhoz_research.c_engine"
     )
+
+
+def test_supabase_retirement_is_production_only_and_idempotent() -> None:
+    retirement = (ROOT / "retire_legacy_supabase.sql").read_text()
+    staging = (ROOT.parent / "staging" / "compose.yaml").read_text()
+    assert "drop schema if exists auth cascade" in retirement
+    assert "drop table if exists public.game_sessions" in retirement
+    assert "retire_legacy_supabase.sql" not in staging
