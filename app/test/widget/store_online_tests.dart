@@ -794,7 +794,7 @@ void registerStoreAndOnlineTests() {
   });
 
   test('profile stats parse casual rating from server json', () {
-    final stats = profileStatsFromSupabaseJson({
+    final stats = profileStatsFromJson({
       'casual_games': 3,
       'casual_wins': 2,
       'casual_rating': 1088,
@@ -2115,6 +2115,128 @@ void registerStoreAndOnlineTests() {
     expect(model.table.seats[1].hiddenHandCount, 0);
     expect(model.table.jobs.first.reward?.id, 'wheat-9');
     expect(model.legalActions.single.engineAction.suit, 'wheat');
+  });
+
+  test('online store drops extra taps while an action is pending', () async {
+    final releaseAction = Completer<void>();
+    final httpClient = BlockingActionFakeOnlineHttpClient(releaseAction.future);
+    final store = GameController(
+      autosaveEnabled: false,
+      onlineHttpClient: httpClient,
+      onlineWebSocketConnector: (_, _) async =>
+          throw const SocketException('offline'),
+    );
+    addTearDown(store.dispose);
+
+    await store.startOnlineGame(
+      baseURL: Uri.parse('http://online.example'),
+      ranked: false,
+      browserJoinable: false,
+    );
+    final action = store.model!.legalActions.single;
+
+    store.applyLegalAction(action);
+    store.applyLegalAction(action);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(store.model!.legalActions, isEmpty);
+    expect(httpClient.actionRequestCount, 1);
+
+    releaseAction.complete();
+    await Future<void>.delayed(Duration.zero);
+    expect(httpClient.actionRequestCount, 1);
+  });
+
+  test(
+    'online action response does not replay an earlier realtime frame',
+    () async {
+      final releaseAction = Completer<void>();
+      final httpClient = BlockingActionFakeOnlineHttpClient(
+        releaseAction.future,
+      );
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final connected = Completer<WebSocket>();
+      server.listen((request) async {
+        final socket = await WebSocketTransformer.upgrade(request);
+        connected.complete(socket);
+      });
+      addTearDown(() => server.close(force: true));
+      final store = GameController(
+        autosaveEnabled: false,
+        onlineAccessTokenProvider: () async => 'access-token',
+        onlineHttpClient: httpClient,
+        onlineWebSocketConnector: (_, headers) => WebSocket.connect(
+          'ws://${server.address.address}:${server.port}',
+          headers: headers,
+        ),
+      );
+      addTearDown(store.dispose);
+
+      await store.startOnlineGame(
+        baseURL: Uri.parse('http://online.example'),
+        ranked: false,
+        browserJoinable: false,
+      );
+      final socket = await connected.future.timeout(const Duration(seconds: 2));
+      addTearDown(socket.close);
+      final action = store.model!.legalActions.single;
+      store.applyLegalAction(action);
+      await Future<void>.delayed(Duration.zero);
+
+      final update = onlineUpdateJson()..['actionLogCount'] = 1;
+      socket.add(
+        jsonEncode({
+          'type': 'committed',
+          'revision': 1,
+          'updates': {
+            'sessionID': '11111111-1111-1111-1111-111111111111',
+            'actionLogCount': 1,
+            'updates': [
+              {
+                'revision': 1,
+                'action': OnlineEngineAction.fromEngineAction(
+                  action.engineAction,
+                ).toJson(),
+                'update': update,
+              },
+            ],
+            'resyncUpdate': null,
+          },
+        }),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(store.presentationRevision, 1);
+
+      releaseAction.complete();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      store.acknowledgeRevisionPresented(1);
+      expect(store.presentationRevision, isNull);
+      expect(httpClient.actionRequestCount, 1);
+    },
+  );
+
+  test('online store never replays a stale gesture after resync', () async {
+    final httpClient = StaleActionFakeOnlineHttpClient();
+    final store = GameController(
+      autosaveEnabled: false,
+      onlineHttpClient: httpClient,
+      onlineWebSocketConnector: (_, _) async =>
+          throw const SocketException('offline'),
+    );
+    addTearDown(store.dispose);
+
+    await store.startOnlineGame(
+      baseURL: Uri.parse('http://online.example'),
+      ranked: false,
+      browserJoinable: false,
+    );
+    store.applyLegalAction(store.model!.legalActions.single);
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    expect(httpClient.actionRequestCount, 1);
+    expect(store.onlineUpdate!.actionLogCount, 1);
+    expect(store.model!.legalActions, hasLength(1));
+    expect(store.error, isNull);
   });
 
   test('online North cards preserve the losing player', () {

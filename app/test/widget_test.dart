@@ -928,6 +928,77 @@ class EmptySessionsFakeOnlineHttpClient extends FakeOnlineHttpClient {
   }
 }
 
+class BlockingActionFakeOnlineHttpClient extends FakeOnlineHttpClient {
+  BlockingActionFakeOnlineHttpClient(this.release);
+
+  final Future<void> release;
+  int actionRequestCount = 0;
+
+  @override
+  FakeOnlineHttpClientResponse route(
+    String method,
+    Uri uri,
+    String body,
+    Map<String, List<Object>> headers,
+  ) {
+    if (method == 'POST' && uri.path.endsWith('/actions')) {
+      actionRequestCount += 1;
+      requests.add(
+        FakeOnlineRequestRecord(
+          method: method,
+          uri: uri,
+          body: body,
+          headers: headers,
+        ),
+      );
+      final update = onlineUpdateJson()..['actionLogCount'] = 1;
+      return BlockingFakeOnlineHttpClientResponse(update, release);
+    }
+    return super.route(method, uri, body, headers);
+  }
+}
+
+class StaleActionFakeOnlineHttpClient extends FakeOnlineHttpClient {
+  int actionRequestCount = 0;
+
+  @override
+  FakeOnlineHttpClientResponse route(
+    String method,
+    Uri uri,
+    String body,
+    Map<String, List<Object>> headers,
+  ) {
+    if (method == 'POST' && uri.path.endsWith('/actions')) {
+      actionRequestCount += 1;
+      requests.add(
+        FakeOnlineRequestRecord(
+          method: method,
+          uri: uri,
+          body: body,
+          headers: headers,
+        ),
+      );
+      return FakeOnlineHttpClientResponse.json({
+        'error': 'stale action',
+      }, status: HttpStatus.conflict);
+    }
+    if (method == 'GET' && uri.path.endsWith('/state')) {
+      requests.add(
+        FakeOnlineRequestRecord(
+          method: method,
+          uri: uri,
+          body: body,
+          headers: headers,
+        ),
+      );
+      return FakeOnlineHttpClientResponse.json(
+        onlineUpdateJson()..['actionLogCount'] = 1,
+      );
+    }
+    return super.route(method, uri, body, headers);
+  }
+}
+
 class TournamentFakeOnlineHttpClient extends EmptySessionsFakeOnlineHttpClient {
   bool joined = false;
 
@@ -1092,4 +1163,27 @@ class FakeOnlineHttpClientResponse extends Stream<List<int>>
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class BlockingFakeOnlineHttpClientResponse
+    extends FakeOnlineHttpClientResponse {
+  BlockingFakeOnlineHttpClientResponse(Object? json, this.release)
+    : super(utf8.encode(jsonEncode(json)), statusCode: HttpStatus.ok);
+
+  final Future<void> release;
+
+  @override
+  StreamSubscription<List<int>> listen(
+    void Function(List<int> event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) {
+    return Stream<List<int>>.fromFuture(release.then((_) => body)).listen(
+      onData,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: cancelOnError,
+    );
+  }
 }
