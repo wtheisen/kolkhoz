@@ -29,24 +29,18 @@ class OnlineSmokeTests(unittest.TestCase):
                 {"status": "passed", "actions": 12},
             )
 
-    def test_games_played_handles_missing_row(self) -> None:
-        with mock.patch.object(online_smoke, "request_json", return_value=[]):
-            self.assertEqual(
-                online_smoke._games_played("url", "key", "token", "user"),
-                0,
-            )
-
-    def test_games_played_reads_uncapped_stats_counter(self) -> None:
-        payload = [{"games_played": 7}]
+    def test_games_played_reads_authoritative_server_profile(self) -> None:
+        payload = {"stats": {"games_played": 7}}
         with mock.patch.object(
             online_smoke, "request_json", return_value=payload
         ) as request_json:
             self.assertEqual(
-                online_smoke._games_played("url", "key", "token", "user"),
+                online_smoke._server_games_played(
+                    "https://online", {"Authorization": "Bearer token"}
+                ),
                 7,
             )
-        self.assertIn("/rest/v1/profile_stats?", request_json.call_args.args[0])
-        self.assertIn("select=games_played", request_json.call_args.args[0])
+        self.assertEqual(request_json.call_args.args[0], "https://online/profile")
 
     def test_rejected_stale_action_refreshes_current_state(self) -> None:
         for status in (400, 409):
@@ -91,6 +85,24 @@ class OnlineSmokeTests(unittest.TestCase):
         self.assertEqual(
             request_json.call_args.kwargs["body"]["installationID"],
             online_smoke.INSTALLATION_ID,
+        )
+
+    def test_active_game_is_resumed_when_create_conflicts(self) -> None:
+        conflict = HTTPError("url", 409, "active", None, None)
+        with mock.patch.object(
+            online_smoke,
+            "request_json",
+            side_effect=[conflict, {"sessionID": "active-game"}],
+        ) as request_json:
+            result = online_smoke._create_or_sync(
+                "https://online", {"seed": 1}, {"Authorization": "Bearer token"}
+            )
+
+        self.assertEqual(result, {"sessionID": "active-game"})
+        self.assertEqual(request_json.call_count, 2)
+        self.assertEqual(
+            request_json.call_args_list[1].args[0],
+            "https://online/active-session/sync",
         )
 
 

@@ -8,13 +8,14 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib import request as urlrequest
 from urllib.parse import urlencode
 
 
 EMAIL = "codex-smoke@kolkhoz.local"
 INSTALLATION_ID = "codex-smoke-production-installation"
+SMOKE_SEED = 538316889
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RESULT_LOG = REPO_ROOT / "research/logs/online_smoke.jsonl"
 
@@ -37,27 +38,25 @@ def request_json(
             **(headers or {}),
         },
     )
-    with urlrequest.urlopen(request, timeout=15) as response:
-        return json.loads(response.read().decode("utf-8"))
+    for attempt in range(3):
+        try:
+            with urlrequest.urlopen(request, timeout=15) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except HTTPError:
+            raise
+        except (TimeoutError, URLError):
+            if attempt == 2:
+                raise
+            time.sleep(0.5 * (attempt + 1))
+    raise RuntimeError("request retry loop exited unexpectedly")
 
 
-def _games_played(
-    supabase_url: str,
-    publishable_key: str,
-    token: str,
-    user_id: str,
-) -> int:
-    query = urlencode(
-        {"select": "games_played", "user_id": f"eq.{user_id}", "limit": "1"}
-    )
-    payload = request_json(
-        f"{supabase_url}/rest/v1/profile_stats?{query}",
-        headers={"apikey": publishable_key, "Authorization": f"Bearer {token}"},
-    )
-    if not isinstance(payload, list) or not payload:
-        return 0
-    row = payload[0] if isinstance(payload[0], dict) else {}
-    return int(row.get("games_played", 0))
+def _server_games_played(online_url: str, headers: dict[str, str]) -> int:
+    payload = request_json(f"{online_url}/profile", headers=headers)
+    stats = payload.get("stats") if isinstance(payload, dict) else None
+    if not isinstance(stats, dict):
+        raise RuntimeError("online server did not return profile statistics")
+    return int(stats.get("games_played", 0))
 
 
 def _submit_or_refresh(
@@ -104,6 +103,23 @@ def _identity_token(online_url: str, legacy_token: str) -> str:
     return str(payload["accessToken"])
 
 
+def _create_or_sync(
+    online_url: str, body: dict[str, object], headers: dict[str, str]
+) -> object:
+    try:
+        return request_json(
+            f"{online_url}/sessions", method="POST", body=body, headers=headers
+        )
+    except HTTPError as error:
+        if error.code != 409:
+            raise
+    return request_json(
+        f"{online_url}/active-session/sync",
+        method="POST",
+        headers=headers,
+    )
+
+
 def run_smoke() -> dict[str, object]:
     supabase_url = os.environ.get("KOLKHOZ_SUPABASE_URL", "").rstrip("/")
     publishable_key = os.environ.get("KOLKHOZ_SUPABASE_PUBLISHABLE_KEY", "")
@@ -133,19 +149,18 @@ def run_smoke() -> dict[str, object]:
         "Authorization": f"Bearer {identity_token}",
         "X-Kolkhoz-Device-ID": INSTALLATION_ID,
     }
-    games_before = _games_played(supabase_url, publishable_key, legacy_token, user_id)
+    games_before = _server_games_played(online_url, headers)
 
-    created = request_json(
-        f"{online_url}/sessions",
-        method="POST",
-        body={
-            "seed": random.SystemRandom().randint(1, 2**31 - 1),
+    created = _create_or_sync(
+        online_url,
+        {
+            "seed": SMOKE_SEED,
             "variants": {"heroOfSovietUnion": False},
             "controllers": ["human", "heuristicAI", "neuralAI", "heuristicAI"],
             "ranked": False,
             "browserJoinable": False,
         },
-        headers=headers,
+        headers,
     )
     if not isinstance(created, dict):
         raise RuntimeError("online server returned an invalid session response")
@@ -201,9 +216,16 @@ def run_smoke() -> dict[str, object]:
                 )
             if joker_actions == 0:
                 raise RuntimeError("completed game did not expose a zero-value Joker")
-            games_after = _games_played(
-                supabase_url, publishable_key, legacy_token, user_id
-            )
+            reveal_sources = {
+                str(action.get("source"))
+                for action in actions
+                if int(action.get("kind", -1)) in (10, 11)
+            }
+            if reveal_sources != {"automatic"}:
+                raise RuntimeError(
+                    f"planning reveals were not server-owned: {sorted(reveal_sources)}"
+                )
+            games_after = _server_games_played(online_url, headers)
             if games_after != games_before + 1:
                 raise RuntimeError(
                     "games-played count did not advance exactly once "
