@@ -42,7 +42,7 @@ DEFAULT_VARIANTS: JsonObject = {
     "heroOfSovietUnion": True,
     "wrecker": True,
     "finalYearTrump": True,
-    "passCards": True,
+    "passCards": False,
     "highestCardsRequisition": True,
     "lottoRewards": True,
 }

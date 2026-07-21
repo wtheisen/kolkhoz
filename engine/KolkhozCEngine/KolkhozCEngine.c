@@ -193,7 +193,7 @@ void kc_variants_kolkhoz(KCVariants *variants) {
     variants->hero_of_soviet_union = true;
     variants->wrecker = true;
     variants->final_year_trump = true;
-    variants->pass_cards = true;
+    variants->pass_cards = false;
     variants->highest_cards_requisition = true;
     variants->lotto_rewards = true;
 }

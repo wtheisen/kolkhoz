@@ -20,10 +20,10 @@ class VariantEngineTests(unittest.TestCase):
         for player_id in range(4):
             self.controllers.seats[player_id] = 0
 
-    def test_kolkhoz_defaults_enable_new_variants(self) -> None:
+    def test_kolkhoz_defaults_enable_new_variants_except_passing(self) -> None:
         variants = self.engine.kolkhoz_variants()
         self.assertTrue(variants.final_year_trump)
-        self.assertTrue(variants.pass_cards)
+        self.assertFalse(variants.pass_cards)
         self.assertTrue(variants.highest_cards_requisition)
         self.assertTrue(variants.lotto_rewards)
 
@@ -190,7 +190,11 @@ class VariantEngineTests(unittest.TestCase):
                     self.engine.free_engine(pointer)
 
     def test_passing_does_not_run_in_year_one(self) -> None:
-        pointer = self.engine.new_engine(52, controllers=self.controllers)
+        variants = self.engine.kolkhoz_variants()
+        variants.pass_cards = True
+        pointer = self.engine.new_engine(
+            52, variants=variants, controllers=self.controllers
+        )
         try:
             state = self.engine.snapshot(pointer)
             selector = int(state.trump_selector)
@@ -209,7 +213,7 @@ class VariantEngineTests(unittest.TestCase):
         try:
             for _ in range(1000):
                 state = self.engine.snapshot(pointer)
-                if int(state.year) == 5 and int(state.phase) == 6:
+                if int(state.year) == 5 and int(state.phase) == 1:
                     break
                 actions = self.engine.legal_actions(pointer)
                 if actions:
@@ -228,7 +232,7 @@ class VariantEngineTests(unittest.TestCase):
                 else:
                     self.assertGreater(self.engine.step_automatic(pointer), 0)
             final_year = self.engine.snapshot(pointer)
-            self.assertEqual((int(final_year.year), int(final_year.phase)), (5, 6))
+            self.assertEqual((int(final_year.year), int(final_year.phase)), (5, 1))
             self.assertEqual(
                 [int(final_year.players[player].hand.count) for player in range(4)],
                 [4, 4, 4, 4],

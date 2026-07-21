@@ -207,6 +207,8 @@ actions=
       var appliedActions = 0;
 
       while (model.table.phase != phaseGameOver && appliedActions < 500) {
+        model = drainAutomaticPhases(bridge, engine, model);
+        if (model.table.phase == phaseGameOver) break;
         for (final job in model.table.jobs) {
           final reward = job.reward;
           if (reward != null) {
@@ -264,6 +266,8 @@ actions=
         var appliedActions = 0;
 
         while (model.table.phase != phaseGameOver && appliedActions < 500) {
+          model = drainAutomaticPhases(bridge, engine, model);
+          if (model.table.phase == phaseGameOver) break;
           if (model.table.phase == phaseRequisition) {
             final wreckerEvents = model.table.requisitionEvents
                 .where((event) => event.card?.id == 'wrecker-0')
@@ -323,6 +327,8 @@ actions=
         var appliedActions = 0;
 
         while (model.table.phase != phaseGameOver && appliedActions < 400) {
+          model = drainAutomaticPhases(bridge, engine, model);
+          if (model.table.phase == phaseGameOver) break;
           final action = deterministicAction(model);
           final cAction = cEngineAction(action.engineAction);
           expect(cAction, isNotNull);
@@ -337,9 +343,9 @@ actions=
         expect(
           gameOverFingerprint(model, appliedActions),
           '''
-actions=59 winner=2
-scores=0:visible=2:final=2|1:visible=0:final=0|2:visible=3:final=26|3:visible=0:final=12
-exiled=1:beet-2,potato-1,wrecker-0|2:beet-13,beet-4,beet-8,potato-2,potato-6,sunflower-13,sunflower-3,sunflower-4,sunflower-5|3:beet-1,beet-10,sunflower-10,sunflower-11,wheat-2,wheat-3|4:beet-3,beet-5,sunflower-1,sunflower-7,wheat-1,wheat-11,wheat-13,wheat-4,wheat-6,wheat-7,wheat-9|5:beet-12,potato-4,potato-7,sunflower-12,wheat-10,wheat-8
+actions=40 winner=3
+scores=0:visible=3:final=24|1:visible=15:final=28|2:visible=4:final=17|3:visible=6:final=30
+exiled=1:beet-2,potato-1,wrecker-0|2:beet-4,beet-7,beet-8,potato-2|3:beet-1,beet-10,beet-13,sunflower-10,wheat-2,wheat-3,wheat-4|4:beet-3,beet-6,sunflower-1,sunflower-13,sunflower-4,sunflower-5,sunflower-7,sunflower-9|5:sunflower-2,sunflower-8,wheat-1,wheat-10,wheat-13
 '''
               .trim(),
         );
@@ -358,6 +364,8 @@ exiled=1:beet-2,potato-1,wrecker-0|2:beet-13,beet-4,beet-8,potato-2,potato-6,sun
       while (!hasAnyPlotStack(model) &&
           model.table.phase != phaseGameOver &&
           appliedActions < 200) {
+        model = drainAutomaticPhases(bridge, engine, model);
+        if (model.table.phase == phaseGameOver) break;
         final action = deterministicAction(model);
         final cAction = cEngineAction(action.engineAction);
         expect(cAction, isNotNull);
@@ -570,6 +578,8 @@ FixtureRunResult runToGameOver(
   var appliedActions = 0;
 
   while (model.table.phase != phaseGameOver && appliedActions < 500) {
+    model = drainAutomaticPhases(bridge, engine, model);
+    if (model.table.phase == phaseGameOver) break;
     final action = deterministicAction(model);
     final cAction = cEngineAction(action.engineAction);
     expect(cAction, isNotNull);
@@ -585,6 +595,23 @@ FixtureRunResult runToGameOver(
     phaseVisits: phaseVisits,
     appliedActions: appliedActions,
   );
+}
+
+TableViewModel drainAutomaticPhases(
+  KolkhozCEngineBridge bridge,
+  Pointer<KCEngine> engine,
+  TableViewModel model,
+) {
+  var guard = 0;
+  while (model.table.phase != phaseGameOver &&
+      model.legalActions.isEmpty &&
+      guard < 32) {
+    expect(bridge.stepAutomatic(engine), greaterThan(0));
+    model = project(bridge, engine);
+    guard += 1;
+  }
+  expect(guard, lessThan(32));
+  return model;
 }
 
 class FixtureRunResult {

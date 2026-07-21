@@ -86,7 +86,7 @@ so promoted baselines and active/recent research state stay protected.
 ## Game Flow
 
 1. **Planning** - Reveal jobs and set trump. With Final Year Trump, the leftover fifth-year deal card is revealed for trump; Saboteur means no trump.
-2. **Pass** - In years 2-5, each player simultaneously passes one hand card, alternating left then right by year.
+2. **Pass (optional)** - When enabled in Custom, players pass one hand card in years 2-5, alternating left then right by year. Default Kolkhoz skips this phase.
 3. **Swap** - In years 2-5, each player may swap one hand card with a hidden or revealed plot card when `allowSwap` is enabled.
 4. **Trick** - Play 4 tricks in normal years, 3 tricks in famine. Players must follow the lead suit if able.
 5. **Assignment** - Every completed trick enters assignment. The brigade leader assigns trick cards to one of the suits present in that trick.

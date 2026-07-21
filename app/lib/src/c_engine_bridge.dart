@@ -146,7 +146,6 @@ class KolkhozGameVariants {
     nomenclature: false,
     wreckerCard: true,
     finalYearTrump: true,
-    passCards: true,
     highestCardsRequisition: true,
     lottoRewards: true,
   );
@@ -155,7 +154,6 @@ class KolkhozGameVariants {
     nomenclature: false,
     wreckerCard: true,
     finalYearTrump: true,
-    passCards: true,
     highestCardsRequisition: true,
     lottoRewards: true,
   );

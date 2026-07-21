@@ -39,7 +39,14 @@ class ContractNormalizationTests(unittest.TestCase):
         self.assertNotIn("futureRule", normalized)
         native = variants_native(normalized)
         self.assertFalse(native.allow_swap)
+        self.assertFalse(native.pass_cards)
         self.assertTrue(native.wrecker)
+
+    def test_passing_remains_available_as_an_explicit_custom_variant(self) -> None:
+        normalized = normalize_variants({"passCards": True})
+
+        self.assertTrue(normalized["passCards"])
+        self.assertTrue(variants_native(normalized).pass_cards)
 
     def test_normalizes_four_supported_controllers_and_keeps_a_human(self) -> None:
         self.assertEqual(

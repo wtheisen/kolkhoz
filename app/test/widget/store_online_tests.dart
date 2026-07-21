@@ -307,6 +307,11 @@ void registerStoreAndOnlineTests() {
 
   test('kolkhoz default includes saboteur without a duplicate preset', () {
     expect(KolkhozGameVariants.kolkhoz.wreckerCard, isTrue);
+    expect(KolkhozGameVariants.kolkhoz.passCards, isFalse);
+    expect(
+      KolkhozGameVariants.kolkhoz.copyWith(passCards: true).passCards,
+      isTrue,
+    );
     final englishPresetLabels = KolkhozGamePreset.values
         .map((preset) => presetTitle(preset, KolkhozLanguage.en))
         .toList();
