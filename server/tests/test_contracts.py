@@ -16,6 +16,8 @@ from server.kolkhoz_server.contracts import (
     action_from_json,
     action_in,
     action_to_json,
+    card_from_json,
+    card_to_json,
     controllers_native,
     listing_json,
     normalize_controllers,
@@ -61,6 +63,11 @@ class ContractNormalizationTests(unittest.TestCase):
 
 
 class ActionContractTests(unittest.TestCase):
+    def test_legacy_wrecker_wire_value_maps_to_zero_value_engine_card(self) -> None:
+        decoded = card_from_json({"suit": 4, "value": 14})
+        self.assertEqual((decoded.suit, decoded.value), (4, 0))
+        self.assertEqual(card_to_json(decoded), {"suit": 4, "value": 14})
+
     def test_portable_action_round_trip_and_membership(self) -> None:
         action = KCAction(8, 2, -1, KCCard(-1, 0), KCCard(1, 7), KCCard(3, 9), 1, -1)
         encoded = action_to_json(action, source="automatic")

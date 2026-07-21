@@ -27,6 +27,27 @@ class VariantEngineTests(unittest.TestCase):
         self.assertTrue(variants.highest_cards_requisition)
         self.assertTrue(variants.lotto_rewards)
 
+    def test_saboteur_is_a_valid_zero_value_card(self) -> None:
+        self.engine.lib.kc_card_valid.argtypes = [KCCard]
+        self.engine.lib.kc_card_valid.restype = ctypes.c_bool
+        self.engine.lib.kc_work_value.argtypes = [ctypes.c_void_p, KCCard]
+        self.engine.lib.kc_work_value.restype = ctypes.c_int32
+        saboteur = KCCard(4, 0)
+        pointer = self.engine.new_engine(20260721, controllers=self.controllers)
+        try:
+            self.assertTrue(self.engine.lib.kc_card_valid(saboteur))
+            self.assertEqual(self.engine.lib.kc_work_value(pointer, saboteur), 0)
+            state = self.engine.snapshot(pointer)
+            state.players[0].plot_revealed.count = 1
+            state.players[0].plot_revealed.cards[0] = saboteur
+            state.players[0].plot_hidden.count = 0
+            state.players[0].stack_count = 0
+            state.players[0].medals = 0
+            state.players[0].plot_medals = 0
+            self.assertEqual(self.engine.lib.kc_visible_score(pointer, 0), 0)
+        finally:
+            self.engine.free_engine(pointer)
+
     def test_lotto_builds_seeded_reward_piles_and_removes_rewards_from_hands(self) -> None:
         first = self.engine.new_engine(20260718, controllers=self.controllers)
         second = self.engine.new_engine(20260718, controllers=self.controllers)
@@ -215,7 +236,7 @@ class VariantEngineTests(unittest.TestCase):
             revealed = final_year.final_year_trump_card
             self.assertTrue(
                 (0 <= int(revealed.suit) < 4 and int(revealed.value) > 0)
-                or (int(revealed.suit), int(revealed.value)) == (4, 14)
+                or (int(revealed.suit), int(revealed.value)) == (4, 0)
             )
             north = final_year.exiled[5]
             self.assertTrue(

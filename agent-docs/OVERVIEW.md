@@ -94,9 +94,9 @@ so promoted baselines and active/recent research state stay protected.
 7. **Requisition** - Failed jobs may reveal and exile matching plot cards.
 8. Repeat for 5 years. **Highest final plot score wins**.
 
-Default Kolkhoz includes the Saboteur variant. Saboteur is a dedicated `wrecker-14` worker
+Default Kolkhoz includes the Saboteur variant. Saboteur is a dedicated `wrecker-0` worker
 card that matches every crop suit. It can follow any suit, can make any crop assignment
-target legal, adds 14 work hours, and still causes any job bucket containing it to be
+target legal, adds 0 work hours, and still causes any job bucket containing it to be
 processed as failed during requisition.
 
 Default Kolkhoz also enables Final Year Trump, Pass, Highest Cards Requisition, and

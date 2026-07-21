@@ -173,7 +173,7 @@ void registerStoreAndOnlineTests() {
     const saboteur = EngineAction(
       kind: actionAssign,
       playerID: 0,
-      card: EngineCard(suit: wreckerSuit, value: 14),
+      card: EngineCard(suit: wreckerSuit, value: 0),
       targetSuit: 'beet',
     );
     expect(
@@ -277,7 +277,7 @@ void registerStoreAndOnlineTests() {
       const saboteur = EngineAction(
         kind: actionPlayCard,
         playerID: 1,
-        card: EngineCard(suit: wreckerSuit, value: 14),
+        card: EngineCard(suit: wreckerSuit, value: 0),
       );
       expect(
         faceCardVoiceAssetForTransition(
@@ -1725,6 +1725,16 @@ void registerStoreAndOnlineTests() {
     expect(decoded.actions[1].plotCard?.id, 'beet-10');
     expect(decoded.actions[1].plotZone, plotZoneHidden);
     expect(decoded.actions[2].targetSuit, 'potato');
+  });
+
+  test('saved games migrate the legacy saboteur value to zero', () {
+    final action = engineActionFromJson({
+      'kind': actionPlayCard,
+      'playerID': 0,
+      'card': {'suit': wreckerSuit, 'value': 14},
+    });
+
+    expect(action.card?.id, 'wrecker-0');
   });
 
   test('C engine clone preserves an undoable pre-action state', () {

@@ -570,11 +570,11 @@ bool kc_engine_heuristic_policy_action(const KCEngine *engine, KCAction *selecte
 }
 
 static double kc_card_value_feature(KCCard card) {
-    return kc_card_valid(card) ? (double)card.value / (double)KC_WRECKER_VALUE : 0.0;
+    return kc_card_valid(card) ? (double)card.value / (double)KC_POLICY_CARD_VALUE_SCALE : 0.0;
 }
 
 static double kc_raw_card_value_feature(int32_t value) {
-    return value > 0 ? (double)value / (double)KC_WRECKER_VALUE : 0.0;
+    return value > 0 ? (double)value / (double)KC_POLICY_CARD_VALUE_SCALE : 0.0;
 }
 
 double kc_uniform_from_state(uint64_t *state) {
@@ -1242,7 +1242,7 @@ int32_t kc_engine_state_features(const KCEngine *engine, int32_t perspective_pla
             for (int32_t i = 0; i < seat_player->hand.count; i++) {
                 int32_t value = seat_player->hand.cards[i].value;
                 if (value > hand_max) hand_max = value;
-                if (hand_min == 0 || value < hand_min) hand_min = value;
+                if (i == 0 || value < hand_min) hand_min = value;
             }
         }
         kc_state_add_feature(features, limit, base, (double)seat_player->hand.count / 5.0);
@@ -1273,7 +1273,7 @@ int32_t kc_engine_state_features(const KCEngine *engine, int32_t perspective_pla
             int32_t value = player->hand.cards[i].value;
             own_hand_count++;
             if (value > own_hand_max) own_hand_max = value;
-            if (own_hand_min == 0 || value < own_hand_min) own_hand_min = value;
+            if (own_hand_count == 1 || value < own_hand_min) own_hand_min = value;
         }
         for (int32_t seat = 0; seat < KC_PLAYER_COUNT; seat++) {
             all_revealed += kc_revealed_plot_count_for_player(&engine->players[seat], target);
@@ -1394,7 +1394,7 @@ static void kc_policy_features(const KCEngine *engine, int32_t player_id, int32_
                 for (int32_t i = 0; i < seat_player->hand.count; i++) {
                     int32_t value = seat_player->hand.cards[i].value;
                     if (value > hand_max) hand_max = value;
-                    if (hand_min == 0 || value < hand_min) hand_min = value;
+                    if (i == 0 || value < hand_min) hand_min = value;
                 }
             }
             kc_add_policy_feature(candidate, base, (double)seat_player->hand.count / 5.0);
@@ -1425,7 +1425,7 @@ static void kc_policy_features(const KCEngine *engine, int32_t player_id, int32_
                 int32_t value = player->hand.cards[i].value;
                 own_hand_count++;
                 if (value > own_hand_max) own_hand_max = value;
-                if (own_hand_min == 0 || value < own_hand_min) own_hand_min = value;
+                if (own_hand_count == 1 || value < own_hand_min) own_hand_min = value;
             }
             for (int32_t seat = 0; seat < KC_PLAYER_COUNT; seat++) {
                 all_revealed += kc_revealed_plot_count_for_player(&engine->players[seat], target);
@@ -1498,8 +1498,13 @@ static void kc_policy_features(const KCEngine *engine, int32_t player_id, int32_
     }
     for (int32_t target = 0; target < KC_SUIT_COUNT; target++) {
         int32_t min_value = 0;
+        bool found = false;
         for (int32_t i = 0; i < player->hand.count; i++) {
-            if (kc_card_matches_suit(player->hand.cards[i], target) && (min_value == 0 || player->hand.cards[i].value < min_value)) min_value = player->hand.cards[i].value;
+            if (kc_card_matches_suit(player->hand.cards[i], target) &&
+                (!found || player->hand.cards[i].value < min_value)) {
+                min_value = player->hand.cards[i].value;
+                found = true;
+            }
         }
         kc_add_policy_feature(candidate, 46 + target, kc_raw_card_value_feature(min_value));
     }
@@ -1579,7 +1584,7 @@ int32_t kc_policy_candidates(const KCEngine *engine, int32_t player_id, KCPolicy
                     candidates[count].action = action;
                     candidates[count].has_features = true;
                     candidates[count].hidden = hidden_cache + ((size_t)count * (size_t)activation_count);
-                    kc_policy_features(engine, player_id, 1, plot_card.suit, plot_card, hand_card, KC_ZONE_HIDDEN, (double)(plot_card.value - hand_card.value) / (double)KC_WRECKER_VALUE, model.input_size, &candidates[count]);
+                    kc_policy_features(engine, player_id, 1, plot_card.suit, plot_card, hand_card, KC_ZONE_HIDDEN, (double)(plot_card.value - hand_card.value) / (double)KC_POLICY_CARD_VALUE_SCALE, model.input_size, &candidates[count]);
                     candidates[count].score = kc_model_score_cached(model, &candidates[count], candidates[count].hidden);
                     count++;
                 }
@@ -1589,7 +1594,7 @@ int32_t kc_policy_candidates(const KCEngine *engine, int32_t player_id, KCPolicy
                     candidates[count].action = action;
                     candidates[count].has_features = true;
                     candidates[count].hidden = hidden_cache + ((size_t)count * (size_t)activation_count);
-                    kc_policy_features(engine, player_id, 1, plot_card.suit, plot_card, hand_card, KC_ZONE_REVEALED, (double)(plot_card.value - hand_card.value) / (double)KC_WRECKER_VALUE, model.input_size, &candidates[count]);
+                    kc_policy_features(engine, player_id, 1, plot_card.suit, plot_card, hand_card, KC_ZONE_REVEALED, (double)(plot_card.value - hand_card.value) / (double)KC_POLICY_CARD_VALUE_SCALE, model.input_size, &candidates[count]);
                     candidates[count].score = kc_model_score_cached(model, &candidates[count], candidates[count].hidden);
                     count++;
                 }
@@ -1673,7 +1678,7 @@ int32_t kc_engine_policy_action_features(const KCEngine *engine, int32_t player_
                     KCCard plot_card = player->plot_hidden.cards[plot_index];
                     memset(&candidate, 0, sizeof(candidate));
                     candidate.action = (KCAction){ .kind = KC_ACTION_SWAP, .player_id = player_id, .suit = -1, .card = kc_no_card(), .hand_card = hand_card, .plot_card = plot_card, .plot_zone = KC_ZONE_HIDDEN, .target_suit = -1 };
-                    kc_policy_features(engine, player_id, 1, plot_card.suit, plot_card, hand_card, KC_ZONE_HIDDEN, (double)(plot_card.value - hand_card.value) / (double)KC_WRECKER_VALUE, input_size, &candidate);
+                    kc_policy_features(engine, player_id, 1, plot_card.suit, plot_card, hand_card, KC_ZONE_HIDDEN, (double)(plot_card.value - hand_card.value) / (double)KC_POLICY_CARD_VALUE_SCALE, input_size, &candidate);
                     features[count].action = candidate.action;
                     features[count].action_head = candidate.action_head;
                     features[count].feature_count = candidate.feature_count;
@@ -1685,7 +1690,7 @@ int32_t kc_engine_policy_action_features(const KCEngine *engine, int32_t player_
                     KCCard plot_card = player->plot_revealed.cards[plot_index];
                     memset(&candidate, 0, sizeof(candidate));
                     candidate.action = (KCAction){ .kind = KC_ACTION_SWAP, .player_id = player_id, .suit = -1, .card = kc_no_card(), .hand_card = hand_card, .plot_card = plot_card, .plot_zone = KC_ZONE_REVEALED, .target_suit = -1 };
-                    kc_policy_features(engine, player_id, 1, plot_card.suit, plot_card, hand_card, KC_ZONE_REVEALED, (double)(plot_card.value - hand_card.value) / (double)KC_WRECKER_VALUE, input_size, &candidate);
+                    kc_policy_features(engine, player_id, 1, plot_card.suit, plot_card, hand_card, KC_ZONE_REVEALED, (double)(plot_card.value - hand_card.value) / (double)KC_POLICY_CARD_VALUE_SCALE, input_size, &candidate);
                     features[count].action = candidate.action;
                     features[count].action_head = candidate.action_head;
                     features[count].feature_count = candidate.feature_count;
@@ -1803,7 +1808,7 @@ static void kc_policy_action_scalars(const KCEngine *engine, int32_t player_id, 
             if (card.value > own_hand_max) {
                 own_hand_max = card.value;
             }
-            if (own_hand_min == 0 || card.value < own_hand_min) {
+            if (own_hand_count == 1 || card.value < own_hand_min) {
                 own_hand_min = card.value;
             }
         }
@@ -1834,7 +1839,7 @@ static void kc_policy_action_scalars(const KCEngine *engine, int32_t player_id, 
     int32_t lead_suit = kc_lead_suit(engine);
     double swap_delta = 0.0;
     if (kc_card_valid(action.plot_card) && kc_card_valid(action.hand_card)) {
-        swap_delta = (double)(action.plot_card.value - action.hand_card.value) / (double)KC_WRECKER_VALUE;
+        swap_delta = (double)(action.plot_card.value - action.hand_card.value) / (double)KC_POLICY_CARD_VALUE_SCALE;
     }
     if (scalar_count > 0) scalars[0] = (float)((double)action_head / 3.0);
     if (scalar_count > 1) scalars[1] = (float)((double)candidate_count / 16.0);

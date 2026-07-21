@@ -2,6 +2,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kolkhoz_app/src/online_game_models.dart';
 
 void main() {
+  test('legacy online saboteur wire value maps to zero', () {
+    final card = OnlineEngineCard.fromJson({'suit': 4, 'value': 14});
+
+    expect(card.isValid, isTrue);
+    expect(card.value, 0);
+  });
+
   test('redacted plot counts remain visible without revealing cards', () {
     final player = OnlinePlayerSnapshot.fromJson({
       'id': 1,

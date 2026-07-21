@@ -231,7 +231,7 @@ final sampleCards = [
   card('potato-11', 'potato', 11, 'J'),
   card('beet-12', 'beet', 12, 'Q'),
   card('wheat-13', 'wheat', 13, 'K'),
-  card('wrecker-14', wreckerSuit, 14, 'S'),
+  card('wrecker-0', wreckerSuit, 0, 'S'),
   card('beet-nomenclature-12', 'beet', 12, 'Q', nomenclature: true),
 ];
 

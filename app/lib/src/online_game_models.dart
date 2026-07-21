@@ -18,16 +18,18 @@ class OnlineEngineCard {
   final int? assignmentRound;
 
   bool get isValid =>
-      (suit >= 0 && suit < 4 && value > 0) || (suit == 4 && value == 14);
+      (suit >= 0 && suit < 4 && value > 0) || (suit == 4 && value == 0);
 
   EngineCardValue get valueObject => EngineCardValue(suit: suit, value: value);
 
   Map<String, Object?> toJson() => {'suit': suit, 'value': value};
 
   static OnlineEngineCard fromJson(Map<String, Object?> json) {
+    final suit = json['suit'] as int;
+    final value = json['value'] as int;
     return OnlineEngineCard(
-      suit: json['suit'] as int,
-      value: json['value'] as int,
+      suit: suit,
+      value: suit == 4 && value == 14 ? 0 : value,
       assignmentRound: json['assignmentRound'] as int?,
     );
   }

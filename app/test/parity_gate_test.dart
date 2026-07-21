@@ -160,7 +160,7 @@ actions=
     expect(foundPrefilledAssignment, isTrue);
   });
 
-  test('kolkhoz default deals a 14-value all-suit saboteur card', () {
+  test('kolkhoz default deals a 0-value all-suit saboteur card', () {
     final bridge = KolkhozCEngineBridge();
     for (var seed = 1; seed < 5000; seed += 1) {
       final engine = bridge.newEngine(
@@ -178,12 +178,12 @@ actions=
             model.table.trick.plays.isNotEmpty &&
             model.table.trick.plays.first.card.suit != wreckerSuit;
         final hasWrecker = viewerSeat.hand.any(
-          (card) => card.id == 'wrecker-14' && card.value == 14,
+          (card) => card.id == 'wrecker-0' && card.value == 0,
         );
         final canPlayWrecker = model.legalActions.any(
           (action) =>
               action.kind == actionPlayCard &&
-              action.engineAction.card?.id == 'wrecker-14',
+              action.engineAction.card?.id == 'wrecker-0',
         );
         if (normalLead && hasWrecker && canPlayWrecker) {
           expect(model.table.phase, phaseTrick);
@@ -215,7 +215,7 @@ actions=
         }
         final wreckerJobs = model.table.jobs.where(
           (job) => job.assignedCards.any(
-            (card) => card.suit == wreckerSuit && card.value == 14,
+            (card) => card.suit == wreckerSuit && card.value == 0,
           ),
         );
         if (model.table.phase == phaseRequisition && wreckerJobs.isNotEmpty) {
@@ -252,33 +252,39 @@ actions=
   });
 
   test('saboteur plot card is exiled once during requisition', () {
-    withEngine(seed: 3, variants: KolkhozGameVariants.kolkhoz, (
-      bridge,
-      engine,
-    ) {
-      var model = project(bridge, engine);
-      var appliedActions = 0;
+    final bridge = KolkhozCEngineBridge();
+    for (var seed = 1; seed <= 100; seed += 1) {
+      final engine = bridge.newEngine(
+        seed: seed,
+        variants: KolkhozGameVariants.kolkhoz,
+        controllers: const [...fixtureControllers],
+      );
+      try {
+        var model = project(bridge, engine);
+        var appliedActions = 0;
 
-      while (model.table.phase != phaseGameOver && appliedActions < 500) {
-        if (model.table.phase == phaseRequisition) {
-          final wreckerEvents = model.table.requisitionEvents
-              .where((event) => event.card?.id == 'wrecker-14')
-              .toList();
-          if (wreckerEvents.isNotEmpty) {
-            expect(wreckerEvents, hasLength(1));
-            return;
+        while (model.table.phase != phaseGameOver && appliedActions < 500) {
+          if (model.table.phase == phaseRequisition) {
+            final wreckerEvents = model.table.requisitionEvents
+                .where((event) => event.card?.id == 'wrecker-0')
+                .toList();
+            if (wreckerEvents.isNotEmpty) {
+              expect(wreckerEvents, hasLength(1));
+              return;
+            }
           }
+          final action = deterministicAction(model);
+          final cAction = cEngineAction(action.engineAction);
+          expect(cAction, isNotNull);
+          expect(bridge.apply(engine, cAction!), 0);
+          appliedActions += 1;
+          model = project(bridge, engine);
         }
-        final action = deterministicAction(model);
-        final cAction = cEngineAction(action.engineAction);
-        expect(cAction, isNotNull);
-        expect(bridge.apply(engine, cAction!), 0);
-        appliedActions += 1;
-        model = project(bridge, engine);
+      } finally {
+        bridge.freeEngine(engine);
       }
-
-      fail('Seed did not reach a Saboteur plot requisition.');
-    });
+    }
+    fail('No seed reached a Saboteur plot requisition.');
   });
 
   test('manual apply leaves automatic AI turns for explicit engine steps', () {
@@ -333,7 +339,7 @@ actions=
           '''
 actions=59 winner=2
 scores=0:visible=2:final=2|1:visible=0:final=0|2:visible=3:final=26|3:visible=0:final=12
-exiled=1:beet-2,potato-1,wrecker-14|2:beet-13,beet-4,beet-8,potato-2,potato-6,sunflower-13,sunflower-3,sunflower-4,sunflower-5|3:beet-1,beet-10,sunflower-10,sunflower-11,wheat-2,wheat-3|4:beet-3,beet-5,sunflower-1,sunflower-7,wheat-1,wheat-11,wheat-13,wheat-4,wheat-6,wheat-7,wheat-9|5:beet-12,potato-4,potato-7,sunflower-12,wheat-10,wheat-8
+exiled=1:beet-2,potato-1,wrecker-0|2:beet-13,beet-4,beet-8,potato-2,potato-6,sunflower-13,sunflower-3,sunflower-4,sunflower-5|3:beet-1,beet-10,sunflower-10,sunflower-11,wheat-2,wheat-3|4:beet-3,beet-5,sunflower-1,sunflower-7,wheat-1,wheat-11,wheat-13,wheat-4,wheat-6,wheat-7,wheat-9|5:beet-12,potato-4,potato-7,sunflower-12,wheat-10,wheat-8
 '''
               .trim(),
         );

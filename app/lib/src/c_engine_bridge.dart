@@ -45,7 +45,7 @@ class EngineCardValue {
   final int value;
 
   bool get isValid =>
-      (suit >= 0 && suit < 4 && value > 0) || (suit == 4 && value == 14);
+      (suit >= 0 && suit < 4 && value > 0) || (suit == 4 && value == 0);
 }
 
 class CEngineActionValue {
