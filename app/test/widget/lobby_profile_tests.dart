@@ -1894,7 +1894,7 @@ void registerLobbyAndProfileTests() {
     expect(findAppText('Mira'), findsOneWidget);
     expect(findAppText('Nadia'), findsOneWidget);
     expect(find.textContaining('Searching for Player'), findsOneWidget);
-    expect(findAppText('KICK'), findsOneWidget);
+    expect(find.bySemanticsLabel('KICK'), findsOneWidget);
     expect(find.byKey(const Key('online-waiting-cancel')), findsOneWidget);
     expect(find.bySemanticsLabel('Waiting for players'), findsWidgets);
 
@@ -1903,7 +1903,7 @@ void registerLobbyAndProfileTests() {
 
     expect(cancelCalls, 1);
 
-    await tester.tap(findAppText('KICK'));
+    await tester.tap(find.bySemanticsLabel('KICK'));
     await tester.pump();
 
     expect(kickedPlayerID, 1);

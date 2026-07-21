@@ -2,7 +2,7 @@ import 'c_engine_bridge.dart';
 import 'game_engine.dart';
 import 'player.dart';
 
-class HumanPlayer extends GamePlayer {
+class HumanPlayer extends LocalGamePlayer {
   const HumanPlayer({required super.seatID})
     : super(controller: KolkhozPlayerController.human);
 

@@ -394,8 +394,7 @@ class GameRuntime:
                 shard.automatic_states.pop(session_id, None)
                 raise
             states_by_viewer = {
-                player_id: engine.view(player_id)
-                for player_id in range(PLAYER_COUNT)
+                player_id: engine.view(player_id) for player_id in range(PLAYER_COUNT)
             }
             shard.hub.publish(event, states_by_viewer)
             automatic = shard.automatic_states.get(session_id)
@@ -411,20 +410,12 @@ class GameRuntime:
             if shard.advancer is None:
                 return 0
             state = shard.automatic_states[session_id]
-            waiting_player = engine.waiting_player()  # type: ignore[attr-defined]
-            if (
-                0 <= waiting_player < len(state.controllers)
-                and state.effective_controller(waiting_player) == HUMAN
-            ):
+            if not shard.advancer.needs_action(engine, state):  # type: ignore[arg-type]
                 return 0
             fencing_token = shard.ensure_lease(session_id)
             engine = shard.engines.get(session_id) or shard.load(session_id)
             state = shard.automatic_states[session_id]
-            waiting_player = engine.waiting_player()  # type: ignore[attr-defined]
-            if (
-                0 <= waiting_player < len(state.controllers)
-                and state.effective_controller(waiting_player) == HUMAN
-            ):
+            if not shard.advancer.needs_action(engine, state):  # type: ignore[arg-type]
                 return 0
 
             def record(action: JsonObject, source: str) -> None:

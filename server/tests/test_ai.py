@@ -89,6 +89,26 @@ class AITests(unittest.TestCase):
         self.assertEqual([source for _, source in recorded], ["automatic", "automatic"])
         self.assertEqual(state.action_count, 2)
 
+    def test_central_planner_advances_before_a_human_player(self) -> None:
+        engine = FakeEngine([0], ["human"] * 4)
+        engine.legal_actions = lambda: (
+            [{"playerID": 0, "kind": 10, "suit": 0}] if engine.waiting else []
+        )
+        state = AutomaticState("game", tuple(engine.controllers))
+        recorded: list[tuple[dict[str, object], str]] = []
+
+        count = AutomaticAdvancer(ModelCache({}, lambda path: object())).advance(
+            engine,
+            state,
+            now=0,
+            record=lambda action, source: recorded.append((action, source)),
+        )
+
+        self.assertEqual(count, 1)
+        self.assertEqual(engine.applied, [{"playerID": 0, "kind": 10, "suit": 0}])
+        self.assertEqual(recorded[0][1], "automatic")
+        self.assertEqual(state.action_count, 1)
+
     def test_profile_bot_policy_temporarily_flips_and_restores_controller(self) -> None:
         engine = FakeEngine([0, 1], ["human"] * 4)
         state = AutomaticState(

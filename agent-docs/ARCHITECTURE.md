@@ -75,6 +75,7 @@ Important files:
 | `lib/src/player_human.dart` | Human player adapter for UI-driven decisions |
 | `lib/src/player_ai_heuristic.dart` | Deterministic C-engine heuristic player adapter |
 | `lib/src/player_ai_neural.dart` | Medium and hard neural-policy player adapter with heuristic fallback |
+| `lib/src/player_server.dart` | Read-only server-owned player, profile, and presence projection for online seats |
 | `lib/src/game_undo_snapshot.dart` | Controller undo snapshot state and cloned-engine ownership |
 | `lib/src/live_game_store.dart` | Compatibility export for older callers of `GameController` |
 | `lib/src/table_view_projection.dart` | C engine state to Flutter table model |
@@ -174,6 +175,13 @@ switches to `OnlineGameChannel`. After a successful handoff, lobby membership an
 execution are server-owned; the Flutter controller keeps only presentation and transport
 responsibilities. If no online seats are selected, `startGame()` keeps the match entirely
 local instead.
+
+`HumanPlayer`, `HeuristicAIPlayer`, and `NeuralAIPlayer` are executable only while a
+`LocalGameChannel` owns the engine. Online handoff replaces all four with
+`ServerGamePlayer` projections populated from the authoritative session update. The local
+viewer can submit the server-provided legal actions, but remote humans and AI seats never
+choose actions in Flutter. Online Central Planner reveals are advanced and recorded by the
+server's automatic router; clients only animate the resulting revision stream.
 
 At game over, `GameEngine.snapshot()` produces a portable `GameStateSnapshot` before the
 controller disposes the native pointer. The controller places that state in a

@@ -108,6 +108,7 @@ class StandaloneLobby extends StatelessWidget {
     required this.selectedPreset,
     required this.customVariants,
     required this.playerControllers,
+    this.gameLobby,
     this.demoMode = false,
     this.animationSpeed = defaultGameAnimationSpeed,
     this.confirmNewGame = true,
@@ -193,6 +194,7 @@ class StandaloneLobby extends StatelessWidget {
   final KolkhozGamePreset selectedPreset;
   final KolkhozGameVariants customVariants;
   final List<KolkhozPlayerController> playerControllers;
+  final GameLobby? gameLobby;
   final bool demoMode;
   final GameAnimationSpeed animationSpeed;
   final bool confirmNewGame;
@@ -388,6 +390,7 @@ class StandaloneLobby extends StatelessWidget {
                   selectedPreset: selectedPreset,
                   customVariants: customVariants,
                   playerControllers: playerControllers,
+                  gameLobby: gameLobby,
                   demoMode: demoMode,
                   appearance: appearance,
                   cardBack: cardBack,
@@ -986,6 +989,7 @@ class _LobbyPanel extends StatelessWidget {
     required this.selectedPreset,
     required this.customVariants,
     required this.playerControllers,
+    required this.gameLobby,
     required this.demoMode,
     required this.appearance,
     required this.cardBack,
@@ -1060,6 +1064,7 @@ class _LobbyPanel extends StatelessWidget {
   final KolkhozGamePreset selectedPreset;
   final KolkhozGameVariants customVariants;
   final List<KolkhozPlayerController> playerControllers;
+  final GameLobby? gameLobby;
   final bool demoMode;
   final KolkhozAppearance appearance;
   final KolkhozCardBack cardBack;
@@ -1171,6 +1176,7 @@ class _LobbyPanel extends StatelessWidget {
       selectedPreset: selectedPreset,
       customVariants: customVariants,
       playerControllers: playerControllers,
+      gameLobby: gameLobby,
       demoMode: demoMode,
       variants: variants,
       displayName: displayName,
@@ -1267,6 +1273,7 @@ class _LobbyPanel extends StatelessWidget {
               language: language,
               hostedInviteCode: hostedInviteCode,
               onlineSessionUpdate: onlineSessionUpdate,
+              gameLobby: gameLobby,
               showHostedInviteCode: showHostedInviteCode,
               onJoinOnline: onJoinOnline,
               onWatchOnline: onWatchOnline,

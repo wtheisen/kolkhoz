@@ -2,7 +2,7 @@ import 'c_engine_bridge.dart';
 import 'game_engine.dart';
 import 'player.dart';
 
-class HeuristicAIPlayer extends GamePlayer {
+class HeuristicAIPlayer extends LocalGamePlayer {
   const HeuristicAIPlayer({
     required super.seatID,
     super.controller = KolkhozPlayerController.heuristicAI,

@@ -24,7 +24,7 @@ class LocalGameChannel extends GameEventChannel {
 
   CEngineActionValue? heuristicAction() => _engine.heuristicAction();
 
-  CEngineActionValue? chooseAction(GamePlayer player) =>
+  CEngineActionValue? chooseAction(LocalGamePlayer player) =>
       player.chooseAction(_engine);
 
   EngineCardValue requisitionEventCard(int index) =>

@@ -28,6 +28,7 @@ import 'player.dart';
 import 'player_ai_heuristic.dart';
 import 'player_ai_neural.dart';
 import 'player_human.dart';
+import 'player_server.dart';
 import 'render_model.dart';
 import 'design_tokens.dart';
 import 'saved_game_store.dart';
@@ -97,7 +98,7 @@ class GameController extends ChangeNotifier {
            ? neuralPolicyLoader ??
                  KolkhozNativePolicyModel.loadAsset(defaultNeuralPolicyAsset)
            : null {
-    _replacePlayers(KolkhozPlayerController.defaultControllers);
+    _replaceLocalPlayers(KolkhozPlayerController.defaultControllers);
     lobby = _buildLobby(KolkhozGameVariants.kolkhoz);
     _restoreAutosave();
     _startNeuralPolicyLoad();
@@ -170,7 +171,7 @@ class GameController extends ChangeNotifier {
         'Lobby configuration is frozen after online handoff or game start',
       );
     }
-    _replacePlayers(controllers);
+    _replaceLocalPlayers(controllers);
     currentVariants = variants;
     lobby = _buildLobby(variants, spectators: lobby.spectators);
     notifyListeners();
@@ -209,7 +210,7 @@ class GameController extends ChangeNotifier {
       final normalizedControllers = KolkhozPlayerController.normalized(
         controllers ?? this.controllers,
       );
-      _replacePlayers(normalizedControllers);
+      _replaceLocalPlayers(normalizedControllers);
       currentVariants = variants ?? lobby.variants;
       lobby = _buildLobby(currentVariants, spectators: lobby.spectators);
       if (!lobby.readyToStart) {
@@ -253,6 +254,7 @@ class GameController extends ChangeNotifier {
   }
 
   void returnToLobby() {
+    final localControllers = controllers;
     _clearAutomaticStepTimer();
     _awaitingLocalPresentationRevision = null;
     _clearChannel();
@@ -265,6 +267,8 @@ class GameController extends ChangeNotifier {
     uiState = const GameUiState();
     _lastSyncedPhase = null;
     revealedPlayerID = null;
+    _replaceLocalPlayers(localControllers);
+    lobby = _buildLobby(currentVariants);
     lifecycle = GameControllerLifecycle.lobby;
     error = null;
     notifyListeners();
@@ -273,7 +277,10 @@ class GameController extends ChangeNotifier {
   void applyLegalAction(LegalAction action) {
     final online = _onlineChannel;
     if (online != null) {
-      if (online.commandInFlight) {
+      if (online.commandInFlight ||
+          action.kind == actionRevealReward ||
+          action.kind == actionRevealTrump ||
+          action.engineAction.playerID != online.playerID) {
         return;
       }
       _onlineSelectionBeforeCommand = uiState;
@@ -283,11 +290,7 @@ class GameController extends ChangeNotifier {
         online.send(
           SubmitGameAction(
             action: action.engineAction,
-            source:
-                action.kind == actionRevealReward ||
-                    action.kind == actionRevealTrump
-                ? GameActionSource.centralPlanner
-                : GameActionSource.human,
+            source: GameActionSource.human,
             expectedRevision: _onlineUpdate?.actionLogCount,
           ),
         ),
@@ -825,13 +828,14 @@ class GameController extends ChangeNotifier {
     _setChannel(channel);
     currentVariants = update.variants;
     currentSeed = update.seed ?? currentSeed;
-    _replacePlayers(update.controllers);
-    lobby = _buildLobby(
-      currentVariants,
+    lobby = gameLobbyFromServerUpdate(
+      update,
+      viewerSeatID: spectator ? null : playerID,
       spectators: spectator
           ? const [GameSpectator(id: 'local-spectator')]
           : const [],
     );
+    _players = lobby.players;
     restoredSavedGame = false;
     uiState = const GameUiState();
     _lastSyncedPhase = null;
@@ -883,23 +887,11 @@ class GameController extends ChangeNotifier {
     if (_automaticStepTimer != null || presentationRevision != null) {
       return;
     }
-    final online = _onlineChannel;
-    if (online != null) {
-      if (online.commandInFlight || _forcedProjectedAction() == null) {
-        return;
-      }
-    } else {
-      final local = _localChannel;
-      if (local == null || !_engineDecisionNeedsRouting(local)) {
-        return;
-      }
+    final local = _localChannel;
+    if (local == null || !_engineDecisionNeedsRouting(local)) {
+      return;
     }
-    _automaticStepTimer = Timer(
-      _localChannel == null
-          ? animationSpeed.automaticStepDelay
-          : _automaticStepDelay(_localChannel!),
-      _runAutomaticStep,
-    );
+    _automaticStepTimer = Timer(_automaticStepDelay(local), _runAutomaticStep);
   }
 
   bool _engineDecisionNeedsRouting(LocalGameChannel channel) {
@@ -913,17 +905,6 @@ class GameController extends ChangeNotifier {
       return true;
     }
     return _decisionPlayer(channel)?.waitsForHumanInput == false;
-  }
-
-  LegalAction? _forcedProjectedAction() {
-    final actions = model?.legalActions ?? const <LegalAction>[];
-    if (actions.length != 1) {
-      return null;
-    }
-    final action = actions.single;
-    return action.kind == actionRevealReward || action.kind == actionRevealTrump
-        ? action
-        : null;
   }
 
   Duration _automaticStepDelay(LocalGameChannel channel) {
@@ -945,14 +926,6 @@ class GameController extends ChangeNotifier {
 
   void _runAutomaticStep() {
     _automaticStepTimer = null;
-    final online = _onlineChannel;
-    if (online != null) {
-      final action = _forcedProjectedAction();
-      if (action != null) {
-        applyLegalAction(action);
-      }
-      return;
-    }
     final local = _localChannel;
     if (local == null) {
       return;
@@ -1015,17 +988,18 @@ class GameController extends ChangeNotifier {
         : null;
   }
 
-  GamePlayer? _decisionPlayer(LocalGameChannel channel) {
+  LocalGamePlayer? _decisionPlayer(LocalGameChannel channel) {
     final playerID = channel.phase == kcPhaseAssignment
         ? channel.lastWinner
         : channel.currentPlayer;
     if (playerID < 0 || playerID >= _players.length) {
       return null;
     }
-    return _players[playerID];
+    final player = _players[playerID];
+    return player is LocalGamePlayer ? player : null;
   }
 
-  void _replacePlayers(List<KolkhozPlayerController> controllers) {
+  void _replaceLocalPlayers(List<KolkhozPlayerController> controllers) {
     final normalized = KolkhozPlayerController.normalized(controllers);
     _players = [
       for (final (seatID, controller) in normalized.indexed)
@@ -1321,6 +1295,12 @@ class GameController extends ChangeNotifier {
         : _onlineUpdate!.reactions.last.revision;
     _onlineUpdate = update;
     final playerID = _onlineChannel?.playerID;
+    lobby = gameLobbyFromServerUpdate(
+      update,
+      viewerSeatID: _onlineChannel?.spectator == true ? null : playerID,
+      spectators: lobby.spectators,
+    );
+    _players = lobby.players;
     final newRemoteReactions = update.reactions.where(
       (reaction) =>
           reaction.revision > previousRevision && reaction.playerID != playerID,
@@ -1383,7 +1363,7 @@ class GameController extends ChangeNotifier {
           throw FormatException('Saved action rejected ($result)');
         }
       }
-      _replacePlayers(payload.controllers);
+      _replaceLocalPlayers(payload.controllers);
       currentVariants = payload.variants;
       lobby = _buildLobby(currentVariants);
       currentSeed = payload.seed;

@@ -173,6 +173,41 @@ void registerStoreAndOnlineTests() {
         'mediumAI',
       ]);
       expect(store.isOnlineGame, isTrue);
+      expect(store.players, everyElement(isA<ServerGamePlayer>()));
+      expect(store.players, everyElement(isNot(isA<LocalGamePlayer>())));
+      expect((store.players[0] as ServerGamePlayer).isViewer, isTrue);
+      expect((store.players[1] as ServerGamePlayer).isViewer, isFalse);
+      expect(store.lobby.seats.map((seat) => seat.ready), [
+        false,
+        false,
+        true,
+        true,
+      ]);
+
+      final requestsBeforeServerOnlyActions = httpClient.requests.length;
+      store.applyLegalAction(
+        const LegalAction(
+          kind: actionRevealReward,
+          label: 'Reveal reward',
+          engineAction: EngineAction(
+            kind: actionRevealReward,
+            playerID: 0,
+            suit: 'wheat',
+          ),
+        ),
+      );
+      store.applyLegalAction(
+        const LegalAction(
+          kind: actionPlayCard,
+          label: 'Remote play',
+          engineAction: EngineAction(
+            kind: actionPlayCard,
+            playerID: 1,
+            card: EngineCard(suit: 'wheat', value: 7),
+          ),
+        ),
+      );
+      expect(httpClient.requests, hasLength(requestsBeforeServerOnlyActions));
       expect(
         () => store.configureLobby(
           variants: KolkhozGameVariants.littleKolkhoz,
@@ -180,6 +215,10 @@ void registerStoreAndOnlineTests() {
         ),
         throwsStateError,
       );
+
+      store.returnToLobby();
+      expect(store.players, everyElement(isA<LocalGamePlayer>()));
+      expect(store.isOnlineGame, isFalse);
     },
   );
 

@@ -6,6 +6,10 @@ abstract class GamePlayer {
 
   final int seatID;
   final KolkhozPlayerController controller;
+}
+
+abstract class LocalGamePlayer extends GamePlayer {
+  const LocalGamePlayer({required super.seatID, required super.controller});
 
   bool get waitsForHumanInput;
 

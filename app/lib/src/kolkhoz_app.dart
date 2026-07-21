@@ -20,6 +20,7 @@ import 'game_constants.dart';
 import 'game_sound.dart';
 import 'board_view.dart';
 import 'game_controller.dart';
+import 'game_lobby.dart';
 import 'json_shape.dart';
 import 'online_game_models.dart';
 import 'online_game_client.dart';
@@ -28,6 +29,7 @@ import 'push_notifications.dart';
 import 'printed_underlay.dart';
 import 'player_profile_panel.dart';
 import 'player_identity.dart';
+import 'player_server.dart';
 import 'progression/progression.dart';
 import 'progression/progression_notice.dart';
 import 'progression/progression_overview.dart';
@@ -551,6 +553,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
               selectedPreset: selectedPreset,
               customVariants: customVariants,
               playerControllers: playerControllers,
+              gameLobby: store.lobby,
               demoMode: demoMode,
               animationSpeed: store.animationSpeed,
               confirmNewGame: settings.confirmNewGame,

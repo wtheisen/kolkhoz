@@ -3,7 +3,7 @@ import 'game_engine.dart';
 import 'player.dart';
 import 'policy_model.dart';
 
-class NeuralAIPlayer extends GamePlayer {
+class NeuralAIPlayer extends LocalGamePlayer {
   NeuralAIPlayer({
     required super.seatID,
     required super.controller,
