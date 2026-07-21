@@ -170,6 +170,12 @@ bool shouldShowStandaloneLobby({
   return !hasModel || (showingLobby && (!isOnlineGame || !onlineStarted));
 }
 
+bool shouldEnterStartedOnlineGame({
+  required bool showingLobby,
+  required bool isOnlineGame,
+  required bool onlineStarted,
+}) => showingLobby && isOnlineGame && onlineStarted;
+
 bool canAccessOnlinePlay({
   required bool fullGameUnlocked,
   required bool signedIn,
@@ -1014,6 +1020,13 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   }
 
   void handleStoreChanged() {
+    if (shouldEnterStartedOnlineGame(
+      showingLobby: showingLobby,
+      isOnlineGame: store.isOnlineGame,
+      onlineStarted: store.onlineUpdate?.started ?? false,
+    )) {
+      destination = _AppDestination.game;
+    }
     final model = store.model;
     if (model != null) {
       final actions = store.gameLogActions;

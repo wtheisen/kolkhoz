@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'c_engine_bridge.dart';
@@ -7,7 +6,6 @@ import 'game_channel.dart';
 import 'game_channel_online_realtime.dart';
 import 'online_game_client.dart';
 import 'online_game_models.dart';
-import 'render_model.dart';
 
 const onlineGameRefreshInterval = Duration(seconds: 1);
 const onlineGameRealtimeRefreshInterval = Duration(seconds: 15);
@@ -21,10 +19,6 @@ bool isStaleOnlineActionError(Object error) =>
     error is OnlineRequestException &&
     error.statusCode == HttpStatus.conflict &&
     error.message == 'stale action';
-
-bool onlineActionMatches(OnlineEngineAction candidate, EngineAction action) =>
-    jsonEncode(candidate.toJson()) ==
-    jsonEncode(OnlineEngineAction.fromEngineAction(action).toJson());
 
 class OnlineGameChannel extends GameEventChannel {
   OnlineGameChannel({
@@ -118,8 +112,8 @@ class OnlineGameChannel extends GameEventChannel {
     }
     _commandInFlight = true;
     try {
-      var beforeRevision = command.expectedRevision ?? _latestRevision;
-      OnlineSessionUpdate update;
+      final beforeRevision = command.expectedRevision ?? _latestRevision;
+      final OnlineSessionUpdate update;
       try {
         update = await client.submitAction(
           sessionID: sessionID,
@@ -138,20 +132,8 @@ class OnlineGameChannel extends GameEventChannel {
           seatToken: seatToken,
         );
         _publishState(refreshed);
-        if (!refreshed.legalActions.any(
-          (candidate) => onlineActionMatches(candidate, command.action),
-        )) {
-          publish(GameCommandCompleted(command));
-          return;
-        }
-        beforeRevision = refreshed.actionLogCount;
-        update = await client.submitAction(
-          sessionID: sessionID,
-          playerID: playerID,
-          seatToken: seatToken,
-          actionLogCount: beforeRevision,
-          action: command.action,
-        );
+        publish(GameCommandCompleted(command));
+        return;
       }
       if (onlineActionResultIsSingleRevision(
         beforeRevision,

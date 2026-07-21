@@ -76,7 +76,7 @@ class OnlineGameSession {
     update: _update,
     lobby: lobby(),
     playerID: playerID,
-    legalActions: _update.legalActions,
+    legalActions: _channel.commandInFlight ? const [] : _update.legalActions,
     uiState: uiState(),
   ).project();
 
@@ -89,7 +89,6 @@ class OnlineGameSession {
     }
     _selectionBeforeCommand = uiState();
     setUiState(uiState().clearSelectionAfterAction(action.kind));
-    onStateChanged();
     unawaited(
       _channel.send(
         SubmitGameAction(
@@ -99,6 +98,7 @@ class OnlineGameSession {
         ),
       ),
     );
+    onStateChanged();
   }
 
   Future<void> refresh({int? minimumRevision}) =>
@@ -142,6 +142,9 @@ class OnlineGameSession {
       case GameCommandCompleted():
         if (event.command is SubmitGameAction) {
           _selectionBeforeCommand = null;
+          scheduleMicrotask(() {
+            if (!_disposed) onStateChanged();
+          });
         }
         onError(null);
       case GameCommandFailed():
@@ -153,7 +156,9 @@ class OnlineGameSession {
           }
         }
         onError('${event.error}');
-        onStateChanged();
+        scheduleMicrotask(() {
+          if (!_disposed) onStateChanged();
+        });
       case _:
         break;
     }

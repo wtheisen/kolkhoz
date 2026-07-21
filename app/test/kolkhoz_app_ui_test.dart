@@ -73,6 +73,25 @@ void main() {
     );
   });
 
+  test('started online game leaves the lobby until the player returns', () {
+    expect(
+      shouldEnterStartedOnlineGame(
+        showingLobby: true,
+        isOnlineGame: true,
+        onlineStarted: true,
+      ),
+      isTrue,
+    );
+    expect(
+      shouldEnterStartedOnlineGame(
+        showingLobby: false,
+        isOnlineGame: true,
+        onlineStarted: false,
+      ),
+      isFalse,
+    );
+  });
+
   testWidgets('notification offer follows selected appearance tokens', (
     tester,
   ) async {
