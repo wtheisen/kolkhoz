@@ -11,8 +11,18 @@ void registerStoreAndOnlineTests() {
         neuralPolicyLoader: unloadedPolicy,
       )..animationSpeed = GameAnimationSpeed.instant;
       addTearDown(store.dispose);
-      store.newGame(
-        persist: false,
+      expect(store.lifecycle, GameControllerLifecycle.lobby);
+      expect(store.model, isNull);
+      expect(store.lobby.seats, hasLength(4));
+      expect(store.lobby.players, orderedEquals(store.players));
+
+      store.addSpectator(const GameSpectator(id: 'viewer-1'));
+      expect(store.lobby.spectators.single.id, 'viewer-1');
+      store.removeSpectator('viewer-1');
+      expect(store.lobby.spectators, isEmpty);
+
+      store.configureLobby(
+        variants: KolkhozGameVariants.kolkhoz,
         controllers: const [
           KolkhozPlayerController.human,
           KolkhozPlayerController.heuristicAI,
@@ -20,17 +30,30 @@ void registerStoreAndOnlineTests() {
           KolkhozPlayerController.neuralAI,
         ],
       );
+      store.startGame(persist: false);
 
       expect(store.players, hasLength(4));
       expect(store.players[0], isA<HumanPlayer>());
       expect(store.players[1], isA<HeuristicAIPlayer>());
       expect(store.players[2], isA<NeuralAIPlayer>());
       expect(store.players[3], isA<NeuralAIPlayer>());
+      expect(
+        () => store.configureLobby(
+          variants: KolkhozGameVariants.demoKolkhoz,
+          controllers: store.controllers,
+        ),
+        throwsStateError,
+      );
       await tester.pump(const Duration(milliseconds: 1));
 
       expect(store.error, isNull);
       expect(store.actionLog.single.kind, actionRevealReward);
       expect(store.presentationRevision, isNotNull);
+      expect(store.lifecycle, GameControllerLifecycle.playing);
+
+      store.returnToLobby();
+      expect(store.lifecycle, GameControllerLifecycle.lobby);
+      expect(store.model, isNull);
     },
   );
 
@@ -2002,7 +2025,7 @@ void registerStoreAndOnlineTests() {
   ) async {
     final store = LiveGameStore(autosaveEnabled: false)
       ..animationSpeed = GameAnimationSpeed.normal;
-    store.newGame(
+    store.startGame(
       persist: false,
       controllers: const [
         KolkhozPlayerController.human,

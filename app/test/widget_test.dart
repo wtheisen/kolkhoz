@@ -20,6 +20,7 @@ import 'package:kolkhoz_app/src/controller_display.dart';
 import 'package:kolkhoz_app/src/design_tokens.dart';
 import 'package:kolkhoz_app/src/engine_action_projection.dart';
 import 'package:kolkhoz_app/src/game_constants.dart';
+import 'package:kolkhoz_app/src/game_lobby.dart';
 import 'package:kolkhoz_app/src/game_sound.dart';
 import 'package:kolkhoz_app/src/game_ui_state.dart';
 import 'package:kolkhoz_app/src/kolkhoz_app.dart';

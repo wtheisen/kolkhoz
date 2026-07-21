@@ -11,6 +11,7 @@ import 'c_engine_bridge.dart';
 import 'engine_action_projection.dart';
 import 'game_constants.dart';
 import 'game_engine.dart';
+import 'game_lobby.dart';
 import 'game_ui_state.dart';
 import 'game_undo_snapshot.dart';
 import 'online_game_models.dart';
@@ -49,6 +50,8 @@ bool onlineActionMatches(OnlineEngineAction candidate, EngineAction action) {
   return jsonEncode(candidate.toJson()) ==
       jsonEncode(OnlineEngineAction.fromEngineAction(action).toJson());
 }
+
+enum GameControllerLifecycle { lobby, starting, playing, completed }
 
 GameUiState autoSelectCards(GameUiState uiState, TableViewModel model) {
   if (model.table.phase == phaseTrick) {
@@ -102,9 +105,8 @@ class GameController extends ChangeNotifier {
                  KolkhozNativePolicyModel.loadAsset(defaultNeuralPolicyAsset)
            : null {
     _replacePlayers(KolkhozPlayerController.defaultControllers);
-    if (!_restoreAutosave()) {
-      newGame(persist: false);
-    }
+    lobby = _buildLobby(KolkhozGameVariants.kolkhoz);
+    _restoreAutosave();
     _startNeuralPolicyLoad();
   }
 
@@ -124,6 +126,8 @@ class GameController extends ChangeNotifier {
   DesignTokens tokens = defaultDesignTokens;
   GameAnimationSpeed animationSpeed = defaultGameAnimationSpeed;
   GameUiState uiState = const GameUiState();
+  GameControllerLifecycle lifecycle = GameControllerLifecycle.lobby;
+  late GameLobby lobby;
   late List<GamePlayer> _players;
   List<GamePlayer> get players => List.unmodifiable(_players);
   List<KolkhozPlayerController> get controllers =>
@@ -147,10 +151,43 @@ class GameController extends ChangeNotifier {
   bool _neuralPolicyUnavailable = false;
   bool _disposed = false;
 
-  void newGame({
-    KolkhozGameVariants variants = KolkhozGameVariants.kolkhoz,
-    List<KolkhozPlayerController> controllers =
-        KolkhozPlayerController.defaultControllers,
+  void configureLobby({
+    required KolkhozGameVariants variants,
+    required List<KolkhozPlayerController> controllers,
+  }) {
+    if (lifecycle != GameControllerLifecycle.lobby) {
+      throw StateError('Lobby configuration is frozen after the game starts');
+    }
+    _replacePlayers(controllers);
+    currentVariants = variants;
+    lobby = _buildLobby(variants, spectators: lobby.spectators);
+    notifyListeners();
+  }
+
+  void addSpectator(GameSpectator spectator) {
+    final spectators = [
+      for (final existing in lobby.spectators)
+        if (existing.id != spectator.id) existing,
+      spectator,
+    ];
+    lobby = lobby.copyWith(spectators: spectators);
+    notifyListeners();
+  }
+
+  void removeSpectator(String spectatorID) {
+    final spectators = lobby.spectators
+        .where((spectator) => spectator.id != spectatorID)
+        .toList(growable: false);
+    if (spectators.length == lobby.spectators.length) {
+      return;
+    }
+    lobby = lobby.copyWith(spectators: spectators);
+    notifyListeners();
+  }
+
+  void startGame({
+    KolkhozGameVariants? variants,
+    List<KolkhozPlayerController>? controllers,
     bool persist = true,
   }) {
     try {
@@ -159,10 +196,15 @@ class GameController extends ChangeNotifier {
       _engine?.dispose();
       _clearOnlineSession();
       final normalizedControllers = KolkhozPlayerController.normalized(
-        controllers,
+        controllers ?? this.controllers,
       );
       _replacePlayers(normalizedControllers);
-      currentVariants = variants;
+      currentVariants = variants ?? lobby.variants;
+      lobby = _buildLobby(currentVariants, spectators: lobby.spectators);
+      if (!lobby.readyToStart) {
+        throw StateError('All four seats must be ready before starting');
+      }
+      lifecycle = GameControllerLifecycle.starting;
       currentSeed = _newSeed();
       actionLog = [];
       localGameLog = [];
@@ -174,9 +216,10 @@ class GameController extends ChangeNotifier {
       _engine = GameEngine(
         bridge: _bridge,
         seed: currentSeed,
-        variants: variants,
+        variants: currentVariants,
         controllers: normalizedControllers,
       );
+      lifecycle = GameControllerLifecycle.playing;
       error = null;
       _sync();
       if (persist) {
@@ -184,10 +227,30 @@ class GameController extends ChangeNotifier {
       }
       _scheduleAutomaticStep();
     } catch (exception) {
+      lifecycle = GameControllerLifecycle.lobby;
       error = '$exception';
       model = null;
       notifyListeners();
     }
+  }
+
+  void returnToLobby() {
+    _clearAutomaticStepTimer();
+    _awaitingLocalPresentationRevision = null;
+    _engine?.dispose();
+    _engine = null;
+    _clearOnlineSession();
+    _clearUndoStack();
+    model = null;
+    actionLog = [];
+    localGameLog = [];
+    restoredSavedGame = false;
+    uiState = const GameUiState();
+    _lastSyncedPhase = null;
+    revealedPlayerID = null;
+    lifecycle = GameControllerLifecycle.lobby;
+    error = null;
+    notifyListeners();
   }
 
   void applyLegalAction(LegalAction action) {
@@ -637,8 +700,7 @@ class GameController extends ChangeNotifier {
     if (online != null && !online.spectator) {
       unawaited(_leaveOnlineGame(online));
     }
-    _clearOnlineSession();
-    _sync();
+    returnToLobby();
   }
 
   void revealLocalPlayer() {
@@ -750,6 +812,11 @@ class GameController extends ChangeNotifier {
       }
       _lastSyncedPhase = phase;
       model = nextModel;
+      lifecycle = phase == phaseGameOver
+          ? GameControllerLifecycle.completed
+          : online != null && !online.update.started
+          ? GameControllerLifecycle.lobby
+          : GameControllerLifecycle.playing;
     }
     notifyListeners();
     _scheduleAutomaticStep();
@@ -782,6 +849,12 @@ class GameController extends ChangeNotifier {
     currentVariants = update.variants;
     currentSeed = update.seed ?? currentSeed;
     _replacePlayers(update.controllers);
+    lobby = _buildLobby(
+      currentVariants,
+      spectators: spectator
+          ? const [GameSpectator(id: 'local-spectator')]
+          : const [],
+    );
     restoredSavedGame = false;
     uiState = const GameUiState();
     _lastSyncedPhase = null;
@@ -1005,6 +1078,18 @@ class GameController extends ChangeNotifier {
         },
     ];
   }
+
+  GameLobby _buildLobby(
+    KolkhozGameVariants variants, {
+    List<GameSpectator> spectators = const [],
+  }) => GameLobby(
+    variants: variants,
+    seats: [
+      for (final player in _players)
+        GameSeat(seatID: player.seatID, player: player),
+    ],
+    spectators: spectators,
+  );
 
   void _startNeuralPolicyLoad() {
     _startMediumPolicyLoad();
@@ -1477,6 +1562,7 @@ class GameController extends ChangeNotifier {
       }
       _replacePlayers(payload.controllers);
       currentVariants = payload.variants;
+      lobby = _buildLobby(currentVariants);
       currentSeed = payload.seed;
       actionLog = List.of(payload.actions);
       localGameLog = List.of(
@@ -1490,10 +1576,16 @@ class GameController extends ChangeNotifier {
       _lastSyncedPhase = null;
       revealedPlayerID = null;
       _engine = restoredEngine;
+      lifecycle = GameControllerLifecycle.playing;
       error = null;
       _sync();
       if (model?.table.phase == phaseGameOver) {
         _autosaveStore.clear();
+        _engine?.dispose();
+        _engine = null;
+        model = null;
+        restoredSavedGame = false;
+        lifecycle = GameControllerLifecycle.lobby;
         return false;
       }
       _scheduleAutomaticStep();
@@ -1501,6 +1593,8 @@ class GameController extends ChangeNotifier {
     } catch (_) {
       restoredEngine?.dispose();
       _engine = null;
+      model = null;
+      lifecycle = GameControllerLifecycle.lobby;
       _autosaveStore.clear();
       return false;
     }

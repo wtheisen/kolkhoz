@@ -62,6 +62,7 @@ Important files:
 |------|---------|
 | `lib/src/c_engine_bridge.dart` | Dart FFI bindings to the C API |
 | `lib/src/game_engine.dart` | Exclusive native engine lifecycle, frozen match config, actions, cloning, and Flutter state projection |
+| `lib/src/game_lobby.dart` | Four-seat pre-game configuration and spectator roster |
 | `lib/src/game_controller.dart` | Match setup, four-player ownership, action routing, presentation pacing, and local/online state publication |
 | `lib/src/player.dart` | Shared `GamePlayer` contract |
 | `lib/src/player_human.dart` | Human player adapter for UI-driven decisions |
@@ -139,6 +140,13 @@ Flutter widgets do not mutate game state or consume forced actions directly. The
 the controller with human actions and render its projected state. The controller routes
 Central Planner and AI decisions, submits portable C-engine actions, and waits for the
 client to acknowledge presentation completion before routing the next decision.
+
+The controller lifecycle is `lobby -> starting -> playing -> completed`. It begins
+without a local engine. `startGame()` freezes the lobby's four seats and variants and is
+the only new-match path that creates a `GameEngine`; autosave restoration may rehydrate
+an existing match directly. Spectators remain controller-owned and never enter the
+engine or action router. Online lobby/start state remains authoritative on the server
+and is mirrored into the client controller.
 
 ## Research Data Flow
 
