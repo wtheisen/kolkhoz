@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-import tempfile
 import unittest
-from pathlib import Path
 
-from server.kolkhoz_server.lobby import (
-    SQLiteLobbyRepository,
-    SeatRecord,
-)
+from server.kolkhoz_server.lobby import SeatRecord
 from server.kolkhoz_server.model import GameUpdate
 from server.kolkhoz_server.scheduler import DeadlineScheduler
+from server.tests.in_memory_lobby import InMemoryLobbyRepository
 
 
 class FakeRuntime:
@@ -55,10 +51,7 @@ class FakeRuntime:
 
 class SchedulerTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.temporary = tempfile.TemporaryDirectory()
-        self.repository = SQLiteLobbyRepository(
-            Path(self.temporary.name) / "lobby.sqlite3"
-        )
+        self.repository = InMemoryLobbyRepository()
         record = self.repository.new_session(
             seed=1,
             variants={},
@@ -87,9 +80,6 @@ class SchedulerTests(unittest.TestCase):
             ],
         )
         self.repository.set_status(self.session_id, "active", now=1.0)
-
-    def tearDown(self) -> None:
-        self.temporary.cleanup()
 
     def due(self, deadline: float = 100.0) -> None:
         self.repository.set_turn_deadline(

@@ -110,6 +110,12 @@ Redis command/realtime transport, matchmaking, deadlines, population, social/res
 services, and deployment. Game rules remain in the C engine; do not add a parallel
 Python rules implementation.
 
+`server/kolkhoz_server/lobby.py` defines session/seat records and the repository contract;
+`lobby_postgres.py` is the only durable lobby implementation. Unit tests use a disposable
+in-memory repository under `server/tests/` rather than maintaining a second SQL dialect.
+PostgreSQL schema and distributed-stack smoke tests remain the production persistence
+gate.
+
 ### Generated And Historical Artifacts
 
 Generated tool output is intentionally outside the active architecture. Flutter build

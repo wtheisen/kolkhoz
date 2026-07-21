@@ -22,7 +22,7 @@ from .commands import (
 )
 from .distributed import PostgresSessionLeaseRepository, RedisRealtimeBus
 from .events import EventHub
-from .lobby import PostgresLobbyRepository
+from .lobby_postgres import PostgresLobbyRepository
 from .metrics import ServerMetrics
 from .population import PopulationScheduler, PostgresPopulationRepository
 from .preflight import verify_production_assets

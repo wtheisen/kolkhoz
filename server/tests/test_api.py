@@ -8,7 +8,8 @@ from unittest.mock import patch
 from server.kolkhoz_server.api import OnlineApplication, Request
 from server.kolkhoz_server.auth import StaticAuthVerifier
 from server.kolkhoz_server.errors import ServerError
-from server.kolkhoz_server.lobby import SeatRecord, SQLiteLobbyRepository
+from server.kolkhoz_server.lobby import SeatRecord
+from server.tests.in_memory_lobby import InMemoryLobbyRepository
 from server.kolkhoz_server.runtime import GameRuntime
 from server.kolkhoz_server.store import SQLiteEventStore
 from server.kolkhoz_server.commerce import (
@@ -110,7 +111,7 @@ class CompatibilityApiTests(unittest.TestCase):
         )
         self.application = OnlineApplication(
             self.runtime,
-            SQLiteLobbyRepository(database),
+            InMemoryLobbyRepository(),
             auth=StaticAuthVerifier({"host-token": "host", "guest-token": "guest"}),
             lobby_countdown_seconds=0,
             results=FakeResults(),
@@ -129,12 +130,8 @@ class CompatibilityApiTests(unittest.TestCase):
 
     def test_committed_update_fast_path_requires_a_live_human_wait(self) -> None:
         human = SeatRecord(1, "human", True, "guest", "token", 1.0, 0, False, False)
-        automatic = SeatRecord(
-            1, "heuristicAI", True, None, None, 1.0, 0, False, False
-        )
-        autopilot = SeatRecord(
-            1, "human", True, "guest", "token", 1.0, 2, True, True
-        )
+        automatic = SeatRecord(1, "heuristicAI", True, None, None, 1.0, 0, False, False)
+        autopilot = SeatRecord(1, "human", True, "guest", "token", 1.0, 2, True, True)
 
         self.assertTrue(
             self.application._update_waits_for_human(
@@ -517,15 +514,21 @@ class CompatibilityApiTests(unittest.TestCase):
         self.application.population_seat_filled(session_id)
         self.assertEqual(lobby.session(session_id).status, "open")
 
-        with lobby._connect() as connection:
-            connection.execute(
-                """update server_seats
-                      set controller = 'heuristicAI', occupied = 1,
-                          user_id = coalesce(user_id, 'bot-' || player_id)
-                    where session_id = ?""",
-                (session_id,),
+        for seat in lobby.seats(session_id):
+            lobby._replace_seat(
+                session_id,
+                SeatRecord(
+                    seat.player_id,
+                    "heuristicAI",
+                    True,
+                    seat.user_id or f"bot-{seat.player_id}",
+                    seat.token_hash,
+                    seat.last_seen_at,
+                    seat.timeouts,
+                    seat.abandoned,
+                    seat.autopilot,
+                ),
             )
-            connection.commit()
 
         with patch.object(
             self.runtime,

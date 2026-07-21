@@ -45,7 +45,9 @@ fencing remain the final stale-owner safety boundary.
 | `kolkhoz_server/runtime.py` | Partitioned session ownership and bounded mailboxes |
 | `kolkhoz_server/engine.py`, `contracts.py` | C-engine adapter, legal actions, privacy-safe projections |
 | `kolkhoz_server/store.py` | SQLite reference store, pooled PostgreSQL event store, revision CAS |
-| `kolkhoz_server/lobby.py`, `social.py`, `results.py` | Durable session/seat, profile/social, rating/progression read models |
+| `kolkhoz_server/lobby.py` | Session/seat records and the lobby persistence contract |
+| `kolkhoz_server/lobby_postgres.py` | Sole durable lobby repository, backed by PostgreSQL |
+| `kolkhoz_server/social.py`, `results.py` | Profile/social and rating/progression read models |
 | `kolkhoz_server/distributed.py`, `events.py` | PostgreSQL leases/fencing, Redis realtime multiplexer, bounded buffers |
 | `kolkhoz_server/commands.py` | Redis Streams cross-host command transport primitives |
 | `kolkhoz_server/ai.py` | Heuristic/policy automatic turns and shared model cache |

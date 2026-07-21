@@ -8,7 +8,7 @@ from unittest.mock import patch
 from server.kolkhoz_server.api import OnlineApplication, Request
 from server.kolkhoz_server.auth import StaticAuthVerifier
 from server.kolkhoz_server.errors import ServerError
-from server.kolkhoz_server.lobby import SQLiteLobbyRepository
+from server.tests.in_memory_lobby import InMemoryLobbyRepository
 from server.kolkhoz_server.routes import ROUTES, resolve_route
 from server.kolkhoz_server.runtime import GameRuntime
 from server.kolkhoz_server.social import SocialService
@@ -123,7 +123,7 @@ class CanonicalRouteParityTests(unittest.TestCase):
         )
         self.application = OnlineApplication(
             self.runtime,
-            SQLiteLobbyRepository(database),
+            InMemoryLobbyRepository(),
             auth=StaticAuthVerifier(
                 {
                     "host-token": "host",
@@ -197,9 +197,7 @@ class CanonicalRouteParityTests(unittest.TestCase):
         )
         self.request("POST", "/identity/device-links", bearer="host-token")
         self.request("GET", "/identity/device-links/request-1", bearer="host-token")
-        self.request(
-            "DELETE", "/identity/device-links/request-1", bearer="host-token"
-        )
+        self.request("DELETE", "/identity/device-links/request-1", bearer="host-token")
         self.request("POST", "/identity/device-links/redeem", bearer="host-token")
         self.request(
             "POST",

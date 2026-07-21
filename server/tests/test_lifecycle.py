@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import tempfile
 import unittest
-from contextlib import closing
-from pathlib import Path
 
 from server.kolkhoz_server.lifecycle import LifecycleReconciler
-from server.kolkhoz_server.lobby import SeatRecord, SQLiteLobbyRepository
+from server.kolkhoz_server.lobby import SeatRecord
+from server.tests.in_memory_lobby import InMemoryLobbyRepository
 
 
 class _Store:
@@ -40,14 +38,8 @@ class _Runtime:
 
 class LifecycleReconcilerTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.temporary = tempfile.TemporaryDirectory()
-        self.repository = SQLiteLobbyRepository(
-            Path(self.temporary.name) / "lifecycle.sqlite3"
-        )
+        self.repository = InMemoryLobbyRepository()
         self.runtime = _Runtime()
-
-    def tearDown(self) -> None:
-        self.temporary.cleanup()
 
     def create_lobby(self):
         record = self.repository.new_session(
@@ -80,27 +72,6 @@ class LifecycleReconcilerTests(unittest.TestCase):
         self.assertEqual(reconciler.run_once(), 1)
         self.assertIn(record.session_id, self.runtime.store.games)
         self.assertEqual(reconciler.run_once(), 0)
-
-    def test_intent_insert_failure_rolls_back_lobby_and_seats(self) -> None:
-        with closing(self.repository._connect()) as connection, connection:
-            connection.execute(
-                """create trigger fail_provision_intent
-                     before insert on server_lifecycle_intents
-                     begin select raise(abort, 'injected intent failure'); end"""
-            )
-        with self.assertRaisesRegex(Exception, "injected intent failure"):
-            self.create_lobby()
-        with closing(self.repository._connect()) as connection:
-            self.assertEqual(
-                connection.execute("select count(*) from server_sessions").fetchone()[
-                    0
-                ],
-                0,
-            )
-            self.assertEqual(
-                connection.execute("select count(*) from server_seats").fetchone()[0],
-                0,
-            )
 
     def test_failed_event_create_is_retried_after_bounded_backoff(self) -> None:
         record = self.create_lobby()
@@ -145,23 +116,6 @@ class LifecycleReconcilerTests(unittest.TestCase):
         )
         self.assertEqual(reconciler.run_once(now=record.created_at + 1), 1)
         self.assertNotIn(record.session_id, self.runtime.store.games)
-
-    def test_delete_intent_failure_rolls_back_last_seat_release(self) -> None:
-        record = self.create_lobby()
-        self.repository.occupy_seat(
-            record.session_id, 0, user_id="host", token_hash="x", now=record.created_at
-        )
-        with closing(self.repository._connect()) as connection, connection:
-            connection.execute(
-                """create trigger fail_delete_intent before insert on server_lifecycle_intents
-                     when new.operation = 'delete'
-                     begin select raise(abort, 'injected delete intent failure'); end"""
-            )
-        with self.assertRaisesRegex(Exception, "injected delete intent failure"):
-            self.repository.release_seat_and_delete_if_empty(
-                record.session_id, 0, now=record.created_at + 1
-            )
-        self.assertTrue(self.repository.seats(record.session_id)[0].occupied)
 
     def test_finished_session_durably_invalidates_runtime_cache(self) -> None:
         record = self.create_lobby()
