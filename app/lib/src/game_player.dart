@@ -1,6 +1,5 @@
-import 'dart:ffi';
-
 import 'c_engine_bridge.dart';
+import 'game_engine.dart';
 import 'policy_model.dart';
 
 abstract class GamePlayer {
@@ -11,10 +10,7 @@ abstract class GamePlayer {
 
   bool get waitsForHumanInput;
 
-  CEngineActionValue? chooseAction(
-    Pointer<KCEngine> engine,
-    KolkhozCEngineBridge bridge,
-  );
+  CEngineActionValue? chooseAction(GameEngine engine);
 }
 
 class HumanGamePlayer extends GamePlayer {
@@ -25,10 +21,7 @@ class HumanGamePlayer extends GamePlayer {
   bool get waitsForHumanInput => true;
 
   @override
-  CEngineActionValue? chooseAction(
-    Pointer<KCEngine> engine,
-    KolkhozCEngineBridge bridge,
-  ) => null;
+  CEngineActionValue? chooseAction(GameEngine engine) => null;
 }
 
 class HeuristicGamePlayer extends GamePlayer {
@@ -41,10 +34,8 @@ class HeuristicGamePlayer extends GamePlayer {
   bool get waitsForHumanInput => false;
 
   @override
-  CEngineActionValue? chooseAction(
-    Pointer<KCEngine> engine,
-    KolkhozCEngineBridge bridge,
-  ) => bridge.heuristicAction(engine);
+  CEngineActionValue? chooseAction(GameEngine engine) =>
+      engine.heuristicAction();
 }
 
 class PolicyGamePlayer extends GamePlayer {
@@ -62,18 +53,11 @@ class PolicyGamePlayer extends GamePlayer {
   bool get waitsForHumanInput => false;
 
   @override
-  CEngineActionValue? chooseAction(
-    Pointer<KCEngine> engine,
-    KolkhozCEngineBridge bridge,
-  ) {
+  CEngineActionValue? chooseAction(GameEngine engine) {
     final policy = model();
     if (policy != null) {
-      return bridge.policyAction(
-        engine,
-        policy.native,
-        policy.workspace(bridge),
-      );
+      return engine.policyAction(policy);
     }
-    return modelUnavailable() ? bridge.heuristicAction(engine) : null;
+    return modelUnavailable() ? engine.heuristicAction() : null;
   }
 }

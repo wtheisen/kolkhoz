@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -11,8 +10,10 @@ import 'c_engine_action_codec.dart';
 import 'c_engine_bridge.dart';
 import 'engine_action_projection.dart';
 import 'game_constants.dart';
+import 'game_engine.dart';
 import 'game_player.dart';
 import 'game_ui_state.dart';
+import 'game_undo_snapshot.dart';
 import 'online_game_models.dart';
 import 'online_game_client.dart';
 import 'online_table_projection.dart';
@@ -20,7 +21,6 @@ import 'policy_model.dart';
 import 'render_model.dart';
 import 'design_tokens.dart';
 import 'saved_game_store.dart';
-import 'table_view_projection.dart';
 
 bool actionCapturesUndoSnapshot(String actionKind) {
   return actionKind == actionAssign;
@@ -86,7 +86,7 @@ class GameController extends ChangeNotifier {
     this.onlineWebSocketConnector,
     this.onlineRealtimeReconnectDelay = const Duration(seconds: 1),
     this.autosaveEnabled = true,
-  }) : bridge = bridge ?? KolkhozCEngineBridge(),
+  }) : _bridge = bridge ?? KolkhozCEngineBridge(),
        _autosaveStore = autosaveStore ?? KolkhozAutosaveStore.defaultStore(),
        _mediumPolicy = mediumPolicy,
        _mediumPolicyLoader = mediumPolicy == null
@@ -105,7 +105,7 @@ class GameController extends ChangeNotifier {
     _startNeuralPolicyLoad();
   }
 
-  final KolkhozCEngineBridge bridge;
+  final KolkhozCEngineBridge _bridge;
   final KolkhozAutosaveStore _autosaveStore;
   KolkhozNativePolicyModel? _mediumPolicy;
   Future<KolkhozNativePolicyModel>? _mediumPolicyLoader;
@@ -135,7 +135,7 @@ class GameController extends ChangeNotifier {
   int _localPresentationSequence = 0;
   int? _awaitingLocalPresentationRevision;
   TableViewModel? model;
-  Pointer<KCEngine>? _engine;
+  GameEngine? _engine;
   final List<GameUndoSnapshot> _undoStack = [];
   int? revealedPlayerID;
   String? error;
@@ -153,10 +153,7 @@ class GameController extends ChangeNotifier {
     try {
       _clearAutomaticStepTimer();
       _awaitingLocalPresentationRevision = null;
-      final oldEngine = _engine;
-      if (oldEngine != null) {
-        bridge.freeEngine(oldEngine);
-      }
+      _engine?.dispose();
       _clearOnlineSession();
       final normalizedControllers = KolkhozPlayerController.normalized(
         controllers,
@@ -171,7 +168,8 @@ class GameController extends ChangeNotifier {
       uiState = const GameUiState();
       _lastSyncedPhase = null;
       revealedPlayerID = null;
-      _engine = bridge.newEngine(
+      _engine = GameEngine(
+        bridge: _bridge,
         seed: currentSeed,
         variants: variants,
         controllers: normalizedControllers,
@@ -206,9 +204,9 @@ class GameController extends ChangeNotifier {
     _clearAutomaticStepTimer();
     final capturesUndo = actionCapturesUndoSnapshot(action.kind);
     final undoSnapshot = capturesUndo ? _snapshotForUndo(engine) : null;
-    final result = bridge.applyManual(engine, cAction);
+    final result = engine.applyManual(cAction);
     if (result != 0) {
-      undoSnapshot?.dispose(bridge);
+      undoSnapshot?.dispose();
       error = 'Move rejected ($result)';
     } else {
       error = null;
@@ -346,10 +344,7 @@ class GameController extends ChangeNotifier {
     }
     _clearAutomaticStepTimer();
     final snapshot = _undoStack.removeLast();
-    final oldEngine = _engine;
-    if (oldEngine != null) {
-      bridge.freeEngine(oldEngine);
-    }
+    _engine?.dispose();
     _engine = snapshot.engine;
     actionLog = snapshot.actionLog;
     localGameLog = snapshot.localGameLog;
@@ -719,14 +714,10 @@ class GameController extends ChangeNotifier {
       ).project();
     } else if (_engine != null) {
       final engine = _engine!;
-      nextModel = TableViewProjection(
-        bridge: bridge,
-        engine: engine,
-        controllers: controllers,
-        variants: currentVariants,
+      nextModel = engine.project(
         uiState: uiState,
         revealedPlayerID: revealedPlayerID,
-      ).project();
+      );
     }
     if (nextModel != null) {
       final phase = nextModel.table.phase;
@@ -748,14 +739,10 @@ class GameController extends ChangeNotifier {
           ).project();
         } else if (_engine != null) {
           final engine = _engine!;
-          nextModel = TableViewProjection(
-            bridge: bridge,
-            engine: engine,
-            controllers: controllers,
-            variants: currentVariants,
+          nextModel = engine.project(
             uiState: uiState,
             revealedPlayerID: revealedPlayerID,
-          ).project();
+          );
         }
       }
       _lastSyncedPhase = phase;
@@ -776,11 +763,8 @@ class GameController extends ChangeNotifier {
   }) async {
     _clearAutomaticStepTimer();
     _awaitingLocalPresentationRevision = null;
-    final oldEngine = _engine;
-    if (oldEngine != null) {
-      bridge.freeEngine(oldEngine);
-      _engine = null;
-    }
+    _engine?.dispose();
+    _engine = null;
     _autosaveStore.clear();
     _clearUndoStack();
     _online = OnlineGameRuntime(
@@ -838,14 +822,12 @@ class GameController extends ChangeNotifier {
     );
   }
 
-  bool _engineDecisionNeedsRouting(Pointer<KCEngine> engine) {
-    final phase = bridge.phase(engine);
-    final legalActions = bridge.legalActions(engine);
+  bool _engineDecisionNeedsRouting(GameEngine engine) {
+    final phase = engine.phase;
+    final legalActions = engine.legalActions;
     if (_centralPlannerAction(engine, legalActions) != null ||
         phase == kcPhaseRequisition ||
-        (phase == kcPhasePlanning &&
-            bridge.isFamine(engine) &&
-            legalActions.isEmpty)) {
+        (phase == kcPhasePlanning && engine.isFamine && legalActions.isEmpty)) {
       return true;
     }
     return _decisionPlayer(engine)?.waitsForHumanInput == false;
@@ -862,23 +844,21 @@ class GameController extends ChangeNotifier {
         : null;
   }
 
-  Duration _automaticStepDelay(Pointer<KCEngine> engine) {
+  Duration _automaticStepDelay(GameEngine engine) {
     if (_currentAutomaticStepIsTrumpSelection(engine)) {
       return animationSpeed.automaticTrumpSelectionDelay;
     }
     return animationSpeed.automaticStepDelay;
   }
 
-  bool _currentAutomaticStepIsTrumpSelection(Pointer<KCEngine> engine) {
-    if (bridge.phase(engine) != kcPhasePlanning || bridge.isFamine(engine)) {
+  bool _currentAutomaticStepIsTrumpSelection(GameEngine engine) {
+    if (engine.phase != kcPhasePlanning || engine.isFamine) {
       return false;
     }
     final player = _decisionPlayer(engine);
     return player != null &&
         !player.waitsForHumanInput &&
-        bridge
-            .legalActions(engine)
-            .any((action) => action.kind == kcActionSetTrump);
+        engine.legalActions.any((action) => action.kind == kcActionSetTrump);
   }
 
   void _runAutomaticStep() {
@@ -895,9 +875,9 @@ class GameController extends ChangeNotifier {
     if (engine == null) {
       return;
     }
-    final phaseBefore = bridge.phase(engine);
+    final phaseBefore = engine.phase;
     final requisitionEventCountBefore = phaseBefore == kcPhaseRequisition
-        ? bridge.requisitionEventCount(engine)
+        ? engine.requisitionEventCount
         : 0;
     final result = _routeEngineDecision(engine);
     if (result < 0) {
@@ -910,22 +890,22 @@ class GameController extends ChangeNotifier {
     }
     error = null;
     if (phaseBefore == kcPhaseRequisition &&
-        bridge.requisitionEventCount(engine) > requisitionEventCountBefore) {
+        engine.requisitionEventCount > requisitionEventCountBefore) {
       final index = requisitionEventCountBefore;
-      final card = bridge.requisitionEventCard(engine, index);
+      final card = engine.requisitionEventCard(index);
       localGameLog = [
         ...localGameLog,
         EngineAction(
           kind: actionRequisitionEvent,
-          playerID: bridge.requisitionEventPlayer(engine, index),
-          suit: suitName(bridge.requisitionEventSuit(engine, index)),
+          playerID: engine.requisitionEventPlayer(index),
+          suit: suitName(engine.requisitionEventSuit(index)),
           card: card.isValid
               ? EngineCard(
                   suit: suitName(card.suit) ?? wreckerSuit,
                   value: card.value,
                 )
               : null,
-          requisitionKind: bridge.requisitionEventMessageKind(engine, index),
+          requisitionKind: engine.requisitionEventMessageKind(index),
         ),
       ];
     }
@@ -939,12 +919,12 @@ class GameController extends ChangeNotifier {
     _awaitingLocalPresentationRevision = _localPresentationSequence;
   }
 
-  int _routeEngineDecision(Pointer<KCEngine> engine) {
-    final phase = bridge.phase(engine);
-    final legalActions = bridge.legalActions(engine);
+  int _routeEngineDecision(GameEngine engine) {
+    final phase = engine.phase;
+    final legalActions = engine.legalActions;
     final centralPlannerAction = _centralPlannerAction(engine, legalActions);
     if (centralPlannerAction != null) {
-      final error = bridge.applyManual(engine, centralPlannerAction);
+      final error = engine.applyManual(centralPlannerAction);
       if (error != 0) {
         return -error;
       }
@@ -954,17 +934,15 @@ class GameController extends ChangeNotifier {
       return 1;
     }
     if (phase == kcPhaseRequisition ||
-        (phase == kcPhasePlanning &&
-            bridge.isFamine(engine) &&
-            legalActions.isEmpty)) {
-      return bridge.stepAutomatic(engine);
+        (phase == kcPhasePlanning && engine.isFamine && legalActions.isEmpty)) {
+      return engine.stepAutomatic();
     }
     final player = _decisionPlayer(engine);
-    final action = player?.chooseAction(engine, bridge);
+    final action = player?.chooseAction(engine);
     if (action == null) {
       return 0;
     }
-    final error = bridge.applyAIAction(engine, action);
+    final error = engine.applyAIAction(action);
     if (error != 0) {
       return -error;
     }
@@ -975,12 +953,12 @@ class GameController extends ChangeNotifier {
   }
 
   CEngineActionValue? _centralPlannerAction(
-    Pointer<KCEngine> engine,
+    GameEngine engine,
     List<CEngineActionValue> legalActions,
   ) {
     final action = legalActions.length == 1
         ? legalActions.single
-        : bridge.heuristicAction(engine);
+        : engine.heuristicAction();
     if (action == null) {
       return null;
     }
@@ -990,10 +968,10 @@ class GameController extends ChangeNotifier {
         : null;
   }
 
-  GamePlayer? _decisionPlayer(Pointer<KCEngine> engine) {
-    final playerID = bridge.phase(engine) == kcPhaseAssignment
-        ? bridge.lastWinner(engine)
-        : bridge.currentPlayer(engine);
+  GamePlayer? _decisionPlayer(GameEngine engine) {
+    final playerID = engine.phase == kcPhaseAssignment
+        ? engine.lastWinner
+        : engine.currentPlayer;
     if (playerID < 0 || playerID >= _players.length) {
       return null;
     }
@@ -1472,9 +1450,10 @@ class GameController extends ChangeNotifier {
     if (payload == null) {
       return false;
     }
-    Pointer<KCEngine>? restoredEngine;
+    GameEngine? restoredEngine;
     try {
-      restoredEngine = bridge.newEngine(
+      restoredEngine = GameEngine(
+        bridge: _bridge,
         seed: payload.seed,
         variants: payload.variants,
         controllers: payload.controllers,
@@ -1517,9 +1496,7 @@ class GameController extends ChangeNotifier {
       _scheduleAutomaticStep();
       return true;
     } catch (_) {
-      if (restoredEngine != null) {
-        bridge.freeEngine(restoredEngine);
-      }
+      restoredEngine?.dispose();
       _engine = null;
       _autosaveStore.clear();
       return false;
@@ -1527,16 +1504,16 @@ class GameController extends ChangeNotifier {
   }
 
   int _applyRestoredAction(
-    Pointer<KCEngine> engine,
+    GameEngine engine,
     CEngineActionValue action,
     List<KolkhozPlayerController> restoredControllers,
   ) {
     if (action.playerID >= 0 &&
         action.playerID < restoredControllers.length &&
         restoredControllers[action.playerID] != KolkhozPlayerController.human) {
-      return bridge.applyAIAction(engine, action);
+      return engine.applyAIAction(action);
     }
-    return bridge.applyManual(engine, action);
+    return engine.applyManual(action);
   }
 
   void _saveAutosave() {
@@ -1558,9 +1535,9 @@ class GameController extends ChangeNotifier {
     );
   }
 
-  GameUndoSnapshot _snapshotForUndo(Pointer<KCEngine> engine) {
+  GameUndoSnapshot _snapshotForUndo(GameEngine engine) {
     return GameUndoSnapshot(
-      engine: bridge.cloneEngine(engine),
+      engine: engine.clone(),
       actionLog: List.of(actionLog),
       localGameLog: List.of(localGameLog),
       uiState: uiState,
@@ -1571,7 +1548,7 @@ class GameController extends ChangeNotifier {
 
   void _clearUndoStack() {
     for (final snapshot in _undoStack) {
-      snapshot.dispose(bridge);
+      snapshot.dispose();
     }
     _undoStack.clear();
   }
@@ -1583,11 +1560,8 @@ class GameController extends ChangeNotifier {
     _disposed = true;
     _clearAutomaticStepTimer();
     _clearUndoStack();
-    final engine = _engine;
-    if (engine != null) {
-      bridge.freeEngine(engine);
-      _engine = null;
-    }
+    _engine?.dispose();
+    _engine = null;
     _mediumPolicy?.dispose();
     _mediumPolicy = null;
     _neuralPolicy?.dispose();
@@ -1604,28 +1578,6 @@ int? newestOnlineRevision(int? current, int? incoming) {
     return null;
   }
   return incoming > current ? incoming : current;
-}
-
-class GameUndoSnapshot {
-  const GameUndoSnapshot({
-    required this.engine,
-    required this.actionLog,
-    required this.localGameLog,
-    required this.uiState,
-    required this.revealedPlayerID,
-    required this.lastSyncedPhase,
-  });
-
-  final Pointer<KCEngine> engine;
-  final List<EngineAction> actionLog;
-  final List<EngineAction> localGameLog;
-  final GameUiState uiState;
-  final int? revealedPlayerID;
-  final String? lastSyncedPhase;
-
-  void dispose(KolkhozCEngineBridge bridge) {
-    bridge.freeEngine(engine);
-  }
 }
 
 class OnlineGameRuntime {

@@ -61,8 +61,10 @@ Important files:
 | File | Purpose |
 |------|---------|
 | `lib/src/c_engine_bridge.dart` | Dart FFI bindings to the C API |
+| `lib/src/game_engine.dart` | Exclusive native engine lifecycle, frozen match config, actions, cloning, and Flutter state projection |
 | `lib/src/game_controller.dart` | Match setup, four-player ownership, action routing, presentation pacing, and local/online state publication |
 | `lib/src/game_player.dart` | Human, heuristic, and policy player decision adapters |
+| `lib/src/game_undo_snapshot.dart` | Controller undo snapshot state and cloned-engine ownership |
 | `lib/src/live_game_store.dart` | Compatibility export for older callers of `GameController` |
 | `lib/src/table_view_projection.dart` | C engine state to Flutter table model |
 | `lib/src/online_game_models.dart` | Dart online API models/client |
@@ -112,7 +114,7 @@ model files.
 ## App Data Flow
 
 ```text
-GameController owns one match and four GamePlayers
+GameController owns one GameEngine and four GamePlayers
     |
     +-- Central Planner action --> reward/trump reveal
     |
@@ -121,7 +123,7 @@ GameController owns one match and four GamePlayers
     +-- AI GamePlayer ----------> heuristic or policy decision
     |
     v
-Dart FFI action applied to the C engine
+GameEngine exclusively owns and applies actions to the native C engine
     |
     v
 TableViewProjection publishes Dart model objects
