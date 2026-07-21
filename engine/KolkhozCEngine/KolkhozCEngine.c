@@ -1775,19 +1775,8 @@ static bool kc_step_requisition(KCEngine *engine) {
     int32_t event_index = engine->requisition_plan_index++;
     KCRequisitionEvent event = engine->requisition_plan[event_index];
     if (event.message_kind == 1 && event.player_id >= 0 && event.player_id < KC_PLAYER_COUNT) {
-        bool continues_player_suit = false;
-        if (event_index > 0) {
-            KCRequisitionEvent previous = engine->requisition_plan[event_index - 1];
-            continues_player_suit = previous.message_kind == 1 &&
-                previous.player_id == event.player_id && previous.suit == event.suit;
-        }
-        if (!continues_player_suit) {
-            kc_reveal_hidden_cards(
-                engine,
-                event.player_id,
-                event.suit,
-                kc_requisition_reveal_all(engine, event.suit)
-            );
+        if (kc_requisition_reveal_all(engine, event.suit)) {
+            kc_reveal_hidden_cards(engine, event.player_id, event.suit, true);
         }
         kc_append_exiled(engine, event.card, event.player_id);
     } else if (event.message_kind == 3) {
@@ -1833,6 +1822,11 @@ static void kc_remove_exiled_cards(KCEngine *engine) {
             int32_t index = kc_list_find(&engine->players[player_id].plot_revealed, card);
             if (index >= 0) {
                 kc_list_remove_at(&engine->players[player_id].plot_revealed, index);
+                break;
+            }
+            index = kc_list_find(&engine->players[player_id].plot_hidden, card);
+            if (index >= 0) {
+                kc_list_remove_at(&engine->players[player_id].plot_hidden, index);
                 break;
             }
         }

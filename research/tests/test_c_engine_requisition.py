@@ -14,7 +14,7 @@ _ACTION_PRIORITY = {6: 0, 7: 0, 3: 0, 1: 1, 4: 1, 5: 1, 2: 2, 8: 3}
 
 
 class StepwiseRequisitionTests(unittest.TestCase):
-    def test_party_official_second_exile_does_not_reveal_another_card(self) -> None:
+    def test_party_official_exiles_do_not_pre_reveal_hidden_cards(self) -> None:
         engine = CEngine()
         pointer = engine.new_engine(7)
 
@@ -35,13 +35,13 @@ class StepwiseRequisitionTests(unittest.TestCase):
 
             self.assertEqual(engine.step_automatic(pointer), 1)
             after_first = engine.snapshot(pointer)
-            self.assertEqual(int(after_first.players[0].plot_hidden.count), 1)
-            self.assertEqual(int(after_first.players[0].plot_revealed.count), 1)
+            self.assertEqual(int(after_first.players[0].plot_hidden.count), 2)
+            self.assertEqual(int(after_first.players[0].plot_revealed.count), 0)
 
             self.assertEqual(engine.step_automatic(pointer), 1)
             after_second = engine.snapshot(pointer)
-            self.assertEqual(int(after_second.players[0].plot_hidden.count), 1)
-            self.assertEqual(int(after_second.players[0].plot_revealed.count), 1)
+            self.assertEqual(int(after_second.players[0].plot_hidden.count), 2)
+            self.assertEqual(int(after_second.players[0].plot_revealed.count), 0)
             self.assertEqual(int(after_second.exiled[1].count), 2)
         finally:
             engine.free_engine(pointer)

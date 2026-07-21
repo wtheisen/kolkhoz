@@ -184,7 +184,7 @@ class VariantEngineTests(unittest.TestCase):
             self.engine.free_engine(pointer)
 
     def test_final_year_leftover_card_is_public_north_trump(self) -> None:
-        pointer = self.engine.new_engine(20260719, controllers=self.controllers)
+        pointer = self.engine.new_engine(1, controllers=self.controllers)
         try:
             for _ in range(1000):
                 state = self.engine.snapshot(pointer)
@@ -208,6 +208,10 @@ class VariantEngineTests(unittest.TestCase):
                     self.assertGreater(self.engine.step_automatic(pointer), 0)
             final_year = self.engine.snapshot(pointer)
             self.assertEqual((int(final_year.year), int(final_year.phase)), (5, 6))
+            self.assertEqual(
+                [int(final_year.players[player].hand.count) for player in range(4)],
+                [4, 4, 4, 4],
+            )
             revealed = final_year.final_year_trump_card
             self.assertTrue(
                 (0 <= int(revealed.suit) < 4 and int(revealed.value) > 0)
@@ -278,6 +282,48 @@ class VariantEngineTests(unittest.TestCase):
 
     def test_highest_cards_requisition_uses_one_combined_quota(self) -> None:
         self.assertEqual(self._planned_requisition_cards(), [(0, 10), (1, 9)])
+
+    def test_requisition_exile_does_not_pre_reveal_hidden_card(self) -> None:
+        pointer = self.engine.new_engine(91, controllers=self.controllers)
+        try:
+            state = self.engine.snapshot(pointer)
+            state.phase = 3
+            state.year = 1
+            state.last_winner = 0
+            state.last_trick_count = 0
+            state.trick_count = 4
+            state.variants.highest_cards_requisition = True
+            state.variants.northern_style = True
+            state.variants.hero_of_soviet_union = False
+            for suit in range(4):
+                state.work_hours[suit] = 40
+            for player in range(4):
+                state.players[player].hand.count = 0
+                state.players[player].plot_hidden.count = 0
+                state.players[player].plot_revealed.count = 0
+            state.work_hours[0] = 0
+            state.players[0].plot_hidden.cards[0] = KCCard(0, 10)
+            state.players[0].plot_hidden.count = 1
+
+            self.assertEqual(
+                self.engine.lib.kc_engine_apply_manual(pointer, action(6, 0)),
+                0,
+            )
+            self.assertEqual(self.engine.step_automatic(pointer), 1)
+
+            stepped = self.engine.snapshot(pointer)
+            self.assertEqual(int(stepped.players[0].plot_hidden.count), 1)
+            self.assertEqual(int(stepped.players[0].plot_revealed.count), 0)
+            self.assertEqual(int(stepped.exiled[1].count), 1)
+            self.assertEqual(
+                (
+                    int(stepped.exiled[1].cards[0].suit),
+                    int(stepped.exiled[1].cards[0].value),
+                ),
+                (0, 10),
+            )
+        finally:
+            self.engine.free_engine(pointer)
 
     def test_drunkard_removes_its_suit_and_reduces_quota(self) -> None:
         self.assertEqual(self._planned_requisition_cards(drunkard=True), [(1, 9)])

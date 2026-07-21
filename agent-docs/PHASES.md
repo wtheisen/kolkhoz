@@ -117,7 +117,8 @@ Official, mice, northern style, and hero immunity behavior all live in the C eng
 With Highest Cards Requisition, each vulnerable player's quota is the number of active
 failed crop suits and the engine takes that player's highest cards across the combined
 eligible suits. Party Official adds one to the quota. Drunkard removes its crop from both
-the pool and the quota. A selected hidden card is revealed before it is sent North.
+the pool and the quota. A selected hidden card is revealed by being sent North; there is
+no separate reveal step for cards selected for exile.
 
 ### 8. Game Over
 
