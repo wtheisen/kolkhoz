@@ -1915,10 +1915,9 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
         ),
       );
     }
-    final sessionID = await store.hostOnlineGame(
+    store.configureLobby(variants: activeVariants, controllers: controllers);
+    final sessionID = await store.startOnlineGame(
       baseURL: baseURL,
-      variants: activeVariants,
-      controllers: controllers,
       ranked: ranked,
       browserJoinable: browserJoinable,
       bestOf: bestOf,

@@ -167,6 +167,14 @@ an existing match directly through `LocalGameChannel`. Spectators remain control
 and never enter the engine or action router. Online lobby/start state remains authoritative
 on the server and is mirrored into the client controller through `OnlineGameChannel`.
 
+The setup screen is a local draft and does not contact the server as seats or variants
+change. Tapping **Start Online Game** is the authority handoff: `GameController` freezes
+its current `GameLobby`, creates the server session from that single configuration, and
+switches to `OnlineGameChannel`. After a successful handoff, lobby membership and match
+execution are server-owned; the Flutter controller keeps only presentation and transport
+responsibilities. If no online seats are selected, `startGame()` keeps the match entirely
+local instead.
+
 At game over, `GameEngine.snapshot()` produces a portable `GameStateSnapshot` before the
 controller disposes the native pointer. The controller places that state in a
 `FinishedGameLobby` before publishing the `finished` lifecycle. The snapshot owns

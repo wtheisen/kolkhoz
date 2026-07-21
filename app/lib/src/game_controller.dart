@@ -165,8 +165,10 @@ class GameController extends ChangeNotifier {
     required KolkhozGameVariants variants,
     required List<KolkhozPlayerController> controllers,
   }) {
-    if (lifecycle != GameControllerLifecycle.lobby) {
-      throw StateError('Lobby configuration is frozen after the game starts');
+    if (lifecycle != GameControllerLifecycle.lobby || _channel != null) {
+      throw StateError(
+        'Lobby configuration is frozen after online handoff or game start',
+      );
     }
     _replacePlayers(controllers);
     currentVariants = variants;
@@ -444,14 +446,18 @@ class GameController extends ChangeNotifier {
     _saveAutosave();
   }
 
-  Future<String> hostOnlineGame({
+  Future<String> startOnlineGame({
     required Uri baseURL,
-    required KolkhozGameVariants variants,
-    required List<KolkhozPlayerController> controllers,
     required bool ranked,
     required bool browserJoinable,
     int bestOf = 1,
   }) async {
+    if (lifecycle != GameControllerLifecycle.lobby || _channel != null) {
+      throw StateError('Only a local draft lobby can start an online game');
+    }
+    final draft = lobby;
+    lifecycle = GameControllerLifecycle.starting;
+    notifyListeners();
     try {
       final client = KolkhozOnlineClient(
         baseURL,
@@ -460,12 +466,9 @@ class GameController extends ChangeNotifier {
         accessTokenProvider: onlineAccessTokenProvider,
         deviceID: onlineDeviceID,
       );
-      final normalizedControllers = KolkhozPlayerController.normalized(
-        controllers,
-      );
       final response = await client.createSession(
-        variants: variants,
-        controllers: normalizedControllers,
+        variants: draft.variants,
+        controllers: [for (final player in draft.players) player.controller],
         ranked: ranked,
         browserJoinable: browserJoinable,
         bestOf: bestOf,
@@ -480,6 +483,9 @@ class GameController extends ChangeNotifier {
       );
       return response.sessionID;
     } catch (exception) {
+      if (_channel == null) {
+        lifecycle = GameControllerLifecycle.lobby;
+      }
       error = '$exception';
       notifyListeners();
       rethrow;

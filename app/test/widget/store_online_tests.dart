@@ -124,6 +124,65 @@ void registerStoreAndOnlineTests() {
     },
   );
 
+  test(
+    'Start Online Game hands the controller draft to the server once',
+    () async {
+      final httpClient = FakeOnlineHttpClient();
+      final store = GameController(
+        autosaveEnabled: false,
+        onlineHttpClient: httpClient,
+        onlineWebSocketConnector: (_, _) async =>
+            throw const SocketException('realtime unavailable'),
+      );
+      addTearDown(store.dispose);
+      final draftVariants = KolkhozGameVariants.kolkhoz.copyWith(
+        maxYears: 3,
+        passCards: true,
+      );
+      const draftControllers = [
+        KolkhozPlayerController.human,
+        KolkhozPlayerController.human,
+        KolkhozPlayerController.heuristicAI,
+        KolkhozPlayerController.mediumAI,
+      ];
+
+      store.configureLobby(
+        variants: draftVariants,
+        controllers: draftControllers,
+      );
+
+      expect(httpClient.requests, isEmpty);
+
+      await store.startOnlineGame(
+        baseURL: Uri.parse('http://online.example'),
+        ranked: false,
+        browserJoinable: true,
+      );
+
+      final createRequest = httpClient.requests.singleWhere(
+        (request) => request.route == 'POST /sessions',
+      );
+      final body = jsonDecode(createRequest.body) as Map<String, dynamic>;
+      final variants = body['variants'] as Map<String, dynamic>;
+      expect(variants['maxYears'], 3);
+      expect(variants['passCards'], isTrue);
+      expect(body['controllers'], [
+        'human',
+        'human',
+        'heuristicAI',
+        'mediumAI',
+      ]);
+      expect(store.isOnlineGame, isTrue);
+      expect(
+        () => store.configureLobby(
+          variants: KolkhozGameVariants.littleKolkhoz,
+          controllers: KolkhozPlayerController.defaultControllers,
+        ),
+        throwsStateError,
+      );
+    },
+  );
+
   test('store auto-selects the only legal trick card', () {
     const play = EngineAction(
       kind: actionPlayCard,
@@ -2458,10 +2517,8 @@ void registerStoreAndOnlineTests() {
     );
     addTearDown(store.dispose);
 
-    await store.hostOnlineGame(
+    await store.startOnlineGame(
       baseURL: Uri.parse('http://online.example'),
-      variants: KolkhozGameVariants.kolkhoz,
-      controllers: KolkhozPlayerController.defaultControllers,
       ranked: false,
       browserJoinable: false,
     );
@@ -2524,10 +2581,8 @@ void registerStoreAndOnlineTests() {
       );
       addTearDown(store.dispose);
 
-      await store.hostOnlineGame(
+      await store.startOnlineGame(
         baseURL: Uri.parse('http://online.example'),
-        variants: KolkhozGameVariants.kolkhoz,
-        controllers: KolkhozPlayerController.defaultControllers,
         ranked: false,
         browserJoinable: false,
       );
@@ -2552,10 +2607,8 @@ void registerStoreAndOnlineTests() {
     );
     addTearDown(store.dispose);
 
-    await store.hostOnlineGame(
+    await store.startOnlineGame(
       baseURL: Uri.parse('http://online.example'),
-      variants: KolkhozGameVariants.kolkhoz,
-      controllers: KolkhozPlayerController.defaultControllers,
       ranked: false,
       browserJoinable: false,
     );
