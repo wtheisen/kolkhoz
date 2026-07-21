@@ -42,7 +42,7 @@ DEFAULT_VARIANTS: JsonObject = {
     "heroOfSovietUnion": True,
     "wrecker": True,
     "finalYearTrump": True,
-    "passCards": True,
+    "passCards": False,
     "highestCardsRequisition": True,
     "lottoRewards": True,
 }
@@ -163,16 +163,17 @@ def action_in(action: KCAction, actions: Iterable[KCAction]) -> bool:
 
 
 def card_to_json(card: KCCard) -> dict[str, int]:
-    return {"suit": int(card.suit), "value": int(card.value)}
+    suit = int(card.suit)
+    value = int(card.value)
+    return {"suit": suit, "value": 14 if suit == 4 and value == 0 else value}
 
 
 def card_from_json(value: object) -> KCCard:
     if not isinstance(value, dict):
         return KCCard(-1, 0)
-    return KCCard(
-        optional_int(value.get("suit"), -1),
-        optional_int(value.get("value"), 0),
-    )
+    suit = optional_int(value.get("suit"), -1)
+    card_value = optional_int(value.get("value"), 0)
+    return KCCard(suit, 0 if suit == 4 and card_value == 14 else card_value)
 
 
 def privacy_safe_action_log(
@@ -191,10 +192,7 @@ def privacy_safe_action_log(
         ):
             value["handCard"] = {"suit": -1, "value": -1}
             value["plotCard"] = {"suit": -1, "value": -1}
-        if (
-            optional_int(value.get("playerID")) != viewer_id
-            and value.get("kind") == 9
-        ):
+        if optional_int(value.get("playerID")) != viewer_id and value.get("kind") == 9:
             value["card"] = {"suit": -1, "value": -1}
         result.append(value)
     return result

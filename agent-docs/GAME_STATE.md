@@ -18,6 +18,12 @@ The engine tracks:
 The Flutter projection mirrors only what the app needs to render and act on. Keep hidden
 information redaction at the engine/server boundary when adding online behavior.
 
+When a match reaches `gameOver`, the app engine captures a detached
+`GameStateSnapshot` before releasing the native engine. It contains the seed, frozen
+variants and controllers, and the complete projected final table state. Its versioned
+JSON representation is the portable completed-match contract used by saved logs and the
+controller's `FinishedGameLobby`.
+
 ## Suits And Cards
 
 The C engine uses numeric suit codes:
@@ -34,7 +40,7 @@ Cards use a suit plus value. Normally values `1...5` are job rewards and values 
 are worker cards. With Lotto Rewards, each crop instead uses `1...4` plus one seeded
 random value from `5...13` as rewards; the selected lotto card is removed from the worker
 deck. Face cards are `11` jack, `12` queen, and `13` king. The Saboteur variant
-adds a special `wrecker-14` worker card. It counts as matching every crop suit, but it
+adds a special `wrecker-0` worker card. It counts as matching every crop suit, but it
 does not add a fifth job suit or a fifth job pile.
 
 Saboteur-specific behavior:
@@ -43,7 +49,8 @@ Saboteur-specific behavior:
 - Saboteur is shuffled into the worker deck when no already-used Saboteur exists;
 - Saboteur satisfies follow-suit for every crop suit;
 - when Saboteur is the lead card, the trick has no ordinary lead suit;
-- Saboteur has value `14` for trick ranking, work hours, and score if it reaches a plot;
+- Saboteur has value `0`, contributes no work hours or plot score, and ranks below
+  ordinary cards within the winning suit;
 - Saboteur can make any crop suit a legal assignment target because it matches every suit;
 - a job containing Saboteur can claim its reward at 40 hours, but requisition still treats
   that job as failed;
@@ -112,7 +119,7 @@ Submitting assignments moves cards into job buckets, adds work hours, claims com
 jobs, grants rewards, and advances to either the next trick or year-end requisition.
 
 Saboteur can be assigned to any legal target job because it matches every crop suit. It
-adds 14 work hours when assigned.
+adds 0 work hours when assigned.
 
 ### Year End
 

@@ -26,7 +26,7 @@ from server.kolkhoz_server.metrics import ServerMetrics
 from server.kolkhoz_server.store import RevisionConflict, SQLiteEventStore
 from server.kolkhoz_server.api import OnlineApplication, Request
 from server.kolkhoz_server.auth import StaticAuthVerifier
-from server.kolkhoz_server.lobby import SQLiteLobbyRepository
+from server.tests.in_memory_lobby import InMemoryLobbyRepository
 
 
 def command(command_id: str, session_id: str, value: int) -> GameCommand:
@@ -516,8 +516,8 @@ def test_two_gateway_apps_resync_without_replaying_history():
         routed_b = RoutedGameRuntime(
             gateway_b, CommandClient(broker), timeout_seconds=1
         )
-        lobby_a = SQLiteLobbyRepository(database)
-        lobby_b = SQLiteLobbyRepository(database)
+        lobby_a = InMemoryLobbyRepository()
+        lobby_b = lobby_a
         auth = StaticAuthVerifier({"token": "user-1"})
         app_a = OnlineApplication(
             routed_a, lobby_a, auth=auth, lobby_countdown_seconds=0

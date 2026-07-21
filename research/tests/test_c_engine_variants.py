@@ -20,12 +20,33 @@ class VariantEngineTests(unittest.TestCase):
         for player_id in range(4):
             self.controllers.seats[player_id] = 0
 
-    def test_kolkhoz_defaults_enable_new_variants(self) -> None:
+    def test_kolkhoz_defaults_enable_new_variants_except_passing(self) -> None:
         variants = self.engine.kolkhoz_variants()
         self.assertTrue(variants.final_year_trump)
-        self.assertTrue(variants.pass_cards)
+        self.assertFalse(variants.pass_cards)
         self.assertTrue(variants.highest_cards_requisition)
         self.assertTrue(variants.lotto_rewards)
+
+    def test_saboteur_is_a_valid_zero_value_card(self) -> None:
+        self.engine.lib.kc_card_valid.argtypes = [KCCard]
+        self.engine.lib.kc_card_valid.restype = ctypes.c_bool
+        self.engine.lib.kc_work_value.argtypes = [ctypes.c_void_p, KCCard]
+        self.engine.lib.kc_work_value.restype = ctypes.c_int32
+        saboteur = KCCard(4, 0)
+        pointer = self.engine.new_engine(20260721, controllers=self.controllers)
+        try:
+            self.assertTrue(self.engine.lib.kc_card_valid(saboteur))
+            self.assertEqual(self.engine.lib.kc_work_value(pointer, saboteur), 0)
+            state = self.engine.snapshot(pointer)
+            state.players[0].plot_revealed.count = 1
+            state.players[0].plot_revealed.cards[0] = saboteur
+            state.players[0].plot_hidden.count = 0
+            state.players[0].stack_count = 0
+            state.players[0].medals = 0
+            state.players[0].plot_medals = 0
+            self.assertEqual(self.engine.lib.kc_visible_score(pointer, 0), 0)
+        finally:
+            self.engine.free_engine(pointer)
 
     def test_lotto_builds_seeded_reward_piles_and_removes_rewards_from_hands(self) -> None:
         first = self.engine.new_engine(20260718, controllers=self.controllers)
@@ -34,19 +55,15 @@ class VariantEngineTests(unittest.TestCase):
             first_state = self.engine.snapshot(first)
             second_state = self.engine.snapshot(second)
             for suit in range(4):
+                self.assertFalse(first_state.has_revealed_job[suit])
+                self.assertFalse(second_state.has_revealed_job[suit])
                 first_rewards = [
-                    int(first_state.revealed_jobs[suit].value),
-                    *[
-                        int(first_state.job_piles[suit].cards[index].value)
-                        for index in range(int(first_state.job_piles[suit].count))
-                    ],
+                    int(first_state.job_piles[suit].cards[index].value)
+                    for index in range(int(first_state.job_piles[suit].count))
                 ]
                 second_rewards = [
-                    int(second_state.revealed_jobs[suit].value),
-                    *[
-                        int(second_state.job_piles[suit].cards[index].value)
-                        for index in range(int(second_state.job_piles[suit].count))
-                    ],
+                    int(second_state.job_piles[suit].cards[index].value)
+                    for index in range(int(second_state.job_piles[suit].count))
                 ]
                 self.assertEqual(sorted(first_rewards[:]), sorted([1, 2, 3, 4, max(first_rewards)]))
                 self.assertEqual(sum(value >= 5 for value in first_rewards), 1)
@@ -63,6 +80,45 @@ class VariantEngineTests(unittest.TestCase):
         finally:
             self.engine.free_engine(first)
             self.engine.free_engine(second)
+
+    def test_planning_consumes_reward_reveals_before_trump(self) -> None:
+        pointer = self.engine.new_engine(20260721, controllers=self.controllers)
+        try:
+            selector = int(self.engine.snapshot(pointer).current_player)
+            for suit in range(4):
+                legal = self.engine.legal_actions(pointer)
+                self.assertEqual(len(legal), 1)
+                self.assertEqual(int(legal[0].kind), 10)
+                self.assertEqual(int(legal[0].suit), suit)
+                self.engine.apply_action(pointer, legal[0])
+                self.assertTrue(self.engine.snapshot(pointer).has_revealed_job[suit])
+            legal = self.engine.legal_actions(pointer)
+            self.assertEqual([int(candidate.kind) for candidate in legal], [1, 1, 1, 1])
+            self.assertTrue(all(int(candidate.player_id) == selector for candidate in legal))
+        finally:
+            self.engine.free_engine(pointer)
+
+    def test_final_year_trump_is_a_consumable_reveal(self) -> None:
+        pointer = self.engine.new_engine(20260721, controllers=self.controllers)
+        try:
+            state = self.engine.snapshot(pointer)
+            state.year = 5
+            state.is_famine = True
+            for suit in range(4):
+                state.has_revealed_job[suit] = True
+            state.pending_final_year_trump_card = KCCard(4, 0)
+            state.final_year_trump_card = NO_CARD
+            legal = self.engine.legal_actions(pointer)
+            self.assertEqual(len(legal), 1)
+            self.assertEqual(int(legal[0].kind), 11)
+            self.engine.apply_action(pointer, legal[0])
+            revealed = self.engine.snapshot(pointer)
+            self.assertEqual(int(revealed.final_year_trump_card.suit), 4)
+            self.assertEqual(int(revealed.final_year_trump_card.value), 0)
+            self.assertEqual(int(revealed.trump), -1)
+            self.assertEqual(int(revealed.pending_final_year_trump_card.suit), -1)
+        finally:
+            self.engine.free_engine(pointer)
 
     def test_pass_waits_for_every_player_then_moves_left_in_year_two(self) -> None:
         pointer = self.engine.new_engine(44, controllers=self.controllers)
@@ -169,7 +225,11 @@ class VariantEngineTests(unittest.TestCase):
                     self.engine.free_engine(pointer)
 
     def test_passing_does_not_run_in_year_one(self) -> None:
-        pointer = self.engine.new_engine(52, controllers=self.controllers)
+        variants = self.engine.kolkhoz_variants()
+        variants.pass_cards = True
+        pointer = self.engine.new_engine(
+            52, variants=variants, controllers=self.controllers
+        )
         try:
             state = self.engine.snapshot(pointer)
             selector = int(state.trump_selector)
@@ -188,7 +248,7 @@ class VariantEngineTests(unittest.TestCase):
         try:
             for _ in range(1000):
                 state = self.engine.snapshot(pointer)
-                if int(state.year) == 5 and int(state.phase) == 6:
+                if int(state.year) == 5 and int(state.phase) == 1:
                     break
                 actions = self.engine.legal_actions(pointer)
                 if actions:
@@ -207,7 +267,7 @@ class VariantEngineTests(unittest.TestCase):
                 else:
                     self.assertGreater(self.engine.step_automatic(pointer), 0)
             final_year = self.engine.snapshot(pointer)
-            self.assertEqual((int(final_year.year), int(final_year.phase)), (5, 6))
+            self.assertEqual((int(final_year.year), int(final_year.phase)), (5, 1))
             self.assertEqual(
                 [int(final_year.players[player].hand.count) for player in range(4)],
                 [4, 4, 4, 4],
@@ -215,7 +275,7 @@ class VariantEngineTests(unittest.TestCase):
             revealed = final_year.final_year_trump_card
             self.assertTrue(
                 (0 <= int(revealed.suit) < 4 and int(revealed.value) > 0)
-                or (int(revealed.suit), int(revealed.value)) == (4, 14)
+                or (int(revealed.suit), int(revealed.value)) == (4, 0)
             )
             north = final_year.exiled[5]
             self.assertTrue(

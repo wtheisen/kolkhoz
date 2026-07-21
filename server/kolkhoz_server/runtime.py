@@ -59,6 +59,7 @@ class _Shard:
         self.metrics = metrics
         self.session_leases: dict[str, SessionLease] = {}
         self.engines: dict[str, GameEngine] = {}
+        self.finished_states: dict[str, GameUpdate] = {}
         self.automatic_states: dict[str, AutomaticState] = {}
         self.update_buffers: dict[str, ShardUpdateBuffer] = {}
         self.mailbox: queue.Queue[_Envelope | None] = queue.Queue(maxsize=4096)
@@ -79,6 +80,7 @@ class _Shard:
                 envelope.result.set_exception(error)
 
     def load(self, session_id: str) -> GameEngine:
+        self.finished_states.pop(session_id, None)
         engine = self.engines.get(session_id)
         record = self.store.game(session_id)
         desired = self._automatic_state(session_id, record.variants, record.revision)
@@ -151,6 +153,23 @@ class _Shard:
             engine.close()
         self.automatic_states.pop(session_id, None)
         self.update_buffers.pop(session_id, None)
+        self.finished_states.pop(session_id, None)
+
+    def archive_if_finished(
+        self, session_id: str, engine: GameEngine, revision: int
+    ) -> GameUpdate | None:
+        state = engine.view()
+        if int(state.get("phase", -1)) != 5:
+            return None
+        update = GameUpdate(session_id, revision, state)
+        self.finished_states[session_id] = update
+        engine.close()
+        self.engines.pop(session_id, None)
+        self.automatic_states.pop(session_id, None)
+        return update
+
+    def finished_state(self, session_id: str) -> GameUpdate | None:
+        return self.finished_states.get(session_id)
 
     @staticmethod
     def _automatic_state(
@@ -169,6 +188,7 @@ class _Shard:
         for engine in self.engines.values():
             engine.close()
         self.engines.clear()
+        self.finished_states.clear()
         self.automatic_states.clear()
         self.update_buffers.clear()
         if self.leases is not None:
@@ -233,6 +253,9 @@ class GameRuntime:
         policy_sha = advancer.models.sha256() if advancer is not None else None
         return {
             "activeSessions": sum(len(shard.engines) for shard in self._shards),
+            "finishedSnapshots": sum(
+                len(shard.finished_states) for shard in self._shards
+            ),
             "shards": len(self._shards),
             "shardQueues": [shard.mailbox.qsize() for shard in self._shards],
             "shardQueueCapacity": self._shards[0].mailbox.maxsize,
@@ -287,6 +310,12 @@ class GameRuntime:
         variants = dict(variants or {})
 
         def create(shard: _Shard, unused: GameEngine | None) -> GameUpdate:
+            finished = shard.finished_state(session_id)
+            if finished is not None:
+                existing = shard.store.game(session_id)
+                if existing.seed != seed or existing.variants != variants:
+                    raise ValueError("session already exists with different settings")
+                return finished
             if unused is not None:
                 existing = shard.store.game(session_id)
                 if existing.seed != seed or existing.variants != variants:
@@ -329,9 +358,14 @@ class GameRuntime:
 
     def state(self, session_id: str, viewer_id: int | None = None) -> GameUpdate:
         def read(shard: _Shard, engine: GameEngine | None) -> GameUpdate:
+            finished = shard.finished_state(session_id)
+            if finished is not None:
+                return finished
             engine = engine or shard.load(session_id)
             revision = shard.store.game(session_id).revision
-            return GameUpdate(session_id, revision, engine.view(viewer_id))
+            update = GameUpdate(session_id, revision, engine.view(viewer_id))
+            archived = shard.archive_if_finished(session_id, engine, revision)
+            return update if archived is None else archived
 
         return self._execute(session_id, read)  # type: ignore[return-value]
 
@@ -394,37 +428,34 @@ class GameRuntime:
                 shard.automatic_states.pop(session_id, None)
                 raise
             states_by_viewer = {
-                player_id: engine.view(player_id)
-                for player_id in range(PLAYER_COUNT)
+                player_id: engine.view(player_id) for player_id in range(PLAYER_COUNT)
             }
             shard.hub.publish(event, states_by_viewer)
             automatic = shard.automatic_states.get(session_id)
             if automatic is not None:
                 automatic.action_count = event.revision
-            return GameUpdate(session_id, event.revision, engine.view(viewer_id), event)
+            update = GameUpdate(
+                session_id, event.revision, engine.view(viewer_id), event
+            )
+            shard.archive_if_finished(session_id, engine, event.revision)
+            return update
 
         return self._execute(session_id, submit)  # type: ignore[return-value]
 
     def advance_automatic(self, session_id: str, *, now: float | None = None) -> int:
         def advance(shard: _Shard, engine: GameEngine | None) -> int:
+            if shard.finished_state(session_id) is not None:
+                return 0
             engine = engine or shard.load(session_id)
             if shard.advancer is None:
                 return 0
             state = shard.automatic_states[session_id]
-            waiting_player = engine.waiting_player()  # type: ignore[attr-defined]
-            if (
-                0 <= waiting_player < len(state.controllers)
-                and state.effective_controller(waiting_player) == HUMAN
-            ):
+            if not shard.advancer.needs_action(engine, state):  # type: ignore[arg-type]
                 return 0
             fencing_token = shard.ensure_lease(session_id)
             engine = shard.engines.get(session_id) or shard.load(session_id)
             state = shard.automatic_states[session_id]
-            waiting_player = engine.waiting_player()  # type: ignore[attr-defined]
-            if (
-                0 <= waiting_player < len(state.controllers)
-                and state.effective_controller(waiting_player) == HUMAN
-            ):
+            if not shard.advancer.needs_action(engine, state):  # type: ignore[arg-type]
                 return 0
 
             def record(action: JsonObject, source: str) -> None:
@@ -444,12 +475,14 @@ class GameRuntime:
                 shard.hub.publish(event, states_by_viewer)
 
             try:
-                return shard.advancer.advance(
+                applied = shard.advancer.advance(
                     engine,  # type: ignore[arg-type]
                     state,
                     now=time.time() if now is None else now,
                     record=record,
                 )
+                shard.archive_if_finished(session_id, engine, state.action_count)
+                return applied
             except Exception:
                 engine.close()
                 shard.engines.pop(session_id, None)
@@ -590,6 +623,7 @@ class GameRuntime:
                 shard.engines.pop(session_id, None)
                 shard.automatic_states.pop(session_id, None)
                 shard.update_buffers.pop(session_id, None)
+            shard.finished_states.pop(session_id, None)
             shard.store.delete_game(
                 session_id,
                 command_id=command_id,
@@ -610,6 +644,7 @@ class GameRuntime:
             shard.engines.pop(session_id, None)
             shard.automatic_states.pop(session_id, None)
             shard.update_buffers.pop(session_id, None)
+            shard.finished_states.pop(session_id, None)
             lease = shard.session_leases.pop(session_id, None)
             if lease is not None and shard.leases is not None:
                 shard.leases.release(lease)

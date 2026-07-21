@@ -365,9 +365,9 @@ void registerTutorialAndLayoutTests() {
       nomenclature: true,
     );
     final wrecker = testCard(
-      id: 'wrecker-14',
+      id: 'wrecker-0',
       suit: wreckerSuit,
-      value: 14,
+      value: 0,
       rank: 'S',
     );
     final seat = testSeat(id: 0, name: 'You');
@@ -386,7 +386,7 @@ void registerTutorialAndLayoutTests() {
     );
     expect(genericFaceAssetPath(queen), 'assets/ui/Cards/face-queen.png');
     expect(faceRankName(wrecker), 'saboteur');
-    expect(cardRankDisplayLabel(wrecker), 'S 14');
+    expect(cardRankDisplayLabel(wrecker), 'S 0');
     expect(faceArtWidth(defaultDesignTokens.card.large), 31.5);
     expect(facePortraitArtWidth(jack, defaultDesignTokens.card.large), 63);
     expect(

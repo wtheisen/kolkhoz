@@ -89,7 +89,7 @@ List<Offset> pipPositions(int value) {
 }
 
 String faceAssetPath(TableCard card) {
-  if (card.suit == wreckerSuit || card.value == 14) {
+  if (card.suit == wreckerSuit) {
     return 'assets/ui/Cards/face-wrecker.png';
   }
   final rank = faceRankName(card);
@@ -127,7 +127,7 @@ String suitAssetPath(String suit, {bool mip = false}) {
 }
 
 String genericFaceAssetPath(TableCard card) {
-  if (card.suit == wreckerSuit || card.value == 14) {
+  if (card.suit == wreckerSuit) {
     return 'assets/ui/Cards/face-wrecker.png';
   }
   final rank = faceRankName(card);
@@ -135,11 +135,13 @@ String genericFaceAssetPath(TableCard card) {
 }
 
 String faceRankName(TableCard card) {
+  if (card.suit == wreckerSuit) {
+    return 'saboteur';
+  }
   return switch (card.value) {
     11 => 'jack',
     12 => 'queen',
     13 => 'king',
-    14 => 'saboteur',
     _ => 'king',
   };
 }

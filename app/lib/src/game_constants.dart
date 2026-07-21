@@ -48,5 +48,7 @@ const actionSubmitAssignments = 'submitAssignments';
 const actionContinueAfterRequisition = 'continueAfterRequisition';
 const actionUndoSwap = 'undoSwap';
 const actionPassCard = 'passCard';
+const actionRevealReward = 'revealReward';
+const actionRevealTrump = 'revealTrump';
 const actionRequisitionEvent = 'requisitionEvent';
 const actionUnknown = 'unknown';

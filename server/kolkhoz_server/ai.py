@@ -16,6 +16,7 @@ POLICY_CONTROLLERS = frozenset(("mediumAI", "neuralAI"))
 AUTOMATIC_BATCH_LIMIT = 4
 BOT_ACTION_DELAY_MIN_SECONDS = 1.5
 BOT_ACTION_DELAY_MAX_SECONDS = 8.0
+CENTRAL_PLANNER_ACTIONS = frozenset((10, 11))
 
 Model = TypeVar("Model")
 
@@ -157,6 +158,17 @@ class AutomaticAdvancer(Generic[Model]):
     def __init__(self, models: ModelCache[Model]) -> None:
         self.models = models
 
+    def needs_action(
+        self, engine: AutomaticEngine[Model], state: AutomaticState
+    ) -> bool:
+        if self._central_planner_action(engine) is not None:
+            return True
+        player_id = engine.waiting_player()
+        return (
+            0 <= player_id < len(state.controllers)
+            and state.effective_controller(player_id) != HUMAN
+        )
+
     def advance(
         self,
         engine: AutomaticEngine[Model],
@@ -167,6 +179,13 @@ class AutomaticAdvancer(Generic[Model]):
     ) -> int:
         applied = 0
         for _ in range(AUTOMATIC_BATCH_LIMIT):
+            central_planner_action = self._central_planner_action(engine)
+            if central_planner_action is not None:
+                engine.apply_ai_action(central_planner_action)
+                record(central_planner_action, "automatic")
+                state.action_count += 1
+                applied += 1
+                continue
             player_id = engine.waiting_player()
             if player_id < 0 or player_id >= len(state.controllers):
                 return applied
@@ -202,6 +221,16 @@ class AutomaticAdvancer(Generic[Model]):
             state.action_count += 1
             applied += 1
         return applied
+
+    @staticmethod
+    def _central_planner_action(
+        engine: AutomaticEngine[Model],
+    ) -> JsonObject | None:
+        actions = list(engine.legal_actions())
+        if len(actions) != 1:
+            return None
+        action = actions[0]
+        return action if action.get("kind") in CENTRAL_PLANNER_ACTIONS else None
 
     @staticmethod
     def _should_delay(state: AutomaticState, player_id: int) -> bool:

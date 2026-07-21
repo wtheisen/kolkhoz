@@ -7,6 +7,7 @@ class _VariantPanel extends StatefulWidget {
     required this.selectedPreset,
     required this.customVariants,
     required this.playerControllers,
+    required this.gameLobby,
     required this.demoMode,
     required this.variants,
     required this.displayName,
@@ -40,6 +41,7 @@ class _VariantPanel extends StatefulWidget {
   final KolkhozGamePreset selectedPreset;
   final KolkhozGameVariants customVariants;
   final List<KolkhozPlayerController> playerControllers;
+  final GameLobby? gameLobby;
   final bool demoMode;
   final KolkhozGameVariants variants;
   final String displayName;
@@ -604,6 +606,12 @@ class _VariantPanelState extends State<_VariantPanel> {
             tokens: widget.tokens,
             language: widget.language,
             update: update,
+            lobby:
+                widget.gameLobby ??
+                gameLobbyFromServerUpdate(
+                  update,
+                  viewerSeatID: update.viewerID,
+                ),
             inviteCode: widget.hostedInviteCode,
             onCopyInviteCode: widget.hostedInviteCode == null
                 ? null

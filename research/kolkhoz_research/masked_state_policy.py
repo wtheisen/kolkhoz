@@ -1898,7 +1898,7 @@ def _card_features(card: KCCard) -> list[float]:
         valid,
         *_one_hot(suit, CARD_SUIT_COUNT),
         float(value) / 14.0 if valid else 0.0,
-        1.0 if suit == 4 and value == 14 else 0.0,
+        1.0 if suit == 4 and value == 0 else 0.0,
     ]
 
 

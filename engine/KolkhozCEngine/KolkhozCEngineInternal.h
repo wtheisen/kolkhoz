@@ -5,7 +5,8 @@
 
 enum {
     KC_WORK_THRESHOLD = 40,
-    KC_WRECKER_VALUE = 14,
+    KC_WRECKER_VALUE = 0,
+    KC_POLICY_CARD_VALUE_SCALE = 14,
     KC_NO_SUIT = -1,
     KC_NO_PLAYER = -1,
     KC_ZONE_HIDDEN = 0,

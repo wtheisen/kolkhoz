@@ -163,6 +163,7 @@ class KCEngineSnapshot(ctypes.Structure):
         ("last_swap_new_plot_card", KCCard),
         ("pass_confirmed", ctypes.c_bool * PLAYER_COUNT),
         ("pass_cards", KCCard * PLAYER_COUNT),
+        ("pending_final_year_trump_card", KCCard),
         ("final_year_trump_card", KCCard),
         ("requisition_plan", KCRequisitionEvent * MAX_CARDS),
         ("requisition_plan_count", ctypes.c_int32),

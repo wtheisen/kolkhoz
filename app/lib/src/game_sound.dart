@@ -74,7 +74,7 @@ List<String> assignmentWorkAssetsForTransition({
     return const [];
   }
   final assets = <String>['audio/assignment_$targetSuit.wav'];
-  if (action.card?.suit == wreckerSuit || action.card?.value == 14) {
+  if (action.card?.suit == wreckerSuit) {
     assets.add('audio/assignment_saboteur.wav');
   }
   return assets;
@@ -94,7 +94,7 @@ String? faceCardVoiceAssetForTransition({
   if (action.kind != actionPlayCard || card == null) {
     return null;
   }
-  if (card.suit == wreckerSuit || card.value == 14) {
+  if (card.suit == wreckerSuit) {
     final variant = (next.table.year + action.playerID).isEven
         ? 'wrench'
         : 'any-crop';

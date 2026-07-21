@@ -593,7 +593,7 @@ String _phaseNameFromCode(int phase) => switch (phase) {
 };
 
 String _phaseForAction(String kind) => switch (kind) {
-  actionSetTrump => phasePlanning,
+  actionSetTrump || actionRevealReward || actionRevealTrump => phasePlanning,
   actionSwap || actionUndoSwap || actionConfirmSwap => phaseSwap,
   actionPassCard => phasePass,
   actionPlayCard => phaseTrick,
@@ -643,6 +643,12 @@ List<Widget> _actionWidgets(
       text('selected', 'выбрал'),
       _InlineSuitIcon(suit: action.suit, tokens: tokens),
       text('as trump.', 'козырем.'),
+    ],
+    actionRevealReward => [
+      text('revealed a job reward.', 'открыл награду за работу.'),
+    ],
+    actionRevealTrump => [
+      text('revealed the final-year trump.', 'открыл козырь последнего года.'),
     ],
     actionSwap =>
       action.handCard == null || action.plotCard == null

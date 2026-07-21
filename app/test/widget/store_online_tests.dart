@@ -1,6 +1,227 @@
 part of '../widget_test.dart';
 
 void registerStoreAndOnlineTests() {
+  testWidgets(
+    'game controller owns four players and routes Central Planner reveals',
+    (tester) async {
+      final unloadedPolicy = Completer<KolkhozNativePolicyModel>().future;
+      final store = GameController(
+        autosaveEnabled: false,
+        mediumPolicyLoader: unloadedPolicy,
+        neuralPolicyLoader: unloadedPolicy,
+      )..animationSpeed = GameAnimationSpeed.instant;
+      addTearDown(store.dispose);
+      expect(store.lifecycle, GameControllerLifecycle.lobby);
+      expect(store.model, isNull);
+      expect(store.lobby.seats, hasLength(4));
+      expect(store.lobby.players, orderedEquals(store.players));
+
+      store.addSpectator(const GameSpectator(id: 'viewer-1'));
+      expect(store.lobby.spectators.single.id, 'viewer-1');
+      store.removeSpectator('viewer-1');
+      expect(store.lobby.spectators, isEmpty);
+
+      store.configureLobby(
+        variants: KolkhozGameVariants.kolkhoz,
+        controllers: const [
+          KolkhozPlayerController.human,
+          KolkhozPlayerController.heuristicAI,
+          KolkhozPlayerController.mediumAI,
+          KolkhozPlayerController.neuralAI,
+        ],
+      );
+      store.startGame(persist: false);
+
+      expect(store.players, hasLength(4));
+      expect(store.players[0], isA<HumanPlayer>());
+      expect(store.players[1], isA<HeuristicAIPlayer>());
+      expect(store.players[2], isA<NeuralAIPlayer>());
+      expect(store.players[3], isA<NeuralAIPlayer>());
+      expect(
+        () => store.configureLobby(
+          variants: KolkhozGameVariants.demoKolkhoz,
+          controllers: store.controllers,
+        ),
+        throwsStateError,
+      );
+      await tester.pump(const Duration(milliseconds: 1));
+
+      expect(store.error, isNull);
+      expect(store.actionLog.single.kind, actionRevealReward);
+      expect(store.presentationRevision, isNotNull);
+      expect(store.lifecycle, GameControllerLifecycle.playing);
+
+      store.returnToLobby();
+      expect(store.lifecycle, GameControllerLifecycle.lobby);
+      expect(store.model, isNull);
+    },
+  );
+
+  testWidgets(
+    'finished game keeps a portable snapshot and releases its local engine',
+    (tester) async {
+      final store = GameController(autosaveEnabled: false)
+        ..animationSpeed = GameAnimationSpeed.instant;
+      addTearDown(store.dispose);
+      store.startGame(
+        persist: false,
+        variants: KolkhozGameVariants.demoKolkhoz,
+        controllers: const [
+          KolkhozPlayerController.human,
+          KolkhozPlayerController.heuristicAI,
+          KolkhozPlayerController.heuristicAI,
+          KolkhozPlayerController.heuristicAI,
+        ],
+      );
+
+      const priority = {
+        actionRevealReward: 0,
+        actionRevealTrump: 0,
+        actionSubmitAssignments: 1,
+        actionContinueAfterRequisition: 1,
+        actionConfirmSwap: 1,
+        actionSetTrump: 2,
+        actionPlayCard: 2,
+        actionAssign: 2,
+        actionSwap: 3,
+        actionUndoSwap: 4,
+      };
+      for (var guard = 0; guard < 1000; guard += 1) {
+        final revision = store.presentationRevision;
+        if (revision != null) {
+          store.acknowledgeRevisionPresented(revision);
+        }
+        if (store.lifecycle == GameControllerLifecycle.finished) {
+          break;
+        }
+        final actions = [...?store.model?.legalActions]
+          ..sort(
+            (left, right) =>
+                (priority[left.kind] ?? 9).compareTo(priority[right.kind] ?? 9),
+          );
+        if (actions.isNotEmpty) {
+          store.applyLegalAction(actions.first);
+        }
+        await tester.pump(const Duration(milliseconds: 1));
+      }
+
+      final finished = store.finishedGameLobby;
+      expect(store.lifecycle, GameControllerLifecycle.finished);
+      expect(store.hasActiveEngine, isFalse);
+      expect(finished, isNotNull);
+      expect(finished!.model.table.phase, phaseGameOver);
+      expect(finished.gameLogActions, isNotEmpty);
+      expect(
+        finished.gameState.toJson()['state'],
+        containsPair('phase', phaseGameOver),
+      );
+
+      final result = finished.result;
+      store.setActivePanel(panelLog);
+      expect(store.finishedGameLobby!.result, same(result));
+      expect(store.model!.panels.active, panelLog);
+      expect(store.hasActiveEngine, isFalse);
+    },
+  );
+
+  test(
+    'Start Online Game hands the controller draft to the server once',
+    () async {
+      final httpClient = FakeOnlineHttpClient();
+      final store = GameController(
+        autosaveEnabled: false,
+        onlineHttpClient: httpClient,
+        onlineWebSocketConnector: (_, _) async =>
+            throw const SocketException('realtime unavailable'),
+      );
+      addTearDown(store.dispose);
+      final draftVariants = KolkhozGameVariants.kolkhoz.copyWith(
+        maxYears: 3,
+        passCards: true,
+      );
+      const draftControllers = [
+        KolkhozPlayerController.human,
+        KolkhozPlayerController.human,
+        KolkhozPlayerController.heuristicAI,
+        KolkhozPlayerController.mediumAI,
+      ];
+
+      store.configureLobby(
+        variants: draftVariants,
+        controllers: draftControllers,
+      );
+
+      expect(httpClient.requests, isEmpty);
+
+      await store.startOnlineGame(
+        baseURL: Uri.parse('http://online.example'),
+        ranked: false,
+        browserJoinable: true,
+      );
+
+      final createRequest = httpClient.requests.singleWhere(
+        (request) => request.route == 'POST /sessions',
+      );
+      final body = jsonDecode(createRequest.body) as Map<String, dynamic>;
+      final variants = body['variants'] as Map<String, dynamic>;
+      expect(variants['maxYears'], 3);
+      expect(variants['passCards'], isTrue);
+      expect(body['controllers'], [
+        'human',
+        'human',
+        'heuristicAI',
+        'mediumAI',
+      ]);
+      expect(store.isOnlineGame, isTrue);
+      expect(store.players, everyElement(isA<ServerGamePlayer>()));
+      expect(store.players, everyElement(isNot(isA<LocalGamePlayer>())));
+      expect((store.players[0] as ServerGamePlayer).isViewer, isTrue);
+      expect((store.players[1] as ServerGamePlayer).isViewer, isFalse);
+      expect(store.lobby.seats.map((seat) => seat.ready), [
+        false,
+        false,
+        true,
+        true,
+      ]);
+
+      final requestsBeforeServerOnlyActions = httpClient.requests.length;
+      store.applyLegalAction(
+        const LegalAction(
+          kind: actionRevealReward,
+          label: 'Reveal reward',
+          engineAction: EngineAction(
+            kind: actionRevealReward,
+            playerID: 0,
+            suit: 'wheat',
+          ),
+        ),
+      );
+      store.applyLegalAction(
+        const LegalAction(
+          kind: actionPlayCard,
+          label: 'Remote play',
+          engineAction: EngineAction(
+            kind: actionPlayCard,
+            playerID: 1,
+            card: EngineCard(suit: 'wheat', value: 7),
+          ),
+        ),
+      );
+      expect(httpClient.requests, hasLength(requestsBeforeServerOnlyActions));
+      expect(
+        () => store.configureLobby(
+          variants: KolkhozGameVariants.littleKolkhoz,
+          controllers: KolkhozPlayerController.defaultControllers,
+        ),
+        throwsStateError,
+      );
+
+      store.returnToLobby();
+      expect(store.players, everyElement(isA<LocalGamePlayer>()));
+      expect(store.isOnlineGame, isFalse);
+    },
+  );
+
   test('store auto-selects the only legal trick card', () {
     const play = EngineAction(
       kind: actionPlayCard,
@@ -173,7 +394,7 @@ void registerStoreAndOnlineTests() {
     const saboteur = EngineAction(
       kind: actionAssign,
       playerID: 0,
-      card: EngineCard(suit: wreckerSuit, value: 14),
+      card: EngineCard(suit: wreckerSuit, value: 0),
       targetSuit: 'beet',
     );
     expect(
@@ -277,7 +498,7 @@ void registerStoreAndOnlineTests() {
       const saboteur = EngineAction(
         kind: actionPlayCard,
         playerID: 1,
-        card: EngineCard(suit: wreckerSuit, value: 14),
+        card: EngineCard(suit: wreckerSuit, value: 0),
       );
       expect(
         faceCardVoiceAssetForTransition(
@@ -307,6 +528,11 @@ void registerStoreAndOnlineTests() {
 
   test('kolkhoz default includes saboteur without a duplicate preset', () {
     expect(KolkhozGameVariants.kolkhoz.wreckerCard, isTrue);
+    expect(KolkhozGameVariants.kolkhoz.passCards, isFalse);
+    expect(
+      KolkhozGameVariants.kolkhoz.copyWith(passCards: true).passCards,
+      isTrue,
+    );
     final englishPresetLabels = KolkhozGamePreset.values
         .map((preset) => presetTitle(preset, KolkhozLanguage.en))
         .toList();
@@ -952,7 +1178,7 @@ void registerStoreAndOnlineTests() {
     }
     final result = bridge.applyPolicyAction(engine, action);
     expect(result, 0);
-  });
+  }, tags: 'neural-policy');
 
   test('policy model accepts flexible hidden layer sizes', () {
     final policy = KolkhozNativePolicyModel.fromJson({
@@ -1727,6 +1953,16 @@ void registerStoreAndOnlineTests() {
     expect(decoded.actions[2].targetSuit, 'potato');
   });
 
+  test('saved games migrate the legacy saboteur value to zero', () {
+    final action = engineActionFromJson({
+      'kind': actionPlayCard,
+      'playerID': 0,
+      'card': {'suit': wreckerSuit, 'value': 14},
+    });
+
+    expect(action.card?.id, 'wrecker-0');
+  });
+
   test('C engine clone preserves an undoable pre-action state', () {
     final bridge = KolkhozCEngineBridge();
     final engine = bridge.newEngine(
@@ -1954,7 +2190,7 @@ void registerStoreAndOnlineTests() {
   ) async {
     final store = LiveGameStore(autosaveEnabled: false)
       ..animationSpeed = GameAnimationSpeed.normal;
-    store.newGame(
+    store.startGame(
       persist: false,
       controllers: const [
         KolkhozPlayerController.human,
@@ -2242,13 +2478,6 @@ void registerStoreAndOnlineTests() {
     expect(jsonDecode(httpClient.requests.last.body)['actionLogCount'], 0);
   });
 
-  test('online realtime refreshes keep the newest pending revision', () {
-    expect(newestOnlineRevision(1, 3), 3);
-    expect(newestOnlineRevision(5, 3), 5);
-    expect(newestOnlineRevision(null, 3), isNull);
-    expect(newestOnlineRevision(5, null), isNull);
-  });
-
   test('realtime snapshots wait for the active presentation', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => server.close(force: true));
@@ -2299,10 +2528,8 @@ void registerStoreAndOnlineTests() {
     );
     addTearDown(store.dispose);
 
-    await store.hostOnlineGame(
+    await store.startOnlineGame(
       baseURL: Uri.parse('http://online.example'),
-      variants: KolkhozGameVariants.kolkhoz,
-      controllers: KolkhozPlayerController.defaultControllers,
       ranked: false,
       browserJoinable: false,
     );
@@ -2365,10 +2592,8 @@ void registerStoreAndOnlineTests() {
       );
       addTearDown(store.dispose);
 
-      await store.hostOnlineGame(
+      await store.startOnlineGame(
         baseURL: Uri.parse('http://online.example'),
-        variants: KolkhozGameVariants.kolkhoz,
-        controllers: KolkhozPlayerController.defaultControllers,
         ranked: false,
         browserJoinable: false,
       );
@@ -2393,10 +2618,8 @@ void registerStoreAndOnlineTests() {
     );
     addTearDown(store.dispose);
 
-    await store.hostOnlineGame(
+    await store.startOnlineGame(
       baseURL: Uri.parse('http://online.example'),
-      variants: KolkhozGameVariants.kolkhoz,
-      controllers: KolkhozPlayerController.defaultControllers,
       ranked: false,
       browserJoinable: false,
     );

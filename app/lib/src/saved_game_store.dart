@@ -223,5 +223,10 @@ EngineCard? optionalEngineCardFromJson(Object? value) {
     return null;
   }
   final json = jsonObject(value);
-  return EngineCard(suit: json['suit'] as String, value: json['value'] as int);
+  final suit = json['suit'] as String;
+  final cardValue = json['value'] as int;
+  return EngineCard(
+    suit: suit,
+    value: suit == 'wrecker' && cardValue == 14 ? 0 : cardValue,
+  );
 }

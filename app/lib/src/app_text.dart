@@ -450,8 +450,8 @@ const Map<KolkhozText, ({String en, String ru})> kolkhozText = {
   ),
   KolkhozText.variantWreckerTitle: (en: 'Enemy of the People', ru: 'ВРЕДИТЕЛЬ'),
   KolkhozText.variantWreckerDescription: (
-    en: 'Add a 14-value all-suit face card that wrecks its job at requisition.',
-    ru: 'Добавляет фигуру со значением 14: она считается всеми мастями и проваливает свою работу при реквизиции.',
+    en: 'Add a 0-value all-suit joker that wrecks its job at requisition.',
+    ru: 'Добавляет джокера со значением 0: он считается всеми мастями и проваливает свою работу при реквизиции.',
   ),
   KolkhozText.variantFinalYearTrumpTitle: (
     en: 'Final Year Trump',
@@ -1193,24 +1193,24 @@ const Map<KolkhozText, ({String en, String ru})> kolkhozText = {
     ru: 'Ежегодный обмен',
   ),
   KolkhozText.tutorialStep10Body: (
-    en: 'From year two, everyone first passes one hand card simultaneously — left in even years, right in odd years. Then you may trade one hand card for one cellar card.',
-    ru: 'Со второго года все одновременно передают по карте с руки: влево в чётные годы, вправо в нечётные. Затем можно обменять карту руки на карту подвала.',
+    en: 'From year two, you may trade one hand card for one cellar card before the trick begins.',
+    ru: 'Со второго года перед началом взятки можно обменять одну карту с руки на одну карту подвала.',
   ),
   KolkhozText.tutorialStep10Tip: (
     en: 'Bury high cards while they are safe; pull out crops that look doomed.',
     ru: 'Прячьте старшие карты, пока безопасно; вытаскивайте обречённые культуры.',
   ),
   KolkhozText.tutorialStep10Callout: (
-    en: 'Choose a card to pass, then consider your swap.',
-    ru: 'Выберите карту для передачи, затем решите вопрос с обменом.',
+    en: 'Consider your swap before the trick begins.',
+    ru: 'Решите вопрос с обменом до начала взятки.',
   ),
   KolkhozText.tutorialStep11Title: (
     en: 'Beware the Wrecker',
     ru: 'Берегитесь Вредителя',
   ),
   KolkhozText.tutorialStep11Body: (
-    en: 'One joker hides among the workers: he follows any suit and brings 14 hours — but any job holding him fails inspection anyway.',
-    ru: 'Среди рабочих прячется джокер: ходит под любую масть, даёт 14 часов — но работа с ним всё равно проваливает проверку.',
+    en: 'One joker hides among the workers: he follows any suit and brings 0 hours — and any job holding him fails inspection.',
+    ru: 'Среди рабочих прячется джокер: ходит под любую масть, даёт 0 часов — и работа с ним проваливает проверку.',
   ),
   KolkhozText.tutorialStep11Tip: (
     en: 'Win him boldly, bury him bitterly — or make him someone else\'s problem.',

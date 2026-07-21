@@ -69,7 +69,7 @@ String rankName(int value) {
     11 => 'J',
     12 => 'Q',
     13 => 'K',
-    14 => 'S',
+    0 => 'S',
     _ => '$value',
   };
 }
@@ -120,6 +120,8 @@ String actionKindName(int kind) {
     kcActionContinueAfterRequisition => actionContinueAfterRequisition,
     kcActionUndoSwap => actionUndoSwap,
     kcActionPassCard => actionPassCard,
+    kcActionRevealReward => actionRevealReward,
+    kcActionRevealTrump => actionRevealTrump,
     _ => actionUnknown,
   };
 }
@@ -135,6 +137,8 @@ int? actionKindCode(String kind) {
     actionContinueAfterRequisition => kcActionContinueAfterRequisition,
     actionUndoSwap => kcActionUndoSwap,
     actionPassCard => kcActionPassCard,
+    actionRevealReward => kcActionRevealReward,
+    actionRevealTrump => kcActionRevealTrump,
     _ => null,
   };
 }
@@ -150,6 +154,8 @@ String actionLabel(int kind) {
     kcActionContinueAfterRequisition => 'Continue',
     kcActionUndoSwap => 'Undo',
     kcActionPassCard => 'Pass',
+    kcActionRevealReward => 'Reveal reward',
+    kcActionRevealTrump => 'Reveal trump',
     _ => 'Action',
   };
 }

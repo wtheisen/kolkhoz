@@ -1,18 +1,16 @@
 from __future__ import annotations
 
-import tempfile
 import threading
 import time
 import unittest
-from contextlib import closing, contextmanager
-from pathlib import Path
+from contextlib import contextmanager
 
 from server.kolkhoz_server.lobby import (
-    PostgresLobbyRepository,
     SeatRecord,
     SeatUnavailable,
-    SQLiteLobbyRepository,
 )
+from server.kolkhoz_server.lobby_postgres import PostgresLobbyRepository
+from server.tests.in_memory_lobby import InMemoryLobbyRepository
 
 
 class FakeResult:
@@ -52,13 +50,7 @@ class FakePool:
 
 class LobbyRepositoryTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.temporary = tempfile.TemporaryDirectory()
-        self.repository = SQLiteLobbyRepository(
-            Path(self.temporary.name) / "lobby.sqlite3"
-        )
-
-    def tearDown(self) -> None:
-        self.temporary.cleanup()
+        self.repository = InMemoryLobbyRepository()
 
     def make_session(self):
         record = self.repository.new_session(
@@ -236,15 +228,10 @@ class LobbyRepositoryTests(unittest.TestCase):
         self,
     ) -> None:
         record = self.make_session()
-        with self.repository._connect() as connection:
-            connection.execute(
-                """update server_seats
-                      set controller = 'heuristicAI', occupied = 1,
-                          user_id = 'bot-1'
-                    where session_id = ? and player_id = 1""",
-                (record.session_id,),
-            )
-            connection.commit()
+        self.repository._replace_seat(
+            record.session_id,
+            SeatRecord(1, "heuristicAI", True, "bot-1", None, 200, 0, False, False),
+        )
         self.repository.mark_presence("human-1", now=200)
         self.repository.mark_presence("bot-1", now=200)
 
@@ -322,7 +309,7 @@ class LobbyRepositoryTests(unittest.TestCase):
             self.repository.session(record.session_id)
         self.assertEqual(self.repository.seats(record.session_id), [])
 
-    def test_kick_rolls_back_seat_release_when_metadata_update_fails(self) -> None:
+    def test_host_can_kick_an_occupied_guest(self) -> None:
         record = self.make_session()
         self.repository.occupy_seat(
             record.session_id,
@@ -338,22 +325,11 @@ class LobbyRepositoryTests(unittest.TestCase):
             token_hash="guest-token",
             now=100,
         )
-        with closing(self.repository._connect()) as connection, connection:
-            connection.execute(
-                """
-                create trigger fail_lifecycle_update before update on server_sessions
-                begin select raise(abort, 'injected failure'); end
-                """
-            )
-
-        with self.assertRaisesRegex(Exception, "injected failure"):
-            self.repository.kick_seat(
-                record.session_id, 1, host_user_id="host", now=101
-            )
+        self.repository.kick_seat(record.session_id, 1, host_user_id="host", now=101)
 
         guest = self.repository.seats(record.session_id)[1]
-        self.assertTrue(guest.occupied)
-        self.assertEqual(guest.user_id, "guest")
+        self.assertFalse(guest.occupied)
+        self.assertIsNone(guest.user_id)
 
 
 class PostgresLobbyRepositoryTests(unittest.TestCase):

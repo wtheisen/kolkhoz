@@ -40,7 +40,7 @@ def test_bootstrap_requires_explicit_apply_for_mutations() -> None:
     assert '. "$env_file"' not in source
     assert source.index('psql "$database_url"') < source.index("unset database_url")
     assert source.index("identity_schema.sql") < source.index(
-        'retire_legacy_supabase.sql'
+        "retire_legacy_supabase.sql"
     )
     assert "redis_was_installed" in source
     assert "for _ in $(seq 1 30)" in source

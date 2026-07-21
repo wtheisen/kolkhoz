@@ -2056,7 +2056,7 @@ void registerBoardTests() {
             claimed: false,
             reward: testCard(id: 'wheat-1', suit: 'wheat', value: 1),
             assignedCards: [
-              testCard(id: 'wrecker-14', suit: wreckerSuit, value: 14),
+              testCard(id: 'wrecker-0', suit: wreckerSuit, value: 0),
             ],
             validAssignmentTarget: false,
             highlighted: false,

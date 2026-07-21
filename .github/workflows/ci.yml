@@ -100,8 +100,15 @@ jobs:
       - name: Test portable Flutter suites
         run: >-
           flutter test
+          --exclude-tags neural-policy
           test/parity_gate_test.dart
           test/widget_test.dart
           test/progression_test.dart
           test/online_action_retry_test.dart
+      - name: Test bundled neural policy in isolation
+        run: >-
+          flutter test
+          --concurrency=1
+          --tags neural-policy
+          test/widget_test.dart
       - run: flutter build macos --debug

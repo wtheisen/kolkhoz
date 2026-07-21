@@ -75,6 +75,26 @@ class FakeEngineFactory:
         return FakeEngine(seed, self.delay, self.tracker)
 
 
+class TerminalFakeEngine(FakeEngine):
+    def view(self, viewer_id: int | None = None) -> dict[str, object]:
+        return {
+            "value": self.value,
+            "viewerID": viewer_id,
+            "phase": 5 if self.value >= 10 else 2,
+        }
+
+
+class TerminalFakeFactory(FakeEngineFactory):
+    def __init__(self) -> None:
+        super().__init__()
+        self.created: list[TerminalFakeEngine] = []
+
+    def create(self, seed: int, variants: dict[str, object]) -> TerminalFakeEngine:
+        engine = TerminalFakeEngine(seed, self.delay, self.tracker)
+        self.created.append(engine)
+        return engine
+
+
 class AutomaticFakeEngine(FakeEngine):
     def __init__(
         self, seed: int, controllers: list[str], tracker: EngineTracker
@@ -199,6 +219,39 @@ class RuntimeTests(unittest.TestCase):
 
         self.assertEqual(state.revision, 1)
         self.assertEqual(state.state["value"], 4)
+
+    def test_finished_state_closes_engine_and_survives_replay(self) -> None:
+        factory = TerminalFakeFactory()
+        runtime = self.runtime(factory=factory, shards=1)
+        runtime.create_game(seed=9, session_id="finished")
+        committed = runtime.submit_action(
+            "finished",
+            expected_revision=0,
+            action={"playerID": -1, "delta": 1},
+            viewer_id=2,
+        )
+
+        self.assertEqual(committed.state["phase"], 5)
+        self.assertTrue(factory.created[0].closed)
+        self.assertEqual(runtime.metrics_state()["activeSessions"], 0)
+        self.assertEqual(runtime.metrics_state()["finishedSnapshots"], 1)
+        self.assertIsNone(runtime.state("finished", 2).state["viewerID"])
+        self.assertEqual(runtime.advance_automatic("finished"), 0)
+        self.assertEqual(len(factory.created), 1)
+        runtime.close()
+
+        replacement_factory = TerminalFakeFactory()
+        replacement = self.runtime(factory=replacement_factory, shards=1)
+        try:
+            first = replacement.state("finished", 1)
+            second = replacement.state("finished", 3)
+        finally:
+            replacement.close()
+
+        self.assertEqual(first.state["phase"], 5)
+        self.assertIsNone(second.state["viewerID"])
+        self.assertEqual(len(replacement_factory.created), 1)
+        self.assertTrue(replacement_factory.created[0].closed)
 
     def test_different_shards_execute_concurrently(self) -> None:
         factory = FakeEngineFactory(delay=0.2)

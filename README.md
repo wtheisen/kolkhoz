@@ -86,15 +86,15 @@ Famine has no trump, so trump special-card effects do not apply in year 5.
 ## Saboteur Variant
 
 Default Kolkhoz includes the Saboteur card. In engine state it is the dedicated
-`wrecker-14` worker card, not a fifth crop suit or a job reward.
+`wrecker-0` worker card, not a fifth crop suit or a job reward.
 
 - It is shuffled into the worker deck when the `wrecker` variant flag is enabled.
 - It counts as matching every crop suit for follow-suit, trump checks, assignment target
   legality, plot reveal, and requisition.
 - If Saboteur is led to a trick, there is no ordinary lead suit; the highest played card
   wins unless trump is present.
-- Saboteur has value `14`, so it can win tricks and contributes 14 work hours when
-  assigned to a job.
+- Saboteur has value `0`, so it contributes no work hours or plot points and ranks below
+  ordinary cards within the winning suit.
 - A job bucket containing Saboteur can still claim its reward after reaching 40 hours, but
   it is treated as failed during requisition.
 - If Saboteur is in a player's plot, it can match any failed job for requisition, but the

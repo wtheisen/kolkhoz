@@ -716,6 +716,7 @@ class _VariantIconStrip extends StatelessWidget {
             label: rows[index].localizedTitle(language, variants),
             iconAsset: rows[index].iconAssetFor(variants),
             selected: index == selectedIndex,
+            enabled: rows[index].valueOf(variants),
             onPressed: () => onSelected(index),
           ),
       ],
@@ -729,6 +730,7 @@ class _VariantIconChip extends StatelessWidget {
     required this.label,
     required this.iconAsset,
     required this.selected,
+    this.enabled = false,
     required this.onPressed,
   });
 
@@ -736,6 +738,7 @@ class _VariantIconChip extends StatelessWidget {
   final String label;
   final String iconAsset;
   final bool selected;
+  final bool enabled;
   final VoidCallback onPressed;
 
   @override
@@ -758,9 +761,12 @@ class _VariantIconChip extends StatelessWidget {
                 children: [
                   Positioned.fill(
                     child: ChromeButtonBackground(
-                      asset: selected
-                          ? chromeButtonPrimaryAsset
-                          : chromeButtonSecondaryAsset,
+                      asset: switch ((selected, enabled)) {
+                        (true, true) => chromeButtonPrimaryCurrentAsset,
+                        (true, false) => chromeButtonPrimaryAsset,
+                        (false, true) => chromeButtonSecondaryCurrentAsset,
+                        (false, false) => chromeButtonSecondaryAsset,
+                      },
                     ),
                   ),
                   _VariantIcon(

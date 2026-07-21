@@ -19,7 +19,8 @@ import 'field_plan_typography.dart';
 import 'game_constants.dart';
 import 'game_sound.dart';
 import 'board_view.dart';
-import 'live_game_store.dart';
+import 'game_controller.dart';
+import 'game_lobby.dart';
 import 'json_shape.dart';
 import 'online_game_models.dart';
 import 'online_game_client.dart';
@@ -28,6 +29,7 @@ import 'push_notifications.dart';
 import 'printed_underlay.dart';
 import 'player_profile_panel.dart';
 import 'player_identity.dart';
+import 'player_server.dart';
 import 'progression/progression.dart';
 import 'progression/progression_notice.dart';
 import 'progression/progression_overview.dart';
@@ -217,7 +219,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
 
   final navigatorKey = GlobalKey<NavigatorState>();
   final gameSounds = GameSoundController();
-  late final LiveGameStore store;
+  late final GameController store;
   late final KolkhozCommerceController commerce;
   late final KolkhozAppSettingsStore settingsStore;
   Timer? cloudProfileSyncTimer;
@@ -313,7 +315,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
         lastStartedSetup.controllers,
       );
     }
-    store = LiveGameStore(
+    store = GameController(
       onlineAccessTokenProvider: identityAccessToken,
       onlineDeviceID: onlineDeviceID,
     );
@@ -322,6 +324,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
       clientFactory: onlineClient,
       onFullGameChanged: cacheFullGameEntitlement,
     );
+    syncPendingGameLobby();
     commerce.addListener(handleCommerceChanged);
     commerce.initialize();
     pushNotifications = KolkhozPushNotifications(
@@ -550,6 +553,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
               selectedPreset: selectedPreset,
               customVariants: customVariants,
               playerControllers: playerControllers,
+              gameLobby: store.lobby,
               demoMode: demoMode,
               animationSpeed: store.animationSpeed,
               confirmNewGame: settings.confirmNewGame,
@@ -606,11 +610,8 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
               onSyncActiveSession: syncActiveSession,
               onCancelOnlineGame: returnToLobby,
               onStart: () {
-                final controllers = activePlayerControllers;
-                store.newGame(
-                  variants: activeVariants,
-                  controllers: controllers,
-                );
+                syncPendingGameLobby();
+                store.startGame();
                 setState(() {
                   gameLaunchOrigin = KolkhozGameLaunchOrigin.created;
                   onlineSessionCreatedByLocalPlayer = false;
@@ -630,6 +631,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
                   }
                   destination = _AppDestination.offline;
                 });
+                syncPendingGameLobby();
               },
               onCustomVariantsChanged: (variants) {
                 if (demoMode) {
@@ -640,6 +642,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
                   customVariants = variants;
                   destination = _AppDestination.offline;
                 });
+                syncPendingGameLobby();
               },
               onPlayerControllersChanged: (controllers) {
                 if (demoMode) {
@@ -650,6 +653,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
                     controllers,
                   );
                 });
+                syncPendingGameLobby();
               },
               onAnimationSpeedChanged: store.setAnimationSpeed,
               onConfirmNewGameChanged: setConfirmNewGame,
@@ -1088,8 +1092,9 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
 
   Future<void> requestNewGameFromBoard() async {
     clearForemanHint();
-    if (store.model?.table.phase == phaseGameOver) {
-      if (store.isOnlineGame && store.onlineUpdate?.ranked == false) {
+    final finished = store.finishedGameLobby;
+    if (finished != null) {
+      if (finished.canRematch) {
         await store.rematchOnlineGame();
         setState(() {
           gameLaunchOrigin = KolkhozGameLaunchOrigin.created;
@@ -1113,7 +1118,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
         return;
       }
     }
-    store.newGame(
+    store.startGame(
       variants: store.currentVariants,
       controllers: store.controllers,
     );
@@ -1122,7 +1127,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
 
   Future<void> requestReturnToLobby() async {
     clearForemanHint();
-    final gameOver = store.model?.table.phase == phaseGameOver;
+    final gameOver = store.finishedGameLobby != null;
     if (!gameOver && settings.confirmMainMenu) {
       final confirmed = await confirmGameControl(
         title: settings.language.t(KolkhozText.kolkhozappMainMenu),
@@ -1153,7 +1158,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     clearForemanHint();
     store.clearActivePanel();
     if (showingLobby || store.model == null) {
-      store.newGame(
+      store.startGame(
         variants: activeVariants,
         controllers: activePlayerControllers,
       );
@@ -1170,16 +1175,16 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   }
 
   Future<void> copyGameResult() async {
-    final model = store.model;
-    if (model == null || model.table.phase != phaseGameOver) {
+    final finished = store.finishedGameLobby;
+    if (finished == null) {
       return;
     }
     await Clipboard.setData(
       ClipboardData(
         text: gameResultShareText(
-          model: model,
-          seed: store.currentSeed,
-          variants: store.currentVariants,
+          model: finished.model,
+          seed: finished.seed,
+          variants: finished.lobby.variants,
           language: settings.language,
         ),
       ),
@@ -1188,8 +1193,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   }
 
   Future<void> saveGameLog() async {
-    final model = store.model;
-    if (model == null || model.table.phase != phaseGameOver) {
+    if (store.finishedGameLobby == null) {
       return;
     }
     try {
@@ -1506,6 +1510,18 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
       playerControllers = controllers;
       destination = _AppDestination.offline;
     });
+    syncPendingGameLobby();
+  }
+
+  void syncPendingGameLobby() {
+    if (store.lifecycle != GameControllerLifecycle.lobby ||
+        store.isOnlineGame) {
+      return;
+    }
+    store.configureLobby(
+      variants: activeVariants,
+      controllers: activePlayerControllers,
+    );
   }
 
   void scheduleCloudProfileSync() {
@@ -1902,10 +1918,9 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
         ),
       );
     }
-    final sessionID = await store.hostOnlineGame(
+    store.configureLobby(variants: activeVariants, controllers: controllers);
+    final sessionID = await store.startOnlineGame(
       baseURL: baseURL,
-      variants: activeVariants,
-      controllers: controllers,
       ranked: ranked,
       browserJoinable: browserJoinable,
       bestOf: bestOf,

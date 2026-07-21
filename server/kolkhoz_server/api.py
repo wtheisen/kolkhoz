@@ -108,9 +108,9 @@ class OnlineApplication:
         self.session_ttl_seconds = session_ttl_seconds
         self.presence_ttl_seconds = presence_ttl_seconds
         self.lobby_countdown_seconds = max(0.0, lobby_countdown_seconds)
-        self._update_contexts: OrderedDict[
-            tuple[str, int | None], JsonObject
-        ] = OrderedDict()
+        self._update_contexts: OrderedDict[tuple[str, int | None], JsonObject] = (
+            OrderedDict()
+        )
         self._update_context_lock = threading.Lock()
 
     def dispatch(self, request: Request) -> Response:
@@ -1116,9 +1116,7 @@ class OnlineApplication:
             else (query.get("viewerID") or [params.get("playerID")])[0]
         )
         seats = self.lobby.seats(record.session_id)
-        self._authenticate(
-            record.session_id, viewer, request, user_id, seats=seats
-        )
+        self._authenticate(record.session_id, viewer, request, user_id, seats=seats)
         if operation == "sessions.state":
             return self._read_update(record.session_id, viewer)
         if operation == "sessions.actions.legal":
@@ -1419,7 +1417,10 @@ class OnlineApplication:
         turn_deadline_at: float | None,
     ) -> JsonObject | None:
         cached = self._update_context(record.session_id, viewer_id)
-        if cached is None or optional_int(cached.get("actionLogCount")) != expected_revision:
+        if (
+            cached is None
+            or optional_int(cached.get("actionLogCount")) != expected_revision
+        ):
             return None
         game_log = [
             value

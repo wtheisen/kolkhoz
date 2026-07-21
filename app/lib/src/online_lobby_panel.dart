@@ -6,6 +6,7 @@ class _OnlinePanel extends StatefulWidget {
     required this.language,
     required this.hostedInviteCode,
     required this.onlineSessionUpdate,
+    required this.gameLobby,
     required this.showHostedInviteCode,
     required this.onJoinOnline,
     required this.onWatchOnline,
@@ -24,6 +25,7 @@ class _OnlinePanel extends StatefulWidget {
   final KolkhozLanguage language;
   final String? hostedInviteCode;
   final OnlineSessionUpdate? onlineSessionUpdate;
+  final GameLobby? gameLobby;
   final bool showHostedInviteCode;
   final OnlineComradesResponse comradesSummary;
   final ValueChanged<OnlineComradesResponse>? onComradesChanged;
@@ -378,6 +380,12 @@ class _OnlinePanelState extends State<_OnlinePanel> {
         tokens: widget.tokens,
         language: widget.language,
         update: onlineUpdate,
+        lobby:
+            widget.gameLobby ??
+            gameLobbyFromServerUpdate(
+              onlineUpdate,
+              viewerSeatID: onlineUpdate.viewerID,
+            ),
         inviteCode: widget.showHostedInviteCode
             ? widget.hostedInviteCode
             : null,
@@ -654,6 +662,7 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
     required this.tokens,
     required this.language,
     required this.update,
+    required this.lobby,
     required this.inviteCode,
     required this.onCopyInviteCode,
     this.showHeaderCancel = true,
@@ -674,6 +683,7 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
   final DesignTokens tokens;
   final KolkhozLanguage language;
   final OnlineSessionUpdate update;
+  final GameLobby lobby;
   final String? inviteCode;
   final VoidCallback? onCopyInviteCode;
   final bool showHeaderCancel;
@@ -692,12 +702,6 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final profilesBySeat = <int, OnlinePlayerProfile>{
-      for (final profile in update.playerProfiles) profile.playerID: profile,
-    };
-    final presenceBySeat = <int, OnlineSeatPresence>{
-      for (final presence in update.seatPresence) presence.playerID: presence,
-    };
     final countdownSeconds = update.lobbyCountdownSeconds;
     final status = update.started
         ? language.t(KolkhozText.kolkhozappJoinGame)
@@ -707,7 +711,7 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
           })
         : language.t(KolkhozText.kolkhozappWaitingForPlayers);
     final subtitle =
-        '${update.playerProfiles.length}/${update.controllers.length} '
+        '${lobby.seats.where((seat) => seat.ready).length}/${lobby.seats.length} '
         '${language.t(KolkhozText.kolkhozappSeats)}';
 
     return Column(
@@ -806,7 +810,7 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
                 tokens: tokens,
                 label: language.t(KolkhozText.kolkhozappSeats),
                 value:
-                    '${update.playerProfiles.length}/${update.controllers.length}',
+                    '${lobby.seats.where((seat) => seat.ready).length}/${lobby.seats.length}',
               ),
               _OpenSessionDetailChip(
                 tokens: tokens,
@@ -826,22 +830,14 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    for (
-                      var index = 0;
-                      index < update.controllers.length;
-                      index += 1
-                    )
+                    for (final seat in lobby.seats)
                       SizedBox(
                         width: cardWidth,
                         child: _OnlineWaitingRoomSeatCard(
                           tokens: tokens,
                           language: language,
-                          playerID: index,
-                          controller: update.controllers[index],
-                          profile: profilesBySeat[index],
-                          presence: presenceBySeat[index],
+                          player: seat.player as ServerGamePlayer,
                           ranked: update.ranked,
-                          local: update.viewerID == index,
                           currentUserID: currentUserID,
                           comradeUserIDs: comradeUserIDs,
                           incomingComradeRequestUserIDs:
@@ -851,14 +847,15 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
                           onComradeRequestToUser: onComradeRequestToUser,
                           canKick:
                               canKickPlayers &&
-                              update.controllers[index] ==
+                              seat.player.controller ==
                                   KolkhozPlayerController.human &&
-                              profilesBySeat[index] != null &&
-                              update.viewerID != index &&
+                              (seat.player as ServerGamePlayer).profile !=
+                                  null &&
+                              !(seat.player as ServerGamePlayer).isViewer &&
                               onKickPlayer != null,
                           onKick: onKickPlayer == null
                               ? null
-                              : () => onKickPlayer!(index),
+                              : () => onKickPlayer!(seat.seatID),
                         ),
                       ),
                   ],
@@ -972,12 +969,8 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
   const _OnlineWaitingRoomSeatCard({
     required this.tokens,
     required this.language,
-    required this.playerID,
-    required this.controller,
-    required this.profile,
-    required this.presence,
+    required this.player,
     required this.ranked,
-    required this.local,
     required this.currentUserID,
     required this.comradeUserIDs,
     required this.incomingComradeRequestUserIDs,
@@ -989,12 +982,8 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
 
   final DesignTokens tokens;
   final KolkhozLanguage language;
-  final int playerID;
-  final KolkhozPlayerController controller;
-  final OnlinePlayerProfile? profile;
-  final OnlineSeatPresence? presence;
+  final ServerGamePlayer player;
   final bool ranked;
-  final bool local;
   final String? currentUserID;
   final Set<String> comradeUserIDs;
   final Set<String> incomingComradeRequestUserIDs;
@@ -1003,8 +992,15 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
   final bool canKick;
   final VoidCallback? onKick;
 
+  KolkhozPlayerController get controller => player.controller;
+  OnlinePlayerProfile? get profile => player.profile;
+
   @override
   Widget build(BuildContext context) {
+    final playerID = player.seatID;
+    final controller = player.controller;
+    final profile = player.profile;
+    final presence = player.presence;
     final open = controller == KolkhozPlayerController.human && profile == null;
     final name = _seatName(open);
     final portraitAsset = profile?.portraitAsset ?? 'worker${playerID + 1}';
@@ -1020,7 +1016,7 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
               context: context,
               tokens: tokens,
               language: language,
-              profile: profile!,
+              profile: profile,
               currentUserID: currentUserID,
               comradeUserIDs: comradeUserIDs,
               incomingComradeRequestUserIDs: incomingComradeRequestUserIDs,
@@ -1049,7 +1045,7 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
           : null,
       portraitSize: 48,
       minHeight: 92,
-      active: local,
+      active: player.isViewer,
       muted: open,
       action: canKick
           ? PlayerProfileAction(

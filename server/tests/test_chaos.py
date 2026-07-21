@@ -24,13 +24,10 @@ from server.kolkhoz_server.distributed import (
     SessionLease,
 )
 from server.kolkhoz_server.errors import ServerError
-from server.kolkhoz_server.lobby import (
-    SQLiteLobbyRepository,
-    SeatRecord,
-    SeatUnavailable,
-)
+from server.kolkhoz_server.lobby import SeatRecord, SeatUnavailable
 from server.kolkhoz_server.runtime import GameRuntime
 from server.kolkhoz_server.store import LeaseLost, RevisionConflict, SQLiteEventStore
+from server.tests.in_memory_lobby import InMemoryLobbyRepository
 
 
 class _Engine:
@@ -348,8 +345,8 @@ def test_redis_reconnect_resubscribes_and_fans_out_once_per_subscriber() -> None
         bus.close()
 
 
-def _lobby(path: Path) -> tuple[SQLiteLobbyRepository, str]:
-    repository = SQLiteLobbyRepository(path)
+def _lobby(path: Path) -> tuple[InMemoryLobbyRepository, str]:
+    repository = InMemoryLobbyRepository()
     record = repository.new_session(
         seed=1,
         variants={},

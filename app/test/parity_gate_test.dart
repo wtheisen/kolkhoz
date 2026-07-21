@@ -57,7 +57,7 @@ void main() {
           '''
 year=1 phase=planning current=2 trump=null viewer=0 privacy=none
 seats=0:human:hand=beet-8,potato-13,sunflower-7,sunflower-8,wheat-8:hidden=0:score=0|1:heuristicAI:hand=beet-10,potato-8,sunflower-11,sunflower-12,sunflower-9:hidden=5:score=0|2:heuristicAI:hand=beet-11,beet-6,beet-7,sunflower-6,wheat-11:hidden=5:score=0|3:heuristicAI:hand=beet-13,sunflower-10,wheat-10,wheat-13,wheat-9:hidden=5:score=0
-jobs=beet:beet-3:0:false|potato:potato-4:0:false|sunflower:sunflower-5:0:false|wheat:wheat-4:0:false
+jobs=beet:none:0:false|potato:none:0:false|sunflower:none:0:false|wheat:none:0:false
 actions=
 '''
               .trim(),
@@ -76,6 +76,14 @@ actions=
         expect(model.table.phase, phasePlanning);
         expect(model.table.currentPlayerID, 2);
         expect(model.table.trick.plays, isEmpty);
+
+        for (var suit = 0; suit < 4; suit++) {
+          final revealAction = bridge.heuristicAction(engine);
+          expect(revealAction, isNotNull);
+          expect(revealAction!.kind, kcActionRevealReward);
+          expect(revealAction.suit, suit);
+          expect(bridge.applyAIAction(engine, revealAction), 0);
+        }
 
         final trumpAction = bridge.heuristicAction(engine);
         expect(trumpAction, isNotNull);
@@ -160,7 +168,7 @@ actions=
     expect(foundPrefilledAssignment, isTrue);
   });
 
-  test('kolkhoz default deals a 14-value all-suit saboteur card', () {
+  test('kolkhoz default deals a 0-value all-suit saboteur card', () {
     final bridge = KolkhozCEngineBridge();
     for (var seed = 1; seed < 5000; seed += 1) {
       final engine = bridge.newEngine(
@@ -178,12 +186,12 @@ actions=
             model.table.trick.plays.isNotEmpty &&
             model.table.trick.plays.first.card.suit != wreckerSuit;
         final hasWrecker = viewerSeat.hand.any(
-          (card) => card.id == 'wrecker-14' && card.value == 14,
+          (card) => card.id == 'wrecker-0' && card.value == 0,
         );
         final canPlayWrecker = model.legalActions.any(
           (action) =>
               action.kind == actionPlayCard &&
-              action.engineAction.card?.id == 'wrecker-14',
+              action.engineAction.card?.id == 'wrecker-0',
         );
         if (normalLead && hasWrecker && canPlayWrecker) {
           expect(model.table.phase, phaseTrick);
@@ -207,6 +215,8 @@ actions=
       var appliedActions = 0;
 
       while (model.table.phase != phaseGameOver && appliedActions < 500) {
+        model = drainAutomaticPhases(bridge, engine, model);
+        if (model.table.phase == phaseGameOver) break;
         for (final job in model.table.jobs) {
           final reward = job.reward;
           if (reward != null) {
@@ -215,7 +225,7 @@ actions=
         }
         final wreckerJobs = model.table.jobs.where(
           (job) => job.assignedCards.any(
-            (card) => card.suit == wreckerSuit && card.value == 14,
+            (card) => card.suit == wreckerSuit && card.value == 0,
           ),
         );
         if (model.table.phase == phaseRequisition && wreckerJobs.isNotEmpty) {
@@ -252,33 +262,41 @@ actions=
   });
 
   test('saboteur plot card is exiled once during requisition', () {
-    withEngine(seed: 3, variants: KolkhozGameVariants.kolkhoz, (
-      bridge,
-      engine,
-    ) {
-      var model = project(bridge, engine);
-      var appliedActions = 0;
+    final bridge = KolkhozCEngineBridge();
+    for (var seed = 1; seed <= 100; seed += 1) {
+      final engine = bridge.newEngine(
+        seed: seed,
+        variants: KolkhozGameVariants.kolkhoz,
+        controllers: const [...fixtureControllers],
+      );
+      try {
+        var model = project(bridge, engine);
+        var appliedActions = 0;
 
-      while (model.table.phase != phaseGameOver && appliedActions < 500) {
-        if (model.table.phase == phaseRequisition) {
-          final wreckerEvents = model.table.requisitionEvents
-              .where((event) => event.card?.id == 'wrecker-14')
-              .toList();
-          if (wreckerEvents.isNotEmpty) {
-            expect(wreckerEvents, hasLength(1));
-            return;
+        while (model.table.phase != phaseGameOver && appliedActions < 500) {
+          model = drainAutomaticPhases(bridge, engine, model);
+          if (model.table.phase == phaseGameOver) break;
+          if (model.table.phase == phaseRequisition) {
+            final wreckerEvents = model.table.requisitionEvents
+                .where((event) => event.card?.id == 'wrecker-0')
+                .toList();
+            if (wreckerEvents.isNotEmpty) {
+              expect(wreckerEvents, hasLength(1));
+              return;
+            }
           }
+          final action = deterministicAction(model);
+          final cAction = cEngineAction(action.engineAction);
+          expect(cAction, isNotNull);
+          expect(bridge.apply(engine, cAction!), 0);
+          appliedActions += 1;
+          model = project(bridge, engine);
         }
-        final action = deterministicAction(model);
-        final cAction = cEngineAction(action.engineAction);
-        expect(cAction, isNotNull);
-        expect(bridge.apply(engine, cAction!), 0);
-        appliedActions += 1;
-        model = project(bridge, engine);
+      } finally {
+        bridge.freeEngine(engine);
       }
-
-      fail('Seed did not reach a Saboteur plot requisition.');
-    });
+    }
+    fail('No seed reached a Saboteur plot requisition.');
   });
 
   test('manual apply leaves automatic AI turns for explicit engine steps', () {
@@ -317,6 +335,8 @@ actions=
         var appliedActions = 0;
 
         while (model.table.phase != phaseGameOver && appliedActions < 400) {
+          model = drainAutomaticPhases(bridge, engine, model);
+          if (model.table.phase == phaseGameOver) break;
           final action = deterministicAction(model);
           final cAction = cEngineAction(action.engineAction);
           expect(cAction, isNotNull);
@@ -331,9 +351,9 @@ actions=
         expect(
           gameOverFingerprint(model, appliedActions),
           '''
-actions=59 winner=2
-scores=0:visible=2:final=2|1:visible=0:final=0|2:visible=3:final=26|3:visible=0:final=12
-exiled=1:beet-2,potato-1,wrecker-14|2:beet-13,beet-4,beet-8,potato-2,potato-6,sunflower-13,sunflower-3,sunflower-4,sunflower-5|3:beet-1,beet-10,sunflower-10,sunflower-11,wheat-2,wheat-3|4:beet-3,beet-5,sunflower-1,sunflower-7,wheat-1,wheat-11,wheat-13,wheat-4,wheat-6,wheat-7,wheat-9|5:beet-12,potato-4,potato-7,sunflower-12,wheat-10,wheat-8
+actions=44 winner=3
+scores=0:visible=3:final=24|1:visible=15:final=28|2:visible=4:final=17|3:visible=6:final=30
+exiled=1:beet-2,potato-1,wrecker-0|2:beet-4,beet-7,beet-8,potato-2|3:beet-1,beet-10,beet-13,sunflower-10,wheat-2,wheat-3,wheat-4|4:beet-3,beet-6,sunflower-1,sunflower-13,sunflower-4,sunflower-5,sunflower-7,sunflower-9|5:sunflower-2,sunflower-8,wheat-1,wheat-10,wheat-13
 '''
               .trim(),
         );
@@ -352,6 +372,8 @@ exiled=1:beet-2,potato-1,wrecker-14|2:beet-13,beet-4,beet-8,potato-2,potato-6,su
       while (!hasAnyPlotStack(model) &&
           model.table.phase != phaseGameOver &&
           appliedActions < 200) {
+        model = drainAutomaticPhases(bridge, engine, model);
+        if (model.table.phase == phaseGameOver) break;
         final action = deterministicAction(model);
         final cAction = cEngineAction(action.engineAction);
         expect(cAction, isNotNull);
@@ -415,7 +437,7 @@ stacks=2:0:revealed=beet-8:hidden=beet-11,beet-9,wheat-11,wheat-12,wheat-9|2:1:r
       expect(
         variantFingerprint(result.model, result.appliedActions),
         '''
-actions=36 winner=2
+actions=40 winner=2
 scores=0:visible=8:final=15|1:visible=0:final=0|2:visible=0:final=18|3:visible=0:final=8
 exiled=1:sunflower-13|2:beet-7,potato-13,potato-7|3:potato-11|4:wheat-12,wheat-13,wheat-7,wheat-9|5:beet-11,potato-1,potato-12,potato-6,potato-9,wheat-10,wheat-11
 claimed=sunflower
@@ -441,7 +463,7 @@ visible=0:8:0|1:0:0|2:0:1|3:0:2
         expect(
           variantFingerprint(result.model, result.appliedActions),
           '''
-actions=55 winner=3
+actions=59 winner=3
 scores=0:visible=11:final=28|1:visible=8:final=19|2:visible=12:final=12|3:visible=11:final=32
 exiled=1:wheat-10,wheat-13|2:beet-7,wheat-12|3:beet-13,beet-8,sunflower-13,sunflower-3|4:beet-12,sunflower-10,sunflower-6,sunflower-8,wheat-6,wheat-7,wheat-9|5:sunflower-2,wheat-8
 claimed=potato
@@ -564,6 +586,8 @@ FixtureRunResult runToGameOver(
   var appliedActions = 0;
 
   while (model.table.phase != phaseGameOver && appliedActions < 500) {
+    model = drainAutomaticPhases(bridge, engine, model);
+    if (model.table.phase == phaseGameOver) break;
     final action = deterministicAction(model);
     final cAction = cEngineAction(action.engineAction);
     expect(cAction, isNotNull);
@@ -579,6 +603,23 @@ FixtureRunResult runToGameOver(
     phaseVisits: phaseVisits,
     appliedActions: appliedActions,
   );
+}
+
+TableViewModel drainAutomaticPhases(
+  KolkhozCEngineBridge bridge,
+  Pointer<KCEngine> engine,
+  TableViewModel model,
+) {
+  var guard = 0;
+  while (model.table.phase != phaseGameOver &&
+      model.legalActions.isEmpty &&
+      guard < 32) {
+    expect(bridge.stepAutomatic(engine), greaterThan(0));
+    model = project(bridge, engine);
+    guard += 1;
+  }
+  expect(guard, lessThan(32));
+  return model;
 }
 
 class FixtureRunResult {
