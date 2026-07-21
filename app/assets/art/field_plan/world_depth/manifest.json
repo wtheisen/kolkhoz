@@ -5,8 +5,8 @@
     "nodeId": "103:2",
     "fileName": "Kolkhoz 2.5D World Depth Layers",
     "frameName": "WORLD CAMERA VIEW · Near World V2 Runtime Plates",
-    "lastModified": "2026-07-15T16:13:59Z",
-    "version": "2376479300364086992",
+    "lastModified": "2026-07-20T17:34:04Z",
+    "version": "2378358718442580581",
     "transport": "figma-rest"
   },
   "viewport": {
@@ -19,8 +19,8 @@
     "terminalZ": 8.05,
     "focalLength": 2.0,
     "vanishingPoint": [
-      0.481,
-      0.637
+      0.5,
+      0.51625
     ],
     "pitchDegrees": 0.0,
     "yawDegrees": 0.0,
@@ -54,6 +54,16 @@
         "label": "CAMP",
         "z": 8.05
       }
+    ]
+  },
+  "depthCardRegistration": {
+    "authoringVanishingPoint": [
+      0.5,
+      0.4
+    ],
+    "runtimeOffset": [
+      0,
+      0.11625
     ]
   },
   "layers": [

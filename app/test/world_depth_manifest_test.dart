@@ -39,8 +39,16 @@ void main() {
     expect(camera.status, 'locked');
     expect(camera.viewportWidth, 1920);
     expect(camera.viewportHeight, 800);
-    expect(camera.vanishingPointX, 0.481);
-    expect(camera.vanishingPointY, 0.637);
+    expect(camera.vanishingPointX, 0.5);
+    expect(camera.vanishingPointY, 0.51625);
+    expect(
+      camera.viewportWidth * camera.vanishingPointX,
+      NorthThreatState.baseAnchorX,
+    );
+    expect(
+      camera.viewportHeight * camera.vanishingPointY,
+      NorthThreatState.baseAnchorY,
+    );
     expect(camera.stops.map((stop) => stop.id), [
       'menu',
       'brigade',
@@ -302,6 +310,50 @@ void main() {
     }
   });
 
+  test('pre-RM40 cards migrate from the authoring horizon', () {
+    const viewport = Size(1920, 800);
+    final projection = projectNorthCalibrationLayer(
+      viewport: viewport,
+      worldZ: northRouteCards.first.worldZ,
+      cameraZ: northRouteCards.first.referenceCameraZ,
+      referenceCameraZ: northRouteCards.first.referenceCameraZ,
+      sourceVanishingPointY: worldDepthCardAuthoringVanishingPointY,
+    );
+
+    expect(projection.scale, 1);
+    expect(
+      projection.rect.top,
+      closeTo(depthCardRegistrationOffsetY(viewport), 0.000001),
+    );
+    expect(projection.rect.top, closeTo(93, 0.000001));
+  });
+
+  test('snow basin begins below the projected RM40 hut contact', () {
+    const viewport = Size(1920, 800);
+    const cameraZ = 4.65;
+    final card = northRouteCards.singleWhere((card) => card.id == 'a09');
+    final hut = projectNorthCalibrationLayer(
+      viewport: viewport,
+      worldZ: 10,
+      cameraZ: cameraZ,
+      referenceCameraZ: rm40ReferenceCameraZ,
+    );
+    final aligned = alignValleyFloorBelowHut(
+      valleyFloor: projectNorthCalibrationLayer(
+        viewport: viewport,
+        worldZ: card.worldZ,
+        cameraZ: cameraZ,
+        referenceCameraZ: card.referenceCameraZ,
+        sourceVanishingPointY: worldDepthCardAuthoringVanishingPointY,
+      ),
+      hut: hut,
+    );
+    final hutGround = hut.rect.top + hut.rect.height * (551 / 800);
+    final basinTop = aligned.rect.top + aligned.rect.height * (344 / 809);
+
+    expect(basinTop, closeTo(hutGround + 2, 0.000001));
+  });
+
   test('atmosphere haze is feathered and preserves year ordering', () {
     final year1 = threatHazeGradient(NorthThreatState.year1);
     final year3 = threatHazeGradient(NorthThreatState.year3);
@@ -337,6 +389,10 @@ void main() {
       cameraZ: 0,
     );
     expect(initial.rect.left, closeTo(0, 0.001));
+    expect(
+      initial.rect.top,
+      closeTo(depthCardRegistrationOffsetY(manifest.viewportSize), 0.001),
+    );
     expect(initial.rect.width, closeTo(manifest.viewportSize.width, 0.001));
 
     double growth(WorldDepthLayer layer) {

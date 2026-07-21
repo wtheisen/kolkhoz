@@ -29,6 +29,14 @@ const _northReferenceCameraZ = 3.0;
 const rm40ReferenceCameraZ = 8.05;
 const northRouteCardStartZ = 4.35;
 const _railwayIntervalOverlap = 0.035;
+const _rm40HutGroundContactY = 551 / 800;
+const _northRouteValleyFloorTopY = 344 / 809;
+const _northRouteValleyFloorGap = 2.0;
+
+double depthCardRegistrationOffsetY(Size viewport) =>
+    (worldDepthCameraCalibration.vanishingPointY -
+        worldDepthCardAuthoringVanishingPointY) *
+    viewport.height;
 
 @immutable
 class NorthRouteCard {
@@ -237,6 +245,24 @@ class WorldDepthProjection {
   final double scale;
 }
 
+WorldDepthProjection alignValleyFloorBelowHut({
+  required WorldDepthProjection valleyFloor,
+  required WorldDepthProjection hut,
+}) {
+  final hutGroundY = hut.rect.top + hut.rect.height * _rm40HutGroundContactY;
+  final valleyFloorTopY =
+      valleyFloor.rect.top +
+      valleyFloor.rect.height * _northRouteValleyFloorTopY;
+  return WorldDepthProjection(
+    rect: valleyFloor.rect.translate(
+      0,
+      hutGroundY + _northRouteValleyFloorGap - valleyFloorTopY,
+    ),
+    opacity: valleyFloor.opacity,
+    scale: valleyFloor.scale,
+  );
+}
+
 @immutable
 class RailwaySleeperProjection {
   const RailwaySleeperProjection({
@@ -376,7 +402,8 @@ WorldDepthProjection projectWorldDepthLayer({
   final viewport = manifest.viewportSize;
   final initialRect = Rect.fromLTWH(
     layer.initialRect.left * viewport.width,
-    layer.initialRect.top * viewport.height,
+    layer.initialRect.top * viewport.height +
+        depthCardRegistrationOffsetY(viewport),
     layer.initialRect.width * viewport.width,
     layer.initialRect.height * viewport.height,
   );
@@ -442,13 +469,21 @@ WorldDepthProjection projectNorthCalibrationLayer({
   required double worldZ,
   required double cameraZ,
   double referenceCameraZ = _northReferenceCameraZ,
+  double? sourceVanishingPointY,
 }) {
   final calibration = worldDepthCameraCalibration;
   final vanishingPoint = Offset(
     calibration.vanishingPointX * viewport.width,
     calibration.vanishingPointY * viewport.height,
   );
-  final initialRect = Offset.zero & viewport;
+  final registrationOffsetY =
+      (calibration.vanishingPointY -
+          (sourceVanishingPointY ?? calibration.vanishingPointY)) *
+      viewport.height;
+  final initialRect = (Offset.zero & viewport).translate(
+    0,
+    registrationOffsetY,
+  );
   final numerator = calibration.focalLength + worldZ - referenceCameraZ;
   final distance = worldZ - cameraZ;
   final projectedScale =
@@ -506,6 +541,7 @@ class WorldDepthScene extends StatelessWidget {
     required this.atmosphereEnabled,
     this.corridorProofEnabled = false,
     this.showLegacyAssets = true,
+    this.showRouteInfrastructure = true,
     this.showPlateLabels = false,
     this.showCalibrationGuides = false,
     this.atmosphereDiagnostic = false,
@@ -518,6 +554,7 @@ class WorldDepthScene extends StatelessWidget {
   final bool atmosphereEnabled;
   final bool corridorProofEnabled;
   final bool showLegacyAssets;
+  final bool showRouteInfrastructure;
   final bool showPlateLabels;
   final bool showCalibrationGuides;
   final bool atmosphereDiagnostic;
@@ -550,6 +587,7 @@ class WorldDepthScene extends StatelessWidget {
                               atmosphereEnabled: atmosphereEnabled,
                               atmosphereDiagnostic: atmosphereDiagnostic,
                               showLabels: showPlateLabels,
+                              showRouteInfrastructure: showRouteInfrastructure,
                             )
                           : const _RouteProceduralUnderpaint(),
                     ),
@@ -598,6 +636,8 @@ class WorldDepthScene extends StatelessWidget {
                                       atmosphereDiagnostic:
                                           atmosphereDiagnostic,
                                       showLabels: showPlateLabels,
+                                      showRouteInfrastructure:
+                                          showRouteInfrastructure,
                                     )
                                   : _NorthRouteCardScene(
                                       cameraZ: cameraZ,
@@ -606,6 +646,8 @@ class WorldDepthScene extends StatelessWidget {
                                       atmosphereDiagnostic:
                                           atmosphereDiagnostic,
                                       showLabels: showPlateLabels,
+                                      showRouteInfrastructure:
+                                          showRouteInfrastructure,
                                     )
                             : _ArtBackedNorthScene(
                                 cameraZ: cameraZ,
@@ -613,14 +655,16 @@ class WorldDepthScene extends StatelessWidget {
                                 atmosphereEnabled: atmosphereEnabled,
                                 atmosphereDiagnostic: atmosphereDiagnostic,
                                 showLabels: showPlateLabels,
+                                showRouteInfrastructure:
+                                    showRouteInfrastructure,
                               ),
                       ),
                     ),
-                  _WorldRouteCorridor(
-                    cameraZ: cameraZ,
-                    showLabel: showPlateLabels,
-                    paintRailway: !routeCardsOwnRailway,
-                  ),
+                  if (showRouteInfrastructure && !routeCardsOwnRailway)
+                    _WorldRouteCorridor(
+                      cameraZ: cameraZ,
+                      showLabel: showPlateLabels,
+                    ),
                   if (showCalibrationGuides)
                     Positioned.fill(
                       child: CustomPaint(
@@ -769,6 +813,7 @@ class WorldDepthCalibrationGuidePainter extends CustomPainter {
           viewport: size,
           worldZ: entry.$2,
           cameraZ: cameraZ,
+          sourceVanishingPointY: worldDepthCardAuthoringVanishingPointY,
         );
         if (projection.opacity == 0 || !projection.rect.isFinite) continue;
         faintGuide.color = entry.$3.withValues(alpha: 0.72);
@@ -828,7 +873,9 @@ class WorldDepthCalibrationGuidePainter extends CustomPainter {
     );
     _drawText(
       canvas,
-      'FIXED NORTH BASE  [836, 394]',
+      'FIXED NORTH BASE  '
+      '[${NorthThreatState.baseAnchorX.toStringAsFixed(0)}, '
+      '${NorthThreatState.baseAnchorY.toStringAsFixed(0)}]',
       anchor.translate(12, 10),
       const Color(0xffffd447),
       15,
@@ -893,6 +940,7 @@ class _ArtBackedNorthScene extends StatelessWidget {
     required this.atmosphereEnabled,
     required this.atmosphereDiagnostic,
     required this.showLabels,
+    required this.showRouteInfrastructure,
   });
 
   final double cameraZ;
@@ -900,6 +948,7 @@ class _ArtBackedNorthScene extends StatelessWidget {
   final bool atmosphereEnabled;
   final bool atmosphereDiagnostic;
   final bool showLabels;
+  final bool showRouteInfrastructure;
 
   @override
   Widget build(BuildContext context) {
@@ -927,13 +976,15 @@ class _ArtBackedNorthScene extends StatelessWidget {
           cameraZ: cameraZ,
           showLabel: showLabels,
         ),
-        _RegisteredNorthLayer(
-          id: 'objects',
-          assetPath: '$northCalibrationAssetDirectory/50-corridor-objects.png',
-          worldZ: northCorridorObjectsWorldZ,
-          cameraZ: cameraZ,
-          showLabel: showLabels,
-        ),
+        if (showRouteInfrastructure)
+          _RegisteredNorthLayer(
+            id: 'objects',
+            assetPath:
+                '$northCalibrationAssetDirectory/50-corridor-objects.png',
+            worldZ: northCorridorObjectsWorldZ,
+            cameraZ: cameraZ,
+            showLabel: showLabels,
+          ),
         _RegisteredNorthLayer(
           id: 'foreground',
           assetPath: '$northCalibrationAssetDirectory/60-foreground.png',
@@ -966,6 +1017,7 @@ class _NorthRouteCardScene extends StatelessWidget {
     required this.atmosphereEnabled,
     required this.atmosphereDiagnostic,
     required this.showLabels,
+    required this.showRouteInfrastructure,
   });
 
   final double cameraZ;
@@ -973,6 +1025,7 @@ class _NorthRouteCardScene extends StatelessWidget {
   final bool atmosphereEnabled;
   final bool atmosphereDiagnostic;
   final bool showLabels;
+  final bool showRouteInfrastructure;
 
   @override
   Widget build(BuildContext context) {
@@ -988,6 +1041,25 @@ class _NorthRouteCardScene extends StatelessWidget {
         ? (northRouteCards[index].worldZ + northRailwayTerminalWorldZ) / 2
         : (northRouteCards[index].worldZ + northRouteCards[index + 1].worldZ) /
               2;
+    final valleyFloorCard = northRouteCards.singleWhere(
+      (card) => card.id == 'a09',
+    );
+    final hutLayer = _rm40Y0Layers.singleWhere(
+      (layer) => layer.id == 'rm40-y0-hut',
+    );
+    final valleyFloorProjection = projectNorthCalibrationLayer(
+      viewport: viewport,
+      worldZ: valleyFloorCard.worldZ,
+      cameraZ: cameraZ,
+      referenceCameraZ: valleyFloorCard.referenceCameraZ,
+      sourceVanishingPointY: worldDepthCardAuthoringVanishingPointY,
+    );
+    final hutProjection = projectNorthCalibrationLayer(
+      viewport: viewport,
+      worldZ: hutLayer.worldZ,
+      cameraZ: cameraZ,
+      referenceCameraZ: rm40ReferenceCameraZ,
+    );
     final terminalBoundary = upperBoundary(northRouteCards.length - 1);
     return Stack(
       fit: StackFit.expand,
@@ -995,16 +1067,31 @@ class _NorthRouteCardScene extends StatelessWidget {
       children: [
         const Positioned.fill(child: _RouteProceduralUnderpaint()),
         Positioned.fill(
-          child: _Rm40Y0TerminalScene(cameraZ: cameraZ, showLabels: showLabels),
+          child: _Rm40Y0TerminalScene(
+            cameraZ: cameraZ,
+            showLabels: showLabels,
+            valleyFloor: switch (valleyFloorCard.supplementalAssetPath) {
+              final assetPath? => _NorthRouteTerrainUnderlay(
+                assetPath: assetPath,
+                projection: alignValleyFloorBelowHut(
+                  valleyFloor: valleyFloorProjection,
+                  hut: hutProjection,
+                ),
+              ),
+              null => null,
+            },
+          ),
         ),
-        _WorldRouteCorridor(
-          cameraZ: cameraZ,
-          showLabel: false,
-          railwayMinWorldZ: terminalBoundary,
-          paintRoadAndStation: false,
-          evidenceOwner: false,
-        ),
-        for (var index = northRouteCards.length - 1; index >= 0; index--) ...[
+        if (showRouteInfrastructure)
+          _WorldRouteCorridor(
+            cameraZ: cameraZ,
+            showLabel: false,
+            railwayMinWorldZ: terminalBoundary,
+            paintRoad: false,
+            paintStation: false,
+            evidenceOwner: false,
+          ),
+        for (var index = northRouteCards.length - 1; index >= 0; index--)
           _NorthRouteTerrainCard(
             card: northRouteCards[index],
             projection: projectNorthCalibrationLayer(
@@ -1012,16 +1099,39 @@ class _NorthRouteCardScene extends StatelessWidget {
               worldZ: northRouteCards[index].worldZ,
               cameraZ: cameraZ,
               referenceCameraZ: northRouteCards[index].referenceCameraZ,
+              sourceVanishingPointY: worldDepthCardAuthoringVanishingPointY,
             ),
             showLabel: showLabels,
           ),
+        if (showRouteInfrastructure)
           _WorldRouteCorridor(
-            key: Key('world-depth-route-segment-${northRouteCards[index].id}'),
             cameraZ: cameraZ,
             showLabel: false,
-            railwayMinWorldZ: lowerBoundary(index),
-            railwayMaxWorldZ: upperBoundary(index),
-            paintRoadAndStation: false,
+            paintRailway: false,
+            paintStation: false,
+          ),
+        // The railway is one continuous foreground owner. Painting every
+        // segment after every terrain card prevents nearer cards from hiding
+        // the station-side half of the track.
+        if (showRouteInfrastructure) ...[
+          for (var index = northRouteCards.length - 1; index >= 0; index--)
+            _WorldRouteCorridor(
+              key: Key(
+                'world-depth-route-segment-${northRouteCards[index].id}',
+              ),
+              cameraZ: cameraZ,
+              showLabel: false,
+              railwayMinWorldZ: lowerBoundary(index),
+              railwayMaxWorldZ: upperBoundary(index),
+              paintRoad: false,
+              paintStation: false,
+              evidenceOwner: false,
+            ),
+          _WorldRouteCorridor(
+            cameraZ: cameraZ,
+            showLabel: showLabels,
+            paintRailway: false,
+            paintRoad: false,
             evidenceOwner: false,
           ),
         ],
@@ -1110,14 +1220,6 @@ class _NorthRouteTerrainCard extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (card.supplementalAssetPath case final supplementalAssetPath?)
-            Image.asset(
-              supplementalAssetPath,
-              key: Key('world-depth-route-card-${card.id}-supplement'),
-              fit: BoxFit.fill,
-              filterQuality: FilterQuality.high,
-              gaplessPlayback: true,
-            ),
           Image.asset(
             card.assetPath,
             key: Key('world-depth-route-card-${card.id}'),
@@ -1152,11 +1254,44 @@ class _NorthRouteTerrainCard extends StatelessWidget {
   }
 }
 
+class _NorthRouteTerrainUnderlay extends StatelessWidget {
+  const _NorthRouteTerrainUnderlay({
+    required this.assetPath,
+    required this.projection,
+  });
+
+  final String assetPath;
+  final WorldDepthProjection projection;
+
+  @override
+  Widget build(BuildContext context) {
+    if (projection.opacity <= 0) return const SizedBox.shrink();
+    return Positioned.fromRect(
+      rect: projection.rect,
+      child: Opacity(
+        opacity: projection.opacity,
+        child: Image.asset(
+          assetPath,
+          key: const Key('world-depth-route-card-a09-supplement'),
+          fit: BoxFit.fill,
+          filterQuality: FilterQuality.high,
+          gaplessPlayback: true,
+        ),
+      ),
+    );
+  }
+}
+
 class _Rm40Y0TerminalScene extends StatelessWidget {
-  const _Rm40Y0TerminalScene({required this.cameraZ, required this.showLabels});
+  const _Rm40Y0TerminalScene({
+    required this.cameraZ,
+    required this.showLabels,
+    this.valleyFloor,
+  });
 
   final double cameraZ;
   final bool showLabels;
+  final Widget? valleyFloor;
 
   @override
   Widget build(BuildContext context) {
@@ -1169,7 +1304,20 @@ class _Rm40Y0TerminalScene extends StatelessWidget {
       clipBehavior: Clip.none,
       children: [
         const Positioned.fill(child: _Rm40ProceduralSky()),
-        for (final layer in _rm40Y0Layers)
+        for (final layer in _rm40Y0Layers.take(2))
+          _Rm40DepthCard(
+            layer: layer,
+            projection: projectNorthCalibrationLayer(
+              viewport: viewport,
+              worldZ: layer.worldZ,
+              cameraZ: cameraZ,
+              referenceCameraZ: rm40ReferenceCameraZ,
+            ),
+            showLabel: showLabels,
+          ),
+        // ignore: use_null_aware_elements
+        if (valleyFloor case final valleyFloor?) valleyFloor,
+        for (final layer in _rm40Y0Layers.skip(2))
           _Rm40DepthCard(
             layer: layer,
             projection: projectNorthCalibrationLayer(
@@ -1388,6 +1536,7 @@ class _RegisteredNorthLayer extends StatelessWidget {
       viewport: viewport,
       worldZ: worldZ,
       cameraZ: cameraZ,
+      sourceVanishingPointY: worldDepthCardAuthoringVanishingPointY,
     );
     if (projection.opacity == 0) return const SizedBox.shrink();
     final vanishingPoint = Offset(
@@ -1568,7 +1717,8 @@ class _WorldRouteCorridor extends StatelessWidget {
     this.railwayMinWorldZ = worldDepthStationWorldZ,
     this.railwayMaxWorldZ = northRailwayTerminalWorldZ,
     this.paintRailway = true,
-    this.paintRoadAndStation = true,
+    this.paintRoad = true,
+    this.paintStation = true,
     this.evidenceOwner = true,
     super.key,
   });
@@ -1578,7 +1728,8 @@ class _WorldRouteCorridor extends StatelessWidget {
   final double railwayMinWorldZ;
   final double railwayMaxWorldZ;
   final bool paintRailway;
-  final bool paintRoadAndStation;
+  final bool paintRoad;
+  final bool paintStation;
   final bool evidenceOwner;
 
   @override
@@ -1599,7 +1750,8 @@ class _WorldRouteCorridor extends StatelessWidget {
                 railwayMinWorldZ: railwayMinWorldZ,
                 railwayMaxWorldZ: railwayMaxWorldZ,
                 paintRailway: paintRailway,
-                paintRoadAndStation: paintRoadAndStation,
+                paintRoad: paintRoad,
+                paintStation: paintStation,
               ),
             ),
             if (paintRailway)
@@ -1616,7 +1768,8 @@ class _WorldRouteCorridor extends StatelessWidget {
                 railwayMinWorldZ: railwayMinWorldZ,
                 railwayMaxWorldZ: railwayMaxWorldZ,
                 paintRailway: paintRailway,
-                paintRoadAndStation: paintRoadAndStation,
+                paintRoad: paintRoad,
+                paintStation: paintStation,
               ),
             ),
           ],
@@ -1722,7 +1875,8 @@ class _WorldRouteCorridorPainter extends CustomPainter {
     required this.railwayMinWorldZ,
     required this.railwayMaxWorldZ,
     required this.paintRailway,
-    required this.paintRoadAndStation,
+    required this.paintRoad,
+    required this.paintStation,
   });
 
   final double cameraZ;
@@ -1731,7 +1885,8 @@ class _WorldRouteCorridorPainter extends CustomPainter {
   final double railwayMinWorldZ;
   final double railwayMaxWorldZ;
   final bool paintRailway;
-  final bool paintRoadAndStation;
+  final bool paintRoad;
+  final bool paintStation;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1801,6 +1956,10 @@ class _WorldRouteCorridorPainter extends CustomPainter {
     final stationPassageProgress = worldDepthStationPassageProgress(cameraZ);
     final stationVisualY =
         stationGroundY + size.height * 0.38 * stationPassageProgress;
+    final stationPerspective = ((stationVisualY - horizonY) / groundHeight)
+        .clamp(0.0, 1.0)
+        .toDouble();
+    final stationCenterX = centerX - (90 + 100 * stationPerspective);
 
     if (pass == _RouteCorridorPaintPass.underlay) {
       if (routeSamples.isNotEmpty) {
@@ -1837,13 +1996,14 @@ class _WorldRouteCorridorPainter extends CustomPainter {
         );
       }
 
-      if (paintRoadAndStation && stationGroundY < bottomY) {
-        final roadHalfWidthAtStation = xAt(26, 292, stationGroundY);
+      if (paintRoad && stationGroundY < bottomY) {
+        final roadHalfWidthAtStation = xAt(18, 76, stationGroundY);
+        final roadCenterAtBottom = centerX - 190;
         final road = Path()
-          ..moveTo(centerX - roadHalfWidthAtStation, stationGroundY)
-          ..lineTo(centerX - 292, bottomY)
-          ..lineTo(centerX + 292, bottomY)
-          ..lineTo(centerX + roadHalfWidthAtStation, stationGroundY)
+          ..moveTo(stationCenterX - roadHalfWidthAtStation, stationGroundY)
+          ..lineTo(roadCenterAtBottom - 210, bottomY)
+          ..lineTo(roadCenterAtBottom + 210, bottomY)
+          ..lineTo(stationCenterX + roadHalfWidthAtStation, stationGroundY)
           ..close();
         canvas.drawPath(road, Paint()..color = const Color(0xff9c774e));
         canvas.drawPath(
@@ -1857,13 +2017,19 @@ class _WorldRouteCorridorPainter extends CustomPainter {
           ..color = const Color(0xffc3a16a)
           ..strokeWidth = 3;
         canvas.drawLine(
-          Offset(centerX - roadHalfWidthAtStation * 0.35, stationGroundY),
-          Offset(centerX - 108, bottomY),
+          Offset(
+            stationCenterX - roadHalfWidthAtStation * 0.35,
+            stationGroundY,
+          ),
+          Offset(roadCenterAtBottom - 72, bottomY),
           rutPaint,
         );
         canvas.drawLine(
-          Offset(centerX + roadHalfWidthAtStation * 0.35, stationGroundY),
-          Offset(centerX + 108, bottomY),
+          Offset(
+            stationCenterX + roadHalfWidthAtStation * 0.35,
+            stationGroundY,
+          ),
+          Offset(roadCenterAtBottom + 72, bottomY),
           rutPaint,
         );
       }
@@ -1889,18 +2055,17 @@ class _WorldRouteCorridorPainter extends CustomPainter {
       );
     }
 
-    if (paintRoadAndStation && stationPassageProgress < 1) {
+    if (paintStation && stationPassageProgress < 1) {
       _paintStation(
         canvas,
-        centerX: centerX,
+        centerX: stationCenterX,
         stationY: stationVisualY,
         groundHeight: groundHeight,
         horizonY: horizonY,
-        roadHalfWidth: xAt(26, 292, stationGroundY),
       );
     }
 
-    if (paintRoadAndStation && showLabel) {
+    if (paintStation && showLabel) {
       final textPainter = TextPainter(
         text: const TextSpan(
           text: 'DIRT ROAD → STATION → NORTH RAILWAY',
@@ -1995,13 +2160,12 @@ class _WorldRouteCorridorPainter extends CustomPainter {
     required double stationY,
     required double groundHeight,
     required double horizonY,
-    required double roadHalfWidth,
   }) {
     final perspective = ((stationY - horizonY) / groundHeight)
         .clamp(0.0, 1.0)
         .toDouble();
-    final platformWidth = math.max(120.0, roadHalfWidth * 2.9);
-    final width = platformWidth * 0.76;
+    final width = 140 + 180 * perspective;
+    final platformWidth = width * 1.18;
     final height = 26 + 54 * perspective;
     final platformHeight = 7 + 13 * perspective;
     final left = centerX - width / 2;

@@ -16,8 +16,8 @@ class NorthThreatState {
     required this.smoke,
   });
 
-  static const baseAnchorX = 836.0;
-  static const baseAnchorY = 394.0;
+  static const baseAnchorX = 960.0;
+  static const baseAnchorY = 413.0;
 
   static const year1 = NorthThreatState(
     threat: 0,

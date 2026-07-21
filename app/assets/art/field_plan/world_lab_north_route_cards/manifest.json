@@ -2,6 +2,9 @@
   "schemaVersion": 1,
   "status": "motion-proof",
   "logicalViewport": [1920, 800],
+  "authoringVanishingPoint": [0.5, 0.4],
+  "runtimeRegistrationOffset": [0, 0.11625],
+  "runtimeRegistrationOffsetPixels": [0, 93],
   "nativeRaster": [1942, 809],
   "routeSpineOwner": "procedural-flutter",
   "terminalAnchor": "RM40-Y0",
@@ -14,7 +17,7 @@
     {"id":"A06","worldZ":5.84,"side":"right","stage":"first-snow","asset":"a06.png","figmaComponentId":"211:6","figmaInstanceId":"214:99"},
     {"id":"A07","worldZ":6.10,"side":"left","stage":"mixed-snow","asset":"a07.png","figmaComponentId":"211:7","figmaInstanceId":"214:72"},
     {"id":"A08","worldZ":6.36,"side":"right","stage":"mixed-snow","asset":"a08.png","figmaComponentId":"211:8","figmaInstanceId":"214:58"},
-    {"id":"A09","worldZ":6.64,"side":"left","stage":"deep-snow","asset":"a09.png","supplementalAsset":"a09-valley-floor-proof.png","supplementalStatus":"flutter-motion-proof-pending-figma-component","figmaComponentId":"211:9","figmaInstanceId":"214:44"},
+    {"id":"A09","worldZ":6.64,"side":"left","stage":"deep-snow","asset":"a09.png","supplementalAsset":"a09-valley-floor-proof.png","supplementalStatus":"flutter-motion-proof-pending-figma-component","supplementalRegistration":"top-edge-2px-below-projected-rm40-hut-ground-contact","supplementalPainterOrder":"after-rm40-snow-and-forest-before-hut-foreground-and-route-cards","figmaComponentId":"211:9","figmaInstanceId":"214:44"},
     {"id":"A10","worldZ":6.92,"side":"right","stage":"deep-snow","asset":"a10.png","figmaComponentId":"211:10","figmaInstanceId":"214:30"},
     {"id":"A11","worldZ":7.22,"side":"left","stage":"forest-threshold","asset":"a11.png","figmaComponentId":"211:11","figmaInstanceId":"214:16"},
     {"id":"A12","worldZ":7.49,"side":"right","stage":"forest-threshold","asset":"a12.png","figmaComponentId":"211:12","figmaInstanceId":"214:2"}

@@ -10,6 +10,18 @@ void main() {
   late WorldDepthManifest manifest;
   setUpAll(() async => manifest = await WorldDepthManifest.load());
 
+  testWidgets('macOS lab excludes unstable descendant semantics', (
+    tester,
+  ) async {
+    await tester.pumpWidget(FieldPlanWorldLabApp(manifest: manifest));
+
+    expect(
+      find.byKey(const Key('world-depth-lab-semantics-boundary')),
+      findsOneWidget,
+    );
+    expect(find.byType(FieldPlanWorldLabScreen), findsOneWidget);
+  });
+
   testWidgets('scrolling and dragging coast without snapping', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1000, 720));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -111,6 +123,51 @@ void main() {
     slider.onChanged!(5);
     await tester.pump();
     expect(find.byKey(corridor), findsOneWidget);
+  });
+
+  testWidgets('route infrastructure can be hidden without removing terrain', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 760));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      FieldPlanWorldLabApp(
+        manifest: manifest,
+        initialCameraZ: 5.5,
+        initialCorridorProofEnabled: true,
+        initialLegacyAssetsEnabled: false,
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const Key('world-depth-route-corridor')), findsOneWidget);
+    expect(find.byKey(const Key('world-depth-route-card-a07')), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'world-depth-rail-tile-',
+            ),
+      ),
+      findsWidgets,
+    );
+
+    await tester.tap(find.byKey(const Key('toggle-route-infrastructure')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('world-depth-route-corridor')), findsNothing);
+    expect(find.byKey(const Key('world-depth-route-card-a07')), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'world-depth-rail-tile-',
+            ),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('legacy toggle isolates the new world pass', (tester) async {
