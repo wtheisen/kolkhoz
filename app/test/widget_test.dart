@@ -47,6 +47,8 @@ import 'package:kolkhoz_app/src/rule_content.dart';
 import 'package:kolkhoz_app/src/saved_game_store.dart';
 import 'package:kolkhoz_app/src/table_display.dart';
 import 'package:kolkhoz_app/src/table_projection_helpers.dart';
+import 'package:kolkhoz_app/src/terminal_game_record.dart';
+import 'package:kolkhoz_app/src/terminal_game_replay.dart';
 import 'package:kolkhoz_app/src/tutorial_display.dart';
 
 part 'widget/store_online_tests.dart';

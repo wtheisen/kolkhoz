@@ -16,9 +16,9 @@ import 'game_channel_online.dart';
 import 'game_constants.dart';
 import 'game_engine.dart';
 import 'game_lobby.dart';
-import 'game_state_snapshot.dart';
 import 'game_ui_state.dart';
 import 'game_undo_snapshot.dart';
+import 'local_game_projection.dart';
 import 'online_game_models.dart';
 import 'online_game_client.dart';
 import 'online_lobby_projection.dart';
@@ -31,6 +31,7 @@ import 'player_human.dart';
 import 'render_model.dart';
 import 'design_tokens.dart';
 import 'saved_game_store.dart';
+import 'terminal_game_record.dart';
 
 bool actionCapturesUndoSnapshot(String actionKind) {
   return actionKind == actionAssign;
@@ -356,7 +357,7 @@ class GameController extends ChangeNotifier {
 
   Future<File> saveGameLog() async {
     final finished = finishedGameLobby;
-    final gameState = finished?.gameState;
+    final gameRecord = finished?.gameRecord;
     final base = KolkhozAutosaveStore.defaultFile().parent;
     final directory = Directory('${base.path}/match-logs');
     await directory.create(recursive: true);
@@ -370,12 +371,12 @@ class GameController extends ChangeNotifier {
       const JsonEncoder.withIndent('  ').convert({
         'version': 1,
         'savedAt': DateTime.now().toUtc().toIso8601String(),
-        'seed': gameState?.seed ?? currentSeed,
-        'variants': variantsToJson(gameState?.variants ?? currentVariants),
-        'controllers': (gameState?.controllers ?? controllers)
+        'seed': gameRecord?.seed ?? currentSeed,
+        'variants': variantsToJson(gameRecord?.variants ?? currentVariants),
+        'controllers': (gameRecord?.controllers ?? controllers)
             .map((controller) => controller.name)
             .toList(),
-        if (gameState != null) 'gameState': gameState.toJson(),
+        if (gameRecord != null) 'terminalGame': gameRecord.toJson(),
         'actions': gameLogActions.map(engineActionToJson).toList(),
         'reactions': [
           for (final reaction in reactions)
@@ -722,7 +723,8 @@ class GameController extends ChangeNotifier {
         uiState: uiState,
       ).project();
     } else if (_localChannel case final local?) {
-      nextModel = local.engine.project(
+      nextModel = projectLocalGame(
+        engine: local.engine,
         uiState: uiState,
         revealedPlayerID: revealedPlayerID,
       );
@@ -747,7 +749,8 @@ class GameController extends ChangeNotifier {
             uiState: uiState,
           ).project();
         } else if (_localChannel case final local?) {
-          nextModel = local.engine.project(
+          nextModel = projectLocalGame(
+            engine: local.engine,
             uiState: uiState,
             revealedPlayerID: revealedPlayerID,
           );
@@ -818,20 +821,36 @@ class GameController extends ChangeNotifier {
   void _finishGame(TableViewModel finalModel, OnlineGameChannel? online) {
     lifecycle = GameControllerLifecycle.finishing;
     final update = online == null ? null : _onlineUpdate;
-    final gameState = online == null
-        ? _localChannel!.engine.snapshot(
-            uiState: uiState,
-            revealedPlayerID: revealedPlayerID,
-          )
-        : GameStateSnapshot(
-            seed: currentSeed,
-            variants: currentVariants,
-            controllers: controllers,
-            model: finalModel.withSeed(currentSeed),
-          );
+    final engineActions = online == null
+        ? List<EngineAction>.of(actionLog)
+        : [
+            for (final action in update!.gameLogActions)
+              if (cEngineAction(action.engineAction) != null)
+                action.engineAction,
+          ];
+    final terminalModel = finalModel.withSeed(currentSeed);
+    final gameRecord = TerminalGameRecord(
+      seed: currentSeed,
+      variants: currentVariants,
+      controllers: controllers,
+      participants: [
+        for (final seat in terminalModel.table.seats)
+          TerminalGameParticipant(
+            seatID: seat.id,
+            name: seat.name,
+            controller: controllers[seat.id],
+            userID: seat.profileUserID,
+          ),
+      ],
+      actions: engineActions,
+      result: TerminalGameResult.fromTableResult(
+        terminalModel.table.gameResult!,
+      ),
+    );
     finishedGameLobby = FinishedGameLobby(
       lobby: lobby,
-      gameState: gameState,
+      gameRecord: gameRecord,
+      model: terminalModel,
       gameLogActions: online == null
           ? localGameLog
           : [for (final action in update!.gameLogActions) action.engineAction],
@@ -840,7 +859,7 @@ class GameController extends ChangeNotifier {
       onlinePlayerID: online?.playerID,
       spectator: online?.spectator ?? false,
     );
-    _model = gameState.model;
+    _model = terminalModel;
     if (online == null) {
       _clearChannel();
       _clearUndoStack();

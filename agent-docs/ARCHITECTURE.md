@@ -61,8 +61,10 @@ Important files:
 | File | Purpose |
 |------|---------|
 | `lib/src/c_engine_bridge.dart` | Dart FFI bindings to the C API |
-| `lib/src/game_engine.dart` | Exclusive native engine lifecycle, frozen match config, actions, cloning, and Flutter state projection |
-| `lib/src/game_state_snapshot.dart` | Portable completed engine state with a versioned JSON representation |
+| `lib/src/game_engine.dart` | Exclusive native engine lifecycle, frozen match config, native actions, and cloning |
+| `lib/src/local_game_projection.dart` | External adapter from native engine state to the Flutter table model |
+| `lib/src/terminal_game_record.dart` | Portable versioned replay inputs, participants, build identity, and terminal result |
+| `lib/src/terminal_game_replay.dart` | Reconstructs a disposed match and validates its recorded terminal result |
 | `lib/src/game_lobby.dart` | Four-seat pre-game configuration and spectator roster |
 | `lib/src/online_lobby_projection.dart` | Single online boundary that maps wire roster fields into app-domain seats |
 | `lib/src/player_profile.dart` | Transport-independent seated-player profile value |
@@ -195,13 +197,13 @@ viewer can submit the server-provided legal actions, but remote humans and AI se
 choose actions in Flutter. Online Central Planner reveals are advanced and recorded by the
 server's automatic router; clients only animate the resulting revision stream.
 
-At game over, `GameEngine.snapshot()` produces a portable `GameStateSnapshot` before the
-controller disposes the native pointer. The controller places that state in a
-`FinishedGameLobby` before publishing the `finished` lifecycle. The snapshot owns
-everything the result screen, share action, saved log, and postgame panels need, and its
-versioned JSON shape is embedded in saved match logs. Online games build the same state
-object from the authoritative server projection and retain their transport runtime for
-reactions, rematches, and series updates.
+At game over, the controller captures a `TerminalGameRecord` before disposing the native
+pointer. The record stores the seed, frozen variants and controllers, participant
+identities, applied engine actions, final result, and build/schema identity. It is the
+authoritative audit/replay contract embedded in saved match logs. `FinishedGameLobby`
+keeps that record beside a detached final Flutter table model used only for result-screen
+presentation. Online games build the same record from the authoritative server action
+stream and retain their transport runtime for reactions, rematches, and series updates.
 
 The online runtime follows the same ownership boundary. When an authoritative engine
 reaches `gameOver`, its shard captures the public immutable final JSON and closes

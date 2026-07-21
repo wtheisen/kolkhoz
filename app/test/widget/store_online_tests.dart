@@ -96,7 +96,7 @@ void registerStoreAndOnlineTests() {
   );
 
   testWidgets(
-    'finished game keeps a portable snapshot and releases its local engine',
+    'finished game keeps a replayable terminal record and releases its local engine',
     (tester) async {
       final store = GameController(autosaveEnabled: false)
         ..animationSpeed = GameAnimationSpeed.instant;
@@ -150,9 +150,38 @@ void registerStoreAndOnlineTests() {
       expect(finished!.model.table.phase, phaseGameOver);
       expect(finished.gameLogActions, isNotEmpty);
       expect(
-        finished.gameState.toJson()['state'],
-        containsPair('phase', phaseGameOver),
+        finished.gameRecord.result.winnerSeatID,
+        finished.result.winnerSeatID,
       );
+      expect(finished.gameRecord.actions, isNotEmpty);
+      expect(
+        finished.gameRecord.toJson(),
+        containsPair('schema', terminalGameRecordSchema),
+      );
+      final replayValidator = TerminalGameReplayValidator(
+        KolkhozCEngineBridge(),
+      );
+      expect(replayValidator.validate(finished.gameRecord).error, isNull);
+
+      final recorded = finished.gameRecord;
+      final wrongScores = [...recorded.result.scores];
+      wrongScores[0] = TerminalGameScore(
+        seatID: wrongScores[0].seatID,
+        score: wrongScores[0].score + 1,
+      );
+      final corrupted = TerminalGameRecord(
+        build: recorded.build,
+        seed: recorded.seed,
+        variants: recorded.variants,
+        controllers: recorded.controllers,
+        participants: recorded.participants,
+        actions: recorded.actions,
+        result: TerminalGameResult(
+          winnerSeatID: recorded.result.winnerSeatID,
+          scores: wrongScores,
+        ),
+      );
+      expect(replayValidator.validate(corrupted).isValid, isFalse);
 
       final result = finished.result;
       store.setActivePanel(panelLog);
