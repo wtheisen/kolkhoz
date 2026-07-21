@@ -11,13 +11,16 @@ import 'c_engine_bridge.dart';
 import 'engine_action_projection.dart';
 import 'game_constants.dart';
 import 'game_engine.dart';
-import 'game_player.dart';
 import 'game_ui_state.dart';
 import 'game_undo_snapshot.dart';
 import 'online_game_models.dart';
 import 'online_game_client.dart';
 import 'online_table_projection.dart';
 import 'policy_model.dart';
+import 'player.dart';
+import 'player_ai_heuristic.dart';
+import 'player_ai_neural.dart';
+import 'player_human.dart';
 import 'render_model.dart';
 import 'design_tokens.dart';
 import 'saved_game_store.dart';
@@ -983,17 +986,17 @@ class GameController extends ChangeNotifier {
     _players = [
       for (final (seatID, controller) in normalized.indexed)
         switch (controller) {
-          KolkhozPlayerController.human => HumanGamePlayer(seatID: seatID),
-          KolkhozPlayerController.heuristicAI => HeuristicGamePlayer(
+          KolkhozPlayerController.human => HumanPlayer(seatID: seatID),
+          KolkhozPlayerController.heuristicAI => HeuristicAIPlayer(
             seatID: seatID,
           ),
-          KolkhozPlayerController.mediumAI => PolicyGamePlayer(
+          KolkhozPlayerController.mediumAI => NeuralAIPlayer(
             seatID: seatID,
             controller: controller,
             model: () => _mediumPolicy,
             modelUnavailable: () => _mediumPolicyUnavailable,
           ),
-          KolkhozPlayerController.neuralAI => PolicyGamePlayer(
+          KolkhozPlayerController.neuralAI => NeuralAIPlayer(
             seatID: seatID,
             controller: controller,
             model: () => _neuralPolicy,

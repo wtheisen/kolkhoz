@@ -22,10 +22,10 @@ void registerStoreAndOnlineTests() {
       );
 
       expect(store.players, hasLength(4));
-      expect(store.players[0], isA<HumanGamePlayer>());
-      expect(store.players[1], isA<HeuristicGamePlayer>());
-      expect(store.players[2], isA<PolicyGamePlayer>());
-      expect(store.players[3], isA<PolicyGamePlayer>());
+      expect(store.players[0], isA<HumanPlayer>());
+      expect(store.players[1], isA<HeuristicAIPlayer>());
+      expect(store.players[2], isA<NeuralAIPlayer>());
+      expect(store.players[3], isA<NeuralAIPlayer>());
       await tester.pump(const Duration(milliseconds: 1));
 
       expect(store.error, isNull);

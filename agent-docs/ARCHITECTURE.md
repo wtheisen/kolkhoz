@@ -63,7 +63,10 @@ Important files:
 | `lib/src/c_engine_bridge.dart` | Dart FFI bindings to the C API |
 | `lib/src/game_engine.dart` | Exclusive native engine lifecycle, frozen match config, actions, cloning, and Flutter state projection |
 | `lib/src/game_controller.dart` | Match setup, four-player ownership, action routing, presentation pacing, and local/online state publication |
-| `lib/src/game_player.dart` | Human, heuristic, and policy player decision adapters |
+| `lib/src/player.dart` | Shared `GamePlayer` contract |
+| `lib/src/player_human.dart` | Human player adapter for UI-driven decisions |
+| `lib/src/player_ai_heuristic.dart` | Deterministic C-engine heuristic player adapter |
+| `lib/src/player_ai_neural.dart` | Medium and hard neural-policy player adapter with heuristic fallback |
 | `lib/src/game_undo_snapshot.dart` | Controller undo snapshot state and cloned-engine ownership |
 | `lib/src/live_game_store.dart` | Compatibility export for older callers of `GameController` |
 | `lib/src/table_view_projection.dart` | C engine state to Flutter table model |
@@ -118,7 +121,7 @@ GameController owns one GameEngine and four GamePlayers
     |
     +-- Central Planner action --> reward/trump reveal
     |
-    +-- HumanGamePlayer --------> Flutter interaction
+    +-- HumanPlayer ------------> Flutter interaction
     |
     +-- AI GamePlayer ----------> heuristic or policy decision
     |
