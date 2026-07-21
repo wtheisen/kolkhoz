@@ -61,7 +61,9 @@ Important files:
 | File | Purpose |
 |------|---------|
 | `lib/src/c_engine_bridge.dart` | Dart FFI bindings to the C API |
-| `lib/src/live_game_store.dart` | Local/online app store and stepwise engine advancement |
+| `lib/src/game_controller.dart` | Match setup, four-player ownership, action routing, presentation pacing, and local/online state publication |
+| `lib/src/game_player.dart` | Human, heuristic, and policy player decision adapters |
+| `lib/src/live_game_store.dart` | Compatibility export for older callers of `GameController` |
 | `lib/src/table_view_projection.dart` | C engine state to Flutter table model |
 | `lib/src/online_game_models.dart` | Dart online API models/client |
 | `lib/src/board/` | Board panels and controls |
@@ -110,26 +112,28 @@ model files.
 ## App Data Flow
 
 ```text
-User gesture in Flutter
+GameController owns one match and four GamePlayers
+    |
+    +-- Central Planner action --> reward/trump reveal
+    |
+    +-- HumanGamePlayer --------> Flutter interaction
+    |
+    +-- AI GamePlayer ----------> heuristic or policy decision
     |
     v
-LiveGameStore action
+Dart FFI action applied to the C engine
     |
     v
-Dart FFI C action
+TableViewProjection publishes Dart model objects
     |
     v
-C engine applies the move and advances automatic steps
-    |
-    v
-TableViewProjection copies C state into Dart model objects
-    |
-    v
-Flutter re-renders views
+Flutter re-renders views and acknowledges presentation completion
 ```
 
-Flutter widgets do not mutate game state directly. They call the store, which submits
-portable C-engine actions and publishes a new projected model.
+Flutter widgets do not mutate game state or consume forced actions directly. They call
+the controller with human actions and render its projected state. The controller routes
+Central Planner and AI decisions, submits portable C-engine actions, and waits for the
+client to acknowledge presentation completion before routing the next decision.
 
 ## Research Data Flow
 

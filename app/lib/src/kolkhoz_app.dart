@@ -19,7 +19,7 @@ import 'field_plan_typography.dart';
 import 'game_constants.dart';
 import 'game_sound.dart';
 import 'board_view.dart';
-import 'live_game_store.dart';
+import 'game_controller.dart';
 import 'json_shape.dart';
 import 'online_game_models.dart';
 import 'online_game_client.dart';
@@ -217,7 +217,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
 
   final navigatorKey = GlobalKey<NavigatorState>();
   final gameSounds = GameSoundController();
-  late final LiveGameStore store;
+  late final GameController store;
   late final KolkhozCommerceController commerce;
   late final KolkhozAppSettingsStore settingsStore;
   Timer? cloudProfileSyncTimer;
@@ -313,7 +313,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
         lastStartedSetup.controllers,
       );
     }
-    store = LiveGameStore(
+    store = GameController(
       onlineAccessTokenProvider: identityAccessToken,
       onlineDeviceID: onlineDeviceID,
     );
@@ -726,72 +726,66 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
             final model = store.model!;
             content = Stack(
               children: [
-                ConsumableRevealDriver(
+                KolkhozBoard(
                   model: model,
-                  speed: store.animationSpeed,
+                  tokens: tokens,
+                  language: language,
+                  appearance: appearance,
+                  heroOfSovietUnion: store.currentVariants.heroOfSovietUnion,
+                  cardBack: cardBack,
                   onAction: applyBoardAction,
-                  presentationActive: store.presentationRevision != null,
-                  child: KolkhozBoard(
-                    model: model,
-                    tokens: tokens,
-                    language: language,
-                    appearance: appearance,
-                    heroOfSovietUnion: store.currentVariants.heroOfSovietUnion,
-                    cardBack: cardBack,
-                    onAction: applyBoardAction,
-                    onPanelSelected: store.setActivePanel,
-                    onLanguageToggle: toggleLanguage,
-                    onAppearanceToggle: toggleAppearance,
-                    onCardBackChanged: setCardBack,
-                    onSwapHandCardTap: store.selectSwapHandCard,
-                    onHandCardTap: store.selectHandCard,
-                    onPlotCardTap: store.selectPlotCard,
-                    onAssignmentCardTap: store.selectAssignmentCard,
-                    onInvalidHandCardTap: showFollowSuitHint,
-                    canUndo: store.canUndo,
-                    onUndo: store.undoLastAction,
-                    onHotSeatReady: store.revealLocalPlayer,
-                    onNewGame: requestNewGameFromBoard,
-                    onReturnToLobby: requestReturnToLobby,
-                    onCopyGameResult: copyGameResult,
-                    onSaveGameLog: saveGameLog,
-                    gameLogActions: store.gameLogActions,
-                    gameReactions: store.gameReactions,
-                    hasUnreadLogMessages: store.hasUnreadReactions,
-                    canSendReaction: store.canSendReaction,
-                    onReaction: store.sendReaction,
-                    activeReaction: store.activeReaction,
-                    gameOverReturnsToLobby:
-                        store.onlineUpdate?.tournament != null ||
-                        !(store.isOnlineGame &&
-                            store.onlineUpdate?.ranked == false &&
-                            store.onlineUpdate?.series?.completed != true &&
-                            store.model?.table.phase == phaseGameOver),
-                    onTutorial: showTutorial,
-                    animationSpeed: store.animationSpeed,
-                    presentationRevision: store.presentationRevision,
-                    assignmentPresentationCardIDs:
-                        store.onlineAssignmentPresentationCardIDs,
-                    onPresentationComplete: store.acknowledgeRevisionPresented,
-                    onAnimationSpeedChanged: store.setAnimationSpeed,
-                    confirmNewGame: settings.confirmNewGame,
-                    onConfirmNewGameChanged: setConfirmNewGame,
-                    confirmMainMenu: settings.confirmMainMenu,
-                    onConfirmMainMenuChanged: setConfirmMainMenu,
-                    showInvalidTapHints: settings.showInvalidTapHints,
-                    onShowInvalidTapHintsChanged: setShowInvalidTapHints,
-                    comradeUserIDs: comradesSummary.userIDs,
-                    incomingComradeRequestUserIDs: {
-                      for (final request in comradesSummary.incomingRequests)
-                        request.userID,
-                    },
-                    outgoingComradeRequestUserIDs: {
-                      for (final request in comradesSummary.outgoingRequests)
-                        request.userID,
-                    },
-                    currentProfileUserID: comradesSummary.userID,
-                    onComradeRequestToUser: requestComradeByUserID,
-                  ),
+                  onPanelSelected: store.setActivePanel,
+                  onLanguageToggle: toggleLanguage,
+                  onAppearanceToggle: toggleAppearance,
+                  onCardBackChanged: setCardBack,
+                  onSwapHandCardTap: store.selectSwapHandCard,
+                  onHandCardTap: store.selectHandCard,
+                  onPlotCardTap: store.selectPlotCard,
+                  onAssignmentCardTap: store.selectAssignmentCard,
+                  onInvalidHandCardTap: showFollowSuitHint,
+                  canUndo: store.canUndo,
+                  onUndo: store.undoLastAction,
+                  onHotSeatReady: store.revealLocalPlayer,
+                  onNewGame: requestNewGameFromBoard,
+                  onReturnToLobby: requestReturnToLobby,
+                  onCopyGameResult: copyGameResult,
+                  onSaveGameLog: saveGameLog,
+                  gameLogActions: store.gameLogActions,
+                  gameReactions: store.gameReactions,
+                  hasUnreadLogMessages: store.hasUnreadReactions,
+                  canSendReaction: store.canSendReaction,
+                  onReaction: store.sendReaction,
+                  activeReaction: store.activeReaction,
+                  gameOverReturnsToLobby:
+                      store.onlineUpdate?.tournament != null ||
+                      !(store.isOnlineGame &&
+                          store.onlineUpdate?.ranked == false &&
+                          store.onlineUpdate?.series?.completed != true &&
+                          store.model?.table.phase == phaseGameOver),
+                  onTutorial: showTutorial,
+                  animationSpeed: store.animationSpeed,
+                  presentationRevision: store.presentationRevision,
+                  assignmentPresentationCardIDs:
+                      store.onlineAssignmentPresentationCardIDs,
+                  onPresentationComplete: store.acknowledgeRevisionPresented,
+                  onAnimationSpeedChanged: store.setAnimationSpeed,
+                  confirmNewGame: settings.confirmNewGame,
+                  onConfirmNewGameChanged: setConfirmNewGame,
+                  confirmMainMenu: settings.confirmMainMenu,
+                  onConfirmMainMenuChanged: setConfirmMainMenu,
+                  showInvalidTapHints: settings.showInvalidTapHints,
+                  onShowInvalidTapHintsChanged: setShowInvalidTapHints,
+                  comradeUserIDs: comradesSummary.userIDs,
+                  incomingComradeRequestUserIDs: {
+                    for (final request in comradesSummary.incomingRequests)
+                      request.userID,
+                  },
+                  outgoingComradeRequestUserIDs: {
+                    for (final request in comradesSummary.outgoingRequests)
+                      request.userID,
+                  },
+                  currentProfileUserID: comradesSummary.userID,
+                  onComradeRequestToUser: requestComradeByUserID,
                 ),
                 if (store.error != null)
                   Positioned(

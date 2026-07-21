@@ -1,6 +1,39 @@
 part of '../widget_test.dart';
 
 void registerStoreAndOnlineTests() {
+  testWidgets(
+    'game controller owns four players and routes Central Planner reveals',
+    (tester) async {
+      final unloadedPolicy = Completer<KolkhozNativePolicyModel>().future;
+      final store = GameController(
+        autosaveEnabled: false,
+        mediumPolicyLoader: unloadedPolicy,
+        neuralPolicyLoader: unloadedPolicy,
+      )..animationSpeed = GameAnimationSpeed.instant;
+      addTearDown(store.dispose);
+      store.newGame(
+        persist: false,
+        controllers: const [
+          KolkhozPlayerController.human,
+          KolkhozPlayerController.heuristicAI,
+          KolkhozPlayerController.mediumAI,
+          KolkhozPlayerController.neuralAI,
+        ],
+      );
+
+      expect(store.players, hasLength(4));
+      expect(store.players[0], isA<HumanGamePlayer>());
+      expect(store.players[1], isA<HeuristicGamePlayer>());
+      expect(store.players[2], isA<PolicyGamePlayer>());
+      expect(store.players[3], isA<PolicyGamePlayer>());
+      await tester.pump(const Duration(milliseconds: 1));
+
+      expect(store.error, isNull);
+      expect(store.actionLog.single.kind, actionRevealReward);
+      expect(store.presentationRevision, isNotNull);
+    },
+  );
+
   test('store auto-selects the only legal trick card', () {
     const play = EngineAction(
       kind: actionPlayCard,
