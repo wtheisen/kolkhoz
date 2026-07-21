@@ -1,6 +1,44 @@
 part of '../widget_test.dart';
 
 void registerStoreAndOnlineTests() {
+  test('online lobby boundary maps wire roster into domain seats', () {
+    final json = onlineUpdateJson(viewerID: 1);
+    json['playerProfiles'] = [
+      {
+        'playerID': 1,
+        'userID': 'user-1',
+        'displayName': 'Mira',
+        'avatarURL': 'worker3',
+        'stats': {'online_games': 4, 'online_wins': 2},
+      },
+    ];
+    json['seatPresence'] = [
+      {
+        'playerID': 1,
+        'connected': false,
+        'lastSeenAt': 42.0,
+        'timeouts': 2,
+        'autopilot': true,
+        'abandoned': false,
+      },
+    ];
+
+    final lobby = gameLobbyFromOnlineUpdate(
+      OnlineSessionUpdate.fromJson(json),
+      viewerSeatID: 1,
+    );
+    final seat = lobby.seats[1];
+
+    expect(seat.player, isA<ServerGamePlayer>());
+    expect(seat.profile, isA<PlayerProfile>());
+    expect(seat.profile?.displayName, 'Mira');
+    expect(seat.presence, isA<PlayerPresence>());
+    expect(seat.presence?.autopilot, isTrue);
+    expect(seat.isViewer, isTrue);
+    expect(seat.occupied, isTrue);
+    expect(seat.ready, isTrue);
+  });
+
   testWidgets(
     'game controller owns four players and routes Central Planner reveals',
     (tester) async {
@@ -175,8 +213,8 @@ void registerStoreAndOnlineTests() {
       expect(store.isOnlineGame, isTrue);
       expect(store.players, everyElement(isA<ServerGamePlayer>()));
       expect(store.players, everyElement(isNot(isA<LocalGamePlayer>())));
-      expect((store.players[0] as ServerGamePlayer).isViewer, isTrue);
-      expect((store.players[1] as ServerGamePlayer).isViewer, isFalse);
+      expect(store.lobby.seats[0].isViewer, isTrue);
+      expect(store.lobby.seats[1].isViewer, isFalse);
       expect(store.lobby.seats.map((seat) => seat.ready), [
         false,
         false,
@@ -2034,6 +2072,7 @@ void registerStoreAndOnlineTests() {
 
     final model = OnlineTableProjection(
       update: update,
+      lobby: gameLobbyFromOnlineUpdate(update, viewerSeatID: 0),
       playerID: 0,
       legalActions: legalActions,
     ).project();
@@ -2066,8 +2105,10 @@ void registerStoreAndOnlineTests() {
         },
     ];
 
+    final update = OnlineSessionUpdate.fromJson(json);
     final model = OnlineTableProjection(
-      update: OnlineSessionUpdate.fromJson(json),
+      update: update,
+      lobby: gameLobbyFromOnlineUpdate(update, viewerSeatID: 0),
       playerID: 0,
       legalActions: const [],
     ).project();
@@ -2090,6 +2131,7 @@ void registerStoreAndOnlineTests() {
     final update = OnlineSessionUpdate.fromJson(json);
     final model = OnlineTableProjection(
       update: update,
+      lobby: gameLobbyFromOnlineUpdate(update, viewerSeatID: 0),
       playerID: 0,
       legalActions: const [],
     ).project();
@@ -2145,6 +2187,7 @@ void registerStoreAndOnlineTests() {
     final update = OnlineSessionUpdate.fromJson(json);
     final model = OnlineTableProjection(
       update: update,
+      lobby: gameLobbyFromOnlineUpdate(update, viewerSeatID: 0),
       playerID: 0,
       legalActions: update.legalActions,
     ).project();
@@ -2341,6 +2384,7 @@ void registerStoreAndOnlineTests() {
 
     final unselected = OnlineTableProjection(
       update: update,
+      lobby: gameLobbyFromOnlineUpdate(update, viewerSeatID: 0),
       playerID: 0,
       legalActions: legalActions,
     ).project();
@@ -2355,6 +2399,7 @@ void registerStoreAndOnlineTests() {
 
     final selected = OnlineTableProjection(
       update: update,
+      lobby: gameLobbyFromOnlineUpdate(update, viewerSeatID: 0),
       playerID: 0,
       legalActions: legalActions,
       uiState: GameUiState(

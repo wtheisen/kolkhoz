@@ -119,12 +119,13 @@ one and Drunkard removes its crop before the quota is counted.
 9. `app/lib/src/game_channel_local.dart` - In-memory channel and native engine owner.
 10. `app/lib/src/game_channel_online.dart` - Active online command and update transport.
 11. `app/lib/src/game_controller.dart` - Match, player routing, and presentation control.
-12. `app/lib/src/player_server.dart` - Read-only server-owned online seat projections.
-13. `app/lib/src/table_view_projection.dart` - C state to Flutter model projection.
-14. `app/lib/src/board/` and `app/lib/src/board_view.dart` - app UI.
-15. `research/kolkhoz_research/c_engine.py` - Python C-engine wrapper.
-16. `server/kolkhoz_server/production.py` - production online composition.
-17. `research/kolkhoz_research/cli.py` - training and benchmark commands.
+12. `app/lib/src/online_lobby_projection.dart` - Online wire roster to app-domain lobby boundary.
+13. `app/lib/src/player_server.dart` - Read-only server-owned online player adapter.
+14. `app/lib/src/table_view_projection.dart` - C state to Flutter model projection.
+15. `app/lib/src/board/` and `app/lib/src/board_view.dart` - app UI.
+16. `research/kolkhoz_research/c_engine.py` - Python C-engine wrapper.
+17. `server/kolkhoz_server/production.py` - production online composition.
+18. `research/kolkhoz_research/cli.py` - training and benchmark commands.
 
 ## Common Tasks
 

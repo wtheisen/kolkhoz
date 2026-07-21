@@ -64,6 +64,9 @@ Important files:
 | `lib/src/game_engine.dart` | Exclusive native engine lifecycle, frozen match config, actions, cloning, and Flutter state projection |
 | `lib/src/game_state_snapshot.dart` | Portable completed engine state with a versioned JSON representation |
 | `lib/src/game_lobby.dart` | Four-seat pre-game configuration and spectator roster |
+| `lib/src/online_lobby_projection.dart` | Single online boundary that maps wire roster fields into app-domain seats |
+| `lib/src/player_profile.dart` | Transport-independent seated-player profile value |
+| `lib/src/player_presence.dart` | Transport-independent seated-player presence value |
 | `lib/src/finished_game_lobby.dart` | Immutable final projection, result, roster, variants, log, reactions, and online metadata for postgame UI |
 | `lib/src/game_channel.dart` | Shared commands and events consumed by `GameController` |
 | `lib/src/game_channel_local.dart` | In-memory channel and exclusive local `GameEngine` ownership |
@@ -74,7 +77,7 @@ Important files:
 | `lib/src/player_human.dart` | Human player adapter for UI-driven decisions |
 | `lib/src/player_ai_heuristic.dart` | Deterministic C-engine heuristic player adapter |
 | `lib/src/player_ai_neural.dart` | Medium and hard neural-policy player adapter with heuristic fallback |
-| `lib/src/player_server.dart` | Read-only server-owned player, profile, and presence projection for online seats |
+| `lib/src/player_server.dart` | Read-only server-owned online player adapter |
 | `lib/src/game_undo_snapshot.dart` | Controller undo snapshot state and cloned-engine ownership |
 | `lib/src/table_view_projection.dart` | C engine state to Flutter table model |
 | `lib/src/online_game_models.dart` | Dart online API models/client |
@@ -172,6 +175,10 @@ the only new-match path that creates a `GameEngine`; autosave restoration may re
 an existing match directly through `LocalGameChannel`. Spectators remain controller-owned
 and never enter the engine or action router. Online lobby/start state remains authoritative
 on the server and is mirrored into the client controller through `OnlineGameChannel`.
+`OnlineSessionUpdate` remains a transport model. The controller maps its roster once
+through `online_lobby_projection.dart`; lobby widgets and table projection consume
+`GameSeat`, `PlayerProfile`, and `PlayerPresence` without inspecting wire types or
+downcasting players.
 
 The setup screen is a local draft and does not contact the server as seats or variants
 change. Tapping **Start Online Game** is the authority handoff: `GameController` freezes

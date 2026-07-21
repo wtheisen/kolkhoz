@@ -6,6 +6,7 @@ import 'package:kolkhoz_app/src/c_engine_bridge.dart';
 import 'package:kolkhoz_app/src/engine_action_projection.dart';
 import 'package:kolkhoz_app/src/game_constants.dart';
 import 'package:kolkhoz_app/src/game_ui_state.dart';
+import 'package:kolkhoz_app/src/online_lobby_projection.dart';
 import 'package:kolkhoz_app/src/online_game_models.dart';
 import 'package:kolkhoz_app/src/online_table_projection.dart';
 import 'package:kolkhoz_app/src/policy_model.dart';
@@ -478,8 +479,10 @@ visible=0:11:2|1:8:0|2:12:1|3:11:0
   test(
     'online redacted snapshot projects remote seats, stacks, and legal actions',
     () {
+      final update = onlineFixtureUpdate();
       final model = OnlineTableProjection(
-        update: onlineFixtureUpdate(),
+        update: update,
+        lobby: gameLobbyFromOnlineUpdate(update, viewerSeatID: 1),
         playerID: 1,
         legalActions: const [
           OnlineEngineAction(

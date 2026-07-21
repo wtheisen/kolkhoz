@@ -21,13 +21,13 @@ import 'game_ui_state.dart';
 import 'game_undo_snapshot.dart';
 import 'online_game_models.dart';
 import 'online_game_client.dart';
+import 'online_lobby_projection.dart';
 import 'online_table_projection.dart';
 import 'policy_model.dart';
 import 'player.dart';
 import 'player_ai_heuristic.dart';
 import 'player_ai_neural.dart';
 import 'player_human.dart';
-import 'player_server.dart';
 import 'render_model.dart';
 import 'design_tokens.dart';
 import 'saved_game_store.dart';
@@ -716,6 +716,7 @@ class GameController extends ChangeNotifier {
     if (online != null) {
       nextModel = OnlineTableProjection(
         update: _onlineUpdate!,
+        lobby: lobby,
         playerID: online.playerID,
         legalActions: _onlineUpdate!.legalActions,
         uiState: uiState,
@@ -740,6 +741,7 @@ class GameController extends ChangeNotifier {
         if (online != null) {
           nextModel = OnlineTableProjection(
             update: _onlineUpdate!,
+            lobby: lobby,
             playerID: online.playerID,
             legalActions: _onlineUpdate!.legalActions,
             uiState: uiState,
@@ -797,7 +799,7 @@ class GameController extends ChangeNotifier {
     _setChannel(channel);
     currentVariants = update.variants;
     currentSeed = update.seed ?? currentSeed;
-    lobby = gameLobbyFromServerUpdate(
+    lobby = gameLobbyFromOnlineUpdate(
       update,
       viewerSeatID: spectator ? null : playerID,
       spectators: spectator
@@ -1183,7 +1185,7 @@ class GameController extends ChangeNotifier {
         : _onlineUpdate!.reactions.last.revision;
     _onlineUpdate = update;
     final playerID = _onlineChannel?.playerID;
-    lobby = gameLobbyFromServerUpdate(
+    lobby = gameLobbyFromOnlineUpdate(
       update,
       viewerSeatID: _onlineChannel?.spectator == true ? null : playerID,
       spectators: lobby.spectators,

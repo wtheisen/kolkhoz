@@ -382,7 +382,7 @@ class _OnlinePanelState extends State<_OnlinePanel> {
         update: onlineUpdate,
         lobby:
             widget.gameLobby ??
-            gameLobbyFromServerUpdate(
+            gameLobbyFromOnlineUpdate(
               onlineUpdate,
               viewerSeatID: onlineUpdate.viewerID,
             ),
@@ -836,7 +836,7 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
                         child: _OnlineWaitingRoomSeatCard(
                           tokens: tokens,
                           language: language,
-                          player: seat.player as ServerGamePlayer,
+                          seat: seat,
                           ranked: update.ranked,
                           currentUserID: currentUserID,
                           comradeUserIDs: comradeUserIDs,
@@ -849,9 +849,8 @@ class _OnlineWaitingRoomPanel extends StatelessWidget {
                               canKickPlayers &&
                               seat.player.controller ==
                                   KolkhozPlayerController.human &&
-                              (seat.player as ServerGamePlayer).profile !=
-                                  null &&
-                              !(seat.player as ServerGamePlayer).isViewer &&
+                              seat.profile != null &&
+                              !seat.isViewer &&
                               onKickPlayer != null,
                           onKick: onKickPlayer == null
                               ? null
@@ -969,7 +968,7 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
   const _OnlineWaitingRoomSeatCard({
     required this.tokens,
     required this.language,
-    required this.player,
+    required this.seat,
     required this.ranked,
     required this.currentUserID,
     required this.comradeUserIDs,
@@ -982,7 +981,7 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
 
   final DesignTokens tokens;
   final KolkhozLanguage language;
-  final ServerGamePlayer player;
+  final GameSeat seat;
   final bool ranked;
   final String? currentUserID;
   final Set<String> comradeUserIDs;
@@ -992,15 +991,15 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
   final bool canKick;
   final VoidCallback? onKick;
 
-  KolkhozPlayerController get controller => player.controller;
-  OnlinePlayerProfile? get profile => player.profile;
+  KolkhozPlayerController get controller => seat.player.controller;
+  PlayerProfile? get profile => seat.profile;
 
   @override
   Widget build(BuildContext context) {
-    final playerID = player.seatID;
-    final controller = player.controller;
-    final profile = player.profile;
-    final presence = player.presence;
+    final playerID = seat.seatID;
+    final controller = seat.player.controller;
+    final profile = seat.profile;
+    final presence = seat.presence;
     final open = controller == KolkhozPlayerController.human && profile == null;
     final name = _seatName(open);
     final portraitAsset = profile?.portraitAsset ?? 'worker${playerID + 1}';
@@ -1045,7 +1044,7 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
           : null,
       portraitSize: 48,
       minHeight: 92,
-      active: player.isViewer,
+      active: seat.isViewer,
       muted: open,
       action: canKick
           ? PlayerProfileAction(
@@ -1087,7 +1086,7 @@ Future<void> _showLobbyPlayerProfile({
   required BuildContext context,
   required DesignTokens tokens,
   required KolkhozLanguage language,
-  required OnlinePlayerProfile profile,
+  required PlayerProfile profile,
   String? currentUserID,
   Set<String> comradeUserIDs = const {},
   Set<String> incomingComradeRequestUserIDs = const {},
@@ -1119,7 +1118,7 @@ Future<void> _showLobbyPlayerProfile({
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: ExpandedPlayerProfile(
-            key: Key('lobby-player-profile-${profile.playerID}'),
+            key: Key('lobby-player-profile-${profile.seatID}'),
             tokens: tokens,
             displayName: displayName == null || displayName.isEmpty
                 ? language.t(KolkhozText.kolkhozappHuman)
@@ -2215,7 +2214,7 @@ class _OpenSessionPlayerCard extends StatelessWidget {
               context: context,
               tokens: tokens,
               language: language,
-              profile: profile!,
+              profile: playerProfileFromOnline(profile!),
               currentUserID: currentUserID,
               comradeUserIDs: comradeUserIDs,
               incomingComradeRequestUserIDs: incomingComradeRequestUserIDs,
