@@ -1178,7 +1178,7 @@ void registerStoreAndOnlineTests() {
     }
     final result = bridge.applyPolicyAction(engine, action);
     expect(result, 0);
-  });
+  }, tags: 'neural-policy');
 
   test('policy model accepts flexible hidden layer sizes', () {
     final policy = KolkhozNativePolicyModel.fromJson({
