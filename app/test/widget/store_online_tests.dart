@@ -2113,34 +2113,6 @@ void registerStoreAndOnlineTests() {
     expect(update.lobbyCountdownSeconds, inInclusiveRange(29, 30));
   });
 
-  test('presentation queue separates committed and deferred revisions', () {
-    final revisionOne = OnlineSessionUpdate.fromJson(
-      onlineUpdateJson()..['actionLogCount'] = 1,
-    );
-    final revisionTwo = OnlineSessionUpdate.fromJson(
-      onlineUpdateJson()..['actionLogCount'] = 2,
-    );
-    final queue = GameEventQueue()
-      ..add(
-        OnlineActionUpdate(
-          revision: 1,
-          action: const OnlineEngineAction(
-            kind: kcActionSetTrump,
-            playerID: 0,
-            suit: 0,
-          ),
-          update: revisionOne,
-        ),
-      )
-      ..defer(revisionOne)
-      ..defer(revisionTwo);
-
-    expect(queue.knownRevision(0), 1);
-    expect(queue.takeNext()!.revision, 1);
-    expect(queue.takeDeferred()!.actionLogCount, 2);
-    expect(queue.isEmpty, isTrue);
-  });
-
   testWidgets('game log groups actions and reactions by year and phase', (
     tester,
   ) async {

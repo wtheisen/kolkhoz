@@ -15,7 +15,6 @@ import 'game_channel_local.dart';
 import 'game_channel_online.dart';
 import 'game_constants.dart';
 import 'game_engine.dart';
-import 'game_event_queue.dart';
 import 'game_lobby.dart';
 import 'game_state_snapshot.dart';
 import 'game_ui_state.dart';
@@ -134,8 +133,8 @@ class GameController extends ChangeNotifier {
   GameChannel? _channel;
   StreamSubscription<GameEvent>? _channelEvents;
   OnlineSessionUpdate? _onlineUpdate;
-  List<OnlineEngineAction> _onlineLegalActions = const [];
-  final GameEventQueue _eventQueue = GameEventQueue();
+  int? _onlinePresentationRevision;
+  List<String> _onlineAssignmentPresentationCardIDs = const [];
   GameUiState? _onlineSelectionBeforeCommand;
   GameUndoSnapshot? _pendingLocalUndoSnapshot;
   int? _automaticPhaseBefore;
@@ -348,10 +347,9 @@ class GameController extends ChangeNotifier {
   OnlineSessionUpdate? get onlineUpdate =>
       finishedGameLobby?.onlineUpdate ?? _onlineUpdate;
   int? get presentationRevision =>
-      _eventQueue.awaitingPresentationRevision ??
-      _awaitingLocalPresentationRevision;
+      _onlinePresentationRevision ?? _awaitingLocalPresentationRevision;
   List<String> get onlineAssignmentPresentationCardIDs =>
-      List.unmodifiable(_eventQueue.assignmentPresentationCardIDs);
+      List.unmodifiable(_onlineAssignmentPresentationCardIDs);
   List<EngineAction> get gameLogActions =>
       finishedGameLobby?.gameLogActions ??
       (_onlineChannel == null
@@ -748,7 +746,7 @@ class GameController extends ChangeNotifier {
       nextModel = OnlineTableProjection(
         update: _onlineUpdate!,
         playerID: online.playerID,
-        legalActions: _onlineLegalActions,
+        legalActions: _onlineUpdate!.legalActions,
         uiState: uiState,
       ).project();
     } else if (_localChannel case final local?) {
@@ -772,7 +770,7 @@ class GameController extends ChangeNotifier {
           nextModel = OnlineTableProjection(
             update: _onlineUpdate!,
             playerID: online.playerID,
-            legalActions: _onlineLegalActions,
+            legalActions: _onlineUpdate!.legalActions,
             uiState: uiState,
           ).project();
         } else if (_localChannel case final local?) {
@@ -813,8 +811,8 @@ class GameController extends ChangeNotifier {
     _autosaveStore.clear();
     _clearUndoStack();
     _onlineUpdate = update;
-    _onlineLegalActions = update.legalActions;
-    _eventQueue.clear();
+    _onlinePresentationRevision = null;
+    _onlineAssignmentPresentationCardIDs = const [];
     final channel = OnlineGameChannel(
       client: client,
       sessionID: sessionID,
@@ -1100,12 +1098,12 @@ class GameController extends ChangeNotifier {
       case LocalGameCommandResult():
         _handleLocalCommandResult(event);
       case OnlineGameStateReceived():
-        if (_acceptOrDeferOnlineUpdate(event.update)) {
-          error = null;
-          _sync();
-        }
-      case OnlineGameActionsReceived():
-        _queueOnlineActionUpdates(event.response);
+        _onlinePresentationRevision = event.presentationRevision;
+        _onlineAssignmentPresentationCardIDs =
+            event.assignmentPresentationCardIDs;
+        _acceptOnlineUpdate(event.update);
+        error = null;
+        _sync();
       case GameCommandCompleted():
         if (event.command is SubmitGameAction) {
           _onlineSelectionBeforeCommand = null;
@@ -1193,67 +1191,6 @@ class GameController extends ChangeNotifier {
     }
   }
 
-  bool _queueOnlineActionUpdates(OnlineActionUpdatesResponse response) {
-    final resyncUpdate = response.resyncUpdate;
-    if (resyncUpdate != null) {
-      _eventQueue.clear();
-      if (resyncUpdate.actionLogCount >= (_onlineUpdate?.actionLogCount ?? 0)) {
-        _acceptOnlineUpdate(resyncUpdate);
-        _onlineLegalActions = resyncUpdate.legalActions;
-        _sync();
-      }
-      return true;
-    }
-    final known = _knownOnlineRevision();
-    final updates = response.updates
-        .where((update) => update.revision > known)
-        .toList(growable: false);
-    if (updates.isEmpty) {
-      return false;
-    }
-    _eventQueue.addAll(updates);
-    _drainNextOnlineUpdate();
-    return true;
-  }
-
-  int _knownOnlineRevision() =>
-      _eventQueue.knownRevision(_onlineUpdate?.actionLogCount ?? 0);
-
-  void _drainNextOnlineUpdate() {
-    if (_onlineChannel == null ||
-        _eventQueue.awaitingPresentationRevision != null) {
-      return;
-    }
-    final next = _eventQueue.takeNext();
-    if (next == null) {
-      return;
-    }
-    final deferred = _eventQueue.deferredUpdate;
-    if (deferred != null && deferred.actionLogCount <= next.revision) {
-      _eventQueue.deferredUpdate = null;
-    }
-    final action = next.action;
-    if (action.kind == kcActionAssign) {
-      final cardID = action.engineAction.card?.id;
-      if (cardID != null) {
-        _eventQueue.pendingAssignmentCardIDs.add(cardID);
-      }
-    }
-    _eventQueue.assignmentPresentationCardIDs =
-        action.kind == kcActionSubmitAssignments
-        ? List.of(_eventQueue.pendingAssignmentCardIDs)
-        : const [];
-    if (action.kind == kcActionSubmitAssignments) {
-      _eventQueue.pendingAssignmentCardIDs.clear();
-    }
-    _eventQueue.awaitingPresentationRevision = next.revision;
-    _eventQueue.pendingPresentationLegalActions = next.update.legalActions;
-    _acceptOnlineUpdate(next.update.copyWith(legalActions: const []));
-    _onlineLegalActions = const [];
-    error = null;
-    _sync();
-  }
-
   void acknowledgeRevisionPresented(int revision) {
     final online = _onlineChannel;
     if (online == null) {
@@ -1265,28 +1202,10 @@ class GameController extends ChangeNotifier {
       _scheduleAutomaticStep();
       return;
     }
-    if (_eventQueue.awaitingPresentationRevision != revision) {
+    if (_onlinePresentationRevision != revision) {
       return;
     }
-    _eventQueue.awaitingPresentationRevision = null;
-    _eventQueue.assignmentPresentationCardIDs = const [];
-    if (_eventQueue.isNotEmpty) {
-      _drainNextOnlineUpdate();
-      return;
-    }
-    final deferred = _eventQueue.takeDeferred();
-    if (deferred != null &&
-        deferred.actionLogCount >= (_onlineUpdate?.actionLogCount ?? 0)) {
-      _acceptOnlineUpdate(deferred);
-      _onlineLegalActions = deferred.legalActions;
-      _sync();
-      return;
-    }
-    final legalActions = _eventQueue.pendingPresentationLegalActions;
-    _eventQueue.pendingPresentationLegalActions = const [];
-    _onlineUpdate = _onlineUpdate!.copyWith(legalActions: legalActions);
-    _onlineLegalActions = legalActions;
-    _sync();
+    unawaited(online.send(AcknowledgeGamePresentation(revision)));
   }
 
   void _acceptOnlineUpdate(OnlineSessionUpdate update) {
@@ -1321,16 +1240,6 @@ class GameController extends ChangeNotifier {
         notifyListeners();
       }
     });
-  }
-
-  bool _acceptOrDeferOnlineUpdate(OnlineSessionUpdate update) {
-    if (_eventQueue.awaitingPresentationRevision != null) {
-      _eventQueue.defer(update);
-      return false;
-    }
-    _acceptOnlineUpdate(update);
-    _onlineLegalActions = update.legalActions;
-    return true;
   }
 
   bool _restoreAutosave() {
@@ -1467,8 +1376,8 @@ class GameController extends ChangeNotifier {
     _channel = null;
     channel?.dispose();
     _onlineUpdate = null;
-    _onlineLegalActions = const [];
-    _eventQueue.clear();
+    _onlinePresentationRevision = null;
+    _onlineAssignmentPresentationCardIDs = const [];
     _onlineSelectionBeforeCommand = null;
     _pendingLocalUndoSnapshot?.dispose();
     _pendingLocalUndoSnapshot = null;

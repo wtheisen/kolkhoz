@@ -69,7 +69,6 @@ Important files:
 | `lib/src/game_channel_local.dart` | In-memory channel and exclusive local `GameEngine` ownership |
 | `lib/src/game_channel_online.dart` | Active-match HTTP command, retry, refresh, and update transport |
 | `lib/src/game_channel_online_realtime.dart` | WebSocket connection, reconnect, and frame decoding |
-| `lib/src/game_event_queue.dart` | Ordered client presentation queue, separate from authoritative server revisions |
 | `lib/src/game_controller.dart` | Match setup, four-player ownership, action routing, presentation pacing, and local/online state publication |
 | `lib/src/player.dart` | Shared `GamePlayer` contract |
 | `lib/src/player_human.dart` | Human player adapter for UI-driven decisions |
@@ -157,9 +156,10 @@ portable `GameCommand` objects through its current channel and consumes ordered
 online gameplay commands use the server-backed channel.
 
 Authoritative server revisions and client presentation acknowledgements are deliberately
-separate. `GameEventQueue` preserves every committed action needed for animation, while
-newer full snapshots may wait as deferred state. A client acknowledgement only advances
-that local presentation queue; it never blocks the server or another client.
+separate. `OnlineGameChannel` preserves every committed action needed for animation and
+publishes only the next presentation-ready state; newer full snapshots wait as deferred
+state. A client acknowledgement advances only that channel's local delivery queue; it
+never blocks the server or another client.
 
 The controller lifecycle is `lobby -> starting -> playing -> finishing -> finished`. It begins
 without a local engine. `startGame()` freezes the lobby's four seats and variants and is

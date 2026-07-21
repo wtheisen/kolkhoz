@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'c_engine_bridge.dart';
 import 'game_channel.dart';
 import 'game_channel_online_realtime.dart';
 import 'online_game_client.dart';
@@ -36,6 +37,7 @@ class OnlineGameChannel extends GameEventChannel {
     required this.realtimeReconnectDelay,
     this.spectator = false,
   }) : _latestRevision = initialUpdate.actionLogCount {
+    _presentedUpdate = initialUpdate;
     _realtime = OnlineGameRealtime(
       client: client,
       sessionID: sessionID,
@@ -67,6 +69,12 @@ class OnlineGameChannel extends GameEventChannel {
   bool _refreshInFlight = false;
   bool _commandInFlight = false;
   bool _disposed = false;
+  late OnlineSessionUpdate _presentedUpdate;
+  final List<OnlineActionUpdate> _pendingUpdates = [];
+  final List<String> _pendingAssignmentCardIDs = [];
+  List<OnlineEngineAction> _pendingPresentationLegalActions = const [];
+  OnlineSessionUpdate? _deferredUpdate;
+  int? _awaitingPresentationRevision;
 
   @override
   bool get commandInFlight => _commandInFlight;
@@ -86,6 +94,7 @@ class OnlineGameChannel extends GameEventChannel {
     return switch (command) {
       SubmitGameAction() => _submitAction(command),
       RefreshGame() => _refresh(command),
+      AcknowledgeGamePresentation() => _acknowledgePresentation(command),
       SendGameReaction() => _sendReaction(command),
       KickGamePlayer() => _kickPlayer(command),
       LeaveGame() => _leave(command),
@@ -267,6 +276,30 @@ class OnlineGameChannel extends GameEventChannel {
     }
   }
 
+  Future<void> _acknowledgePresentation(
+    AcknowledgeGamePresentation command,
+  ) async {
+    if (_awaitingPresentationRevision != command.revision) {
+      return;
+    }
+    _awaitingPresentationRevision = null;
+    if (_pendingUpdates.isNotEmpty) {
+      _drainNextUpdate();
+      return;
+    }
+    final deferred = _deferredUpdate;
+    _deferredUpdate = null;
+    if (deferred != null &&
+        deferred.actionLogCount >= _presentedUpdate.actionLogCount) {
+      _deliverState(deferred);
+      return;
+    }
+    _deliverState(
+      _presentedUpdate.copyWith(legalActions: _pendingPresentationLegalActions),
+    );
+    _pendingPresentationLegalActions = const [];
+  }
+
   bool _publishActions(OnlineActionUpdatesResponse response) {
     final resync = response.resyncUpdate;
     if (resync != null) {
@@ -274,7 +307,8 @@ class OnlineGameChannel extends GameEventChannel {
         return false;
       }
       _latestRevision = resync.actionLogCount;
-      publish(OnlineGameActionsReceived(response));
+      _clearPresentationQueue();
+      _deliverState(resync);
       return true;
     }
     final updates = response.updates
@@ -284,15 +318,8 @@ class OnlineGameChannel extends GameEventChannel {
       return false;
     }
     _latestRevision = updates.last.revision;
-    publish(
-      OnlineGameActionsReceived(
-        OnlineActionUpdatesResponse(
-          sessionID: response.sessionID,
-          actionLogCount: response.actionLogCount,
-          updates: updates,
-        ),
-      ),
-    );
+    _pendingUpdates.addAll(updates);
+    _drainNextUpdate();
     return true;
   }
 
@@ -301,7 +328,61 @@ class OnlineGameChannel extends GameEventChannel {
       return;
     }
     _latestRevision = update.actionLogCount;
+    if (_awaitingPresentationRevision != null) {
+      final deferred = _deferredUpdate;
+      if (deferred == null ||
+          update.actionLogCount >= deferred.actionLogCount) {
+        _deferredUpdate = update;
+      }
+      return;
+    }
+    _deliverState(update);
+  }
+
+  void _drainNextUpdate() {
+    if (_awaitingPresentationRevision != null || _pendingUpdates.isEmpty) {
+      return;
+    }
+    final next = _pendingUpdates.removeAt(0);
+    final deferred = _deferredUpdate;
+    if (deferred != null && deferred.actionLogCount <= next.revision) {
+      _deferredUpdate = null;
+    }
+    if (next.action.kind == kcActionAssign) {
+      final cardID = next.action.engineAction.card?.id;
+      if (cardID != null) {
+        _pendingAssignmentCardIDs.add(cardID);
+      }
+    }
+    final assignmentCardIDs = next.action.kind == kcActionSubmitAssignments
+        ? List<String>.unmodifiable(_pendingAssignmentCardIDs)
+        : const <String>[];
+    if (next.action.kind == kcActionSubmitAssignments) {
+      _pendingAssignmentCardIDs.clear();
+    }
+    _awaitingPresentationRevision = next.revision;
+    _pendingPresentationLegalActions = next.update.legalActions;
+    _presentedUpdate = next.update.copyWith(legalActions: const []);
+    publish(
+      OnlineGameStateReceived(
+        _presentedUpdate,
+        presentationRevision: next.revision,
+        assignmentPresentationCardIDs: assignmentCardIDs,
+      ),
+    );
+  }
+
+  void _deliverState(OnlineSessionUpdate update) {
+    _presentedUpdate = update;
     publish(OnlineGameStateReceived(update));
+  }
+
+  void _clearPresentationQueue() {
+    _pendingUpdates.clear();
+    _pendingAssignmentCardIDs.clear();
+    _pendingPresentationLegalActions = const [];
+    _deferredUpdate = null;
+    _awaitingPresentationRevision = null;
   }
 
   void _startPolling({Duration interval = onlineGameRefreshInterval}) {
@@ -320,6 +401,7 @@ class OnlineGameChannel extends GameEventChannel {
     _disposed = true;
     _refreshTimer?.cancel();
     _refreshTimer = null;
+    _clearPresentationQueue();
     _realtime.dispose();
     super.dispose();
   }

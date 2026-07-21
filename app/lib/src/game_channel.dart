@@ -31,6 +31,12 @@ class RefreshGame extends GameCommand {
   final int? minimumRevision;
 }
 
+class AcknowledgeGamePresentation extends GameCommand {
+  const AcknowledgeGamePresentation(this.revision);
+
+  final int revision;
+}
+
 class SendGameReaction extends GameCommand {
   const SendGameReaction(this.reactionID);
 
@@ -66,15 +72,15 @@ class LocalGameCommandResult extends GameEvent {
 }
 
 class OnlineGameStateReceived extends GameEvent {
-  const OnlineGameStateReceived(this.update);
+  const OnlineGameStateReceived(
+    this.update, {
+    this.presentationRevision,
+    this.assignmentPresentationCardIDs = const [],
+  });
 
   final OnlineSessionUpdate update;
-}
-
-class OnlineGameActionsReceived extends GameEvent {
-  const OnlineGameActionsReceived(this.response);
-
-  final OnlineActionUpdatesResponse response;
+  final int? presentationRevision;
+  final List<String> assignmentPresentationCardIDs;
 }
 
 class GameCommandFailed extends GameEvent {
