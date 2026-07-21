@@ -48,25 +48,50 @@ class OnlineSmokeTests(unittest.TestCase):
         self.assertIn("/rest/v1/profile_stats?", request_json.call_args.args[0])
         self.assertIn("select=games_played", request_json.call_args.args[0])
 
-    def test_action_conflict_refreshes_current_state(self) -> None:
-        conflict = HTTPError("url", 409, "conflict", None, None)
+    def test_rejected_stale_action_refreshes_current_state(self) -> None:
+        for status in (400, 409):
+            with self.subTest(status=status):
+                error = HTTPError("url", status, "stale", None, None)
+                with mock.patch.object(
+                    online_smoke,
+                    "request_json",
+                    side_effect=[error, {"actionLogCount": 2}],
+                ) as request_json:
+                    update = online_smoke._submit_or_refresh(
+                        "https://online",
+                        "session",
+                        0,
+                        1,
+                        {"type": "pass"},
+                        {"Authorization": "Bearer token"},
+                    )
+
+                self.assertEqual(update, {"actionLogCount": 2})
+                self.assertEqual(request_json.call_count, 2)
+                self.assertIn(
+                    "/state?viewerID=0", request_json.call_args_list[1].args[0]
+                )
+
+    def test_legacy_auth_is_exchanged_for_server_identity_session(self) -> None:
         with mock.patch.object(
             online_smoke,
             "request_json",
-            side_effect=[conflict, {"actionLogCount": 2}],
+            return_value={"accessToken": "khz_identity-session"},
         ) as request_json:
-            update = online_smoke._submit_or_refresh(
-                "https://online",
-                "session",
-                0,
-                1,
-                {"type": "pass"},
-                {"Authorization": "Bearer token"},
-            )
+            token = online_smoke._identity_token("https://online", "legacy-token")
 
-        self.assertEqual(update, {"actionLogCount": 2})
-        self.assertEqual(request_json.call_count, 2)
-        self.assertIn("/state?viewerID=0", request_json.call_args_list[1].args[0])
+        self.assertEqual(token, "khz_identity-session")
+        self.assertEqual(
+            request_json.call_args.args[0], "https://online/identity/legacy"
+        )
+        self.assertEqual(
+            request_json.call_args.kwargs["headers"]["Authorization"],
+            "Bearer legacy-token",
+        )
+        self.assertEqual(
+            request_json.call_args.kwargs["body"]["installationID"],
+            online_smoke.INSTALLATION_ID,
+        )
 
 
 if __name__ == "__main__":

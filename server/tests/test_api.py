@@ -153,6 +153,16 @@ class CompatibilityApiTests(unittest.TestCase):
                 {"phase": 5, "waitingPlayer": 1}, [human]
             )
         )
+        self.assertFalse(
+            self.application._update_waits_for_human(
+                {
+                    "phase": 0,
+                    "waitingPlayer": 1,
+                    "legalActions": [{"kind": 10, "playerID": 1}],
+                },
+                [human],
+            )
+        )
 
     def test_cached_action_update_reuses_matching_full_session_context(self) -> None:
         status, created = self.request(

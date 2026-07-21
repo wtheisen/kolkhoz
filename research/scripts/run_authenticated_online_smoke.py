@@ -14,6 +14,7 @@ from urllib.parse import urlencode
 
 
 EMAIL = "codex-smoke@kolkhoz.local"
+INSTALLATION_ID = "codex-smoke-production-installation"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RESULT_LOG = REPO_ROOT / "research/logs/online_smoke.jsonl"
 
@@ -80,12 +81,27 @@ def _submit_or_refresh(
             headers=headers,
         )
     except HTTPError as error:
-        if error.code != 409:
+        if error.code not in (400, 409):
             raise
     query = urlencode({"viewerID": player_id})
     return request_json(
         f"{online_url}/sessions/{session_id}/state?{query}", headers=headers
     )
+
+
+def _identity_token(online_url: str, legacy_token: str) -> str:
+    payload = request_json(
+        f"{online_url}/identity/legacy",
+        method="POST",
+        body={"installationID": INSTALLATION_ID},
+        headers={
+            "Authorization": f"Bearer {legacy_token}",
+            "X-Kolkhoz-Device-ID": INSTALLATION_ID,
+        },
+    )
+    if not isinstance(payload, dict) or not payload.get("accessToken"):
+        raise RuntimeError("online server did not return an identity session")
+    return str(payload["accessToken"])
 
 
 def run_smoke() -> dict[str, object]:
@@ -109,17 +125,22 @@ def run_smoke() -> dict[str, object]:
     )
     if not isinstance(auth, dict) or not auth.get("access_token"):
         raise RuntimeError("Supabase did not return an access token")
-    token = str(auth["access_token"])
+    legacy_token = str(auth["access_token"])
     user = auth.get("user") if isinstance(auth.get("user"), dict) else {}
     user_id = str(user.get("id") or "")
-    headers = {"Authorization": f"Bearer {token}"}
-    games_before = _games_played(supabase_url, publishable_key, token, user_id)
+    identity_token = _identity_token(online_url, legacy_token)
+    headers = {
+        "Authorization": f"Bearer {identity_token}",
+        "X-Kolkhoz-Device-ID": INSTALLATION_ID,
+    }
+    games_before = _games_played(supabase_url, publishable_key, legacy_token, user_id)
 
     created = request_json(
         f"{online_url}/sessions",
         method="POST",
         body={
             "seed": random.SystemRandom().randint(1, 2**31 - 1),
+            "variants": {"heroOfSovietUnion": False},
             "controllers": ["human", "heuristicAI", "neuralAI", "heuristicAI"],
             "ranked": False,
             "browserJoinable": False,
@@ -141,7 +162,48 @@ def run_smoke() -> dict[str, object]:
     while time.monotonic() < deadline:
         snapshot = update.get("snapshot")
         if isinstance(snapshot, dict) and int(snapshot.get("winnerID", -1)) >= 0:
-            games_after = _games_played(supabase_url, publishable_key, token, user_id)
+            replay = request_json(
+                f"{online_url}/results/{session_id}/replay", headers=headers
+            )
+            replay_events = replay.get("events", []) if isinstance(replay, dict) else []
+            actions = [
+                event["action"]
+                for event in replay_events
+                if isinstance(event, dict) and isinstance(event.get("action"), dict)
+            ]
+            action_kinds = [
+                int(action.get("kind", -1))
+                for action in actions
+                if isinstance(action, dict)
+            ]
+            reward_reveals = action_kinds.count(10)
+            trump_reveals = action_kinds.count(11)
+            pass_actions = action_kinds.count(9)
+            joker_actions = sum(
+                1
+                for action in actions
+                if isinstance(action, dict)
+                and any(
+                    isinstance(action.get(key), dict)
+                    and int(action[key].get("suit", -1)) == 4
+                    and int(action[key].get("value", -1)) == 0
+                    for key in ("card", "handCard", "plotCard")
+                )
+            )
+            if reward_reveals != 12 or trump_reveals != 1:
+                raise RuntimeError(
+                    "planning reveals did not match a game through Year 5 "
+                    f"(rewards={reward_reveals}, trump={trump_reveals})"
+                )
+            if pass_actions != 0:
+                raise RuntimeError(
+                    f"default game unexpectedly passed {pass_actions} cards"
+                )
+            if joker_actions == 0:
+                raise RuntimeError("completed game did not expose a zero-value Joker")
+            games_after = _games_played(
+                supabase_url, publishable_key, legacy_token, user_id
+            )
             if games_after != games_before + 1:
                 raise RuntimeError(
                     "games-played count did not advance exactly once "
@@ -155,6 +217,10 @@ def run_smoke() -> dict[str, object]:
                 "winnerID": snapshot["winnerID"],
                 "gamesPlayed": games_after,
                 "scores": snapshot.get("scores", []),
+                "rewardReveals": reward_reveals,
+                "trumpReveals": trump_reveals,
+                "passActions": pass_actions,
+                "jokerActions": joker_actions,
             }
 
         legal_actions = update.get("legalActions")
