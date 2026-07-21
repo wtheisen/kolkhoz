@@ -191,6 +191,12 @@ versioned JSON shape is embedded in saved match logs. Online games build the sam
 object from the authoritative server projection and retain their transport runtime for
 reactions, rematches, and series updates.
 
+The online runtime follows the same ownership boundary. When an authoritative engine
+reaches `gameOver`, its shard captures the public immutable final JSON and closes
+the C engine immediately. Finished reads, reactions, and result screens use that terminal
+snapshot. Durable events remain the restart source of truth; a replacement worker replays
+once, captures the same terminal JSON, and releases the reconstructed engine again.
+
 ## Research Data Flow
 
 ```text
