@@ -1751,6 +1751,14 @@ class OnlineApplication:
     ) -> bool:
         if optional_int(state.get("phase"), -1) == 5:
             return False
+        legal_actions = state.get("legalActions")
+        if (
+            isinstance(legal_actions, list)
+            and len(legal_actions) == 1
+            and isinstance(legal_actions[0], Mapping)
+            and optional_int(legal_actions[0].get("kind")) in (10, 11)
+        ):
+            return False
         waiting = optional_int(state.get("waitingPlayer"))
         if waiting is None:
             return False
