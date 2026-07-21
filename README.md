@@ -131,7 +131,7 @@ agent-docs/
 
 ```text
 Flutter gesture
-    -> LiveGameStore
+    -> GameController
     -> Dart FFI action
     -> C engine applies manual action
     -> C engine advances one automatic step at a time
@@ -154,7 +154,7 @@ Python CLI
 - `engine/KolkhozCEngine/KolkhozCEngine.c` - rules, legal actions, AI, scoring, C policy features.
 - `engine/KolkhozCEngine/include/KolkhozCEngine.h` - public C API used by Flutter and research.
 - `app/lib/src/c_engine_bridge.dart` - Dart FFI bridge.
-- `app/lib/src/live_game_store.dart` - Flutter runtime store.
+- `app/lib/src/game_controller.dart` - Flutter lobby, routing, and match controller.
 - `app/lib/src/table_view_projection.dart` - C snapshot to Flutter table model.
 - `research/kolkhoz_research/c_engine.py` - Python `ctypes` wrapper and local shared-library build.
 - `research/kolkhoz_research/cli.py` - training, benchmark, tournament, seed-mining CLI.

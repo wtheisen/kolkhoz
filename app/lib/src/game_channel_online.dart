@@ -76,7 +76,6 @@ class OnlineGameChannel extends GameEventChannel {
   OnlineSessionUpdate? _deferredUpdate;
   int? _awaitingPresentationRevision;
 
-  @override
   bool get commandInFlight => _commandInFlight;
 
   void start() {
