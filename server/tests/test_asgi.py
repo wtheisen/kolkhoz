@@ -447,9 +447,7 @@ def test_direct_projections_are_ordered_and_gaps_use_catch_up() -> None:
             },
         )
 
-    direct = _direct_committed_updates(
-        "s1", 2, 0, current, [message(2), message(1)]
-    )
+    direct = _direct_committed_updates("s1", 2, 0, current, [message(2), message(1)])
     assert direct is not None
     updates, latest, revision = direct
     assert revision == 2

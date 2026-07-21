@@ -80,7 +80,9 @@ class IdentityTests(unittest.TestCase):
             clock=lambda: self.now[0],
         )
 
-    def authenticate(self, provider: str, subject: str, credential: str) -> dict[str, object]:
+    def authenticate(
+        self, provider: str, subject: str, credential: str
+    ) -> dict[str, object]:
         return self.service.authenticate(
             provider,
             {"subject": subject, "credential": credential},
@@ -143,7 +145,9 @@ class IdentityTests(unittest.TestCase):
         bundle_id = "com.williamtheisen.kolkhoz"
         timestamp = int(self.now[0] * 1000)
         salt = b"game-center-salt"
-        signed = subject.encode() + bundle_id.encode() + struct.pack(">Q", timestamp) + salt
+        signed = (
+            subject.encode() + bundle_id.encode() + struct.pack(">Q", timestamp) + salt
+        )
         signature = private_key.sign(signed, padding.PKCS1v15(), hashes.SHA256())
         payload = {
             "teamPlayerID": subject,
@@ -155,7 +159,9 @@ class IdentityTests(unittest.TestCase):
         response = FakeHTTPResponse(
             certificate.public_bytes(serialization.Encoding.DER)
         )
-        with patch("server.kolkhoz_server.identity.request.urlopen", return_value=response):
+        with patch(
+            "server.kolkhoz_server.identity.request.urlopen", return_value=response
+        ):
             verified = AppleGameCenterVerifier(bundle_id=bundle_id).verify(
                 payload, self.now[0]
             )
@@ -273,7 +279,9 @@ class IdentityTests(unittest.TestCase):
             )
         self.assertFalse(self.repository.players[provisional_id]["deleted"])
 
-    def test_legacy_player_claim_keeps_uuid_and_rejects_cross_account_claim(self) -> None:
+    def test_legacy_player_claim_keeps_uuid_and_rejects_cross_account_claim(
+        self,
+    ) -> None:
         legacy_id = "10000000-0000-4000-8000-000000000001"
         self.repository.players[legacy_id] = {
             "displayName": "Existing Player",
@@ -289,11 +297,10 @@ class IdentityTests(unittest.TestCase):
         )
         self.assertEqual(claimed["player"]["id"], legacy_id)  # type: ignore[index]
         self.assertEqual(
-            claimed["player"]["displayName"], "Existing Player"  # type: ignore[index]
+            claimed["player"]["displayName"],
+            "Existing Player",  # type: ignore[index]
         )
-        returning = self.authenticate(
-            "game_center", "gc-existing", "returning-proof"
-        )
+        returning = self.authenticate("game_center", "gc-existing", "returning-proof")
         self.assertEqual(returning["player"]["id"], legacy_id)  # type: ignore[index]
 
         other_id = "10000000-0000-4000-8000-000000000002"
@@ -393,7 +400,9 @@ class IdentityTests(unittest.TestCase):
         self.service.redeem(target_id, str(link["code"]))
         with self.assertRaises(LinkError):
             self.repository.approve_link(source_id, str(link["requestID"]), self.now[0])
-        self.assertEqual(self.repository.links[str(link["requestID"])]["status"], "conflict")
+        self.assertEqual(
+            self.repository.links[str(link["requestID"])]["status"], "conflict"
+        )
         restored = self.authenticate("play_games", "pg-target", "fresh-code")
         self.assertEqual(restored["player"]["id"], target_id)  # type: ignore[index]
 
@@ -401,15 +410,15 @@ class IdentityTests(unittest.TestCase):
         login = self.authenticate("game_center", "gc-1", "gc-code")
         token = str(login["accessToken"])
         player_id = str(login["player"]["id"])  # type: ignore[index]
-        verifier = IdentitySessionVerifier(
-            self.repository, clock=lambda: self.now[0]
-        )
+        verifier = IdentitySessionVerifier(self.repository, clock=lambda: self.now[0])
         self.assertEqual(verifier.user_id(f"Bearer {token}"), player_id)
         self.repository.delete_player(player_id, self.now[0])
         self.assertIsNone(verifier.user_id(f"Bearer {token}"))
         self.assertFalse(self.repository.identities)
 
-    def test_two_device_flow_through_api_rotates_target_session_and_deletes_account(self) -> None:
+    def test_two_device_flow_through_api_rotates_target_session_and_deletes_account(
+        self,
+    ) -> None:
         repository = InMemoryIdentityRepository()
         service = IdentityService(
             repository,

@@ -192,10 +192,7 @@ def privacy_safe_action_log(
         ):
             value["handCard"] = {"suit": -1, "value": -1}
             value["plotCard"] = {"suit": -1, "value": -1}
-        if (
-            optional_int(value.get("playerID")) != viewer_id
-            and value.get("kind") == 9
-        ):
+        if optional_int(value.get("playerID")) != viewer_id and value.get("kind") == 9:
             value["card"] = {"suit": -1, "value": -1}
         result.append(value)
     return result

@@ -139,9 +139,14 @@ class AppleGameCenterVerifier:
             )
         except Exception as error:
             raise CredentialError("invalid Game Center signature") from error
-        fingerprint = hashlib.sha256(signature + salt + str(timestamp).encode()).hexdigest()
+        fingerprint = hashlib.sha256(
+            signature + salt + str(timestamp).encode()
+        ).hexdigest()
         return VerifiedIdentity(
-            "game_center", subject, fingerprint, timestamp_seconds + self.max_age_seconds
+            "game_center",
+            subject,
+            fingerprint,
+            timestamp_seconds + self.max_age_seconds,
         )
 
 
@@ -202,18 +207,40 @@ class GooglePlayGamesVerifier:
 
 
 class IdentityRepository(Protocol):
-    def authenticate(self, identity: VerifiedIdentity, display_name: str, device_id: str, now: float) -> dict[str, object]: ...
-    def claim(self, player_id: str, identity: VerifiedIdentity, device_id: str, now: float) -> dict[str, object]: ...
-    def guest(self, guest_hash: str, display_name: str, device_id: str, now: float) -> dict[str, object]: ...
-    def migrate_legacy(self, player_id: str, guest_hash: str, device_id: str, now: float) -> dict[str, object]: ...
+    def authenticate(
+        self, identity: VerifiedIdentity, display_name: str, device_id: str, now: float
+    ) -> dict[str, object]: ...
+    def claim(
+        self, player_id: str, identity: VerifiedIdentity, device_id: str, now: float
+    ) -> dict[str, object]: ...
+    def guest(
+        self, guest_hash: str, display_name: str, device_id: str, now: float
+    ) -> dict[str, object]: ...
+    def migrate_legacy(
+        self, player_id: str, guest_hash: str, device_id: str, now: float
+    ) -> dict[str, object]: ...
     def player_for_token(self, token_hash: str, now: float) -> str | None: ...
-    def create_link(self, player_id: str, code_hash: str, expires_at: float, now: float) -> str: ...
-    def link_status(self, player_id: str, request_id: str, now: float) -> dict[str, object]: ...
-    def cancel_link(self, player_id: str, request_id: str, now: float) -> dict[str, object]: ...
-    def redeem_link(self, target_player_id: str, code_hash: str, now: float) -> dict[str, object]: ...
-    def approve_link(self, source_player_id: str, request_id: str, now: float) -> dict[str, object]: ...
-    def create_email_code(self, player_id: str, email: str, code_hash: str, expires_at: float, now: float) -> None: ...
-    def verify_email_code(self, player_id: str, email: str, code_hash: str, device_id: str, now: float) -> dict[str, object]: ...
+    def create_link(
+        self, player_id: str, code_hash: str, expires_at: float, now: float
+    ) -> str: ...
+    def link_status(
+        self, player_id: str, request_id: str, now: float
+    ) -> dict[str, object]: ...
+    def cancel_link(
+        self, player_id: str, request_id: str, now: float
+    ) -> dict[str, object]: ...
+    def redeem_link(
+        self, target_player_id: str, code_hash: str, now: float
+    ) -> dict[str, object]: ...
+    def approve_link(
+        self, source_player_id: str, request_id: str, now: float
+    ) -> dict[str, object]: ...
+    def create_email_code(
+        self, player_id: str, email: str, code_hash: str, expires_at: float, now: float
+    ) -> None: ...
+    def verify_email_code(
+        self, player_id: str, email: str, code_hash: str, device_id: str, now: float
+    ) -> dict[str, object]: ...
     def account_status(self, player_id: str) -> dict[str, object]: ...
     def delete_player(self, player_id: str, now: float) -> None: ...
 
@@ -234,7 +261,15 @@ class IdentityService:
         self.email_sender = email_sender
         self.clock = clock
 
-    def authenticate(self, provider: str, payload: Mapping[str, object], *, display_name: str, device_id: str, claim_player_id: str | None = None) -> dict[str, object]:
+    def authenticate(
+        self,
+        provider: str,
+        payload: Mapping[str, object],
+        *,
+        display_name: str,
+        device_id: str,
+        claim_player_id: str | None = None,
+    ) -> dict[str, object]:
         verifier = self.verifiers.get(provider)
         if verifier is None:
             raise CredentialError("unsupported identity provider")
@@ -242,12 +277,21 @@ class IdentityService:
         verified = verifier.verify(payload, now)
         if claim_player_id is not None:
             return self.repository.claim(claim_player_id, verified, device_id, now)
-        return self.repository.authenticate(verified, _name(display_name, verified.display_name), device_id, now)
+        return self.repository.authenticate(
+            verified, _name(display_name, verified.display_name), device_id, now
+        )
 
-    def guest(self, installation_id: str, *, display_name: str, device_id: str) -> dict[str, object]:
+    def guest(
+        self, installation_id: str, *, display_name: str, device_id: str
+    ) -> dict[str, object]:
         if len(installation_id) < 16:
             raise CredentialError("invalid guest installation identity")
-        return self.repository.guest(self._hash(f"guest:{installation_id}"), _name(display_name), device_id, self.clock())
+        return self.repository.guest(
+            self._hash(f"guest:{installation_id}"),
+            _name(display_name),
+            device_id,
+            self.clock(),
+        )
 
     def migrate_legacy(
         self, player_id: str, installation_id: str, *, device_id: str
@@ -263,12 +307,24 @@ class IdentityService:
 
     def create_link(self, player_id: str) -> dict[str, object]:
         now = self.clock()
-        raw = "-".join(secrets.token_hex(3).upper()[index:index + 3] for index in (0, 3))
-        request_id = self.repository.create_link(player_id, self._hash(f"link:{raw}"), now + LINK_SECONDS, now)
-        return {"requestID": request_id, "code": raw, "qrPayload": f"kolkhoz://link?code={raw}", "expiresAt": now + LINK_SECONDS, "status": "pending"}
+        raw = "-".join(
+            secrets.token_hex(3).upper()[index : index + 3] for index in (0, 3)
+        )
+        request_id = self.repository.create_link(
+            player_id, self._hash(f"link:{raw}"), now + LINK_SECONDS, now
+        )
+        return {
+            "requestID": request_id,
+            "code": raw,
+            "qrPayload": f"kolkhoz://link?code={raw}",
+            "expiresAt": now + LINK_SECONDS,
+            "status": "pending",
+        }
 
     def redeem(self, player_id: str, code: str) -> dict[str, object]:
-        return self.repository.redeem_link(player_id, self._hash(f"link:{_code(code)}"), self.clock())
+        return self.repository.redeem_link(
+            player_id, self._hash(f"link:{_code(code)}"), self.clock()
+        )
 
     def request_email_code(self, player_id: str, email: str) -> dict[str, object]:
         if self.email_sender is None:
@@ -290,7 +346,9 @@ class IdentityService:
         self, player_id: str, email: str, code: str, *, device_id: str
     ) -> dict[str, object]:
         normalized = _email(email)
-        normalized_code = "".join(character for character in code if character.isdigit())
+        normalized_code = "".join(
+            character for character in code if character.isdigit()
+        )
         if len(normalized_code) != 6:
             raise CredentialError("invalid email login code")
         return self.repository.verify_email_code(
@@ -332,7 +390,9 @@ class CompositeAuthVerifier:
         if authorization is None:
             return None
         for verifier in self.verifiers:
-            if authorization.startswith("Bearer khz_") != isinstance(verifier, IdentitySessionVerifier):
+            if authorization.startswith("Bearer khz_") != isinstance(
+                verifier, IdentitySessionVerifier
+            ):
                 continue
             value = verifier.user_id(authorization)  # type: ignore[attr-defined]
             if value is not None:
@@ -350,7 +410,9 @@ class PostgresIdentityRepository:
     def __init__(self, pool: ConnectionPool) -> None:
         self.pool = pool
 
-    def authenticate(self, identity: VerifiedIdentity, display_name: str, device_id: str, now: float) -> dict[str, object]:
+    def authenticate(
+        self, identity: VerifiedIdentity, display_name: str, device_id: str, now: float
+    ) -> dict[str, object]:
         with self.pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
             cursor = connection.execute(  # type: ignore[attr-defined]
                 "select player_id::text from server_linked_identities where provider=%s and provider_subject=%s for update",
@@ -359,18 +421,40 @@ class PostgresIdentityRepository:
             row = cursor.fetchone()
             if row:
                 player_id = str(row[0])
-                connection.execute("update server_linked_identities set last_authenticated_at=to_timestamp(%s) where provider=%s and provider_subject=%s", (now, identity.provider, identity.subject))  # type: ignore[attr-defined]
+                connection.execute(
+                    "update server_linked_identities set last_authenticated_at=to_timestamp(%s) where provider=%s and provider_subject=%s",
+                    (now, identity.provider, identity.subject),
+                )  # type: ignore[attr-defined]
             else:
                 player_id = str(uuid.uuid4())
-                connection.execute("insert into server_players(id) values(%s)", (player_id,))  # type: ignore[attr-defined]
-                connection.execute("insert into public.profiles(user_id,display_name) values(%s,%s)", (player_id, display_name))  # type: ignore[attr-defined]
-                connection.execute("insert into server_linked_identities(id,player_id,provider,provider_subject) values(%s,%s,%s,%s)", (str(uuid.uuid4()), player_id, identity.provider, identity.subject))  # type: ignore[attr-defined]
-            replay = connection.execute("insert into server_platform_credential_replays(credential_hash,provider,expires_at) values(%s,%s,to_timestamp(%s)) on conflict do nothing returning credential_hash", (identity.credential_fingerprint, identity.provider, identity.credential_expires_at)).fetchone()  # type: ignore[attr-defined]
+                connection.execute(
+                    "insert into server_players(id) values(%s)", (player_id,)
+                )  # type: ignore[attr-defined]
+                connection.execute(
+                    "insert into public.profiles(user_id,display_name) values(%s,%s)",
+                    (player_id, display_name),
+                )  # type: ignore[attr-defined]
+                connection.execute(
+                    "insert into server_linked_identities(id,player_id,provider,provider_subject) values(%s,%s,%s,%s)",
+                    (str(uuid.uuid4()), player_id, identity.provider, identity.subject),
+                )  # type: ignore[attr-defined]
+            replay = connection.execute(
+                "insert into server_platform_credential_replays(credential_hash,provider,expires_at) values(%s,%s,to_timestamp(%s)) on conflict do nothing returning credential_hash",
+                (
+                    identity.credential_fingerprint,
+                    identity.provider,
+                    identity.credential_expires_at,
+                ),
+            ).fetchone()  # type: ignore[attr-defined]
             if replay is None:
                 raise CredentialError("platform credential has already been used")
-            return self._session(connection, player_id, device_id, now, identity.provider)
+            return self._session(
+                connection, player_id, device_id, now, identity.provider
+            )
 
-    def claim(self, player_id: str, identity: VerifiedIdentity, device_id: str, now: float) -> dict[str, object]:
+    def claim(
+        self, player_id: str, identity: VerifiedIdentity, device_id: str, now: float
+    ) -> dict[str, object]:
         with self.pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
             player = connection.execute(  # type: ignore[attr-defined]
                 "select id from server_players where id=%s and status='active' for update",
@@ -383,7 +467,9 @@ class PostgresIdentityRepository:
                 (identity.provider, identity.subject),
             ).fetchone()
             if linked is not None and str(linked[1]) != player_id:
-                raise LinkError("this platform identity is already linked to another player")
+                raise LinkError(
+                    "this platform identity is already linked to another player"
+                )
             other = connection.execute(  # type: ignore[attr-defined]
                 "select provider_subject from server_linked_identities where player_id=%s and provider=%s for update",
                 (player_id, identity.provider),
@@ -392,18 +478,38 @@ class PostgresIdentityRepository:
                 raise LinkError("this player already has a different platform identity")
             replay = connection.execute(  # type: ignore[attr-defined]
                 "insert into server_platform_credential_replays(credential_hash,provider,expires_at) values(%s,%s,to_timestamp(%s)) on conflict do nothing returning credential_hash",
-                (identity.credential_fingerprint, identity.provider, identity.credential_expires_at),
+                (
+                    identity.credential_fingerprint,
+                    identity.provider,
+                    identity.credential_expires_at,
+                ),
             ).fetchone()
             if replay is None:
                 raise CredentialError("platform credential has already been used")
             if linked is None:
                 connection.execute(  # type: ignore[attr-defined]
                     "insert into server_linked_identities(id,player_id,provider,provider_subject,last_authenticated_at) values(%s,%s,%s,%s,to_timestamp(%s))",
-                    (str(uuid.uuid4()), player_id, identity.provider, identity.subject, now),
+                    (
+                        str(uuid.uuid4()),
+                        player_id,
+                        identity.provider,
+                        identity.subject,
+                        now,
+                    ),
                 )
                 connection.execute(  # type: ignore[attr-defined]
                     "insert into server_identity_audit(player_id,event_type,provider,metadata) values(%s,'legacy_identity_claimed',%s,%s::jsonb)",
-                    (player_id, identity.provider, json.dumps({"providerSubjectHash": hashlib.sha256(identity.subject.encode()).hexdigest()})),
+                    (
+                        player_id,
+                        identity.provider,
+                        json.dumps(
+                            {
+                                "providerSubjectHash": hashlib.sha256(
+                                    identity.subject.encode()
+                                ).hexdigest()
+                            }
+                        ),
+                    ),
                 )
             else:
                 connection.execute(  # type: ignore[attr-defined]
@@ -414,19 +520,37 @@ class PostgresIdentityRepository:
                 "update server_players set updated_at=to_timestamp(%s) where id=%s",
                 (now, player_id),
             )
-            return self._session(connection, player_id, device_id, now, identity.provider)
+            return self._session(
+                connection, player_id, device_id, now, identity.provider
+            )
 
-    def guest(self, guest_hash: str, display_name: str, device_id: str, now: float) -> dict[str, object]:
+    def guest(
+        self, guest_hash: str, display_name: str, device_id: str, now: float
+    ) -> dict[str, object]:
         with self.pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
-            row = connection.execute("select player_id::text from server_device_credentials where installation_hash=%s for update", (guest_hash,)).fetchone()  # type: ignore[attr-defined]
+            row = connection.execute(
+                "select player_id::text from server_device_credentials where installation_hash=%s for update",
+                (guest_hash,),
+            ).fetchone()  # type: ignore[attr-defined]
             player_id = str(row[0]) if row else str(uuid.uuid4())
             if not row:
                 guest_name = _guest_name(player_id)
-                connection.execute("insert into server_players(id) values(%s)", (player_id,))  # type: ignore[attr-defined]
-                connection.execute("insert into public.profiles(user_id,display_name) values(%s,%s)", (player_id, guest_name))  # type: ignore[attr-defined]
-                connection.execute("insert into server_device_credentials(id,player_id,installation_hash,last_authenticated_at) values(%s,%s,%s,to_timestamp(%s))", (str(uuid.uuid4()), player_id, guest_hash, now))  # type: ignore[attr-defined]
+                connection.execute(
+                    "insert into server_players(id) values(%s)", (player_id,)
+                )  # type: ignore[attr-defined]
+                connection.execute(
+                    "insert into public.profiles(user_id,display_name) values(%s,%s)",
+                    (player_id, guest_name),
+                )  # type: ignore[attr-defined]
+                connection.execute(
+                    "insert into server_device_credentials(id,player_id,installation_hash,last_authenticated_at) values(%s,%s,%s,to_timestamp(%s))",
+                    (str(uuid.uuid4()), player_id, guest_hash, now),
+                )  # type: ignore[attr-defined]
             else:
-                connection.execute("update server_device_credentials set last_authenticated_at=to_timestamp(%s) where installation_hash=%s", (now, guest_hash))  # type: ignore[attr-defined]
+                connection.execute(
+                    "update server_device_credentials set last_authenticated_at=to_timestamp(%s) where installation_hash=%s",
+                    (now, guest_hash),
+                )  # type: ignore[attr-defined]
             return self._session(connection, player_id, device_id, now, None)
 
     def migrate_legacy(
@@ -459,13 +583,34 @@ class PostgresIdentityRepository:
                 )
             connection.execute(
                 "insert into server_identity_audit(player_id,event_type,metadata) values(%s,'legacy_session_migrated',%s::jsonb)",
-                (player_id, json.dumps({"deviceIDHash": hashlib.sha256(device_id.encode()).hexdigest()})),
+                (
+                    player_id,
+                    json.dumps(
+                        {"deviceIDHash": hashlib.sha256(device_id.encode()).hexdigest()}
+                    ),
+                ),
             )
             return self._session(connection, player_id, device_id, now, None)
 
-    def _session(self, connection: object, player_id: str, device_id: str, now: float, provider: str | None) -> dict[str, object]:
+    def _session(
+        self,
+        connection: object,
+        player_id: str,
+        device_id: str,
+        now: float,
+        provider: str | None,
+    ) -> dict[str, object]:
         token = "khz_" + secrets.token_urlsafe(32)
-        connection.execute("insert into server_identity_sessions(id,player_id,token_hash,device_id,expires_at) values(%s,%s,%s,%s,to_timestamp(%s))", (str(uuid.uuid4()), player_id, hashlib.sha256(token.encode()).hexdigest(), device_id, now + SESSION_SECONDS))  # type: ignore[attr-defined]
+        connection.execute(
+            "insert into server_identity_sessions(id,player_id,token_hash,device_id,expires_at) values(%s,%s,%s,%s,to_timestamp(%s))",
+            (
+                str(uuid.uuid4()),
+                player_id,
+                hashlib.sha256(token.encode()).hexdigest(),
+                device_id,
+                now + SESSION_SECONDS,
+            ),
+        )  # type: ignore[attr-defined]
         row = connection.execute(
             """select p.display_name,
                       exists(select 1 from server_linked_identities i where i.player_id=p.user_id)
@@ -476,63 +621,165 @@ class PostgresIdentityRepository:
             (player_id,),
         ).fetchone()  # type: ignore[attr-defined]
         portable = bool(row[1])
-        return {"accessToken": token, "expiresAt": now + SESSION_SECONDS, "player": {"id": player_id, "displayName": row[0], "guest": not portable, "portable": portable, "recoveryEmail": row[2], "provider": provider or row[3]}}
+        return {
+            "accessToken": token,
+            "expiresAt": now + SESSION_SECONDS,
+            "player": {
+                "id": player_id,
+                "displayName": row[0],
+                "guest": not portable,
+                "portable": portable,
+                "recoveryEmail": row[2],
+                "provider": provider or row[3],
+            },
+        }
 
     def player_for_token(self, token_hash: str, now: float) -> str | None:
         with self.pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
-            row = connection.execute("update server_identity_sessions set last_used_at=to_timestamp(%s) where token_hash=%s and revoked_at is null and expires_at>to_timestamp(%s) returning player_id::text", (now, token_hash, now)).fetchone()  # type: ignore[attr-defined]
+            row = connection.execute(
+                "update server_identity_sessions set last_used_at=to_timestamp(%s) where token_hash=%s and revoked_at is null and expires_at>to_timestamp(%s) returning player_id::text",
+                (now, token_hash, now),
+            ).fetchone()  # type: ignore[attr-defined]
             return str(row[0]) if row else None
 
-    def create_link(self, player_id: str, code_hash: str, expires_at: float, now: float) -> str:
+    def create_link(
+        self, player_id: str, code_hash: str, expires_at: float, now: float
+    ) -> str:
         if not self._attempt(player_id, "link_create", now, limit=6):
             raise LinkError("too many device-link requests; try again later")
         request_id = str(uuid.uuid4())
         with self.pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
-            connection.execute("update server_device_link_requests set status='cancelled',cancelled_at=to_timestamp(%s),updated_at=to_timestamp(%s) where source_player_id=%s and status in ('pending','target_confirmed')", (now, now, player_id))  # type: ignore[attr-defined]
-            connection.execute("insert into server_device_link_requests(id,source_player_id,code_hash,expires_at) values(%s,%s,%s,to_timestamp(%s))", (request_id, player_id, code_hash, expires_at))  # type: ignore[attr-defined]
+            connection.execute(
+                "update server_device_link_requests set status='cancelled',cancelled_at=to_timestamp(%s),updated_at=to_timestamp(%s) where source_player_id=%s and status in ('pending','target_confirmed')",
+                (now, now, player_id),
+            )  # type: ignore[attr-defined]
+            connection.execute(
+                "insert into server_device_link_requests(id,source_player_id,code_hash,expires_at) values(%s,%s,%s,to_timestamp(%s))",
+                (request_id, player_id, code_hash, expires_at),
+            )  # type: ignore[attr-defined]
         return request_id
 
-    def link_status(self, player_id: str, request_id: str, now: float) -> dict[str, object]:
+    def link_status(
+        self, player_id: str, request_id: str, now: float
+    ) -> dict[str, object]:
         with self.pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
-            connection.execute("update server_device_link_requests set status='expired',updated_at=to_timestamp(%s) where id=%s and status in ('pending','target_confirmed') and expires_at<=to_timestamp(%s)", (now, request_id, now))  # type: ignore[attr-defined]
-            row = connection.execute("select status,extract(epoch from expires_at),target_player_id::text,conflict_reason,source_player_id::text,target_session_issued_at is not null from server_device_link_requests where id=%s and (source_player_id=%s or target_player_id=%s) for update", (request_id, player_id, player_id)).fetchone()  # type: ignore[attr-defined]
+            connection.execute(
+                "update server_device_link_requests set status='expired',updated_at=to_timestamp(%s) where id=%s and status in ('pending','target_confirmed') and expires_at<=to_timestamp(%s)",
+                (now, request_id, now),
+            )  # type: ignore[attr-defined]
+            row = connection.execute(
+                "select status,extract(epoch from expires_at),target_player_id::text,conflict_reason,source_player_id::text,target_session_issued_at is not null from server_device_link_requests where id=%s and (source_player_id=%s or target_player_id=%s) for update",
+                (request_id, player_id, player_id),
+            ).fetchone()  # type: ignore[attr-defined]
             if row and row[0] == "approved" and row[2] == player_id and not row[5]:
-                result = self._session(connection, str(row[4]), "linked-device", now, None)
-                connection.execute("update server_identity_sessions set revoked_at=to_timestamp(%s) where player_id=%s and revoked_at is null", (now, player_id))  # type: ignore[attr-defined]
-                connection.execute("update server_device_link_requests set target_session_issued_at=to_timestamp(%s),updated_at=to_timestamp(%s) where id=%s", (now, now, request_id))  # type: ignore[attr-defined]
-                connection.execute("delete from server_players where id=%s", (player_id,))  # type: ignore[attr-defined]
+                result = self._session(
+                    connection, str(row[4]), "linked-device", now, None
+                )
+                connection.execute(
+                    "update server_identity_sessions set revoked_at=to_timestamp(%s) where player_id=%s and revoked_at is null",
+                    (now, player_id),
+                )  # type: ignore[attr-defined]
+                connection.execute(
+                    "update server_device_link_requests set target_session_issued_at=to_timestamp(%s),updated_at=to_timestamp(%s) where id=%s",
+                    (now, now, request_id),
+                )  # type: ignore[attr-defined]
+                connection.execute(
+                    "delete from server_players where id=%s", (player_id,)
+                )  # type: ignore[attr-defined]
                 result.update({"requestID": request_id, "status": "approved"})
                 return result
-        if not row: raise LinkError("link request not found")
-        return {"requestID": request_id, "status": row[0], "expiresAt": float(row[1]), "targetPlayerID": row[2], "message": row[3]}
+        if not row:
+            raise LinkError("link request not found")
+        return {
+            "requestID": request_id,
+            "status": row[0],
+            "expiresAt": float(row[1]),
+            "targetPlayerID": row[2],
+            "message": row[3],
+        }
 
-    def cancel_link(self, player_id: str, request_id: str, now: float) -> dict[str, object]:
+    def cancel_link(
+        self, player_id: str, request_id: str, now: float
+    ) -> dict[str, object]:
         with self.pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
-            row = connection.execute("update server_device_link_requests set status='cancelled',cancelled_at=to_timestamp(%s),updated_at=to_timestamp(%s) where id=%s and source_player_id=%s and status in ('pending','target_confirmed') returning id", (now, now, request_id, player_id)).fetchone()  # type: ignore[attr-defined]
-        if not row: raise LinkError("link request cannot be cancelled")
+            row = connection.execute(
+                "update server_device_link_requests set status='cancelled',cancelled_at=to_timestamp(%s),updated_at=to_timestamp(%s) where id=%s and source_player_id=%s and status in ('pending','target_confirmed') returning id",
+                (now, now, request_id, player_id),
+            ).fetchone()  # type: ignore[attr-defined]
+        if not row:
+            raise LinkError("link request cannot be cancelled")
         return {"requestID": request_id, "status": "cancelled"}
 
-    def redeem_link(self, target_player_id: str, code_hash: str, now: float) -> dict[str, object]:
-        if not self._attempt(target_player_id, "link_redeem", now, limit=MAX_LINK_ATTEMPTS):
+    def redeem_link(
+        self, target_player_id: str, code_hash: str, now: float
+    ) -> dict[str, object]:
+        if not self._attempt(
+            target_player_id, "link_redeem", now, limit=MAX_LINK_ATTEMPTS
+        ):
             raise LinkError("too many device-link attempts; try again later")
         with self.pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
-            row = connection.execute("select id::text,source_player_id::text,status,expires_at>to_timestamp(%s) from server_device_link_requests where code_hash=%s for update", (now, code_hash)).fetchone()  # type: ignore[attr-defined]
-            if not row: raise LinkError("invalid device-link code")
-            if row[2] != "pending" or not row[3]: raise LinkError("device-link code is no longer valid")
-            identity = connection.execute("select id::text,provider from server_linked_identities where player_id=%s order by last_authenticated_at desc limit 1", (target_player_id,)).fetchone()  # type: ignore[attr-defined]
-            device = connection.execute("select id::text from server_device_credentials where player_id=%s order by last_authenticated_at desc limit 1", (target_player_id,)).fetchone()  # type: ignore[attr-defined]
-            if not identity and not device: raise LinkError("this installation has no linkable credential")
-            source = connection.execute("select display_name from public.profiles where user_id=%s", (row[1],)).fetchone()  # type: ignore[attr-defined]
-            target = connection.execute("select display_name from public.profiles where user_id=%s", (target_player_id,)).fetchone()  # type: ignore[attr-defined]
-            connection.execute("update server_device_link_requests set status='target_confirmed',target_player_id=%s,target_identity_id=%s,target_device_credential_id=%s,target_confirmed_at=to_timestamp(%s),updated_at=to_timestamp(%s) where id=%s", (target_player_id, identity[0] if identity else None, device[0] if device else None, now, now, row[0]))  # type: ignore[attr-defined]
-            connection.execute("delete from server_identity_rate_limits where player_id=%s and action='link_redeem'", (target_player_id,))  # type: ignore[attr-defined]
-            return {"requestID": row[0], "status": "target_confirmed", "source": {"id": row[1], "displayName": source[0]}, "target": {"id": target_player_id, "displayName": target[0], "provider": identity[1] if identity else "device"}}
+            row = connection.execute(
+                "select id::text,source_player_id::text,status,expires_at>to_timestamp(%s) from server_device_link_requests where code_hash=%s for update",
+                (now, code_hash),
+            ).fetchone()  # type: ignore[attr-defined]
+            if not row:
+                raise LinkError("invalid device-link code")
+            if row[2] != "pending" or not row[3]:
+                raise LinkError("device-link code is no longer valid")
+            identity = connection.execute(
+                "select id::text,provider from server_linked_identities where player_id=%s order by last_authenticated_at desc limit 1",
+                (target_player_id,),
+            ).fetchone()  # type: ignore[attr-defined]
+            device = connection.execute(
+                "select id::text from server_device_credentials where player_id=%s order by last_authenticated_at desc limit 1",
+                (target_player_id,),
+            ).fetchone()  # type: ignore[attr-defined]
+            if not identity and not device:
+                raise LinkError("this installation has no linkable credential")
+            source = connection.execute(
+                "select display_name from public.profiles where user_id=%s", (row[1],)
+            ).fetchone()  # type: ignore[attr-defined]
+            target = connection.execute(
+                "select display_name from public.profiles where user_id=%s",
+                (target_player_id,),
+            ).fetchone()  # type: ignore[attr-defined]
+            connection.execute(
+                "update server_device_link_requests set status='target_confirmed',target_player_id=%s,target_identity_id=%s,target_device_credential_id=%s,target_confirmed_at=to_timestamp(%s),updated_at=to_timestamp(%s) where id=%s",
+                (
+                    target_player_id,
+                    identity[0] if identity else None,
+                    device[0] if device else None,
+                    now,
+                    now,
+                    row[0],
+                ),
+            )  # type: ignore[attr-defined]
+            connection.execute(
+                "delete from server_identity_rate_limits where player_id=%s and action='link_redeem'",
+                (target_player_id,),
+            )  # type: ignore[attr-defined]
+            return {
+                "requestID": row[0],
+                "status": "target_confirmed",
+                "source": {"id": row[1], "displayName": source[0]},
+                "target": {
+                    "id": target_player_id,
+                    "displayName": target[0],
+                    "provider": identity[1] if identity else "device",
+                },
+            }
 
-    def approve_link(self, source_player_id: str, request_id: str, now: float) -> dict[str, object]:
+    def approve_link(
+        self, source_player_id: str, request_id: str, now: float
+    ) -> dict[str, object]:
         conflict = False
         with self.pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
-            row = connection.execute("select target_player_id::text,target_identity_id::text,target_device_credential_id::text,status,expires_at>to_timestamp(%s) from server_device_link_requests where id=%s and source_player_id=%s for update", (now, request_id, source_player_id)).fetchone()  # type: ignore[attr-defined]
-            if not row or row[3] != "target_confirmed" or not row[4]: raise LinkError("link request is not ready for approval")
+            row = connection.execute(
+                "select target_player_id::text,target_identity_id::text,target_device_credential_id::text,status,expires_at>to_timestamp(%s) from server_device_link_requests where id=%s and source_player_id=%s for update",
+                (now, request_id, source_player_id),
+            ).fetchone()  # type: ignore[attr-defined]
+            if not row or row[3] != "target_confirmed" or not row[4]:
+                raise LinkError("link request is not ready for approval")
             meaningful = connection.execute(
                 """select
                        exists(select 1 from server_game_results where user_id=%s)
@@ -550,21 +797,41 @@ class PostgresIdentityRepository:
                 (row[0], row[0], row[0], row[0]),
             ).fetchone()[0]  # type: ignore[attr-defined]
             if meaningful:
-                connection.execute("update server_device_link_requests set status='conflict',conflict_reason='The target profile has games, progress, or purchases and cannot be merged automatically.',updated_at=to_timestamp(%s) where id=%s", (now, request_id))  # type: ignore[attr-defined]
-                connection.execute("insert into server_identity_audit(player_id,event_type,other_player_id,metadata) values(%s,'link_conflict',%s,%s::jsonb)", (source_player_id, row[0], json.dumps({"requestID": request_id})))  # type: ignore[attr-defined]
+                connection.execute(
+                    "update server_device_link_requests set status='conflict',conflict_reason='The target profile has games, progress, or purchases and cannot be merged automatically.',updated_at=to_timestamp(%s) where id=%s",
+                    (now, request_id),
+                )  # type: ignore[attr-defined]
+                connection.execute(
+                    "insert into server_identity_audit(player_id,event_type,other_player_id,metadata) values(%s,'link_conflict',%s,%s::jsonb)",
+                    (source_player_id, row[0], json.dumps({"requestID": request_id})),
+                )  # type: ignore[attr-defined]
                 conflict = True
             else:
                 if row[1] is not None:
-                    connection.execute("update server_linked_identities set player_id=%s,last_authenticated_at=to_timestamp(%s) where id=%s", (source_player_id, now, row[1]))  # type: ignore[attr-defined]
+                    connection.execute(
+                        "update server_linked_identities set player_id=%s,last_authenticated_at=to_timestamp(%s) where id=%s",
+                        (source_player_id, now, row[1]),
+                    )  # type: ignore[attr-defined]
                 if row[2] is not None:
-                    connection.execute("update server_device_credentials set player_id=%s,last_authenticated_at=to_timestamp(%s) where id=%s", (source_player_id, now, row[2]))  # type: ignore[attr-defined]
-                connection.execute("update server_device_link_requests set status='approved',approved_at=to_timestamp(%s),redeemed_at=to_timestamp(%s),updated_at=to_timestamp(%s) where id=%s", (now, now, now, request_id))  # type: ignore[attr-defined]
-                connection.execute("update server_device_link_requests set status='cancelled',cancelled_at=to_timestamp(%s),updated_at=to_timestamp(%s) where source_player_id=%s and id<>%s and status in ('pending','target_confirmed')", (now, now, source_player_id, request_id))  # type: ignore[attr-defined]
+                    connection.execute(
+                        "update server_device_credentials set player_id=%s,last_authenticated_at=to_timestamp(%s) where id=%s",
+                        (source_player_id, now, row[2]),
+                    )  # type: ignore[attr-defined]
+                connection.execute(
+                    "update server_device_link_requests set status='approved',approved_at=to_timestamp(%s),redeemed_at=to_timestamp(%s),updated_at=to_timestamp(%s) where id=%s",
+                    (now, now, now, request_id),
+                )  # type: ignore[attr-defined]
+                connection.execute(
+                    "update server_device_link_requests set status='cancelled',cancelled_at=to_timestamp(%s),updated_at=to_timestamp(%s) where source_player_id=%s and id<>%s and status in ('pending','target_confirmed')",
+                    (now, now, source_player_id, request_id),
+                )  # type: ignore[attr-defined]
         if conflict:
             raise LinkError("profiles with progress or purchases cannot be combined")
         return {"requestID": request_id, "status": "approved"}
 
-    def create_email_code(self, player_id: str, email: str, code_hash: str, expires_at: float, now: float) -> None:
+    def create_email_code(
+        self, player_id: str, email: str, code_hash: str, expires_at: float, now: float
+    ) -> None:
         if not self._attempt(player_id, "email_code", now, limit=5):
             raise CredentialError("too many email codes requested; try again later")
         with self.pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
@@ -577,7 +844,9 @@ class PostgresIdentityRepository:
                 (str(uuid.uuid4()), player_id, email, code_hash, expires_at),
             )
 
-    def verify_email_code(self, player_id: str, email: str, code_hash: str, device_id: str, now: float) -> dict[str, object]:
+    def verify_email_code(
+        self, player_id: str, email: str, code_hash: str, device_id: str, now: float
+    ) -> dict[str, object]:
         verification_error: str | None = None
         with self.pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
             challenge = connection.execute(
@@ -617,7 +886,12 @@ class PostgresIdentityRepository:
                 )
                 connection.execute(
                     "insert into server_identity_audit(player_id,event_type,metadata) values(%s,'recovery_email_added',%s::jsonb)",
-                    (player_id, json.dumps({"emailHash": hashlib.sha256(email.encode()).hexdigest()})),
+                    (
+                        player_id,
+                        json.dumps(
+                            {"emailHash": hashlib.sha256(email.encode()).hexdigest()}
+                        ),
+                    ),
                 )
                 result = self._session(connection, player_id, device_id, now, None)
                 result["emailAction"] = "recovery_email_added"
@@ -656,7 +930,9 @@ class PostgresIdentityRepository:
                 (target_player_id, player_id),
             ).fetchone()
             if provider_conflict is not None:
-                raise LinkError("the existing account already has a different platform identity")
+                raise LinkError(
+                    "the existing account already has a different platform identity"
+                )
             connection.execute(
                 "update server_linked_identities set player_id=%s,last_authenticated_at=to_timestamp(%s) where player_id=%s",
                 (target_player_id, now, player_id),
@@ -671,11 +947,26 @@ class PostgresIdentityRepository:
             )
             connection.execute(
                 "insert into server_identity_audit(player_id,event_type,other_player_id,metadata) values(%s,'email_account_linked',%s,%s::jsonb)",
-                (target_player_id, player_id, json.dumps({"emailHash": hashlib.sha256(email.encode()).hexdigest()})),
+                (
+                    target_player_id,
+                    player_id,
+                    json.dumps(
+                        {"emailHash": hashlib.sha256(email.encode()).hexdigest()}
+                    ),
+                ),
             )
-            connection.execute("update server_seats seats set user_id='deleted:' || seats.session_id::text || ':' || seats.player_id::text,token_hash=repeat('0',64),abandoned=true,autopilot=true,last_seen_at=null from server_sessions sessions where seats.session_id=sessions.session_id and seats.user_id=%s and sessions.status='active'", (player_id,))
-            connection.execute("update server_seats seats set occupied=false,user_id=null,token_hash=null,last_seen_at=null,abandoned=false,autopilot=false from server_sessions sessions where seats.session_id=sessions.session_id and seats.user_id=%s and sessions.status<>'active'", (player_id,))
-            connection.execute("update server_sessions set created_by_user_id=null where created_by_user_id=%s", (player_id,))
+            connection.execute(
+                "update server_seats seats set user_id='deleted:' || seats.session_id::text || ':' || seats.player_id::text,token_hash=repeat('0',64),abandoned=true,autopilot=true,last_seen_at=null from server_sessions sessions where seats.session_id=sessions.session_id and seats.user_id=%s and sessions.status='active'",
+                (player_id,),
+            )
+            connection.execute(
+                "update server_seats seats set occupied=false,user_id=null,token_hash=null,last_seen_at=null,abandoned=false,autopilot=false from server_sessions sessions where seats.session_id=sessions.session_id and seats.user_id=%s and sessions.status<>'active'",
+                (player_id,),
+            )
+            connection.execute(
+                "update server_sessions set created_by_user_id=null where created_by_user_id=%s",
+                (player_id,),
+            )
             connection.execute("delete from server_players where id=%s", (player_id,))
             result = self._session(connection, target_player_id, device_id, now, None)
             result["emailAction"] = "existing_account_linked"
@@ -693,13 +984,28 @@ class PostgresIdentityRepository:
                 (player_id, player_id, player_id, player_id, player_id),
             ).fetchone()
         portable = bool(row[0] or row[1])
-        return {"portable": portable, "guest": not portable, "recoveryEmail": row[2], "provider": row[3], "progression": row[4] or {}}
+        return {
+            "portable": portable,
+            "guest": not portable,
+            "recoveryEmail": row[2],
+            "provider": row[3],
+            "progression": row[4] or {},
+        }
 
     def delete_player(self, player_id: str, now: float) -> None:
         with self.pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
-            connection.execute("update server_seats seats set user_id='deleted:' || seats.session_id::text || ':' || seats.player_id::text,token_hash=repeat('0',64),abandoned=true,autopilot=true,last_seen_at=null from server_sessions sessions where seats.session_id=sessions.session_id and seats.user_id=%s and sessions.status='active'", (player_id,))  # type: ignore[attr-defined]
-            connection.execute("update server_seats seats set occupied=false,user_id=null,token_hash=null,last_seen_at=null,abandoned=false,autopilot=false from server_sessions sessions where seats.session_id=sessions.session_id and seats.user_id=%s and sessions.status<>'active'", (player_id,))  # type: ignore[attr-defined]
-            connection.execute("update server_sessions set created_by_user_id=null where created_by_user_id=%s", (player_id,))  # type: ignore[attr-defined]
+            connection.execute(
+                "update server_seats seats set user_id='deleted:' || seats.session_id::text || ':' || seats.player_id::text,token_hash=repeat('0',64),abandoned=true,autopilot=true,last_seen_at=null from server_sessions sessions where seats.session_id=sessions.session_id and seats.user_id=%s and sessions.status='active'",
+                (player_id,),
+            )  # type: ignore[attr-defined]
+            connection.execute(
+                "update server_seats seats set occupied=false,user_id=null,token_hash=null,last_seen_at=null,abandoned=false,autopilot=false from server_sessions sessions where seats.session_id=sessions.session_id and seats.user_id=%s and sessions.status<>'active'",
+                (player_id,),
+            )  # type: ignore[attr-defined]
+            connection.execute(
+                "update server_sessions set created_by_user_id=null where created_by_user_id=%s",
+                (player_id,),
+            )  # type: ignore[attr-defined]
             connection.execute("delete from server_players where id=%s", (player_id,))  # type: ignore[attr-defined]
 
     def _attempt(self, player_id: str, action: str, now: float, *, limit: int) -> bool:
@@ -732,7 +1038,9 @@ class InMemoryIdentityRepository:
         self.attempts: dict[tuple[str, str], tuple[float, int]] = {}
         self.lock = threading.Lock()
 
-    def authenticate(self, identity: VerifiedIdentity, display_name: str, device_id: str, now: float) -> dict[str, object]:
+    def authenticate(
+        self, identity: VerifiedIdentity, display_name: str, device_id: str, now: float
+    ) -> dict[str, object]:
         with self.lock:
             if identity.credential_fingerprint in self.replays:
                 raise CredentialError("platform credential has already been used")
@@ -741,12 +1049,24 @@ class InMemoryIdentityRepository:
             linked = self.identities.get(key)
             if linked is None:
                 player_id = str(uuid.uuid4())
-                self.players[player_id] = {"displayName": display_name, "guestHash": None, "deleted": False}
-                linked = {"id": str(uuid.uuid4()), "playerID": player_id, "provider": identity.provider}
+                self.players[player_id] = {
+                    "displayName": display_name,
+                    "guestHash": None,
+                    "deleted": False,
+                }
+                linked = {
+                    "id": str(uuid.uuid4()),
+                    "playerID": player_id,
+                    "provider": identity.provider,
+                }
                 self.identities[key] = linked
-            return self._session(str(linked["playerID"]), device_id, now, identity.provider)
+            return self._session(
+                str(linked["playerID"]), device_id, now, identity.provider
+            )
 
-    def claim(self, player_id: str, identity: VerifiedIdentity, device_id: str, now: float) -> dict[str, object]:
+    def claim(
+        self, player_id: str, identity: VerifiedIdentity, device_id: str, now: float
+    ) -> dict[str, object]:
         with self.lock:
             player = self.players.get(player_id)
             if player is None or player["deleted"]:
@@ -754,7 +1074,9 @@ class InMemoryIdentityRepository:
             key = (identity.provider, identity.subject)
             linked = self.identities.get(key)
             if linked is not None and linked["playerID"] != player_id:
-                raise LinkError("this platform identity is already linked to another player")
+                raise LinkError(
+                    "this platform identity is already linked to another player"
+                )
             other = next(
                 (
                     value
@@ -779,14 +1101,27 @@ class InMemoryIdentityRepository:
             player["guestHash"] = None
             return self._session(player_id, device_id, now, identity.provider)
 
-    def guest(self, guest_hash: str, display_name: str, device_id: str, now: float) -> dict[str, object]:
+    def guest(
+        self, guest_hash: str, display_name: str, device_id: str, now: float
+    ) -> dict[str, object]:
         with self.lock:
             player_id = self.legacy_devices.get(guest_hash)
             if player_id is None:
-                player_id = next((key for key, value in self.players.items() if value["guestHash"] == guest_hash), None)
+                player_id = next(
+                    (
+                        key
+                        for key, value in self.players.items()
+                        if value["guestHash"] == guest_hash
+                    ),
+                    None,
+                )
             if player_id is None:
                 player_id = str(uuid.uuid4())
-                self.players[player_id] = {"displayName": _guest_name(player_id), "guestHash": guest_hash, "deleted": False}
+                self.players[player_id] = {
+                    "displayName": _guest_name(player_id),
+                    "guestHash": guest_hash,
+                    "deleted": False,
+                }
             return self._session(player_id, device_id, now, None)
 
     def migrate_legacy(
@@ -813,49 +1148,111 @@ class InMemoryIdentityRepository:
             self.legacy_devices[guest_hash] = player_id
             return self._session(player_id, device_id, now, None)
 
-    def _session(self, player_id: str, device_id: str, now: float, provider: str | None) -> dict[str, object]:
+    def _session(
+        self, player_id: str, device_id: str, now: float, provider: str | None
+    ) -> dict[str, object]:
         token = "khz_" + secrets.token_urlsafe(24)
-        self.sessions[hashlib.sha256(token.encode()).hexdigest()] = {"playerID": player_id, "expiresAt": now + SESSION_SECONDS, "revoked": False}
+        self.sessions[hashlib.sha256(token.encode()).hexdigest()] = {
+            "playerID": player_id,
+            "expiresAt": now + SESSION_SECONDS,
+            "revoked": False,
+        }
         player = self.players[player_id]
-        portable = player["guestHash"] is None or player_id in self.recovery_emails.values()
-        email = next((key for key, value in self.recovery_emails.items() if value == player_id), None)
-        return {"accessToken": token, "expiresAt": now + SESSION_SECONDS, "player": {"id": player_id, "displayName": player["displayName"], "guest": not portable, "portable": portable, "recoveryEmail": email, "provider": provider}}
+        portable = (
+            player["guestHash"] is None or player_id in self.recovery_emails.values()
+        )
+        email = next(
+            (key for key, value in self.recovery_emails.items() if value == player_id),
+            None,
+        )
+        return {
+            "accessToken": token,
+            "expiresAt": now + SESSION_SECONDS,
+            "player": {
+                "id": player_id,
+                "displayName": player["displayName"],
+                "guest": not portable,
+                "portable": portable,
+                "recoveryEmail": email,
+                "provider": provider,
+            },
+        }
 
     def player_for_token(self, token_hash: str, now: float) -> str | None:
         with self.lock:
             session = self.sessions.get(token_hash)
-            if session is None or session["revoked"] or float(session["expiresAt"]) <= now:
+            if (
+                session is None
+                or session["revoked"]
+                or float(session["expiresAt"]) <= now
+            ):
                 return None
             return str(session["playerID"])
 
-    def create_link(self, player_id: str, code_hash: str, expires_at: float, now: float) -> str:
+    def create_link(
+        self, player_id: str, code_hash: str, expires_at: float, now: float
+    ) -> str:
         with self.lock:
             if not self._attempt(player_id, "link_create", now, 6):
                 raise LinkError("too many device-link requests; try again later")
             for link in self.links.values():
-                if link["sourcePlayerID"] == player_id and link["status"] in {"pending", "target_confirmed"}:
+                if link["sourcePlayerID"] == player_id and link["status"] in {
+                    "pending",
+                    "target_confirmed",
+                }:
                     link["status"] = "cancelled"
             request_id = str(uuid.uuid4())
-            self.links[request_id] = {"requestID": request_id, "sourcePlayerID": player_id, "codeHash": code_hash, "expiresAt": expires_at, "status": "pending", "targetPlayerID": None, "targetIdentity": None, "message": None}
+            self.links[request_id] = {
+                "requestID": request_id,
+                "sourcePlayerID": player_id,
+                "codeHash": code_hash,
+                "expiresAt": expires_at,
+                "status": "pending",
+                "targetPlayerID": None,
+                "targetIdentity": None,
+                "message": None,
+            }
             return request_id
 
-    def link_status(self, player_id: str, request_id: str, now: float) -> dict[str, object]:
+    def link_status(
+        self, player_id: str, request_id: str, now: float
+    ) -> dict[str, object]:
         with self.lock:
             link = self.links.get(request_id)
-            if link is None or player_id not in {link["sourcePlayerID"], link["targetPlayerID"]}:
+            if link is None or player_id not in {
+                link["sourcePlayerID"],
+                link["targetPlayerID"],
+            }:
                 raise LinkError("link request not found")
             self._expire(link, now)
-            if link["status"] == "approved" and link["targetPlayerID"] == player_id and not link.get("targetSessionIssued"):
-                result = self._session(str(link["sourcePlayerID"]), "linked-device", now, None)
+            if (
+                link["status"] == "approved"
+                and link["targetPlayerID"] == player_id
+                and not link.get("targetSessionIssued")
+            ):
+                result = self._session(
+                    str(link["sourcePlayerID"]), "linked-device", now, None
+                )
                 for session in self.sessions.values():
                     if session["playerID"] == player_id:
                         session["revoked"] = True
                 link["targetSessionIssued"] = True
                 result.update({"requestID": request_id, "status": "approved"})
                 return result
-            return {key: link.get(key) for key in ("requestID", "status", "expiresAt", "targetPlayerID", "message")}
+            return {
+                key: link.get(key)
+                for key in (
+                    "requestID",
+                    "status",
+                    "expiresAt",
+                    "targetPlayerID",
+                    "message",
+                )
+            }
 
-    def cancel_link(self, player_id: str, request_id: str, now: float) -> dict[str, object]:
+    def cancel_link(
+        self, player_id: str, request_id: str, now: float
+    ) -> dict[str, object]:
         with self.lock:
             link = self._link(request_id, player_id)
             if link["status"] not in {"pending", "target_confirmed"}:
@@ -863,27 +1260,66 @@ class InMemoryIdentityRepository:
             link["status"] = "cancelled"
             return {"requestID": request_id, "status": "cancelled"}
 
-    def redeem_link(self, target_player_id: str, code_hash: str, now: float) -> dict[str, object]:
+    def redeem_link(
+        self, target_player_id: str, code_hash: str, now: float
+    ) -> dict[str, object]:
         with self.lock:
-            if not self._attempt(target_player_id, "link_redeem", now, MAX_LINK_ATTEMPTS):
+            if not self._attempt(
+                target_player_id, "link_redeem", now, MAX_LINK_ATTEMPTS
+            ):
                 raise LinkError("too many device-link attempts; try again later")
-            link = next((value for value in self.links.values() if hmac.compare_digest(str(value["codeHash"]), code_hash)), None)
+            link = next(
+                (
+                    value
+                    for value in self.links.values()
+                    if hmac.compare_digest(str(value["codeHash"]), code_hash)
+                ),
+                None,
+            )
             if link is None:
                 raise LinkError("invalid device-link code")
             self._expire(link, now)
             if link["status"] != "pending":
                 raise LinkError("device-link code is no longer valid")
-            identity = next((value for value in self.identities.values() if value["playerID"] == target_player_id), None)
+            identity = next(
+                (
+                    value
+                    for value in self.identities.values()
+                    if value["playerID"] == target_player_id
+                ),
+                None,
+            )
             player = self.players[target_player_id]
             if identity is None and player["guestHash"] is None:
                 raise LinkError("this installation has no linkable credential")
-            link.update({"status": "target_confirmed", "targetPlayerID": target_player_id, "targetIdentity": identity["id"] if identity else None, "targetDevice": player["guestHash"]})
+            link.update(
+                {
+                    "status": "target_confirmed",
+                    "targetPlayerID": target_player_id,
+                    "targetIdentity": identity["id"] if identity else None,
+                    "targetDevice": player["guestHash"],
+                }
+            )
             self.attempts.pop((target_player_id, "link_redeem"), None)
             source = self.players[str(link["sourcePlayerID"])]
             target = self.players[target_player_id]
-            return {"requestID": link["requestID"], "status": "target_confirmed", "source": {"id": link["sourcePlayerID"], "displayName": source["displayName"]}, "target": {"id": target_player_id, "displayName": target["displayName"], "provider": identity["provider"] if identity else "device"}}
+            return {
+                "requestID": link["requestID"],
+                "status": "target_confirmed",
+                "source": {
+                    "id": link["sourcePlayerID"],
+                    "displayName": source["displayName"],
+                },
+                "target": {
+                    "id": target_player_id,
+                    "displayName": target["displayName"],
+                    "provider": identity["provider"] if identity else "device",
+                },
+            }
 
-    def approve_link(self, source_player_id: str, request_id: str, now: float) -> dict[str, object]:
+    def approve_link(
+        self, source_player_id: str, request_id: str, now: float
+    ) -> dict[str, object]:
         with self.lock:
             link = self._link(request_id, source_player_id)
             self._expire(link, now)
@@ -891,10 +1327,20 @@ class InMemoryIdentityRepository:
                 raise LinkError("link request is not ready for approval")
             target = str(link["targetPlayerID"])
             if target in self.meaningful_players:
-                link.update({"status": "conflict", "message": "The target profile has games, progress, or purchases and cannot be merged automatically."})
-                raise LinkError("profiles with games, progress, or purchases cannot be combined")
+                link.update(
+                    {
+                        "status": "conflict",
+                        "message": "The target profile has games, progress, or purchases and cannot be merged automatically.",
+                    }
+                )
+                raise LinkError(
+                    "profiles with games, progress, or purchases cannot be combined"
+                )
             for identity in self.identities.values():
-                if link.get("targetIdentity") is not None and identity["id"] == link["targetIdentity"]:
+                if (
+                    link.get("targetIdentity") is not None
+                    and identity["id"] == link["targetIdentity"]
+                ):
                     identity["playerID"] = source_player_id
             if link.get("targetDevice") is not None:
                 self.players[source_player_id]["guestHash"] = link["targetDevice"]
@@ -902,7 +1348,9 @@ class InMemoryIdentityRepository:
             link["status"] = "approved"
             return {"requestID": request_id, "status": "approved"}
 
-    def create_email_code(self, player_id: str, email: str, code_hash: str, expires_at: float, now: float) -> None:
+    def create_email_code(
+        self, player_id: str, email: str, code_hash: str, expires_at: float, now: float
+    ) -> None:
         with self.lock:
             if not self._attempt(player_id, "email_code", now, 5):
                 raise CredentialError("too many email codes requested; try again later")
@@ -913,10 +1361,16 @@ class InMemoryIdentityRepository:
                 "consumed": False,
             }
 
-    def verify_email_code(self, player_id: str, email: str, code_hash: str, device_id: str, now: float) -> dict[str, object]:
+    def verify_email_code(
+        self, player_id: str, email: str, code_hash: str, device_id: str, now: float
+    ) -> dict[str, object]:
         with self.lock:
             challenge = self.email_codes.get((player_id, email))
-            if challenge is None or challenge["consumed"] or float(challenge["expiresAt"]) <= now:
+            if (
+                challenge is None
+                or challenge["consumed"]
+                or float(challenge["expiresAt"]) <= now
+            ):
                 raise CredentialError("email login code expired; request another code")
             if not hmac.compare_digest(str(challenge["codeHash"]), code_hash):
                 challenge["attempts"] = int(challenge["attempts"]) + 1
@@ -933,7 +1387,10 @@ class InMemoryIdentityRepository:
                 result = self._session(player_id, device_id, now, None)
                 result["emailAction"] = "already_linked"
                 return result
-            if player_id in self.recovery_emails.values() or player_id in self.meaningful_players:
+            if (
+                player_id in self.recovery_emails.values()
+                or player_id in self.meaningful_players
+            ):
                 raise LinkError(
                     "this device's profile already has games, progress, or purchases; contact support to combine accounts"
                 )
@@ -947,15 +1404,37 @@ class InMemoryIdentityRepository:
             return result
 
     def account_status(self, player_id: str) -> dict[str, object]:
-        email = next((key for key, value in self.recovery_emails.items() if value == player_id), None)
-        provider = next((value["provider"] for value in self.identities.values() if value["playerID"] == player_id), None)
+        email = next(
+            (key for key, value in self.recovery_emails.items() if value == player_id),
+            None,
+        )
+        provider = next(
+            (
+                value["provider"]
+                for value in self.identities.values()
+                if value["playerID"] == player_id
+            ),
+            None,
+        )
         portable = email is not None or provider is not None
-        return {"portable": portable, "guest": not portable, "recoveryEmail": email, "provider": provider, "progression": {}}
+        return {
+            "portable": portable,
+            "guest": not portable,
+            "recoveryEmail": email,
+            "provider": provider,
+            "progression": {},
+        }
 
     def delete_player(self, player_id: str, now: float) -> None:
         with self.lock:
-            self.players[player_id].update({"deleted": True, "displayName": "Deleted Player", "guestHash": None})
-            self.identities = {key: value for key, value in self.identities.items() if value["playerID"] != player_id}
+            self.players[player_id].update(
+                {"deleted": True, "displayName": "Deleted Player", "guestHash": None}
+            )
+            self.identities = {
+                key: value
+                for key, value in self.identities.items()
+                if value["playerID"] != player_id
+            }
             for session in self.sessions.values():
                 if session["playerID"] == player_id:
                     session["revoked"] = True
@@ -976,7 +1455,10 @@ class InMemoryIdentityRepository:
 
     @staticmethod
     def _expire(link: dict[str, object], now: float) -> None:
-        if link["status"] in {"pending", "target_confirmed"} and float(link["expiresAt"]) <= now:
+        if (
+            link["status"] in {"pending", "target_confirmed"}
+            and float(link["expiresAt"]) <= now
+        ):
             link["status"] = "expired"
 
 
@@ -1004,7 +1486,9 @@ def _email(value: str) -> str:
 
 def _code(value: str) -> str:
     normalized = value.strip().upper().replace(" ", "").replace("-", "")
-    if len(normalized) != 6 or any(character not in "0123456789ABCDEF" for character in normalized):
+    if len(normalized) != 6 or any(
+        character not in "0123456789ABCDEF" for character in normalized
+    ):
         raise LinkError("invalid device-link code")
     return normalized[:3] + "-" + normalized[3:]
 
@@ -1012,7 +1496,9 @@ def _code(value: str) -> str:
 def identity_service_from_environment(pool: ConnectionPool) -> IdentityService:
     secret = os.environ.get("KOLKHOZ_IDENTITY_SECRET")
     if not secret or len(secret) < 32:
-        raise RuntimeError("KOLKHOZ_IDENTITY_SECRET must contain at least 32 characters")
+        raise RuntimeError(
+            "KOLKHOZ_IDENTITY_SECRET must contain at least 32 characters"
+        )
     verifiers: dict[str, PlatformVerifier] = {}
     bundle_id = os.environ.get("KOLKHOZ_APPLE_BUNDLE_ID")
     if bundle_id:
@@ -1020,7 +1506,9 @@ def identity_service_from_environment(pool: ConnectionPool) -> IdentityService:
     google_id = os.environ.get("KOLKHOZ_PLAY_GAMES_SERVER_CLIENT_ID")
     google_secret = os.environ.get("KOLKHOZ_PLAY_GAMES_SERVER_CLIENT_SECRET")
     if google_id and google_secret:
-        verifiers["play_games"] = GooglePlayGamesVerifier(client_id=google_id, client_secret=google_secret)
+        verifiers["play_games"] = GooglePlayGamesVerifier(
+            client_id=google_id, client_secret=google_secret
+        )
     resend_key = os.environ.get("KOLKHOZ_RESEND_API_KEY")
     resend_from = os.environ.get("KOLKHOZ_RECOVERY_EMAIL_FROM")
     email_sender = (

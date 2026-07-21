@@ -475,7 +475,11 @@ def _direct_committed_updates(
     """
 
     pending = sorted(
-        (message for message in messages if int(message.payload.get("revision", 0)) > revision),
+        (
+            message
+            for message in messages
+            if int(message.payload.get("revision", 0)) > revision
+        ),
         key=lambda message: int(message.payload.get("revision", 0)),
     )
     expected = revision + 1

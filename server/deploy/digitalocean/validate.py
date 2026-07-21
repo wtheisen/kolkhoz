@@ -20,7 +20,7 @@ assert "SERVICE=kolkhoz-server.service" in bootstrap
 assert "REDIS_SERVICE=kolkhoz-server-redis.service" in bootstrap
 assert "RUN_USER=kolkhoz-server" in bootstrap
 assert "LEGACY_ROOT=/opt/kolkhoz-greenfield" in bootstrap
-assert "rollback_legacy" in bootstrap and 'trap rollback_legacy' in bootstrap
+assert "rollback_legacy" in bootstrap and "trap rollback_legacy" in bootstrap
 assert 'cp -a "$LEGACY_REDIS_DIR/." "$REDIS_DIR/"' in bootstrap
 assert 'mv "$LEGACY_ROOT" "$ARCHIVE_ROOT"' in bootstrap
 assert 'userdel "$LEGACY_RUN_USER"' in bootstrap

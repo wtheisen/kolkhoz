@@ -48,7 +48,9 @@ ROUTES: tuple[Route, ...] = (
     Route("GET", "/identity/device-links/{requestID}", "identity.links.status"),
     Route("DELETE", "/identity/device-links/{requestID}", "identity.links.cancel"),
     Route("POST", "/identity/device-links/redeem", "identity.links.redeem"),
-    Route("POST", "/identity/device-links/{requestID}/approve", "identity.links.approve"),
+    Route(
+        "POST", "/identity/device-links/{requestID}/approve", "identity.links.approve"
+    ),
     Route("DELETE", "/account", "account.delete"),
     Route("POST", "/presence", "presence.heartbeat"),
     Route("POST", "/active-session/sync", "active_session.sync"),
