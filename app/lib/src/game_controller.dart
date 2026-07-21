@@ -9,9 +9,11 @@ import 'assignment_display.dart';
 import 'c_engine_action_codec.dart';
 import 'c_engine_bridge.dart';
 import 'engine_action_projection.dart';
+import 'finished_game_lobby.dart';
 import 'game_constants.dart';
 import 'game_engine.dart';
 import 'game_lobby.dart';
+import 'game_state_snapshot.dart';
 import 'game_ui_state.dart';
 import 'game_undo_snapshot.dart';
 import 'online_game_models.dart';
@@ -51,7 +53,7 @@ bool onlineActionMatches(OnlineEngineAction candidate, EngineAction action) {
       jsonEncode(OnlineEngineAction.fromEngineAction(action).toJson());
 }
 
-enum GameControllerLifecycle { lobby, starting, playing, completed }
+enum GameControllerLifecycle { lobby, starting, playing, finishing, finished }
 
 GameUiState autoSelectCards(GameUiState uiState, TableViewModel model) {
   if (model.table.phase == phaseTrick) {
@@ -141,8 +143,11 @@ class GameController extends ChangeNotifier {
   Timer? _automaticStepTimer;
   int _localPresentationSequence = 0;
   int? _awaitingLocalPresentationRevision;
-  TableViewModel? model;
+  TableViewModel? _model;
+  TableViewModel? get model => finishedGameLobby?.model ?? _model;
+  FinishedGameLobby? finishedGameLobby;
   GameEngine? _engine;
+  bool get hasActiveEngine => _engine != null;
   final List<GameUndoSnapshot> _undoStack = [];
   int? revealedPlayerID;
   String? error;
@@ -208,6 +213,7 @@ class GameController extends ChangeNotifier {
       currentSeed = _newSeed();
       actionLog = [];
       localGameLog = [];
+      finishedGameLobby = null;
       _clearUndoStack();
       restoredSavedGame = false;
       uiState = const GameUiState();
@@ -229,7 +235,7 @@ class GameController extends ChangeNotifier {
     } catch (exception) {
       lifecycle = GameControllerLifecycle.lobby;
       error = '$exception';
-      model = null;
+      _model = null;
       notifyListeners();
     }
   }
@@ -241,7 +247,8 @@ class GameController extends ChangeNotifier {
     _engine = null;
     _clearOnlineSession();
     _clearUndoStack();
-    model = null;
+    _model = null;
+    finishedGameLobby = null;
     actionLog = [];
     localGameLog = [];
     restoredSavedGame = false;
@@ -325,26 +332,32 @@ class GameController extends ChangeNotifier {
   String? get onlineSessionID => _online?.sessionID;
   String? get onlineInviteCode => _online?.inviteCode;
   int? get onlinePlayerID => _online?.playerID;
-  OnlineSessionUpdate? get onlineUpdate => _online?.update;
+  OnlineSessionUpdate? get onlineUpdate =>
+      finishedGameLobby?.onlineUpdate ?? _online?.update;
   int? get presentationRevision =>
       _online?.awaitingPresentationRevision ??
       _awaitingLocalPresentationRevision;
   List<String> get onlineAssignmentPresentationCardIDs => List.unmodifiable(
     _online?.assignmentPresentationCardIDs ?? const <String>[],
   );
-  List<EngineAction> get gameLogActions => _online == null
-      ? List.unmodifiable(localGameLog)
-      : [
-          for (final action in _online!.update.gameLogActions)
-            action.engineAction,
-        ];
+  List<EngineAction> get gameLogActions =>
+      finishedGameLobby?.gameLogActions ??
+      (_online == null
+          ? List.unmodifiable(localGameLog)
+          : [
+              for (final action in _online!.update.gameLogActions)
+                action.engineAction,
+            ]);
   List<OnlineReaction> get gameReactions =>
+      finishedGameLobby?.reactions ??
       List.unmodifiable(_online?.update.reactions ?? const []);
   OnlineReaction? get activeReaction => _online?.activeReaction;
   bool get hasUnreadReactions => _online?.hasUnreadReactions ?? false;
   bool get canSendReaction => _online?.update.started ?? false;
 
   Future<File> saveGameLog() async {
+    final finished = finishedGameLobby;
+    final gameState = finished?.gameState;
     final base = KolkhozAutosaveStore.defaultFile().parent;
     final directory = Directory('${base.path}/match-logs');
     await directory.create(recursive: true);
@@ -358,11 +371,12 @@ class GameController extends ChangeNotifier {
       const JsonEncoder.withIndent('  ').convert({
         'version': 1,
         'savedAt': DateTime.now().toUtc().toIso8601String(),
-        'seed': currentSeed,
-        'variants': variantsToJson(currentVariants),
-        'controllers': controllers
+        'seed': gameState?.seed ?? currentSeed,
+        'variants': variantsToJson(gameState?.variants ?? currentVariants),
+        'controllers': (gameState?.controllers ?? controllers)
             .map((controller) => controller.name)
             .toList(),
+        if (gameState != null) 'gameState': gameState.toJson(),
         'actions': gameLogActions.map(engineActionToJson).toList(),
         'reactions': [
           for (final reaction in reactions)
@@ -769,6 +783,13 @@ class GameController extends ChangeNotifier {
 
   void _sync() {
     final online = _online;
+    final finished = finishedGameLobby;
+    if (online == null && _engine == null && finished != null) {
+      finishedGameLobby = finished.withUiState(uiState);
+      _model = finishedGameLobby!.model;
+      notifyListeners();
+      return;
+    }
     TableViewModel? nextModel;
     if (online != null) {
       nextModel = OnlineTableProjection(
@@ -811,12 +832,15 @@ class GameController extends ChangeNotifier {
         }
       }
       _lastSyncedPhase = phase;
-      model = nextModel;
-      lifecycle = phase == phaseGameOver
-          ? GameControllerLifecycle.completed
-          : online != null && !online.update.started
-          ? GameControllerLifecycle.lobby
-          : GameControllerLifecycle.playing;
+      _model = nextModel;
+      if (phase == phaseGameOver) {
+        _finishGame(nextModel, online);
+      } else {
+        finishedGameLobby = null;
+        lifecycle = online != null && !online.update.started
+            ? GameControllerLifecycle.lobby
+            : GameControllerLifecycle.playing;
+      }
     }
     notifyListeners();
     _scheduleAutomaticStep();
@@ -835,6 +859,7 @@ class GameController extends ChangeNotifier {
     _awaitingLocalPresentationRevision = null;
     _engine?.dispose();
     _engine = null;
+    finishedGameLobby = null;
     _autosaveStore.clear();
     _clearUndoStack();
     _online = OnlineGameRuntime(
@@ -863,6 +888,40 @@ class GameController extends ChangeNotifier {
     if (!spectator) _startOnlineRealtime();
     error = null;
     _sync();
+  }
+
+  void _finishGame(TableViewModel finalModel, OnlineGameRuntime? online) {
+    lifecycle = GameControllerLifecycle.finishing;
+    final update = online?.update;
+    final gameState = online == null
+        ? _engine!.snapshot(
+            uiState: uiState,
+            revealedPlayerID: revealedPlayerID,
+          )
+        : GameStateSnapshot(
+            seed: currentSeed,
+            variants: currentVariants,
+            controllers: controllers,
+            model: finalModel.withSeed(currentSeed),
+          );
+    finishedGameLobby = FinishedGameLobby(
+      lobby: lobby,
+      gameState: gameState,
+      gameLogActions: online == null
+          ? localGameLog
+          : [for (final action in update!.gameLogActions) action.engineAction],
+      reactions: update?.reactions ?? const [],
+      onlineUpdate: update,
+      onlinePlayerID: online?.playerID,
+      spectator: online?.spectator ?? false,
+    );
+    _model = gameState.model;
+    if (online == null) {
+      _engine?.dispose();
+      _engine = null;
+      _clearUndoStack();
+    }
+    lifecycle = GameControllerLifecycle.finished;
   }
 
   void _clearOnlineSession() {
@@ -1583,7 +1642,8 @@ class GameController extends ChangeNotifier {
         _autosaveStore.clear();
         _engine?.dispose();
         _engine = null;
-        model = null;
+        _model = null;
+        finishedGameLobby = null;
         restoredSavedGame = false;
         lifecycle = GameControllerLifecycle.lobby;
         return false;
@@ -1593,7 +1653,8 @@ class GameController extends ChangeNotifier {
     } catch (_) {
       restoredEngine?.dispose();
       _engine = null;
-      model = null;
+      _model = null;
+      finishedGameLobby = null;
       lifecycle = GameControllerLifecycle.lobby;
       _autosaveStore.clear();
       return false;

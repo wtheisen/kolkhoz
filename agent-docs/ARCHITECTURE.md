@@ -62,7 +62,9 @@ Important files:
 |------|---------|
 | `lib/src/c_engine_bridge.dart` | Dart FFI bindings to the C API |
 | `lib/src/game_engine.dart` | Exclusive native engine lifecycle, frozen match config, actions, cloning, and Flutter state projection |
+| `lib/src/game_state_snapshot.dart` | Portable completed engine state with a versioned JSON representation |
 | `lib/src/game_lobby.dart` | Four-seat pre-game configuration and spectator roster |
+| `lib/src/finished_game_lobby.dart` | Immutable final projection, result, roster, variants, log, reactions, and online metadata for postgame UI |
 | `lib/src/game_controller.dart` | Match setup, four-player ownership, action routing, presentation pacing, and local/online state publication |
 | `lib/src/player.dart` | Shared `GamePlayer` contract |
 | `lib/src/player_human.dart` | Human player adapter for UI-driven decisions |
@@ -118,8 +120,9 @@ model files.
 ## App Data Flow
 
 ```text
-GameController owns one GameEngine and four GamePlayers
+GameController owns a lobby and four GamePlayers
     |
+    +-- start game -------------> one GameEngine
     +-- Central Planner action --> reward/trump reveal
     |
     +-- HumanPlayer ------------> Flutter interaction
@@ -134,6 +137,8 @@ TableViewProjection publishes Dart model objects
     |
     v
 Flutter re-renders views and acknowledges presentation completion
+    |
+    +-- game over -------------> FinishedGameLobby snapshot
 ```
 
 Flutter widgets do not mutate game state or consume forced actions directly. They call
@@ -141,12 +146,20 @@ the controller with human actions and render its projected state. The controller
 Central Planner and AI decisions, submits portable C-engine actions, and waits for the
 client to acknowledge presentation completion before routing the next decision.
 
-The controller lifecycle is `lobby -> starting -> playing -> completed`. It begins
+The controller lifecycle is `lobby -> starting -> playing -> finishing -> finished`. It begins
 without a local engine. `startGame()` freezes the lobby's four seats and variants and is
 the only new-match path that creates a `GameEngine`; autosave restoration may rehydrate
 an existing match directly. Spectators remain controller-owned and never enter the
 engine or action router. Online lobby/start state remains authoritative on the server
 and is mirrored into the client controller.
+
+At game over, `GameEngine.snapshot()` produces a portable `GameStateSnapshot` before the
+controller disposes the native pointer. The controller places that state in a
+`FinishedGameLobby` before publishing the `finished` lifecycle. The snapshot owns
+everything the result screen, share action, saved log, and postgame panels need, and its
+versioned JSON shape is embedded in saved match logs. Online games build the same state
+object from the authoritative server projection and retain their transport runtime for
+reactions, rematches, and series updates.
 
 ## Research Data Flow
 

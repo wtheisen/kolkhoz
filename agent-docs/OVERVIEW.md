@@ -111,13 +111,15 @@ one and Drunkard removes its crop before the quota is counted.
 2. `engine/KolkhozCEngine/include/KolkhozCEngine.h` - public C API.
 3. `app/lib/src/c_engine_bridge.dart` - Dart FFI bindings.
 4. `app/lib/src/game_engine.dart` - Native engine ownership and state projection.
-5. `app/lib/src/game_lobby.dart` - Match seats, variants, and spectators before play.
-6. `app/lib/src/game_controller.dart` - Match, player routing, and presentation control.
-7. `app/lib/src/table_view_projection.dart` - C state to Flutter model projection.
-8. `app/lib/src/board/` and `app/lib/src/board_view.dart` - app UI.
-9. `research/kolkhoz_research/c_engine.py` - Python C-engine wrapper.
-10. `server/kolkhoz_server/production.py` - production online composition.
-11. `research/kolkhoz_research/cli.py` - training and benchmark commands.
+5. `app/lib/src/game_state_snapshot.dart` - Portable completed engine state and JSON shape.
+6. `app/lib/src/game_lobby.dart` - Match seats, variants, and spectators before play.
+7. `app/lib/src/finished_game_lobby.dart` - Immutable postgame state after engine disposal.
+8. `app/lib/src/game_controller.dart` - Match, player routing, and presentation control.
+9. `app/lib/src/table_view_projection.dart` - C state to Flutter model projection.
+10. `app/lib/src/board/` and `app/lib/src/board_view.dart` - app UI.
+11. `research/kolkhoz_research/c_engine.py` - Python C-engine wrapper.
+12. `server/kolkhoz_server/production.py` - production online composition.
+13. `research/kolkhoz_research/cli.py` - training and benchmark commands.
 
 ## Common Tasks
 

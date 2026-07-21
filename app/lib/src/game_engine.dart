@@ -2,6 +2,7 @@ import 'dart:ffi';
 
 import 'c_engine_bridge.dart';
 import 'game_ui_state.dart';
+import 'game_state_snapshot.dart';
 import 'policy_model.dart';
 import 'render_model.dart';
 import 'table_view_projection.dart';
@@ -85,6 +86,19 @@ class GameEngine {
     uiState: uiState,
     revealedPlayerID: revealedPlayerID,
   ).project();
+
+  GameStateSnapshot snapshot({
+    required GameUiState uiState,
+    required int? revealedPlayerID,
+  }) => GameStateSnapshot(
+    seed: seed,
+    variants: variants,
+    controllers: controllers,
+    model: project(
+      uiState: uiState,
+      revealedPlayerID: revealedPlayerID,
+    ).withSeed(seed),
+  );
 
   GameEngine clone() => GameEngine._(
     _bridge,

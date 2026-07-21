@@ -57,6 +57,73 @@ void registerStoreAndOnlineTests() {
     },
   );
 
+  testWidgets(
+    'finished game keeps a portable snapshot and releases its local engine',
+    (tester) async {
+      final store = GameController(autosaveEnabled: false)
+        ..animationSpeed = GameAnimationSpeed.instant;
+      addTearDown(store.dispose);
+      store.startGame(
+        persist: false,
+        variants: KolkhozGameVariants.demoKolkhoz,
+        controllers: const [
+          KolkhozPlayerController.human,
+          KolkhozPlayerController.heuristicAI,
+          KolkhozPlayerController.heuristicAI,
+          KolkhozPlayerController.heuristicAI,
+        ],
+      );
+
+      const priority = {
+        actionRevealReward: 0,
+        actionRevealTrump: 0,
+        actionSubmitAssignments: 1,
+        actionContinueAfterRequisition: 1,
+        actionConfirmSwap: 1,
+        actionSetTrump: 2,
+        actionPlayCard: 2,
+        actionAssign: 2,
+        actionSwap: 3,
+        actionUndoSwap: 4,
+      };
+      for (var guard = 0; guard < 1000; guard += 1) {
+        final revision = store.presentationRevision;
+        if (revision != null) {
+          store.acknowledgeRevisionPresented(revision);
+        }
+        if (store.lifecycle == GameControllerLifecycle.finished) {
+          break;
+        }
+        final actions = [...?store.model?.legalActions]
+          ..sort(
+            (left, right) =>
+                (priority[left.kind] ?? 9).compareTo(priority[right.kind] ?? 9),
+          );
+        if (actions.isNotEmpty) {
+          store.applyLegalAction(actions.first);
+        }
+        await tester.pump(const Duration(milliseconds: 1));
+      }
+
+      final finished = store.finishedGameLobby;
+      expect(store.lifecycle, GameControllerLifecycle.finished);
+      expect(store.hasActiveEngine, isFalse);
+      expect(finished, isNotNull);
+      expect(finished!.model.table.phase, phaseGameOver);
+      expect(finished.gameLogActions, isNotEmpty);
+      expect(
+        finished.gameState.toJson()['state'],
+        containsPair('phase', phaseGameOver),
+      );
+
+      final result = finished.result;
+      store.setActivePanel(panelLog);
+      expect(store.finishedGameLobby!.result, same(result));
+      expect(store.model!.panels.active, panelLog);
+      expect(store.hasActiveEngine, isFalse);
+    },
+  );
+
   test('store auto-selects the only legal trick card', () {
     const play = EngineAction(
       kind: actionPlayCard,

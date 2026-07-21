@@ -1089,8 +1089,9 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
 
   Future<void> requestNewGameFromBoard() async {
     clearForemanHint();
-    if (store.model?.table.phase == phaseGameOver) {
-      if (store.isOnlineGame && store.onlineUpdate?.ranked == false) {
+    final finished = store.finishedGameLobby;
+    if (finished != null) {
+      if (finished.canRematch) {
         await store.rematchOnlineGame();
         setState(() {
           gameLaunchOrigin = KolkhozGameLaunchOrigin.created;
@@ -1123,7 +1124,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
 
   Future<void> requestReturnToLobby() async {
     clearForemanHint();
-    final gameOver = store.model?.table.phase == phaseGameOver;
+    final gameOver = store.finishedGameLobby != null;
     if (!gameOver && settings.confirmMainMenu) {
       final confirmed = await confirmGameControl(
         title: settings.language.t(KolkhozText.kolkhozappMainMenu),
@@ -1171,16 +1172,16 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   }
 
   Future<void> copyGameResult() async {
-    final model = store.model;
-    if (model == null || model.table.phase != phaseGameOver) {
+    final finished = store.finishedGameLobby;
+    if (finished == null) {
       return;
     }
     await Clipboard.setData(
       ClipboardData(
         text: gameResultShareText(
-          model: model,
-          seed: store.currentSeed,
-          variants: store.currentVariants,
+          model: finished.model,
+          seed: finished.seed,
+          variants: finished.lobby.variants,
           language: settings.language,
         ),
       ),
@@ -1189,8 +1190,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   }
 
   Future<void> saveGameLog() async {
-    final model = store.model;
-    if (model == null || model.table.phase != phaseGameOver) {
+    if (store.finishedGameLobby == null) {
       return;
     }
     try {

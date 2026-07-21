@@ -18,6 +18,12 @@ The engine tracks:
 The Flutter projection mirrors only what the app needs to render and act on. Keep hidden
 information redaction at the engine/server boundary when adding online behavior.
 
+When a match reaches `gameOver`, the app engine captures a detached
+`GameStateSnapshot` before releasing the native engine. It contains the seed, frozen
+variants and controllers, and the complete projected final table state. Its versioned
+JSON representation is the portable completed-match contract used by saved logs and the
+controller's `FinishedGameLobby`.
+
 ## Suits And Cards
 
 The C engine uses numeric suit codes:
