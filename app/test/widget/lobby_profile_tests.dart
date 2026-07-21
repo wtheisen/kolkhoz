@@ -161,6 +161,63 @@ void registerLobbyAndProfileTests() {
     expect(changedVariants?.maxYears, 2);
   });
 
+  testWidgets('custom variant grid marks enabled options with a medal', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(667, 375);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 667,
+          height: 375,
+          child: StandaloneLobby(
+            tokens: lightDesignTokens,
+            language: KolkhozLanguage.en,
+            appearance: KolkhozAppearance.light,
+            onStart: () {},
+            selectedPreset: KolkhozGamePreset.custom,
+            customVariants: KolkhozGameVariants.kolkhoz,
+            playerControllers: KolkhozPlayerController.defaultControllers,
+            showingRules: false,
+            showingOnline: false,
+            onHostOnline: (_, _, _, _, _) async => 'session',
+            onJoinOnline: (_, _, _) async {},
+            onEnterOnlineGame: () {},
+            onPresetChanged: (_) {},
+            onCustomVariantsChanged: (_) {},
+            onPlayerControllersChanged: (_) {},
+            onRulesPressed: () {},
+            onOfflinePressed: () {},
+            onOnlinePressed: () {},
+            onTutorialPressed: () {},
+            onLanguageToggle: () {},
+            onAppearanceToggle: () {},
+          ),
+        ),
+      ),
+    );
+
+    String backgroundAsset(String label) {
+      final background = find.descendant(
+        of: find.byWidgetPredicate(
+          (widget) => widget is Semantics && widget.properties.label == label,
+        ),
+        matching: find.byType(ChromeButtonBackground),
+      );
+      return tester.widget<ChromeButtonBackground>(background).asset;
+    }
+
+    expect(
+      backgroundAsset('Enemy of the People'),
+      chromeButtonSecondaryCurrentAsset,
+    );
+    expect(backgroundAsset('Pass'), chromeButtonSecondaryAsset);
+  });
+
   testWidgets('lobby settings display tab exposes card back choices', (
     tester,
   ) async {
