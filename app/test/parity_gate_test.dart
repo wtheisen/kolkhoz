@@ -57,7 +57,7 @@ void main() {
           '''
 year=1 phase=planning current=2 trump=null viewer=0 privacy=none
 seats=0:human:hand=beet-8,potato-13,sunflower-7,sunflower-8,wheat-8:hidden=0:score=0|1:heuristicAI:hand=beet-10,potato-8,sunflower-11,sunflower-12,sunflower-9:hidden=5:score=0|2:heuristicAI:hand=beet-11,beet-6,beet-7,sunflower-6,wheat-11:hidden=5:score=0|3:heuristicAI:hand=beet-13,sunflower-10,wheat-10,wheat-13,wheat-9:hidden=5:score=0
-jobs=beet:beet-3:0:false|potato:potato-4:0:false|sunflower:sunflower-5:0:false|wheat:wheat-4:0:false
+jobs=beet:none:0:false|potato:none:0:false|sunflower:none:0:false|wheat:none:0:false
 actions=
 '''
               .trim(),
@@ -76,6 +76,14 @@ actions=
         expect(model.table.phase, phasePlanning);
         expect(model.table.currentPlayerID, 2);
         expect(model.table.trick.plays, isEmpty);
+
+        for (var suit = 0; suit < 4; suit++) {
+          final revealAction = bridge.heuristicAction(engine);
+          expect(revealAction, isNotNull);
+          expect(revealAction!.kind, kcActionRevealReward);
+          expect(revealAction.suit, suit);
+          expect(bridge.applyAIAction(engine, revealAction), 0);
+        }
 
         final trumpAction = bridge.heuristicAction(engine);
         expect(trumpAction, isNotNull);
@@ -343,7 +351,7 @@ actions=
         expect(
           gameOverFingerprint(model, appliedActions),
           '''
-actions=40 winner=3
+actions=44 winner=3
 scores=0:visible=3:final=24|1:visible=15:final=28|2:visible=4:final=17|3:visible=6:final=30
 exiled=1:beet-2,potato-1,wrecker-0|2:beet-4,beet-7,beet-8,potato-2|3:beet-1,beet-10,beet-13,sunflower-10,wheat-2,wheat-3,wheat-4|4:beet-3,beet-6,sunflower-1,sunflower-13,sunflower-4,sunflower-5,sunflower-7,sunflower-9|5:sunflower-2,sunflower-8,wheat-1,wheat-10,wheat-13
 '''
@@ -429,7 +437,7 @@ stacks=2:0:revealed=beet-8:hidden=beet-11,beet-9,wheat-11,wheat-12,wheat-9|2:1:r
       expect(
         variantFingerprint(result.model, result.appliedActions),
         '''
-actions=36 winner=2
+actions=40 winner=2
 scores=0:visible=8:final=15|1:visible=0:final=0|2:visible=0:final=18|3:visible=0:final=8
 exiled=1:sunflower-13|2:beet-7,potato-13,potato-7|3:potato-11|4:wheat-12,wheat-13,wheat-7,wheat-9|5:beet-11,potato-1,potato-12,potato-6,potato-9,wheat-10,wheat-11
 claimed=sunflower
@@ -455,7 +463,7 @@ visible=0:8:0|1:0:0|2:0:1|3:0:2
         expect(
           variantFingerprint(result.model, result.appliedActions),
           '''
-actions=55 winner=3
+actions=59 winner=3
 scores=0:visible=11:final=28|1:visible=8:final=19|2:visible=12:final=12|3:visible=11:final=32
 exiled=1:wheat-10,wheat-13|2:beet-7,wheat-12|3:beet-13,beet-8,sunflower-13,sunflower-3|4:beet-12,sunflower-10,sunflower-6,sunflower-8,wheat-6,wheat-7,wheat-9|5:sunflower-2,wheat-8
 claimed=potato

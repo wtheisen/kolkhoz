@@ -47,7 +47,9 @@ enum {
     KC_ACTION_SUBMIT_ASSIGNMENTS = 6,
     KC_ACTION_CONTINUE_AFTER_REQUISITION = 7,
     KC_ACTION_UNDO_SWAP = 8,
-    KC_ACTION_PASS_CARD = 9
+    KC_ACTION_PASS_CARD = 9,
+    KC_ACTION_REVEAL_REWARD = 10,
+    KC_ACTION_REVEAL_TRUMP = 11
 };
 
 enum {
@@ -357,6 +359,7 @@ typedef struct {
     KCCard last_swap_new_plot_card;
     bool pass_confirmed[KC_PLAYER_COUNT];
     KCCard pass_cards[KC_PLAYER_COUNT];
+    KCCard pending_final_year_trump_card;
     KCCard final_year_trump_card;
     KCRequisitionEvent requisition_plan[KC_MAX_CARDS];
     int32_t requisition_plan_count;
@@ -466,12 +469,14 @@ int32_t kc_engine_apply_pass_card(KCEngine *engine, int32_t player_id, int32_t s
 int32_t kc_engine_apply_swap(KCEngine *engine, int32_t player_id, int32_t hand_suit, int32_t hand_value, int32_t plot_suit, int32_t plot_value, int32_t plot_zone);
 int32_t kc_engine_apply_assign(KCEngine *engine, int32_t player_id, int32_t suit, int32_t value, int32_t target_suit);
 int32_t kc_engine_apply_simple(KCEngine *engine, int32_t kind, int32_t player_id);
+int32_t kc_engine_apply_suit_action(KCEngine *engine, int32_t kind, int32_t player_id, int32_t suit);
 int32_t kc_engine_apply_set_trump_manual(KCEngine *engine, int32_t player_id, int32_t suit);
 int32_t kc_engine_apply_play_card_manual(KCEngine *engine, int32_t player_id, int32_t suit, int32_t value);
 int32_t kc_engine_apply_pass_card_manual(KCEngine *engine, int32_t player_id, int32_t suit, int32_t value);
 int32_t kc_engine_apply_swap_manual(KCEngine *engine, int32_t player_id, int32_t hand_suit, int32_t hand_value, int32_t plot_suit, int32_t plot_value, int32_t plot_zone);
 int32_t kc_engine_apply_assign_manual(KCEngine *engine, int32_t player_id, int32_t suit, int32_t value, int32_t target_suit);
 int32_t kc_engine_apply_simple_manual(KCEngine *engine, int32_t kind, int32_t player_id);
+int32_t kc_engine_apply_suit_action_manual(KCEngine *engine, int32_t kind, int32_t player_id, int32_t suit);
 KCGameRunResult kc_run_benchmark_game(uint64_t seed, KCVariants variants);
 KCPolicyMatchupGameResult kc_run_policy_matchup_game(
     uint64_t seed,

@@ -136,12 +136,18 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
         continue;
       }
       var sourceRect = previousZone == null
-          ? newTrickCardFallbackSourceRect(
-              nextZone: entry.value,
-              previousRects: previousRects,
-              model: previousModel,
-              tokens: widget.tokens,
-            )
+          ? entry.value.startsWith('reward:')
+                ? previousRects[rewardPileMotionSourceKey(
+                    entry.value.substring('reward:'.length),
+                  )]
+                : entry.value == 'final-trump'
+                ? previousRects[finalTrumpMotionSourceKey]
+                : newTrickCardFallbackSourceRect(
+                    nextZone: entry.value,
+                    previousRects: previousRects,
+                    model: previousModel,
+                    tokens: widget.tokens,
+                  )
           : cardFlightSourceRect(
               cardID: cardID,
               previousZone: previousZone,
@@ -674,11 +680,19 @@ Iterable<CardMotionEntry> cardMotionEntries(TableViewModel model) sync* {
     yield CardMotionEntry(card: play.card, zone: 'trick:${play.seatID}');
   }
   for (final job in model.table.jobs) {
+    final reward = job.reward;
+    if (reward != null) {
+      yield CardMotionEntry(card: reward, zone: 'reward:${job.suit}');
+    }
     for (final card in job.assignedCards) {
       if (!card.pending) {
         yield CardMotionEntry(card: card, zone: 'job:${job.suit}');
       }
     }
+  }
+  final finalTrumpCard = model.table.finalYearTrumpCard;
+  if (finalTrumpCard != null) {
+    yield CardMotionEntry(card: finalTrumpCard, zone: 'final-trump');
   }
   for (final entry in model.table.exiledByYear.entries) {
     for (final card in entry.value) {
@@ -719,6 +733,14 @@ Rect? cardFlightSourceRect({
     return previousRects[trickCardMotionSourceKey(cardID)] ??
         previousRects[cardID];
   }
+  if (nextZone.startsWith('reward:')) {
+    return previousRects[rewardPileMotionSourceKey(
+      nextZone.substring('reward:'.length),
+    )];
+  }
+  if (nextZone == 'final-trump') {
+    return previousRects[finalTrumpMotionSourceKey];
+  }
   return previousRects[cardID];
 }
 
@@ -747,6 +769,13 @@ Rect? cardFlightDestinationRect({
       return gaugeRect ?? currentRects[cardID];
     }
     return currentRects[cardID] ?? gaugeRect;
+  }
+  if (nextZone.startsWith('reward:')) {
+    return jobGaugeCardMotionTargetRect(
+      suit: nextZone.substring('reward:'.length),
+      currentRects: currentRects,
+      tokens: tokens,
+    );
   }
   return currentRects[cardID];
 }
@@ -932,6 +961,8 @@ String playerCardMotionSourceKey(int seatID) => 'player-source:$seatID';
 String plotCardMotionSourceKey(int seatID) => 'plot-source:$seatID';
 String trickCardMotionSourceKey(String cardID) => 'trick-source:$cardID';
 String jobGaugeMotionTargetKey(String suit) => 'job-gauge-target:$suit';
+String rewardPileMotionSourceKey(String suit) => 'reward-pile-source:$suit';
+const finalTrumpMotionSourceKey = 'final-trump-source';
 const northCardMotionTargetKey = 'north-exile-target';
 const cardMotionNorthExileZone = 'north-exile';
 

@@ -55,19 +55,15 @@ class VariantEngineTests(unittest.TestCase):
             first_state = self.engine.snapshot(first)
             second_state = self.engine.snapshot(second)
             for suit in range(4):
+                self.assertFalse(first_state.has_revealed_job[suit])
+                self.assertFalse(second_state.has_revealed_job[suit])
                 first_rewards = [
-                    int(first_state.revealed_jobs[suit].value),
-                    *[
-                        int(first_state.job_piles[suit].cards[index].value)
-                        for index in range(int(first_state.job_piles[suit].count))
-                    ],
+                    int(first_state.job_piles[suit].cards[index].value)
+                    for index in range(int(first_state.job_piles[suit].count))
                 ]
                 second_rewards = [
-                    int(second_state.revealed_jobs[suit].value),
-                    *[
-                        int(second_state.job_piles[suit].cards[index].value)
-                        for index in range(int(second_state.job_piles[suit].count))
-                    ],
+                    int(second_state.job_piles[suit].cards[index].value)
+                    for index in range(int(second_state.job_piles[suit].count))
                 ]
                 self.assertEqual(sorted(first_rewards[:]), sorted([1, 2, 3, 4, max(first_rewards)]))
                 self.assertEqual(sum(value >= 5 for value in first_rewards), 1)
@@ -84,6 +80,45 @@ class VariantEngineTests(unittest.TestCase):
         finally:
             self.engine.free_engine(first)
             self.engine.free_engine(second)
+
+    def test_planning_consumes_reward_reveals_before_trump(self) -> None:
+        pointer = self.engine.new_engine(20260721, controllers=self.controllers)
+        try:
+            selector = int(self.engine.snapshot(pointer).current_player)
+            for suit in range(4):
+                legal = self.engine.legal_actions(pointer)
+                self.assertEqual(len(legal), 1)
+                self.assertEqual(int(legal[0].kind), 10)
+                self.assertEqual(int(legal[0].suit), suit)
+                self.engine.apply_action(pointer, legal[0])
+                self.assertTrue(self.engine.snapshot(pointer).has_revealed_job[suit])
+            legal = self.engine.legal_actions(pointer)
+            self.assertEqual([int(candidate.kind) for candidate in legal], [1, 1, 1, 1])
+            self.assertTrue(all(int(candidate.player_id) == selector for candidate in legal))
+        finally:
+            self.engine.free_engine(pointer)
+
+    def test_final_year_trump_is_a_consumable_reveal(self) -> None:
+        pointer = self.engine.new_engine(20260721, controllers=self.controllers)
+        try:
+            state = self.engine.snapshot(pointer)
+            state.year = 5
+            state.is_famine = True
+            for suit in range(4):
+                state.has_revealed_job[suit] = True
+            state.pending_final_year_trump_card = KCCard(4, 0)
+            state.final_year_trump_card = NO_CARD
+            legal = self.engine.legal_actions(pointer)
+            self.assertEqual(len(legal), 1)
+            self.assertEqual(int(legal[0].kind), 11)
+            self.engine.apply_action(pointer, legal[0])
+            revealed = self.engine.snapshot(pointer)
+            self.assertEqual(int(revealed.final_year_trump_card.suit), 4)
+            self.assertEqual(int(revealed.final_year_trump_card.value), 0)
+            self.assertEqual(int(revealed.trump), -1)
+            self.assertEqual(int(revealed.pending_final_year_trump_card.suit), -1)
+        finally:
+            self.engine.free_engine(pointer)
 
     def test_pass_waits_for_every_player_then_moves_left_in_year_two(self) -> None:
         pointer = self.engine.new_engine(44, controllers=self.controllers)

@@ -1596,6 +1596,62 @@ void registerBoardTests() {
     expect(cards['wheat-11']?.rank, 'J');
   });
 
+  testWidgets('reward reveal action is consumed after the pile briefing', (
+    tester,
+  ) async {
+    final base = runtimeModel();
+    final reveal = testLegalAction(
+      kind: actionRevealReward,
+      label: 'Reveal reward',
+      engineAction: const EngineAction(
+        kind: actionRevealReward,
+        playerID: 0,
+        suit: 'wheat',
+      ),
+    );
+    final model = runtimeModelWith(
+      phase: phasePlanning,
+      selection: SelectionState.empty,
+      jobs: [
+        for (final job in base.table.jobs)
+          Job(
+            suit: job.suit,
+            hours: job.hours,
+            requiredHours: job.requiredHours,
+            claimed: job.claimed,
+            reward: null,
+            assignedCards: job.assignedCards,
+            validAssignmentTarget: job.validAssignmentTarget,
+            highlighted: job.highlighted,
+          ),
+      ],
+      legalActions: [reveal],
+    );
+    LegalAction? consumed;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ConsumableRevealDriver(
+          model: model,
+          speed: GameAnimationSpeed.normal,
+          onAction: (action) => consumed = action,
+          child: PlanningPhasePanel(
+            model: model,
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('reward-reveal-panel')), findsOneWidget);
+    expect(find.byType(PlanningTrumpPanel), findsNothing);
+    await tester.pump(const Duration(milliseconds: 419));
+    expect(consumed, isNull);
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(consumed, same(reveal));
+  });
+
   testWidgets('card motion layer draws hand-to-trick flights', (tester) async {
     final before = runtimeModel();
     final playedCard = before.table.seats[0].hand.single;

@@ -2211,9 +2211,6 @@ bool kc_engine_policy_action_with_workspace(const KCEngine *engine, KCPolicyMode
     if (!engine) {
         return false;
     }
-    if (engine->phase == KC_PHASE_PLANNING && engine->is_famine) {
-        return false;
-    }
     if (engine->phase == KC_PHASE_PASS) {
         return kc_engine_heuristic_action(engine, selected);
     }
@@ -2221,6 +2218,17 @@ bool kc_engine_policy_action_with_workspace(const KCEngine *engine, KCPolicyMode
     if (player_id < 0 ||
         player_id >= KC_PLAYER_COUNT ||
         !kc_controller_is_policy(engine->controllers.seats[player_id])) {
+        return false;
+    }
+    KCAction legal_actions[4];
+    int32_t legal_count = kc_engine_legal_actions(engine, legal_actions, 4);
+    if (legal_count == 1 &&
+        (legal_actions[0].kind == KC_ACTION_REVEAL_REWARD ||
+         legal_actions[0].kind == KC_ACTION_REVEAL_TRUMP)) {
+        *selected = legal_actions[0];
+        return true;
+    }
+    if (engine->phase == KC_PHASE_PLANNING && engine->is_famine) {
         return false;
     }
     if (kc_submit_prefilled_assignment_action(engine, player_id, selected)) {
@@ -2246,7 +2254,8 @@ int32_t kc_engine_step_policy_automatic_with_workspace(KCEngine *engine, KCPolic
     if (!engine) {
         return 0;
     }
-    if (engine->phase == KC_PHASE_PLANNING && engine->is_famine) {
+    if (engine->phase == KC_PHASE_PLANNING && engine->is_famine &&
+        kc_engine_legal_actions(engine, NULL, 0) == 0) {
         kc_advance_from_planning(engine);
         return 1;
     }

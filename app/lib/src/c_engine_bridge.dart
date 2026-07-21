@@ -293,6 +293,7 @@ class KolkhozCEngineBridge {
   _applySwap;
   late final int Function(Pointer<KCEngine>, int, int, int, int) _applyAssign;
   late final int Function(Pointer<KCEngine>, int, int) _applySimple;
+  late final int Function(Pointer<KCEngine>, int, int, int) _applySuitAction;
   late final int Function(Pointer<KCEngine>) _stepAutomatic;
   late final bool Function(Pointer<KCEngine>, Pointer<KCActionNative>)
   _heuristicAction;
@@ -325,6 +326,8 @@ class KolkhozCEngineBridge {
   late final int Function(Pointer<KCEngine>, int, int, int, int)
   _applyAssignManual;
   late final int Function(Pointer<KCEngine>, int, int) _applySimpleManual;
+  late final int Function(Pointer<KCEngine>, int, int, int)
+  _applySuitActionManual;
 
   Pointer<KCEngine> newEngine({
     int? seed,
@@ -590,6 +593,12 @@ class KolkhozCEngineBridge {
         action.card.value,
         action.targetSuit,
       ),
+      kcActionRevealReward => _applySuitAction(
+        engine,
+        action.kind,
+        action.playerID,
+        action.suit,
+      ),
       _ => _applySimple(engine, action.kind, action.playerID),
     };
   }
@@ -628,6 +637,12 @@ class KolkhozCEngineBridge {
         action.card.suit,
         action.card.value,
         action.targetSuit,
+      ),
+      kcActionRevealReward => _applySuitActionManual(
+        engine,
+        action.kind,
+        action.playerID,
+        action.suit,
       ),
       _ => _applySimpleManual(engine, action.kind, action.playerID),
     };
@@ -839,6 +854,11 @@ class KolkhozCEngineBridge {
           Int32 Function(Pointer<KCEngine>, Int32, Int32),
           int Function(Pointer<KCEngine>, int, int)
         >('kc_engine_apply_simple');
+    _applySuitAction = _lib
+        .lookupFunction<
+          Int32 Function(Pointer<KCEngine>, Int32, Int32, Int32),
+          int Function(Pointer<KCEngine>, int, int, int)
+        >('kc_engine_apply_suit_action');
     _stepAutomatic = _int0('kc_engine_step_automatic');
     _heuristicAction = _lib
         .lookupFunction<
@@ -931,6 +951,11 @@ class KolkhozCEngineBridge {
           Int32 Function(Pointer<KCEngine>, Int32, Int32),
           int Function(Pointer<KCEngine>, int, int)
         >('kc_engine_apply_simple_manual');
+    _applySuitActionManual = _lib
+        .lookupFunction<
+          Int32 Function(Pointer<KCEngine>, Int32, Int32, Int32),
+          int Function(Pointer<KCEngine>, int, int, int)
+        >('kc_engine_apply_suit_action_manual');
   }
 
   int Function(Pointer<KCEngine>) _int0(String name) {
@@ -1150,6 +1175,8 @@ const kcActionSubmitAssignments = 6;
 const kcActionContinueAfterRequisition = 7;
 const kcActionUndoSwap = 8;
 const kcActionPassCard = 9;
+const kcActionRevealReward = 10;
+const kcActionRevealTrump = 11;
 
 const kcPhasePlanning = 0;
 const kcPhaseSwap = 1;

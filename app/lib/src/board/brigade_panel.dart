@@ -229,7 +229,7 @@ class _BrigadePanelState extends State<BrigadePanel> {
                             model.table.phase == phasePlanning &&
                                 playerOrder[index].id ==
                                     model.table.currentPlayerID
-                            ? PlanningTrumpPanel(
+                            ? PlanningPhasePanel(
                                 model: model,
                                 tokens: tokens,
                                 language: language,
@@ -522,7 +522,7 @@ class CompactBrigadeGrid extends StatelessWidget {
       planningTrumpChooser:
           model.table.phase == phasePlanning &&
               seat.id == model.table.currentPlayerID
-          ? PlanningTrumpPanel(
+          ? PlanningPhasePanel(
               model: model,
               tokens: tokens,
               language: language,
@@ -818,7 +818,7 @@ class FarmsteadBrigadePlotBoard extends StatelessWidget {
             if (model.table.phase == phasePlanning)
               FarmsteadPerspectivePositioned(
                 sourceQuad: fieldPlanPlanningSourceQuad(0),
-                child: PlanningTrumpPanel(
+                child: PlanningPhasePanel(
                   model: model,
                   tokens: tokens,
                   language: language,
@@ -3150,6 +3150,166 @@ class CardSlotPainter extends CustomPainter {
       oldDelegate.color != color ||
       oldDelegate.fillColor != fillColor ||
       oldDelegate.active != active;
+}
+
+class PlanningPhasePanel extends StatelessWidget {
+  const PlanningPhasePanel({
+    required this.model,
+    required this.tokens,
+    required this.language,
+    this.focusedSuit,
+    this.onAction,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final String? focusedSuit;
+  final ValueChanged<LegalAction>? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final revealAction = model.legalActions
+        .where(
+          (action) =>
+              action.kind == actionRevealReward ||
+              action.kind == actionRevealTrump,
+        )
+        .firstOrNull;
+    final rewardsRevealed = model.table.jobs
+        .where((job) => job.reward != null)
+        .length;
+    if (revealAction != null ||
+        (rewardsRevealed > 0 && rewardsRevealed < displaySuitOrder.length)) {
+      return RewardRevealPanel(
+        model: model,
+        tokens: tokens,
+        language: language,
+        revealingSuit: revealAction?.kind == actionRevealReward
+            ? revealAction?.engineAction.suit
+            : null,
+        revealingTrump: revealAction?.kind == actionRevealTrump,
+      );
+    }
+    if (model.table.isFamine && model.table.finalYearTrumpCard != null) {
+      return RewardRevealPanel(
+        model: model,
+        tokens: tokens,
+        language: language,
+        revealingTrump: true,
+      );
+    }
+    return PlanningTrumpPanel(
+      model: model,
+      tokens: tokens,
+      language: language,
+      focusedSuit: focusedSuit,
+      onAction: onAction,
+    );
+  }
+}
+
+class RewardRevealPanel extends StatelessWidget {
+  const RewardRevealPanel({
+    required this.model,
+    required this.tokens,
+    required this.language,
+    this.revealingSuit,
+    this.revealingTrump = false,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
+  final String? revealingSuit;
+  final bool revealingTrump;
+
+  @override
+  Widget build(BuildContext context) {
+    final finalTrump = model.table.finalYearTrumpCard;
+    final cardSize = tokens.card.small;
+    return PanelStyleSurface(
+      key: const Key('reward-reveal-panel'),
+      tokens: tokens,
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        spacing: 7,
+        children: [
+          PixelText(
+            revealingTrump
+                ? (language == KolkhozLanguage.en
+                      ? 'REVEAL TRUMP'
+                      : 'ОТКРЫТЬ КОЗЫРЬ')
+                : (language == KolkhozLanguage.en ? 'REWARD PILES' : 'НАГРАДЫ'),
+            textAlign: TextAlign.center,
+            size: PixelTextSize.caption,
+            variant: PixelTextVariant.heavy,
+            color: tokens.colors.gold,
+          ),
+          if (revealingTrump)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: 10,
+              children: [
+                MotionTrackedRegion(
+                  motionKey: finalTrumpMotionSourceKey,
+                  child: ScaledCardBack(tokens: tokens, size: cardSize),
+                ),
+                if (finalTrump != null)
+                  GameCard(
+                    card: finalTrump,
+                    tokens: tokens,
+                    sizeOverride: cardSize,
+                  ),
+              ],
+            )
+          else
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: 5,
+              children: [
+                for (final suit in displaySuitOrder)
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: 2,
+                    children: [
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(
+                            color: suit == revealingSuit
+                                ? tokens.colors.gold
+                                : Colors.transparent,
+                            width: 2,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(2),
+                          child: MotionTrackedRegion(
+                            motionKey: rewardPileMotionSourceKey(suit),
+                            child: ScaledCardBack(
+                              tokens: tokens,
+                              size: cardSize,
+                            ),
+                          ),
+                        ),
+                      ),
+                      PixelText(
+                        '${displaySuitOrder.indexOf(suit) + 1}',
+                        size: PixelTextSize.xSmall,
+                        color: tokens.colors.cream,
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class PlanningTrumpPanel extends StatelessWidget {

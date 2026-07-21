@@ -726,66 +726,72 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
             final model = store.model!;
             content = Stack(
               children: [
-                KolkhozBoard(
+                ConsumableRevealDriver(
                   model: model,
-                  tokens: tokens,
-                  language: language,
-                  appearance: appearance,
-                  heroOfSovietUnion: store.currentVariants.heroOfSovietUnion,
-                  cardBack: cardBack,
+                  speed: store.animationSpeed,
                   onAction: applyBoardAction,
-                  onPanelSelected: store.setActivePanel,
-                  onLanguageToggle: toggleLanguage,
-                  onAppearanceToggle: toggleAppearance,
-                  onCardBackChanged: setCardBack,
-                  onSwapHandCardTap: store.selectSwapHandCard,
-                  onHandCardTap: store.selectHandCard,
-                  onPlotCardTap: store.selectPlotCard,
-                  onAssignmentCardTap: store.selectAssignmentCard,
-                  onInvalidHandCardTap: showFollowSuitHint,
-                  canUndo: store.canUndo,
-                  onUndo: store.undoLastAction,
-                  onHotSeatReady: store.revealLocalPlayer,
-                  onNewGame: requestNewGameFromBoard,
-                  onReturnToLobby: requestReturnToLobby,
-                  onCopyGameResult: copyGameResult,
-                  onSaveGameLog: saveGameLog,
-                  gameLogActions: store.gameLogActions,
-                  gameReactions: store.gameReactions,
-                  hasUnreadLogMessages: store.hasUnreadReactions,
-                  canSendReaction: store.canSendReaction,
-                  onReaction: store.sendReaction,
-                  activeReaction: store.activeReaction,
-                  gameOverReturnsToLobby:
-                      store.onlineUpdate?.tournament != null ||
-                      !(store.isOnlineGame &&
-                          store.onlineUpdate?.ranked == false &&
-                          store.onlineUpdate?.series?.completed != true &&
-                          store.model?.table.phase == phaseGameOver),
-                  onTutorial: showTutorial,
-                  animationSpeed: store.animationSpeed,
-                  presentationRevision: store.presentationRevision,
-                  assignmentPresentationCardIDs:
-                      store.onlineAssignmentPresentationCardIDs,
-                  onPresentationComplete: store.acknowledgeRevisionPresented,
-                  onAnimationSpeedChanged: store.setAnimationSpeed,
-                  confirmNewGame: settings.confirmNewGame,
-                  onConfirmNewGameChanged: setConfirmNewGame,
-                  confirmMainMenu: settings.confirmMainMenu,
-                  onConfirmMainMenuChanged: setConfirmMainMenu,
-                  showInvalidTapHints: settings.showInvalidTapHints,
-                  onShowInvalidTapHintsChanged: setShowInvalidTapHints,
-                  comradeUserIDs: comradesSummary.userIDs,
-                  incomingComradeRequestUserIDs: {
-                    for (final request in comradesSummary.incomingRequests)
-                      request.userID,
-                  },
-                  outgoingComradeRequestUserIDs: {
-                    for (final request in comradesSummary.outgoingRequests)
-                      request.userID,
-                  },
-                  currentProfileUserID: comradesSummary.userID,
-                  onComradeRequestToUser: requestComradeByUserID,
+                  presentationActive: store.presentationRevision != null,
+                  child: KolkhozBoard(
+                    model: model,
+                    tokens: tokens,
+                    language: language,
+                    appearance: appearance,
+                    heroOfSovietUnion: store.currentVariants.heroOfSovietUnion,
+                    cardBack: cardBack,
+                    onAction: applyBoardAction,
+                    onPanelSelected: store.setActivePanel,
+                    onLanguageToggle: toggleLanguage,
+                    onAppearanceToggle: toggleAppearance,
+                    onCardBackChanged: setCardBack,
+                    onSwapHandCardTap: store.selectSwapHandCard,
+                    onHandCardTap: store.selectHandCard,
+                    onPlotCardTap: store.selectPlotCard,
+                    onAssignmentCardTap: store.selectAssignmentCard,
+                    onInvalidHandCardTap: showFollowSuitHint,
+                    canUndo: store.canUndo,
+                    onUndo: store.undoLastAction,
+                    onHotSeatReady: store.revealLocalPlayer,
+                    onNewGame: requestNewGameFromBoard,
+                    onReturnToLobby: requestReturnToLobby,
+                    onCopyGameResult: copyGameResult,
+                    onSaveGameLog: saveGameLog,
+                    gameLogActions: store.gameLogActions,
+                    gameReactions: store.gameReactions,
+                    hasUnreadLogMessages: store.hasUnreadReactions,
+                    canSendReaction: store.canSendReaction,
+                    onReaction: store.sendReaction,
+                    activeReaction: store.activeReaction,
+                    gameOverReturnsToLobby:
+                        store.onlineUpdate?.tournament != null ||
+                        !(store.isOnlineGame &&
+                            store.onlineUpdate?.ranked == false &&
+                            store.onlineUpdate?.series?.completed != true &&
+                            store.model?.table.phase == phaseGameOver),
+                    onTutorial: showTutorial,
+                    animationSpeed: store.animationSpeed,
+                    presentationRevision: store.presentationRevision,
+                    assignmentPresentationCardIDs:
+                        store.onlineAssignmentPresentationCardIDs,
+                    onPresentationComplete: store.acknowledgeRevisionPresented,
+                    onAnimationSpeedChanged: store.setAnimationSpeed,
+                    confirmNewGame: settings.confirmNewGame,
+                    onConfirmNewGameChanged: setConfirmNewGame,
+                    confirmMainMenu: settings.confirmMainMenu,
+                    onConfirmMainMenuChanged: setConfirmMainMenu,
+                    showInvalidTapHints: settings.showInvalidTapHints,
+                    onShowInvalidTapHintsChanged: setShowInvalidTapHints,
+                    comradeUserIDs: comradesSummary.userIDs,
+                    incomingComradeRequestUserIDs: {
+                      for (final request in comradesSummary.incomingRequests)
+                        request.userID,
+                    },
+                    outgoingComradeRequestUserIDs: {
+                      for (final request in comradesSummary.outgoingRequests)
+                        request.userID,
+                    },
+                    currentProfileUserID: comradesSummary.userID,
+                    onComradeRequestToUser: requestComradeByUserID,
+                  ),
                 ),
                 if (store.error != null)
                   Positioned(

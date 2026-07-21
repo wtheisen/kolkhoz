@@ -1327,6 +1327,7 @@ class LiveGameStore extends ChangeNotifier {
         return;
       }
       _awaitingLocalPresentationRevision = null;
+      _sync();
       _scheduleAutomaticStep();
       return;
     }

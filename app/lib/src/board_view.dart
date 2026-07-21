@@ -634,6 +634,88 @@ class BrigadeFieldsScope extends InheritedWidget {
       focusProgress != oldWidget.focusProgress;
 }
 
+class ConsumableRevealDriver extends StatefulWidget {
+  const ConsumableRevealDriver({
+    required this.model,
+    required this.speed,
+    required this.onAction,
+    required this.child,
+    this.presentationActive = false,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final GameAnimationSpeed speed;
+  final ValueChanged<LegalAction>? onAction;
+  final Widget child;
+  final bool presentationActive;
+
+  @override
+  State<ConsumableRevealDriver> createState() => _ConsumableRevealDriverState();
+}
+
+class _ConsumableRevealDriverState extends State<ConsumableRevealDriver> {
+  Timer? timer;
+  String? scheduledAction;
+
+  @override
+  void initState() {
+    super.initState();
+    _schedule();
+  }
+
+  @override
+  void didUpdateWidget(ConsumableRevealDriver oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _schedule();
+  }
+
+  @override
+  void dispose() {
+    timer?.cancel();
+    super.dispose();
+  }
+
+  void _schedule() {
+    final action = widget.presentationActive
+        ? null
+        : widget.model.legalActions
+              .where(
+                (candidate) =>
+                    candidate.kind == actionRevealReward ||
+                    candidate.kind == actionRevealTrump,
+              )
+              .firstOrNull;
+    final signature = action == null
+        ? null
+        : '${widget.model.table.year}:${action.kind}:${action.engineAction.suit ?? ''}';
+    if (signature == scheduledAction) {
+      return;
+    }
+    timer?.cancel();
+    scheduledAction = signature;
+    if (action == null || widget.onAction == null) {
+      return;
+    }
+    timer = Timer(
+      switch (widget.speed) {
+        GameAnimationSpeed.instant => Duration.zero,
+        GameAnimationSpeed.fast => const Duration(milliseconds: 280),
+        GameAnimationSpeed.normal => const Duration(milliseconds: 420),
+        GameAnimationSpeed.slow => const Duration(milliseconds: 700),
+      },
+      () {
+        if (mounted && scheduledAction == signature) {
+          widget.onAction?.call(action);
+        }
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
 class KolkhozBoard extends StatelessWidget {
   const KolkhozBoard({
     required this.model,
