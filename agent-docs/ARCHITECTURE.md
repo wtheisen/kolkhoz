@@ -74,13 +74,15 @@ Important files:
 | `lib/src/game_channel_local.dart` | In-memory channel and exclusive local `GameEngine` ownership |
 | `lib/src/game_channel_online.dart` | Active-match HTTP command, retry, refresh, and update transport |
 | `lib/src/game_channel_online_realtime.dart` | WebSocket connection, reconnect, and frame decoding |
-| `lib/src/game_controller.dart` | Match setup, four-player ownership, action routing, presentation pacing, and local/online state publication |
+| `lib/src/game_controller.dart` | UI-facing lobby/lifecycle facade, player composition, and local/online session handoff |
+| `lib/src/local_game_session.dart` | Local channel, engine routing, Central Planner/AI pacing, undo, action log, and autosave cadence |
+| `lib/src/online_game_session.dart` | Online channel state, revisions, presentation acknowledgements, reactions, and command selection rollback |
 | `lib/src/player.dart` | Shared `GamePlayer` contract |
 | `lib/src/player_human.dart` | Human player adapter for UI-driven decisions |
 | `lib/src/player_ai_heuristic.dart` | Deterministic C-engine heuristic player adapter |
 | `lib/src/player_ai_neural.dart` | Medium and hard neural-policy player adapter with heuristic fallback |
 | `lib/src/player_server.dart` | Read-only server-owned online player adapter |
-| `lib/src/game_undo_snapshot.dart` | Controller undo snapshot state and cloned-engine ownership |
+| `lib/src/game_undo_snapshot.dart` | Local-session undo state and cloned-engine ownership |
 | `lib/src/table_view_projection.dart` | C engine state to Flutter table model |
 | `lib/src/online_game_models.dart` | Dart online API models/client |
 | `lib/src/board/` | Board panels and controls |
@@ -135,11 +137,11 @@ model files.
 ## App Data Flow
 
 ```text
-GameController owns a lobby, four GamePlayers, and one GameChannel
+GameController owns a lobby, four GamePlayers, and at most one active session
     |
-    +-- LocalGameChannel -------> one GameEngine
+    +-- LocalGameSession -------> LocalGameChannel --> one GameEngine
     |
-    +-- OnlineGameChannel ------> HTTP + WebSocket server transport
+    +-- OnlineGameSession ------> OnlineGameChannel --> HTTP + WebSocket
     |
     +-- Central Planner action --> reward/trump reveal
     |
@@ -148,10 +150,10 @@ GameController owns a lobby, four GamePlayers, and one GameChannel
     +-- AI GamePlayer ----------> heuristic or policy decision
     |
     v
-GameChannel publishes ordered GameEvents
+The active session consumes ordered GameEvents
     |
     v
-GameController publishes projected Dart model objects
+GameController publishes the session's projected Dart model objects
     |
     v
 Flutter re-renders views and acknowledges presentation completion
@@ -160,10 +162,11 @@ Flutter re-renders views and acknowledges presentation completion
 ```
 
 Flutter widgets do not mutate game state or consume forced actions directly. They call
-the controller with human actions and render its projected state. The controller sends
-portable `GameCommand` objects through its current channel and consumes ordered
-`GameEvent` objects. Local, Central Planner, and AI commands use the in-memory channel;
-online gameplay commands use the server-backed channel.
+the controller facade with human actions and render its projected state. The controller
+delegates the action to its active session. `LocalGameSession` routes human, Central
+Planner, and AI commands through the in-memory channel and owns undo and automatic-step
+pacing. `OnlineGameSession` routes commands through the server-backed channel and owns
+transport revisions, selection rollback, reactions, and presentation acknowledgements.
 
 Authoritative server revisions and client presentation acknowledgements are deliberately
 separate. `OnlineGameChannel` preserves every committed action needed for animation and
