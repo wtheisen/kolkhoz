@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kolkhoz Card Layout Editor</title>
+  <style>
+    @font-face {
+      font-family: "Kolkhoz Zilla Slab";
+      src: url("../fonts/candidates/zilla-slab/ZillaSlab-Bold.ttf") format("truetype");
+      font-weight: 700;
+    }
+
+    :root {
+      color-scheme: dark;
+      --ink: #edf1e7;
+      --muted: #9da99d;
+      --panel: #1d2525;
+      --panel-2: #242e2d;
+      --line: #3b4947;
+      --accent: #e34a28;
+      --accent-2: #f4c85a;
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #111716;
+      color: var(--ink);
+      font: 14px/1.35 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button, input, select { font: inherit; }
+    button {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 8px 11px;
+      background: #2b3634;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    button:hover { border-color: #667771; background: #34413e; }
+    button.primary { border-color: #b83e25; background: var(--accent); color: white; }
+    button.primary:hover { background: #f05a36; }
+
+    .app { display: grid; grid-template-columns: minmax(0, 1fr) 330px; height: 100%; }
+    .stage-column { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 54px;
+      padding: 9px 14px;
+      background: #18201f;
+      border-bottom: 1px solid #2b3735;
+    }
+    .toolbar .title { font-family: "Kolkhoz Zilla Slab", serif; font-size: 18px; margin-right: 8px; }
+    .toolbar .spacer { flex: 1; }
+    .status { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .card-picker { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+    .card-picker select {
+      min-width: 158px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 8px 30px 8px 10px;
+      background: #2b3634;
+      color: var(--ink);
+    }
+
+    .stage {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 0;
+      padding: 24px;
+      overflow: hidden;
+      background-color: #252c2b;
+      background-image:
+        linear-gradient(45deg, #29312f 25%, transparent 25%),
+        linear-gradient(-45deg, #29312f 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #29312f 75%),
+        linear-gradient(-45deg, transparent 75%, #29312f 75%);
+      background-size: 28px 28px;
+      background-position: 0 0, 0 14px, 14px -14px, -14px 0;
+    }
+    #card {
+      display: block;
+      width: min(100%, calc((100vh - 102px) * 1644 / 2244));
+      max-height: calc(100vh - 102px);
+      aspect-ratio: 1644 / 2244;
+      filter: drop-shadow(0 18px 30px rgba(0,0,0,.42));
+      touch-action: none;
+      user-select: none;
+    }
+    #card .piece { cursor: grab; }
+    #card .piece:active { cursor: grabbing; }
+    #card .selection { pointer-events: none; fill: none; stroke: #e94225; stroke-width: 7; stroke-dasharray: 18 12; vector-effect: non-scaling-stroke; }
+    #card .piece:not(.selected) .selection { display: none; }
+    #card .guide { pointer-events: none; fill: none; vector-effect: non-scaling-stroke; }
+    #card.guides-off .guide { display: none; }
+
+    .sidebar {
+      min-width: 0;
+      overflow-y: auto;
+      background: var(--panel);
+      border-left: 1px solid #34403e;
+      padding: 18px;
+    }
+    .sidebar h2, .sidebar h3 { font-family: "Kolkhoz Zilla Slab", serif; margin: 0; }
+    .sidebar h2 { font-size: 21px; }
+    .sidebar h3 { margin-top: 22px; font-size: 16px; }
+    .help { color: var(--muted); margin: 7px 0 16px; font-size: 12px; }
+    .component-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .component-list button { padding: 7px 8px; text-align: left; font-size: 12px; }
+    .component-list button.active { border-color: var(--accent); box-shadow: inset 3px 0 var(--accent); background: #392d28; }
+
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+    label { display: grid; gap: 4px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+    input[type="number"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px;
+      background: #121817;
+      color: var(--ink);
+    }
+    .checks { display: grid; gap: 9px; margin: 16px 0; }
+    .check { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 13px; text-transform: none; letter-spacing: 0; }
+    input[type="checkbox"] { accent-color: var(--accent); }
+    .button-row { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 8px; }
+    .button-row .wide { grid-column: 1 / -1; }
+    .readout {
+      margin-top: 12px;
+      padding: 10px;
+      border: 1px solid #35413f;
+      border-radius: 7px;
+      background: #151c1b;
+      color: var(--muted);
+      font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .kbd { display: inline-block; border: 1px solid #4a5956; border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; color: #d8dfd5; background: #293331; }
+
+    @media (max-width: 850px) {
+      body { overflow: auto; }
+      .app { grid-template-columns: 1fr; height: auto; }
+      .stage-column { min-height: 80vh; }
+      .sidebar { border-left: 0; border-top: 1px solid #34403e; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="stage-column">
+      <div class="toolbar">
+        <div class="title">Card Layout Editor</div>
+        <label class="card-picker">Card <select id="cardPicker" aria-label="Card"></select></label>
+        <button id="zoomFit">Fit</button>
+        <button id="toggleGuides">Hide guides</button>
+        <div class="spacer"></div>
+        <div class="status" id="saveStatus">Saved locally</div>
+      </div>
+      <div class="stage">
+        <svg id="card" viewBox="0 0 1644 2244" role="img" aria-label="Editable seven of wheat card">
+          <defs>
+            <path id="cornerWindowShape" d="M970 116 H1440 L1492 168 V752 C1460 615 1370 492 1210 366 C1145 315 1112 282 1107 224 C1102 160 1055 116 970 116 Z"/>
+            <clipPath id="upperRightWindow"><use href="#cornerWindowShape"/></clipPath>
+            <clipPath id="lowerLeftWindow"><use href="#cornerWindowShape" transform="rotate(180 822 1122)"/></clipPath>
+            <path id="cornerRail" d="M970 116 C1055 116 1102 160 1107 224 C1112 282 1145 315 1210 366 C1370 492 1460 615 1492 752"/>
+            <filter id="paperTooth" x="0" y="0" width="100%" height="100%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.42" numOctaves="2" seed="31" result="noise"/>
+              <feColorMatrix in="noise" type="saturate" values="0" result="gray"/>
+              <feComponentTransfer in="gray" result="faint"><feFuncA type="linear" slope="0.04"/></feComponentTransfer>
+              <feBlend in="SourceGraphic" in2="faint" mode="multiply"/>
+            </filter>
+            <filter id="suitContrast" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+              <feComponentTransfer in="SourceGraphic">
+                <feFuncR type="linear" slope="0.84"/><feFuncG type="linear" slope="0.78"/><feFuncB type="linear" slope="0.66"/>
+              </feComponentTransfer>
+            </filter>
+          </defs>
+
+          <rect width="1644" height="2244" fill="#f6edcf" filter="url(#paperTooth)"/>
+          <image href="../proofs/generated-borders/wheat-artwork-plate-v1-mpc.png" width="1644" height="2244" clip-path="url(#upperRightWindow)" preserveAspectRatio="none"/>
+          <image href="../proofs/generated-borders/wheat-artwork-plate-v1-mpc.png" x="58" width="1644" height="2244" clip-path="url(#lowerLeftWindow)" preserveAspectRatio="none"/>
+
+          <g fill="none" stroke="#33434a" stroke-linejoin="miter" pointer-events="none">
+            <path d="M176 88 H1460 L1520 148 V2096 L1460 2156 H184 L124 2096 V148 Z" stroke-width="15"/>
+            <path d="M204 116 H1440 L1492 168 V2076 L1440 2128 H204 L152 2076 V168 Z" stroke-width="9"/>
+            <use href="#cornerRail" stroke-width="9"/>
+            <use href="#cornerRail" stroke-width="9" transform="rotate(180 822 1122)"/>
+          </g>
+
+          <g id="pieces"></g>
+
+          <g id="guides">
+            <rect class="guide" x="72" y="72" width="1500" height="2100" stroke="#e94225" stroke-width="2" stroke-dasharray="12 10" opacity=".72"/>
+            <rect class="guide" x="144" y="144" width="1356" height="1956" stroke="#2c7f9e" stroke-width="2" stroke-dasharray="10 10" opacity=".72"/>
+            <path class="guide" d="M822 72 V2172 M72 1122 H1572" stroke="#2c7f9e" stroke-width="1.5" opacity=".5"/>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <aside class="sidebar">
+      <h2>Position pieces</h2>
+      <p class="help">Drag directly on the card or enter exact production coordinates. Every rank is fitted into the same visible-height box, so its X/Y position and top/bottom edges stay consistent between cards. Orange is selected; red is the trim line; blue is the conservative safe area.</p>
+
+      <div class="component-list" id="componentList"></div>
+
+      <h3 id="selectionTitle">Top rank</h3>
+      <div class="form-grid">
+        <label>X <input id="fieldX" type="number" step="1"></label>
+        <label>Y <input id="fieldY" type="number" step="1"></label>
+        <label id="widthLabel">Width <input id="fieldWidth" type="number" min="20" step="1"></label>
+        <label id="heightLabel">Height <input id="fieldHeight" type="number" min="20" step="1"></label>
+        <label>Rotation <input id="fieldRotation" type="number" step="1"></label>
+        <label id="fontLabel">Visible height <input id="fieldFontSize" type="number" min="40" step="1"></label>
+      </div>
+
+      <div class="checks">
+        <label class="check"><input id="mirrorCorners" type="checkbox" checked> Mirror the two corner indices</label>
+        <label class="check"><input id="lockAspect" type="checkbox" checked> Keep pip aspect ratio</label>
+        <label class="check"><input id="snapGrid" type="checkbox"> Snap dragging to 5 px</label>
+      </div>
+
+      <div class="button-row">
+        <button id="resetSelected">Reset selected</button>
+        <button id="resetAll">Reset all</button>
+        <button id="copyJson" class="primary wide">Copy layout JSON</button>
+        <button id="downloadJson">Download JSON</button>
+        <button id="copySvg">Copy SVG values</button>
+      </div>
+
+      <div class="readout" id="readout"></div>
+      <p class="help">Nudge with <span class="kbd">arrow keys</span>; hold <span class="kbd">Shift</span> for 10 px. Your layout is automatically stored in this browser.</p>
+    </aside>
+  </main>
+
+  <script type="text/plain" id="legacyEditorScript">
+    const CARD = { width: 1644, height: 2244 };
+    const suitHref = "../pips/wheat/suit-wheat-poster-c-v1.png";
+    const STORAGE_KEY = "kolkhoz-card-layout-editor-v1";
+
+    const defaults = {
+      topRank:    { type: "rank", label: "Top rank", x: 340, y: 430, fontSize: 300, rotation: 0 },
+      topSuit:    { type: "image", label: "Top corner pip", x: 265, y: 510, width: 150, height: 150, rotation: 0 },
+      pip1:       { type: "image", label: "Pip 1 · upper left", x: 470, y: 365, width: 340, height: 340, rotation: 0 },
+      pip2:       { type: "image", label: "Pip 2 · upper right", x: 834, y: 365, width: 340, height: 340, rotation: 0 },
+      pip3:       { type: "image", label: "Pip 3 · upper center", x: 652, y: 760, width: 340, height: 340, rotation: 0 },
+      pip4:       { type: "image", label: "Pip 4 · middle left", x: 470, y: 1055, width: 340, height: 340, rotation: 0 },
+      pip5:       { type: "image", label: "Pip 5 · middle right", x: 834, y: 1055, width: 340, height: 340, rotation: 0 },
+      pip6:       { type: "image", label: "Pip 6 · lower left", x: 470, y: 1485, width: 340, height: 340, rotation: 180 },
+      pip7:       { type: "image", label: "Pip 7 · lower right", x: 834, y: 1485, width: 340, height: 340, rotation: 180 },
+      bottomRank: { type: "rank", label: "Bottom rank", x: 1304, y: 1814, fontSize: 300, rotation: 180 },
+      bottomSuit: { type: "image", label: "Bottom corner pip", x: 1229, y: 1584, width: 150, height: 150, rotation: 180 }
+    };
+
+    const clone = value => JSON.parse(JSON.stringify(value));
+    let pieces = clone(defaults);
+    let selectedId = "topRank";
+    let drag = null;
+    let saveTimer = null;
+
+    const svg = document.querySelector("#card");
+    const piecesLayer = document.querySelector("#pieces");
+    const list = document.querySelector("#componentList");
+    const fields = {
+      x: document.querySelector("#fieldX"), y: document.querySelector("#fieldY"),
+      width: document.querySelector("#fieldWidth"), height: document.querySelector("#fieldHeight"),
+      rotation: document.querySelector("#fieldRotation"), fontSize: document.querySelector("#fieldFontSize")
+    };
+
+    function load() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (saved?.pieces) {
+          for (const id of Object.keys(defaults)) pieces[id] = { ...defaults[id], ...(saved.pieces[id] || {}) };
+          document.querySelector("#mirrorCorners").checked = saved.mirrorCorners !== false;
+        }
+      } catch (_) {}
+      mirrorCorners();
+    }
+
+    function mirrorCorners() {
+      if (!document.querySelector("#mirrorCorners").checked) return;
+      const rank = pieces.topRank;
+      pieces.bottomRank = { ...pieces.bottomRank, x: CARD.width - rank.x, y: CARD.height - rank.y, fontSize: rank.fontSize, rotation: 180 };
+      const suit = pieces.topSuit;
+      pieces.bottomSuit = { ...pieces.bottomSuit, x: CARD.width - suit.x - suit.width, y: CARD.height - suit.y - suit.height, width: suit.width, height: suit.height, rotation: 180 };
+    }
+
+    function rotationTransform(piece) {
+      if (!piece.rotation) return "";
+      if (piece.type === "rank") return `rotate(${piece.rotation} ${piece.x} ${piece.y})`;
+      return `rotate(${piece.rotation} ${piece.x + piece.width / 2} ${piece.y + piece.height / 2})`;
+    }
+
+    function makeSvg(tag, attrs = {}) {
+      const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+      for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
+      return node;
+    }
+
+    function renderPieces() {
+      mirrorCorners();
+      piecesLayer.replaceChildren();
+      for (const [id, piece] of Object.entries(pieces)) {
+        const g = makeSvg("g", { class: `piece${id === selectedId ? " selected" : ""}`, "data-id": id, tabindex: "0" });
+        const transform = rotationTransform(piece);
+        if (transform) g.setAttribute("transform", transform);
+
+        let visual;
+        if (piece.type === "rank") {
+          visual = makeSvg("text", {
+            x: piece.x, y: piece.y, fill: "#263025", "text-anchor": "middle",
+            "font-family": "Kolkhoz Zilla Slab, Georgia, serif", "font-size": piece.fontSize, "font-weight": "700"
+          });
+          visual.textContent = "7";
+        } else {
+          visual = makeSvg("image", { href: suitHref, x: piece.x, y: piece.y, width: piece.width, height: piece.height, draggable: "false" });
+        }
+        g.append(visual);
+        piecesLayer.append(g);
+
+        // Use the browser's real font metrics. Estimated boxes are visibly off-center
+        // for slab-serif glyphs such as Zilla Slab's angled 7.
+        const box = visual.getBBox();
+        g.append(makeSvg("rect", { class: "selection", x: box.x - 10, y: box.y - 10, width: box.width + 20, height: box.height + 20, rx: 8 }));
+        g.addEventListener("pointerdown", startDrag);
+      }
+      updatePanel();
+      scheduleSave();
+    }
+
+    function buildList() {
+      list.replaceChildren();
+      for (const [id, piece] of Object.entries(pieces)) {
+        const button = document.createElement("button");
+        button.textContent = piece.label;
+        button.dataset.id = id;
+        button.addEventListener("click", () => select(id));
+        list.append(button);
+      }
+    }
+
+    function select(id) {
+      selectedId = id;
+      renderPieces();
+    }
+
+    function updatePanel() {
+      const piece = pieces[selectedId];
+      document.querySelector("#selectionTitle").textContent = piece.label;
+      for (const key of ["x", "y", "width", "height", "rotation", "fontSize"]) fields[key].value = piece[key] ?? "";
+      document.querySelector("#widthLabel").hidden = piece.type === "rank";
+      document.querySelector("#heightLabel").hidden = piece.type === "rank";
+      document.querySelector("#fontLabel").hidden = piece.type !== "rank";
+      for (const button of list.querySelectorAll("button")) button.classList.toggle("active", button.dataset.id === selectedId);
+      document.querySelector("#readout").textContent = JSON.stringify({ [selectedId]: exportPiece(selectedId) }, null, 2);
+    }
+
+    function exportPiece(id) {
+      const p = pieces[id];
+      const result = { x: round(p.x), y: round(p.y) };
+      if (p.type === "rank") result.fontSize = round(p.fontSize);
+      else { result.width = round(p.width); result.height = round(p.height); }
+      result.rotation = round(p.rotation);
+      return result;
+    }
+
+    function round(value) { return Math.round(value * 100) / 100; }
+
+    function clientToCard(event) {
+      const point = new DOMPoint(event.clientX, event.clientY);
+      return point.matrixTransform(svg.getScreenCTM().inverse());
+    }
+
+    function startDrag(event) {
+      event.preventDefault();
+      const id = event.currentTarget.dataset.id;
+      selectedId = id;
+      const point = clientToCard(event);
+      drag = { id, point, x: pieces[id].x, y: pieces[id].y };
+      svg.setPointerCapture(event.pointerId);
+      renderPieces();
+    }
+
+    function moveDrag(event) {
+      if (!drag) return;
+      const point = clientToCard(event);
+      let x = drag.x + point.x - drag.point.x;
+      let y = drag.y + point.y - drag.point.y;
+      if (document.querySelector("#snapGrid").checked) { x = Math.round(x / 5) * 5; y = Math.round(y / 5) * 5; }
+      setPosition(drag.id, x, y);
+      renderPieces();
+    }
+
+    function endDrag() { drag = null; }
+
+    function setPosition(id, x, y) {
+      const mirror = document.querySelector("#mirrorCorners").checked;
+      if (mirror && id === "bottomRank") {
+        pieces.topRank.x = CARD.width - x;
+        pieces.topRank.y = CARD.height - y;
+      } else if (mirror && id === "bottomSuit") {
+        const top = pieces.topSuit;
+        pieces.topSuit.x = CARD.width - x - top.width;
+        pieces.topSuit.y = CARD.height - y - top.height;
+      } else {
+        pieces[id].x = x;
+        pieces[id].y = y;
+      }
+      mirrorCorners();
+    }
+
+    function editField(key, rawValue) {
+      const value = Number(rawValue);
+      if (!Number.isFinite(value)) return;
+      const piece = pieces[selectedId];
+      if (key === "x" || key === "y") {
+        setPosition(selectedId, key === "x" ? value : piece.x, key === "y" ? value : piece.y);
+      } else if ((key === "width" || key === "height") && piece.type === "image") {
+        const oldWidth = piece.width, oldHeight = piece.height;
+        piece[key] = value;
+        if (document.querySelector("#lockAspect").checked) {
+          if (key === "width") piece.height = value * oldHeight / oldWidth;
+          else piece.width = value * oldWidth / oldHeight;
+        }
+      } else {
+        piece[key] = value;
+      }
+      mirrorCorners();
+      renderPieces();
+    }
+
+    function layoutPayload() {
+      const result = { canvas: CARD, mirrorCorners: document.querySelector("#mirrorCorners").checked, pieces: {} };
+      for (const id of Object.keys(pieces)) result.pieces[id] = exportPiece(id);
+      return result;
+    }
+
+    function svgValues() {
+      return Object.entries(pieces).map(([id, p]) => {
+        if (p.type === "rank") return `${id}: <text x="${round(p.x)}" y="${round(p.y)}" font-size="${round(p.fontSize)}" transform="${rotationTransform(p)}">7</text>`;
+        return `${id}: <image x="${round(p.x)}" y="${round(p.y)}" width="${round(p.width)}" height="${round(p.height)}" transform="${rotationTransform(p)}"/>`;
+      }).join("\n");
+    }
+
+    async function copy(text, button, successText) {
+      await navigator.clipboard.writeText(text);
+      const original = button.textContent;
+      button.textContent = successText;
+      setTimeout(() => button.textContent = original, 1200);
+    }
+
+    function scheduleSave() {
+      clearTimeout(saveTimer);
+      document.querySelector("#saveStatus").textContent = "Saving…";
+      saveTimer = setTimeout(() => {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ pieces, mirrorCorners: document.querySelector("#mirrorCorners").checked }));
+        document.querySelector("#saveStatus").textContent = "Saved locally";
+      }, 180);
+    }
+
+    svg.addEventListener("pointermove", moveDrag);
+    svg.addEventListener("pointerup", endDrag);
+    svg.addEventListener("pointercancel", endDrag);
+
+    for (const [key, input] of Object.entries(fields)) input.addEventListener("input", () => editField(key, input.value));
+
+    document.querySelector("#mirrorCorners").addEventListener("change", () => { mirrorCorners(); renderPieces(); });
+    document.querySelector("#toggleGuides").addEventListener("click", event => {
+      svg.classList.toggle("guides-off");
+      event.currentTarget.textContent = svg.classList.contains("guides-off") ? "Show guides" : "Hide guides";
+    });
+    document.querySelector("#zoomFit").addEventListener("click", () => svg.scrollIntoView({ block: "center", inline: "center" }));
+    document.querySelector("#resetSelected").addEventListener("click", () => { pieces[selectedId] = clone(defaults[selectedId]); mirrorCorners(); renderPieces(); });
+    document.querySelector("#resetAll").addEventListener("click", () => { pieces = clone(defaults); mirrorCorners(); renderPieces(); });
+    document.querySelector("#copyJson").addEventListener("click", event => copy(JSON.stringify(layoutPayload(), null, 2), event.currentTarget, "Copied"));
+    document.querySelector("#copySvg").addEventListener("click", event => copy(svgValues(), event.currentTarget, "Copied"));
+    document.querySelector("#downloadJson").addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(layoutPayload(), null, 2)], { type: "application/json" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "kolkhoz-7-wheat-layout.json";
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 0);
+    });
+
+    window.addEventListener("keydown", event => {
+      if (!selectedId || event.target.matches("input")) return;
+      const delta = event.shiftKey ? 10 : 1;
+      const changes = { ArrowLeft: [-delta, 0], ArrowRight: [delta, 0], ArrowUp: [0, -delta], ArrowDown: [0, delta] };
+      if (!changes[event.key]) return;
+      event.preventDefault();
+      const [dx, dy] = changes[event.key];
+      const p = pieces[selectedId];
+      setPosition(selectedId, p.x + dx, p.y + dy);
+      renderPieces();
+    });
+
+    load();
+    buildList();
+    renderPieces();
+  </script>
+  <script src="card-layout-editor.js"></script>
+</body>
+</html>

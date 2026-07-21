@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="2400" viewBox="0 0 2400 2400">
+  <defs>
+    <filter id="paper" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.35" numOctaves="2" seed="23" result="noise"/>
+      <feComponentTransfer in="noise"><feFuncA type="table" tableValues="0 0.045"/></feComponentTransfer>
+      <feBlend in="SourceGraphic" mode="multiply"/>
+    </filter>
+    <image id="wheat" href="file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/app/assets/art/field_plan/cards/suits/suit-wheat.png" width="120" height="120"/>
+    <style>
+      .sheet-title { font: 700 54px 'Avenir Next', sans-serif; fill: #263025; letter-spacing: 1px; }
+      .sheet-subtitle { font: 400 27px 'Avenir Next', sans-serif; fill: #59603e; }
+      .label { font: 700 28px 'Avenir Next', sans-serif; fill: #263025; }
+      .note { font: 400 21px 'Avenir Next', sans-serif; fill: #59603e; }
+      .rank { fill: #263025; text-anchor: middle; }
+    </style>
+    <g id="specimen">
+      <rect width="500" height="650" rx="8" fill="#20251f"/>
+      <rect x="16" y="16" width="484" height="634" fill="#d8ba74"/>
+      <rect x="28" y="28" width="472" height="622" fill="#3e4a32"/>
+      <rect x="40" y="40" width="460" height="610" fill="#20251f"/>
+      <rect x="52" y="52" width="448" height="598" fill="#a8462c"/>
+      <rect x="61" y="61" width="439" height="589" fill="#59603e"/>
+      <rect x="70" y="70" width="430" height="580" fill="#ead18d"/>
+    </g>
+  </defs>
+
+  <rect width="2400" height="1800" fill="#d7b86f" filter="url(#paper)"/>
+  <text class="sheet-title" x="110" y="92">KOLKHOZ — CORNER NUMERAL DIRECTIONS</text>
+  <text class="sheet-subtitle" x="110" y="137">Same scale, spacing, crop emblem, and Field Plan frame treatment</text>
+
+  <!-- 1: Slab serif; sturdy, agricultural, and highly legible. -->
+  <g transform="translate(110 190)">
+    <use href="#specimen"/>
+    <text class="rank" x="190" y="315" font-family="Rockwell" font-size="250" font-weight="700">7</text>
+    <use href="#wheat" x="130" y="340"/>
+    <text class="label" x="0" y="700">1 · ROCKWELL BOLD</text>
+    <text class="note" x="0" y="734">Sturdy slab serif</text>
+  </g>
+
+  <!-- 2: Constructivist-adjacent geometric condensed sans. -->
+  <g transform="translate(690 190)">
+    <use href="#specimen"/>
+    <text class="rank" x="190" y="315" font-family="Futura" font-size="260" font-weight="800" font-stretch="condensed">7</text>
+    <use href="#wheat" x="130" y="340"/>
+    <text class="label" x="0" y="700">2 · FUTURA CONDENSED</text>
+    <text class="note" x="0" y="734">Geometric poster sans</text>
+  </g>
+
+  <!-- 3: Narrow and utilitarian, with less personality than Futura. -->
+  <g transform="translate(1270 190)">
+    <use href="#specimen"/>
+    <text class="rank" x="190" y="315" font-family="Avenir Next Condensed" font-size="265" font-weight="700">7</text>
+    <use href="#wheat" x="130" y="340"/>
+    <text class="label" x="0" y="700">3 · AVENIR CONDENSED</text>
+    <text class="note" x="0" y="734">Clean utilitarian sans</text>
+  </g>
+
+  <!-- 4: Humanist British industrial-print flavor. -->
+  <g transform="translate(1850 190)">
+    <use href="#specimen"/>
+    <text class="rank" x="190" y="315" font-family="Gill Sans" font-size="260" font-weight="700">7</text>
+    <use href="#wheat" x="130" y="340"/>
+    <text class="label" x="0" y="700">4 · GILL SANS BOLD</text>
+    <text class="note" x="0" y="734">Humanist industrial sans</text>
+  </g>
+
+  <!-- 5: The broader PT family treatment, not the earlier narrow face. -->
+  <g transform="translate(110 980)">
+    <use href="#specimen"/>
+    <text class="rank" x="190" y="315" font-family="PT Sans Caption" font-size="250" font-weight="700">7</text>
+    <use href="#wheat" x="130" y="340"/>
+    <text class="label" x="0" y="700">5 · PT SANS CAPTION</text>
+    <text class="note" x="0" y="734">Broad Soviet-era descendant</text>
+  </g>
+
+  <!-- 6: Mechanical office/field-report character. -->
+  <g transform="translate(690 980)">
+    <use href="#specimen"/>
+    <text class="rank" x="190" y="315" font-family="American Typewriter" font-size="235" font-weight="700">7</text>
+    <use href="#wheat" x="130" y="340"/>
+    <text class="label" x="0" y="700">6 · TYPEWRITER BOLD</text>
+    <text class="note" x="0" y="734">Mechanical field-report serif</text>
+  </g>
+
+  <!-- 7: Engraved display face; formal without becoming ornamental. -->
+  <g transform="translate(1270 980)">
+    <use href="#specimen"/>
+    <text class="rank" x="190" y="315" font-family="Copperplate" font-size="235" font-weight="700">7</text>
+    <use href="#wheat" x="130" y="340"/>
+    <text class="label" x="0" y="700">7 · COPPERPLATE BOLD</text>
+    <text class="note" x="0" y="734">Engraved display face</text>
+  </g>
+
+  <g transform="translate(1850 980)">
+    <rect width="500" height="650" rx="8" fill="#263025" opacity="0.92"/>
+    <text x="55" y="105" font-family="Avenir Next" font-size="31" font-weight="700" fill="#ead18d">MY FIRST READ</text>
+    <text x="55" y="175" font-family="Avenir Next" font-size="27" fill="#f2dfa9">1 · Rockwell</text>
+    <text x="55" y="217" font-family="Avenir Next" font-size="22" fill="#cdbb88">Best bridge between cards,</text>
+    <text x="55" y="248" font-family="Avenir Next" font-size="22" fill="#cdbb88">field manuals, and print art.</text>
+    <text x="55" y="326" font-family="Avenir Next" font-size="27" fill="#f2dfa9">2 · Futura Condensed</text>
+    <text x="55" y="368" font-family="Avenir Next" font-size="22" fill="#cdbb88">Best if we want the deck to</text>
+    <text x="55" y="399" font-family="Avenir Next" font-size="22" fill="#cdbb88">lean more poster/constructivist.</text>
+    <text x="55" y="477" font-family="Avenir Next" font-size="27" fill="#f2dfa9">5 · PT Sans Caption</text>
+    <text x="55" y="519" font-family="Avenir Next" font-size="22" fill="#cdbb88">Safest neutral option, broader</text>
+    <text x="55" y="550" font-family="Avenir Next" font-size="22" fill="#cdbb88">and steadier than the first font.</text>
+  </g>
+</svg>

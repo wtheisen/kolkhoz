@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2244" height="2244" viewBox="0 0 2244 2244">
+  <defs>
+    <filter id="suitContrast" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feComponentTransfer in="SourceGraphic">
+        <feFuncR type="linear" slope="0.84"/>
+        <feFuncG type="linear" slope="0.78"/>
+        <feFuncB type="linear" slope="0.66"/>
+      </feComponentTransfer>
+    </filter>
+    <style>
+      @font-face {
+        font-family: 'Kolkhoz Zilla Slab';
+        src: url('file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/design/physical-deck/fonts/candidates/zilla-slab/ZillaSlab-Bold.ttf');
+        font-weight: 700;
+      }
+      .rank {
+        font-family: 'Kolkhoz Zilla Slab';
+        font-size: 300px;
+        font-weight: 700;
+        fill: #263025;
+        text-anchor: middle;
+      }
+      .suit { filter: url(#suitContrast); }
+    </style>
+  </defs>
+
+  <!-- Square wrapper prevents Quick Look from cropping the tall MPC canvas. -->
+  <g transform="translate(300 0)">
+    <image href="file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/design/physical-deck/proofs/front-frame-v3.png"
+           x="0" y="0" width="1644" height="2244"/>
+
+    <!-- Upper-left index. -->
+    <text class="rank" x="380" y="500">7</text>
+    <image class="suit" href="file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/app/assets/art/field_plan/cards/suits/suit-wheat.png"
+           x="305" y="565" width="150" height="150"/>
+
+    <!-- Large seven-pip field retained from the approved v4 spacing. -->
+    <image class="suit" href="file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/app/assets/art/field_plan/cards/suits/suit-wheat.png"
+           x="470" y="400" width="340" height="340"/>
+    <image class="suit" href="file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/app/assets/art/field_plan/cards/suits/suit-wheat.png"
+           x="834" y="400" width="340" height="340"/>
+    <image class="suit" href="file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/app/assets/art/field_plan/cards/suits/suit-wheat.png"
+           x="652" y="680" width="340" height="340"/>
+    <image class="suit" href="file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/app/assets/art/field_plan/cards/suits/suit-wheat.png"
+           x="470" y="960" width="340" height="340"/>
+    <image class="suit" href="file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/app/assets/art/field_plan/cards/suits/suit-wheat.png"
+           x="834" y="960" width="340" height="340"/>
+    <image class="suit" href="file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/app/assets/art/field_plan/cards/suits/suit-wheat.png"
+           x="470" y="1420" width="340" height="340" transform="rotate(180 640 1590)"/>
+    <image class="suit" href="file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/app/assets/art/field_plan/cards/suits/suit-wheat.png"
+           x="834" y="1420" width="340" height="340" transform="rotate(180 1004 1590)"/>
+
+    <!-- Exact 180-degree partner of the upper-left index. -->
+    <g transform="rotate(180 822 1122)">
+      <text class="rank" x="380" y="500">7</text>
+      <image class="suit" href="file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/app/assets/art/field_plan/cards/suits/suit-wheat.png"
+             x="305" y="565" width="150" height="150"/>
+    </g>
+  </g>
+</svg>

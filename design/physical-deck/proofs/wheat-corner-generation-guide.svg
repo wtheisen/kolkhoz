@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1644" height="2244" viewBox="0 0 1644 2244">
+  <rect width="1644" height="2244" fill="#ead18d"/>
+
+  <!-- Only these two non-index corners may receive generated illustration. -->
+  <path d="M1080 190H1454V600L1320 475L1190 395Z" fill="#ff00ff"/>
+  <path d="M190 2054H564L454 1944L324 1810L190 1644Z" fill="#ff00ff"/>
+</svg>

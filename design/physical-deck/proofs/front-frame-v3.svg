@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1644" height="2244" viewBox="0 0 1644 2244">
+  <defs>
+    <filter id="paper" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.42" numOctaves="2" seed="37" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0" result="gray"/>
+      <feComponentTransfer in="gray" result="faint">
+        <feFuncA type="table" tableValues="0 0.055"/>
+      </feComponentTransfer>
+      <feBlend in="SourceGraphic" in2="faint" mode="multiply"/>
+    </filter>
+    <clipPath id="safeFrame">
+      <path d="M190 150H1454L1494 190V2054L1454 2094H190L150 2054V190Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- 72 px around the 1500 x 2100 trim area is MPC bleed at 600 dpi. -->
+  <rect width="1644" height="2244" fill="#e3c17a" filter="url(#paper)"/>
+
+  <!-- All strong frame geometry remains inside MPC's 72 px post-trim safe margin. -->
+  <path d="M190 150H1454L1494 190V2054L1454 2094H190L150 2054V190Z" fill="#20251f"/>
+  <path d="M202 174H1442L1470 202V2042L1442 2070H202L174 2042V202Z" fill="#d8ba74"/>
+  <path d="M211 186H1433L1458 211V2033L1433 2058H211L186 2033V211Z" fill="#3e4a32"/>
+  <path d="M220 198H1424L1446 220V2024L1424 2046H220L198 2024V220Z" fill="#20251f"/>
+  <rect x="210" y="210" width="1224" height="1824" fill="#a8462c"/>
+  <rect x="220" y="220" width="1204" height="1804" fill="#59603e"/>
+  <rect x="227" y="227" width="1190" height="1790" fill="#ead18d"/>
+
+  <!-- Upper-right decoration: no containing box, and outside the upper-left index field. -->
+  <g>
+    <path d="M1417 227H1307L1417 337Z" fill="#4b5435"/>
+    <path d="M1408 235L1326 235L1408 248Z" fill="#e3c17a"/>
+    <path d="M1408 235L1342 258L1411 252Z" fill="#e3c17a"/>
+    <path d="M1408 235L1362 286L1413 258Z" fill="#e3c17a"/>
+    <path d="M1408 235L1390 314L1415 264Z" fill="#e3c17a"/>
+  </g>
+
+  <!-- Lower-left decoration: 180-degree partner; lower-right index field stays entirely clear. -->
+  <g>
+    <path d="M227 2017H337L227 1907Z" fill="#4b5435"/>
+    <path d="M236 2009L318 2009L236 1996Z" fill="#e3c17a"/>
+    <path d="M236 2009L302 1986L233 1992Z" fill="#e3c17a"/>
+    <path d="M236 2009L282 1958L231 1986Z" fill="#e3c17a"/>
+    <path d="M236 2009L254 1930L229 1980Z" fill="#e3c17a"/>
+  </g>
+
+  <!-- Sparse ink flecks, intentionally quiet behind future pips and portraits. -->
+  <g fill="#8f7546" opacity="0.20">
+    <circle cx="381" cy="493" r="2"/><circle cx="1002" cy="382" r="2"/>
+    <circle cx="1189" cy="719" r="2"/><circle cx="514" cy="913" r="2"/>
+    <circle cx="907" cy="1128" r="2"/><circle cx="1252" cy="1371" r="2"/>
+    <circle cx="429" cy="1510" r="2"/><circle cx="1048" cy="1784" r="2"/>
+    <circle cx="692" cy="1962" r="2"/>
+  </g>
+</svg>
