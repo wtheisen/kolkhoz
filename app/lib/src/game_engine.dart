@@ -1,11 +1,7 @@
 import 'dart:ffi';
 
 import 'c_engine_bridge.dart';
-import 'game_ui_state.dart';
-import 'game_state_snapshot.dart';
 import 'policy_model.dart';
-import 'render_model.dart';
-import 'table_view_projection.dart';
 
 class GameEngine {
   GameEngine({
@@ -47,6 +43,11 @@ class GameEngine {
   bool get isFamine => _bridge.isFamine(_pointer);
   int get currentPlayer => _bridge.currentPlayer(_pointer);
   int get lastWinner => _bridge.lastWinner(_pointer);
+  int get winnerID => _bridge.winnerID(_pointer);
+  List<int> get finalScores => List.unmodifiable([
+    for (var playerID = 0; playerID < 4; playerID += 1)
+      _bridge.finalScore(_pointer, playerID),
+  ]);
   List<CEngineActionValue> get legalActions => _bridge.legalActions(_pointer);
   int get requisitionEventCount => _bridge.requisitionEventCount(_pointer);
 
@@ -75,30 +76,11 @@ class GameEngine {
   int requisitionEventMessageKind(int index) =>
       _bridge.requisitionEventMessageKind(_pointer, index);
 
-  TableViewModel project({
-    required GameUiState uiState,
-    required int? revealedPlayerID,
-  }) => TableViewProjection(
-    bridge: _bridge,
-    engine: _pointer,
-    controllers: controllers,
-    variants: variants,
-    uiState: uiState,
-    revealedPlayerID: revealedPlayerID,
-  ).project();
-
-  GameStateSnapshot snapshot({
-    required GameUiState uiState,
-    required int? revealedPlayerID,
-  }) => GameStateSnapshot(
-    seed: seed,
-    variants: variants,
-    controllers: controllers,
-    model: project(
-      uiState: uiState,
-      revealedPlayerID: revealedPlayerID,
-    ).withSeed(seed),
-  );
+  /// Allows read-only adapters to inspect native state without making this
+  /// engine owner depend on any particular presentation model.
+  T readNative<T>(
+    T Function(KolkhozCEngineBridge bridge, Pointer<KCEngine> engine) read,
+  ) => read(_bridge, _pointer);
 
   GameEngine clone() => GameEngine._(
     _bridge,

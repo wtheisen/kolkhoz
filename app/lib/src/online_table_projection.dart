@@ -2,8 +2,11 @@ import 'c_engine_bridge.dart';
 import 'controller_display.dart';
 import 'engine_action_projection.dart';
 import 'game_constants.dart';
+import 'game_lobby.dart';
 import 'game_ui_state.dart';
 import 'online_game_models.dart';
+import 'player_presence.dart';
+import 'player_profile.dart';
 import 'render_model.dart';
 import 'table_model_assembler.dart';
 import 'table_view_projection.dart';
@@ -11,12 +14,14 @@ import 'table_view_projection.dart';
 class OnlineTableProjection {
   const OnlineTableProjection({
     required this.update,
+    required this.lobby,
     required this.playerID,
     required this.legalActions,
     this.uiState = const GameUiState(),
   });
 
   final OnlineSessionUpdate update;
+  final GameLobby lobby;
   final int playerID;
   final List<OnlineEngineAction> legalActions;
   final GameUiState uiState;
@@ -51,34 +56,26 @@ class OnlineTableProjection {
   }
 
   List<Seat> seats() {
-    final controllers = KolkhozPlayerController.normalized(update.controllers);
     final byID = {for (final player in snapshot.players) player.id: player};
-    final profilesByPlayerID = {
-      for (final profile in update.playerProfiles) profile.playerID: profile,
-    };
-    final presenceByPlayerID = {
-      for (final presence in update.seatPresence) presence.playerID: presence,
-    };
     return [
-      for (var seatID = 0; seatID < kolkhozPlayerCount; seatID += 1)
+      for (final seat in lobby.seats)
         _seat(
-          seatID,
-          controllers,
-          byID[seatID],
-          profilesByPlayerID[seatID],
-          presenceByPlayerID[seatID],
+          seat.seatID,
+          seat.player.controller,
+          byID[seat.seatID],
+          seat.profile,
+          seat.presence,
         ),
     ];
   }
 
   Seat _seat(
     int seatID,
-    List<KolkhozPlayerController> controllers,
+    KolkhozPlayerController controller,
     OnlinePlayerSnapshot? player,
-    OnlinePlayerProfile? profile,
-    OnlineSeatPresence? presence,
+    PlayerProfile? profile,
+    PlayerPresence? presence,
   ) {
-    final controller = controllers[seatID];
     final remoteHuman =
         controller == KolkhozPlayerController.human && seatID != playerID;
     final hand = player?.hand ?? const <OnlineEngineCard>[];
@@ -153,7 +150,7 @@ class OnlineTableProjection {
   String _seatStatus(
     int seatID,
     KolkhozPlayerController controller,
-    OnlineSeatPresence? presence,
+    PlayerPresence? presence,
   ) {
     if (presence?.abandoned ?? false) {
       return 'LEFT';

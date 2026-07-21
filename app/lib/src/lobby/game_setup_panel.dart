@@ -608,7 +608,7 @@ class _VariantPanelState extends State<_VariantPanel> {
             update: update,
             lobby:
                 widget.gameLobby ??
-                gameLobbyFromServerUpdate(
+                gameLobbyFromOnlineUpdate(
                   update,
                   viewerSeatID: update.viewerID,
                 ),

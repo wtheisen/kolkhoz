@@ -1,14 +1,15 @@
 import 'game_lobby.dart';
-import 'game_state_snapshot.dart';
 import 'game_ui_state.dart';
 import 'online_game_models.dart';
 import 'render_model.dart';
 import 'table_projection_helpers.dart';
+import 'terminal_game_record.dart';
 
 class FinishedGameLobby {
   FinishedGameLobby({
     required this.lobby,
-    required this.gameState,
+    required this.gameRecord,
+    required this.model,
     required List<EngineAction> gameLogActions,
     required List<OnlineReaction> reactions,
     this.onlineUpdate,
@@ -16,25 +17,21 @@ class FinishedGameLobby {
     this.spectator = false,
   }) : gameLogActions = List.unmodifiable(gameLogActions),
        reactions = List.unmodifiable(reactions) {
-    if (gameState.model.table.gameResult == null) {
-      throw ArgumentError.value(
-        gameState,
-        'gameState',
-        'must contain a game result',
-      );
+    if (model.table.gameResult == null) {
+      throw ArgumentError.value(model, 'model', 'must contain a game result');
     }
   }
 
   final GameLobby lobby;
-  final GameStateSnapshot gameState;
+  final TerminalGameRecord gameRecord;
+  final TableViewModel model;
   final List<EngineAction> gameLogActions;
   final List<OnlineReaction> reactions;
   final OnlineSessionUpdate? onlineUpdate;
   final int? onlinePlayerID;
   final bool spectator;
 
-  TableViewModel get model => gameState.model;
-  int get seed => gameState.seed;
+  int get seed => gameRecord.seed;
   GameResult get result => model.table.gameResult!;
   bool get isOnline => onlineUpdate != null;
   bool get canRematch {
@@ -44,24 +41,20 @@ class FinishedGameLobby {
 
   FinishedGameLobby withUiState(GameUiState uiState) => FinishedGameLobby(
     lobby: lobby,
-    gameState: GameStateSnapshot(
-      seed: gameState.seed,
-      variants: gameState.variants,
-      controllers: gameState.controllers,
-      model: TableViewModel(
-        viewer: model.viewer,
-        table: model.table,
-        panels: panelsForPhase(
-          uiState,
-          model.table.phase,
-          seats: model.table.seats,
-          lastTrick: model.table.lastTrick,
-          legalActions: const [],
-        ),
-        selection: uiState.selection,
+    gameRecord: gameRecord,
+    model: TableViewModel(
+      viewer: model.viewer,
+      table: model.table,
+      panels: panelsForPhase(
+        uiState,
+        model.table.phase,
+        seats: model.table.seats,
+        lastTrick: model.table.lastTrick,
         legalActions: const [],
-        seed: model.seed,
       ),
+      selection: uiState.selection,
+      legalActions: const [],
+      seed: model.seed,
     ),
     gameLogActions: gameLogActions,
     reactions: reactions,

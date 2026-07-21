@@ -1,16 +1,27 @@
 import 'c_engine_bridge.dart';
 import 'player.dart';
+import 'player_presence.dart';
+import 'player_profile.dart';
 
 class GameSeat {
   const GameSeat({
     required this.seatID,
     required this.player,
     this.ready = true,
+    this.profile,
+    this.presence,
+    this.isViewer = false,
   });
 
   final int seatID;
   final GamePlayer player;
   final bool ready;
+  final PlayerProfile? profile;
+  final PlayerPresence? presence;
+  final bool isViewer;
+
+  bool get occupied =>
+      player.controller != KolkhozPlayerController.human || profile != null;
 }
 
 class GameSpectator {
