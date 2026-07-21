@@ -210,8 +210,25 @@ class FigmaWorldDepthPlan {
       'version': version,
       'transport': 'figma-rest',
     },
-    'viewport': {'width': frameBounds.width, 'height': frameBounds.height},
+    'viewport': {
+      'width': worldDepthCameraCalibration.viewportWidth,
+      'height': worldDepthCameraCalibration.viewportHeight,
+    },
     'camera': worldDepthCameraCalibration.toManifestJson(),
+    'depthCardRegistration': {
+      'authoringVanishingPoint': [
+        worldDepthCameraCalibration.vanishingPointX,
+        worldDepthCardAuthoringVanishingPointY,
+      ],
+      'runtimeOffset': [
+        0,
+        ((worldDepthCameraCalibration.vanishingPointY -
+                        worldDepthCardAuthoringVanishingPointY) *
+                    1000000)
+                .round() /
+            1000000,
+      ],
+    },
     'layers': [
       for (final layer in layers)
         {

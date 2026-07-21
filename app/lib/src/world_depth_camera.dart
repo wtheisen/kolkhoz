@@ -7,8 +7,11 @@ const worldDepthCameraCalibration = WorldDepthCameraCalibration(
   viewportWidth: 1920,
   viewportHeight: 800,
   focalLength: 2,
-  vanishingPointX: 0.481,
-  vanishingPointY: 0.637,
+  // Register the horizon to the current RM40 forest/snow seam and fixed North
+  // base at y=413 on the 800px authoring plate. RM40's railway ends inside the
+  // camp and is not an infinite vanishing-point line.
+  vanishingPointX: 0.5,
+  vanishingPointY: 0.51625,
   pitchDegrees: 0,
   yawDegrees: 0,
   startZ: -2,
@@ -25,6 +28,13 @@ const worldDepthCameraCalibration = WorldDepthCameraCalibration(
     WorldDepthStop(id: 'camp', label: 'CAMP', z: 8.05),
   ],
 );
+
+/// Vanishing-point Y used when the pre-RM40 depth cards were authored.
+///
+/// Their registration is migrated to [worldDepthCameraCalibration] at runtime;
+/// RM40 was authored directly in the current camera and must not receive the
+/// migration a second time.
+const worldDepthCardAuthoringVanishingPointY = 0.40;
 
 class WorldDepthStop {
   const WorldDepthStop({

@@ -23,7 +23,7 @@
   },
   "projection": {
     "focalLength": 2.0,
-    "vanishingPoint": [0.481, 0.637],
+    "vanishingPoint": [0.5, 0.51625],
     "pitchDegrees": 0.0,
     "yawDegrees": 0.0,
     "nearPlane": 0.08,
@@ -46,7 +46,10 @@
     "Camera contract is artistically locked; Flutter is authoritative.",
     "North marks the start of the deep approach; Camp follows the railway past the fields and snowy farms to the base of the forest artwork.",
     "The 1672 x 941 viewport is the legacy calibrated proof space. New Figma raster masters and depth-card registration use the locked 12:5, 1920 x 800 authoring viewport defined by design/field-plan-world/DEPTH_CARD_PIPELINE.md.",
-    "The active vanishing point is registered to the RM40 Y0 railway master: its rail edges converge at approximately pixel 923, 509 on the 1920 x 800 authoring plate.",
-    "The earlier normalized point [0.5, 0.4] belongs to the legacy near-world calibration and must not be reused for current route-card projection."
+    "The active horizon is registered midway between the upper and lower RM40 forest and snow seam readings at pixel Y 413 on the 1920 x 800 authoring plate, normalized Y 0.51625.",
+    "The fixed North base was migrated with the current plate from legacy [836, 394] to current [960, 413].",
+    "The earlier normalized Y 0.4 belongs to the 1672 x 941 calibration proof and is not the current RM40 backplate horizon.",
+    "RM40's railway terminates inside the camp scene. Its finite rail edges are not an infinite perspective reference and must not be used to derive the camera vanishing point.",
+    "All pre-RM40 depth cards retain their 0.40 authoring horizon provenance and receive a one-time +0.11625H (+93 px at 1920 x 800) registration shift. RM40 is already registered to 0.51625 and is not shifted."
   ]
 }

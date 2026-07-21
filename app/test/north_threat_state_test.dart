@@ -4,7 +4,7 @@ import 'package:kolkhoz_app/src/north_threat_state.dart';
 import 'package:kolkhoz_app/src/world_depth_camera.dart';
 
 void main() {
-  const viewport = Size(1672, 941);
+  const viewport = Size(1920, 800);
 
   test('threat anchors resolve exactly at Years 1, 3, and 5', () {
     expect(
@@ -42,7 +42,7 @@ void main() {
       NorthThreatState.year5,
     ]) {
       final rect = state.landmarkRect(viewport);
-      expect(rect.bottomCenter, const Offset(836, 394));
+      expect(rect.bottomCenter, const Offset(960, 413));
       expect(
         rect.height,
         closeTo(viewport.height * state.landmarkHeightFraction, 0.001),
@@ -54,7 +54,7 @@ void main() {
     }
     expect(
       NorthThreatState.year5.landmarkRect(viewport).top,
-      closeTo(-76.5, 1),
+      closeTo(13, 0.001),
     );
   });
 

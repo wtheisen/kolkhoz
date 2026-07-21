@@ -14,10 +14,17 @@ void main() {
     expect(plan.layers[5].id, 'R10');
     expect(plan.layers[5].worldZ, 30);
     expect(plan.layers.first.initialRect, [0.25, 0.1, 0.5, 0.5]);
-    final camera =
-        plan.manifestJson(SyncOptions.parse(const []))['camera']!
-            as Map<String, Object>;
+    final manifest = plan.manifestJson(SyncOptions.parse(const []));
+    final camera = manifest['camera']! as Map<String, Object>;
     expect(camera, worldDepthCameraCalibration.toManifestJson());
+    expect(manifest['viewport'], {
+      'width': worldDepthCameraCalibration.viewportWidth,
+      'height': worldDepthCameraCalibration.viewportHeight,
+    });
+    expect(manifest['depthCardRegistration'], {
+      'authoringVanishingPoint': [0.5, 0.4],
+      'runtimeOffset': [0, 0.11625],
+    });
   });
 
   test('Figma parser fails closed when a required base plate disappears', () {

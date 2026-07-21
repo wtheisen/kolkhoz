@@ -370,10 +370,19 @@ scale those old Menu/Brigade/Fields assets while they are replaced, but they are
 production aspect or perspective references. Do not create new production raster masters
 in the legacy aspect.
 
-The active normalized vanishing point is `(0.481, 0.637)`. It is measured from the RM40
-Y0 railway master: the long rail edges converge at approximately pixel `(923, 509)` on
-the `1920 x 800` plate. The former `(0.50, 0.40)` point belongs to the previous near-world
-backplate and must not drive current approach-card projection.
+The active normalized vanishing point is `(0.50, 0.51625)`, placing the horizon at pixel
+`y = 413` on the `1920 x 800` RM40 authoring plate. This is the selected midpoint between
+the upper and lower readable forest/snow seam positions. The fixed North base migrated
+with it from the legacy `[836, 394]` anchor to current `[960, 413]`. The earlier `y = 0.40`
+belongs to the `1672 x 941` calibration proof, not the current backplate. RM40's railway
+terminates inside the camp scene, so extrapolating its finite rail edges also does not
+locate the camera horizon.
+
+Pre-RM40 depth cards were authored against normalized horizon Y `0.40`. Register those
+cards `+0.11625H` lower (`+93 px` in the canonical aperture) before projection so their
+art-space horizon follows the current camera even at a card's 1:1 reference position.
+Do not apply that migration to the RM40 terminal cards: they are the current calibration
+source and already use Y `0.51625` directly.
 
 ### 2026-07-17 motion review notes
 
