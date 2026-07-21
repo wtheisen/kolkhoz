@@ -76,7 +76,6 @@ Important files:
 | `lib/src/player_ai_neural.dart` | Medium and hard neural-policy player adapter with heuristic fallback |
 | `lib/src/player_server.dart` | Read-only server-owned player, profile, and presence projection for online seats |
 | `lib/src/game_undo_snapshot.dart` | Controller undo snapshot state and cloned-engine ownership |
-| `lib/src/live_game_store.dart` | Compatibility export for older callers of `GameController` |
 | `lib/src/table_view_projection.dart` | C engine state to Flutter table model |
 | `lib/src/online_game_models.dart` | Dart online API models/client |
 | `lib/src/board/` | Board panels and controls |

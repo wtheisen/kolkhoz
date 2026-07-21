@@ -2188,7 +2188,7 @@ void registerStoreAndOnlineTests() {
   testWidgets('local requisition advances and logs one event per timer tick', (
     tester,
   ) async {
-    final store = LiveGameStore(autosaveEnabled: false)
+    final store = GameController(autosaveEnabled: false)
       ..animationSpeed = GameAnimationSpeed.normal;
     store.startGame(
       persist: false,
@@ -2517,7 +2517,7 @@ void registerStoreAndOnlineTests() {
       );
       framesSent.complete();
     });
-    final store = LiveGameStore(
+    final store = GameController(
       autosaveEnabled: false,
       onlineAccessTokenProvider: () async => 'access-token',
       onlineHttpClient: FakeOnlineHttpClient(),
@@ -2577,7 +2577,7 @@ void registerStoreAndOnlineTests() {
           await socket.close();
         }
       });
-      final store = LiveGameStore(
+      final store = GameController(
         autosaveEnabled: false,
         onlineAccessTokenProvider: () async => 'access-token',
         onlineHttpClient: FakeOnlineHttpClient(),
@@ -2608,7 +2608,7 @@ void registerStoreAndOnlineTests() {
 
   test('disconnected realtime keeps durable polling active', () async {
     final httpClient = FakeOnlineHttpClient();
-    final store = LiveGameStore(
+    final store = GameController(
       autosaveEnabled: false,
       onlineAccessTokenProvider: () async => 'access-token',
       onlineHttpClient: httpClient,

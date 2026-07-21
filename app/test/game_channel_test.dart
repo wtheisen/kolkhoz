@@ -27,7 +27,7 @@ void main() {
       final subscription = channel.events.listen(events.add);
       addTearDown(subscription.cancel);
 
-      final action = engineActionFromCValue(channel.legalActions.single);
+      final action = engineActionFromCValue(channel.engine.legalActions.single);
       await channel.send(
         SubmitGameAction(
           action: action,

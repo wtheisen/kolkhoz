@@ -99,8 +99,6 @@ class GameCommandCompleted extends GameEvent {
 abstract interface class GameChannel {
   Stream<GameEvent> get events;
 
-  bool get commandInFlight;
-
   Future<void> send(GameCommand command);
 
   void dispose();

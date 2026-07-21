@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kolkhoz_app/src/game_channel_online.dart';
 import 'package:kolkhoz_app/src/game_constants.dart';
-import 'package:kolkhoz_app/src/live_game_store.dart';
 import 'package:kolkhoz_app/src/online_game_models.dart';
 import 'package:kolkhoz_app/src/online_game_client.dart';
 import 'package:kolkhoz_app/src/render_model.dart';

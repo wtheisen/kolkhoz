@@ -32,14 +32,6 @@ import 'render_model.dart';
 import 'design_tokens.dart';
 import 'saved_game_store.dart';
 
-export 'game_channel_online.dart'
-    show
-        isStaleOnlineActionError,
-        onlineActionMatches,
-        onlineActionResultIsSingleRevision,
-        onlineGameRealtimeRefreshInterval,
-        onlineGameRefreshInterval;
-
 bool actionCapturesUndoSnapshot(String actionKind) {
   return actionKind == actionAssign;
 }
@@ -129,7 +121,6 @@ class GameController extends ChangeNotifier {
   int currentSeed = 0;
   List<EngineAction> actionLog = [];
   List<EngineAction> localGameLog = [];
-  bool restoredSavedGame = false;
   GameChannel? _channel;
   StreamSubscription<GameEvent>? _channelEvents;
   OnlineSessionUpdate? _onlineUpdate;
@@ -221,7 +212,6 @@ class GameController extends ChangeNotifier {
       localGameLog = [];
       finishedGameLobby = null;
       _clearUndoStack();
-      restoredSavedGame = false;
       uiState = const GameUiState();
       _lastSyncedPhase = null;
       revealedPlayerID = null;
@@ -262,7 +252,6 @@ class GameController extends ChangeNotifier {
     finishedGameLobby = null;
     actionLog = [];
     localGameLog = [];
-    restoredSavedGame = false;
     uiState = const GameUiState();
     _lastSyncedPhase = null;
     revealedPlayerID = null;
@@ -403,24 +392,6 @@ class GameController extends ChangeNotifier {
       flush: true,
     );
     return file;
-  }
-
-  bool get onlineWaitingForPlayers {
-    final update = _onlineUpdate;
-    if (update == null) {
-      return false;
-    }
-    final occupiedHumanSeats = {
-      for (final profile in update.playerProfiles)
-        if (profile.userID != null) profile.playerID,
-    };
-    for (var playerID = 0; playerID < update.controllers.length; playerID++) {
-      if (update.controllers[playerID] == KolkhozPlayerController.human &&
-          !occupiedHumanSeats.contains(playerID)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   bool get canUndo =>
@@ -750,7 +721,7 @@ class GameController extends ChangeNotifier {
         uiState: uiState,
       ).project();
     } else if (_localChannel case final local?) {
-      nextModel = local.project(
+      nextModel = local.engine.project(
         uiState: uiState,
         revealedPlayerID: revealedPlayerID,
       );
@@ -774,7 +745,7 @@ class GameController extends ChangeNotifier {
             uiState: uiState,
           ).project();
         } else if (_localChannel case final local?) {
-          nextModel = local.project(
+          nextModel = local.engine.project(
             uiState: uiState,
             revealedPlayerID: revealedPlayerID,
           );
@@ -834,7 +805,6 @@ class GameController extends ChangeNotifier {
           : const [],
     );
     _players = lobby.players;
-    restoredSavedGame = false;
     uiState = const GameUiState();
     _lastSyncedPhase = null;
     revealedPlayerID = playerID;
@@ -847,7 +817,7 @@ class GameController extends ChangeNotifier {
     lifecycle = GameControllerLifecycle.finishing;
     final update = online == null ? null : _onlineUpdate;
     final gameState = online == null
-        ? _localChannel!.snapshot(
+        ? _localChannel!.engine.snapshot(
             uiState: uiState,
             revealedPlayerID: revealedPlayerID,
           )
@@ -886,40 +856,41 @@ class GameController extends ChangeNotifier {
       return;
     }
     final local = _localChannel;
-    if (local == null || !_engineDecisionNeedsRouting(local)) {
+    if (local == null || !_engineDecisionNeedsRouting(local.engine)) {
       return;
     }
-    _automaticStepTimer = Timer(_automaticStepDelay(local), _runAutomaticStep);
+    _automaticStepTimer = Timer(
+      _automaticStepDelay(local.engine),
+      _runAutomaticStep,
+    );
   }
 
-  bool _engineDecisionNeedsRouting(LocalGameChannel channel) {
-    final phase = channel.phase;
-    final legalActions = channel.legalActions;
-    if (_centralPlannerAction(channel, legalActions) != null ||
+  bool _engineDecisionNeedsRouting(GameEngine engine) {
+    final phase = engine.phase;
+    final legalActions = engine.legalActions;
+    if (_centralPlannerAction(legalActions) != null ||
         phase == kcPhaseRequisition ||
-        (phase == kcPhasePlanning &&
-            channel.isFamine &&
-            legalActions.isEmpty)) {
+        (phase == kcPhasePlanning && engine.isFamine && legalActions.isEmpty)) {
       return true;
     }
-    return _decisionPlayer(channel)?.waitsForHumanInput == false;
+    return _decisionPlayer(engine)?.waitsForHumanInput == false;
   }
 
-  Duration _automaticStepDelay(LocalGameChannel channel) {
-    if (_currentAutomaticStepIsTrumpSelection(channel)) {
+  Duration _automaticStepDelay(GameEngine engine) {
+    if (_currentAutomaticStepIsTrumpSelection(engine)) {
       return animationSpeed.automaticTrumpSelectionDelay;
     }
     return animationSpeed.automaticStepDelay;
   }
 
-  bool _currentAutomaticStepIsTrumpSelection(LocalGameChannel channel) {
-    if (channel.phase != kcPhasePlanning || channel.isFamine) {
+  bool _currentAutomaticStepIsTrumpSelection(GameEngine engine) {
+    if (engine.phase != kcPhasePlanning || engine.isFamine) {
       return false;
     }
-    final player = _decisionPlayer(channel);
+    final player = _decisionPlayer(engine);
     return player != null &&
         !player.waitsForHumanInput &&
-        channel.legalActions.any((action) => action.kind == kcActionSetTrump);
+        engine.legalActions.any((action) => action.kind == kcActionSetTrump);
   }
 
   void _runAutomaticStep() {
@@ -928,11 +899,12 @@ class GameController extends ChangeNotifier {
     if (local == null) {
       return;
     }
-    _automaticPhaseBefore = local.phase;
-    _automaticRequisitionCountBefore = local.phase == kcPhaseRequisition
-        ? local.requisitionEventCount
+    final engine = local.engine;
+    _automaticPhaseBefore = engine.phase;
+    _automaticRequisitionCountBefore = engine.phase == kcPhaseRequisition
+        ? engine.requisitionEventCount
         : 0;
-    final command = _automaticCommand(local);
+    final command = _automaticCommand(engine);
     if (command != null) {
       unawaited(local.send(command));
     }
@@ -943,10 +915,10 @@ class GameController extends ChangeNotifier {
     _awaitingLocalPresentationRevision = _localPresentationSequence;
   }
 
-  GameCommand? _automaticCommand(LocalGameChannel channel) {
-    final phase = channel.phase;
-    final legalActions = channel.legalActions;
-    final centralPlannerAction = _centralPlannerAction(channel, legalActions);
+  GameCommand? _automaticCommand(GameEngine engine) {
+    final phase = engine.phase;
+    final legalActions = engine.legalActions;
+    final centralPlannerAction = _centralPlannerAction(legalActions);
     if (centralPlannerAction != null) {
       return SubmitGameAction(
         action: engineActionFromCValue(centralPlannerAction),
@@ -954,13 +926,11 @@ class GameController extends ChangeNotifier {
       );
     }
     if (phase == kcPhaseRequisition ||
-        (phase == kcPhasePlanning &&
-            channel.isFamine &&
-            legalActions.isEmpty)) {
+        (phase == kcPhasePlanning && engine.isFamine && legalActions.isEmpty)) {
       return const AdvanceAutomaticGame();
     }
-    final player = _decisionPlayer(channel);
-    final action = player == null ? null : channel.chooseAction(player);
+    final player = _decisionPlayer(engine);
+    final action = player?.chooseAction(engine);
     if (action == null) {
       return null;
     }
@@ -971,25 +941,22 @@ class GameController extends ChangeNotifier {
   }
 
   CEngineActionValue? _centralPlannerAction(
-    LocalGameChannel channel,
     List<CEngineActionValue> legalActions,
   ) {
-    final action = legalActions.length == 1
-        ? legalActions.single
-        : channel.heuristicAction();
-    if (action == null) {
+    if (legalActions.length != 1) {
       return null;
     }
+    final action = legalActions.single;
     return action.kind == kcActionRevealReward ||
             action.kind == kcActionRevealTrump
         ? action
         : null;
   }
 
-  LocalGamePlayer? _decisionPlayer(LocalGameChannel channel) {
-    final playerID = channel.phase == kcPhaseAssignment
-        ? channel.lastWinner
-        : channel.currentPlayer;
+  LocalGamePlayer? _decisionPlayer(GameEngine engine) {
+    final playerID = engine.phase == kcPhaseAssignment
+        ? engine.lastWinner
+        : engine.currentPlayer;
     if (playerID < 0 || playerID >= _players.length) {
       return null;
     }
@@ -1160,22 +1127,24 @@ class GameController extends ChangeNotifier {
       final local = _localChannel;
       if (_automaticPhaseBefore == kcPhaseRequisition &&
           local != null &&
-          local.requisitionEventCount > _automaticRequisitionCountBefore) {
+          local.engine.requisitionEventCount >
+              _automaticRequisitionCountBefore) {
         final index = _automaticRequisitionCountBefore;
-        final card = local.requisitionEventCard(index);
+        final engine = local.engine;
+        final card = engine.requisitionEventCard(index);
         localGameLog = [
           ...localGameLog,
           EngineAction(
             kind: actionRequisitionEvent,
-            playerID: local.requisitionEventPlayer(index),
-            suit: suitName(local.requisitionEventSuit(index)),
+            playerID: engine.requisitionEventPlayer(index),
+            suit: suitName(engine.requisitionEventSuit(index)),
             card: card.isValid
                 ? EngineCard(
                     suit: suitName(card.suit) ?? wreckerSuit,
                     value: card.value,
                   )
                 : null,
-            requisitionKind: local.requisitionEventMessageKind(index),
+            requisitionKind: engine.requisitionEventMessageKind(index),
           ),
         ];
       }
@@ -1283,7 +1252,6 @@ class GameController extends ChangeNotifier {
             : payload.gameLogActions,
       );
       _clearUndoStack();
-      restoredSavedGame = true;
       uiState = const GameUiState();
       _lastSyncedPhase = null;
       revealedPlayerID = null;
@@ -1296,7 +1264,6 @@ class GameController extends ChangeNotifier {
         _clearChannel();
         _model = null;
         finishedGameLobby = null;
-        restoredSavedGame = false;
         lifecycle = GameControllerLifecycle.lobby;
         return false;
       }
@@ -1347,7 +1314,7 @@ class GameController extends ChangeNotifier {
 
   GameUndoSnapshot _snapshotForUndo(LocalGameChannel channel) {
     return GameUndoSnapshot(
-      engine: channel.cloneEngine(),
+      engine: channel.engine.clone(),
       actionLog: List.of(actionLog),
       localGameLog: List.of(localGameLog),
       uiState: uiState,
@@ -1404,5 +1371,3 @@ class GameController extends ChangeNotifier {
     super.dispose();
   }
 }
-
-typedef LiveGameStore = GameController;
