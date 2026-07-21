@@ -2015,6 +2015,34 @@ void registerStoreAndOnlineTests() {
     expect(update.lobbyCountdownSeconds, inInclusiveRange(29, 30));
   });
 
+  test('presentation queue separates committed and deferred revisions', () {
+    final revisionOne = OnlineSessionUpdate.fromJson(
+      onlineUpdateJson()..['actionLogCount'] = 1,
+    );
+    final revisionTwo = OnlineSessionUpdate.fromJson(
+      onlineUpdateJson()..['actionLogCount'] = 2,
+    );
+    final queue = GameEventQueue()
+      ..add(
+        OnlineActionUpdate(
+          revision: 1,
+          action: const OnlineEngineAction(
+            kind: kcActionSetTrump,
+            playerID: 0,
+            suit: 0,
+          ),
+          update: revisionOne,
+        ),
+      )
+      ..defer(revisionOne)
+      ..defer(revisionTwo);
+
+    expect(queue.knownRevision(0), 1);
+    expect(queue.takeNext()!.revision, 1);
+    expect(queue.takeDeferred()!.actionLogCount, 2);
+    expect(queue.isEmpty, isTrue);
+  });
+
   testWidgets('game log groups actions and reactions by year and phase', (
     tester,
   ) async {
@@ -2378,13 +2406,6 @@ void registerStoreAndOnlineTests() {
       kcActionSetTrump,
     );
     expect(jsonDecode(httpClient.requests.last.body)['actionLogCount'], 0);
-  });
-
-  test('online realtime refreshes keep the newest pending revision', () {
-    expect(newestOnlineRevision(1, 3), 3);
-    expect(newestOnlineRevision(5, 3), 5);
-    expect(newestOnlineRevision(null, 3), isNull);
-    expect(newestOnlineRevision(5, null), isNull);
   });
 
   test('realtime snapshots wait for the active presentation', () async {

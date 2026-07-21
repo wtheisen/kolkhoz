@@ -65,6 +65,11 @@ Important files:
 | `lib/src/game_state_snapshot.dart` | Portable completed engine state with a versioned JSON representation |
 | `lib/src/game_lobby.dart` | Four-seat pre-game configuration and spectator roster |
 | `lib/src/finished_game_lobby.dart` | Immutable final projection, result, roster, variants, log, reactions, and online metadata for postgame UI |
+| `lib/src/game_channel.dart` | Shared commands and events consumed by `GameController` |
+| `lib/src/game_channel_local.dart` | In-memory channel and exclusive local `GameEngine` ownership |
+| `lib/src/game_channel_online.dart` | Active-match HTTP command, retry, refresh, and update transport |
+| `lib/src/game_channel_online_realtime.dart` | WebSocket connection, reconnect, and frame decoding |
+| `lib/src/game_event_queue.dart` | Ordered client presentation queue, separate from authoritative server revisions |
 | `lib/src/game_controller.dart` | Match setup, four-player ownership, action routing, presentation pacing, and local/online state publication |
 | `lib/src/player.dart` | Shared `GamePlayer` contract |
 | `lib/src/player_human.dart` | Human player adapter for UI-driven decisions |
@@ -120,9 +125,12 @@ model files.
 ## App Data Flow
 
 ```text
-GameController owns a lobby and four GamePlayers
+GameController owns a lobby, four GamePlayers, and one GameChannel
     |
-    +-- start game -------------> one GameEngine
+    +-- LocalGameChannel -------> one GameEngine
+    |
+    +-- OnlineGameChannel ------> HTTP + WebSocket server transport
+    |
     +-- Central Planner action --> reward/trump reveal
     |
     +-- HumanPlayer ------------> Flutter interaction
@@ -130,10 +138,10 @@ GameController owns a lobby and four GamePlayers
     +-- AI GamePlayer ----------> heuristic or policy decision
     |
     v
-GameEngine exclusively owns and applies actions to the native C engine
+GameChannel publishes ordered GameEvents
     |
     v
-TableViewProjection publishes Dart model objects
+GameController publishes projected Dart model objects
     |
     v
 Flutter re-renders views and acknowledges presentation completion
@@ -142,16 +150,22 @@ Flutter re-renders views and acknowledges presentation completion
 ```
 
 Flutter widgets do not mutate game state or consume forced actions directly. They call
-the controller with human actions and render its projected state. The controller routes
-Central Planner and AI decisions, submits portable C-engine actions, and waits for the
-client to acknowledge presentation completion before routing the next decision.
+the controller with human actions and render its projected state. The controller sends
+portable `GameCommand` objects through its current channel and consumes ordered
+`GameEvent` objects. Local, Central Planner, and AI commands use the in-memory channel;
+online gameplay commands use the server-backed channel.
+
+Authoritative server revisions and client presentation acknowledgements are deliberately
+separate. `GameEventQueue` preserves every committed action needed for animation, while
+newer full snapshots may wait as deferred state. A client acknowledgement only advances
+that local presentation queue; it never blocks the server or another client.
 
 The controller lifecycle is `lobby -> starting -> playing -> finishing -> finished`. It begins
 without a local engine. `startGame()` freezes the lobby's four seats and variants and is
 the only new-match path that creates a `GameEngine`; autosave restoration may rehydrate
-an existing match directly. Spectators remain controller-owned and never enter the
-engine or action router. Online lobby/start state remains authoritative on the server
-and is mirrored into the client controller.
+an existing match directly through `LocalGameChannel`. Spectators remain controller-owned
+and never enter the engine or action router. Online lobby/start state remains authoritative
+on the server and is mirrored into the client controller through `OnlineGameChannel`.
 
 At game over, `GameEngine.snapshot()` produces a portable `GameStateSnapshot` before the
 controller disposes the native pointer. The controller places that state in a

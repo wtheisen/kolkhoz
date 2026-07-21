@@ -10,8 +10,12 @@ import 'c_engine_action_codec.dart';
 import 'c_engine_bridge.dart';
 import 'engine_action_projection.dart';
 import 'finished_game_lobby.dart';
+import 'game_channel.dart';
+import 'game_channel_local.dart';
+import 'game_channel_online.dart';
 import 'game_constants.dart';
 import 'game_engine.dart';
+import 'game_event_queue.dart';
 import 'game_lobby.dart';
 import 'game_state_snapshot.dart';
 import 'game_ui_state.dart';
@@ -28,29 +32,16 @@ import 'render_model.dart';
 import 'design_tokens.dart';
 import 'saved_game_store.dart';
 
+export 'game_channel_online.dart'
+    show
+        isStaleOnlineActionError,
+        onlineActionMatches,
+        onlineActionResultIsSingleRevision,
+        onlineGameRealtimeRefreshInterval,
+        onlineGameRefreshInterval;
+
 bool actionCapturesUndoSnapshot(String actionKind) {
   return actionKind == actionAssign;
-}
-
-bool onlineActionResultIsSingleRevision(
-  int beforeRevision,
-  int resultRevision,
-) {
-  return resultRevision == beforeRevision + 1;
-}
-
-const onlineGameRefreshInterval = Duration(seconds: 1);
-const onlineGameRealtimeRefreshInterval = Duration(seconds: 15);
-
-bool isStaleOnlineActionError(Object error) {
-  return error is OnlineRequestException &&
-      error.statusCode == HttpStatus.conflict &&
-      error.message == 'stale action';
-}
-
-bool onlineActionMatches(OnlineEngineAction candidate, EngineAction action) {
-  return jsonEncode(candidate.toJson()) ==
-      jsonEncode(OnlineEngineAction.fromEngineAction(action).toJson());
 }
 
 enum GameControllerLifecycle { lobby, starting, playing, finishing, finished }
@@ -139,15 +130,29 @@ class GameController extends ChangeNotifier {
   List<EngineAction> actionLog = [];
   List<EngineAction> localGameLog = [];
   bool restoredSavedGame = false;
-  OnlineGameRuntime? _online;
+  GameChannel? _channel;
+  StreamSubscription<GameEvent>? _channelEvents;
+  OnlineSessionUpdate? _onlineUpdate;
+  List<OnlineEngineAction> _onlineLegalActions = const [];
+  final GameEventQueue _eventQueue = GameEventQueue();
+  GameUiState? _onlineSelectionBeforeCommand;
+  GameUndoSnapshot? _pendingLocalUndoSnapshot;
+  int? _automaticPhaseBefore;
+  int _automaticRequisitionCountBefore = 0;
+  Timer? _reactionFlashTimer;
+  OnlineReaction? _activeReaction;
+  bool _hasUnreadReactions = false;
   Timer? _automaticStepTimer;
   int _localPresentationSequence = 0;
   int? _awaitingLocalPresentationRevision;
   TableViewModel? _model;
   TableViewModel? get model => finishedGameLobby?.model ?? _model;
   FinishedGameLobby? finishedGameLobby;
-  GameEngine? _engine;
-  bool get hasActiveEngine => _engine != null;
+  LocalGameChannel? get _localChannel =>
+      _channel is LocalGameChannel ? _channel as LocalGameChannel : null;
+  OnlineGameChannel? get _onlineChannel =>
+      _channel is OnlineGameChannel ? _channel as OnlineGameChannel : null;
+  bool get hasActiveEngine => _localChannel != null;
   final List<GameUndoSnapshot> _undoStack = [];
   int? revealedPlayerID;
   String? error;
@@ -198,8 +203,7 @@ class GameController extends ChangeNotifier {
     try {
       _clearAutomaticStepTimer();
       _awaitingLocalPresentationRevision = null;
-      _engine?.dispose();
-      _clearOnlineSession();
+      _clearChannel();
       final normalizedControllers = KolkhozPlayerController.normalized(
         controllers ?? this.controllers,
       );
@@ -219,11 +223,15 @@ class GameController extends ChangeNotifier {
       uiState = const GameUiState();
       _lastSyncedPhase = null;
       revealedPlayerID = null;
-      _engine = GameEngine(
-        bridge: _bridge,
-        seed: currentSeed,
-        variants: currentVariants,
-        controllers: normalizedControllers,
+      _setChannel(
+        LocalGameChannel(
+          GameEngine(
+            bridge: _bridge,
+            seed: currentSeed,
+            variants: currentVariants,
+            controllers: normalizedControllers,
+          ),
+        ),
       );
       lifecycle = GameControllerLifecycle.playing;
       error = null;
@@ -233,9 +241,11 @@ class GameController extends ChangeNotifier {
       }
       _scheduleAutomaticStep();
     } catch (exception) {
+      _clearChannel();
       lifecycle = GameControllerLifecycle.lobby;
       error = '$exception';
       _model = null;
+      finishedGameLobby = null;
       notifyListeners();
     }
   }
@@ -243,9 +253,7 @@ class GameController extends ChangeNotifier {
   void returnToLobby() {
     _clearAutomaticStepTimer();
     _awaitingLocalPresentationRevision = null;
-    _engine?.dispose();
-    _engine = null;
-    _clearOnlineSession();
+    _clearChannel();
     _clearUndoStack();
     _model = null;
     finishedGameLobby = null;
@@ -261,50 +269,50 @@ class GameController extends ChangeNotifier {
   }
 
   void applyLegalAction(LegalAction action) {
-    final online = _online;
+    final online = _onlineChannel;
     if (online != null) {
-      unawaited(_submitOnlineAction(online, action));
+      if (online.commandInFlight) {
+        return;
+      }
+      _onlineSelectionBeforeCommand = uiState;
+      _clearSelectionAfter(action.kind);
+      _sync();
+      unawaited(
+        online.send(
+          SubmitGameAction(
+            action: action.engineAction,
+            source:
+                action.kind == actionRevealReward ||
+                    action.kind == actionRevealTrump
+                ? GameActionSource.centralPlanner
+                : GameActionSource.human,
+            expectedRevision: _onlineUpdate?.actionLogCount,
+          ),
+        ),
+      );
       return;
     }
-    final engine = _engine;
-    if (engine == null) {
-      return;
-    }
-    final cAction = cEngineAction(action.engineAction);
-    if (cAction == null) {
+    final channel = _localChannel;
+    if (channel == null) {
       return;
     }
     _clearAutomaticStepTimer();
     final capturesUndo = actionCapturesUndoSnapshot(action.kind);
-    final undoSnapshot = capturesUndo ? _snapshotForUndo(engine) : null;
-    final result = engine.applyManual(cAction);
-    if (result != 0) {
-      undoSnapshot?.dispose();
-      error = 'Move rejected ($result)';
-    } else {
-      error = null;
-      if (undoSnapshot != null) {
-        _undoStack.add(undoSnapshot);
-      } else {
-        _clearUndoStack();
-      }
-      actionLog = [...actionLog, action.engineAction];
-      localGameLog = [...localGameLog, action.engineAction];
-      _clearSelectionAfter(action.kind);
-    }
-    if (result == 0) {
-      _beginLocalPresentation();
-    }
-    _sync();
-    if (result == 0) {
-      _saveAutosave();
-    }
+    _pendingLocalUndoSnapshot = capturesUndo ? _snapshotForUndo(channel) : null;
+    unawaited(
+      channel.send(
+        SubmitGameAction(
+          action: action.engineAction,
+          source: GameActionSource.human,
+        ),
+      ),
+    );
   }
 
   void setActivePanel(String panel) {
     uiState = uiState.togglePanel(panel);
     if (panel == panelLog) {
-      _online?.hasUnreadReactions = false;
+      _hasUnreadReactions = false;
     }
     _sync();
   }
@@ -327,33 +335,32 @@ class GameController extends ChangeNotifier {
     }
   }
 
-  bool get isOnlineGame => _online != null;
-  bool get isSpectating => _online?.spectator ?? false;
-  String? get onlineSessionID => _online?.sessionID;
-  String? get onlineInviteCode => _online?.inviteCode;
-  int? get onlinePlayerID => _online?.playerID;
+  bool get isOnlineGame => _onlineChannel != null;
+  bool get isSpectating => _onlineChannel?.spectator ?? false;
+  String? get onlineSessionID => _onlineChannel?.sessionID;
+  String? get onlineInviteCode => _onlineChannel?.inviteCode;
+  int? get onlinePlayerID => _onlineChannel?.playerID;
   OnlineSessionUpdate? get onlineUpdate =>
-      finishedGameLobby?.onlineUpdate ?? _online?.update;
+      finishedGameLobby?.onlineUpdate ?? _onlineUpdate;
   int? get presentationRevision =>
-      _online?.awaitingPresentationRevision ??
+      _eventQueue.awaitingPresentationRevision ??
       _awaitingLocalPresentationRevision;
-  List<String> get onlineAssignmentPresentationCardIDs => List.unmodifiable(
-    _online?.assignmentPresentationCardIDs ?? const <String>[],
-  );
+  List<String> get onlineAssignmentPresentationCardIDs =>
+      List.unmodifiable(_eventQueue.assignmentPresentationCardIDs);
   List<EngineAction> get gameLogActions =>
       finishedGameLobby?.gameLogActions ??
-      (_online == null
+      (_onlineChannel == null
           ? List.unmodifiable(localGameLog)
           : [
-              for (final action in _online!.update.gameLogActions)
+              for (final action in _onlineUpdate!.gameLogActions)
                 action.engineAction,
             ]);
   List<OnlineReaction> get gameReactions =>
       finishedGameLobby?.reactions ??
-      List.unmodifiable(_online?.update.reactions ?? const []);
-  OnlineReaction? get activeReaction => _online?.activeReaction;
-  bool get hasUnreadReactions => _online?.hasUnreadReactions ?? false;
-  bool get canSendReaction => _online?.update.started ?? false;
+      List.unmodifiable(_onlineUpdate?.reactions ?? const []);
+  OnlineReaction? get activeReaction => _activeReaction;
+  bool get hasUnreadReactions => _hasUnreadReactions;
+  bool get canSendReaction => _onlineUpdate?.started ?? false;
 
   Future<File> saveGameLog() async {
     final finished = finishedGameLobby;
@@ -396,7 +403,7 @@ class GameController extends ChangeNotifier {
   }
 
   bool get onlineWaitingForPlayers {
-    final update = _online?.update;
+    final update = _onlineUpdate;
     if (update == null) {
       return false;
     }
@@ -414,18 +421,18 @@ class GameController extends ChangeNotifier {
   }
 
   bool get canUndo =>
-      _online == null &&
+      _onlineChannel == null &&
       model?.table.phase == phaseAssignment &&
       _undoStack.isNotEmpty;
 
   void undoLastAction() {
-    if (_online != null || _undoStack.isEmpty) {
+    if (_onlineChannel != null || _undoStack.isEmpty) {
       return;
     }
     _clearAutomaticStepTimer();
     final snapshot = _undoStack.removeLast();
-    _engine?.dispose();
-    _engine = snapshot.engine;
+    _clearChannel();
+    _setChannel(LocalGameChannel(snapshot.engine));
     actionLog = snapshot.actionLog;
     localGameLog = snapshot.localGameLog;
     uiState = snapshot.uiState;
@@ -505,10 +512,10 @@ class GameController extends ChangeNotifier {
   }
 
   Future<void> rematchOnlineGame() async {
-    final online = _online;
+    final online = _onlineChannel;
     if (online == null ||
-        online.update.ranked ||
-        online.update.snapshot.phase != kcPhaseGameOver) {
+        _onlineUpdate!.ranked ||
+        _onlineUpdate!.snapshot.phase != kcPhaseGameOver) {
       throw StateError('Only finished casual games can be rematched');
     }
     try {
@@ -646,73 +653,25 @@ class GameController extends ChangeNotifier {
   }
 
   Future<void> kickOnlinePlayer(int playerID) async {
-    final online = _online;
+    final online = _onlineChannel;
     if (online == null) {
       return;
     }
-    try {
-      final update = await online.client.kickSessionPlayer(
-        sessionID: online.sessionID,
-        hostPlayerID: online.playerID,
-        targetPlayerID: playerID,
-        seatToken: online.seatToken,
-      );
-      final accepted = _acceptOrDeferOnlineUpdate(online, update);
-      error = null;
-      if (accepted) {
-        _sync();
-      }
-    } catch (exception) {
-      error = '$exception';
-      notifyListeners();
-      rethrow;
-    }
+    await online.send(KickGamePlayer(playerID));
   }
 
   Future<void> _refreshOnlineGame({int? minimumRevision}) async {
-    final online = _online;
+    final online = _onlineChannel;
     if (online == null) {
       return;
     }
-    if (minimumRevision != null &&
-        _knownOnlineRevision(online) >= minimumRevision) {
-      return;
-    }
-    if (online.actionRefreshInFlight) {
-      return;
-    }
-    try {
-      final queued = online.spectator
-          ? false
-          : await _fetchAndQueueOnlineUpdates(online);
-      if (queued ||
-          (minimumRevision != null &&
-              _knownOnlineRevision(online) >= minimumRevision)) {
-        error = null;
-        return;
-      }
-      final update = online.spectator
-          ? await online.client.fetchSpectatorUpdate(online.sessionID)
-          : await online.client.fetchUpdate(
-              sessionID: online.sessionID,
-              playerID: online.playerID,
-              seatToken: online.seatToken,
-            );
-      final accepted = _acceptOrDeferOnlineUpdate(online, update);
-      error = null;
-      if (accepted) {
-        _sync();
-      }
-    } catch (exception) {
-      error = '$exception';
-      notifyListeners();
-    }
+    await online.send(RefreshGame(minimumRevision: minimumRevision));
   }
 
   void leaveOnlineGame() {
-    final online = _online;
+    final online = _onlineChannel;
     if (online != null && !online.spectator) {
-      unawaited(_leaveOnlineGame(online));
+      unawaited(online.send(const LeaveGame()));
     }
     returnToLobby();
   }
@@ -755,26 +714,11 @@ class GameController extends ChangeNotifier {
   }
 
   Future<void> sendReaction(String reactionID) async {
-    final online = _online;
-    if (online == null || online.spectator || !online.update.started) {
+    final online = _onlineChannel;
+    if (online == null || online.spectator || _onlineUpdate?.started != true) {
       return;
     }
-    try {
-      final update = await online.client.submitReaction(
-        sessionID: online.sessionID,
-        playerID: online.playerID,
-        seatToken: online.seatToken,
-        reactionID: reactionID,
-      );
-      final accepted = _acceptOrDeferOnlineUpdate(online, update);
-      error = null;
-      if (accepted) {
-        _sync();
-      }
-    } catch (exception) {
-      error = '$exception';
-      notifyListeners();
-    }
+    await online.send(SendGameReaction(reactionID));
   }
 
   void _clearSelectionAfter(String actionKind) {
@@ -782,9 +726,9 @@ class GameController extends ChangeNotifier {
   }
 
   void _sync() {
-    final online = _online;
+    final online = _onlineChannel;
     final finished = finishedGameLobby;
-    if (online == null && _engine == null && finished != null) {
+    if (online == null && _localChannel == null && finished != null) {
       finishedGameLobby = finished.withUiState(uiState);
       _model = finishedGameLobby!.model;
       notifyListeners();
@@ -793,14 +737,13 @@ class GameController extends ChangeNotifier {
     TableViewModel? nextModel;
     if (online != null) {
       nextModel = OnlineTableProjection(
-        update: online.update,
+        update: _onlineUpdate!,
         playerID: online.playerID,
-        legalActions: online.legalActions,
+        legalActions: _onlineLegalActions,
         uiState: uiState,
       ).project();
-    } else if (_engine != null) {
-      final engine = _engine!;
-      nextModel = engine.project(
+    } else if (_localChannel case final local?) {
+      nextModel = local.project(
         uiState: uiState,
         revealedPlayerID: revealedPlayerID,
       );
@@ -818,14 +761,13 @@ class GameController extends ChangeNotifier {
         uiState = nextUiState;
         if (online != null) {
           nextModel = OnlineTableProjection(
-            update: online.update,
+            update: _onlineUpdate!,
             playerID: online.playerID,
-            legalActions: online.legalActions,
+            legalActions: _onlineLegalActions,
             uiState: uiState,
           ).project();
-        } else if (_engine != null) {
-          final engine = _engine!;
-          nextModel = engine.project(
+        } else if (_localChannel case final local?) {
+          nextModel = local.project(
             uiState: uiState,
             revealedPlayerID: revealedPlayerID,
           );
@@ -837,7 +779,7 @@ class GameController extends ChangeNotifier {
         _finishGame(nextModel, online);
       } else {
         finishedGameLobby = null;
-        lifecycle = online != null && !online.update.started
+        lifecycle = online != null && !_onlineUpdate!.started
             ? GameControllerLifecycle.lobby
             : GameControllerLifecycle.playing;
       }
@@ -857,20 +799,24 @@ class GameController extends ChangeNotifier {
   }) async {
     _clearAutomaticStepTimer();
     _awaitingLocalPresentationRevision = null;
-    _engine?.dispose();
-    _engine = null;
+    _clearChannel();
     finishedGameLobby = null;
     _autosaveStore.clear();
     _clearUndoStack();
-    _online = OnlineGameRuntime(
+    _onlineUpdate = update;
+    _onlineLegalActions = update.legalActions;
+    _eventQueue.clear();
+    final channel = OnlineGameChannel(
       client: client,
       sessionID: sessionID,
       inviteCode: inviteCode,
       playerID: playerID,
       seatToken: seatToken,
-      update: update,
+      initialUpdate: update,
+      realtimeReconnectDelay: onlineRealtimeReconnectDelay,
       spectator: spectator,
     );
+    _setChannel(channel);
     currentVariants = update.variants;
     currentSeed = update.seed ?? currentSeed;
     _replacePlayers(update.controllers);
@@ -884,17 +830,16 @@ class GameController extends ChangeNotifier {
     uiState = const GameUiState();
     _lastSyncedPhase = null;
     revealedPlayerID = playerID;
-    _startOnlinePolling();
-    if (!spectator) _startOnlineRealtime();
+    channel.start();
     error = null;
     _sync();
   }
 
-  void _finishGame(TableViewModel finalModel, OnlineGameRuntime? online) {
+  void _finishGame(TableViewModel finalModel, OnlineGameChannel? online) {
     lifecycle = GameControllerLifecycle.finishing;
-    final update = online?.update;
+    final update = online == null ? null : _onlineUpdate;
     final gameState = online == null
-        ? _engine!.snapshot(
+        ? _localChannel!.snapshot(
             uiState: uiState,
             revealedPlayerID: revealedPlayerID,
           )
@@ -917,16 +862,10 @@ class GameController extends ChangeNotifier {
     );
     _model = gameState.model;
     if (online == null) {
-      _engine?.dispose();
-      _engine = null;
+      _clearChannel();
       _clearUndoStack();
     }
     lifecycle = GameControllerLifecycle.finished;
-  }
-
-  void _clearOnlineSession() {
-    _online?.dispose();
-    _online = null;
   }
 
   void _clearAutomaticStepTimer() {
@@ -938,34 +877,36 @@ class GameController extends ChangeNotifier {
     if (_automaticStepTimer != null || presentationRevision != null) {
       return;
     }
-    final online = _online;
+    final online = _onlineChannel;
     if (online != null) {
-      if (online.actionSubmissionInFlight || _forcedProjectedAction() == null) {
+      if (online.commandInFlight || _forcedProjectedAction() == null) {
         return;
       }
     } else {
-      final engine = _engine;
-      if (engine == null || !_engineDecisionNeedsRouting(engine)) {
+      final local = _localChannel;
+      if (local == null || !_engineDecisionNeedsRouting(local)) {
         return;
       }
     }
     _automaticStepTimer = Timer(
-      _engine == null
+      _localChannel == null
           ? animationSpeed.automaticStepDelay
-          : _automaticStepDelay(_engine!),
+          : _automaticStepDelay(_localChannel!),
       _runAutomaticStep,
     );
   }
 
-  bool _engineDecisionNeedsRouting(GameEngine engine) {
-    final phase = engine.phase;
-    final legalActions = engine.legalActions;
-    if (_centralPlannerAction(engine, legalActions) != null ||
+  bool _engineDecisionNeedsRouting(LocalGameChannel channel) {
+    final phase = channel.phase;
+    final legalActions = channel.legalActions;
+    if (_centralPlannerAction(channel, legalActions) != null ||
         phase == kcPhaseRequisition ||
-        (phase == kcPhasePlanning && engine.isFamine && legalActions.isEmpty)) {
+        (phase == kcPhasePlanning &&
+            channel.isFamine &&
+            legalActions.isEmpty)) {
       return true;
     }
-    return _decisionPlayer(engine)?.waitsForHumanInput == false;
+    return _decisionPlayer(channel)?.waitsForHumanInput == false;
   }
 
   LegalAction? _forcedProjectedAction() {
@@ -979,26 +920,26 @@ class GameController extends ChangeNotifier {
         : null;
   }
 
-  Duration _automaticStepDelay(GameEngine engine) {
-    if (_currentAutomaticStepIsTrumpSelection(engine)) {
+  Duration _automaticStepDelay(LocalGameChannel channel) {
+    if (_currentAutomaticStepIsTrumpSelection(channel)) {
       return animationSpeed.automaticTrumpSelectionDelay;
     }
     return animationSpeed.automaticStepDelay;
   }
 
-  bool _currentAutomaticStepIsTrumpSelection(GameEngine engine) {
-    if (engine.phase != kcPhasePlanning || engine.isFamine) {
+  bool _currentAutomaticStepIsTrumpSelection(LocalGameChannel channel) {
+    if (channel.phase != kcPhasePlanning || channel.isFamine) {
       return false;
     }
-    final player = _decisionPlayer(engine);
+    final player = _decisionPlayer(channel);
     return player != null &&
         !player.waitsForHumanInput &&
-        engine.legalActions.any((action) => action.kind == kcActionSetTrump);
+        channel.legalActions.any((action) => action.kind == kcActionSetTrump);
   }
 
   void _runAutomaticStep() {
     _automaticStepTimer = null;
-    final online = _online;
+    final online = _onlineChannel;
     if (online != null) {
       final action = _forcedProjectedAction();
       if (action != null) {
@@ -1006,47 +947,18 @@ class GameController extends ChangeNotifier {
       }
       return;
     }
-    final engine = _engine;
-    if (engine == null) {
+    final local = _localChannel;
+    if (local == null) {
       return;
     }
-    final phaseBefore = engine.phase;
-    final requisitionEventCountBefore = phaseBefore == kcPhaseRequisition
-        ? engine.requisitionEventCount
+    _automaticPhaseBefore = local.phase;
+    _automaticRequisitionCountBefore = local.phase == kcPhaseRequisition
+        ? local.requisitionEventCount
         : 0;
-    final result = _routeEngineDecision(engine);
-    if (result < 0) {
-      error = 'Automatic move rejected ($result)';
-      notifyListeners();
-      return;
+    final command = _automaticCommand(local);
+    if (command != null) {
+      unawaited(local.send(command));
     }
-    if (result == 0) {
-      return;
-    }
-    error = null;
-    if (phaseBefore == kcPhaseRequisition &&
-        engine.requisitionEventCount > requisitionEventCountBefore) {
-      final index = requisitionEventCountBefore;
-      final card = engine.requisitionEventCard(index);
-      localGameLog = [
-        ...localGameLog,
-        EngineAction(
-          kind: actionRequisitionEvent,
-          playerID: engine.requisitionEventPlayer(index),
-          suit: suitName(engine.requisitionEventSuit(index)),
-          card: card.isValid
-              ? EngineCard(
-                  suit: suitName(card.suit) ?? wreckerSuit,
-                  value: card.value,
-                )
-              : null,
-          requisitionKind: engine.requisitionEventMessageKind(index),
-        ),
-      ];
-    }
-    _beginLocalPresentation();
-    _sync();
-    _saveAutosave();
   }
 
   void _beginLocalPresentation() {
@@ -1054,46 +966,40 @@ class GameController extends ChangeNotifier {
     _awaitingLocalPresentationRevision = _localPresentationSequence;
   }
 
-  int _routeEngineDecision(GameEngine engine) {
-    final phase = engine.phase;
-    final legalActions = engine.legalActions;
-    final centralPlannerAction = _centralPlannerAction(engine, legalActions);
+  GameCommand? _automaticCommand(LocalGameChannel channel) {
+    final phase = channel.phase;
+    final legalActions = channel.legalActions;
+    final centralPlannerAction = _centralPlannerAction(channel, legalActions);
     if (centralPlannerAction != null) {
-      final error = engine.applyManual(centralPlannerAction);
-      if (error != 0) {
-        return -error;
-      }
-      final loggedAction = engineActionFromCValue(centralPlannerAction);
-      actionLog = [...actionLog, loggedAction];
-      localGameLog = [...localGameLog, loggedAction];
-      return 1;
+      return SubmitGameAction(
+        action: engineActionFromCValue(centralPlannerAction),
+        source: GameActionSource.centralPlanner,
+      );
     }
     if (phase == kcPhaseRequisition ||
-        (phase == kcPhasePlanning && engine.isFamine && legalActions.isEmpty)) {
-      return engine.stepAutomatic();
+        (phase == kcPhasePlanning &&
+            channel.isFamine &&
+            legalActions.isEmpty)) {
+      return const AdvanceAutomaticGame();
     }
-    final player = _decisionPlayer(engine);
-    final action = player?.chooseAction(engine);
+    final player = _decisionPlayer(channel);
+    final action = player == null ? null : channel.chooseAction(player);
     if (action == null) {
-      return 0;
+      return null;
     }
-    final error = engine.applyAIAction(action);
-    if (error != 0) {
-      return -error;
-    }
-    final loggedAction = engineActionFromCValue(action);
-    actionLog = [...actionLog, loggedAction];
-    localGameLog = [...localGameLog, loggedAction];
-    return 1;
+    return SubmitGameAction(
+      action: engineActionFromCValue(action),
+      source: GameActionSource.ai,
+    );
   }
 
   CEngineActionValue? _centralPlannerAction(
-    GameEngine engine,
+    LocalGameChannel channel,
     List<CEngineActionValue> legalActions,
   ) {
     final action = legalActions.length == 1
         ? legalActions.single
-        : engine.heuristicAction();
+        : channel.heuristicAction();
     if (action == null) {
       return null;
     }
@@ -1103,10 +1009,10 @@ class GameController extends ChangeNotifier {
         : null;
   }
 
-  GamePlayer? _decisionPlayer(GameEngine engine) {
-    final playerID = engine.phase == kcPhaseAssignment
-        ? engine.lastWinner
-        : engine.currentPlayer;
+  GamePlayer? _decisionPlayer(LocalGameChannel channel) {
+    final playerID = channel.phase == kcPhaseAssignment
+        ? channel.lastWinner
+        : channel.currentPlayer;
     if (playerID < 0 || playerID >= _players.length) {
       return null;
     }
@@ -1209,288 +1115,167 @@ class GameController extends ChangeNotifier {
     );
   }
 
-  void _startOnlinePolling({Duration interval = onlineGameRefreshInterval}) {
-    final online = _online;
-    if (online == null) {
-      return;
-    }
-    online.refreshTimer?.cancel();
-    online.refreshTimer = Timer.periodic(interval, (_) {
-      unawaited(refreshOnlineGame());
-    });
-  }
-
-  void _startOnlineRealtime() {
-    _clearOnlineRealtime();
-    final online = _online;
-    if (online == null) {
-      return;
-    }
-    online.realtimeGeneration += 1;
-    final generation = online.realtimeGeneration;
-    unawaited(_connectOnlineRealtime(online, generation));
-  }
-
-  Future<void> _connectOnlineRealtime(
-    OnlineGameRuntime online,
-    int generation,
-  ) async {
-    try {
-      final socket = await online.client.connectRealtime(
-        sessionID: online.sessionID,
-        playerID: online.playerID,
-        seatToken: online.seatToken,
-        afterRevision: _knownOnlineRevision(online),
-      );
-      if (_disposed ||
-          !identical(_online, online) ||
-          online.realtimeGeneration != generation) {
-        await socket.close();
-        return;
-      }
-      online.realtimeSocket = socket;
-      _startOnlinePolling(interval: onlineGameRealtimeRefreshInterval);
-      socket.listen(
-        (data) => _handleOnlineRealtimeFrame(online, data),
-        onError: (_) => _scheduleOnlineRealtimeReconnect(online, generation),
-        onDone: () => _scheduleOnlineRealtimeReconnect(online, generation),
-        cancelOnError: true,
-      );
-    } catch (_) {
-      _scheduleOnlineRealtimeReconnect(online, generation);
-    }
-  }
-
-  void _handleOnlineRealtimeFrame(OnlineGameRuntime online, Object? data) {
-    if (_disposed || !identical(_online, online)) {
-      return;
-    }
-    try {
-      final frame = OnlineRealtimeFrame.decode(data);
-      final update = frame.update;
-      if (update != null) {
-        if (update.actionLogCount >= online.update.actionLogCount) {
-          if (_acceptOrDeferOnlineUpdate(online, update)) {
-            _sync();
-          }
-        }
-        return;
-      }
-      final updates = frame.updates;
-      if (updates != null) {
-        _queueOnlineActionUpdates(online, updates);
-      }
-    } catch (_) {
-      // A malformed frame is isolated; durable polling and reconnect remain active.
-    }
-  }
-
-  void _scheduleOnlineRealtimeReconnect(
-    OnlineGameRuntime online,
-    int generation,
-  ) {
-    if (_disposed ||
-        !identical(_online, online) ||
-        online.realtimeGeneration != generation ||
-        online.realtimeReconnectTimer != null) {
-      return;
-    }
-    final wasConnected = online.realtimeSocket != null;
-    online.realtimeSocket = null;
-    if (wasConnected) {
-      _startOnlinePolling();
-    }
-    online.realtimeReconnectTimer = Timer(onlineRealtimeReconnectDelay, () {
-      online.realtimeReconnectTimer = null;
-      if (!_disposed &&
-          identical(_online, online) &&
-          online.realtimeGeneration == generation) {
-        unawaited(_connectOnlineRealtime(online, generation));
-      }
-    });
-  }
-
-  void _clearOnlineRealtime() {
-    _online?.clearRealtimeChannel();
-  }
-
-  Future<void> _submitOnlineAction(
-    OnlineGameRuntime online,
-    LegalAction action,
-  ) async {
-    if (online.actionSubmissionInFlight) {
-      return;
-    }
-    online.actionSubmissionInFlight = true;
-    final selectionBeforeSubmit = uiState;
-    _clearSelectionAfter(action.kind);
-    _sync();
-    try {
-      var beforeRevision = online.update.actionLogCount;
-      OnlineSessionUpdate update;
-      try {
-        update = await online.client.submitAction(
-          sessionID: online.sessionID,
-          playerID: online.playerID,
-          seatToken: online.seatToken,
-          actionLogCount: beforeRevision,
-          action: action.engineAction,
-        );
-      } catch (exception) {
-        if (!isStaleOnlineActionError(exception)) {
-          rethrow;
-        }
-        final refreshed = await online.client.fetchUpdate(
-          sessionID: online.sessionID,
-          playerID: online.playerID,
-          seatToken: online.seatToken,
-        );
-        _acceptOnlineUpdate(online, refreshed);
-        online.legalActions = refreshed.legalActions;
-        if (!refreshed.legalActions.any(
-          (candidate) => onlineActionMatches(candidate, action.engineAction),
-        )) {
+  void _handleGameEvent(GameEvent event) {
+    switch (event) {
+      case LocalGameCommandResult():
+        _handleLocalCommandResult(event);
+      case OnlineGameStateReceived():
+        if (_acceptOrDeferOnlineUpdate(event.update)) {
           error = null;
           _sync();
-          return;
         }
-        beforeRevision = refreshed.actionLogCount;
-        update = await online.client.submitAction(
-          sessionID: online.sessionID,
-          playerID: online.playerID,
-          seatToken: online.seatToken,
-          actionLogCount: beforeRevision,
-          action: action.engineAction,
-        );
+      case OnlineGameActionsReceived():
+        _queueOnlineActionUpdates(event.response);
+      case GameCommandCompleted():
+        if (event.command is SubmitGameAction) {
+          _onlineSelectionBeforeCommand = null;
+        }
+        error = null;
+        _scheduleAutomaticStep();
+      case GameCommandFailed():
+        if (event.command is SubmitGameAction) {
+          final selection = _onlineSelectionBeforeCommand;
+          _onlineSelectionBeforeCommand = null;
+          if (selection != null) {
+            uiState = selection;
+          }
+        }
+        error = '${event.error}';
+        _sync();
+    }
+  }
+
+  void _handleLocalCommandResult(LocalGameCommandResult event) {
+    final command = event.command;
+    if (command is SubmitGameAction &&
+        command.source == GameActionSource.human) {
+      final undoSnapshot = _pendingLocalUndoSnapshot;
+      _pendingLocalUndoSnapshot = null;
+      if (!event.accepted) {
+        undoSnapshot?.dispose();
+        error = 'Move rejected (${event.errorCode})';
+      } else {
+        error = null;
+        if (undoSnapshot != null) {
+          _undoStack.add(undoSnapshot);
+        } else {
+          _clearUndoStack();
+        }
+        actionLog = [...actionLog, command.action];
+        localGameLog = [...localGameLog, command.action];
+        _clearSelectionAfter(command.action.kind);
       }
-      error = null;
-      if (onlineActionResultIsSingleRevision(
-        beforeRevision,
-        update.actionLogCount,
-      )) {
-        online.updateQueue.add(
-          OnlineActionUpdate(
-            revision: update.actionLogCount,
-            action: OnlineEngineAction.fromEngineAction(action.engineAction),
-            update: update,
-          ),
-        );
-        _drainNextOnlineUpdate();
+    } else {
+      if (!event.accepted) {
+        error = 'Automatic move rejected (${event.errorCode})';
+        notifyListeners();
         return;
       }
-      final queued = await _fetchAndQueueOnlineUpdates(
-        online,
-        afterRevision: beforeRevision,
-      );
-      if (!queued) {
-        if (_acceptOrDeferOnlineUpdate(online, update)) {
-          _sync();
-        }
+      if (!event.stateChanged) {
+        return;
       }
-    } catch (exception) {
-      uiState = selectionBeforeSubmit;
-      error = '$exception';
-      _sync();
-    } finally {
-      online.actionSubmissionInFlight = false;
-      if (!_disposed && identical(_online, online)) {
-        _scheduleAutomaticStep();
+      error = null;
+      if (command case SubmitGameAction(:final action)) {
+        actionLog = [...actionLog, action];
+        localGameLog = [...localGameLog, action];
       }
+      final local = _localChannel;
+      if (_automaticPhaseBefore == kcPhaseRequisition &&
+          local != null &&
+          local.requisitionEventCount > _automaticRequisitionCountBefore) {
+        final index = _automaticRequisitionCountBefore;
+        final card = local.requisitionEventCard(index);
+        localGameLog = [
+          ...localGameLog,
+          EngineAction(
+            kind: actionRequisitionEvent,
+            playerID: local.requisitionEventPlayer(index),
+            suit: suitName(local.requisitionEventSuit(index)),
+            card: card.isValid
+                ? EngineCard(
+                    suit: suitName(card.suit) ?? wreckerSuit,
+                    value: card.value,
+                  )
+                : null,
+            requisitionKind: local.requisitionEventMessageKind(index),
+          ),
+        ];
+      }
+    }
+    _automaticPhaseBefore = null;
+    _automaticRequisitionCountBefore = 0;
+    if (event.stateChanged) {
+      _beginLocalPresentation();
+    }
+    _sync();
+    if (event.stateChanged) {
+      _saveAutosave();
     }
   }
 
-  Future<bool> _fetchAndQueueOnlineUpdates(
-    OnlineGameRuntime online, {
-    int? afterRevision,
-  }) async {
-    if (online.actionRefreshInFlight) {
-      return false;
-    }
-    online.actionRefreshInFlight = true;
-    try {
-      final response = await online.client.fetchActionUpdates(
-        sessionID: online.sessionID,
-        playerID: online.playerID,
-        seatToken: online.seatToken,
-        afterRevision: afterRevision ?? _knownOnlineRevision(online),
-      );
-      return _queueOnlineActionUpdates(online, response);
-    } finally {
-      online.actionRefreshInFlight = false;
-    }
-  }
-
-  bool _queueOnlineActionUpdates(
-    OnlineGameRuntime online,
-    OnlineActionUpdatesResponse response,
-  ) {
+  bool _queueOnlineActionUpdates(OnlineActionUpdatesResponse response) {
     final resyncUpdate = response.resyncUpdate;
     if (resyncUpdate != null) {
-      _clearOnlineUpdateQueue();
-      if (resyncUpdate.actionLogCount >= online.update.actionLogCount) {
-        _acceptOnlineUpdate(online, resyncUpdate);
-        online.legalActions = resyncUpdate.legalActions;
+      _eventQueue.clear();
+      if (resyncUpdate.actionLogCount >= (_onlineUpdate?.actionLogCount ?? 0)) {
+        _acceptOnlineUpdate(resyncUpdate);
+        _onlineLegalActions = resyncUpdate.legalActions;
         _sync();
       }
       return true;
     }
-    final known = _knownOnlineRevision(online);
+    final known = _knownOnlineRevision();
     final updates = response.updates
         .where((update) => update.revision > known)
         .toList(growable: false);
     if (updates.isEmpty) {
       return false;
     }
-    online.updateQueue.addAll(updates);
+    _eventQueue.addAll(updates);
     _drainNextOnlineUpdate();
     return true;
   }
 
-  int _knownOnlineRevision(OnlineGameRuntime online) {
-    if (online.updateQueue.isNotEmpty) {
-      return online.updateQueue.last.revision;
-    }
-    return online.update.actionLogCount;
-  }
+  int _knownOnlineRevision() =>
+      _eventQueue.knownRevision(_onlineUpdate?.actionLogCount ?? 0);
 
   void _drainNextOnlineUpdate() {
-    final online = _online;
-    if (online == null || online.awaitingPresentationRevision != null) {
+    if (_onlineChannel == null ||
+        _eventQueue.awaitingPresentationRevision != null) {
       return;
     }
-    if (online.updateQueue.isEmpty) {
+    final next = _eventQueue.takeNext();
+    if (next == null) {
       return;
     }
-    final next = online.updateQueue.removeAt(0);
-    final deferred = online.deferredUpdate;
+    final deferred = _eventQueue.deferredUpdate;
     if (deferred != null && deferred.actionLogCount <= next.revision) {
-      online.deferredUpdate = null;
+      _eventQueue.deferredUpdate = null;
     }
     final action = next.action;
     if (action.kind == kcActionAssign) {
       final cardID = action.engineAction.card?.id;
       if (cardID != null) {
-        online.pendingAssignmentCardIDs.add(cardID);
+        _eventQueue.pendingAssignmentCardIDs.add(cardID);
       }
     }
-    online.assignmentPresentationCardIDs =
+    _eventQueue.assignmentPresentationCardIDs =
         action.kind == kcActionSubmitAssignments
-        ? List.of(online.pendingAssignmentCardIDs)
+        ? List.of(_eventQueue.pendingAssignmentCardIDs)
         : const [];
     if (action.kind == kcActionSubmitAssignments) {
-      online.pendingAssignmentCardIDs.clear();
+      _eventQueue.pendingAssignmentCardIDs.clear();
     }
-    online.awaitingPresentationRevision = next.revision;
-    online.pendingPresentationLegalActions = next.update.legalActions;
-    final update = next.update.copyWith(legalActions: const []);
-    _acceptOnlineUpdate(online, update);
-    online.legalActions = const [];
+    _eventQueue.awaitingPresentationRevision = next.revision;
+    _eventQueue.pendingPresentationLegalActions = next.update.legalActions;
+    _acceptOnlineUpdate(next.update.copyWith(legalActions: const []));
+    _onlineLegalActions = const [];
     error = null;
     _sync();
   }
 
   void acknowledgeRevisionPresented(int revision) {
-    final online = _online;
+    final online = _onlineChannel;
     if (online == null) {
       if (_awaitingLocalPresentationRevision != revision) {
         return;
@@ -1500,93 +1285,66 @@ class GameController extends ChangeNotifier {
       _scheduleAutomaticStep();
       return;
     }
-    if (online.awaitingPresentationRevision != revision) {
+    if (_eventQueue.awaitingPresentationRevision != revision) {
       return;
     }
-    online.awaitingPresentationRevision = null;
-    online.assignmentPresentationCardIDs = const [];
-    if (online.updateQueue.isNotEmpty) {
+    _eventQueue.awaitingPresentationRevision = null;
+    _eventQueue.assignmentPresentationCardIDs = const [];
+    if (_eventQueue.isNotEmpty) {
       _drainNextOnlineUpdate();
       return;
     }
-    final deferred = online.deferredUpdate;
-    online.deferredUpdate = null;
+    final deferred = _eventQueue.takeDeferred();
     if (deferred != null &&
-        deferred.actionLogCount >= online.update.actionLogCount) {
-      _acceptOnlineUpdate(online, deferred);
-      online.legalActions = deferred.legalActions;
+        deferred.actionLogCount >= (_onlineUpdate?.actionLogCount ?? 0)) {
+      _acceptOnlineUpdate(deferred);
+      _onlineLegalActions = deferred.legalActions;
       _sync();
       return;
     }
-    final legalActions = online.pendingPresentationLegalActions;
-    online.pendingPresentationLegalActions = const [];
-    online.update = online.update.copyWith(legalActions: legalActions);
-    online.legalActions = legalActions;
+    final legalActions = _eventQueue.pendingPresentationLegalActions;
+    _eventQueue.pendingPresentationLegalActions = const [];
+    _onlineUpdate = _onlineUpdate!.copyWith(legalActions: legalActions);
+    _onlineLegalActions = legalActions;
     _sync();
   }
 
-  void _clearOnlineUpdateQueue() {
-    _online?.clearUpdateQueue();
-  }
-
-  void _acceptOnlineUpdate(
-    OnlineGameRuntime online,
-    OnlineSessionUpdate update,
-  ) {
-    final previousRevision = online.update.reactions.isEmpty
+  void _acceptOnlineUpdate(OnlineSessionUpdate update) {
+    final previousRevision = _onlineUpdate?.reactions.isEmpty ?? true
         ? 0
-        : online.update.reactions.last.revision;
-    online.update = update;
+        : _onlineUpdate!.reactions.last.revision;
+    _onlineUpdate = update;
+    final playerID = _onlineChannel?.playerID;
     final newRemoteReactions = update.reactions.where(
       (reaction) =>
-          reaction.revision > previousRevision &&
-          reaction.playerID != online.playerID,
+          reaction.revision > previousRevision && reaction.playerID != playerID,
     );
     if (newRemoteReactions.isEmpty) {
       return;
     }
     final latest = newRemoteReactions.last;
-    online.activeReaction = latest;
+    _activeReaction = latest;
     if (uiState.activePanel != panelLog) {
-      online.hasUnreadReactions = true;
+      _hasUnreadReactions = true;
     }
-    online.reactionFlashTimer?.cancel();
-    online.reactionFlashTimer = Timer(const Duration(seconds: 3), () {
-      online.reactionFlashTimer = null;
-      online.activeReaction = null;
-      if (!_disposed && identical(_online, online)) {
+    _reactionFlashTimer?.cancel();
+    _reactionFlashTimer = Timer(const Duration(seconds: 3), () {
+      _reactionFlashTimer = null;
+      _activeReaction = null;
+      if (!_disposed && _onlineChannel != null) {
         notifyListeners();
       }
     });
   }
 
-  bool _acceptOrDeferOnlineUpdate(
-    OnlineGameRuntime online,
-    OnlineSessionUpdate update,
-  ) {
-    if (online.awaitingPresentationRevision != null) {
-      final deferred = online.deferredUpdate;
-      if (deferred == null ||
-          update.actionLogCount >= deferred.actionLogCount) {
-        online.deferredUpdate = update;
-      }
+  bool _acceptOrDeferOnlineUpdate(OnlineSessionUpdate update) {
+    if (_eventQueue.awaitingPresentationRevision != null) {
+      _eventQueue.defer(update);
       return false;
     }
-    _acceptOnlineUpdate(online, update);
-    online.legalActions = update.legalActions;
+    _acceptOnlineUpdate(update);
+    _onlineLegalActions = update.legalActions;
     return true;
-  }
-
-  Future<void> _leaveOnlineGame(OnlineGameRuntime online) async {
-    try {
-      await online.client.leaveSession(
-        sessionID: online.sessionID,
-        playerID: online.playerID,
-        seatToken: online.seatToken,
-      );
-    } catch (_) {
-      // Leaving should not trap the player in the local client if the server is gone.
-    }
   }
 
   bool _restoreAutosave() {
@@ -1634,14 +1392,13 @@ class GameController extends ChangeNotifier {
       uiState = const GameUiState();
       _lastSyncedPhase = null;
       revealedPlayerID = null;
-      _engine = restoredEngine;
+      _setChannel(LocalGameChannel(restoredEngine));
       lifecycle = GameControllerLifecycle.playing;
       error = null;
       _sync();
       if (model?.table.phase == phaseGameOver) {
         _autosaveStore.clear();
-        _engine?.dispose();
-        _engine = null;
+        _clearChannel();
         _model = null;
         finishedGameLobby = null;
         restoredSavedGame = false;
@@ -1652,7 +1409,7 @@ class GameController extends ChangeNotifier {
       return true;
     } catch (_) {
       restoredEngine?.dispose();
-      _engine = null;
+      _clearChannel();
       _model = null;
       finishedGameLobby = null;
       lifecycle = GameControllerLifecycle.lobby;
@@ -1693,9 +1450,9 @@ class GameController extends ChangeNotifier {
     );
   }
 
-  GameUndoSnapshot _snapshotForUndo(GameEngine engine) {
+  GameUndoSnapshot _snapshotForUndo(LocalGameChannel channel) {
     return GameUndoSnapshot(
-      engine: engine.clone(),
+      engine: channel.cloneEngine(),
       actionLog: List.of(actionLog),
       localGameLog: List.of(localGameLog),
       uiState: uiState,
@@ -1711,6 +1468,32 @@ class GameController extends ChangeNotifier {
     _undoStack.clear();
   }
 
+  void _setChannel(GameChannel channel) {
+    _channel = channel;
+    _channelEvents = channel.events.listen(_handleGameEvent);
+  }
+
+  void _clearChannel() {
+    final subscription = _channelEvents;
+    _channelEvents = null;
+    unawaited(subscription?.cancel());
+    final channel = _channel;
+    _channel = null;
+    channel?.dispose();
+    _onlineUpdate = null;
+    _onlineLegalActions = const [];
+    _eventQueue.clear();
+    _onlineSelectionBeforeCommand = null;
+    _pendingLocalUndoSnapshot?.dispose();
+    _pendingLocalUndoSnapshot = null;
+    _automaticPhaseBefore = null;
+    _automaticRequisitionCountBefore = 0;
+    _reactionFlashTimer?.cancel();
+    _reactionFlashTimer = null;
+    _activeReaction = null;
+    _hasUnreadReactions = false;
+  }
+
   int _newSeed() => DateTime.now().microsecondsSinceEpoch;
 
   @override
@@ -1718,89 +1501,13 @@ class GameController extends ChangeNotifier {
     _disposed = true;
     _clearAutomaticStepTimer();
     _clearUndoStack();
-    _engine?.dispose();
-    _engine = null;
+    _clearChannel();
     _mediumPolicy?.dispose();
     _mediumPolicy = null;
     _neuralPolicy?.dispose();
     _neuralPolicy = null;
-    _clearOnlineSession();
     super.dispose();
   }
 }
 
 typedef LiveGameStore = GameController;
-
-int? newestOnlineRevision(int? current, int? incoming) {
-  if (current == null || incoming == null) {
-    return null;
-  }
-  return incoming > current ? incoming : current;
-}
-
-class OnlineGameRuntime {
-  OnlineGameRuntime({
-    required this.client,
-    required this.sessionID,
-    required this.inviteCode,
-    required this.playerID,
-    required this.seatToken,
-    required this.update,
-    this.spectator = false,
-  }) : legalActions = update.legalActions;
-
-  final KolkhozOnlineClient client;
-  final String sessionID;
-  final String inviteCode;
-  final int playerID;
-  final String seatToken;
-  OnlineSessionUpdate update;
-  final bool spectator;
-  List<OnlineEngineAction> legalActions;
-  Timer? refreshTimer;
-  WebSocket? realtimeSocket;
-  Timer? realtimeReconnectTimer;
-  int realtimeGeneration = 0;
-  bool actionRefreshInFlight = false;
-  bool actionSubmissionInFlight = false;
-  final List<OnlineActionUpdate> updateQueue = [];
-  int? awaitingPresentationRevision;
-  final List<String> pendingAssignmentCardIDs = [];
-  List<String> assignmentPresentationCardIDs = const [];
-  List<OnlineEngineAction> pendingPresentationLegalActions = const [];
-  OnlineSessionUpdate? deferredUpdate;
-  Timer? reactionFlashTimer;
-  OnlineReaction? activeReaction;
-  bool hasUnreadReactions = false;
-
-  void clearUpdateQueue() {
-    updateQueue.clear();
-    awaitingPresentationRevision = null;
-    pendingAssignmentCardIDs.clear();
-    assignmentPresentationCardIDs = const [];
-    pendingPresentationLegalActions = const [];
-    deferredUpdate = null;
-    actionRefreshInFlight = false;
-    actionSubmissionInFlight = false;
-  }
-
-  void clearRealtimeChannel() {
-    realtimeGeneration += 1;
-    realtimeReconnectTimer?.cancel();
-    realtimeReconnectTimer = null;
-    final socket = realtimeSocket;
-    realtimeSocket = null;
-    unawaited(socket?.close());
-  }
-
-  void dispose() {
-    refreshTimer?.cancel();
-    refreshTimer = null;
-    clearUpdateQueue();
-    clearRealtimeChannel();
-    reactionFlashTimer?.cancel();
-    reactionFlashTimer = null;
-    activeReaction = null;
-    hasUnreadReactions = false;
-  }
-}
