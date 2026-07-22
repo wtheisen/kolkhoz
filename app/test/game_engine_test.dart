@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/c_engine_bridge.dart';
-import 'package:kolkhoz_app/src/game_engine.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/c_engine_bridge.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/native_game_engine.dart';
 
 void main() {
-  test('GameEngine exclusively owns native lifecycle and clones', () {
+  test('NativeGameEngine exclusively owns native lifecycle and clones', () {
     final bridge = KolkhozCEngineBridge();
-    final engine = GameEngine(
+    final engine = NativeGameEngine(
       bridge: bridge,
       seed: 20260721,
       variants: KolkhozGameVariants.kolkhoz,

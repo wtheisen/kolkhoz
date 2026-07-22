@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/animation_speed.dart';
-import 'package:kolkhoz_app/src/app_settings.dart';
-import 'package:kolkhoz_app/src/art_direction.dart';
-import 'package:kolkhoz_app/src/board_view.dart';
-import 'package:kolkhoz_app/src/field_plan_world_scene.dart';
+import 'package:kolkhoz_app/src/app/settings/animation_speed.dart';
+import 'package:kolkhoz_app/src/app/settings/settings.dart';
+import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_view.dart';
+import 'package:kolkhoz_app/src/app/views/shared/field_plan_world_scene.dart';
 
 import 'support/layout_scenarios.dart';
 

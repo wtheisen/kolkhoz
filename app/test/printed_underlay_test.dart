@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/art_direction.dart';
-import 'package:kolkhoz_app/src/chrome_button.dart';
-import 'package:kolkhoz_app/src/printed_underlay.dart';
+import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
+import 'package:kolkhoz_app/src/app/views/shared/chrome_button.dart';
+import 'package:kolkhoz_app/src/app/views/shared/printed_underlay.dart';
 
 void main() {
   testWidgets('underlays scale across reusable control sizes', (tester) async {

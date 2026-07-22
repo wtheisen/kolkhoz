@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/app_settings.dart';
-import 'package:kolkhoz_app/src/kolkhoz_app.dart';
+import 'package:kolkhoz_app/src/app/settings/settings.dart';
+import 'package:kolkhoz_app/src/app/app.dart';
 
 void main() {
   test('account email normalization preserves plus-address tags', () {

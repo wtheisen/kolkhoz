@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/c_engine_bridge.dart';
-import 'package:kolkhoz_app/src/render_model.dart';
-import 'package:kolkhoz_app/src/terminal_game_record.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/c_engine_bridge.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/render_model.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/terminal_game_record.dart';
 
 void main() {
   const actions = [

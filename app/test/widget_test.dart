@@ -6,55 +6,102 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/animation_speed.dart';
-import 'package:kolkhoz_app/src/app_settings.dart';
-import 'package:kolkhoz_app/src/app_text.dart';
-import 'package:kolkhoz_app/src/assignment_display.dart';
-import 'package:kolkhoz_app/src/board_view.dart';
-import 'package:kolkhoz_app/src/board/game_log_panel.dart';
-import 'package:kolkhoz_app/src/card_art_display.dart';
-import 'package:kolkhoz_app/src/card_display.dart';
-import 'package:kolkhoz_app/src/c_engine_action_codec.dart';
-import 'package:kolkhoz_app/src/c_engine_bridge.dart';
-import 'package:kolkhoz_app/src/controller_display.dart';
-import 'package:kolkhoz_app/src/design_tokens.dart';
-import 'package:kolkhoz_app/src/engine_action_projection.dart';
-import 'package:kolkhoz_app/src/game_constants.dart';
-import 'package:kolkhoz_app/src/game_controller.dart';
-import 'package:kolkhoz_app/src/game_channel_online.dart';
-import 'package:kolkhoz_app/src/game_lobby.dart';
-import 'package:kolkhoz_app/src/game_sound.dart';
-import 'package:kolkhoz_app/src/game_ui_state.dart';
-import 'package:kolkhoz_app/src/kolkhoz_app.dart';
-import 'package:kolkhoz_app/src/online_game_models.dart';
-import 'package:kolkhoz_app/src/online_game_client.dart';
-import 'package:kolkhoz_app/src/online_lobby_projection.dart';
-import 'package:kolkhoz_app/src/online_table_projection.dart';
-import 'package:kolkhoz_app/src/pixel_text.dart';
-import 'package:kolkhoz_app/src/player_ai_heuristic.dart';
-import 'package:kolkhoz_app/src/player_ai_neural.dart';
-import 'package:kolkhoz_app/src/player_human.dart';
-import 'package:kolkhoz_app/src/player_server.dart';
-import 'package:kolkhoz_app/src/policy_model.dart';
-import 'package:kolkhoz_app/src/player_profile_panel.dart';
-import 'package:kolkhoz_app/src/player_identity.dart';
-import 'package:kolkhoz_app/src/player.dart';
-import 'package:kolkhoz_app/src/player_presence.dart';
-import 'package:kolkhoz_app/src/player_profile.dart';
-import 'package:kolkhoz_app/src/plot_display.dart';
-import 'package:kolkhoz_app/src/render_model.dart';
-import 'package:kolkhoz_app/src/rule_content.dart';
-import 'package:kolkhoz_app/src/saved_game_store.dart';
-import 'package:kolkhoz_app/src/table_display.dart';
-import 'package:kolkhoz_app/src/table_projection_helpers.dart';
-import 'package:kolkhoz_app/src/terminal_game_record.dart';
-import 'package:kolkhoz_app/src/terminal_game_replay.dart';
-import 'package:kolkhoz_app/src/tutorial_display.dart';
+import 'package:kolkhoz_app/src/app/settings/animation_speed.dart';
+import 'package:kolkhoz_app/src/app/settings/settings.dart';
+import 'package:kolkhoz_app/src/app/views/shared/app_text.dart';
+import 'package:kolkhoz_app/src/app/remote_connection/remote_connection.dart';
+import 'package:kolkhoz_app/src/app/remote_connection/remote_error.dart';
+import 'package:kolkhoz_app/src/app/profile/profile_controller/profile_remote_connection.dart';
+import 'package:kolkhoz_app/src/app/profile/profile_controller/profile_controller.dart';
+import 'package:kolkhoz_app/src/app/views/main_menu/main_menu_controller/menu_remote_connection.dart';
+import 'package:kolkhoz_app/src/app/views/main_menu/main_menu_controller/main_menu_controller.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/assignment_projection.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_view.dart';
+import 'package:kolkhoz_app/src/app/views/game/views/game_log/game_log_view.dart';
+import 'package:kolkhoz_app/src/app/views/game/views/components/display/card_art_display.dart';
+import 'package:kolkhoz_app/src/app/views/game/views/components/display/card_display.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/c_engine_action_codec.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/c_engine_bridge.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/controller_projection.dart';
+import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/engine_action_projection.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/game_controller.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/local_game_engine_factory.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/game_remote_commands.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/game_lobby.dart';
+import 'package:kolkhoz_app/src/app/settings/game_sound.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/game_ui_state.dart';
+import 'package:kolkhoz_app/src/app/app.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/game_state_models.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/game_session_models.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/game_remote_connection.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/remote_game_engine_factory.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/remote_lobby_projection.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/remote_game_projection.dart';
+import 'package:kolkhoz_app/src/app/views/shared/pixel_text.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/players/player_ai_heuristic.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/players/player_ai_neural.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/players/player_human.dart';
+import 'package:kolkhoz_app/src/app/profile/models/player_server.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/policy_model.dart';
+import 'package:kolkhoz_app/src/app/profile/views/player_profile_panel.dart';
+import 'package:kolkhoz_app/src/app/profile/profile_controller/player_identity.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/players/player.dart';
+import 'package:kolkhoz_app/src/app/profile/models/player_presence.dart';
+import 'package:kolkhoz_app/src/app/profile/models/player_profile.dart';
+import 'package:kolkhoz_app/src/app/views/game/views/components/display/plot_display.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/render_model.dart';
+import 'package:kolkhoz_app/src/app/views/shared/rule_content.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/saved_game_store.dart';
+import 'package:kolkhoz_app/src/app/views/game/views/components/display/table_display.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/table_projection_helpers.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/terminal_game_record.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/terminal_game_replay.dart';
+import 'package:kolkhoz_app/src/app/views/shared/tutorial_display.dart';
 
 part 'widget/store_online_tests.dart';
 part 'widget/board_tests.dart';
 part 'widget/lobby_profile_tests.dart';
 part 'widget/tutorial_layout_tests.dart';
+
+RemoteConnection testRemoteConnection(
+  HttpClient httpClient, {
+  Future<String?> Function()? accessTokenProvider,
+  RemoteWebSocketConnector? webSocketConnector,
+}) => RemoteConnection(
+  baseURL: Uri.parse('http://127.0.0.1:8080'),
+  accessTokenProvider: accessTokenProvider ?? () async => null,
+  deviceID: '',
+  activeSessionID: () => null,
+  httpClient: httpClient,
+  webSocketConnector: webSocketConnector,
+);
+
+MenuRemoteConnection testMenuRemoteConnection(HttpClient httpClient) =>
+    MenuRemoteConnection(testRemoteConnection(httpClient));
+
+MainMenuController testMainMenuController(HttpClient httpClient) =>
+    MainMenuController(
+      testMenuRemoteConnection(httpClient),
+      () => true,
+      () => null,
+    );
+
+ProfileController testProfileController(HttpClient httpClient) =>
+    ProfileController(connection: testRemoteConnection(httpClient));
+
+GameRemoteConnection testGameRemoteConnection(
+  HttpClient httpClient, {
+  Future<String?> Function()? accessTokenProvider,
+  RemoteWebSocketConnector? webSocketConnector,
+}) => GameRemoteConnection(
+  testRemoteConnection(
+    httpClient,
+    accessTokenProvider: accessTokenProvider,
+    webSocketConnector: webSocketConnector,
+  ),
+);
 
 Finder findAppText(String text, {bool skipOffstage = true}) {
   return find.byWidgetPredicate(

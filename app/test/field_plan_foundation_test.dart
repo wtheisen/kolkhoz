@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/app_settings.dart';
-import 'package:kolkhoz_app/src/art_direction.dart';
-import 'package:kolkhoz_app/src/field_plan_assets.dart';
-import 'package:kolkhoz_app/src/field_plan_typography.dart';
+import 'package:kolkhoz_app/src/app/settings/settings.dart';
+import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
+import 'package:kolkhoz_app/src/app/views/shared/field_plan_assets.dart';
+import 'package:kolkhoz_app/src/app/views/shared/field_plan_typography.dart';
 
 void main() {
   testWidgets('generated navigation pictograms are bundled and decode', (

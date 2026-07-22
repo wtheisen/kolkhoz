@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/world_depth_camera.dart';
+import 'package:kolkhoz_app/src/app/views/shared/world_depth_camera.dart';
 
 import '../tool/sync_world_depth_plates.dart';
 

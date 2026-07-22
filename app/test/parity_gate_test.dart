@@ -1,18 +1,19 @@
 import 'dart:ffi';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/c_engine_action_codec.dart';
-import 'package:kolkhoz_app/src/c_engine_bridge.dart';
-import 'package:kolkhoz_app/src/engine_action_projection.dart';
-import 'package:kolkhoz_app/src/game_constants.dart';
-import 'package:kolkhoz_app/src/game_ui_state.dart';
-import 'package:kolkhoz_app/src/online_lobby_projection.dart';
-import 'package:kolkhoz_app/src/online_game_models.dart';
-import 'package:kolkhoz_app/src/online_table_projection.dart';
-import 'package:kolkhoz_app/src/policy_model.dart';
-import 'package:kolkhoz_app/src/render_model.dart';
-import 'package:kolkhoz_app/src/saved_game_store.dart';
-import 'package:kolkhoz_app/src/table_view_projection.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/c_engine_action_codec.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/c_engine_bridge.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/engine_action_projection.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/game_ui_state.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/remote_lobby_projection.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/game_session_models.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/game_state_models.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/remote_game_projection.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/policy_model.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/render_model.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/saved_game_store.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/table_view_projection.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

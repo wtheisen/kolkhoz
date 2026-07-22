@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/board_view.dart';
-import 'package:kolkhoz_app/src/design_tokens.dart';
-import 'package:kolkhoz_app/src/pixel_text.dart';
-import 'package:kolkhoz_app/src/render_model.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_view.dart';
+import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
+import 'package:kolkhoz_app/src/app/views/shared/pixel_text.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/render_model.dart';
 
 void main() {
   testWidgets('top info score keeps a three-digit value inside its cell', (

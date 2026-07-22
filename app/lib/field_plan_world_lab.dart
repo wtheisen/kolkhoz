@@ -3,10 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-import 'src/north_threat_state.dart';
-import 'src/world_depth_camera.dart';
-import 'src/world_depth_manifest.dart';
-import 'src/world_depth_scene.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/north_threat_state.dart';
+import 'package:kolkhoz_app/src/app/views/shared/world_depth_camera.dart';
+import 'package:kolkhoz_app/src/app/views/shared/world_depth_manifest.dart';
+import 'package:kolkhoz_app/src/app/views/shared/world_depth_scene.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

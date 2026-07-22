@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/north_threat_state.dart';
-import 'package:kolkhoz_app/src/world_depth_camera.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/north_threat_state.dart';
+import 'package:kolkhoz_app/src/app/views/shared/world_depth_camera.dart';
 
 void main() {
   const viewport = Size(1672, 941);

@@ -1,5 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/online_game_models.dart';
+import 'package:kolkhoz_app/src/app/profile/models/profile_remote_models.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/game_session_models.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/game_state_models.dart';
+import 'package:kolkhoz_app/src/app/views/main_menu/main_menu_controller/menu_remote_models.dart';
 
 void main() {
   test('legacy online saboteur wire value maps to zero', () {

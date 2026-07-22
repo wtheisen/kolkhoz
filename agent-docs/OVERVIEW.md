@@ -61,7 +61,13 @@ engine/
     KolkhozCEngine.c
     include/KolkhozCEngine.h
 app/
-  lib/                           # Flutter runtime, board UI, C FFI projection
+  lib/src/app/                   # Ownership-rooted Flutter application
+    remote_connection/          # Shared transport and heartbeat
+    profile/                    # Profile models, controllers, and views
+    settings/                   # Settings values, persistence, sound, timing
+    views/main_menu/            # Create, join, settings, and menu controller
+    views/game/                 # Game controller, local/remote engines, and views
+    views/shared/               # Cross-screen visual primitives
   assets/ui/                     # Pixel art, cards, icons, chrome, fonts
   native/macos/                  # Local C engine dylib for macOS Flutter tests/builds
   tool/build_c_engine_macos.sh
@@ -110,24 +116,25 @@ one and Drunkard removes its crop before the quota is counted.
 
 1. `engine/KolkhozCEngine/KolkhozCEngine.c` - source rules engine.
 2. `engine/KolkhozCEngine/include/KolkhozCEngine.h` - public C API.
-3. `app/lib/src/c_engine_bridge.dart` - Dart FFI bindings.
-4. `app/lib/src/game_engine.dart` - Native engine ownership and native actions.
-5. `app/lib/src/local_game_projection.dart` - Native state to Flutter table projection boundary.
-6. `app/lib/src/terminal_game_record.dart` - Versioned completed-match replay and result record.
-7. `app/lib/src/terminal_game_replay.dart` - Terminal record replay validation.
-8. `app/lib/src/game_lobby.dart` - Match seats, variants, and spectators before play.
-9. `app/lib/src/finished_game_lobby.dart` - Immutable postgame state after engine disposal.
-10. `app/lib/src/game_channel.dart` - Shared command and event contract.
-11. `app/lib/src/game_channel_local.dart` - In-memory channel and native engine owner.
-12. `app/lib/src/game_channel_online.dart` - Active online command and update transport.
-13. `app/lib/src/game_controller.dart` - Match, player routing, and presentation control.
-14. `app/lib/src/online_lobby_projection.dart` - Online wire roster to app-domain lobby boundary.
-15. `app/lib/src/player_server.dart` - Read-only server-owned online player adapter.
-16. `app/lib/src/table_view_projection.dart` - C state to Flutter model projection.
-17. `app/lib/src/board/` and `app/lib/src/board_view.dart` - app UI.
-18. `research/kolkhoz_research/c_engine.py` - Python C-engine wrapper.
-19. `server/kolkhoz_server/production.py` - production online composition.
-20. `research/kolkhoz_research/cli.py` - training and benchmark commands.
+3. `app/lib/src/app/app.dart` - Flutter application composition.
+4. `app/lib/src/app/navigation/app_navigation_controller.dart` - destination and return-path owner.
+5. `app/lib/src/app/remote_connection/remote_connection.dart` - shared transport and heartbeat.
+6. `app/lib/src/app/profile/profile_controller/profile_controller.dart` - identity, profile, comrades, and recent-games owner.
+7. `app/lib/src/app/views/main_menu/main_menu_controller/main_menu_controller.dart` - browser, tournament, and invitation owner.
+8. `app/lib/src/app/views/game/game_controller/game_controller.dart` - game lifecycle and engine selection.
+9. `app/lib/src/app/views/game/game_controller/game_engine.dart` - shared local/remote runtime contract.
+10. `app/lib/src/app/views/game/game_controller/local_game_engine/local_game_engine_factory.dart` - local runtime construction and restoration.
+11. `app/lib/src/app/views/game/game_controller/local_game_engine/local_game_engine.dart` - local match owner.
+12. `app/lib/src/app/views/game/game_controller/local_game_engine/native_game_engine.dart` - native C-engine lifecycle.
+13. `app/lib/src/app/views/game/game_controller/remote_game_engine/remote_game_engine_factory.dart` - remote runtime construction.
+14. `app/lib/src/app/views/game/game_controller/remote_game_engine/remote_game_engine.dart` - remote match owner.
+15. `app/lib/src/app/views/game/game_controller/remote_game_engine/game_remote_connection.dart` - match protocol.
+16. `app/lib/src/app/views/game/game_controller/models/` - projected and terminal game models.
+17. `app/lib/src/app/views/game/game_view.dart` - active-game shell.
+18. `app/lib/src/app/views/main_menu/` - create, join, and settings surfaces.
+19. `research/kolkhoz_research/c_engine.py` - Python C-engine wrapper.
+20. `server/kolkhoz_server/production.py` - production online composition.
+21. `research/kolkhoz_research/cli.py` - training and benchmark commands.
 
 ## Common Tasks
 

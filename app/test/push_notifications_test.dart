@@ -1,6 +1,6 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/push_notifications.dart';
+import 'package:kolkhoz_app/src/app/remote_connection/push_notifications.dart';
 
 void main() {
   test('push payload carries routing metadata but no game state', () {

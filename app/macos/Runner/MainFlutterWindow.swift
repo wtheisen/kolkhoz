@@ -30,20 +30,55 @@ class MainFlutterWindow: NSWindow {
         return
       }
       var completed = false
+      let authenticationTimeout = DispatchWorkItem {
+        guard !completed else { return }
+        completed = true
+        GKLocalPlayer.local.authenticateHandler = nil
+        NSLog("Game Center authentication timed out after 30 seconds.")
+        result(FlutterError(
+          code: "game_center_timeout",
+          message: "Game Center authentication timed out.",
+          details: nil
+        ))
+      }
+      DispatchQueue.main.asyncAfter(
+        deadline: .now() + 30,
+        execute: authenticationTimeout
+      )
+
+      func complete(_ value: Any?) {
+        guard !completed else { return }
+        completed = true
+        authenticationTimeout.cancel()
+        GKLocalPlayer.local.authenticateHandler = nil
+        result(value)
+      }
+
       GKLocalPlayer.local.authenticateHandler = { viewController, error in
         if let viewController {
           self?.contentViewController?.presentAsModalWindow(viewController)
           return
         }
-        guard !completed else { return }
-        guard error == nil, GKLocalPlayer.local.isAuthenticated else {
-          completed = true
-          result(nil)
+        if let error = error as NSError? {
+          NSLog(
+            "Game Center authentication failed: %@ (%@ %ld)",
+            error.localizedDescription,
+            error.domain,
+            error.code
+          )
+          complete(FlutterError(
+            code: "game_center_authentication",
+            message: error.localizedDescription,
+            details: ["domain": error.domain, "code": error.code]
+          ))
+          return
+        }
+        guard GKLocalPlayer.local.isAuthenticated else {
+          complete(nil)
           return
         }
         guard #available(macOS 10.15.5, *) else {
-          completed = true
-          result(FlutterError(
+          complete(FlutterError(
             code: "game_center_unavailable",
             message: "Game Center requires macOS 10.15.5 or newer.",
             details: nil
@@ -53,19 +88,26 @@ class MainFlutterWindow: NSWindow {
         GKLocalPlayer.local.fetchItems(forIdentityVerificationSignature: {
           publicKeyURL, signature, salt, timestamp, signatureError in
           guard !completed else { return }
-          completed = true
           guard signatureError == nil,
                 let publicKeyURL,
                 let signature,
                 let salt else {
-            result(FlutterError(
+            if let signatureError = signatureError as NSError? {
+              NSLog(
+                "Game Center verification failed: %@ (%@ %ld)",
+                signatureError.localizedDescription,
+                signatureError.domain,
+                signatureError.code
+              )
+            }
+            complete(FlutterError(
               code: "game_center",
               message: "Game Center verification failed.",
               details: nil
             ))
             return
           }
-          result([
+          complete([
             "teamPlayerID": GKLocalPlayer.local.teamPlayerID,
             "publicKeyURL": publicKeyURL.absoluteString,
             "signature": signature.base64EncodedString(),

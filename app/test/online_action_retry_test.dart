@@ -1,12 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/game_channel_online.dart';
-import 'package:kolkhoz_app/src/online_game_client.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/game_remote_commands.dart';
+import 'package:kolkhoz_app/src/app/remote_connection/remote_error.dart';
 
 void main() {
   test('online action errors identify stale revisions', () {
-    final stale = OnlineRequestException(
+    final stale = RemoteRequestException(
       statusCode: HttpStatus.conflict,
       uri: Uri.parse('https://example.test/sessions/game/actions'),
       responseBody: '{"error":"stale action"}',

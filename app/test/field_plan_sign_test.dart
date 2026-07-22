@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/board_view.dart';
-import 'package:kolkhoz_app/src/field_plan_sign.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_view.dart';
+import 'package:kolkhoz_app/src/app/views/shared/field_plan_sign.dart';
 
 void main() {
   test('calibrated field plan signs share top, bottom, and size', () {

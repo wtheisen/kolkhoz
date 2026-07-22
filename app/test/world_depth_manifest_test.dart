@@ -2,10 +2,10 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/north_threat_state.dart';
-import 'package:kolkhoz_app/src/world_depth_camera.dart';
-import 'package:kolkhoz_app/src/world_depth_manifest.dart';
-import 'package:kolkhoz_app/src/world_depth_scene.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/north_threat_state.dart';
+import 'package:kolkhoz_app/src/app/views/shared/world_depth_camera.dart';
+import 'package:kolkhoz_app/src/app/views/shared/world_depth_manifest.dart';
+import 'package:kolkhoz_app/src/app/views/shared/world_depth_scene.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/board/board_widgets.dart';
-import 'package:kolkhoz_app/src/board/plot_panel.dart';
-import 'package:kolkhoz_app/src/design_tokens.dart';
-import 'package:kolkhoz_app/src/online_game_models.dart';
-import 'package:kolkhoz_app/src/render_model.dart';
+import 'package:kolkhoz_app/src/app/views/game/views/components/board_widgets.dart';
+import 'package:kolkhoz_app/src/app/views/game/views/plots/plots_view.dart';
+import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/game_state_models.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/render_model.dart';
 
 void main() {
   test('online snapshots preserve redacted opponent cellar counts', () {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/design_tokens.dart';
-import 'package:kolkhoz_app/src/player_identity.dart';
+import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
+import 'package:kolkhoz_app/src/app/profile/profile_controller/player_identity.dart';
 
 void main() {
   test('legacy Supabase session migrates exactly once', () {
@@ -38,6 +38,14 @@ void main() {
     expect(shouldRetryPlatformAuthentication(1), isTrue);
     expect(shouldRetryPlatformAuthentication(2), isTrue);
     expect(shouldRetryPlatformAuthentication(3), isFalse);
+    expect(
+      shouldRetryPlatformAuthenticationError(1, 'game_center_timeout'),
+      isFalse,
+    );
+    expect(
+      shouldRetryPlatformAuthenticationError(1, 'game_center_authentication'),
+      isTrue,
+    );
   });
 
   final runtime = KolkhozIdentityRuntime.instance;
@@ -60,6 +68,7 @@ void main() {
         guest: true,
         portable: false,
       ),
+      busyState: false,
     );
   });
 
@@ -108,6 +117,24 @@ void main() {
     expect(find.byKey(const Key('link-another-device')), findsOneWidget);
     expect(find.byKey(const Key('enter-device-link-code')), findsOneWidget);
   });
+
+  testWidgets(
+    'link code dialog remains available while authentication is busy',
+    (tester) async {
+      runtime.setTestState(
+        identity: null,
+        statusMessage: 'Connecting…',
+        busyState: true,
+      );
+      await tester.pumpWidget(subject());
+
+      await tester.tap(find.byKey(const Key('enter-device-link-code')));
+      await tester.pump();
+
+      expect(find.text('ENTER OR SCAN LINK CODE'), findsOneWidget);
+      expect(find.byKey(const Key('device-link-code-field')), findsOneWidget);
+    },
+  );
 
   test('maps every link UI state', () {
     for (final state in const {

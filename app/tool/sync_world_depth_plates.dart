@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:kolkhoz_app/src/world_depth_camera.dart';
+import 'package:kolkhoz_app/src/app/views/shared/world_depth_camera.dart';
 
 const defaultFigmaFileKey = 'MQdTuEmeZVkWS79EJcLEOF';
 const defaultFigmaFrameNodeId = '103:2';

@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/app_settings.dart';
-import 'package:kolkhoz_app/src/c_engine_bridge.dart';
-import 'package:kolkhoz_app/src/kolkhoz_app.dart';
-import 'package:kolkhoz_app/src/online_game_models.dart';
-import 'package:kolkhoz_app/src/online_game_client.dart';
-import 'package:kolkhoz_app/src/pixel_text.dart';
+import 'package:kolkhoz_app/src/app/settings/settings.dart';
+import 'package:kolkhoz_app/src/app/profile/profile_controller/profile_remote_connection.dart';
+import 'package:kolkhoz_app/src/app/profile/profile_controller/profile_controller.dart';
+import 'package:kolkhoz_app/src/app/remote_connection/remote_connection.dart';
+import 'package:kolkhoz_app/src/app/views/main_menu/main_menu_controller/menu_remote_connection.dart';
+import 'package:kolkhoz_app/src/app/views/main_menu/main_menu_controller/main_menu_controller.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/c_engine_bridge.dart';
+import 'package:kolkhoz_app/src/app/app.dart';
+import 'package:kolkhoz_app/src/app/profile/models/profile_remote_models.dart';
+import 'package:kolkhoz_app/src/app/views/main_menu/main_menu_controller/menu_remote_models.dart';
+import 'package:kolkhoz_app/src/app/views/shared/pixel_text.dart';
 
 class _ScreenshotDevice {
   const _ScreenshotDevice(this.name, this.size, this.renderScale);
@@ -222,12 +227,28 @@ Widget _lobby(_LobbyScenario scenario) {
     onTutorialPressed: () {},
     onLanguageToggle: () {},
     onAppearanceToggle: () {},
-    onlineClientFactory: () => _ScreenshotOnlineClient(),
+    menuRemoteConnection: _ScreenshotMenuRemoteConnection(),
+    mainMenuController: MainMenuController(
+      _ScreenshotMenuRemoteConnection(),
+      () => true,
+      () => null,
+    ),
+    profileController: ProfileController(
+      connection: _screenshotRemoteConnection(),
+      remoteConnection: _ScreenshotProfileRemoteConnection(),
+    ),
   );
 }
 
-class _ScreenshotOnlineClient extends KolkhozOnlineClient {
-  _ScreenshotOnlineClient() : super(Uri.parse('http://screenshot.invalid'));
+RemoteConnection _screenshotRemoteConnection() => RemoteConnection(
+  baseURL: Uri.parse('http://screenshot.invalid'),
+  accessTokenProvider: () async => null,
+  deviceID: '',
+  activeSessionID: () => null,
+);
+
+class _ScreenshotMenuRemoteConnection extends MenuRemoteConnection {
+  _ScreenshotMenuRemoteConnection() : super(_screenshotRemoteConnection());
 
   @override
   Future<List<OnlineSessionListing>> fetchSessions() async => const [
@@ -260,6 +281,10 @@ class _ScreenshotOnlineClient extends KolkhozOnlineClient {
   @override
   Future<OnlineServerStatus> fetchServerStatus() async =>
       const OnlineServerStatus(citizensOnline: 16);
+}
+
+class _ScreenshotProfileRemoteConnection extends ProfileRemoteConnection {
+  _ScreenshotProfileRemoteConnection() : super(_screenshotRemoteConnection());
 
   @override
   Future<OnlineComradesResponse> fetchComrades() async => _comrades;

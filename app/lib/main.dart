@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
-import 'src/kolkhoz_app.dart';
+import 'src/app/app.dart';
 
 final _semanticsHandles = <SemanticsHandle>[];
 

@@ -44,9 +44,11 @@ void registerStoreAndOnlineTests() {
     (tester) async {
       final unloadedPolicy = Completer<KolkhozNativePolicyModel>().future;
       final store = GameController(
-        autosaveEnabled: false,
-        mediumPolicyLoader: unloadedPolicy,
-        neuralPolicyLoader: unloadedPolicy,
+        localGameEngineFactory: LocalGameEngineFactory(
+          autosaveEnabled: false,
+          mediumPolicyLoader: unloadedPolicy,
+          neuralPolicyLoader: unloadedPolicy,
+        ),
       )..animationSpeed = GameAnimationSpeed.instant;
       addTearDown(store.dispose);
       expect(store.lifecycle, GameControllerLifecycle.lobby);
@@ -197,9 +199,13 @@ void registerStoreAndOnlineTests() {
       final httpClient = FakeOnlineHttpClient();
       final store = GameController(
         autosaveEnabled: false,
-        onlineHttpClient: httpClient,
-        onlineWebSocketConnector: (_, _) async =>
-            throw const SocketException('realtime unavailable'),
+        remoteGameEngineFactory: RemoteGameEngineFactory(
+          testGameRemoteConnection(
+            httpClient,
+            webSocketConnector: (_, _) async =>
+                throw const SocketException('realtime unavailable'),
+          ),
+        ),
       );
       addTearDown(store.dispose);
       final draftVariants = KolkhozGameVariants.kolkhoz.copyWith(
@@ -220,11 +226,7 @@ void registerStoreAndOnlineTests() {
 
       expect(httpClient.requests, isEmpty);
 
-      await store.startOnlineGame(
-        baseURL: Uri.parse('http://online.example'),
-        ranked: false,
-        browserJoinable: true,
-      );
+      await store.startOnlineGame(ranked: false, browserJoinable: true);
 
       final createRequest = httpClient.requests.singleWhere(
         (request) => request.route == 'POST /sessions',
@@ -631,7 +633,7 @@ void registerStoreAndOnlineTests() {
     );
     expect(
       onlineFailureStatusMessage(
-        OnlineRequestException(
+        RemoteRequestException(
           statusCode: 401,
           uri: Uri.parse('https://online.kolkhoz.example/sessions'),
           responseBody: '{"error": "missing auth token"}',
@@ -643,7 +645,7 @@ void registerStoreAndOnlineTests() {
     );
     expect(
       onlineFailureStatusMessage(
-        OnlineRequestException(
+        RemoteRequestException(
           statusCode: 401,
           uri: Uri.parse('https://online.kolkhoz.example/sessions'),
           responseBody: '{"error": "invalid auth token"}',
@@ -2122,17 +2124,17 @@ void registerStoreAndOnlineTests() {
     final httpClient = BlockingActionFakeOnlineHttpClient(releaseAction.future);
     final store = GameController(
       autosaveEnabled: false,
-      onlineHttpClient: httpClient,
-      onlineWebSocketConnector: (_, _) async =>
-          throw const SocketException('offline'),
+      remoteGameEngineFactory: RemoteGameEngineFactory(
+        testGameRemoteConnection(
+          httpClient,
+          webSocketConnector: (_, _) async =>
+              throw const SocketException('offline'),
+        ),
+      ),
     );
     addTearDown(store.dispose);
 
-    await store.startOnlineGame(
-      baseURL: Uri.parse('http://online.example'),
-      ranked: false,
-      browserJoinable: false,
-    );
+    await store.startOnlineGame(ranked: false, browserJoinable: false);
     final action = store.model!.legalActions.single;
 
     store.applyLegalAction(action);
@@ -2163,20 +2165,20 @@ void registerStoreAndOnlineTests() {
       addTearDown(() => server.close(force: true));
       final store = GameController(
         autosaveEnabled: false,
-        onlineAccessTokenProvider: () async => 'access-token',
-        onlineHttpClient: httpClient,
-        onlineWebSocketConnector: (_, headers) => WebSocket.connect(
-          'ws://${server.address.address}:${server.port}',
-          headers: headers,
+        remoteGameEngineFactory: RemoteGameEngineFactory(
+          testGameRemoteConnection(
+            httpClient,
+            accessTokenProvider: () async => 'access-token',
+            webSocketConnector: (_, headers) => WebSocket.connect(
+              'ws://${server.address.address}:${server.port}',
+              headers: headers,
+            ),
+          ),
         ),
       );
       addTearDown(store.dispose);
 
-      await store.startOnlineGame(
-        baseURL: Uri.parse('http://online.example'),
-        ranked: false,
-        browserJoinable: false,
-      );
+      await store.startOnlineGame(ranked: false, browserJoinable: false);
       final socket = await connected.future.timeout(const Duration(seconds: 2));
       addTearDown(socket.close);
       final action = store.model!.legalActions.single;
@@ -2219,17 +2221,17 @@ void registerStoreAndOnlineTests() {
     final httpClient = StaleActionFakeOnlineHttpClient();
     final store = GameController(
       autosaveEnabled: false,
-      onlineHttpClient: httpClient,
-      onlineWebSocketConnector: (_, _) async =>
-          throw const SocketException('offline'),
+      remoteGameEngineFactory: RemoteGameEngineFactory(
+        testGameRemoteConnection(
+          httpClient,
+          webSocketConnector: (_, _) async =>
+              throw const SocketException('offline'),
+        ),
+      ),
     );
     addTearDown(store.dispose);
 
-    await store.startOnlineGame(
-      baseURL: Uri.parse('http://online.example'),
-      ranked: false,
-      browserJoinable: false,
-    );
+    await store.startOnlineGame(ranked: false, browserJoinable: false);
     store.applyLegalAction(store.model!.legalActions.single);
     await Future<void>.delayed(const Duration(milliseconds: 10));
 
@@ -2592,23 +2594,32 @@ void registerStoreAndOnlineTests() {
   test('online client uses online router compatible paths', () async {
     final httpClient = FakeOnlineHttpClient();
 
-    final client = KolkhozOnlineClient(
-      Uri.parse('http://127.0.0.1:8080'),
+    final remoteConnection = RemoteConnection(
+      baseURL: Uri.parse('http://127.0.0.1:8080'),
+      accessTokenProvider: () async => null,
+      deviceID: '',
+      activeSessionID: () => null,
       httpClient: httpClient,
     );
-    final created = await client.createSession(
+    final client = GameRemoteConnection(remoteConnection);
+    final menuConnection = MenuRemoteConnection(remoteConnection);
+    final profileConnection = ProfileRemoteConnection(remoteConnection);
+    final created = await menuConnection.createSession(
       variants: KolkhozGameVariants.kolkhoz,
       controllers: KolkhozPlayerController.defaultControllers,
       ranked: false,
     );
-    final heartbeat = await client.sendPresenceHeartbeat();
-    final sessions = await client.fetchSessions();
-    final status = await client.fetchServerStatus();
-    final leaderboard = await client.fetchLeaderboard();
-    final recentGames = await client.fetchRecentGames();
-    final publicProfile = await client.fetchPublicProfile('profile-user');
-    final matched = await client.matchmakeSession(rankedOnly: true);
-    final session = await client.fetchSession(created.sessionID);
+    await remoteConnection.refreshHeartbeat();
+    final heartbeat = remoteConnection.status;
+    final sessions = await menuConnection.fetchSessions();
+    final status = await menuConnection.fetchServerStatus();
+    final leaderboard = await profileConnection.fetchLeaderboard();
+    final recentGames = await profileConnection.fetchRecentGames();
+    final publicProfile = await profileConnection.fetchPublicProfile(
+      'profile-user',
+    );
+    final matched = await menuConnection.matchmakeSession(rankedOnly: true);
+    final session = await menuConnection.fetchSession(created.sessionID);
     final actions = await client.fetchLegalActions(
       sessionID: created.sessionID,
       playerID: created.playerID,
@@ -2715,20 +2726,20 @@ void registerStoreAndOnlineTests() {
     });
     final store = GameController(
       autosaveEnabled: false,
-      onlineAccessTokenProvider: () async => 'access-token',
-      onlineHttpClient: FakeOnlineHttpClient(),
-      onlineWebSocketConnector: (_, headers) => WebSocket.connect(
-        'ws://${server.address.address}:${server.port}',
-        headers: headers,
+      remoteGameEngineFactory: RemoteGameEngineFactory(
+        testGameRemoteConnection(
+          FakeOnlineHttpClient(),
+          accessTokenProvider: () async => 'access-token',
+          webSocketConnector: (_, headers) => WebSocket.connect(
+            'ws://${server.address.address}:${server.port}',
+            headers: headers,
+          ),
+        ),
       ),
     );
     addTearDown(store.dispose);
 
-    await store.startOnlineGame(
-      baseURL: Uri.parse('http://online.example'),
-      ranked: false,
-      browserJoinable: false,
-    );
+    await store.startOnlineGame(ranked: false, browserJoinable: false);
     await framesSent.future;
     await Future<void>.delayed(const Duration(milliseconds: 20));
 
@@ -2775,24 +2786,24 @@ void registerStoreAndOnlineTests() {
       });
       final store = GameController(
         autosaveEnabled: false,
-        onlineAccessTokenProvider: () async => 'access-token',
-        onlineHttpClient: FakeOnlineHttpClient(),
-        onlineRealtimeReconnectDelay: Duration.zero,
-        onlineWebSocketConnector: (uri, headers) {
-          requestedUris.add(uri);
-          return WebSocket.connect(
-            'ws://${server.address.address}:${server.port}',
-            headers: headers,
-          );
-        },
+        remoteGameEngineFactory: RemoteGameEngineFactory(
+          testGameRemoteConnection(
+            FakeOnlineHttpClient(),
+            accessTokenProvider: () async => 'access-token',
+            webSocketConnector: (uri, headers) {
+              requestedUris.add(uri);
+              return WebSocket.connect(
+                'ws://${server.address.address}:${server.port}',
+                headers: headers,
+              );
+            },
+          ),
+          realtimeReconnectDelay: Duration.zero,
+        ),
       );
       addTearDown(store.dispose);
 
-      await store.startOnlineGame(
-        baseURL: Uri.parse('http://online.example'),
-        ranked: false,
-        browserJoinable: false,
-      );
+      await store.startOnlineGame(ranked: false, browserJoinable: false);
       await reconnected.future.timeout(const Duration(seconds: 2));
 
       expect(store.onlineUpdate!.actionLogCount, 4);
@@ -2806,19 +2817,19 @@ void registerStoreAndOnlineTests() {
     final httpClient = FakeOnlineHttpClient();
     final store = GameController(
       autosaveEnabled: false,
-      onlineAccessTokenProvider: () async => 'access-token',
-      onlineHttpClient: httpClient,
-      onlineRealtimeReconnectDelay: const Duration(milliseconds: 50),
-      onlineWebSocketConnector: (_, _) async =>
-          throw const SocketException('offline'),
+      remoteGameEngineFactory: RemoteGameEngineFactory(
+        testGameRemoteConnection(
+          httpClient,
+          accessTokenProvider: () async => 'access-token',
+          webSocketConnector: (_, _) async =>
+              throw const SocketException('offline'),
+        ),
+        realtimeReconnectDelay: const Duration(milliseconds: 50),
+      ),
     );
     addTearDown(store.dispose);
 
-    await store.startOnlineGame(
-      baseURL: Uri.parse('http://online.example'),
-      ranked: false,
-      browserJoinable: false,
-    );
+    await store.startOnlineGame(ranked: false, browserJoinable: false);
     await Future<void>.delayed(const Duration(milliseconds: 1150));
 
     expect(
@@ -2832,10 +2843,22 @@ void registerStoreAndOnlineTests() {
   });
 
   test('production realtime URI preserves the durable revision cursor', () {
-    final secure = KolkhozOnlineClient(
-      Uri.parse('https://online.kolkhoz.example/api/'),
+    final secure = GameRemoteConnection(
+      RemoteConnection(
+        baseURL: Uri.parse('https://online.kolkhoz.example/api/'),
+        accessTokenProvider: () async => null,
+        deviceID: '',
+        activeSessionID: () => null,
+      ),
     );
-    final insecure = KolkhozOnlineClient(Uri.parse('http://127.0.0.1:8787'));
+    final insecure = GameRemoteConnection(
+      RemoteConnection(
+        baseURL: Uri.parse('http://127.0.0.1:8787'),
+        accessTokenProvider: () async => null,
+        deviceID: '',
+        activeSessionID: () => null,
+      ),
+    );
 
     expect(
       secure
@@ -2869,9 +2892,13 @@ void registerStoreAndOnlineTests() {
         serverDone.complete();
         unawaited(socket.close());
       });
-      final client = KolkhozOnlineClient(
-        Uri.parse('http://${server.address.address}:${server.port}'),
-        accessTokenProvider: () async => 'access-token',
+      final client = GameRemoteConnection(
+        RemoteConnection(
+          baseURL: Uri.parse('http://${server.address.address}:${server.port}'),
+          accessTokenProvider: () async => 'access-token',
+          deviceID: '',
+          activeSessionID: () => null,
+        ),
       );
 
       final socket = await client.connectRealtime(

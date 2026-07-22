@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/art_direction.dart';
+import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
 
 void main() {
   test('legacy remains the safe default', () {

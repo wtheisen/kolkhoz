@@ -293,10 +293,10 @@ void registerLobbyAndProfileTests() {
             showingProfile: true,
             initialSettingsTab: KolkhozSettingsTab.leaderboard,
             cloudSignedIn: true,
-            onlineClientFactory: () => KolkhozOnlineClient(
-              Uri.parse('https://example.test'),
-              httpClient: FakeOnlineHttpClient(),
+            menuRemoteConnection: testMenuRemoteConnection(
+              FakeOnlineHttpClient(),
             ),
+            profileController: testProfileController(FakeOnlineHttpClient()),
             onHostOnline: (_, _, _, _, _) async => 'session',
             onJoinOnline: (_, _, _) async {},
             onEnterOnlineGame: () {},
@@ -784,10 +784,9 @@ void registerLobbyAndProfileTests() {
                 onTutorialPressed: () {},
                 onLanguageToggle: () {},
                 onAppearanceToggle: () {},
-                onlineClientFactory: () => KolkhozOnlineClient(
-                  Uri.parse('http://127.0.0.1:8080'),
-                  httpClient: httpClient,
-                ),
+                menuRemoteConnection: testMenuRemoteConnection(httpClient),
+                mainMenuController: testMainMenuController(httpClient),
+                profileController: testProfileController(httpClient),
               ),
             );
           },
@@ -1474,10 +1473,9 @@ void registerLobbyAndProfileTests() {
               onTutorialPressed: () {},
               onLanguageToggle: () {},
               onAppearanceToggle: () {},
-              onlineClientFactory: () => KolkhozOnlineClient(
-                Uri.parse('http://127.0.0.1:8080'),
-                httpClient: httpClient,
-              ),
+              menuRemoteConnection: testMenuRemoteConnection(httpClient),
+              mainMenuController: testMainMenuController(httpClient),
+              profileController: testProfileController(httpClient),
             ),
           ),
         ),
@@ -1562,10 +1560,9 @@ void registerLobbyAndProfileTests() {
             onTutorialPressed: () {},
             onLanguageToggle: () {},
             onAppearanceToggle: () {},
-            onlineClientFactory: () => KolkhozOnlineClient(
-              Uri.parse('http://127.0.0.1:8080'),
-              httpClient: httpClient,
-            ),
+            menuRemoteConnection: testMenuRemoteConnection(httpClient),
+            mainMenuController: testMainMenuController(httpClient),
+            profileController: testProfileController(httpClient),
           ),
         ),
       ),
@@ -1577,9 +1574,9 @@ void registerLobbyAndProfileTests() {
       findsOneWidget,
     );
     expect(findAppText('WEEKLY KOLKHOZ TOURNAMENT'), findsOneWidget);
-    expect(findAppText('JOIN TOURNAMENT'), findsOneWidget);
+    expect(find.text('JOIN TOURNAMENT'), findsOneWidget);
 
-    await tester.tap(findAppText('JOIN TOURNAMENT'));
+    await tester.tap(find.text('JOIN TOURNAMENT'));
     await tester.pumpAndSettle();
 
     expect(httpClient.joined, isTrue);
@@ -1622,10 +1619,9 @@ void registerLobbyAndProfileTests() {
             onTutorialPressed: () {},
             onLanguageToggle: () {},
             onAppearanceToggle: () {},
-            onlineClientFactory: () => KolkhozOnlineClient(
-              Uri.parse('http://127.0.0.1:8080'),
-              httpClient: httpClient,
-            ),
+            menuRemoteConnection: testMenuRemoteConnection(httpClient),
+            mainMenuController: testMainMenuController(httpClient),
+            profileController: testProfileController(httpClient),
           ),
         ),
       ),
@@ -1692,10 +1688,9 @@ void registerLobbyAndProfileTests() {
             onTutorialPressed: () {},
             onLanguageToggle: () {},
             onAppearanceToggle: () {},
-            onlineClientFactory: () => KolkhozOnlineClient(
-              Uri.parse('http://127.0.0.1:8080'),
-              httpClient: httpClient,
-            ),
+            menuRemoteConnection: testMenuRemoteConnection(httpClient),
+            mainMenuController: testMainMenuController(httpClient),
+            profileController: testProfileController(httpClient),
           ),
         ),
       ),
@@ -1712,7 +1707,7 @@ void registerLobbyAndProfileTests() {
     expect(matchmakeCalls, 1);
     expect(joinedInviteCode, isNull);
     expect(
-      findAppText('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
+      find.text('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
       findsOneWidget,
     );
     expect(
@@ -1722,7 +1717,7 @@ void registerLobbyAndProfileTests() {
     expect(find.bySemanticsLabel(RegExp(r'ABCDE - Mira')), findsNothing);
 
     await tester.tap(
-      findAppText('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
+      find.text('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
       warnIfMissed: false,
     );
     await tester.pump();
@@ -1789,10 +1784,9 @@ void registerLobbyAndProfileTests() {
             onTutorialPressed: () {},
             onLanguageToggle: () {},
             onAppearanceToggle: () {},
-            onlineClientFactory: () => KolkhozOnlineClient(
-              Uri.parse('http://127.0.0.1:8080'),
-              httpClient: httpClient,
-            ),
+            menuRemoteConnection: testMenuRemoteConnection(httpClient),
+            mainMenuController: testMainMenuController(httpClient),
+            profileController: testProfileController(httpClient),
           ),
         ),
       ),
@@ -1806,7 +1800,7 @@ void registerLobbyAndProfileTests() {
       findsOneWidget,
     );
     expect(
-      findAppText('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
+      find.text('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
       findsOneWidget,
     );
 

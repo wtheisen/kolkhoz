@@ -2,8 +2,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolkhoz_app/field_plan_world_lab.dart';
-import 'package:kolkhoz_app/src/world_depth_manifest.dart';
-import 'package:kolkhoz_app/src/world_depth_scene.dart';
+import 'package:kolkhoz_app/src/app/views/shared/world_depth_manifest.dart';
+import 'package:kolkhoz_app/src/app/views/shared/world_depth_scene.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/app_settings.dart';
-import 'package:kolkhoz_app/src/board/options_panel.dart';
-import 'package:kolkhoz_app/src/design_tokens.dart';
-import 'package:kolkhoz_app/src/progression/progression.dart';
-import 'package:kolkhoz_app/src/progression/progression_overview.dart';
+import 'package:kolkhoz_app/src/app/settings/settings.dart';
+import 'package:kolkhoz_app/src/app/views/game/views/settings/game_settings_view.dart';
+import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
+import 'package:kolkhoz_app/src/app/profile/profile_controller/progression.dart';
+import 'package:kolkhoz_app/src/app/profile/views/progression_overview.dart';
 
 void main() {
   test('completed games advance challenges and unlock their rewards once', () {

@@ -60,32 +60,34 @@ Important files:
 
 | File | Purpose |
 |------|---------|
-| `lib/src/c_engine_bridge.dart` | Dart FFI bindings to the C API |
-| `lib/src/game_engine.dart` | Exclusive native engine lifecycle, frozen match config, native actions, and cloning |
-| `lib/src/local_game_projection.dart` | External adapter from native engine state to the Flutter table model |
-| `lib/src/terminal_game_record.dart` | Portable versioned replay inputs, participants, build identity, and terminal result |
-| `lib/src/terminal_game_replay.dart` | Reconstructs a disposed match and validates its recorded terminal result |
-| `lib/src/game_lobby.dart` | Four-seat pre-game configuration and spectator roster |
-| `lib/src/online_lobby_projection.dart` | Single online boundary that maps wire roster fields into app-domain seats |
-| `lib/src/player_profile.dart` | Transport-independent seated-player profile value |
-| `lib/src/player_presence.dart` | Transport-independent seated-player presence value |
-| `lib/src/finished_game_lobby.dart` | Immutable final projection, result, roster, variants, log, reactions, and online metadata for postgame UI |
-| `lib/src/game_channel.dart` | Shared commands and events consumed by `GameController` |
-| `lib/src/game_channel_local.dart` | In-memory channel and exclusive local `GameEngine` ownership |
-| `lib/src/game_channel_online.dart` | Active-match HTTP command, retry, refresh, and update transport |
-| `lib/src/game_channel_online_realtime.dart` | WebSocket connection, reconnect, and frame decoding |
-| `lib/src/game_controller.dart` | UI-facing lobby/lifecycle facade, player composition, and local/online session handoff |
-| `lib/src/local_game_session.dart` | Local channel, engine routing, Central Planner/AI pacing, undo, action log, and autosave cadence |
-| `lib/src/online_game_session.dart` | Online channel state, revisions, presentation acknowledgements, reactions, and command selection rollback |
-| `lib/src/player.dart` | Shared `GamePlayer` contract |
-| `lib/src/player_human.dart` | Human player adapter for UI-driven decisions |
-| `lib/src/player_ai_heuristic.dart` | Deterministic C-engine heuristic player adapter |
-| `lib/src/player_ai_neural.dart` | Medium and hard neural-policy player adapter with heuristic fallback |
-| `lib/src/player_server.dart` | Read-only server-owned online player adapter |
-| `lib/src/game_undo_snapshot.dart` | Local-session undo state and cloned-engine ownership |
-| `lib/src/table_view_projection.dart` | C engine state to Flutter table model |
-| `lib/src/online_game_models.dart` | Dart online API models/client |
-| `lib/src/board/` | Board panels and controls |
+| `lib/src/app/app.dart` | Application composition and top-level Flutter widget |
+| `lib/src/app/navigation/app_navigation_controller.dart` | Destination, settings-section, game-return, and tutorial navigation state |
+| `lib/src/app/remote_connection/remote_connection.dart` | Application-owned authenticated HTTP/WebSocket transport and heartbeat |
+| `lib/src/app/views/main_menu/main_menu_controller/main_menu_controller.dart` | Session-browser refresh, tournament state, invitation polling, and menu workflow state |
+| `lib/src/app/views/main_menu/main_menu_controller/menu_remote_connection.dart` | Menu, browser, leaderboard, tournament, and replay endpoints |
+| `lib/src/app/views/main_menu/main_menu_controller/menu_remote_models.dart` | Browser, invitation, tournament, challenge, replay, and server-status contracts |
+| `lib/src/app/profile/profile_controller/profile_remote_connection.dart` | Profile, social, identity, and account endpoints |
+| `lib/src/app/profile/profile_controller/profile_controller.dart` | Identity startup, profile synchronization, comrades mutations, recent games, and account-operation state |
+| `lib/src/app/profile/models/profile_remote_models.dart` | Player-profile, comrade, and social response contracts |
+| `lib/src/app/views/game/game_controller/game_controller.dart` | Game lifecycle facade and engine selection |
+| `lib/src/app/views/game/game_controller/game_engine.dart` | Shared local/remote runtime contract for mode, projection, actions, presentation, and disposal |
+| `lib/src/app/views/game/game_controller/models/engine_values.dart` | Engine-neutral cards, actions, variants, controllers, and portable numeric protocol values |
+| `lib/src/app/views/game/game_controller/models/game_serialization.dart` | Engine-neutral JSON encoding for variants, controllers, cards, and actions |
+| `lib/src/app/views/game/game_controller/local_game_engine/local_game_engine.dart` | Local action routing, AI pacing, undo, projection, and autosave cadence |
+| `lib/src/app/views/game/game_controller/local_game_engine/local_game_engine_factory.dart` | Local player composition, native-engine construction, autosave restoration, and policy ownership |
+| `lib/src/app/views/game/game_controller/local_game_engine/native_game_engine.dart` | Exclusive native C-engine lifecycle, actions, and cloning |
+| `lib/src/app/views/game/game_controller/remote_game_engine/remote_game_engine.dart` | Online presentation state, revision ordering, reactions, and rollback |
+| `lib/src/app/views/game/game_controller/remote_game_engine/remote_game_engine_factory.dart` | Remote-engine construction from the game connection |
+| `lib/src/app/views/game/game_controller/remote_game_engine/game_remote_connection.dart` | Per-match HTTP/WebSocket protocol |
+| `lib/src/app/views/game/game_controller/remote_game_engine/game_state_models.dart` | Active-match action and projected engine snapshot contracts |
+| `lib/src/app/views/game/game_controller/remote_game_engine/game_session_models.dart` | Active-session updates, presence, reactions, series, and revision contracts |
+| `lib/src/app/views/game/game_controller/models/` | Lobby, UI, projection, table, terminal-record, and replay models |
+| `lib/src/app/views/game/game_view.dart` | Active-game shell |
+| `lib/src/app/views/game/views/` | Independently imported brigade, fields, north, plots, log, settings, and component views |
+| `lib/src/app/views/main_menu/` | Independently imported create, join, settings, leaderboard, and lobby views |
+| `lib/src/app/profile/` | Profile values, identity, progression, commerce, and profile views |
+| `lib/src/app/views/main_menu/settings/` | Settings composition plus separate profile, account, comrades, rules, and admin view owners |
+| `lib/src/app/settings/` | Application settings, persistence, animation timing, and sound |
 | `assets/ui/` | Pixel art, cards, icons, chrome, fonts |
 
 Promoted runtime policy files live in top-level `policies/`. The app copies them into
@@ -137,23 +139,24 @@ model files.
 ## App Data Flow
 
 ```text
-GameController owns a lobby, four GamePlayers, and at most one active session
+app.dart owns application composition, settings, and RemoteConnection
     |
-    +-- LocalGameSession -------> LocalGameChannel --> one GameEngine
-    |
-    +-- OnlineGameSession ------> OnlineGameChannel --> HTTP + WebSocket
-    |
-    +-- Central Planner action --> reward/trump reveal
-    |
-    +-- HumanPlayer ------------> Flutter interaction
-    |
-    +-- AI GamePlayer ----------> heuristic or policy decision
+    +-- AppNavigationController  -> destinations, settings section, and game return path
+    +-- MainMenuController       -> session browser, tournaments, and invitations
+        +-- MenuRemoteConnection -> menu/profile-independent endpoints
+    +-- ProfileController        -> identity, profile sync, comrades, and recent games
+        +-- ProfileRemoteConnection -> profile/social endpoints
+    +-- GameRemoteConnection     -> one active online match
     |
     v
-The active session consumes ordered GameEvents
+GameController owns a lobby, four GamePlayers, and exactly one optional GameEngine
+    |
+    +-- LocalGameEngine  --> one NativeGameEngine --> C engine
+    |
+    +-- RemoteGameEngine --> GameRemoteConnection --> server C engine
     |
     v
-GameController publishes the session's projected Dart model objects
+GameController publishes projected Dart model objects
     |
     v
 Flutter re-renders views and acknowledges presentation completion
@@ -161,25 +164,48 @@ Flutter re-renders views and acknowledges presentation completion
     +-- game over -------------> FinishedGameLobby snapshot
 ```
 
-Flutter widgets do not mutate game state or consume forced actions directly. They call
-the controller facade with human actions and render its projected state. The controller
-delegates the action to its active session. `LocalGameSession` routes human, Central
-Planner, and AI commands through the in-memory channel and owns undo and automatic-step
-pacing. `OnlineGameSession` routes commands through the server-backed channel and owns
-transport revisions, selection rollback, reactions, and presentation acknowledgements.
+Flutter widgets do not mutate game state or call FFI directly. They report intent to the
+controller and render its projected state. `GameController` stores one `GameEngine` and
+uses that contract for mode, projection, action submission, presentation revisions,
+acknowledgement, and disposal. It narrows to `LocalGameEngine` or `RemoteGameEngine`
+only for capabilities unique to that runtime, such as local undo/AI pacing or online
+presence/reactions. There is no session, runtime, or channel compatibility layer.
+
+Portable game values and serialization live under `game_controller/models/`. Remote
+connections and projections depend on those values, never on the local C-engine bridge.
+Only the local engine and controller composition may import the native bridge.
+
+`ProfileController` is the application-facing profile API. Its identity runtime and
+profile transport are private. It owns debounced profile saves, comrades loading and
+mutations, and recent-game loading; app composition only applies loaded values to local
+settings. `MainMenuController` owns the session browser's refresh lifecycle and state,
+weekly-tournament mutations, invitation polling, and invitation dismissal.
+`AppNavigationController` owns application destinations, the selected settings section,
+the game's launch origin and return destination, and tutorial visibility. `app.dart`
+composes these owners and presents dialogs, but does not duplicate their state in its
+widget state.
+
+`LocalGameEngine` routes human, Central Planner, and AI commands directly to its owned
+`NativeGameEngine`; it also owns undo snapshots, automatic-step pacing, projection, and
+autosave inputs. `LocalGameEngineFactory` owns concrete player adapters, policy loading,
+native construction, and autosave replay, so `GameController` does not import those
+implementation details. `RemoteGameEngineFactory` similarly owns remote runtime assembly.
+`RemoteGameEngine` owns the redacted match projection, selection
+rollback, reactions, presentation acknowledgements, and revision ordering. Its
+`GameRemoteConnection` owns active-match requests and realtime transport.
 
 Authoritative server revisions and client presentation acknowledgements are deliberately
-separate. `OnlineGameChannel` preserves every committed action needed for animation and
+separate. `RemoteGameEngine` preserves every committed action needed for animation and
 publishes only the next presentation-ready state; newer full snapshots wait as deferred
-state. A client acknowledgement advances only that channel's local delivery queue; it
+state. A client acknowledgement advances only that engine's local delivery queue; it
 never blocks the server or another client.
 
 The controller lifecycle is `lobby -> starting -> playing -> finishing -> finished`. It begins
-without a local engine. `startGame()` freezes the lobby's four seats and variants and is
-the only new-match path that creates a `GameEngine`; autosave restoration may rehydrate
-an existing match directly through `LocalGameChannel`. Spectators remain controller-owned
+without an engine. `startGame()` freezes the lobby's four seats and variants and creates
+a `LocalGameEngine`; autosave restoration rehydrates that same owner. Online handoff
+creates a `RemoteGameEngine`. Spectators remain controller-owned
 and never enter the engine or action router. Online lobby/start state remains authoritative
-on the server and is mirrored into the client controller through `OnlineGameChannel`.
+on the server and is mirrored into the client controller through `RemoteGameEngine`.
 `OnlineSessionUpdate` remains a transport model. The controller maps its roster once
 through `online_lobby_projection.dart`; lobby widgets and table projection consume
 `GameSeat`, `PlayerProfile`, and `PlayerPresence` without inspecting wire types or
@@ -188,13 +214,13 @@ downcasting players.
 The setup screen is a local draft and does not contact the server as seats or variants
 change. Tapping **Start Online Game** is the authority handoff: `GameController` freezes
 its current `GameLobby`, creates the server session from that single configuration, and
-switches to `OnlineGameChannel`. After a successful handoff, lobby membership and match
+switches to `RemoteGameEngine`. After a successful handoff, lobby membership and match
 execution are server-owned; the Flutter controller keeps only presentation and transport
 responsibilities. If no online seats are selected, `startGame()` keeps the match entirely
 local instead.
 
-`HumanPlayer`, `HeuristicAIPlayer`, and `NeuralAIPlayer` are executable only while a
-`LocalGameChannel` owns the engine. Online handoff replaces all four with
+`HumanPlayer`, `HeuristicAIPlayer`, and `NeuralAIPlayer` are executable only inside a
+`LocalGameEngine`. Online handoff replaces all four with
 `ServerGamePlayer` projections populated from the authoritative session update. The local
 viewer can submit the server-provided legal actions, but remote humans and AI seats never
 choose actions in Flutter. Online Central Planner reveals are advanced and recorded by the

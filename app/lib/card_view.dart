@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'src/board/board_widgets.dart';
-import 'src/design_tokens.dart';
-import 'src/game_constants.dart';
-import 'src/render_model.dart';
+import 'src/app/views/game/views/components/board_widgets.dart';
+import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/render_model.dart';
 
 void main() {
   runApp(const CardViewApp());

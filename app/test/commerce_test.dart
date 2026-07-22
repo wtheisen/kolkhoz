@@ -3,26 +3,21 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:kolkhoz_app/src/app_settings.dart';
-import 'package:kolkhoz_app/src/commerce.dart';
-import 'package:kolkhoz_app/src/online_game_client.dart';
-import 'package:kolkhoz_app/src/progression/progression.dart';
+import 'package:kolkhoz_app/src/app/settings/settings.dart';
+import 'package:kolkhoz_app/src/app/profile/profile_controller/commerce.dart';
+import 'package:kolkhoz_app/src/app/profile/profile_controller/progression.dart';
 
-class _FakeClient extends KolkhozOnlineClient {
-  _FakeClient() : super(Uri.parse('https://example.invalid'));
-
+class _FakeClient {
   bool entitlement = false;
   bool failStatus = false;
   String? claimedProvider;
   String? claimedVerificationData;
 
-  @override
   Future<bool> fetchFullGameEntitlement() async {
     if (failStatus) throw StateError('offline');
     return entitlement;
   }
 
-  @override
   Future<bool> claimFullGamePurchase({
     required String provider,
     required String verificationData,
@@ -95,7 +90,8 @@ void main() {
     store = _FakeStore();
     changes = [];
     commerce = KolkhozCommerceController(
-      clientFactory: () => client,
+      fetchFullGameEntitlement: client.fetchFullGameEntitlement,
+      claimFullGamePurchase: client.claimFullGamePurchase,
       onFullGameChanged: (userID, unlocked) {
         changes.add((userID, unlocked));
       },
@@ -125,7 +121,8 @@ void main() {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     final windowsCommerce = KolkhozCommerceController(
-      clientFactory: () => client,
+      fetchFullGameEntitlement: client.fetchFullGameEntitlement,
+      claimFullGamePurchase: client.claimFullGamePurchase,
       onFullGameChanged: (_, _) {},
       purchaseStore: store,
     );
@@ -177,7 +174,8 @@ void main() {
 
   test('beta builds unlock the full game without an entitlement', () async {
     final betaCommerce = KolkhozCommerceController(
-      clientFactory: () => client,
+      fetchFullGameEntitlement: client.fetchFullGameEntitlement,
+      claimFullGamePurchase: client.claimFullGamePurchase,
       onFullGameChanged: (_, _) {},
       purchaseStore: store,
       productID: appleFullGameProductID,

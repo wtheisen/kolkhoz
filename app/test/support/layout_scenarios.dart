@@ -1,6 +1,6 @@
-import 'package:kolkhoz_app/src/game_constants.dart';
-import 'package:kolkhoz_app/src/game_ui_state.dart';
-import 'package:kolkhoz_app/src/render_model.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/game_ui_state.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/render_model.dart';
 
 class LayoutScenario {
   const LayoutScenario(this.name, this.model, {this.gameLogActions = const []});
