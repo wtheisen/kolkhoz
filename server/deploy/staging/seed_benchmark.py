@@ -36,7 +36,7 @@ def main() -> None:
         import psycopg
     except ImportError as error:
         raise SystemExit(
-            "psycopg is required; install server/deploy/requirements.txt"
+            "psycopg is required; install server/deploy/requirements.lock"
         ) from error
     rows = [
         (identity(n), f"benchmark-{n}@invalid.local", f"Load Player {n}")

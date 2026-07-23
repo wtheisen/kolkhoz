@@ -4,9 +4,12 @@ from pathlib import Path
 root = Path(__file__).resolve().parent
 bootstrap = (root / "bootstrap.sh").read_text()
 server = (root / "kolkhoz-server.service").read_text()
+admin = (root / "kolkhoz-admin-control.service").read_text()
+admin_sudoers = (root / "kolkhoz-admin-control.sudoers").read_text()
 redis = (root / "redis-kolkhoz-server.conf").read_text()
 redis_service = (root / "kolkhoz-server-redis.service").read_text()
 caddy = (root / "Caddyfile").read_text()
+requirements_lock = (root.parent / "requirements.lock").read_text()
 watch = (root / "health-watch.sh").read_text()
 watch_timer = (root / "kolkhoz-health-watch.timer").read_text()
 account_cleanup = (root / "kolkhoz-unconfirmed-account-cleanup.service").read_text()
@@ -30,6 +33,9 @@ assert "--apply" in bootstrap and "DRY RUN:" in bootstrap
 assert bootstrap.index('cd "$ROOT"') < bootstrap.index(
     "from research.kolkhoz_research.c_engine"
 )
+assert "requirements.lock" in bootstrap and "--require-hashes" in bootstrap
+assert 'runuser -u "$RUN_USER"' in bootstrap
+assert 'chown -R root:root "$ROOT/.venv"' in bootstrap
 assert "MemAvailable:" in bootstrap and "358400" in bootstrap
 assert "2097152" in bootstrap
 assert "redis_was_installed" in bootstrap
@@ -52,7 +58,29 @@ assert 'systemctl enable --now "$REDIS_SERVICE"' in bootstrap
 assert 'systemctl restart "$SERVICE"' in bootstrap
 assert "caddy validate" in bootstrap and "systemctl reload caddy" in bootstrap
 assert "lb_try_duration 5s" in caddy and "lb_try_interval 100ms" in caddy
+assert "header_up X-Forwarded-For {remote_host}" in caddy
 assert "stream_close_delay 5m" in caddy
+assert "read_header 10s" in caddy and "read_body 15s" in caddy
+assert (
+    "@private_diagnostics path /metrics/prometheus /metrics/prometheus/ "
+    "/ready /ready/ /canary /canary/"
+) in caddy
+assert "User=kolkhoz-admin" in admin and "Group=kolkhoz-admin" in admin
+assert "EnvironmentFile=/etc/kolkhoz-admin-control.env" in admin
+assert "EnvironmentFile=/etc/kolkhoz-server.env" not in admin
+assert "NoNewPrivileges=true" not in admin
+assert admin_sudoers.strip() == (
+    "kolkhoz-admin ALL=(root) NOPASSWD: /bin/systemctl restart kolkhoz-server.service"
+)
+assert "visudo -cf" in bootstrap
+assert 'install -o root -g "$ADMIN_USER" -m 0440' in bootstrap
+locked_requirements = [
+    line
+    for line in requirements_lock.splitlines()
+    if line and not line.startswith((" ", "#", "--"))
+]
+assert locked_requirements and all("==" in line for line in locked_requirements)
+assert "--hash=sha256:" in requirements_lock
 assert "for _ in $(seq 1 30)" in bootstrap
 assert "server.kolkhoz_server.preflight" in bootstrap
 assert "policies/medium_policy.json" in bootstrap

@@ -1,13 +1,29 @@
+{
+	servers {
+		timeouts {
+			read_header 10s
+			read_body 15s
+		}
+	}
+}
+
 online.kolkhoz.williamtheisen.com {
 	encode zstd gzip
 	handle /admin/control/* {
-		reverse_proxy 127.0.0.1:18788
+		reverse_proxy 127.0.0.1:18788 {
+			header_up X-Forwarded-For {remote_host}
+		}
+	}
+	@private_diagnostics path /metrics/prometheus /metrics/prometheus/ /ready /ready/ /canary /canary/
+	handle @private_diagnostics {
+		respond "not found" 404
 	}
 	handle {
-	reverse_proxy 127.0.0.1:18787 {
-		lb_try_duration 5s
-		lb_try_interval 100ms
-		stream_close_delay 5m
-	}
+		reverse_proxy 127.0.0.1:18787 {
+			header_up X-Forwarded-For {remote_host}
+			lb_try_duration 5s
+			lb_try_interval 100ms
+			stream_close_delay 5m
+		}
 	}
 }

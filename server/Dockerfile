@@ -9,8 +9,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY server/deploy/requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
+COPY server/deploy/requirements.lock /tmp/requirements.lock
+RUN pip install --no-cache-dir --only-binary :all: --require-hashes \
+    -r /tmp/requirements.lock
 
 COPY engine ./engine
 COPY research ./research

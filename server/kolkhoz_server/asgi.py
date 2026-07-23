@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import ipaddress
 import json
 import logging
+import threading
 import time
+from collections import OrderedDict, deque
 from http import HTTPStatus
 from collections.abc import Callable
 from typing import Any, Mapping
@@ -29,6 +33,64 @@ _ALLOWED_HEADERS = (
     "Content-Type, Accept, Authorization, X-Kolkhoz-Seat-Token, X-Kolkhoz-Device-ID"
 )
 
+DEFAULT_REQUEST_RATE_LIMITS: dict[str, tuple[int, float]] = {
+    "identity.guest": (20, 600.0),
+    "identity.platform": (30, 600.0),
+    "identity.email": (10, 600.0),
+    "identity.link_redeem.source": (20, 600.0),
+    "identity.link_redeem.account": (8, 600.0),
+    "sessions.create": (30, 600.0),
+    "sessions.join.source": (30, 600.0),
+    "sessions.join.account": (60, 600.0),
+    "realtime.connect": (30, 60.0),
+}
+
+
+class RequestRateLimiter:
+    """Bound source- and credential-scoped controls for public entry points."""
+
+    def __init__(
+        self,
+        rules: Mapping[str, tuple[int, float]] | None = None,
+        *,
+        capacity: int = 50_000,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self.rules = dict(rules or DEFAULT_REQUEST_RATE_LIMITS)
+        if capacity <= 0 or any(
+            limit <= 0 or window <= 0 for limit, window in self.rules.values()
+        ):
+            raise ValueError("rate limits and capacity must be positive")
+        self.capacity = capacity
+        self.clock = clock
+        self._entries: OrderedDict[tuple[str, str], deque[float]] = OrderedDict()
+        self._lock = threading.Lock()
+
+    def retry_after(self, method: str, path: str, source: str) -> int | None:
+        scope = _rate_limit_scope(method, path)
+        if scope is None:
+            return None
+        return self.retry_after_scope(scope, source)
+
+    def retry_after_scope(self, scope: str, key: str) -> int | None:
+        rule = self.rules.get(scope)
+        if rule is None:
+            return None
+        limit, window = rule
+        now = self.clock()
+        entry_key = (scope, key)
+        with self._lock:
+            attempts = self._entries.setdefault(entry_key, deque())
+            while attempts and attempts[0] <= now - window:
+                attempts.popleft()
+            self._entries.move_to_end(entry_key)
+            if len(attempts) >= limit:
+                return max(1, int(window - (now - attempts[0])))
+            attempts.append(now)
+            while len(self._entries) > self.capacity:
+                self._entries.popitem(last=False)
+        return None
+
 
 class ASGIApplication:
     """Async transport adapter; game execution remains in ``OnlineApplication``."""
@@ -41,20 +103,26 @@ class ASGIApplication:
         connection_buffer_size: int = 64,
         max_message_bytes: int = 1_048_576,
         max_request_body_bytes: int = 1_048_576,
+        request_body_timeout_seconds: float = 15.0,
         shutdown: Callable[[], None] | None = None,
         metrics: ServerMetrics | None = None,
         readiness: Callable[[], Mapping[str, bool]] | None = None,
         readiness_timeout_seconds: float = 1.0,
+        rate_limiter: RequestRateLimiter | None = None,
     ) -> None:
         self.application = application
         self.realtime_bus = realtime_bus
         self.connection_buffer_size = connection_buffer_size
         self.max_message_bytes = max_message_bytes
         self.max_request_body_bytes = max_request_body_bytes
+        if request_body_timeout_seconds <= 0:
+            raise ValueError("request body timeout must be positive")
+        self.request_body_timeout_seconds = request_body_timeout_seconds
         self.shutdown = shutdown
         self.metrics = metrics or ServerMetrics()
         self.readiness = readiness
         self.readiness_timeout_seconds = readiness_timeout_seconds
+        self.rate_limiter = rate_limiter or RequestRateLimiter()
         self._catch_up_tasks: dict[
             tuple[str, str, str], asyncio.Task[dict[str, Any]]
         ] = {}
@@ -77,9 +145,52 @@ class ASGIApplication:
         route = _route_label(scope.get("path", "/"))
         started = time.perf_counter()
         status = int(HTTPStatus.INTERNAL_SERVER_ERROR)
+        headers = _headers(scope)
+        retry_after = self.rate_limiter.retry_after(
+            method,
+            scope.get("path", "/"),
+            _client_address(scope, headers),
+        )
+        account_scope = _credential_rate_limit_scope(method, scope.get("path", "/"))
+        if retry_after is None and account_scope is not None:
+            authorization = headers.get("authorization")
+            if authorization:
+                account_key = hashlib.sha256(authorization.encode()).hexdigest()
+                retry_after = self.rate_limiter.retry_after_scope(
+                    account_scope, account_key
+                )
+        if retry_after is not None:
+            status = int(HTTPStatus.TOO_MANY_REQUESTS)
+            await self._http_response(
+                send,
+                HTTPStatus.TOO_MANY_REQUESTS,
+                {"error": "request rate limit exceeded", "retryAfter": retry_after},
+            )
+            self.metrics.record_route(
+                method, route, status, time.perf_counter() - started
+            )
+            return
         body = bytearray()
+        body_deadline = (
+            asyncio.get_running_loop().time() + self.request_body_timeout_seconds
+        )
         while True:
-            message = await receive()
+            try:
+                message = await asyncio.wait_for(
+                    receive(),
+                    timeout=max(0.0, body_deadline - asyncio.get_running_loop().time()),
+                )
+            except TimeoutError:
+                status = int(HTTPStatus.REQUEST_TIMEOUT)
+                await self._http_response(
+                    send,
+                    HTTPStatus.REQUEST_TIMEOUT,
+                    {"error": "request body timed out"},
+                )
+                self.metrics.record_route(
+                    method, route, status, time.perf_counter() - started
+                )
+                return
             if message["type"] == "http.disconnect":
                 return
             body.extend(message.get("body", b""))
@@ -148,7 +259,7 @@ class ASGIApplication:
                 payload = {}
             response = await asyncio.to_thread(
                 self.application.dispatch,
-                Request(method, _target(scope), _headers(scope), payload),
+                Request(method, _target(scope), headers, payload),
             )
             await self._http_response(send, response.status, response.body)
             status = int(response.status)
@@ -187,6 +298,17 @@ class ASGIApplication:
     async def _websocket(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
         if (await receive())["type"] != "websocket.connect":
             return
+        headers = _headers(scope)
+        if (
+            self.rate_limiter.retry_after(
+                "WEBSOCKET",
+                scope.get("path", "/"),
+                _client_address(scope, headers),
+            )
+            is not None
+        ):
+            await send({"type": "websocket.close", "code": 1013})
+            return
         match = _realtime_session_id(scope.get("path", ""))
         query = parse_qs(scope.get("query_string", b"").decode("ascii"))
         viewer_values = query.get("viewerID")
@@ -200,10 +322,21 @@ class ASGIApplication:
             await send({"type": "websocket.close", "code": 1008})
             return
 
-        headers = _headers(scope)
         if not _header(headers, "authorization") or not _header(
             headers, "x-kolkhoz-seat-token"
         ):
+            await send({"type": "websocket.close", "code": 1008})
+            return
+
+        try:
+            authenticate = getattr(self.application, "authenticate_realtime", None)
+            if authenticate is not None:
+                await asyncio.to_thread(authenticate, match, viewer_id, headers)
+            else:
+                await self._dispatch_get(
+                    f"/sessions/{match}/state?viewerID={viewer_id}", headers
+                )
+        except ServerError:
             await send({"type": "websocket.close", "code": 1008})
             return
 
@@ -450,6 +583,70 @@ def _headers(scope: Mapping[str, Any]) -> dict[str, str]:
 
 def _header(headers: Mapping[str, str], name: str) -> str | None:
     return headers.get(name) or headers.get(name.title())
+
+
+def _client_address(scope: Mapping[str, Any], headers: Mapping[str, str]) -> str:
+    client = scope.get("client")
+    peer = str(client[0]) if isinstance(client, (tuple, list)) and client else "unknown"
+    try:
+        loopback = ipaddress.ip_address(peer).is_loopback
+    except ValueError:
+        loopback = False
+    forwarded = _header(headers, "x-forwarded-for")
+    if loopback and forwarded:
+        candidate = forwarded.split(",", 1)[0].strip()
+        try:
+            return _normalized_source_ip(candidate)
+        except ValueError:
+            pass
+    try:
+        return _normalized_source_ip(peer)
+    except ValueError:
+        return peer
+
+
+def _normalized_source_ip(value: str) -> str:
+    address = ipaddress.ip_address(value)
+    if address.version == 6:
+        return str(ipaddress.ip_network(f"{address}/64", strict=False))
+    return str(address)
+
+
+def _rate_limit_scope(method: str, path: str) -> str | None:
+    if method == "WEBSOCKET" and _realtime_session_id(path) is not None:
+        return "realtime.connect"
+    if method != "POST":
+        return None
+    if path == "/identity/guest":
+        return "identity.guest"
+    if path.startswith("/identity/platform/"):
+        return "identity.platform"
+    if path == "/identity/email/code":
+        return "identity.email"
+    if path == "/identity/device-links/redeem":
+        return "identity.link_redeem.source"
+    if path == "/sessions":
+        return "sessions.create"
+    if _session_join_code(path) is not None:
+        return "sessions.join.source"
+    return None
+
+
+def _session_join_code(path: str) -> str | None:
+    parts = [part for part in path.split("/") if part]
+    if len(parts) == 3 and parts[0] == "sessions" and parts[2] == "join":
+        return parts[1]
+    return None
+
+
+def _credential_rate_limit_scope(method: str, path: str) -> str | None:
+    if method != "POST":
+        return None
+    if path == "/identity/device-links/redeem":
+        return "identity.link_redeem.account"
+    if _session_join_code(path) is not None:
+        return "sessions.join.account"
+    return None
 
 
 def _realtime_session_id(path: str) -> str | None:

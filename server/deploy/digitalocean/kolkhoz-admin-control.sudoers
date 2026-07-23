@@ -1,0 +1,1 @@
+kolkhoz-admin ALL=(root) NOPASSWD: /bin/systemctl restart kolkhoz-server.service

@@ -90,7 +90,6 @@ class LobbyRepository(Protocol):
         token_hash: str,
         now: float,
     ) -> None: ...
-    def release_seat(self, session_id: str, player_id: int, *, now: float) -> None: ...
     def release_seat_and_delete_if_empty(
         self, session_id: str, player_id: int, *, now: float
     ) -> bool: ...
@@ -183,7 +182,7 @@ def new_session_record(
     now = time.time()
     return SessionRecord(
         str(uuid.uuid4()),
-        "".join(secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(5)),
+        "".join(secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(12)),
         seed,
         dict(variants),
         list(controllers),

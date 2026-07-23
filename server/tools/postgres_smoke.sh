@@ -74,6 +74,7 @@ schemas=(
   server/notifications_schema.sql
   server/commerce_schema.sql
   server/tournament_schema.sql
+  server/identity_schema.sql
 )
 
 # New server schemas are rerunnable deployment inputs. Applying them twice
@@ -91,8 +92,12 @@ done
 psql_stdin <<'SQL'
 insert into auth.users (id, email, created_at, updated_at)
 values ('10000000-0000-4000-8000-000000000001', 'smoke@kolkhoz.local', now(), now());
+begin;
+insert into server_players (id)
+values ('10000000-0000-4000-8000-000000000001');
 insert into public.profiles (user_id, display_name)
 values ('10000000-0000-4000-8000-000000000001', 'Smoke Player');
+commit;
 
 insert into server_games (session_id, seed, variants)
 values ('20000000-0000-4000-8000-000000000001', 42, '{"controllers":["human","heuristicAI","heuristicAI","heuristicAI"]}');
@@ -137,6 +142,16 @@ insert into game_command_receipts (
 ) values (
     'smoke-command', '20000000-0000-4000-8000-000000000001', 1, '{"ok":true}'
 );
+insert into server_identity_abuse_rate_limits (
+    scope, key_hash, window_started_at, attempts
+) values ('email_destination', 'smoke-email-hash', now(), 1)
+on conflict (scope, key_hash) do update set
+    attempts = server_identity_abuse_rate_limits.attempts + 1;
+insert into server_identity_abuse_rate_limits (
+    scope, key_hash, window_started_at, attempts
+) values ('email_destination', 'smoke-email-hash', now(), 1)
+on conflict (scope, key_hash) do update set
+    attempts = server_identity_abuse_rate_limits.attempts + 1;
 
 insert into server_progression_events (session_id, user_id)
 values ('20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001')
@@ -169,6 +184,9 @@ begin
        then raise exception 'population smoke failed'; end if;
     if (select online_games from public.profile_stats where user_id = '10000000-0000-4000-8000-000000000001') <> 1
        then raise exception 'result smoke failed'; end if;
+    if (select attempts from server_identity_abuse_rate_limits
+         where scope = 'email_destination' and key_hash = 'smoke-email-hash') <> 2
+       then raise exception 'identity abuse limit smoke failed'; end if;
 end $$;
 SQL
 

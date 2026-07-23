@@ -124,9 +124,9 @@ class OnlineApplication:
         operation = route.operation
 
         if operation == "health":
-            return Response(HTTPStatus.OK, self.runtime.health_state())
+            return Response(HTTPStatus.OK, {"status": "ok"})
         if operation == "metrics":
-            return Response(HTTPStatus.OK, {"service": self.metrics_state()})
+            return Response(HTTPStatus.OK, {"service": self.public_status()})
         if operation == "canary":
             state = self.runtime.health_state()
             return Response(
@@ -138,109 +138,14 @@ class OnlineApplication:
                 },
             )
         if operation.startswith("identity."):
-            if self.identity is None:
-                raise ServerError(
-                    HTTPStatus.SERVICE_UNAVAILABLE, "player identity is not configured"
-                )
-            try:
-                if operation == "identity.platform":
-                    credential = request.body.get("credential")
-                    if not isinstance(credential, dict):
-                        raise CredentialError("platform credential is required")
-                    return Response(
-                        HTTPStatus.OK,
-                        self.identity.authenticate(
-                            params["provider"],
-                            credential,
-                            display_name=str(request.body.get("displayName") or ""),
-                            device_id=_header(request.headers, "X-Kolkhoz-Device-ID")
-                            or "",
-                            claim_player_id=user_id
-                            or self._legacy_user_id(request.headers),
-                        ),
-                    )
-                if operation == "identity.guest":
-                    return Response(
-                        HTTPStatus.OK,
-                        self.identity.guest(
-                            str(request.body.get("installationID") or ""),
-                            display_name=str(request.body.get("displayName") or ""),
-                            device_id=_header(request.headers, "X-Kolkhoz-Device-ID")
-                            or "",
-                        ),
-                    )
-                if operation == "identity.legacy":
-                    player_id = self._require_user(
-                        self._legacy_user_id(request.headers)
-                    )
-                    return Response(
-                        HTTPStatus.OK,
-                        self.identity.migrate_legacy(
-                            player_id,
-                            str(request.body.get("installationID") or ""),
-                            device_id=_header(request.headers, "X-Kolkhoz-Device-ID")
-                            or "",
-                        ),
-                    )
-                player_id = self._require_user(user_id)
-                if operation == "identity.email.code":
-                    return Response(
-                        HTTPStatus.OK,
-                        self.identity.request_email_code(
-                            player_id, str(request.body.get("email") or "")
-                        ),
-                    )
-                if operation == "identity.email.verify":
-                    return Response(
-                        HTTPStatus.OK,
-                        self.identity.verify_email_code(
-                            player_id,
-                            str(request.body.get("email") or ""),
-                            str(request.body.get("code") or ""),
-                            device_id=_header(request.headers, "X-Kolkhoz-Device-ID")
-                            or "",
-                        ),
-                    )
-                if operation == "identity.links.create":
-                    return Response(HTTPStatus.OK, self.identity.create_link(player_id))
-                if operation == "identity.links.status":
-                    return Response(
-                        HTTPStatus.OK,
-                        self.identity.repository.link_status(
-                            player_id, params["requestID"], time.time()
-                        ),
-                    )
-                if operation == "identity.links.cancel":
-                    return Response(
-                        HTTPStatus.OK,
-                        self.identity.repository.cancel_link(
-                            player_id, params["requestID"], time.time()
-                        ),
-                    )
-                if operation == "identity.links.redeem":
-                    return Response(
-                        HTTPStatus.OK,
-                        self.identity.redeem(
-                            player_id, str(request.body.get("code") or "")
-                        ),
-                    )
-                return Response(
-                    HTTPStatus.OK,
-                    self.identity.repository.approve_link(
-                        player_id, params["requestID"], time.time()
-                    ),
-                )
-            except CredentialError as error:
-                raise ServerError(HTTPStatus.UNAUTHORIZED, str(error)) from error
-            except LinkError as error:
-                raise ServerError(HTTPStatus.CONFLICT, str(error)) from error
+            return self._dispatch_identity(operation, params, request, user_id)
         if operation == "account.delete":
             deleted_user_id = self._require_user(user_id)
             identity_session = str(
                 _header(request.headers, "Authorization") or ""
             ).startswith("Bearer khz_")
             if identity_session and self.identity is not None:
-                self.identity.repository.delete_player(deleted_user_id, time.time())
+                self.identity.delete_player(deleted_user_id)
                 return Response(HTTPStatus.OK, {"deleted": True})
             if self.accounts is None:
                 raise ServerError(
@@ -292,7 +197,7 @@ class OnlineApplication:
                             HTTPStatus.CONFLICT,
                             "active session is in use on another device",
                         )
-            status = {"service": self.metrics_state()}
+            status = {"service": self.public_status()}
             status["activeSession"] = self._active_session_json(
                 user_id, current_session_id
             )
@@ -309,46 +214,8 @@ class OnlineApplication:
                 HTTPStatus.OK,
                 self._installation(operation, params, request.body, user_id),
             )
-        if operation == "commerce.entitlements":
-            if self.commerce is None:
-                raise ServerError(
-                    HTTPStatus.SERVICE_UNAVAILABLE, "commerce is not configured"
-                )
-            return Response(
-                HTTPStatus.OK,
-                self.commerce.status(user_id=self._require_user(user_id)),
-            )
-        if operation == "commerce.purchases.claim":
-            if self.commerce is None:
-                raise ServerError(
-                    HTTPStatus.SERVICE_UNAVAILABLE, "commerce is not configured"
-                )
-            try:
-                value = self.commerce.claim(
-                    user_id=self._require_user(user_id),
-                    provider=str(request.body.get("provider") or "").strip(),
-                    verification_data=str(
-                        request.body.get("verificationData") or ""
-                    ).strip(),
-                )
-            except PurchaseAlreadyClaimed as error:
-                raise ServerError(HTTPStatus.CONFLICT, str(error)) from error
-            except PurchaseVerificationError as error:
-                raise ServerError(HTTPStatus.BAD_REQUEST, str(error)) from error
-            return Response(HTTPStatus.OK, value)
-        if operation == "commerce.apple.notifications":
-            if self.commerce is None:
-                raise ServerError(
-                    HTTPStatus.SERVICE_UNAVAILABLE, "commerce is not configured"
-                )
-            try:
-                self.commerce.notification(
-                    provider="apple",
-                    signed_payload=str(request.body.get("signedPayload") or "").strip(),
-                )
-            except PurchaseVerificationError as error:
-                raise ServerError(HTTPStatus.BAD_REQUEST, str(error)) from error
-            return Response(HTTPStatus.OK, {"accepted": True})
+        if operation.startswith("commerce."):
+            return self._dispatch_commerce(operation, request, user_id)
         if self.require_full_game and operation.startswith(
             ("sessions.", "results.", "challenges.", "tournaments.", "comrades.")
         ):
@@ -431,6 +298,157 @@ class OnlineApplication:
                     _header(request.headers, "X-Kolkhoz-Device-ID"),
                 ),
             )
+        if operation.startswith("sessions."):
+            return self._dispatch_sessions(operation, params, query, request, user_id)
+        raise ServerError(HTTPStatus.NOT_IMPLEMENTED, f"{operation} is not implemented")
+
+    def _dispatch_identity(
+        self,
+        operation: str,
+        params: Mapping[str, str],
+        request: Request,
+        user_id: str | None,
+    ) -> Response:
+        if self.identity is None:
+            raise ServerError(
+                HTTPStatus.SERVICE_UNAVAILABLE, "player identity is not configured"
+            )
+        try:
+            if operation == "identity.platform":
+                credential = request.body.get("credential")
+                if not isinstance(credential, dict):
+                    raise CredentialError("platform credential is required")
+                return Response(
+                    HTTPStatus.OK,
+                    self.identity.authenticate(
+                        params["provider"],
+                        credential,
+                        display_name=str(request.body.get("displayName") or ""),
+                        device_id=_header(request.headers, "X-Kolkhoz-Device-ID") or "",
+                        claim_player_id=user_id
+                        or self._legacy_user_id(request.headers),
+                    ),
+                )
+            if operation == "identity.guest":
+                return Response(
+                    HTTPStatus.OK,
+                    self.identity.guest(
+                        str(request.body.get("installationID") or ""),
+                        display_name=str(request.body.get("displayName") or ""),
+                        device_id=_header(request.headers, "X-Kolkhoz-Device-ID") or "",
+                    ),
+                )
+            if operation == "identity.legacy":
+                player_id = self._require_user(self._legacy_user_id(request.headers))
+                return Response(
+                    HTTPStatus.OK,
+                    self.identity.migrate_legacy(
+                        player_id,
+                        str(request.body.get("installationID") or ""),
+                        device_id=_header(request.headers, "X-Kolkhoz-Device-ID") or "",
+                    ),
+                )
+            player_id = self._require_user(user_id)
+            if operation == "identity.email.code":
+                return Response(
+                    HTTPStatus.OK,
+                    self.identity.request_email_code(
+                        player_id, str(request.body.get("email") or "")
+                    ),
+                )
+            if operation == "identity.email.verify":
+                return Response(
+                    HTTPStatus.OK,
+                    self.identity.verify_email_code(
+                        player_id,
+                        str(request.body.get("email") or ""),
+                        str(request.body.get("code") or ""),
+                        device_id=_header(request.headers, "X-Kolkhoz-Device-ID") or "",
+                    ),
+                )
+            if operation == "identity.links.create":
+                return Response(HTTPStatus.OK, self.identity.create_link(player_id))
+            if operation == "identity.links.status":
+                return Response(
+                    HTTPStatus.OK,
+                    self.identity.link_status(player_id, params["requestID"]),
+                )
+            if operation == "identity.links.cancel":
+                return Response(
+                    HTTPStatus.OK,
+                    self.identity.cancel_link(player_id, params["requestID"]),
+                )
+            if operation == "identity.links.redeem":
+                return Response(
+                    HTTPStatus.OK,
+                    self.identity.redeem(
+                        player_id, str(request.body.get("code") or "")
+                    ),
+                )
+            if operation == "identity.links.approve":
+                return Response(
+                    HTTPStatus.OK,
+                    self.identity.approve_link(player_id, params["requestID"]),
+                )
+        except CredentialError as error:
+            raise ServerError(HTTPStatus.UNAUTHORIZED, str(error)) from error
+        except LinkError as error:
+            raise ServerError(HTTPStatus.CONFLICT, str(error)) from error
+        raise ServerError(HTTPStatus.NOT_IMPLEMENTED, f"{operation} is not implemented")
+
+    def _dispatch_commerce(
+        self, operation: str, request: Request, user_id: str | None
+    ) -> Response:
+        if operation == "commerce.entitlements":
+            if self.commerce is None:
+                raise ServerError(
+                    HTTPStatus.SERVICE_UNAVAILABLE, "commerce is not configured"
+                )
+            return Response(
+                HTTPStatus.OK,
+                self.commerce.status(user_id=self._require_user(user_id)),
+            )
+        if operation == "commerce.purchases.claim":
+            if self.commerce is None:
+                raise ServerError(
+                    HTTPStatus.SERVICE_UNAVAILABLE, "commerce is not configured"
+                )
+            try:
+                value = self.commerce.claim(
+                    user_id=self._require_user(user_id),
+                    provider=str(request.body.get("provider") or "").strip(),
+                    verification_data=str(
+                        request.body.get("verificationData") or ""
+                    ).strip(),
+                )
+            except PurchaseAlreadyClaimed as error:
+                raise ServerError(HTTPStatus.CONFLICT, str(error)) from error
+            except PurchaseVerificationError as error:
+                raise ServerError(HTTPStatus.BAD_REQUEST, str(error)) from error
+            return Response(HTTPStatus.OK, value)
+        if operation == "commerce.apple.notifications":
+            if self.commerce is None:
+                raise ServerError(
+                    HTTPStatus.SERVICE_UNAVAILABLE, "commerce is not configured"
+                )
+            try:
+                self.commerce.notification(
+                    provider="apple",
+                    signed_payload=str(request.body.get("signedPayload") or "").strip(),
+                )
+            except PurchaseVerificationError as error:
+                raise ServerError(HTTPStatus.BAD_REQUEST, str(error)) from error
+            return Response(HTTPStatus.OK, {"accepted": True})
+        raise ServerError(HTTPStatus.NOT_IMPLEMENTED, f"{operation} is not implemented")
+
+    def _dispatch_sessions(
+        self,
+        operation: str,
+        params: Mapping[str, str],
+        query: Mapping[str, list[str]],
+        request: Request,
+        user_id: str | None,
+    ) -> Response:
         if operation == "sessions.create":
             return Response(
                 HTTPStatus.OK,
@@ -860,10 +878,10 @@ class OnlineApplication:
             joined_via_invite = False
         except ValueError:
             joined_via_invite = True
+        self._ensure_not_banned(user_id)
         if not joined_via_invite:
-            self._ensure_not_banned(user_id)
-            has_invites, invited = self.lobby.invite_access(record.session_id, user_id)
-            if not record.browser_joinable and has_invites and not invited:
+            _, invited = self.lobby.invite_access(record.session_id, user_id)
+            if not record.browser_joinable and not invited:
                 raise ServerError(HTTPStatus.FORBIDDEN, "not invited")
 
         def claim() -> tuple[int, str]:
@@ -1006,6 +1024,13 @@ class OnlineApplication:
             )
         )
         return service
+
+    def public_status(self) -> JsonObject:
+        now = time.time()
+        lobby = self.lobby.metrics_state(
+            now=now, presence_since=now - self.presence_ttl_seconds
+        )
+        return {"citizensOnline": lobby["citizensOnline"]}
 
     def finalize_runtime_state(
         self, session_id: str, state: Mapping[str, object]
@@ -1621,7 +1646,7 @@ class OnlineApplication:
         else:
             action_count = self.runtime.store.game(record.session_id).revision
             turn_player_id, turn_deadline_at = self.lobby.turn_state(record.session_id)
-        return listing_json(
+        listing = listing_json(
             session_id=record.session_id,
             invite_code=record.invite_code,
             open_seats=[
@@ -1643,6 +1668,8 @@ class OnlineApplication:
             created_at=record.created_at,
             expires_at=record.expires_at,
         )
+        listing.pop("inviteCode", None)
+        return listing
 
     def _invite_listing(self, record: object, user_id: str) -> JsonObject:
         listing = self._listing(record)
@@ -1807,6 +1834,21 @@ class OnlineApplication:
             session_ttl_seconds=self.session_ttl_seconds,
         )
 
+    def authenticate_realtime(
+        self,
+        session_id: str,
+        player_id: int,
+        headers: Mapping[str, str],
+    ) -> None:
+        """Authorize a realtime subscriber before allocating Redis resources."""
+        request = Request("GET", f"/sessions/{session_id}/realtime", headers, {})
+        self._authenticate(
+            session_id,
+            player_id,
+            request,
+            self._user_id(headers),
+        )
+
     def _social(
         self,
         operation: str,
@@ -1826,7 +1868,7 @@ class OnlineApplication:
         if operation == "profiles.get_current":
             value = self.social.public_profile(user_id)
             if self.identity is not None:
-                value.update(self.identity.repository.account_status(user_id))
+                value.update(self.identity.account_status(user_id))
             return value
         if operation == "profiles.update_current":
             self._require_portable_account(user_id)
@@ -1848,7 +1890,7 @@ class OnlineApplication:
     def _require_portable_account(self, user_id: str) -> None:
         if self.identity is None:
             return
-        if not bool(self.identity.repository.account_status(user_id).get("portable")):
+        if not bool(self.identity.account_status(user_id).get("portable")):
             raise ServerError(
                 HTTPStatus.FORBIDDEN,
                 "link an account or add a recovery email to use progression features",

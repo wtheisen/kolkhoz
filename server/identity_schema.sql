@@ -203,6 +203,16 @@ create table if not exists server_identity_rate_limits (
     primary key (player_id, action)
 );
 
+-- Cross-account abuse controls. Keys are one-way hashes of destinations or other
+-- attacker-controlled dimensions; never store recovery addresses here.
+create table if not exists server_identity_abuse_rate_limits (
+    scope text not null,
+    key_hash text not null,
+    window_started_at timestamptz not null,
+    attempts integer not null check (attempts between 1 and 1000),
+    primary key (scope, key_hash)
+);
+
 create table if not exists server_device_link_requests (
     id uuid primary key,
     source_player_id uuid not null references server_players(id) on delete cascade,

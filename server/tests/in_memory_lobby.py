@@ -218,19 +218,18 @@ class InMemoryLobbyRepository:
             )
             self._touch_session(session_id, now)
 
-    def release_seat(self, session_id: str, player_id: int, *, now: float) -> None:
-        with self._lock:
-            seat = self._seat(session_id, player_id)
-            if not seat.occupied:
-                raise SeatUnavailable(f"seat {player_id} is unavailable")
-            self._replace_seat(session_id, self._empty_seat(seat))
-            self._touch_session(session_id, now)
+    def _release_seat(self, session_id: str, player_id: int, *, now: float) -> None:
+        seat = self._seat(session_id, player_id)
+        if not seat.occupied:
+            raise SeatUnavailable(f"seat {player_id} is unavailable")
+        self._replace_seat(session_id, self._empty_seat(seat))
+        self._touch_session(session_id, now)
 
     def release_seat_and_delete_if_empty(
         self, session_id: str, player_id: int, *, now: float
     ) -> bool:
         with self._lock:
-            self.release_seat(session_id, player_id, now=now)
+            self._release_seat(session_id, player_id, now=now)
             if any(seat.occupied for seat in self._seats[session_id]):
                 return False
             if self._sessions[session_id].status != "open":
@@ -253,7 +252,7 @@ class InMemoryLobbyRepository:
             record = self.session(session_id)
             if record.status != "open" or record.created_by_user_id != host_user_id:
                 raise SeatUnavailable(f"seat {target_player_id} is unavailable")
-            self.release_seat(session_id, target_player_id, now=now)
+            self._release_seat(session_id, target_player_id, now=now)
 
     def abandon_seat(self, session_id: str, player_id: int, *, now: float) -> None:
         with self._lock:

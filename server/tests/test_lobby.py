@@ -76,6 +76,10 @@ class LobbyRepositoryTests(unittest.TestCase):
 
         self.assertEqual(loaded.session_id, record.session_id)
         self.assertEqual([value.session_id for value in listings], [record.session_id])
+        self.assertEqual(len(record.invite_code), 12)
+        self.assertTrue(
+            set(record.invite_code) <= set("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
+        )
 
     def test_create_releases_same_user_seat_from_finished_session(self) -> None:
         first = self.repository.new_session(

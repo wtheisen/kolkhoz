@@ -7,6 +7,8 @@ BUILD_ENV=/etc/kolkhoz-server-build.env
 SERVICE=kolkhoz-server.service
 REDIS_SERVICE=kolkhoz-server-redis.service
 RUN_USER=kolkhoz-server
+ADMIN_USER=kolkhoz-admin
+ADMIN_ENV=/etc/kolkhoz-admin-control.env
 REDIS_DIR=/var/lib/kolkhoz-server-redis
 PORT=18787
 REDIS_PORT=16379
@@ -89,7 +91,7 @@ if ! $apply; then
   echo "DRY RUN: would apply nine server schemas, then retire legacy local Supabase objects"
   echo "DRY RUN: would install capped Redis on 127.0.0.1:$REDIS_PORT and the server on 127.0.0.1:$PORT"
   echo "DRY RUN: would schedule daily deletion of email accounts unconfirmed for more than seven days"
-  echo "DRY RUN: would configure Caddy to bridge short upstream restart gaps"
+  echo "DRY RUN: would keep detailed diagnostics host-local and install a least-privilege admin restart service"
   exit 0
 fi
 [ "$(id -u)" -eq 0 ] || { echo "--apply must run as root" >&2; exit 1; }
@@ -102,16 +104,26 @@ export DEBIAN_FRONTEND=noninteractive
 redis_was_installed=false
 dpkg-query -W -f='${Status}' redis-server 2>/dev/null | grep -q 'install ok installed' && redis_was_installed=true
 apt-get update
-apt-get install -y --no-install-recommends redis-server postgresql-client python3-venv clang git ca-certificates curl iproute2
+apt-get install -y --no-install-recommends redis-server postgresql-client python3-venv clang git ca-certificates curl iproute2 sudo
 if ! $redis_was_installed; then
   systemctl disable --now redis-server.service redis.service 2>/dev/null || true
 fi
 
 id "$RUN_USER" >/dev/null 2>&1 || useradd --system --home-dir "$ROOT" --shell /usr/sbin/nologin "$RUN_USER"
+id "$ADMIN_USER" >/dev/null 2>&1 || useradd --system --user-group --home-dir /nonexistent --shell /usr/sbin/nologin "$ADMIN_USER"
 if [ "$env_source" != "$SERVER_ENV" ]; then
   install -o root -g root -m 0600 "$env_source" "$SERVER_ENV"
 fi
 install -d -o root -g "$RUN_USER" -m 0750 /etc/kolkhoz-server
+admin_env_tmp=$(mktemp)
+for key in KOLKHOZ_SUPABASE_URL KOLKHOZ_SUPABASE_PUBLISHABLE_KEY KOLKHOZ_ADMIN_USER_IDS; do
+  grep "^${key}=" "$SERVER_ENV" >> "$admin_env_tmp" || { echo "missing $key for admin control" >&2; exit 1; }
+done
+for key in KOLKHOZ_RESTART_COOLDOWN_SECONDS KOLKHOZ_ADMIN_AUTH_TIMEOUT_SECONDS KOLKHOZ_ADMIN_RATE_LIMIT KOLKHOZ_ADMIN_RATE_WINDOW_SECONDS KOLKHOZ_ADMIN_RATE_CAPACITY; do
+  grep "^${key}=" "$SERVER_ENV" >> "$admin_env_tmp" || true
+done
+install -o root -g "$ADMIN_USER" -m 0440 "$admin_env_tmp" "$ADMIN_ENV"
+rm -f "$admin_env_tmp"
 if [ ! -e /etc/kolkhoz-server/firebase-fcm.json ] && [ -r "$LEGACY_SECRET_DIR/firebase-fcm.json" ]; then
   install -o root -g "$RUN_USER" -m 0440 "$LEGACY_SECRET_DIR/firebase-fcm.json" /etc/kolkhoz-server/firebase-fcm.json
 fi
@@ -128,7 +140,11 @@ printf 'KOLKHOZ_BUILD_SHA=%s\n' "$(git_server rev-parse HEAD)" > "$BUILD_ENV"
 chmod 0644 "$BUILD_ENV"
 cd "$ROOT"
 python3 -m venv "$ROOT/.venv"
-"$ROOT/.venv/bin/pip" install --disable-pip-version-check -r "$ROOT/server/deploy/requirements.txt"
+chown -R "$RUN_USER:$RUN_USER" "$ROOT/.venv"
+runuser -u "$RUN_USER" -- "$ROOT/.venv/bin/pip" install \
+  --disable-pip-version-check --no-cache-dir --only-binary :all: --require-hashes \
+  -r "$ROOT/server/deploy/requirements.lock"
+chown -R root:root "$ROOT/.venv"
 "$ROOT/.venv/bin/python" -c 'from research.kolkhoz_research.c_engine import CEngine; CEngine()'
 test -s "$ROOT/policies/medium_policy.json"
 test -s "$ROOT/policies/hard_policy.json"
@@ -154,6 +170,8 @@ install -o root -g redis -m 0640 "$here/redis-kolkhoz-server.conf" /etc/redis/ko
 install -o root -g root -m 0644 "$here/kolkhoz-server-redis.service" /etc/systemd/system/kolkhoz-server-redis.service
 install -o root -g root -m 0644 "$here/kolkhoz-server.service" /etc/systemd/system/kolkhoz-server.service
 install -o root -g root -m 0644 "$here/kolkhoz-admin-control.service" /etc/systemd/system/kolkhoz-admin-control.service
+visudo -cf "$here/kolkhoz-admin-control.sudoers"
+install -o root -g root -m 0440 "$here/kolkhoz-admin-control.sudoers" /etc/sudoers.d/kolkhoz-admin-control
 install -o root -g root -m 0755 "$here/health-watch.sh" /usr/local/sbin/kolkhoz-health-watch
 install -o root -g root -m 0755 "$here/ai-canary.sh" /usr/local/sbin/kolkhoz-ai-canary
 install -o root -g root -m 0644 "$here/kolkhoz-health-watch.service" /etc/systemd/system/kolkhoz-health-watch.service

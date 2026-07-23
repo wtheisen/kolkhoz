@@ -324,25 +324,6 @@ class PostgresLobbyRepository:
             (user_id,),
         )
 
-    def release_seat(self, session_id: str, player_id: int, *, now: float) -> None:
-        with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
-            row = connection.execute(  # type: ignore[attr-defined]
-                """
-                update server_seats
-                   set occupied = false, user_id = null, token_hash = null,
-                       last_seen_at = null, autopilot = false, abandoned = false
-                 where session_id = %s::uuid and player_id = %s and occupied
-                returning player_id
-                """,
-                (session_id, player_id),
-            ).fetchone()
-            if row is None:
-                raise SeatUnavailable(f"seat {player_id} is unavailable")
-            connection.execute(  # type: ignore[attr-defined]
-                "update server_sessions set updated_at = to_timestamp(%s) where session_id = %s::uuid",
-                (now, session_id),
-            )
-
     def release_seat_and_delete_if_empty(
         self, session_id: str, player_id: int, *, now: float
     ) -> bool:

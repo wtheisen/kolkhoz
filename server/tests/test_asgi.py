@@ -8,7 +8,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from server.kolkhoz_server.api import Request, Response
-from server.kolkhoz_server.asgi import ASGIApplication, _direct_committed_updates
+from server.kolkhoz_server.asgi import (
+    ASGIApplication,
+    RequestRateLimiter,
+    _direct_committed_updates,
+)
 from server.kolkhoz_server.distributed import RealtimeMessage
 from server.kolkhoz_server.errors import ServerError
 
@@ -152,6 +156,32 @@ def test_http_rejects_oversized_chunked_body_before_dispatch() -> None:
     asyncio.run(app(scope, incoming.get, _collector(sent)))
 
     assert sent[0]["status"] == 413
+    assert application.requests == []
+
+
+def test_http_rejects_body_that_exceeds_total_read_deadline() -> None:
+    application = _Application()
+    app = ASGIApplication(
+        application,
+        _Bus(),
+        request_body_timeout_seconds=0.01,  # type: ignore[arg-type]
+    )
+    incoming = asyncio.Queue()
+    incoming.put_nowait({"type": "http.request", "body": b"{", "more_body": True})
+    sent: list[dict[str, Any]] = []
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/identity/guest",
+        "raw_path": b"/identity/guest",
+        "query_string": b"",
+        "headers": [],
+    }
+
+    asyncio.run(app(scope, incoming.get, _collector(sent)))
+
+    assert sent[0]["status"] == 408
+    assert json.loads(sent[1]["body"])["error"] == "request body timed out"
     assert application.requests == []
 
 
@@ -361,6 +391,141 @@ def test_websocket_rejects_missing_credentials() -> None:
     asyncio.run(app(scope, incoming.get, _collector(sent)))
     assert sent == [{"type": "websocket.close", "code": 1008}]
     assert bus.topics == []
+
+
+def test_websocket_authenticates_before_subscribing() -> None:
+    bus = _Bus()
+    app = ASGIApplication(_Application(), bus)  # type: ignore[arg-type]
+    sent: list[dict[str, Any]] = []
+    scope = _scope()
+    scope["headers"] = [
+        (b"authorization", b"Bearer invalid"),
+        (b"x-kolkhoz-seat-token", b"invalid"),
+    ]
+    incoming = asyncio.Queue()
+    incoming.put_nowait({"type": "websocket.connect"})
+
+    asyncio.run(app(scope, incoming.get, _collector(sent)))
+
+    assert sent == [{"type": "websocket.close", "code": 1008}]
+    assert bus.topics == []
+
+
+def test_expensive_entry_points_are_rate_limited_by_source() -> None:
+    limiter = RequestRateLimiter({"identity.guest": (1, 60)}, clock=lambda: 100.0)
+    app = ASGIApplication(
+        _Application(),
+        _Bus(),
+        rate_limiter=limiter,  # type: ignore[arg-type]
+    )
+
+    async def request() -> list[dict[str, Any]]:
+        incoming = asyncio.Queue()
+        incoming.put_nowait({"type": "http.request", "body": b"{}"})
+        sent: list[dict[str, Any]] = []
+        await app(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/identity/guest",
+                "raw_path": b"/identity/guest",
+                "query_string": b"",
+                "client": ("203.0.113.10", 1234),
+                "headers": [],
+            },
+            incoming.get,
+            _collector(sent),
+        )
+        return sent
+
+    first = asyncio.run(request())
+    second = asyncio.run(request())
+    assert first[0]["status"] == 404
+    assert second[0]["status"] == 429
+    assert json.loads(second[1]["body"])["retryAfter"] == 60
+
+
+def test_session_joins_are_rate_limited_by_source_and_account() -> None:
+    limiter = RequestRateLimiter(
+        {
+            "sessions.join.source": (1, 60),
+            "sessions.join.account": (2, 60),
+        },
+        clock=lambda: 100.0,
+    )
+    app = ASGIApplication(
+        _Application(),
+        _Bus(),
+        rate_limiter=limiter,  # type: ignore[arg-type]
+    )
+
+    async def request(source: str) -> list[dict[str, Any]]:
+        incoming = asyncio.Queue()
+        incoming.put_nowait({"type": "http.request", "body": b"{}"})
+        sent: list[dict[str, Any]] = []
+        await app(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/sessions/NOTAREALCODE/join",
+                "raw_path": b"/sessions/NOTAREALCODE/join",
+                "query_string": b"",
+                "client": (source, 1234),
+                "headers": [(b"authorization", b"Bearer account-token")],
+            },
+            incoming.get,
+            _collector(sent),
+        )
+        return sent
+
+    first = asyncio.run(request("203.0.113.10"))
+    same_source = asyncio.run(request("203.0.113.10"))
+    second_source = asyncio.run(request("203.0.113.11"))
+    account_limited = asyncio.run(request("203.0.113.12"))
+
+    assert first[0]["status"] == 404
+    assert same_source[0]["status"] == 429
+    assert second_source[0]["status"] == 404
+    assert account_limited[0]["status"] == 429
+
+
+def test_device_link_redemption_is_rate_limited_by_source_and_account() -> None:
+    limiter = RequestRateLimiter(
+        {
+            "identity.link_redeem.source": (1, 60),
+            "identity.link_redeem.account": (2, 60),
+        },
+        clock=lambda: 100.0,
+    )
+    app = ASGIApplication(
+        _Application(),
+        _Bus(),
+        rate_limiter=limiter,  # type: ignore[arg-type]
+    )
+
+    async def request(source: str) -> list[dict[str, Any]]:
+        incoming = asyncio.Queue()
+        incoming.put_nowait({"type": "http.request", "body": b"{}"})
+        sent: list[dict[str, Any]] = []
+        await app(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/identity/device-links/redeem",
+                "raw_path": b"/identity/device-links/redeem",
+                "query_string": b"",
+                "client": (source, 1234),
+                "headers": [(b"authorization", b"Bearer account-token")],
+            },
+            incoming.get,
+            _collector(sent),
+        )
+        return sent
+
+    assert asyncio.run(request("203.0.113.20"))[0]["status"] == 404
+    assert asyncio.run(request("203.0.113.20"))[0]["status"] == 429
+    assert asyncio.run(request("203.0.113.21"))[0]["status"] == 404
+    assert asyncio.run(request("203.0.113.22"))[0]["status"] == 429
 
 
 def test_websocket_rejects_revision_ahead_of_durable_state() -> None:

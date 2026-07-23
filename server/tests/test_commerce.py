@@ -7,11 +7,11 @@ from server.kolkhoz_server.commerce import (
     ApplePurchaseVerifier,
     CommerceService,
     FULL_GAME_ENTITLEMENT,
-    InMemoryEntitlementRepository,
     PurchaseAlreadyClaimed,
     PurchaseVerificationError,
     VerifiedPurchase,
 )
+from server.tests.in_memory_commerce import InMemoryEntitlementRepository
 
 
 class FakeVerifier:

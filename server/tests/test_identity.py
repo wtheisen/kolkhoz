@@ -19,10 +19,10 @@ from server.kolkhoz_server.identity import (
     GooglePlayGamesVerifier,
     IdentityService,
     IdentitySessionVerifier,
-    InMemoryIdentityRepository,
     LinkError,
     VerifiedIdentity,
 )
+from server.tests.in_memory_identity import InMemoryIdentityRepository
 
 
 class FakeVerifier:
@@ -279,6 +279,21 @@ class IdentityTests(unittest.TestCase):
             )
         self.assertFalse(self.repository.players[provisional_id]["deleted"])
 
+    def test_recovery_email_limit_cannot_be_bypassed_with_new_guests(self) -> None:
+        email = "target@example.com"
+        for index in range(5):
+            guest = self.service.guest(
+                f"installation-{index:08d}", display_name="", device_id="device"
+            )
+            self.service.request_email_code(str(guest["player"]["id"]), email)  # type: ignore[index]
+
+        guest = self.service.guest(
+            "installation-99999999", display_name="", device_id="device"
+        )
+        with self.assertRaisesRegex(CredentialError, "too many login codes"):
+            self.service.request_email_code(str(guest["player"]["id"]), email)  # type: ignore[index]
+        self.assertEqual(len(self.email_sender.sent), 5)
+
     def test_legacy_player_claim_keeps_uuid_and_rejects_cross_account_claim(
         self,
     ) -> None:
@@ -327,15 +342,14 @@ class IdentityTests(unittest.TestCase):
         stored = self.repository.links[str(link["requestID"])]
         self.assertNotEqual(stored["codeHash"], link["code"])
         self.assertTrue(str(link["qrPayload"]).endswith(str(link["code"])))
+        self.assertRegex(
+            str(link["code"]), r"^[A-HJ-NP-Z2-9]{4}(?:-[A-HJ-NP-Z2-9]{4}){2}$"
+        )
         preview = self.service.redeem(target_id, str(link["code"]))
         self.assertEqual(preview["status"], "target_confirmed")
-        approved = self.repository.approve_link(
-            source_id, str(link["requestID"]), self.now[0]
-        )
+        approved = self.service.approve_link(source_id, str(link["requestID"]))
         self.assertEqual(approved["status"], "approved")
-        target_session = self.repository.link_status(
-            target_id, str(link["requestID"]), self.now[0]
-        )
+        target_session = self.service.link_status(target_id, str(link["requestID"]))
         self.assertEqual(target_session["player"]["id"], source_id)  # type: ignore[index]
         restored = self.authenticate("play_games", "pg-target", "pg-new-code")
         self.assertEqual(restored["player"]["id"], source_id)  # type: ignore[index]
@@ -350,12 +364,12 @@ class IdentityTests(unittest.TestCase):
         with self.assertRaises(LinkError):
             self.service.redeem(target_id, str(expired["code"]))
         current = self.service.create_link(source_id)
-        self.repository.cancel_link(source_id, str(current["requestID"]), self.now[0])
+        self.service.cancel_link(source_id, str(current["requestID"]))
         with self.assertRaises(LinkError):
             self.service.redeem(target_id, str(current["code"]))
         final = self.service.create_link(source_id)
         self.service.redeem(target_id, str(final["code"]))
-        self.repository.approve_link(source_id, str(final["requestID"]), self.now[0])
+        self.service.approve_link(source_id, str(final["requestID"]))
         with self.assertRaises(LinkError):
             self.service.redeem(target_id, str(final["code"]))
 
@@ -386,9 +400,14 @@ class IdentityTests(unittest.TestCase):
         target_id = str(target["player"]["id"])  # type: ignore[index]
         for _ in range(8):
             with self.assertRaisesRegex(LinkError, "invalid"):
-                self.service.redeem(target_id, "AAA-BBB")
+                self.service.redeem(target_id, "ABCD-EFGH-JKLM")
         with self.assertRaisesRegex(LinkError, "too many"):
-            self.service.redeem(target_id, "AAA-BBB")
+            self.service.redeem(target_id, "ABCD-EFGH-JKLM")
+
+    def test_legacy_six_hex_link_codes_remain_normalized(self) -> None:
+        from server.kolkhoz_server.identity import _code
+
+        self.assertEqual(_code("abc def"), "ABC-DEF")
 
     def test_meaningful_profile_conflict_preserves_both_players(self) -> None:
         source = self.authenticate("game_center", "gc-source", "gc-code")
@@ -399,7 +418,7 @@ class IdentityTests(unittest.TestCase):
         link = self.service.create_link(source_id)
         self.service.redeem(target_id, str(link["code"]))
         with self.assertRaises(LinkError):
-            self.repository.approve_link(source_id, str(link["requestID"]), self.now[0])
+            self.service.approve_link(source_id, str(link["requestID"]))
         self.assertEqual(
             self.repository.links[str(link["requestID"])]["status"], "conflict"
         )
@@ -412,7 +431,8 @@ class IdentityTests(unittest.TestCase):
         player_id = str(login["player"]["id"])  # type: ignore[index]
         verifier = IdentitySessionVerifier(self.repository, clock=lambda: self.now[0])
         self.assertEqual(verifier.user_id(f"Bearer {token}"), player_id)
-        self.repository.delete_player(player_id, self.now[0])
+        self.assertTrue(self.service.account_status(player_id)["portable"])
+        self.service.delete_player(player_id)
         self.assertIsNone(verifier.user_id(f"Bearer {token}"))
         self.assertFalse(self.repository.identities)
 

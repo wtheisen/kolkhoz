@@ -80,8 +80,9 @@ The production WebSocket endpoint is:
 /sessions/{sessionID}/realtime?viewerID={playerID}&afterRevision={revision}
 ```
 
-It requires bearer and seat-token headers. Slow/overflowing clients are closed and
-must reconnect with their last applied revision.
+It requires bearer and seat-token headers. Credentials are validated before a Redis
+subscription is allocated. Slow, abusive, or overflowing clients are closed and must
+reconnect with their last applied revision.
 
 ## Verify
 

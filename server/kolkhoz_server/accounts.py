@@ -78,31 +78,7 @@ class PostgresAccountCleaner:
 
     def delete(self, user_id: str) -> None:
         with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
-            # Preserve active simulations while replacing the deleted identity with
-            # a non-personal, session-local marker. Open seats can simply be freed.
-            connection.execute(  # type: ignore[attr-defined]
-                """update server_seats seats
-                      set user_id = 'deleted:' || seats.session_id::text || ':' || seats.player_id::text,
-                          token_hash = repeat('0', 64), abandoned = true,
-                          autopilot = true, last_seen_at = null
-                     from server_sessions sessions
-                    where seats.session_id = sessions.session_id
-                      and seats.user_id = %s and sessions.status = 'active'""",
-                (user_id,),
-            )
-            connection.execute(  # type: ignore[attr-defined]
-                """update server_seats seats
-                      set occupied = false, user_id = null, token_hash = null,
-                          last_seen_at = null, abandoned = false, autopilot = false
-                     from server_sessions sessions
-                    where seats.session_id = sessions.session_id
-                      and seats.user_id = %s and sessions.status <> 'active'""",
-                (user_id,),
-            )
-            connection.execute(  # type: ignore[attr-defined]
-                "update server_sessions set created_by_user_id = null where created_by_user_id = %s",
-                (user_id,),
-            )
+            detach_player_from_sessions(connection, user_id)
             for table in (
                 "server_session_invites",
                 "server_presence",
@@ -118,6 +94,35 @@ class PostgresAccountCleaner:
             connection.execute(  # type: ignore[attr-defined]
                 "delete from server_players where id = %s", (user_id,)
             )
+
+
+def detach_player_from_sessions(connection: object, user_id: str) -> None:
+    """Remove a player identity from session-owned records before deletion or merge."""
+    # Preserve active simulations with a non-personal, session-local marker. Seats
+    # outside active games can be released immediately.
+    connection.execute(  # type: ignore[attr-defined]
+        """update server_seats seats
+              set user_id = 'deleted:' || seats.session_id::text || ':' || seats.player_id::text,
+                  token_hash = repeat('0', 64), abandoned = true,
+                  autopilot = true, last_seen_at = null
+             from server_sessions sessions
+            where seats.session_id = sessions.session_id
+              and seats.user_id = %s and sessions.status = 'active'""",
+        (user_id,),
+    )
+    connection.execute(  # type: ignore[attr-defined]
+        """update server_seats seats
+              set occupied = false, user_id = null, token_hash = null,
+                  last_seen_at = null, abandoned = false, autopilot = false
+             from server_sessions sessions
+            where seats.session_id = sessions.session_id
+              and seats.user_id = %s and sessions.status <> 'active'""",
+        (user_id,),
+    )
+    connection.execute(  # type: ignore[attr-defined]
+        "update server_sessions set created_by_user_id = null where created_by_user_id = %s",
+        (user_id,),
+    )
 
 
 class AccountDeletionService:

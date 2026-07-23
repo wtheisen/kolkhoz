@@ -14,10 +14,10 @@ from server.kolkhoz_server.runtime import GameRuntime
 from server.kolkhoz_server.store import SQLiteEventStore
 from server.kolkhoz_server.commerce import (
     CommerceService,
-    InMemoryEntitlementRepository,
     PurchaseVerificationError,
     VerifiedPurchase,
 )
+from server.tests.in_memory_commerce import InMemoryEntitlementRepository
 from server.tests.test_runtime import FakeEngineFactory
 
 
@@ -120,6 +120,15 @@ class CompatibilityApiTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.runtime.close()
         self.temporary.cleanup()
+
+    def test_public_health_and_status_hide_runtime_diagnostics(self) -> None:
+        health_status, health = self.request("GET", "/health")
+        metrics_status, metrics = self.request("GET", "/metrics")
+
+        self.assertEqual(health_status, 200)
+        self.assertEqual(health, {"status": "ok"})
+        self.assertEqual(metrics_status, 200)
+        self.assertEqual(set(metrics["service"]), {"citizensOnline"})
 
     def test_recent_results_require_auth_and_return_last_games(self) -> None:
         status, _ = self.request("GET", "/results/recent")
@@ -360,6 +369,38 @@ class CompatibilityApiTests(unittest.TestCase):
         self.application.lobby.set_ranked(session_id, True, now=2.0)
         status, _ = self.request("GET", f"/sessions/{session_id}/spectate")
         self.assertEqual(status, 403)
+
+    def test_private_session_hides_invite_code_and_rejects_uuid_join(self) -> None:
+        _, created = self.request(
+            "POST",
+            "/sessions",
+            {
+                "controllers": ["human", "human", "heuristicAI", "heuristicAI"],
+                "browserJoinable": False,
+            },
+            bearer="host-token",
+        )
+        session_id = created["sessionID"]
+
+        status, listing = self.request("GET", f"/sessions/{session_id}")
+        self.assertEqual(status, 200)
+        self.assertNotIn("inviteCode", listing)
+
+        rejected, _ = self.request(
+            "POST",
+            f"/sessions/{session_id}/join",
+            {"preferredPlayerID": 1},
+            bearer="guest-token",
+        )
+        self.assertEqual(rejected, 403)
+
+        joined, _ = self.request(
+            "POST",
+            f"/sessions/{created['inviteCode']}/join",
+            {"preferredPlayerID": 1},
+            bearer="guest-token",
+        )
+        self.assertEqual(joined, 200)
 
     def test_gameplay_gets_do_not_mutate_session_state(self) -> None:
         status, created = self.request(

@@ -22,10 +22,10 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: server/deploy/requirements.txt
+          cache-dependency-path: server/deploy/requirements.lock
 
       - name: Install chaos client dependencies
-        run: python3 -m pip install -r server/deploy/requirements.txt
+        run: python3 -m pip install --require-hashes -r server/deploy/requirements.lock
 
       - name: Build and start distributed staging stack
         working-directory: server/deploy/staging

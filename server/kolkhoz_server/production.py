@@ -10,7 +10,7 @@ from pathlib import Path
 from .ai import AutomaticAdvancer
 from .automatic_scheduler import AutomaticTurnScheduler
 from .api import OnlineApplication
-from .asgi import ASGIApplication
+from .asgi import ASGIApplication, RequestRateLimiter
 from .auth import CachingAuthVerifier, StagingAuthVerifier, SupabaseAuthVerifier
 from .commands import (
     CommandClient,
@@ -100,10 +100,6 @@ def _enabled(name: str, default: bool = True) -> bool:
 
 def create_asgi_application() -> ASGIApplication:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host", default=os.environ.get("KOLKHOZ_HOST", "127.0.0.1"))
-    parser.add_argument(
-        "--port", type=int, default=int(os.environ.get("KOLKHOZ_PORT", "8787"))
-    )
     parser.add_argument(
         "--shards", type=int, default=int(os.environ.get("KOLKHOZ_SHARDS", "16"))
     )
@@ -425,11 +421,77 @@ def create_asgi_application() -> ASGIApplication:
         max_request_body_bytes=int(
             os.environ.get("KOLKHOZ_HTTP_MAX_BODY_BYTES", "1048576")
         ),
+        request_body_timeout_seconds=float(
+            os.environ.get("KOLKHOZ_HTTP_BODY_TIMEOUT_SECONDS", "15")
+        ),
         shutdown=shutdown,
         metrics=metrics,
         readiness=readiness,
         readiness_timeout_seconds=float(
             os.environ.get("KOLKHOZ_READINESS_TIMEOUT_SECONDS", "1")
+        ),
+        rate_limiter=RequestRateLimiter(
+            {
+                "identity.guest": (
+                    int(os.environ.get("KOLKHOZ_GUEST_RATE_LIMIT", "20")),
+                    float(
+                        os.environ.get("KOLKHOZ_IDENTITY_RATE_WINDOW_SECONDS", "600")
+                    ),
+                ),
+                "identity.platform": (
+                    int(os.environ.get("KOLKHOZ_PLATFORM_RATE_LIMIT", "30")),
+                    float(
+                        os.environ.get("KOLKHOZ_IDENTITY_RATE_WINDOW_SECONDS", "600")
+                    ),
+                ),
+                "identity.email": (
+                    int(os.environ.get("KOLKHOZ_EMAIL_RATE_LIMIT", "10")),
+                    float(
+                        os.environ.get("KOLKHOZ_IDENTITY_RATE_WINDOW_SECONDS", "600")
+                    ),
+                ),
+                "identity.link_redeem.source": (
+                    int(os.environ.get("KOLKHOZ_LINK_REDEEM_SOURCE_RATE_LIMIT", "20")),
+                    float(
+                        os.environ.get("KOLKHOZ_LINK_REDEEM_RATE_WINDOW_SECONDS", "600")
+                    ),
+                ),
+                "identity.link_redeem.account": (
+                    int(os.environ.get("KOLKHOZ_LINK_REDEEM_ACCOUNT_RATE_LIMIT", "8")),
+                    float(
+                        os.environ.get("KOLKHOZ_LINK_REDEEM_RATE_WINDOW_SECONDS", "600")
+                    ),
+                ),
+                "sessions.create": (
+                    int(os.environ.get("KOLKHOZ_SESSION_CREATE_RATE_LIMIT", "30")),
+                    float(
+                        os.environ.get("KOLKHOZ_IDENTITY_RATE_WINDOW_SECONDS", "600")
+                    ),
+                ),
+                "sessions.join.source": (
+                    int(os.environ.get("KOLKHOZ_SESSION_JOIN_SOURCE_RATE_LIMIT", "30")),
+                    float(
+                        os.environ.get(
+                            "KOLKHOZ_SESSION_JOIN_RATE_WINDOW_SECONDS", "600"
+                        )
+                    ),
+                ),
+                "sessions.join.account": (
+                    int(
+                        os.environ.get("KOLKHOZ_SESSION_JOIN_ACCOUNT_RATE_LIMIT", "60")
+                    ),
+                    float(
+                        os.environ.get(
+                            "KOLKHOZ_SESSION_JOIN_RATE_WINDOW_SECONDS", "600"
+                        )
+                    ),
+                ),
+                "realtime.connect": (
+                    int(os.environ.get("KOLKHOZ_REALTIME_CONNECT_RATE_LIMIT", "30")),
+                    float(os.environ.get("KOLKHOZ_REALTIME_RATE_WINDOW_SECONDS", "60")),
+                ),
+            },
+            capacity=int(os.environ.get("KOLKHOZ_RATE_LIMIT_CAPACITY", "50000")),
         ),
     )
 
