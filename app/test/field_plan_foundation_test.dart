@@ -140,7 +140,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  test('field-plan card mappings preserve incomplete-family fallbacks', () {
+  test('field-plan card mappings cover the complete physical deck', () {
     expect(
       KolkhozCardBack.classic.assetPathFor(KolkhozArtStyle.fieldPlan),
       fieldPlanCardBackAssetPath,
@@ -175,7 +175,7 @@ void main() {
         rank: 'king',
         nomenclature: false,
       ),
-      isNull,
+      'assets/art/field_plan/cards/faces/face-king-wheat.png',
     );
     expect(
       fieldPlanCardFaceAssetPath(
@@ -183,7 +183,23 @@ void main() {
         rank: 'queen',
         nomenclature: true,
       ),
-      isNull,
+      'assets/art/field_plan/cards/faces/face-queen-wheat.png',
+    );
+    expect(
+      fieldPlanCardFaceAssetPath(
+        suit: 'wrecker',
+        rank: 'saboteur',
+        nomenclature: false,
+      ),
+      'assets/art/field_plan/cards/faces/face-saboteur.png',
+    );
+    expect(
+      fieldPlanCardFrameAssetPath(suit: 'potato', trump: false),
+      'assets/art/field_plan/cards/frames/card-frame-potato.png',
+    );
+    expect(
+      fieldPlanCardFrameAssetPath(suit: 'potato', trump: true),
+      'assets/art/field_plan/cards/frames/card-frame-trump.png',
     );
   });
 
@@ -202,7 +218,24 @@ void main() {
             'assets/art/field_plan/shared/fonts/PTSans-Regular.ttf',
           ),
         );
-      await Future.wait([display.load(), body.load()]);
+      final cardRank = FontLoader('Podkova')
+        ..addFont(
+          rootBundle.load(
+            'assets/art/field_plan/shared/fonts/Podkova-Variable.ttf',
+          ),
+        );
+      final slashedZero = FontLoader('Bitter')
+        ..addFont(
+          rootBundle.load(
+            'assets/art/field_plan/shared/fonts/Bitter-Variable.ttf',
+          ),
+        );
+      await Future.wait([
+        display.load(),
+        body.load(),
+        cardRank.load(),
+        slashedZero.load(),
+      ]);
     });
     await tester.pumpWidget(
       const MaterialApp(

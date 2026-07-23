@@ -1,0 +1,5992 @@
+{
+  "version": 16,
+  "canvas": {
+    "width": 1644,
+    "height": 2244
+  },
+  "fontMetrics": {
+    "0": {
+      "left": 271.0050048828125,
+      "right": 270.3387451171875,
+      "ascent": 716,
+      "descent": 12
+    },
+    "2": {
+      "left": 239.83383178710938,
+      "right": 244.35366821289062,
+      "ascent": 610.46875,
+      "descent": 0
+    },
+    "3": {
+      "left": 239.82821655273438,
+      "right": 219.15615844726562,
+      "ascent": 609.125,
+      "descent": 20.125
+    },
+    "4": {
+      "left": 260.9021301269531,
+      "right": 241.48849487304688,
+      "ascent": 624.9375,
+      "descent": 0
+    },
+    "5": {
+      "left": 224.62237548828125,
+      "right": 229.36199951171875,
+      "ascent": 589,
+      "descent": 18.671875
+    },
+    "6": {
+      "left": 234.95611572265625,
+      "right": 246.62200927734375,
+      "ascent": 609.125,
+      "descent": 20.125
+    },
+    "7": {
+      "left": 230.70303344726562,
+      "right": 243.70321655273438,
+      "ascent": 589,
+      "descent": 0
+    },
+    "8": {
+      "left": 227.41635131835938,
+      "right": 226.69302368164062,
+      "ascent": 609.125,
+      "descent": 20.125
+    },
+    "9": {
+      "left": 241.08953857421875,
+      "right": 241.81671142578125,
+      "ascent": 609.125,
+      "descent": 20.125
+    },
+    "10": {
+      "left": 518.25048828125,
+      "right": 495.115234375,
+      "ascent": 609.125,
+      "descent": 20.125
+    },
+    "11": {
+      "left": 467.59375,
+      "right": 476.453125,
+      "ascent": 605.125,
+      "descent": 0
+    },
+    "12": {
+      "left": 493.6932373046875,
+      "right": 491.3536376953125,
+      "ascent": 610.46875,
+      "descent": 0
+    },
+    "13": {
+      "left": 480.6196594238281,
+      "right": 467.1507263183594,
+      "ascent": 609.125,
+      "descent": 20.125
+    },
+    "Т": {
+      "left": 270.09674072265625,
+      "right": 262.90325927734375,
+      "ascent": 589,
+      "descent": 0
+    },
+    "В": {
+      "left": 255.32427978515625,
+      "right": 263.67572021484375,
+      "ascent": 589,
+      "descent": 0
+    },
+    "Валет": {
+      "left": 1341.862548828125,
+      "right": 1362.18994140625,
+      "ascent": 589,
+      "descent": 24
+    },
+    "Д": {
+      "left": 308.6565246582031,
+      "right": 301.2028503417969,
+      "ascent": 589,
+      "descent": 133.734375
+    },
+    "Дама": {
+      "left": 1256.0272216796875,
+      "right": 1277.3106689453125,
+      "ascent": 589,
+      "descent": 133.734375
+    },
+    "К": {
+      "left": 305.2275390625,
+      "right": 310.7724609375,
+      "ascent": 589,
+      "descent": 0
+    },
+    "Король": {
+      "left": 1697.982421875,
+      "right": 1718.989990234375,
+      "ascent": 589,
+      "descent": 220
+    },
+    "Вредитель": {
+      "left": 2536.526123046875,
+      "right": 2557.533447265625,
+      "ascent": 589,
+      "descent": 220
+    }
+  },
+  "currentCardId": "sunflower-king",
+  "currentSuitId": "sunflower",
+  "currentInsetMode": "trump",
+  "mirrorCorners": true,
+  "sharedCorners": {
+    "topRank": {
+      "x": 291.2224025895829,
+      "y": 255.10526218567782,
+      "visualHeight": 195.3000030517578
+    },
+    "topSuit": {
+      "x": 187.48221144411116,
+      "y": 358.948835122936,
+      "width": 200,
+      "height": 200
+    },
+    "bottomRank": {
+      "x": 1352.777597410417,
+      "y": 1988.894737814322,
+      "visualHeight": 195.3000030517578
+    },
+    "bottomSuit": {
+      "x": 1256.5177885558887,
+      "y": 1685.051164877064,
+      "width": 200,
+      "height": 200
+    },
+    "topValue": {
+      "x": 477.30230732568896,
+      "y": 270.6710589026887,
+      "visualHeight": 90
+    },
+    "bottomValue": {
+      "x": 1166.697692674311,
+      "y": 1973.3289410973114,
+      "visualHeight": 90
+    },
+    "topTrumpEmblem": {
+      "x": 1186.6163054753424,
+      "y": 131.3616025119852,
+      "width": 280,
+      "height": 280
+    },
+    "bottomTrumpEmblem": {
+      "x": 177.38369452465759,
+      "y": 1832.6383974880146,
+      "width": 280,
+      "height": 280
+    },
+    "topTrumpInset": {
+      "x": 699.0560991337006,
+      "y": -67.05228629902808,
+      "width": 900,
+      "height": 900
+    },
+    "bottomTrumpInset": {
+      "x": 44.94390086629937,
+      "y": 1411.0522862990283,
+      "width": 900,
+      "height": 900
+    }
+  },
+  "layouts": {
+    "wheat-1": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "Т",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 612,
+        "y": 890,
+        "width": 420,
+        "height": 420,
+        "rotation": 0
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "Т",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "wheat-2": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "2",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 612,
+        "y": 410,
+        "width": 420,
+        "height": 420,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 612,
+        "y": 1370,
+        "width": 420,
+        "height": 420,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "2",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "wheat-3": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "3",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 612,
+        "y": 378,
+        "width": 420,
+        "height": 420,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 612,
+        "y": 890,
+        "width": 420,
+        "height": 420,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 612,
+        "y": 1402,
+        "width": 420,
+        "height": 420,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "3",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "wheat-4": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "4",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 475,
+        "y": 487,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 839,
+        "y": 487,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 475,
+        "y": 1383,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 839,
+        "y": 1383,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "4",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "wheat-5": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "5",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 475,
+        "y": 455,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 839,
+        "y": 455,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 657,
+        "y": 935,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 475,
+        "y": 1415,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 839,
+        "y": 1415,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "5",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "wheat-6": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "6",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 475,
+        "y": 407,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 839,
+        "y": 407,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 475,
+        "y": 935,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 839,
+        "y": 935,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 475,
+        "y": 1463,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 839,
+        "y": 1463,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "6",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "wheat-7": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "7",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0,
+        "fontSize": 300
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1 · upper left",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 470,
+        "y": 365,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2 · upper right",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 834,
+        "y": 365,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3 · upper center",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 652,
+        "y": 760,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4 · middle left",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 470,
+        "y": 1055,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5 · middle right",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 834,
+        "y": 1055,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6 · lower left",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 470,
+        "y": 1485,
+        "width": 340,
+        "height": 340,
+        "rotation": 180
+      },
+      "pip7": {
+        "type": "image",
+        "label": "Pip 7 · lower right",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 834,
+        "y": 1485,
+        "width": 340,
+        "height": 340,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "7",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180,
+        "fontSize": 300
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "wheat-8": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "8",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 475,
+        "y": 359,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 839,
+        "y": 359,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 657,
+        "y": 615,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 475,
+        "y": 871,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 839,
+        "y": 871,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 657,
+        "y": 1191,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip7": {
+        "type": "image",
+        "label": "Pip 7",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 475,
+        "y": 1511,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip8": {
+        "type": "image",
+        "label": "Pip 8",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 839,
+        "y": 1511,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "8",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "wheat-9": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "9",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 500,
+        "y": 368,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 864,
+        "y": 368,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 500,
+        "y": 752,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 864,
+        "y": 752,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 682,
+        "y": 960,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 500,
+        "y": 1168,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip7": {
+        "type": "image",
+        "label": "Pip 7",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 864,
+        "y": 1168,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip8": {
+        "type": "image",
+        "label": "Pip 8",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 500,
+        "y": 1552,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip9": {
+        "type": "image",
+        "label": "Pip 9",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 864,
+        "y": 1552,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "9",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "wheat-10": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "10",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0,
+        "fontSize": 240
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 500,
+        "y": 336,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 864,
+        "y": 336,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 682,
+        "y": 592,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 500,
+        "y": 784,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 864,
+        "y": 784,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 500,
+        "y": 1136,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip7": {
+        "type": "image",
+        "label": "Pip 7",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 864,
+        "y": 1136,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip8": {
+        "type": "image",
+        "label": "Pip 8",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 682,
+        "y": 1328,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip9": {
+        "type": "image",
+        "label": "Pip 9",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 500,
+        "y": 1584,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip10": {
+        "type": "image",
+        "label": "Pip 10",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 864,
+        "y": 1584,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "10",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180,
+        "fontSize": 240
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "wheat-jack": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "В",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Top numerical value",
+        "text": "11",
+        "x": 477.30230732568896,
+        "y": 270.6710589026887,
+        "visualHeight": 90,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "centralFace": {
+        "type": "image",
+        "label": "Jack portrait",
+        "href": "../faces/candidates/face-jack-poster-v5-palette.png",
+        "x": 372,
+        "y": 445,
+        "width": 900,
+        "height": 1350,
+        "rotation": 0
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "В",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Bottom numerical value",
+        "text": "11",
+        "x": 1166.697692674311,
+        "y": 1973.3289410973114,
+        "visualHeight": 90,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "faceCaption": {
+        "type": "caption",
+        "label": "Face caption",
+        "text": "Валет",
+        "x": 822,
+        "y": 1727.6048109002213,
+        "visualHeight": 96,
+        "rotation": 0
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "wheat-queen": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "Д",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Top numerical value",
+        "text": "12",
+        "x": 477.30230732568896,
+        "y": 270.6710589026887,
+        "visualHeight": 90,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "centralFace": {
+        "type": "image",
+        "label": "Queen portrait",
+        "href": "../faces/candidates/face-queen-poster-v5-palette.png",
+        "x": 372,
+        "y": 445,
+        "width": 900,
+        "height": 1350,
+        "rotation": 0
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "Д",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Bottom numerical value",
+        "text": "12",
+        "x": 1166.697692674311,
+        "y": 1973.3289410973114,
+        "visualHeight": 90,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "faceCaption": {
+        "type": "caption",
+        "label": "Face caption",
+        "text": "Дама",
+        "x": 822.3669853374076,
+        "y": 1770.269477697721,
+        "visualHeight": 96,
+        "rotation": 0
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "wheat-king": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "К",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0,
+        "fontSize": 300
+      },
+      "topValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Top numerical value",
+        "text": "13",
+        "x": 477.30230732568896,
+        "y": 270.6710589026887,
+        "visualHeight": 90,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "centralFace": {
+        "type": "image",
+        "label": "King portrait",
+        "href": "../faces/candidates/face-king-poster-v5-palette.png",
+        "x": 372,
+        "y": 445,
+        "width": 900,
+        "height": 1350,
+        "rotation": 0
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "К",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180,
+        "fontSize": 300
+      },
+      "bottomValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Bottom numerical value",
+        "text": "13",
+        "x": 1166.697692674311,
+        "y": 1973.3289410973114,
+        "visualHeight": 90,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/wheat/suit-wheat-poster-c-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "faceCaption": {
+        "type": "caption",
+        "label": "Face caption",
+        "text": "Король",
+        "x": 822,
+        "y": 1885,
+        "visualHeight": 96,
+        "rotation": 0
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "sunflower-1": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "Т",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 612,
+        "y": 890,
+        "width": 420,
+        "height": 420,
+        "rotation": 0
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "Т",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "sunflower-2": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "2",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 612,
+        "y": 410,
+        "width": 420,
+        "height": 420,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 612,
+        "y": 1370,
+        "width": 420,
+        "height": 420,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "2",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "sunflower-3": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "3",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 612,
+        "y": 378,
+        "width": 420,
+        "height": 420,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 612,
+        "y": 890,
+        "width": 420,
+        "height": 420,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 612,
+        "y": 1402,
+        "width": 420,
+        "height": 420,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "3",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "sunflower-4": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "4",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 475,
+        "y": 487,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 839,
+        "y": 487,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 475,
+        "y": 1383,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 839,
+        "y": 1383,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "4",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "sunflower-5": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "5",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 475,
+        "y": 455,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 839,
+        "y": 455,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 657,
+        "y": 935,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 475,
+        "y": 1415,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 839,
+        "y": 1415,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "5",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "sunflower-6": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "6",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 475,
+        "y": 407,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 839,
+        "y": 407,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 475,
+        "y": 935,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 839,
+        "y": 935,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 475,
+        "y": 1463,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 839,
+        "y": 1463,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "6",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "sunflower-7": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "7",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1 · upper left",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 470,
+        "y": 365,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2 · upper right",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 834,
+        "y": 365,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3 · upper center",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 652,
+        "y": 760,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4 · middle left",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 470,
+        "y": 1055,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5 · middle right",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 834,
+        "y": 1055,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6 · lower left",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 470,
+        "y": 1485,
+        "width": 340,
+        "height": 340,
+        "rotation": 180
+      },
+      "pip7": {
+        "type": "image",
+        "label": "Pip 7 · lower right",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 834,
+        "y": 1485,
+        "width": 340,
+        "height": 340,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "7",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "sunflower-8": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "8",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 475,
+        "y": 359,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 839,
+        "y": 359,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 657,
+        "y": 615,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 475,
+        "y": 871,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 839,
+        "y": 871,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 657,
+        "y": 1191,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip7": {
+        "type": "image",
+        "label": "Pip 7",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 475,
+        "y": 1511,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip8": {
+        "type": "image",
+        "label": "Pip 8",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 839,
+        "y": 1511,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "8",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "sunflower-9": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "9",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 500,
+        "y": 368,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 864,
+        "y": 368,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 500,
+        "y": 752,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 864,
+        "y": 752,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 682,
+        "y": 960,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 500,
+        "y": 1168,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip7": {
+        "type": "image",
+        "label": "Pip 7",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 864,
+        "y": 1168,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip8": {
+        "type": "image",
+        "label": "Pip 8",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 500,
+        "y": 1552,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip9": {
+        "type": "image",
+        "label": "Pip 9",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 864,
+        "y": 1552,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "9",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "sunflower-10": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "10",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 500,
+        "y": 336,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 864,
+        "y": 336,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 682,
+        "y": 592,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 500,
+        "y": 784,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 864,
+        "y": 784,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 500,
+        "y": 1136,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip7": {
+        "type": "image",
+        "label": "Pip 7",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 864,
+        "y": 1136,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip8": {
+        "type": "image",
+        "label": "Pip 8",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 682,
+        "y": 1328,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip9": {
+        "type": "image",
+        "label": "Pip 9",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 500,
+        "y": 1584,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip10": {
+        "type": "image",
+        "label": "Pip 10",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 864,
+        "y": 1584,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "10",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "sunflower-jack": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "В",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Top numerical value",
+        "text": "11",
+        "x": 477.30230732568896,
+        "y": 270.6710589026887,
+        "visualHeight": 90,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "centralFace": {
+        "type": "image",
+        "label": "Jack portrait",
+        "href": "../faces/candidates/face-jack-sunflower-poster-v2.png",
+        "x": 372,
+        "y": 445,
+        "width": 900,
+        "height": 1350,
+        "rotation": 0
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "В",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Bottom numerical value",
+        "text": "11",
+        "x": 1166.697692674311,
+        "y": 1973.3289410973114,
+        "visualHeight": 90,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "faceCaption": {
+        "type": "caption",
+        "label": "Face caption",
+        "text": "Валет",
+        "x": 822,
+        "y": 1885,
+        "visualHeight": 96,
+        "rotation": 0
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "sunflower-queen": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "Д",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Top numerical value",
+        "text": "12",
+        "x": 477.30230732568896,
+        "y": 270.6710589026887,
+        "visualHeight": 90,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "centralFace": {
+        "type": "image",
+        "label": "Queen portrait",
+        "href": "../faces/candidates/face-queen-sunflower-poster-v1.png",
+        "x": 372,
+        "y": 445,
+        "width": 900,
+        "height": 1350,
+        "rotation": 0
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "Д",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Bottom numerical value",
+        "text": "12",
+        "x": 1166.697692674311,
+        "y": 1973.3289410973114,
+        "visualHeight": 90,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "faceCaption": {
+        "type": "caption",
+        "label": "Face caption",
+        "text": "Дама",
+        "x": 822,
+        "y": 1885,
+        "visualHeight": 96,
+        "rotation": 0
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "sunflower-king": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "К",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Top numerical value",
+        "text": "13",
+        "x": 477.30230732568896,
+        "y": 270.6710589026887,
+        "visualHeight": 90,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "centralFace": {
+        "type": "image",
+        "label": "King portrait",
+        "href": "../faces/candidates/face-king-sunflower-poster-v1.png",
+        "x": 372,
+        "y": 445,
+        "width": 900,
+        "height": 1350,
+        "rotation": 0
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "К",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Bottom numerical value",
+        "text": "13",
+        "x": 1166.697692674311,
+        "y": 1973.3289410973114,
+        "visualHeight": 90,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/sunflower/suit-sunflower-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "faceCaption": {
+        "type": "caption",
+        "label": "Face caption",
+        "text": "Король",
+        "x": 822,
+        "y": 1885,
+        "visualHeight": 96,
+        "rotation": 0
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "potato-1": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "Т",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 612,
+        "y": 890,
+        "width": 420,
+        "height": 420,
+        "rotation": 0
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "Т",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "potato-2": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "2",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 612,
+        "y": 410,
+        "width": 420,
+        "height": 420,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 612,
+        "y": 1370,
+        "width": 420,
+        "height": 420,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "2",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "potato-3": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "3",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 612,
+        "y": 378,
+        "width": 420,
+        "height": 420,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 612,
+        "y": 890,
+        "width": 420,
+        "height": 420,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 612,
+        "y": 1402,
+        "width": 420,
+        "height": 420,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "3",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "potato-4": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "4",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 475,
+        "y": 487,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 839,
+        "y": 487,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 475,
+        "y": 1383,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 839,
+        "y": 1383,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "4",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "potato-5": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "5",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 475,
+        "y": 455,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 839,
+        "y": 455,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 657,
+        "y": 935,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 475,
+        "y": 1415,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 839,
+        "y": 1415,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "5",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "potato-6": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "6",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 475,
+        "y": 407,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 839,
+        "y": 407,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 475,
+        "y": 935,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 839,
+        "y": 935,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 475,
+        "y": 1463,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 839,
+        "y": 1463,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "6",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "potato-7": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "7",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1 · upper left",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 470,
+        "y": 365,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2 · upper right",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 834,
+        "y": 365,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3 · upper center",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 652,
+        "y": 760,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4 · middle left",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 470,
+        "y": 1055,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5 · middle right",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 834,
+        "y": 1055,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6 · lower left",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 470,
+        "y": 1485,
+        "width": 340,
+        "height": 340,
+        "rotation": 180
+      },
+      "pip7": {
+        "type": "image",
+        "label": "Pip 7 · lower right",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 834,
+        "y": 1485,
+        "width": 340,
+        "height": 340,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "7",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "potato-8": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "8",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 475,
+        "y": 359,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 839,
+        "y": 359,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 657,
+        "y": 615,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 475,
+        "y": 871,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 839,
+        "y": 871,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 657,
+        "y": 1191,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip7": {
+        "type": "image",
+        "label": "Pip 7",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 475,
+        "y": 1511,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip8": {
+        "type": "image",
+        "label": "Pip 8",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 839,
+        "y": 1511,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "8",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "potato-9": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "9",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 500,
+        "y": 368,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 864,
+        "y": 368,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 500,
+        "y": 752,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 864,
+        "y": 752,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 682,
+        "y": 960,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 500,
+        "y": 1168,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip7": {
+        "type": "image",
+        "label": "Pip 7",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 864,
+        "y": 1168,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip8": {
+        "type": "image",
+        "label": "Pip 8",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 500,
+        "y": 1552,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip9": {
+        "type": "image",
+        "label": "Pip 9",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 864,
+        "y": 1552,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "9",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "potato-10": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "10",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 500,
+        "y": 336,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 864,
+        "y": 336,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 682,
+        "y": 592,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 500,
+        "y": 784,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 864,
+        "y": 784,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 500,
+        "y": 1136,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip7": {
+        "type": "image",
+        "label": "Pip 7",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 864,
+        "y": 1136,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip8": {
+        "type": "image",
+        "label": "Pip 8",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 682,
+        "y": 1328,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip9": {
+        "type": "image",
+        "label": "Pip 9",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 500,
+        "y": 1584,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip10": {
+        "type": "image",
+        "label": "Pip 10",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 864,
+        "y": 1584,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "10",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "potato-jack": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "В",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Top numerical value",
+        "text": "11",
+        "x": 477.30230732568896,
+        "y": 270.6710589026887,
+        "visualHeight": 90,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "centralFace": {
+        "type": "image",
+        "label": "Jack portrait",
+        "href": "../faces/candidates/face-jack-potato-poster-v1.png",
+        "x": 372,
+        "y": 445,
+        "width": 900,
+        "height": 1350,
+        "rotation": 0
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "В",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Bottom numerical value",
+        "text": "11",
+        "x": 1166.697692674311,
+        "y": 1973.3289410973114,
+        "visualHeight": 90,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "faceCaption": {
+        "type": "caption",
+        "label": "Face caption",
+        "text": "Валет",
+        "x": 822,
+        "y": 1885,
+        "visualHeight": 96,
+        "rotation": 0
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "potato-queen": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "Д",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Top numerical value",
+        "text": "12",
+        "x": 477.30230732568896,
+        "y": 270.6710589026887,
+        "visualHeight": 90,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "centralFace": {
+        "type": "image",
+        "label": "Queen portrait",
+        "href": "../faces/candidates/face-queen-potato-poster-v1.png",
+        "x": 372,
+        "y": 445,
+        "width": 900,
+        "height": 1350,
+        "rotation": 0
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "Д",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Bottom numerical value",
+        "text": "12",
+        "x": 1166.697692674311,
+        "y": 1973.3289410973114,
+        "visualHeight": 90,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "faceCaption": {
+        "type": "caption",
+        "label": "Face caption",
+        "text": "Дама",
+        "x": 822,
+        "y": 1885,
+        "visualHeight": 96,
+        "rotation": 0
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "potato-king": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "К",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Top numerical value",
+        "text": "13",
+        "x": 477.30230732568896,
+        "y": 270.6710589026887,
+        "visualHeight": 90,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "centralFace": {
+        "type": "image",
+        "label": "King portrait",
+        "href": "../faces/candidates/face-king-potato-poster-v1.png",
+        "x": 372,
+        "y": 445,
+        "width": 900,
+        "height": 1350,
+        "rotation": 0
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "К",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Bottom numerical value",
+        "text": "13",
+        "x": 1166.697692674311,
+        "y": 1973.3289410973114,
+        "visualHeight": 90,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/potato/suit-potato-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "faceCaption": {
+        "type": "caption",
+        "label": "Face caption",
+        "text": "Король",
+        "x": 822,
+        "y": 1885,
+        "visualHeight": 96,
+        "rotation": 0
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "beet-1": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "Т",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 612,
+        "y": 890,
+        "width": 420,
+        "height": 420,
+        "rotation": 0
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "Т",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "beet-2": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "2",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 612,
+        "y": 410,
+        "width": 420,
+        "height": 420,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 612,
+        "y": 1370,
+        "width": 420,
+        "height": 420,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "2",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "beet-3": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "3",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 612,
+        "y": 378,
+        "width": 420,
+        "height": 420,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 612,
+        "y": 890,
+        "width": 420,
+        "height": 420,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 612,
+        "y": 1402,
+        "width": 420,
+        "height": 420,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "3",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "beet-4": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "4",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 475,
+        "y": 487,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 839,
+        "y": 487,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 475,
+        "y": 1383,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 839,
+        "y": 1383,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "4",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "beet-5": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "5",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 475,
+        "y": 455,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 839,
+        "y": 455,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 657,
+        "y": 935,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 475,
+        "y": 1415,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 839,
+        "y": 1415,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "5",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "beet-6": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "6",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 475,
+        "y": 407,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 839,
+        "y": 407,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 475,
+        "y": 935,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 839,
+        "y": 935,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 475,
+        "y": 1463,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 839,
+        "y": 1463,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "6",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "beet-7": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "7",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1 · upper left",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 470,
+        "y": 365,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2 · upper right",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 834,
+        "y": 365,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3 · upper center",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 652,
+        "y": 760,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4 · middle left",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 470,
+        "y": 1055,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5 · middle right",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 834,
+        "y": 1055,
+        "width": 340,
+        "height": 340,
+        "rotation": 0
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6 · lower left",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 470,
+        "y": 1485,
+        "width": 340,
+        "height": 340,
+        "rotation": 180
+      },
+      "pip7": {
+        "type": "image",
+        "label": "Pip 7 · lower right",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 834,
+        "y": 1485,
+        "width": 340,
+        "height": 340,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "7",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "beet-8": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "8",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 475,
+        "y": 359,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 839,
+        "y": 359,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 657,
+        "y": 615,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 475,
+        "y": 871,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 839,
+        "y": 871,
+        "width": 330,
+        "height": 330,
+        "rotation": 0
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 657,
+        "y": 1191,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip7": {
+        "type": "image",
+        "label": "Pip 7",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 475,
+        "y": 1511,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "pip8": {
+        "type": "image",
+        "label": "Pip 8",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 839,
+        "y": 1511,
+        "width": 330,
+        "height": 330,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "8",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "beet-9": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "9",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 500,
+        "y": 368,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 864,
+        "y": 368,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 500,
+        "y": 752,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 864,
+        "y": 752,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 682,
+        "y": 960,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 500,
+        "y": 1168,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip7": {
+        "type": "image",
+        "label": "Pip 7",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 864,
+        "y": 1168,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip8": {
+        "type": "image",
+        "label": "Pip 8",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 500,
+        "y": 1552,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip9": {
+        "type": "image",
+        "label": "Pip 9",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 864,
+        "y": 1552,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "9",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "beet-10": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "10",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "pip1": {
+        "type": "image",
+        "label": "Pip 1",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 500,
+        "y": 336,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip2": {
+        "type": "image",
+        "label": "Pip 2",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 864,
+        "y": 336,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip3": {
+        "type": "image",
+        "label": "Pip 3",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 682,
+        "y": 592,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip4": {
+        "type": "image",
+        "label": "Pip 4",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 500,
+        "y": 784,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip5": {
+        "type": "image",
+        "label": "Pip 5",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 864,
+        "y": 784,
+        "width": 280,
+        "height": 280,
+        "rotation": 0
+      },
+      "pip6": {
+        "type": "image",
+        "label": "Pip 6",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 500,
+        "y": 1136,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip7": {
+        "type": "image",
+        "label": "Pip 7",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 864,
+        "y": 1136,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip8": {
+        "type": "image",
+        "label": "Pip 8",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 682,
+        "y": 1328,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip9": {
+        "type": "image",
+        "label": "Pip 9",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 500,
+        "y": 1584,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "pip10": {
+        "type": "image",
+        "label": "Pip 10",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 864,
+        "y": 1584,
+        "width": 280,
+        "height": 280,
+        "rotation": 180
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "10",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "beet-jack": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "В",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Top numerical value",
+        "text": "11",
+        "x": 477.30230732568896,
+        "y": 270.6710589026887,
+        "visualHeight": 90,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "centralFace": {
+        "type": "image",
+        "label": "Jack portrait",
+        "href": "../faces/candidates/face-jack-beet-poster-v1.png",
+        "x": 372,
+        "y": 445,
+        "width": 900,
+        "height": 1350,
+        "rotation": 0
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "В",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Bottom numerical value",
+        "text": "11",
+        "x": 1166.697692674311,
+        "y": 1973.3289410973114,
+        "visualHeight": 90,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "faceCaption": {
+        "type": "caption",
+        "label": "Face caption",
+        "text": "Валет",
+        "x": 822,
+        "y": 1885,
+        "visualHeight": 96,
+        "rotation": 0
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "beet-queen": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "Д",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Top numerical value",
+        "text": "12",
+        "x": 477.30230732568896,
+        "y": 270.6710589026887,
+        "visualHeight": 90,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "centralFace": {
+        "type": "image",
+        "label": "Queen portrait",
+        "href": "../faces/candidates/face-queen-beet-poster-v1.png",
+        "x": 352.97967422691977,
+        "y": 447.8310297457174,
+        "width": 900,
+        "height": 1350,
+        "rotation": 0
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "Д",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Bottom numerical value",
+        "text": "12",
+        "x": 1166.697692674311,
+        "y": 1973.3289410973114,
+        "visualHeight": 90,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "faceCaption": {
+        "type": "caption",
+        "label": "Face caption",
+        "text": "Дама",
+        "x": 837.7698842131824,
+        "y": 1762.8144327006644,
+        "visualHeight": 96,
+        "rotation": 0
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "beet-king": {
+      "topRank": {
+        "type": "rank",
+        "label": "Top rank",
+        "text": "К",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "rotation": 0
+      },
+      "topValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Top numerical value",
+        "text": "13",
+        "x": 477.30230732568896,
+        "y": 270.6710589026887,
+        "visualHeight": 90,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "centralFace": {
+        "type": "image",
+        "label": "King portrait",
+        "href": "../faces/candidates/face-king-beet-poster-v1.png",
+        "x": 372,
+        "y": 445,
+        "width": 900,
+        "height": 1350,
+        "rotation": 0
+      },
+      "bottomRank": {
+        "type": "rank",
+        "label": "Bottom rank",
+        "text": "К",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "rotation": 180
+      },
+      "bottomValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Bottom numerical value",
+        "text": "13",
+        "x": 1166.697692674311,
+        "y": 1973.3289410973114,
+        "visualHeight": 90,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/beet/suit-beet-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "faceCaption": {
+        "type": "caption",
+        "label": "Face caption",
+        "text": "Король",
+        "x": 822,
+        "y": 1885,
+        "visualHeight": 96,
+        "rotation": 0
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    },
+    "saboteur": {
+      "topRank": {
+        "type": "rankIcon",
+        "label": "Top rank icon",
+        "href": "../ranks/saboteur/rank-saboteur-star-v1.png",
+        "x": 291.2224025895829,
+        "y": 255.10526218567782,
+        "visualHeight": 195.3000030517578,
+        "aspectRatio": 1.0816115702479339,
+        "rotation": 0,
+        "text": "S",
+        "fontSize": 300
+      },
+      "topValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Top numerical value",
+        "text": "0",
+        "x": 477.30230732568896,
+        "y": 270.6710589026887,
+        "visualHeight": 90,
+        "rotation": 0
+      },
+      "topSuit": {
+        "type": "image",
+        "label": "Top corner pip",
+        "href": "../pips/all-suits/suit-all-poster-v1.png",
+        "x": 187.48221144411116,
+        "y": 358.948835122936,
+        "width": 200,
+        "height": 200,
+        "rotation": 0
+      },
+      "centralFace": {
+        "type": "image",
+        "label": "Saboteur portrait",
+        "href": "../faces/candidates/face-saboteur-poster-v2-palette-normalized.png",
+        "x": 352.2771594381677,
+        "y": 373.71047688468934,
+        "width": 900,
+        "height": 1120,
+        "rotation": 0
+      },
+      "bottomRank": {
+        "type": "rankIcon",
+        "label": "Bottom rank icon",
+        "href": "../ranks/saboteur/rank-saboteur-star-v1.png",
+        "x": 1352.777597410417,
+        "y": 1988.894737814322,
+        "visualHeight": 195.3000030517578,
+        "aspectRatio": 1.0816115702479339,
+        "rotation": 180,
+        "text": "S",
+        "fontSize": 300
+      },
+      "bottomValue": {
+        "type": "rank",
+        "textSource": "value",
+        "label": "Bottom numerical value",
+        "text": "0",
+        "x": 1166.697692674311,
+        "y": 1973.3289410973114,
+        "visualHeight": 90,
+        "rotation": 180
+      },
+      "bottomSuit": {
+        "type": "image",
+        "label": "Bottom corner pip",
+        "href": "../pips/all-suits/suit-all-poster-v1.png",
+        "x": 1256.5177885558887,
+        "y": 1685.051164877064,
+        "width": 200,
+        "height": 200,
+        "rotation": 180
+      },
+      "faceCaption": {
+        "type": "caption",
+        "label": "Face caption",
+        "text": "Вредитель",
+        "x": 833.7749866831143,
+        "y": 1530.8696346967954,
+        "visualHeight": 96,
+        "rotation": 0
+      },
+      "topTrumpInset": {
+        "type": "inset",
+        "label": "Top Trump inset artwork",
+        "x": 699.0560991337006,
+        "y": -67.05228629902808,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      },
+      "bottomTrumpInset": {
+        "type": "inset",
+        "label": "Bottom Trump inset artwork",
+        "x": 44.94390086629937,
+        "y": 1411.0522862990283,
+        "width": 900,
+        "height": 900,
+        "rotation": 0
+      }
+    }
+  }
+}

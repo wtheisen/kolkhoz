@@ -1,0 +1,511 @@
+{
+  "@@locale": "ru",
+  "lobbyCreateGame": "Создать игру",
+  "lobbyPlayDemo": "Играть демо",
+  "lobbyJoinGame": "Войти в игру",
+  "lobbyHowToPlay": "Как играть",
+  "lobbyAccountStatus": "Аккаунт",
+  "lobbyLanguage": "Язык",
+  "lobbyTheme": "Тема",
+  "lobbySettings": "Настройки",
+  "presetKolkhoz": "Колхоз",
+  "presetLittleKolkhoz": "Колхозик",
+  "presetCampStyle": "Лагерный",
+  "presetCustom": "Свой",
+  "variantDeck52Cards": "52 карты",
+  "variantDeck36Cards": "36 карт",
+  "variantDeckLabel": "КОЛОДА",
+  "variantValue1CardDeck": "Колода {value1} карт",
+  "@variantValue1CardDeck": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "variantValue1YearPlan": "План на {value1} лет",
+  "@variantValue1YearPlan": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "variantNomenklaturaTitle": "Номенклатура живёт по своим законам",
+  "variantNomenklaturaDescription": "Козырные фигуры имеют особые силы: Валет ссылается, Дама раскрывает всех, Король удваивает ссылку.",
+  "variantSwapTitle": "Замените мыло на шило",
+  "variantSwapDescription": "Обменивайте карты между рукой и участком в начале каждого года.",
+  "variantNorthernStyleTitle": "Игра по-северному",
+  "variantNorthernStyleDescription": "Нет наград за работы - все остаются уязвимы.",
+  "variantMiceTitle": "Разговоры вели даже с мышами",
+  "variantMiceDescription": "Все игроки раскрывают весь участок при реквизиции.",
+  "variantOrdenNachalnikuTitle": "Орден — начальнику, работа — нам",
+  "variantOrdenNachalnikuDescription": "Карты, назначенные на выполненные работы, копятся как награды.",
+  "variantMedalsTitle": "Орденов — полшкафа, а есть — нечего",
+  "variantMedalsDescription": "Победы во взятках идут в итоговый счёт.",
+  "variantHeroTitle": "стахановец",
+  "variantHeroDescription": "Выиграйте все взятки за год: вы защищены, а все остальные уязвимы для реквизиции.",
+  "variantAccumulationTitle": "НАКОПЛЕНИЕ",
+  "variantAccumulationDescription": "Невостребованные награды за работы переносятся на следующий год.",
+  "variantWreckerTitle": "ВРЕДИТЕЛЬ",
+  "variantWreckerDescription": "Добавляет джокера со значением 0: он считается всеми мастями и проваливает свою работу при реквизиции.",
+  "variantFinalYearTrumpTitle": "Козырь последнего года",
+  "variantFinalYearTrumpDescription": "Оставшаяся карта пятого года определяет козырь; вредитель означает игру без козыря.",
+  "variantPassCardsTitle": "Передача",
+  "variantPassCardsDescription": "Передавайте одну скрытую карту влево и вправо по очереди со второго по пятый год.",
+  "variantHighestCardsRequisitionTitle": "Реквизиция старших карт",
+  "variantHighestCardsRequisitionDescription": "Теряйте старшие карты проваленных культур — по одной за каждую проваленную работу.",
+  "variantLottoRewardsTitle": "Лотерейные награды",
+  "variantLottoRewardsDescription": "В каждой культуре награда 5 заменяется скрытой случайной картой от 5 до короля.",
+  "variantDemoModeTitle": "ДЕМО-РЕЖИМ",
+  "variantDemoModeDescription": "Колхоз на 2 года с лёгким ИИ",
+  "appsettingsDark": "ТЬМА",
+  "appsettingsLight": "СВЕТ",
+  "appsettingsSwitchToLightMode": "Включить светлую тему",
+  "appsettingsSwitchToDarkMode": "Включить тёмную тему",
+  "appsettingsCardBacks": "Рубашки карт",
+  "appsettingsClassic": "Классика",
+  "appsettingsHarvest": "Урожай",
+  "appsettingsGranary": "Амбар",
+  "appsettingsWinter": "Зима",
+  "tabledisplayYou": "Вы",
+  "tutorialdisplayBack": "Назад",
+  "tutorialdisplayDone": "Готово",
+  "tutorialdisplayNext": "Далее",
+  "tutorialdisplayForemanMisha": "БРИГАДИР МИША",
+  "tutorialdisplayTip": "СОВЕТ",
+  "tutorialdisplayDoneWellWorkedComrade": "Готово. Хорошая работа, товарищ.",
+  "boardviewPassDevice": "Передайте устройство",
+  "boardviewSeatValue1IsUp": "Ходит место {value1}.",
+  "@boardviewSeatValue1IsUp": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "boardviewReady": "Готов",
+  "boardviewYourTurn": "ВАШ ХОД",
+  "boardviewWait": "ЖДИТЕ",
+  "boardviewFamineYear": "Год неурожая",
+  "boardviewChooseTrump": "Выберите козырь",
+  "lowerbaractionsSwap": "Обмен",
+  "lowerbaractionsUndo": "Отменить",
+  "lowerbaractionsConfirm": "Подтвердить",
+  "lowerbaractionsFinish": "Завершить",
+  "lowerbaractionsYearValue1": "Год {value1}",
+  "@lowerbaractionsYearValue1": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "phasedisplayYearValue1Phasename": "Год {value1} - {phaseName}",
+  "@phasedisplayYearValue1Phasename": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      },
+      "phaseName": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappCancel": "Отмена",
+  "kolkhozappNewGame": "Новая игра?",
+  "kolkhozappThisWillReplaceTheCurrentGame": "Текущая партия будет заменена.",
+  "kolkhozappNewGame2": "Новая игра",
+  "kolkhozappMainMenu": "Главное меню?",
+  "kolkhozappLeaveTheCurrentGameAndReturnToSetup": "Выйти из текущей партии и вернуться к настройке.",
+  "kolkhozappMainMenu2": "Главное меню",
+  "kolkhozappRememberYouMustFollowSuitIfAble": "Помните: если можете, нужно ходить в масть.",
+  "kolkhozappSignedInProfileLoaded": "Вход выполнен. Профиль загружен.",
+  "kolkhozappAccountCreatedCheckYourEmailToConfirmItThe": "Аккаунт создан. Подтвердите email, затем войдите.",
+  "kolkhozappAccountCreated": "Аккаунт создан.",
+  "kolkhozappAccountDeleted": "Аккаунт удалён.",
+  "kolkhozappPasswordResetEmailSent": "Письмо для сброса пароля отправлено.",
+  "kolkhozappSyncingProfile": "Синхронизация профиля...",
+  "kolkhozappProfileSaved": "Профиль сохранён.",
+  "kolkhozappProfileLoaded": "Профиль загружен.",
+  "kolkhozappAccountRequestFailed": "Запрос аккаунта не удался. Повторите попытку через минуту.",
+  "kolkhozappAccountInvalidEmail": "Введите действительный email, включая метку после +.",
+  "kolkhozappAccountAlreadyExists": "Аккаунт с таким email уже существует. Войдите или сбросьте пароль.",
+  "kolkhozappAccountRateLimited": "Слишком много попыток. Подождите несколько минут и повторите.",
+  "kolkhozappAccountCreationUnavailable": "Создание аккаунта временно недоступно. Повторите позже.",
+  "kolkhozappAccountWeakPassword": "Выберите более надёжный пароль и повторите.",
+  "kolkhozappAccountServiceUnavailable": "Не удалось связаться с сервисом аккаунтов. Проверьте подключение и повторите.",
+  "kolkhozappAccountInvalidCredentials": "Неверный email или пароль. Повторите или сбросьте пароль.",
+  "kolkhozappProfileSyncFailed": "Синхронизация профиля не удалась.",
+  "kolkhozappSignInBeforeJoiningOnlinePlay": "Войдите в аккаунт перед онлайн-игрой.",
+  "kolkhozappOnlineSignInExpiredSignInAgain": "Онлайн-вход истёк. Войдите снова.",
+  "kolkhozappCouldNotVerifyOnlineAccountTryAgain": "Не удалось проверить онлайн-аккаунт. Повторите попытку.",
+  "kolkhozappCloudAccountUnavailable": "Облачный аккаунт недоступен",
+  "kolkhozappConnectingAccount": "Подключение аккаунта...",
+  "kolkhozappSignedInEmail": "Вход: {email}",
+  "@kolkhozappSignedInEmail": {
+    "placeholders": {
+      "email": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappSignedIn": "Вход выполнен",
+  "kolkhozappSignedOut2": "Вы не вошли",
+  "kolkhozappGameBy": "АВТОР ИГРЫ",
+  "kolkhozappWilliamTheisen": "УИЛЬЯМ ТАЙСОН",
+  "kolkhozappProfile": "Профиль",
+  "kolkhozappLeaderboard": "ТАБЛИЦА ЛИДЕРОВ",
+  "kolkhozappSettings": "НАСТРОЙКИ",
+  "kolkhozappProgress": "ПРОГРЕСС",
+  "kolkhozappCouldNotReachTheOnlineServerTryAgainInAMom": "Не удалось подключиться к серверу. Повторите попытку чуть позже.",
+  "kolkhozappOnlineRequestFailedTryAgain": "Онлайн-запрос не удался. Повторите попытку.",
+  "kolkhozappDemoMode2YearKolkhozWithEasyAi": "Демо-режим: Колхоз на 2 года с лёгким ИИ.",
+  "kolkhozappWorking": "Идёт...",
+  "kolkhozappStartDemo": "Начать демо",
+  "kolkhozappStartOnlineGame": "Начать онлайн",
+  "kolkhozappStartOfflineGame": "Начать офлайн",
+  "kolkhozappContinueToLobby": "Перейти в лобби",
+  "kolkhozappBackToSetup": "Назад к настройке",
+  "kolkhozappSaveFavorite": "Сохранить любимую",
+  "kolkhozappUseFavorite": "Взять любимую",
+  "kolkhozappFavoriteSaved": "Любимая настройка сохранена",
+  "kolkhozappRanked": "Рейтинг",
+  "kolkhozappLocked": "Частная",
+  "kolkhozappBrowser": "Публичная",
+  "kolkhozappAccess": "ВИДИМОСТЬ",
+  "kolkhozappComrades": "Товарищи",
+  "kolkhozappYourComradeCode": "ВАШ КОД ТОВАРИЩА",
+  "kolkhozappComradeCode": "КОД ТОВАРИЩА",
+  "kolkhozappAddComrade": "Добавить",
+  "kolkhozappRemove": "Убрать",
+  "kolkhozappNoComrades": "Товарищей пока нет",
+  "kolkhozappComradeAdded": "Товарищ добавлен",
+  "kolkhozappComradeRequestSent": "Запрос отправлен",
+  "kolkhozappComrade": "Товарищ",
+  "kolkhozappNotComrade": "Не товарищ",
+  "kolkhozappPending": "Ожидает",
+  "kolkhozappIncomingRequests": "Входящие запросы",
+  "kolkhozappOutgoingRequests": "Отправленные запросы",
+  "kolkhozappNoComradeRequests": "Нет запросов",
+  "kolkhozappAccept": "Принять",
+  "kolkhozappDecline": "Отклонить",
+  "kolkhozappComradeRequestAccepted": "Запрос принят",
+  "kolkhozappComradeRequestDeclined": "Запрос отклонён",
+  "kolkhozappComradeRemoved": "Товарищ убран",
+  "kolkhozappGameInvite": "Приглашение в игру",
+  "kolkhozappValue1InvitedYouToAGame": "{value1} приглашает вас в игру.",
+  "@kolkhozappValue1InvitedYouToAGame": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappOfflineStatus": "Не в сети",
+  "kolkhozappInGame": "В игре",
+  "kolkhozappInLobby": "В лобби",
+  "kolkhozappCasual": "Без рейтинга",
+  "kolkhozappGameType": "ТИП",
+  "kolkhozappPValue1": "И{value1}",
+  "@kolkhozappPValue1": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappHotseat": "За столом",
+  "kolkhozappOnline": "Онлайн",
+  "kolkhozappDecktypeCardsMaxyearsYears": "{deckType} КАРТ / {maxYears} ГОДА",
+  "@kolkhozappDecktypeCardsMaxyearsYears": {
+    "placeholders": {
+      "deckType": {
+        "type": "Object"
+      },
+      "maxYears": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappHowToPlay": "КАК ИГРАТЬ",
+  "kolkhozappTutorial": "Обучение",
+  "kolkhozappProfile2": "ПРОФИЛЬ",
+  "kolkhozappDisplayName": "ИМЯ ИГРОКА",
+  "kolkhozappPortrait": "ПОРТРЕТ",
+  "kolkhozappPasswordsDoNotMatch": "Пароли не совпадают.",
+  "kolkhozappCloudProfilesAreNotConfiguredForThisBuild": "Облачные профили не настроены для этой сборки.",
+  "kolkhozappCloudProfilesAreStarting": "Облачные профили запускаются.",
+  "kolkhozappSignInToSyncProfileAndOnlineSeats": "Войдите, чтобы синхронизировать профиль и места.",
+  "kolkhozappAccount": "АККАУНТ",
+  "kolkhozappEmail": "EMAIL",
+  "kolkhozappPassword": "ПАРОЛЬ",
+  "kolkhozappConfirmPassword": "ПОВТОРИТЕ ПАРОЛЬ",
+  "kolkhozappSignIn": "Войти",
+  "kolkhozappReset": "Сбросить",
+  "kolkhozappCreate": "Создать",
+  "kolkhozappOffline": "ОФЛАЙН",
+  "kolkhozappGames": "игры",
+  "kolkhozappOffWins": "ОФЛ ПОБ",
+  "kolkhozappWins": "победы",
+  "kolkhozappOnline2": "ОНЛАЙН",
+  "kolkhozappOnWins": "ОНЛ ПОБ",
+  "kolkhozappCasualRating": "КАЗУАЛ РЕЙТИНГ",
+  "kolkhozappRankedRating": "РЕЙТИНГОВЫЙ РЕЙТИНГ",
+  "kolkhozappRating": "РЕЙТИНГ",
+  "kolkhozappCurrent": "текущий",
+  "kolkhozappWins2": "ПОБЕДЫ",
+  "kolkhozappTotal": "всего",
+  "kolkhozappLosses": "ПОРАЖЕНИЯ",
+  "kolkhozappStats": "СТАТИСТИКА",
+  "kolkhozappNoOpenGames": "Нет открытых игр",
+  "kolkhozappValue1Open": "Открыто: {value1}",
+  "@kolkhozappValue1Open": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappValue1CitizensOnline": "Граждан онлайн: {value1}",
+  "@kolkhozappValue1CitizensOnline": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappRefreshInValue1s": "Обновление через {value1}с",
+  "@kolkhozappRefreshInValue1s": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappJoinedValue1": "Вошли {value1}",
+  "@kolkhozappJoinedValue1": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappSentNorthOnlinePlayIsLockedForThisAccount": "Сослан на север: онлайн временно закрыт для аккаунта.",
+  "kolkhozappTheOnlineServerRejectedTheRequest": "Сервер отклонил запрос.",
+  "kolkhozappOnlinePlay": "ОНЛАЙН ИГРА",
+  "kolkhozappJoinAnOpenGameOrEnterAnInviteCode": "Войдите в открытую игру или по коду.",
+  "kolkhozappInviteCode": "КОД ПРИГЛАШЕНИЯ",
+  "kolkhozappYourInviteCode": "ВАШ КОД",
+  "kolkhozappWaitingForPlayers": "Ожидание игроков",
+  "kolkhozappGameStartsInValue1s": "Игра начнётся через {value1} с",
+  "@kolkhozappGameStartsInValue1s": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappSearchingForPlayer": "Поиск игрока",
+  "kolkhozappCopyCode": "Копировать код",
+  "kolkhozappCopyResult": "Копировать итог",
+  "kolkhozappCopied": "Скопировано",
+  "kolkhozappJoinGame": "Войти и играть",
+  "kolkhozappAssignGame": "Назначить игру",
+  "kolkhozappKick": "Исключить",
+  "kolkhozappOpenGames": "ОТКРЫТЫЕ ИГРЫ",
+  "kolkhozappRefresh": "Обновить",
+  "kolkhozappOpenOpenseats": "Открыто {openSeats}",
+  "@kolkhozappOpenOpenseats": {
+    "placeholders": {
+      "openSeats": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappHost": "ХОЗЯИН",
+  "kolkhozappSeats": "МЕСТА",
+  "kolkhozappTurn": "ХОД",
+  "kolkhozappMoves": "ХОДЫ",
+  "kolkhozappWaiting": "ОЖИДАНИЕ",
+  "kolkhozappOpen": "СВОБОДНО",
+  "kolkhozappAverageRating": "СР РЕЙТИНГ",
+  "kolkhozappPlayer": "ИГРОК",
+  "kolkhozappScore": "ОЧКИ",
+  "kolkhozappMedals": "МЕДАЛИ",
+  "kolkhozappHand": "РУКА",
+  "kolkhozappCellar": "ПОДВАЛ",
+  "kolkhozappPlot": "УЧАСТОК",
+  "kolkhozappController": "УПРАВЛЕНИЕ",
+  "kolkhozappBrigadeLeader": "БРИГАДИР",
+  "kolkhozappCurrentTurn": "ТЕКУЩИЙ ХОД",
+  "kolkhozappAny": "Любое",
+  "kolkhozappHuman": "Игрок",
+  "kolkhozappEasy": "Легко",
+  "kolkhozappMedium": "Средне",
+  "kolkhozappHard": "Сложно",
+  "plotdisplayOtherStoresAboveActivePlayerSCellarBelow": "Участки других сверху, подвал активного игрока снизу.",
+  "plotdisplayAllJobsComplete": "Все работы выполнены.",
+  "plotdisplayAuditComplete": "Проверка завершена.",
+  "boardOptionspanelInstant": "Мигом",
+  "boardOptionspanelFast": "Быстро",
+  "boardOptionspanelNormal": "Норма",
+  "boardOptionspanelSlow": "Медленно",
+  "boardOptionspanelSession": "Партия",
+  "boardOptionspanelAssist": "Помощь",
+  "boardOptionspanelDisplay": "Вид",
+  "boardOptionspanelRules": "Правила",
+  "boardOptionspanelMenu": "Меню",
+  "boardOptionspanelGameControls": "Управление игрой",
+  "boardOptionspanelHowToPlay": "Как играть",
+  "boardOptionspanelSafeguards": "Защита",
+  "boardOptionspanelConfirmNewGame": "Подтверждать новую игру",
+  "boardOptionspanelAskBeforeReplacingTheCurrentGame": "Спросить перед заменой текущей партии.",
+  "boardOptionspanelConfirmMainMenu": "Подтверждать выход",
+  "boardOptionspanelAskBeforeLeavingTheCurrentGame": "Спросить перед выходом из текущей партии.",
+  "boardOptionspanelMoveHelp": "Помощь хода",
+  "boardOptionspanelInvalidTapHints": "Подсказки ошибок",
+  "boardOptionspanelShowTheForemanReminderWhenYouTapAnIllegalC": "Показывать напоминание бригадира при неверной карте.",
+  "boardOptionspanelAnimationSpeed": "Скорость анимации",
+  "boardPlotpanelRequisition": "Реквизиция",
+  "boardPlotpanelPrivatePlot": "Личный участок",
+  "boardPlotpanelGameOver": "Игра окончена",
+  "boardPlotpanelWinnerWinnernameWinnerscore": "Победитель: {winnerName} - {winnerScore}",
+  "@boardPlotpanelWinnerWinnernameWinnerscore": {
+    "placeholders": {
+      "winnerName": {
+        "type": "Object"
+      },
+      "winnerScore": {
+        "type": "Object"
+      }
+    }
+  },
+  "boardHandtrayUndo": "Назад",
+  "boardHandtrayPlay": "Ход",
+  "handConsoleYourTurnToPlay": "Ваш ход",
+  "handConsoleChooseSwap": "Выберите обмен",
+  "handConsoleAssignTrick": "Распределите взятку",
+  "handConsoleReviewRequisition": "Проверьте реквизицию",
+  "handConsoleWaitingForValue1": "Ждём: {value1}",
+  "@handConsoleWaitingForValue1": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "handConsoleWaitingForValue1ToPlay": "Ждём хода: {value1}",
+  "@handConsoleWaitingForValue1ToPlay": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "handConsoleWaitingForValue1ToSwap": "Ждём обмена: {value1}",
+  "@handConsoleWaitingForValue1ToSwap": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "handConsoleWaitingForValue1ToAssign": "Ждём работ: {value1}",
+  "@handConsoleWaitingForValue1ToAssign": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "handConsoleContinue": "Далее",
+  "boardJobspanelDone": "ГОТОВО",
+  "boardJobspanelTapToAssign": "НАЗНАЧИТЬ",
+  "boardBoardrailBoard": "Стол",
+  "boardBoardrailJobs": "Работы",
+  "boardBoardrailNorth": "Север",
+  "boardBoardrailCellar": "Подвал",
+  "boardBoardrailLang": "Язык",
+  "boardBoardrailBrigade": "Бригада",
+  "boardBoardrailTheNorth": "Север",
+  "ruleSummary1Title": "Цель",
+  "ruleSummary1Body": "Выполняйте работы колхоза, защищая свой участок. Побеждает наибольший счёт!",
+  "ruleSummary2Title": "Игра",
+  "ruleSummary2Body": "Играйте карты во взятки - следуйте масти если возможно.",
+  "ruleSummary3Title": "Работы",
+  "ruleSummary3Body": "Работы требуют 40 часов для завершения.",
+  "ruleSummary4Title": "Козырные карты",
+  "ruleSummary4Body": "Валет, Дама и Король имеют особые силы в игре с номенклатурой.",
+  "ruleSummary5Title": "Подсчёт очков",
+  "ruleSummary5Body": "Карты на вашем участке дают очки. Побеждает тот, у кого больше.",
+  "ruleSummary6Title": "Работы",
+  "ruleSummary6Body": "Выигрывайте взятки и назначайте карты на подходящие работы.",
+  "ruleSummary7Title": "Защита",
+  "ruleSummary7Body": "Берегите карты участка от реквизиции за проваленные работы.",
+  "ruleSummary8Title": "Козырные карты",
+  "ruleSummary8Body": "Валет уходит на Север, Дама раскрывает, Король удваивает ссылку.",
+  "tutorialStep1Title": "Добро пожаловать в колхоз",
+  "tutorialStep1Body": "Это настоящая игра, товарищ — играйте, пока мы говорим. Цель: закончить пятилетку с самым богатым подвалом.",
+  "tutorialStep1Tip": "Старшие скрытые карты — ваш запас. Потеря одной на Севере может решить итоговый счёт.",
+  "tutorialStep1Callout": "Кнопки листают уроки. Стол остаётся вашим.",
+  "tutorialStep2Title": "Осмотрите доску работ",
+  "tutorialStep2Body": "Каждый год четыре работы, по одной на культуру. В наградах всегда 1–4 и один тайный случайный ранг от 5 до К; счётчик — часы: 40 закрывают работу.",
+  "tutorialStep2Tip": "Проваленные работы зовут реквизицию в конце года. Запоминайте обречённые культуры.",
+  "tutorialStep2Callout": "Найдите четыре счётчика работ наверху стола.",
+  "tutorialStep3Title": "Козырная культура",
+  "tutorialStep3Body": "В планировании одну культуру объявляют главной задачей — козырем. В пятом году лишнюю карту сдачи открывают для выбора козыря; Вредитель означает игру без козыря.",
+  "tutorialStep3Tip": "Выбирайте козырь под руку, которую хотите разыграть, а не только под самую крупную карту.",
+  "tutorialStep3Callout": "Ждём объявления козыря…",
+  "tutorialStep4Title": "Сыграйте карту",
+  "tutorialStep4Body": "Ходите в масть, если можете — разрешённые карты подсвечены. Нет масти? Кладите что угодно, хоть козырь.",
+  "tutorialStep4Tip": "Уступить взятку можно — и часто мудро. Победители привлекают внимание.",
+  "tutorialStep4Callout": "Сыграйте карту с руки, когда придёт ваш ход.",
+  "tutorialStep5Title": "Взятие взятки",
+  "tutorialStep5Body": "Взятку берёт старшая карта ведущей масти — если не лёг козырь: тогда старший козырь. Победитель берёт медаль и становится бригадиром.",
+  "tutorialStep5Tip": "Медали решают ничьи в конце — но каждая победа рисует мишень на подвале.",
+  "tutorialStep5Callout": "Смотрите, кто возьмёт эту взятку.",
+  "tutorialStep6Title": "Назначьте работу",
+  "tutorialStep6Body": "Бригадир отправляет карты взятки на работы — законны только культуры из взятки. Ранг карты — её часы.",
+  "tutorialStep6Tip": "Назначайте работу, защищая культуры своих лучших карт подвала.",
+  "tutorialStep6Callout": "Выиграв взятку, распределите её карты по работам.",
+  "tutorialStep7Title": "Выполните норму",
+  "tutorialStep7Body": "Работа с 40 часами закрыта: награда падает в подвал закрывшего, и эта культура в этом году не вызовет реквизицию.",
+  "tutorialStep7Tip": "Закрытая работа и платит, и защищает. Две птицы — одна норма.",
+  "tutorialStep7Callout": "Доведите работу до 40 часов и заберите награду.",
+  "tutorialStep8Title": "Последняя карта",
+  "tutorialStep8Body": "Взяток только четыре. Пятая карта в конце года уходит в подвал рубашкой вверх — её ранг станет очками.",
+  "tutorialStep8Tip": "Ведите год так, чтобы уцелела лучшая карта.",
+  "tutorialStep8Callout": "Несыгранная карта спрячется сама в конце года.",
+  "tutorialStep9Title": "Это реквизиция",
+  "tutorialStep9Body": "Если провалены N культур, каждый уязвимый игрок теряет N старших карт этих мастей из подвала. Парторг добавляет одну, а Пьяница исключает свою масть из нормы.",
+  "tutorialStep9Tip": "Не брали взяток? Нечего предъявить. У трусости свои награды.",
+  "tutorialStep9Callout": "Внимательно изучите отчёт о реквизиции.",
+  "tutorialStep10Title": "Ежегодный обмен",
+  "tutorialStep10Body": "Со второго года перед началом взятки можно обменять одну карту с руки на одну карту подвала.",
+  "tutorialStep10Tip": "Прячьте старшие карты, пока безопасно; вытаскивайте обречённые культуры.",
+  "tutorialStep10Callout": "Решите вопрос с обменом до начала взятки.",
+  "tutorialStep11Title": "Берегитесь Вредителя",
+  "tutorialStep11Body": "Среди рабочих прячется джокер: ходит под любую масть, даёт 0 часов — и работа с ним проваливает проверку.",
+  "tutorialStep11Tip": "Берите его смело, прячьте с горечью — или сделайте чужой проблемой.",
+  "tutorialStep11Callout": "Он в правилах «Колхоза» — следите за джокером.",
+  "tutorialStep12Title": "Пятый год — голод",
+  "tutorialStep12Body": "Последний год скуден: четыре карты, три взятки и никакого козыря. Коротко — и обычно решающе.",
+  "tutorialStep12Tip": "Приберегите гибкие старшие карты на голод; без козыря плохой ход не исправить.",
+  "tutorialStep12Callout": "Ждём голодного года…",
+  "tutorialStep13Title": "Побеждает лучший подвал",
+  "tutorialStep13Body": "После пятого года каждая карта подвала приносит свой ранг. Наибольшая сумма выигрывает пятилетку; медали решают ничьи. Не подведите, товарищ.",
+  "tutorialStep13Tip": "Один сбережённый король стоит года осторожности.",
+  "tutorialStep13Callout": "Закончите пятилетку — Миша следит.",
+  "suitWheat": "Пшеница",
+  "suitSunflower": "Подсолнух",
+  "suitPotatoes": "Картофель",
+  "suitBeets": "Свёкла",
+  "phasePlanning": "План",
+  "phaseSwap": "Обмен",
+  "phaseTrick": "Взятка",
+  "phaseAssignment": "Работы",
+  "phaseRequisition": "Реквизиция",
+  "phaseGameOver": "Итог",
+  "languageSwitchTitle": "Switch to English"
+}

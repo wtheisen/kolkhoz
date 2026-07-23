@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:simple_animations/simple_animations.dart';
 
 import 'package:kolkhoz_app/src/app/settings/settings.dart';
-import 'package:kolkhoz_app/src/app/views/shared/app_text.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_view.dart';
 import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
@@ -310,7 +310,7 @@ class TutorialCollapsedBadge extends StatelessWidget {
 
 /// Soft pulsing spotlight over the board region a step refers to. Ignores
 /// pointer events so the board underneath stays fully playable.
-class TutorialFocusGlow extends StatefulWidget {
+class TutorialFocusGlow extends StatelessWidget {
   const TutorialFocusGlow({
     required this.rect,
     required this.tokens,
@@ -321,38 +321,16 @@ class TutorialFocusGlow extends StatefulWidget {
   final DesignTokens tokens;
 
   @override
-  State<TutorialFocusGlow> createState() => _TutorialFocusGlowState();
-}
-
-class _TutorialFocusGlowState extends State<TutorialFocusGlow>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController controller;
-
-  @override
-  void initState() {
-    super.initState();
-    controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1100),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Positioned.fromRect(
-      rect: widget.rect,
+      rect: rect,
       child: IgnorePointer(
-        child: AnimatedBuilder(
-          animation: controller,
-          builder: (context, _) {
-            final pulse = 0.30 + controller.value * 0.45;
-            final gold = widget.tokens.colors.gold;
+        child: MirrorAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 1100),
+          builder: (context, value, child) {
+            final pulse = 0.30 + value * 0.45;
+            final gold = tokens.colors.gold;
             return DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
@@ -480,7 +458,7 @@ class TutorialDialoguePanel extends StatelessWidget {
                     children: [
                       ChromeAssetButton(
                         key: const Key('tutorial-back'),
-                        label: language.t(KolkhozText.tutorialdisplayBack),
+                        label: language.strings.tutorialdisplayBack,
                         tokens: tokens,
                         enabled: index > 0,
                         backgroundAsset: chromeButtonSecondaryAsset,
@@ -493,8 +471,8 @@ class TutorialDialoguePanel extends StatelessWidget {
                       ChromeAssetButton(
                         key: const Key('tutorial-next'),
                         label: isLastStep
-                            ? language.t(KolkhozText.tutorialdisplayDone)
-                            : language.t(KolkhozText.tutorialdisplayNext),
+                            ? language.strings.tutorialdisplayDone
+                            : language.strings.tutorialdisplayNext,
                         tokens: tokens,
                         backgroundAsset: chromeButtonPrimaryAsset,
                         textColor: tokens.colors.onAccent,
@@ -596,7 +574,7 @@ class TutorialHeader extends StatelessWidget {
             spacing: 1,
             children: [
               PixelText(
-                language.t(KolkhozText.tutorialdisplayForemanMisha),
+                language.strings.tutorialdisplayForemanMisha,
                 size: PixelTextSize.caption,
                 variant: PixelTextVariant.heavy,
                 color: tokens.colors.gold,
@@ -703,7 +681,7 @@ class TutorialTip extends StatelessWidget {
               ),
             ),
             child: PixelText(
-              language.t(KolkhozText.tutorialdisplayTip),
+              language.strings.tutorialdisplayTip,
               size: PixelTextSize.caption,
               variant: PixelTextVariant.heavy,
               color: tokens.colors.redBright,
@@ -744,7 +722,7 @@ class TutorialCallout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final calloutText = satisfied
-        ? language.t(KolkhozText.tutorialdisplayDoneWellWorkedComrade)
+        ? language.strings.tutorialdisplayDoneWellWorkedComrade
         : step.callout(language);
     return Container(
       padding: const EdgeInsets.all(8),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'package:kolkhoz_app/src/app/settings/settings.dart';
-import 'package:kolkhoz_app/src/app/views/shared/app_text.dart';
 import 'package:kolkhoz_app/src/app/views/shared/chrome_button.dart';
 import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
 import 'package:kolkhoz_app/src/app/views/shared/pixel_text.dart';
@@ -525,50 +524,50 @@ List<PlayerProfileStatGroup> kolkhozProfileStatGroups({
 }) {
   return [
     PlayerProfileStatGroup(
-      label: language.t(KolkhozText.kolkhozappOffline),
+      label: language.strings.kolkhozappOffline,
       stats: [
         PlayerProfileStat(
-          label: language.t(KolkhozText.kolkhozappGames),
+          label: language.strings.kolkhozappGames,
           value: stats.offlinePlays.toString(),
         ),
         PlayerProfileStat(
-          label: language.t(KolkhozText.kolkhozappWins),
+          label: language.strings.kolkhozappWins,
           value: stats.offlineWins.toString(),
         ),
       ],
     ),
     PlayerProfileStatGroup(
-      label: language.t(KolkhozText.kolkhozappCasual),
+      label: language.strings.kolkhozappCasual,
       stats: [
         PlayerProfileStat(
-          label: language.t(KolkhozText.kolkhozappRating),
+          label: language.strings.kolkhozappRating,
           value: stats.casualRating.toString(),
           prominent: true,
         ),
         PlayerProfileStat(
-          label: language.t(KolkhozText.kolkhozappGames),
+          label: language.strings.kolkhozappGames,
           value: stats.casualPlays.toString(),
         ),
         PlayerProfileStat(
-          label: language.t(KolkhozText.kolkhozappWins),
+          label: language.strings.kolkhozappWins,
           value: stats.casualWins.toString(),
         ),
       ],
     ),
     PlayerProfileStatGroup(
-      label: language.t(KolkhozText.kolkhozappRanked),
+      label: language.strings.kolkhozappRanked,
       stats: [
         PlayerProfileStat(
-          label: language.t(KolkhozText.kolkhozappRating),
+          label: language.strings.kolkhozappRating,
           value: stats.rating.toString(),
           prominent: true,
         ),
         PlayerProfileStat(
-          label: language.t(KolkhozText.kolkhozappGames),
+          label: language.strings.kolkhozappGames,
           value: stats.rankedPlays.toString(),
         ),
         PlayerProfileStat(
-          label: language.t(KolkhozText.kolkhozappWins),
+          label: language.strings.kolkhozappWins,
           value: stats.rankedWins.toString(),
         ),
       ],

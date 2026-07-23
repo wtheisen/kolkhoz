@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:kolkhoz_app/src/app/settings/animation_speed.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/game_engine.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/game_ui_state.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/c_engine_action_codec.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/c_engine_bridge.dart';
@@ -25,6 +26,7 @@ class LocalGameEngineBindings {
     required this.setRevealedPlayerID,
     required this.lastSyncedPhase,
     required this.setLastSyncedPhase,
+    required this.onGameUpdate,
     required this.onStateChanged,
     required this.onError,
     required this.onPersist,
@@ -38,6 +40,7 @@ class LocalGameEngineBindings {
   final void Function(int?) setRevealedPlayerID;
   final String? Function() lastSyncedPhase;
   final void Function(String?) setLastSyncedPhase;
+  final void Function(GameEngineUpdate) onGameUpdate;
   final void Function() onStateChanged;
   final void Function(String?) onError;
   final void Function() onPersist;
@@ -281,6 +284,7 @@ class LocalGameEngineFactory {
     setRevealedPlayerID: bindings.setRevealedPlayerID,
     lastSyncedPhase: bindings.lastSyncedPhase,
     setLastSyncedPhase: bindings.setLastSyncedPhase,
+    onGameUpdate: bindings.onGameUpdate,
     onStateChanged: bindings.onStateChanged,
     onError: bindings.onError,
     onPersist: bindings.onPersist,

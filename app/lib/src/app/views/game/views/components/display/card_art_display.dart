@@ -89,9 +89,6 @@ List<Offset> pipPositions(int value) {
 }
 
 String faceAssetPath(TableCard card) {
-  if (card.suit == wreckerSuit) {
-    return 'assets/ui/Cards/face-wrecker.png';
-  }
   final rank = faceRankName(card);
   if (configuredKolkhozArtStyle.usesNewArt) {
     final fieldPlanPath = fieldPlanCardFaceAssetPath(
@@ -102,6 +99,9 @@ String faceAssetPath(TableCard card) {
     if (fieldPlanPath != null) {
       return fieldPlanPath;
     }
+  }
+  if (card.suit == wreckerSuit) {
+    return 'assets/ui/Cards/face-wrecker.png';
   }
   final variant = card.nomenclature ? '-nomenklatura' : '';
   return 'assets/ui/Cards/face-$rank-${card.suit}$variant.png';
@@ -157,6 +157,27 @@ String cardRankDisplayLabel(TableCard card) {
   return '${card.rank} ${card.value}';
 }
 
+String physicalDeckRankLabel(TableCard card) {
+  if (card.suit == wreckerSuit) return '';
+  return switch (card.value) {
+    1 => 'Т',
+    11 => 'В',
+    12 => 'Д',
+    13 => 'К',
+    _ => '${card.value}',
+  };
+}
+
+String? physicalDeckFaceCaption(TableCard card) {
+  if (card.suit == wreckerSuit) return 'Вредитель';
+  return switch (card.value) {
+    11 => 'Валет',
+    12 => 'Дама',
+    13 => 'Король',
+    _ => null,
+  };
+}
+
 String portraitAssetPath(Seat seat) {
   if (configuredKolkhozArtStyle.usesNewArt) {
     final asset = switch (seat.portraitAsset) {
@@ -178,6 +199,12 @@ String cardTemplateAssetPath({
   required DesignTokens tokens,
   required String? trump,
 }) {
+  if (configuredKolkhozArtStyle.usesNewArt) {
+    return fieldPlanCardFrameAssetPath(
+      suit: card.suit == wreckerSuit ? 'wheat' : card.suit,
+      trump: cardUsesTrumpTemplate(card: card, trump: trump),
+    );
+  }
   final suffix = cardUsesTrumpTemplate(card: card, trump: trump)
       ? ''
       : '-no-overlay';
@@ -187,7 +214,7 @@ String cardTemplateAssetPath({
 }
 
 bool cardUsesTrumpTemplate({required TableCard card, required String? trump}) {
-  return trump != null && (card.suit == trump || card.suit == wreckerSuit);
+  return card.suit == wreckerSuit || (trump != null && card.suit == trump);
 }
 
 double faceArtWidth(TokenCardSize size) {

@@ -1,0 +1,511 @@
+{
+  "@@locale": "en",
+  "lobbyCreateGame": "Create Game",
+  "lobbyPlayDemo": "Play Demo",
+  "lobbyJoinGame": "Join Game",
+  "lobbyHowToPlay": "How to Play",
+  "lobbyAccountStatus": "Account status",
+  "lobbyLanguage": "Language",
+  "lobbyTheme": "Theme",
+  "lobbySettings": "Settings",
+  "presetKolkhoz": "Kolkhoz",
+  "presetLittleKolkhoz": "Little Kolkhoz",
+  "presetCampStyle": "Camp Style",
+  "presetCustom": "Custom",
+  "variantDeck52Cards": "52 cards",
+  "variantDeck36Cards": "36 cards",
+  "variantDeckLabel": "DECK",
+  "variantValue1CardDeck": "{value1} Card Deck",
+  "@variantValue1CardDeck": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "variantValue1YearPlan": "{value1} Year Plan",
+  "@variantValue1YearPlan": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "variantNomenklaturaTitle": "The Party lives by its own rules",
+  "variantNomenklaturaDescription": "Trump face cards have special effects: Jack goes north, Queen exposes all, King doubles exile.",
+  "variantSwapTitle": "Exchange Soap for an Awl",
+  "variantSwapDescription": "Exchange cards between your hand and plot at the start of each year.",
+  "variantNorthernStyleTitle": "Playing the Northern Way",
+  "variantNorthernStyleDescription": "No rewards for completed jobs - nobody earns protection.",
+  "variantMiceTitle": "They even talked to the mice",
+  "variantMiceDescription": "At requisition, every hidden plot is gnawed open.",
+  "variantOrdenNachalnikuTitle": "Medal to the Boss, the work to us",
+  "variantOrdenNachalnikuDescription": "Finished jobs pile their cards into bonus rewards.",
+  "variantMedalsTitle": "Medals to fill a wardrobe but nothing to eat",
+  "variantMedalsDescription": "Trick victories become medals on the final tally.",
+  "variantHeroTitle": "Hero of Socialist Labor",
+  "variantHeroDescription": "Win every trick in a year: you are protected and every other player is vulnerable.",
+  "variantAccumulationTitle": "In the Common Pot",
+  "variantAccumulationDescription": "Unclaimed job rewards stay in the pot for next year.",
+  "variantWreckerTitle": "Enemy of the People",
+  "variantWreckerDescription": "Add a 0-value all-suit joker that wrecks its job at requisition.",
+  "variantFinalYearTrumpTitle": "Final Year Trump",
+  "variantFinalYearTrumpDescription": "Reveal the leftover fifth-year card for trump; Saboteur means no trump.",
+  "variantPassCardsTitle": "Pass",
+  "variantPassCardsDescription": "Pass one hidden card left, then right, alternating from years 2 through 5.",
+  "variantHighestCardsRequisitionTitle": "Highest Cards Requisition",
+  "variantHighestCardsRequisitionDescription": "Lose your highest cards across failed crops, one for each failed job.",
+  "variantLottoRewardsTitle": "Lotto Rewards",
+  "variantLottoRewardsDescription": "Each crop replaces its 5 reward with a hidden random card from 5 through King.",
+  "variantDemoModeTitle": "Demo Mode",
+  "variantDemoModeDescription": "2-year Kolkhoz with easy AI",
+  "appsettingsDark": "DARK",
+  "appsettingsLight": "LIGHT",
+  "appsettingsSwitchToLightMode": "Switch to light mode",
+  "appsettingsSwitchToDarkMode": "Switch to dark mode",
+  "appsettingsCardBacks": "Card backs",
+  "appsettingsClassic": "Classic",
+  "appsettingsHarvest": "Harvest",
+  "appsettingsGranary": "Granary",
+  "appsettingsWinter": "Winter",
+  "tabledisplayYou": "You",
+  "tutorialdisplayBack": "Back",
+  "tutorialdisplayDone": "Done",
+  "tutorialdisplayNext": "Next",
+  "tutorialdisplayForemanMisha": "FOREMAN MISHA",
+  "tutorialdisplayTip": "TIP",
+  "tutorialdisplayDoneWellWorkedComrade": "Done. Well worked, comrade.",
+  "boardviewPassDevice": "Pass Device",
+  "boardviewSeatValue1IsUp": "Seat {value1} is up.",
+  "@boardviewSeatValue1IsUp": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "boardviewReady": "Ready",
+  "boardviewYourTurn": "YOUR TURN",
+  "boardviewWait": "WAIT",
+  "boardviewFamineYear": "Famine year",
+  "boardviewChooseTrump": "Choose Trump",
+  "lowerbaractionsSwap": "Swap",
+  "lowerbaractionsUndo": "Undo",
+  "lowerbaractionsConfirm": "Confirm",
+  "lowerbaractionsFinish": "Finish",
+  "lowerbaractionsYearValue1": "Year {value1}",
+  "@lowerbaractionsYearValue1": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "phasedisplayYearValue1Phasename": "Year {value1} - {phaseName}",
+  "@phasedisplayYearValue1Phasename": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      },
+      "phaseName": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappCancel": "Cancel",
+  "kolkhozappNewGame": "New game?",
+  "kolkhozappThisWillReplaceTheCurrentGame": "This will replace the current game.",
+  "kolkhozappNewGame2": "New game",
+  "kolkhozappMainMenu": "Main menu?",
+  "kolkhozappLeaveTheCurrentGameAndReturnToSetup": "Leave the current game and return to setup.",
+  "kolkhozappMainMenu2": "Main menu",
+  "kolkhozappRememberYouMustFollowSuitIfAble": "Remember, you must follow suit if able.",
+  "kolkhozappSignedInProfileLoaded": "Signed in. Profile loaded.",
+  "kolkhozappAccountCreatedCheckYourEmailToConfirmItThe": "Account created. Check your email to confirm it, then sign in.",
+  "kolkhozappAccountCreated": "Account created.",
+  "kolkhozappAccountDeleted": "Account deleted.",
+  "kolkhozappPasswordResetEmailSent": "Password reset email sent.",
+  "kolkhozappSyncingProfile": "Syncing profile...",
+  "kolkhozappProfileSaved": "Profile saved.",
+  "kolkhozappProfileLoaded": "Profile loaded.",
+  "kolkhozappAccountRequestFailed": "Account request failed. Try again in a moment.",
+  "kolkhozappAccountInvalidEmail": "Enter a valid email address, including any + tag.",
+  "kolkhozappAccountAlreadyExists": "An account already exists for this email. Sign in or reset the password.",
+  "kolkhozappAccountRateLimited": "Too many account attempts. Wait a few minutes and try again.",
+  "kolkhozappAccountCreationUnavailable": "Account creation is temporarily unavailable. Try again later.",
+  "kolkhozappAccountWeakPassword": "Choose a stronger password and try again.",
+  "kolkhozappAccountServiceUnavailable": "Could not reach the account service. Check your connection and try again.",
+  "kolkhozappAccountInvalidCredentials": "Email or password is incorrect. Try again or reset the password.",
+  "kolkhozappProfileSyncFailed": "Profile sync failed.",
+  "kolkhozappSignInBeforeJoiningOnlinePlay": "Sign in before joining online play.",
+  "kolkhozappOnlineSignInExpiredSignInAgain": "Online sign-in expired. Sign in again.",
+  "kolkhozappCouldNotVerifyOnlineAccountTryAgain": "Could not verify your online account. Try again.",
+  "kolkhozappCloudAccountUnavailable": "Cloud account unavailable",
+  "kolkhozappConnectingAccount": "Connecting account...",
+  "kolkhozappSignedInEmail": "Signed in: {email}",
+  "@kolkhozappSignedInEmail": {
+    "placeholders": {
+      "email": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappSignedIn": "Signed in",
+  "kolkhozappSignedOut2": "Signed out",
+  "kolkhozappGameBy": "GAME BY",
+  "kolkhozappWilliamTheisen": "WILLIAM THEISEN",
+  "kolkhozappProfile": "Profile",
+  "kolkhozappLeaderboard": "LEADERBOARD",
+  "kolkhozappSettings": "SETTINGS",
+  "kolkhozappProgress": "PROGRESS",
+  "kolkhozappCouldNotReachTheOnlineServerTryAgainInAMom": "Could not reach the online server. Try again in a moment.",
+  "kolkhozappOnlineRequestFailedTryAgain": "Online request failed. Try again.",
+  "kolkhozappDemoMode2YearKolkhozWithEasyAi": "Demo mode: 2-year Kolkhoz with easy AI.",
+  "kolkhozappWorking": "Working...",
+  "kolkhozappStartDemo": "Start Demo",
+  "kolkhozappStartOnlineGame": "Start Online Game",
+  "kolkhozappStartOfflineGame": "Start Offline Game",
+  "kolkhozappContinueToLobby": "Add Players",
+  "kolkhozappBackToSetup": "Back to Setup",
+  "kolkhozappSaveFavorite": "Save Favorite",
+  "kolkhozappUseFavorite": "Use Favorite",
+  "kolkhozappFavoriteSaved": "Favorite setup saved",
+  "kolkhozappRanked": "Ranked",
+  "kolkhozappLocked": "Private",
+  "kolkhozappBrowser": "Public",
+  "kolkhozappAccess": "VISIBILITY",
+  "kolkhozappComrades": "Comrades",
+  "kolkhozappYourComradeCode": "YOUR COMRADE CODE",
+  "kolkhozappComradeCode": "COMRADE CODE",
+  "kolkhozappAddComrade": "Add Comrade",
+  "kolkhozappRemove": "Remove",
+  "kolkhozappNoComrades": "No comrades yet",
+  "kolkhozappComradeAdded": "Comrade added",
+  "kolkhozappComradeRequestSent": "Comrade request sent",
+  "kolkhozappComrade": "Comrade",
+  "kolkhozappNotComrade": "Not a comrade",
+  "kolkhozappPending": "Pending",
+  "kolkhozappIncomingRequests": "Incoming Requests",
+  "kolkhozappOutgoingRequests": "Sent Requests",
+  "kolkhozappNoComradeRequests": "No comrade requests",
+  "kolkhozappAccept": "Accept",
+  "kolkhozappDecline": "Decline",
+  "kolkhozappComradeRequestAccepted": "Comrade request accepted",
+  "kolkhozappComradeRequestDeclined": "Comrade request declined",
+  "kolkhozappComradeRemoved": "Comrade removed",
+  "kolkhozappGameInvite": "Game Invite",
+  "kolkhozappValue1InvitedYouToAGame": "{value1} invited you to a game.",
+  "@kolkhozappValue1InvitedYouToAGame": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappOfflineStatus": "Offline",
+  "kolkhozappInGame": "In game",
+  "kolkhozappInLobby": "In lobby",
+  "kolkhozappCasual": "Casual",
+  "kolkhozappGameType": "TYPE",
+  "kolkhozappPValue1": "P{value1}",
+  "@kolkhozappPValue1": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappHotseat": "Hotseat",
+  "kolkhozappOnline": "Online",
+  "kolkhozappDecktypeCardsMaxyearsYears": "{deckType} CARDS / {maxYears} YEARS",
+  "@kolkhozappDecktypeCardsMaxyearsYears": {
+    "placeholders": {
+      "deckType": {
+        "type": "Object"
+      },
+      "maxYears": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappHowToPlay": "HOW TO PLAY",
+  "kolkhozappTutorial": "Tutorial",
+  "kolkhozappProfile2": "PROFILE",
+  "kolkhozappDisplayName": "DISPLAY NAME",
+  "kolkhozappPortrait": "PORTRAIT",
+  "kolkhozappPasswordsDoNotMatch": "Passwords do not match.",
+  "kolkhozappCloudProfilesAreNotConfiguredForThisBuild": "Cloud profiles are not configured for this build.",
+  "kolkhozappCloudProfilesAreStarting": "Cloud profiles are starting.",
+  "kolkhozappSignInToSyncProfileAndOnlineSeats": "Sign in to sync profile and online seats.",
+  "kolkhozappAccount": "ACCOUNT",
+  "kolkhozappEmail": "EMAIL",
+  "kolkhozappPassword": "PASSWORD",
+  "kolkhozappConfirmPassword": "CONFIRM PASSWORD",
+  "kolkhozappSignIn": "Sign In",
+  "kolkhozappReset": "Reset",
+  "kolkhozappCreate": "Create",
+  "kolkhozappOffline": "OFFLINE",
+  "kolkhozappGames": "games",
+  "kolkhozappOffWins": "OFF WINS",
+  "kolkhozappWins": "wins",
+  "kolkhozappOnline2": "ONLINE",
+  "kolkhozappOnWins": "ON WINS",
+  "kolkhozappCasualRating": "CASUAL RATING",
+  "kolkhozappRankedRating": "RANKED RATING",
+  "kolkhozappRating": "RATING",
+  "kolkhozappCurrent": "current",
+  "kolkhozappWins2": "WINS",
+  "kolkhozappTotal": "total",
+  "kolkhozappLosses": "LOSSES",
+  "kolkhozappStats": "STATS",
+  "kolkhozappNoOpenGames": "No open games",
+  "kolkhozappValue1Open": "{value1} open",
+  "@kolkhozappValue1Open": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappValue1CitizensOnline": "{value1} Citizens Online",
+  "@kolkhozappValue1CitizensOnline": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappRefreshInValue1s": "Refresh in {value1}s",
+  "@kolkhozappRefreshInValue1s": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappJoinedValue1": "Joined {value1}",
+  "@kolkhozappJoinedValue1": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappSentNorthOnlinePlayIsLockedForThisAccount": "Sent north: online play is locked for this account.",
+  "kolkhozappTheOnlineServerRejectedTheRequest": "The online server rejected the request.",
+  "kolkhozappOnlinePlay": "ONLINE PLAY",
+  "kolkhozappJoinAnOpenGameOrEnterAnInviteCode": "Join an open game or enter an invite code.",
+  "kolkhozappInviteCode": "INVITE CODE",
+  "kolkhozappYourInviteCode": "YOUR INVITE CODE",
+  "kolkhozappWaitingForPlayers": "Waiting for players",
+  "kolkhozappGameStartsInValue1s": "Game starts in {value1}s",
+  "@kolkhozappGameStartsInValue1s": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappSearchingForPlayer": "Searching for Player",
+  "kolkhozappCopyCode": "Copy Code",
+  "kolkhozappCopyResult": "Copy Result",
+  "kolkhozappCopied": "Copied",
+  "kolkhozappJoinGame": "Join Game",
+  "kolkhozappAssignGame": "Assign Game",
+  "kolkhozappKick": "Kick",
+  "kolkhozappOpenGames": "OPEN GAMES",
+  "kolkhozappRefresh": "Refresh",
+  "kolkhozappOpenOpenseats": "Open {openSeats}",
+  "@kolkhozappOpenOpenseats": {
+    "placeholders": {
+      "openSeats": {
+        "type": "Object"
+      }
+    }
+  },
+  "kolkhozappHost": "HOST",
+  "kolkhozappSeats": "SEATS",
+  "kolkhozappTurn": "TURN",
+  "kolkhozappMoves": "MOVES",
+  "kolkhozappWaiting": "WAITING",
+  "kolkhozappOpen": "OPEN",
+  "kolkhozappAverageRating": "AVG RATING",
+  "kolkhozappPlayer": "PLAYER",
+  "kolkhozappScore": "SCORE",
+  "kolkhozappMedals": "MEDALS",
+  "kolkhozappHand": "HAND",
+  "kolkhozappCellar": "CELLAR",
+  "kolkhozappPlot": "PLOT",
+  "kolkhozappController": "CONTROL",
+  "kolkhozappBrigadeLeader": "BRIGADE LEADER",
+  "kolkhozappCurrentTurn": "CURRENT TURN",
+  "kolkhozappAny": "Any",
+  "kolkhozappHuman": "Human",
+  "kolkhozappEasy": "Easy",
+  "kolkhozappMedium": "Medium",
+  "kolkhozappHard": "Hard",
+  "plotdisplayOtherStoresAboveActivePlayerSCellarBelow": "Other stores above, active player's cellar below.",
+  "plotdisplayAllJobsComplete": "All jobs complete.",
+  "plotdisplayAuditComplete": "Audit complete.",
+  "boardOptionspanelInstant": "Instant",
+  "boardOptionspanelFast": "Fast",
+  "boardOptionspanelNormal": "Normal",
+  "boardOptionspanelSlow": "Slow",
+  "boardOptionspanelSession": "Session",
+  "boardOptionspanelAssist": "Assist",
+  "boardOptionspanelDisplay": "Display",
+  "boardOptionspanelRules": "Rules",
+  "boardOptionspanelMenu": "Menu",
+  "boardOptionspanelGameControls": "Game controls",
+  "boardOptionspanelHowToPlay": "How to play",
+  "boardOptionspanelSafeguards": "Safeguards",
+  "boardOptionspanelConfirmNewGame": "Confirm new game",
+  "boardOptionspanelAskBeforeReplacingTheCurrentGame": "Ask before replacing the current game.",
+  "boardOptionspanelConfirmMainMenu": "Confirm main menu",
+  "boardOptionspanelAskBeforeLeavingTheCurrentGame": "Ask before leaving the current game.",
+  "boardOptionspanelMoveHelp": "Move help",
+  "boardOptionspanelInvalidTapHints": "Invalid-tap hints",
+  "boardOptionspanelShowTheForemanReminderWhenYouTapAnIllegalC": "Show the Foreman reminder when you tap an illegal card.",
+  "boardOptionspanelAnimationSpeed": "Animation speed",
+  "boardPlotpanelRequisition": "Requisition",
+  "boardPlotpanelPrivatePlot": "Private plot",
+  "boardPlotpanelGameOver": "Game Over",
+  "boardPlotpanelWinnerWinnernameWinnerscore": "Winner: {winnerName} - {winnerScore}",
+  "@boardPlotpanelWinnerWinnernameWinnerscore": {
+    "placeholders": {
+      "winnerName": {
+        "type": "Object"
+      },
+      "winnerScore": {
+        "type": "Object"
+      }
+    }
+  },
+  "boardHandtrayUndo": "Undo",
+  "boardHandtrayPlay": "Play",
+  "handConsoleYourTurnToPlay": "Your turn to play",
+  "handConsoleChooseSwap": "Choose a swap",
+  "handConsoleAssignTrick": "Assign the trick",
+  "handConsoleReviewRequisition": "Review requisition",
+  "handConsoleWaitingForValue1": "Waiting for {value1}",
+  "@handConsoleWaitingForValue1": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "handConsoleWaitingForValue1ToPlay": "Waiting for {value1} to play",
+  "@handConsoleWaitingForValue1ToPlay": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "handConsoleWaitingForValue1ToSwap": "Waiting for {value1} to swap",
+  "@handConsoleWaitingForValue1ToSwap": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "handConsoleWaitingForValue1ToAssign": "Waiting for {value1} to assign",
+  "@handConsoleWaitingForValue1ToAssign": {
+    "placeholders": {
+      "value1": {
+        "type": "Object"
+      }
+    }
+  },
+  "handConsoleContinue": "Continue",
+  "boardJobspanelDone": "DONE",
+  "boardJobspanelTapToAssign": "TAP TO ASSIGN",
+  "boardBoardrailBoard": "Board",
+  "boardBoardrailJobs": "Jobs",
+  "boardBoardrailNorth": "North",
+  "boardBoardrailCellar": "Cellar",
+  "boardBoardrailLang": "Lang",
+  "boardBoardrailBrigade": "Brigade",
+  "boardBoardrailTheNorth": "The North",
+  "ruleSummary1Title": "Objective",
+  "ruleSummary1Body": "Complete collective farm jobs while protecting your private plot. Highest score wins!",
+  "ruleSummary2Title": "Gameplay",
+  "ruleSummary2Body": "Play cards to tricks - must follow lead suit if able.",
+  "ruleSummary3Title": "Jobs",
+  "ruleSummary3Body": "Jobs need 40 work hours to complete.",
+  "ruleSummary4Title": "Trump Face Cards",
+  "ruleSummary4Body": "Jack, Queen, and King have special powers in nomenclature games.",
+  "ruleSummary5Title": "Scoring",
+  "ruleSummary5Body": "Cards in your plot equal your score. Highest score wins.",
+  "ruleSummary6Title": "Work",
+  "ruleSummary6Body": "Win tricks, then assign captured cards to matching jobs.",
+  "ruleSummary7Title": "Protect",
+  "ruleSummary7Body": "Keep plot cards safe from failed-job requisition.",
+  "ruleSummary8Title": "Trump faces",
+  "ruleSummary8Body": "Jack goes north, Queen exposes, King doubles exile.",
+  "tutorialStep1Title": "Welcome to the collective",
+  "tutorialStep1Body": "This is a real game, comrade — play while we talk. Your goal: end the Five-Year Plan with the most points hidden in your cellar.",
+  "tutorialStep1Tip": "High hidden cards are your bank. Losing one to the North can swing the final score.",
+  "tutorialStep1Callout": "The buttons below turn my lessons. The board stays yours.",
+  "tutorialStep2Title": "Read the work board",
+  "tutorialStep2Body": "Four jobs each year, one per crop. Each reward pile has ranks 1–4 plus one hidden lotto rank from 5–K; the counter is work hours — 40 completes the job.",
+  "tutorialStep2Tip": "Failed jobs summon requisition at year's end. Remember which crops look doomed.",
+  "tutorialStep2Callout": "Find the four job counters along the top of the table.",
+  "tutorialStep3Title": "The trump crop",
+  "tutorialStep3Body": "In planning, one crop is declared the State's main task — trump. In year five, the leftover deal card is revealed to set trump; Saboteur means no trump.",
+  "tutorialStep3Tip": "Pick trump for the hand you expect to play, not only for the biggest card you see.",
+  "tutorialStep3Callout": "Waiting for trump to be declared…",
+  "tutorialStep4Title": "Play a card",
+  "tutorialStep4Body": "Follow the led crop if you can — legal cards glow. Out of that crop? Play anything, even trump.",
+  "tutorialStep4Tip": "Ducking a trick is allowed — and often wise. Winners attract attention.",
+  "tutorialStep4Callout": "Play a card from your hand when your turn comes.",
+  "tutorialStep5Title": "Taking the trick",
+  "tutorialStep5Body": "Highest card of the led crop wins — unless trump lands; then the highest trump. The winner takes a medal and becomes brigade leader.",
+  "tutorialStep5Tip": "Medals break ties at the end — but every win paints a target on your cellar.",
+  "tutorialStep5Callout": "Watch who takes this trick.",
+  "tutorialStep6Title": "Assign the labor",
+  "tutorialStep6Body": "The brigade leader sends the trick's cards to jobs — only crops present in the trick are legal targets. A card's rank is its hours.",
+  "tutorialStep6Tip": "Assign work to protect the crops that match your best cellar cards.",
+  "tutorialStep6Callout": "When you win a trick, tap its cards onto jobs.",
+  "tutorialStep7Title": "Meet the quota",
+  "tutorialStep7Body": "A job that reaches 40 hours is complete: its reward drops into the closer's cellar, and that crop is safe from requisition this year.",
+  "tutorialStep7Tip": "A finished job pays you and protects you. Two birds, one quota.",
+  "tutorialStep7Callout": "Push a job to 40 hours to claim its reward.",
+  "tutorialStep8Title": "The leftover card",
+  "tutorialStep8Body": "Only four tricks are played. Your fifth card slips face-down into your cellar at year's end — its rank becomes points.",
+  "tutorialStep8Tip": "Steer the year so your best card is the one that survives.",
+  "tutorialStep8Callout": "Your unplayed card banks itself when the year ends.",
+  "tutorialStep9Title": "This is requisition",
+  "tutorialStep9Body": "If N crop suits fail, each vulnerable player loses their N highest cellar cards across those suits. Party Official adds one; Drunkard removes its suit from the quota.",
+  "tutorialStep9Tip": "Never won a trick? Nothing to confess. Cowardice has its rewards.",
+  "tutorialStep9Callout": "Read the requisition report carefully.",
+  "tutorialStep10Title": "The yearly swap",
+  "tutorialStep10Body": "From year two, you may trade one hand card for one cellar card before the trick begins.",
+  "tutorialStep10Tip": "Bury high cards while they are safe; pull out crops that look doomed.",
+  "tutorialStep10Callout": "Consider your swap before the trick begins.",
+  "tutorialStep11Title": "Beware the Wrecker",
+  "tutorialStep11Body": "One joker hides among the workers: he follows any suit and brings 0 hours — and any job holding him fails inspection.",
+  "tutorialStep11Tip": "Win him boldly, bury him bitterly — or make him someone else's problem.",
+  "tutorialStep11Callout": "He plays by Kolkhoz rules — watch for the wild card.",
+  "tutorialStep12Title": "Year five is famine",
+  "tutorialStep12Body": "The last year is lean: four cards, three tricks, no trump at all. Short, and usually decisive.",
+  "tutorialStep12Tip": "Save flexible high cards for famine; without trump a bad lead is hard to escape.",
+  "tutorialStep12Callout": "Waiting for the famine year…",
+  "tutorialStep13Title": "Highest final cellar wins",
+  "tutorialStep13Body": "After year five, every cellar card counts its rank. Highest total wins the Plan; medals break ties. Make me proud, comrade.",
+  "tutorialStep13Tip": "One protected King is worth a year of caution.",
+  "tutorialStep13Callout": "Finish the Plan — Misha is watching.",
+  "suitWheat": "Wheat",
+  "suitSunflower": "Sunflower",
+  "suitPotatoes": "Potatoes",
+  "suitBeets": "Beets",
+  "phasePlanning": "Planning",
+  "phaseSwap": "Swap",
+  "phaseTrick": "Trick",
+  "phaseAssignment": "Assignment",
+  "phaseRequisition": "Requisition",
+  "phaseGameOver": "Game Over",
+  "languageSwitchTitle": "Switch to Russian"
+}

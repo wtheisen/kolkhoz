@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'package:kolkhoz_app/src/app/settings/settings.dart';
-import 'package:kolkhoz_app/src/app/views/shared/app_text.dart';
 import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
 import 'package:kolkhoz_app/src/app/views/shared/chrome_button.dart';
 import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
@@ -208,13 +207,13 @@ String compactToolbarLabelForIndex(
   int year,
 ) {
   return switch (index) {
-    0 => language.t(KolkhozText.lowerbaractionsYearValue1, {'value1': year}),
-    1 => language.t(KolkhozText.boardBoardrailBrigade),
-    2 => language.t(KolkhozText.boardBoardrailJobs),
-    3 => language.t(KolkhozText.boardBoardrailTheNorth),
-    4 => language.t(KolkhozText.boardBoardrailCellar),
+    0 => language.strings.lowerbaractionsYearValue1(value1: year),
+    1 => language.strings.boardBoardrailBrigade,
+    2 => language.strings.boardBoardrailJobs,
+    3 => language.strings.boardBoardrailTheNorth,
+    4 => language.strings.boardBoardrailCellar,
     5 => language == KolkhozLanguage.en ? 'Log' : 'Журнал',
-    6 => language.t(KolkhozText.boardOptionspanelMenu),
+    6 => language.strings.boardOptionspanelMenu,
     _ => '',
   };
 }
@@ -232,9 +231,7 @@ List<Widget> boardRailButtons({
   return [
     RailStatusIcon(
       asset: 'icon-year-${year.clamp(1, 5)}.png',
-      label: language.t(KolkhozText.lowerbaractionsYearValue1, {
-        'value1': year,
-      }),
+      label: language.strings.lowerbaractionsYearValue1(value1: year),
       tokens: tokens,
       metrics: metrics,
     ),
@@ -242,7 +239,7 @@ List<Widget> boardRailButtons({
       asset: 'icon-brigade.png',
       active: activePanel == panelBrigade,
       action: actionPanel == panelBrigade,
-      label: language.t(KolkhozText.boardBoardrailBrigade),
+      label: language.strings.boardBoardrailBrigade,
       muted: activePanel != panelBrigade,
       tokens: tokens,
       metrics: metrics,
@@ -252,7 +249,7 @@ List<Widget> boardRailButtons({
       asset: 'icon-jobs.png',
       active: activePanel == panelJobs,
       action: actionPanel == panelJobs,
-      label: language.t(KolkhozText.boardBoardrailJobs),
+      label: language.strings.boardBoardrailJobs,
       muted: activePanel != panelJobs,
       tokens: tokens,
       metrics: metrics,
@@ -263,7 +260,7 @@ List<Widget> boardRailButtons({
         asset: 'icon-north.png',
         active: activePanel == panelNorth,
         action: actionPanel == panelNorth,
-        label: language.t(KolkhozText.boardBoardrailTheNorth),
+        label: language.strings.boardBoardrailTheNorth,
         muted: activePanel != panelNorth,
         motionKey: northCardMotionTargetKey,
         tokens: tokens,
@@ -275,7 +272,7 @@ List<Widget> boardRailButtons({
         asset: 'icon-plot.png',
         active: activePanel == panelPlot,
         action: actionPanel == panelPlot,
-        label: language.t(KolkhozText.boardBoardrailCellar),
+        label: language.strings.boardBoardrailCellar,
         muted: activePanel != panelPlot,
         tokens: tokens,
         metrics: metrics,
@@ -296,7 +293,7 @@ List<Widget> boardRailButtons({
       asset: 'icon-menu.png',
       active: activePanel == panelOptions,
       action: false,
-      label: language.t(KolkhozText.boardOptionspanelMenu),
+      label: language.strings.boardOptionspanelMenu,
       muted: activePanel != panelOptions,
       tokens: tokens,
       metrics: metrics,
@@ -376,7 +373,7 @@ class RailButton extends StatelessWidget {
   final ResponsiveBoardMetrics metrics;
   final bool muted;
   final bool unread;
-  final String? motionKey;
+  final MotionAnchor? motionKey;
   final VoidCallback? onTap;
 
   @override

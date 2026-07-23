@@ -17,6 +17,13 @@ const fieldPlanPlantedSunflowerMipPath =
 const fieldPlanCardBackAssetPath =
     'assets/art/field_plan/cards/backs/card-back-kolkhoz.png';
 
+String fieldPlanCardFrameAssetPath({
+  required String suit,
+  required bool trump,
+}) => trump
+    ? 'assets/art/field_plan/cards/frames/card-frame-trump.png'
+    : 'assets/art/field_plan/cards/frames/card-frame-$suit.png';
+
 String fieldPlanPlantedCardFacePath(int seatID) =>
     'assets/art/field_plan/cards/planted/seat-$seatID.png';
 
@@ -25,6 +32,7 @@ const fieldPlanCardSuitAssetPaths = <String, String>{
   'sunflower': 'assets/art/field_plan/cards/suits/suit-sunflower.png',
   'potato': 'assets/art/field_plan/cards/suits/suit-potato.png',
   'beet': 'assets/art/field_plan/cards/suits/suit-beet.png',
+  'wrecker': 'assets/art/field_plan/cards/suits/suit-all.png',
 };
 
 const fieldPlanCardSuitMipAssetPaths = <String, String>{
@@ -43,10 +51,11 @@ String? fieldPlanCardFaceAssetPath({
   required String rank,
   required bool nomenclature,
 }) {
-  if (nomenclature || !fieldPlanCardSuitAssetPaths.containsKey(suit)) {
-    return null;
+  if (suit == 'wrecker') {
+    return 'assets/art/field_plan/cards/faces/face-saboteur.png';
   }
-  if (rank != 'jack' && rank != 'queen') {
+  if (!fieldPlanCardSuitAssetPaths.containsKey(suit) ||
+      (rank != 'jack' && rank != 'queen' && rank != 'king')) {
     return null;
   }
   return 'assets/art/field_plan/cards/faces/face-$rank-$suit.png';
@@ -54,6 +63,11 @@ String? fieldPlanCardFaceAssetPath({
 
 const fieldPlanCardArtAssetPaths = <String>[
   fieldPlanCardBackAssetPath,
+  'assets/art/field_plan/cards/frames/card-frame-wheat.png',
+  'assets/art/field_plan/cards/frames/card-frame-sunflower.png',
+  'assets/art/field_plan/cards/frames/card-frame-potato.png',
+  'assets/art/field_plan/cards/frames/card-frame-beet.png',
+  'assets/art/field_plan/cards/frames/card-frame-trump.png',
   fieldPlanPlantedSunflowerPath,
   fieldPlanPlantedSunflowerMipPath,
   'assets/art/field_plan/cards/planted/seat-0.png',
@@ -65,6 +79,7 @@ const fieldPlanCardArtAssetPaths = <String>[
   'assets/art/field_plan/cards/suits/suit-sunflower.png',
   'assets/art/field_plan/cards/suits/suit-potato.png',
   'assets/art/field_plan/cards/suits/suit-beet.png',
+  'assets/art/field_plan/cards/suits/suit-all.png',
   'assets/art/field_plan/cards/suits/mip/suit-wheat.png',
   'assets/art/field_plan/cards/suits/mip/suit-sunflower.png',
   'assets/art/field_plan/cards/suits/mip/suit-potato.png',
@@ -77,6 +92,12 @@ const fieldPlanCardArtAssetPaths = <String>[
   'assets/art/field_plan/cards/faces/face-queen-sunflower.png',
   'assets/art/field_plan/cards/faces/face-queen-potato.png',
   'assets/art/field_plan/cards/faces/face-queen-beet.png',
+  'assets/art/field_plan/cards/faces/face-king-wheat.png',
+  'assets/art/field_plan/cards/faces/face-king-sunflower.png',
+  'assets/art/field_plan/cards/faces/face-king-potato.png',
+  'assets/art/field_plan/cards/faces/face-king-beet.png',
+  'assets/art/field_plan/cards/faces/face-saboteur.png',
+  'assets/art/field_plan/cards/ranks/rank-saboteur-star.png',
 ];
 
 const fieldPlanCreateGamePictogram = ArtAssetRef(

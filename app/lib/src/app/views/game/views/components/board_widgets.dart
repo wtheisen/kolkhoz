@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:ui' show clampDouble;
+import 'dart:ui' show clampDouble, FontFeature;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/components/display/card_art_display.dart';
@@ -11,9 +13,10 @@ import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_const
 import 'package:kolkhoz_app/src/app/views/shared/pixel_text.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/render_model.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/components/display/table_display.dart';
-import 'card_motion.dart';
+import 'card_motion_tracking.dart';
 
-export 'card_motion.dart';
+export 'card_motion_geometry.dart';
+export 'card_motion_tracking.dart';
 
 const panelTitleScaleBaseWidth = 520.0;
 const panelTitleScaleMin = 0.78;
@@ -486,6 +489,8 @@ class GameCard extends StatelessWidget {
         sizeOverride ?? (small ? tokens.card.small : tokens.card.large);
     final plantedFace =
         configuredKolkhozArtStyle.usesNewArt && fieldPlanSeatID != null;
+    final physicalDeckFace =
+        configuredKolkhozArtStyle.usesNewArt && !plantedFace;
     final highlightColor = card.highlighted
         ? highlightColorOverride ??
               cardHighlightColor(card: card, trump: trump, tokens: tokens)
@@ -533,7 +538,10 @@ class GameCard extends StatelessWidget {
                     trump: trump,
                   ),
                   fit: BoxFit.cover,
-                  filterQuality: FilterQuality.none,
+                  filterQuality: physicalDeckFace
+                      ? FilterQuality.high
+                      : FilterQuality.none,
+                  isAntiAlias: physicalDeckFace,
                   errorBuilder: (_, _, _) => const SizedBox.shrink(),
                 ),
               ),
@@ -547,48 +555,56 @@ class GameCard extends StatelessWidget {
                 errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
             ),
-          Padding(
-            padding: EdgeInsets.all(size.faceInset),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Positioned.fill(
-                  child: CardCenterFace(
-                    card: card,
-                    size: size,
-                    tokens: tokens,
-                    trump: trump,
+          if (physicalDeckFace)
+            Positioned.fill(
+              child: PhysicalDeckCardContent(card: card, tokens: tokens),
+            )
+          else
+            Padding(
+              padding: EdgeInsets.all(size.faceInset),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    child: CardCenterFace(
+                      card: card,
+                      size: size,
+                      tokens: tokens,
+                      trump: trump,
+                    ),
                   ),
-                ),
-                Positioned(
-                  left: cardCornerHorizontalInset(size) + (plantedFace ? 4 : 0),
-                  top: cardTopCornerVerticalInset(size) + (plantedFace ? 2 : 0),
-                  child: CardCornerIndex(
-                    card: card,
-                    size: size,
-                    tokens: tokens,
-                    placement: CardCornerPlacement.top,
-                    trump: trump,
+                  Positioned(
+                    left:
+                        cardCornerHorizontalInset(size) + (plantedFace ? 4 : 0),
+                    top:
+                        cardTopCornerVerticalInset(size) +
+                        (plantedFace ? 2 : 0),
+                    child: CardCornerIndex(
+                      card: card,
+                      size: size,
+                      tokens: tokens,
+                      placement: CardCornerPlacement.top,
+                      trump: trump,
+                    ),
                   ),
-                ),
-                Positioned(
-                  right:
-                      cardCornerHorizontalInset(size) + (plantedFace ? 4 : 0),
-                  bottom:
-                      cardBottomCornerVerticalInset(size) +
-                      (plantedFace ? 2 : 0),
-                  child: CardCornerIndex(
-                    card: card,
-                    size: size,
-                    tokens: tokens,
-                    placement: CardCornerPlacement.bottom,
-                    trump: trump,
+                  Positioned(
+                    right:
+                        cardCornerHorizontalInset(size) + (plantedFace ? 4 : 0),
+                    bottom:
+                        cardBottomCornerVerticalInset(size) +
+                        (plantedFace ? 2 : 0),
+                    child: CardCornerIndex(
+                      card: card,
+                      size: size,
+                      tokens: tokens,
+                      placement: CardCornerPlacement.bottom,
+                      trump: trump,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          if (!plantedFace)
+          if (!plantedFace && !physicalDeckFace)
             Positioned.fill(
               child: IgnorePointer(
                 child: DecoratedBox(
@@ -628,6 +644,548 @@ class GameCard extends StatelessWidget {
     }
     return MotionTrackedCard(card: card, child: cardSurface);
   }
+}
+
+const _physicalDeckWidth = 1644.0;
+const _physicalDeckHeight = 2244.0;
+const _physicalDeckInk = Color(0xff263025);
+
+class PhysicalDeckCardContent extends StatelessWidget {
+  const PhysicalDeckCardContent({
+    required this.card,
+    required this.tokens,
+    super.key,
+  });
+
+  final TableCard card;
+  final DesignTokens tokens;
+
+  static Future<Map<String, dynamic>>? _layoutsFuture;
+
+  static Future<Map<String, dynamic>> preloadLayouts() =>
+      _layoutsFuture ??= rootBundle
+          .loadString(
+            'assets/art/field_plan/cards/physical-deck-layout-v16.json',
+          )
+          .then((source) => jsonDecode(source) as Map<String, dynamic>);
+
+  Future<Map<String, dynamic>> get _layouts => preloadLayouts();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _layouts,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return ErrorWidget(snapshot.error!);
+        }
+        final payload = snapshot.data;
+        final layouts = payload?['layouts'] as Map<String, dynamic>?;
+        final layout = layouts?[_layoutCardID] as Map<String, dynamic>?;
+        if (layout == null) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return _fallbackContent();
+          }
+          return ErrorWidget('Missing physical-deck layout: $_layoutCardID');
+        }
+        return KeyedSubtree(
+          key: ValueKey('physical-deck-layout-$_layoutCardID'),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final scaleX = constraints.maxWidth / _physicalDeckWidth;
+              final scaleY = constraints.maxHeight / _physicalDeckHeight;
+              return Stack(
+                clipBehavior: Clip.none,
+                children: _savedLayoutPieces(
+                  layout,
+                  fontMetrics:
+                      payload?['fontMetrics'] as Map<String, dynamic>? ??
+                      const {},
+                  scaleX: scaleX,
+                  scaleY: scaleY,
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  String get _layoutCardID {
+    if (card.suit == wreckerSuit) return 'saboteur';
+    final rank = switch (card.value) {
+      11 => 'jack',
+      12 => 'queen',
+      13 => 'king',
+      _ => '${card.value}',
+    };
+    return '${card.suit}-$rank';
+  }
+
+  List<Widget> _savedLayoutPieces(
+    Map<String, dynamic> layout, {
+    required Map<String, dynamic> fontMetrics,
+    required double scaleX,
+    required double scaleY,
+  }) {
+    final result = <Widget>[];
+    for (final entry in layout.entries) {
+      final id = entry.key;
+      if (id == 'topTrumpInset' || id == 'bottomTrumpInset') continue;
+      final piece = entry.value as Map<String, dynamic>;
+      final type = piece['type'] as String;
+      final rotation =
+          ((piece['rotation'] as num?)?.toDouble() ?? 0) * math.pi / 180;
+
+      if (type == 'rank' || type == 'caption') {
+        result.add(
+          _textPiece(
+            text: piece['text'] as String,
+            x: (piece['x'] as num).toDouble(),
+            y: (piece['y'] as num).toDouble(),
+            visualHeight: (piece['visualHeight'] as num).toDouble(),
+            scaleX: scaleX,
+            scaleY: scaleY,
+            rotation: rotation,
+            fontFamily: piece['text'] == '0' && card.suit == wreckerSuit
+                ? 'Bitter'
+                : 'Podkova',
+            inkMetrics: fontMetrics[piece['text']] as Map<String, dynamic>?,
+            slashedZero: piece['text'] == '0' && card.suit == wreckerSuit,
+            width: type == 'caption' ? 760 : 360,
+          ),
+        );
+        continue;
+      }
+
+      if (type == 'rankIcon') {
+        final height = (piece['visualHeight'] as num).toDouble();
+        final width = height * (piece['aspectRatio'] as num).toDouble();
+        result.add(
+          _positionedImage(
+            path: 'assets/art/field_plan/cards/ranks/rank-saboteur-star.png',
+            x: (piece['x'] as num).toDouble() - width / 2,
+            y: (piece['y'] as num).toDouble() - height / 2,
+            width: width,
+            height: height,
+            scaleX: scaleX,
+            scaleY: scaleY,
+            rotation: rotation,
+          ),
+        );
+        continue;
+      }
+
+      final path = id == 'centralFace'
+          ? faceAssetPath(card)
+          : suitAssetPath(card.suit);
+      result.add(
+        _positionedImage(
+          path: path,
+          x: (piece['x'] as num).toDouble(),
+          y: (piece['y'] as num).toDouble(),
+          width: (piece['width'] as num).toDouble(),
+          height: (piece['height'] as num).toDouble(),
+          scaleX: scaleX,
+          scaleY: scaleY,
+          rotation: rotation,
+        ),
+      );
+    }
+    return result;
+  }
+
+  Widget _positionedImage({
+    required String path,
+    required double x,
+    required double y,
+    required double width,
+    required double height,
+    required double scaleX,
+    required double scaleY,
+    required double rotation,
+  }) {
+    return Positioned(
+      left: x * scaleX,
+      top: y * scaleY,
+      width: width * scaleX,
+      height: height * scaleY,
+      child: Transform.rotate(
+        angle: rotation,
+        child: Image.asset(
+          path,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
+          isAntiAlias: true,
+          errorBuilder: (_, _, _) => SuitDot(
+            suit: card.suit,
+            tokens: tokens,
+            size: math.min(width * scaleX, height * scaleY),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _fallbackContent() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scaleX = constraints.maxWidth / _physicalDeckWidth;
+        final scaleY = constraints.maxHeight / _physicalDeckHeight;
+        final pieces = <Widget>[
+          _cornerRank(scaleX: scaleX, scaleY: scaleY, top: true),
+          _cornerSuit(scaleX: scaleX, scaleY: scaleY, top: true),
+          _cornerRank(scaleX: scaleX, scaleY: scaleY, top: false),
+          _cornerSuit(scaleX: scaleX, scaleY: scaleY, top: false),
+        ];
+
+        if (card.suit == wreckerSuit || card.value >= 11) {
+          pieces.addAll(_facePieces(scaleX: scaleX, scaleY: scaleY));
+        } else {
+          pieces.addAll(_numberPips(scaleX: scaleX, scaleY: scaleY));
+        }
+
+        return Stack(clipBehavior: Clip.none, children: pieces);
+      },
+    );
+  }
+
+  Widget _cornerRank({
+    required double scaleX,
+    required double scaleY,
+    required bool top,
+  }) {
+    final x = top ? 291.2224025895829 : _physicalDeckWidth - 291.2224025895829;
+    final y = top
+        ? 255.10526218567782
+        : _physicalDeckHeight - 255.10526218567782;
+    const visualHeight = 195.3000030517578;
+    final rotation = top ? 0.0 : math.pi;
+    if (card.suit == wreckerSuit) {
+      final height = visualHeight * scaleY;
+      final width = height * 1047 / 968;
+      return Positioned(
+        left: x * scaleX - width / 2,
+        top: y * scaleY - height / 2,
+        width: width,
+        height: height,
+        child: Transform.rotate(
+          angle: rotation,
+          child: Image.asset(
+            'assets/art/field_plan/cards/ranks/rank-saboteur-star.png',
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
+            isAntiAlias: true,
+          ),
+        ),
+      );
+    }
+    return _textPiece(
+      text: physicalDeckRankLabel(card),
+      x: x,
+      y: y,
+      visualHeight: visualHeight,
+      scaleX: scaleX,
+      scaleY: scaleY,
+      rotation: rotation,
+      fontFamily: 'Podkova',
+    );
+  }
+
+  Widget _cornerSuit({
+    required double scaleX,
+    required double scaleY,
+    required bool top,
+  }) {
+    const width = 150.0;
+    const height = 150.0;
+    final x = top ? 265.0 : 1229.0;
+    final y = top ? 510.0 : 1584.0;
+    return _imagePiece(
+      path: suitAssetPath(card.suit),
+      x: x,
+      y: y,
+      width: width,
+      height: height,
+      scaleX: scaleX,
+      scaleY: scaleY,
+      rotate: !top,
+    );
+  }
+
+  List<Widget> _numberPips({required double scaleX, required double scaleY}) {
+    if (card.value == 7) {
+      const pips = <(double, double, bool)>[
+        (470, 365, false),
+        (834, 365, false),
+        (652, 760, false),
+        (470, 1055, false),
+        (834, 1055, false),
+        (470, 1485, true),
+        (834, 1485, true),
+      ];
+      return [
+        for (final pip in pips)
+          _imagePiece(
+            path: suitAssetPath(card.suit),
+            x: pip.$1,
+            y: pip.$2,
+            width: 340,
+            height: 340,
+            scaleX: scaleX,
+            scaleY: scaleY,
+            rotate: pip.$3,
+          ),
+      ];
+    }
+
+    final sourceSize = card.value <= 3
+        ? 420.0
+        : card.value >= 9
+        ? 280.0
+        : 330.0;
+    return [
+      for (final point in pipPositions(card.value))
+        _imagePiece(
+          path: suitAssetPath(card.suit),
+          x: 458 + point.dx * 728 - sourceSize / 2,
+          y: 300 + point.dy * 1600 - sourceSize / 2,
+          width: sourceSize,
+          height: sourceSize,
+          scaleX: scaleX,
+          scaleY: scaleY,
+          rotate: 300 + point.dy * 1600 > _physicalDeckHeight / 2,
+        ),
+    ];
+  }
+
+  List<Widget> _facePieces({required double scaleX, required double scaleY}) {
+    const faceX = 372.0;
+    const faceY = 445.0;
+    const faceWidth = 900.0;
+    const faceHeight = 1350.0;
+    final caption = physicalDeckFaceCaption(card);
+    return [
+      _imagePiece(
+        path: faceAssetPath(card),
+        x: faceX,
+        y: faceY,
+        width: faceWidth,
+        height: faceHeight,
+        scaleX: scaleX,
+        scaleY: scaleY,
+        rotate: false,
+      ),
+      _textPiece(
+        text: '${card.value}',
+        x: 490,
+        y: 270,
+        visualHeight: 90,
+        scaleX: scaleX,
+        scaleY: scaleY,
+        rotation: 0,
+        fontFamily: card.suit == wreckerSuit ? 'Bitter' : 'Podkova',
+        slashedZero: card.suit == wreckerSuit,
+      ),
+      _textPiece(
+        text: '${card.value}',
+        x: 1154,
+        y: 1974,
+        visualHeight: 90,
+        scaleX: scaleX,
+        scaleY: scaleY,
+        rotation: math.pi,
+        fontFamily: card.suit == wreckerSuit ? 'Bitter' : 'Podkova',
+        slashedZero: card.suit == wreckerSuit,
+      ),
+      if (caption != null)
+        _textPiece(
+          text: caption,
+          x: _physicalDeckWidth / 2,
+          y: faceY + faceHeight + 90,
+          visualHeight: 96,
+          scaleX: scaleX,
+          scaleY: scaleY,
+          rotation: 0,
+          fontFamily: 'Podkova',
+          width: 760,
+        ),
+    ];
+  }
+
+  Widget _imagePiece({
+    required String path,
+    required double x,
+    required double y,
+    required double width,
+    required double height,
+    required double scaleX,
+    required double scaleY,
+    required bool rotate,
+  }) {
+    return Positioned(
+      left: x * scaleX,
+      top: y * scaleY,
+      width: width * scaleX,
+      height: height * scaleY,
+      child: Transform.rotate(
+        angle: rotate ? math.pi : 0,
+        child: Image.asset(
+          path,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
+          isAntiAlias: true,
+          errorBuilder: (_, _, _) => SuitDot(
+            suit: card.suit,
+            tokens: tokens,
+            size: math.min(width * scaleX, height * scaleY),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _textPiece({
+    required String text,
+    required double x,
+    required double y,
+    required double visualHeight,
+    required double scaleX,
+    required double scaleY,
+    required double rotation,
+    required String fontFamily,
+    Map<String, dynamic>? inkMetrics,
+    double width = 360,
+    bool slashedZero = false,
+  }) {
+    if (inkMetrics != null) {
+      return Positioned.fill(
+        child: CustomPaint(
+          painter: _PhysicalDeckTextPainter(
+            text: text,
+            center: Offset(x * scaleX, y * scaleY),
+            visualHeight: visualHeight,
+            scaleX: scaleX,
+            scaleY: scaleY,
+            rotation: rotation,
+            fontFamily: fontFamily,
+            slashedZero: slashedZero,
+            left: (inkMetrics['left'] as num).toDouble(),
+            right: (inkMetrics['right'] as num).toDouble(),
+            ascent: (inkMetrics['ascent'] as num).toDouble(),
+            descent: (inkMetrics['descent'] as num).toDouble(),
+          ),
+        ),
+      );
+    }
+    final boxWidth = width * scaleX;
+    final boxHeight = visualHeight * scaleY;
+    return Positioned(
+      left: x * scaleX - boxWidth / 2,
+      top: y * scaleY - boxHeight / 2,
+      width: boxWidth,
+      height: boxHeight,
+      child: Transform.rotate(
+        angle: rotation,
+        child: FittedBox(
+          fit: BoxFit.contain,
+          child: Text(
+            text,
+            maxLines: 1,
+            style: TextStyle(
+              color: _physicalDeckInk,
+              fontFamily: fontFamily,
+              fontWeight: FontWeight.w700,
+              height: 1,
+              fontFeatures: slashedZero
+                  ? const [FontFeature.slashedZero()]
+                  : null,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PhysicalDeckTextPainter extends CustomPainter {
+  const _PhysicalDeckTextPainter({
+    required this.text,
+    required this.center,
+    required this.visualHeight,
+    required this.scaleX,
+    required this.scaleY,
+    required this.rotation,
+    required this.fontFamily,
+    required this.slashedZero,
+    required this.left,
+    required this.right,
+    required this.ascent,
+    required this.descent,
+  });
+
+  final String text;
+  final Offset center;
+  final double visualHeight;
+  final double scaleX;
+  final double scaleY;
+  final double rotation;
+  final String fontFamily;
+  final bool slashedZero;
+  final double left;
+  final double right;
+  final double ascent;
+  final double descent;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: _physicalDeckInk,
+          fontFamily: fontFamily,
+          fontSize: 1000 * scaleY,
+          fontWeight: FontWeight.w700,
+          height: 1,
+          fontFeatures: slashedZero ? const [FontFeature.slashedZero()] : null,
+        ),
+      ),
+      maxLines: 1,
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final baseline = painter.computeDistanceToActualBaseline(
+      TextBaseline.alphabetic,
+    );
+    final inkCenterX = (right - left) * scaleX / 2;
+    final inkCenterY = (descent - ascent) * scaleY / 2;
+    final inkScale = visualHeight / (ascent + descent);
+
+    canvas
+      ..save()
+      ..translate(center.dx, center.dy)
+      ..rotate(rotation)
+      ..scale(inkScale)
+      ..translate(-inkCenterX, -inkCenterY - baseline);
+    painter.paint(canvas, Offset(-painter.width / 2, 0));
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_PhysicalDeckTextPainter oldDelegate) =>
+      text != oldDelegate.text ||
+      center != oldDelegate.center ||
+      visualHeight != oldDelegate.visualHeight ||
+      scaleX != oldDelegate.scaleX ||
+      scaleY != oldDelegate.scaleY ||
+      rotation != oldDelegate.rotation ||
+      fontFamily != oldDelegate.fontFamily ||
+      slashedZero != oldDelegate.slashedZero ||
+      left != oldDelegate.left ||
+      right != oldDelegate.right ||
+      ascent != oldDelegate.ascent ||
+      descent != oldDelegate.descent;
 }
 
 double cardCornerHorizontalInset(TokenCardSize size) => 0;

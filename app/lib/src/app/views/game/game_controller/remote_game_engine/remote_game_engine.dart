@@ -24,6 +24,7 @@ class RemoteGameEngine implements GameEngine {
     required this.setUiState,
     required this.lobby,
     required this.onUpdate,
+    required this.onGameUpdate,
     required this.onStateChanged,
     required this.onError,
     this.spectator = false,
@@ -46,6 +47,7 @@ class RemoteGameEngine implements GameEngine {
   final void Function(GameUiState) setUiState;
   final GameLobby Function() lobby;
   final void Function(OnlineSessionUpdate) onUpdate;
+  final void Function(GameEngineUpdate) onGameUpdate;
   final void Function() onStateChanged;
   final void Function(String?) onError;
   final bool spectator;
@@ -53,8 +55,6 @@ class RemoteGameEngine implements GameEngine {
   final GameRemoteCommands _channel;
   StreamSubscription<GameEvent>? _events;
   OnlineSessionUpdate _update;
-  int? _presentationRevision;
-  List<String> _assignmentPresentationCardIDs = const [];
   GameUiState? _selectionBeforeCommand;
   Timer? _reactionFlashTimer;
   OnlineReaction? _activeReaction;
@@ -69,10 +69,6 @@ class RemoteGameEngine implements GameEngine {
   @override
   GameEngineMode get mode => GameEngineMode.remote;
 
-  @override
-  int? get presentationRevision => _presentationRevision;
-  List<String> get assignmentPresentationCardIDs =>
-      List.unmodifiable(_assignmentPresentationCardIDs);
   OnlineReaction? get activeReaction => _activeReaction;
   bool get hasUnreadReactions => _hasUnreadReactions;
   bool get canSendReaction => _update.started;
@@ -121,14 +117,6 @@ class RemoteGameEngine implements GameEngine {
     return _channel.send(SendGameReaction(reactionID));
   }
 
-  @override
-  void acknowledgePresentation(int revision) {
-    if (_presentationRevision != revision) {
-      return;
-    }
-    unawaited(_channel.send(AcknowledgeGamePresentation(revision)));
-  }
-
   void markReactionsRead() {
     _hasUnreadReactions = false;
   }
@@ -142,11 +130,13 @@ class RemoteGameEngine implements GameEngine {
   void _handleEvent(GameEvent event) {
     switch (event) {
       case OnlineGameStateReceived():
-        _presentationRevision = event.presentationRevision;
-        _assignmentPresentationCardIDs = event.assignmentPresentationCardIDs;
         _acceptUpdate(event.update);
         onError(null);
-        onStateChanged();
+        if (event.committed) {
+          onGameUpdate(GameEngineUpdate(action: event.action));
+        } else {
+          onStateChanged();
+        }
       case GameCommandCompleted():
         if (event.command is SubmitGameAction) {
           _selectionBeforeCommand = null;

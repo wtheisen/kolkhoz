@@ -125,7 +125,7 @@ class _OnlinePanelState extends State<JoinGameView> {
       return;
     }
     setState(() {
-      setStatus(widget.language.t(KolkhozText.kolkhozappCopied));
+      setStatus(widget.language.strings.kolkhozappCopied);
     });
   }
 
@@ -208,9 +208,7 @@ class _OnlinePanelState extends State<JoinGameView> {
       final seat = session.openSeats.isEmpty ? null : session.openSeats.first;
       await widget.onJoinOnline(onlineServerURL, session.sessionID, seat);
       setStatus(
-        widget.language.t(KolkhozText.kolkhozappJoinedValue1, {
-          'value1': session.shortID,
-        }),
+        widget.language.strings.kolkhozappJoinedValue1(value1: session.shortID),
       );
     });
   }
@@ -246,7 +244,7 @@ class _OnlinePanelState extends State<JoinGameView> {
     }
     await runOnlineAction(() async {
       await widget.onComradeRequestToUser!(userID);
-      setStatus(widget.language.t(KolkhozText.kolkhozappComradeRequestSent));
+      setStatus(widget.language.strings.kolkhozappComradeRequestSent);
     });
   }
 
@@ -270,9 +268,9 @@ class _OnlinePanelState extends State<JoinGameView> {
         null,
       );
       setStatus(
-        widget.language.t(KolkhozText.kolkhozappJoinedValue1, {
-          'value1': inviteController.text.trim(),
-        }),
+        widget.language.strings.kolkhozappJoinedValue1(
+          value1: inviteController.text.trim(),
+        ),
       );
     });
   }
@@ -289,9 +287,7 @@ class _OnlinePanelState extends State<JoinGameView> {
         false,
       );
       setStatus(
-        widget.language.t(KolkhozText.kolkhozappJoinedValue1, {
-          'value1': inviteCode,
-        }),
+        widget.language.strings.kolkhozappJoinedValue1(value1: inviteCode),
       );
     });
   }
@@ -394,12 +390,11 @@ class _OnlinePanelState extends State<JoinGameView> {
         status != null && statusDisablesAction && !hasInviteCode;
     final citizensOnlineMessage = citizensOnline == null
         ? null
-        : widget.language.t(KolkhozText.kolkhozappValue1CitizensOnline, {
-            'value1': citizensOnline!,
-          });
-    final refreshMessage = widget.language.t(
-      KolkhozText.kolkhozappRefreshInValue1s,
-      {'value1': secondsUntilBrowserRefresh},
+        : widget.language.strings.kolkhozappValue1CitizensOnline(
+            value1: citizensOnline!,
+          );
+    final refreshMessage = widget.language.strings.kolkhozappRefreshInValue1s(
+      value1: secondsUntilBrowserRefresh,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,7 +408,7 @@ class _OnlinePanelState extends State<JoinGameView> {
               size: 26,
             ),
             Text(
-              widget.language.t(KolkhozText.kolkhozappJoinGame),
+              widget.language.strings.kolkhozappJoinGame,
               style: kolkhozFontStyle.copyWith(
                 color: widget.tokens.colors.gold,
                 fontSize: 19,
@@ -422,9 +417,10 @@ class _OnlinePanelState extends State<JoinGameView> {
             ),
             Expanded(
               child: Text(
-                widget.language.t(
-                  KolkhozText.kolkhozappJoinAnOpenGameOrEnterAnInviteCode,
-                ),
+                widget
+                    .language
+                    .strings
+                    .kolkhozappJoinAnOpenGameOrEnterAnInviteCode,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: kolkhozFontStyle.copyWith(
@@ -502,7 +498,7 @@ class _OnlinePanelState extends State<JoinGameView> {
                 width: 112,
                 height: double.infinity,
                 child: ChromeAssetButton.command(
-                  label: widget.language.t(KolkhozText.kolkhozappRefresh),
+                  label: widget.language.strings.kolkhozappRefresh,
                   prominent: false,
                   tokens: widget.tokens,
                   iconAsset: 'assets/ui/Icons/icon-status-connecting.png',
@@ -528,9 +524,7 @@ class _OnlinePanelState extends State<JoinGameView> {
                       fontWeight: FontWeight.w700,
                     ),
                     decoration: InputDecoration(
-                      labelText: widget.language.t(
-                        KolkhozText.kolkhozappInviteCode,
-                      ),
+                      labelText: widget.language.strings.kolkhozappInviteCode,
                       labelStyle: kolkhozFontStyle.copyWith(
                         color: widget.tokens.colors.creamDim.withValues(
                           alpha: 0.72,
@@ -556,14 +550,12 @@ class _OnlinePanelState extends State<JoinGameView> {
                     label: buttonShowsBan
                         ? status!
                         : busy
-                        ? widget.language.t(KolkhozText.kolkhozappWorking)
+                        ? widget.language.strings.kolkhozappWorking
                         : joinsExistingGame
                         ? selected?.started == true
                               ? 'WATCH GAME'
-                              : widget.language.t(
-                                  KolkhozText.kolkhozappJoinGame,
-                                )
-                        : widget.language.t(KolkhozText.kolkhozappAssignGame),
+                              : widget.language.strings.kolkhozappJoinGame
+                        : widget.language.strings.kolkhozappAssignGame,
                     prominent: true,
                     tokens: widget.tokens,
                     iconAsset: buttonShowsBan
@@ -674,15 +666,15 @@ class OnlineWaitingRoomPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final countdownSeconds = update.lobbyCountdownSeconds;
     final status = update.started
-        ? language.t(KolkhozText.kolkhozappJoinGame)
+        ? language.strings.kolkhozappJoinGame
         : countdownSeconds != null
-        ? language.t(KolkhozText.kolkhozappGameStartsInValue1s, {
-            'value1': countdownSeconds,
-          })
-        : language.t(KolkhozText.kolkhozappWaitingForPlayers);
+        ? language.strings.kolkhozappGameStartsInValue1s(
+            value1: countdownSeconds,
+          )
+        : language.strings.kolkhozappWaitingForPlayers;
     final subtitle =
         '${lobby.seats.where((seat) => seat.ready).length}/${lobby.seats.length} '
-        '${language.t(KolkhozText.kolkhozappSeats)}';
+        '${language.strings.kolkhozappSeats}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -694,10 +686,10 @@ class OnlineWaitingRoomPanel extends StatelessWidget {
             children: [
               if (showHeaderCancel && onCancelOnlineGame != null)
                 Tooltip(
-                  message: language.t(KolkhozText.kolkhozappCancel),
+                  message: language.strings.kolkhozappCancel,
                   child: Semantics(
                     button: true,
-                    label: language.t(KolkhozText.kolkhozappCancel),
+                    label: language.strings.kolkhozappCancel,
                     child: GestureDetector(
                       key: const Key('online-waiting-cancel'),
                       behavior: HitTestBehavior.opaque,
@@ -771,20 +763,20 @@ class OnlineWaitingRoomPanel extends StatelessWidget {
             children: [
               _OpenSessionDetailChip(
                 tokens: tokens,
-                label: language.t(KolkhozText.kolkhozappGameType),
+                label: language.strings.kolkhozappGameType,
                 value: update.ranked
-                    ? language.t(KolkhozText.kolkhozappRanked)
-                    : language.t(KolkhozText.kolkhozappCasual),
+                    ? language.strings.kolkhozappRanked
+                    : language.strings.kolkhozappCasual,
               ),
               _OpenSessionDetailChip(
                 tokens: tokens,
-                label: language.t(KolkhozText.kolkhozappSeats),
+                label: language.strings.kolkhozappSeats,
                 value:
                     '${lobby.seats.where((seat) => seat.ready).length}/${lobby.seats.length}',
               ),
               _OpenSessionDetailChip(
                 tokens: tokens,
-                label: language.t(KolkhozText.kolkhozappMoves),
+                label: language.strings.kolkhozappMoves,
                 value: '${update.actionLogCount}',
               ),
             ],
@@ -873,7 +865,7 @@ class WaitingRoomEnterButton extends StatelessWidget {
         width: double.infinity,
         height: height,
         child: ChromeAssetButton.command(
-          label: language.t(KolkhozText.kolkhozappJoinGame),
+          label: language.strings.kolkhozappJoinGame,
           prominent: true,
           tokens: tokens,
           iconAsset: 'assets/ui/Icons/icon-join-game.png',
@@ -993,13 +985,11 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
               outgoingComradeRequestUserIDs: outgoingComradeRequestUserIDs,
               onComradeRequestToUser: onComradeRequestToUser,
             ),
-      seatLabel: language.t(KolkhozText.kolkhozappPValue1, {
-        'value1': playerID + 1,
-      }),
+      seatLabel: language.strings.kolkhozappPValue1(value1: playerID + 1),
       subtitle: _seatStatus(open, connected),
       title: open
           ? _AnimatedEllipsisLabel(
-              label: language.t(KolkhozText.kolkhozappSearchingForPlayer),
+              label: language.strings.kolkhozappSearchingForPlayer,
               builder: (label) => Text(
                 label,
                 maxLines: 2,
@@ -1019,7 +1009,7 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
       muted: open,
       action: canKick
           ? PlayerProfileAction(
-              label: language.t(KolkhozText.kolkhozappKick),
+              label: language.strings.kolkhozappKick,
               iconAsset: 'assets/ui/Icons/icon-warning.png',
               onPressed: onKick,
               textSize: PixelTextSize.caption2,
@@ -1034,22 +1024,22 @@ class _OnlineWaitingRoomSeatCard extends StatelessWidget {
       return trimmed;
     }
     if (open) {
-      return language.t(KolkhozText.kolkhozappOpen);
+      return language.strings.kolkhozappOpen;
     }
-    return language.t(KolkhozText.kolkhozappHuman);
+    return language.strings.kolkhozappHuman;
   }
 
   String _seatStatus(bool open, bool connected) {
     if (open) {
-      return language.t(KolkhozText.kolkhozappWaiting);
+      return language.strings.kolkhozappWaiting;
     }
     if (profile != null) {
-      return '${language.t(KolkhozText.kolkhozappRating)} '
+      return '${language.strings.kolkhozappRating} '
           '${profile!.stats.ratingForGameType(ranked: ranked)}';
     }
     return connected
         ? controller.shortTitle(language)
-        : language.t(KolkhozText.kolkhozappWaiting);
+        : language.strings.kolkhozappWaiting;
   }
 }
 
@@ -1076,10 +1066,10 @@ Future<void> _showLobbyPlayerProfile({
   final hasOutgoingRequest =
       userID != null && outgoingComradeRequestUserIDs.contains(userID);
   final relationshipLabel = isComrade
-      ? language.t(KolkhozText.kolkhozappComrade)
+      ? language.strings.kolkhozappComrade
       : hasOutgoingRequest
-      ? language.t(KolkhozText.kolkhozappPending)
-      : language.t(KolkhozText.kolkhozappNotComrade);
+      ? language.strings.kolkhozappPending
+      : language.strings.kolkhozappNotComrade;
   return showDialog<void>(
     context: context,
     builder: (context) => Dialog(
@@ -1092,10 +1082,10 @@ Future<void> _showLobbyPlayerProfile({
             key: Key('lobby-player-profile-${profile.seatID}'),
             tokens: tokens,
             displayName: displayName == null || displayName.isEmpty
-                ? language.t(KolkhozText.kolkhozappHuman)
+                ? language.strings.kolkhozappHuman
                 : displayName,
             portraitAsset: profile.portraitAsset ?? defaultProfilePortraitAsset,
-            subtitle: language.t(KolkhozText.kolkhozappPlayer),
+            subtitle: language.strings.kolkhozappPlayer,
             statGroups: kolkhozProfileStatGroups(
               stats: profile.stats,
               language: language,
@@ -1136,9 +1126,9 @@ Future<void> _showLobbyPlayerProfile({
 
 String onlineFailureStatusMessage(Object exception, KolkhozLanguage language) {
   if (exception is SocketException) {
-    return language.t(
-      KolkhozText.kolkhozappCouldNotReachTheOnlineServerTryAgainInAMom,
-    );
+    return language
+        .strings
+        .kolkhozappCouldNotReachTheOnlineServerTryAgainInAMom;
   }
   if (exception is RemoteRequestException) {
     return onlineFailureMessageFromServerError(
@@ -1157,7 +1147,7 @@ String onlineFailureStatusMessage(Object exception, KolkhozLanguage language) {
   if (exception is HttpException) {
     return onlineFailureMessageFromServerError(exception.message, language);
   }
-  return language.t(KolkhozText.kolkhozappOnlineRequestFailedTryAgain);
+  return language.strings.kolkhozappOnlineRequestFailedTryAgain;
 }
 
 bool onlineFailureLocksOnlinePlay(Object exception) {
@@ -1184,26 +1174,24 @@ String onlineFailureMessageFromServerError(
 }) {
   final normalized = message.toLowerCase();
   if (normalized.contains('sent north')) {
-    return language.t(
-      KolkhozText.kolkhozappSentNorthOnlinePlayIsLockedForThisAccount,
-    );
+    return language.strings.kolkhozappSentNorthOnlinePlayIsLockedForThisAccount;
   }
   if (normalized.contains('missing auth token')) {
     return sentAuthorization == true
-        ? language.t(KolkhozText.kolkhozappCouldNotVerifyOnlineAccountTryAgain)
-        : language.t(KolkhozText.kolkhozappSignInBeforeJoiningOnlinePlay);
+        ? language.strings.kolkhozappCouldNotVerifyOnlineAccountTryAgain
+        : language.strings.kolkhozappSignInBeforeJoiningOnlinePlay;
   }
   if (normalized.contains('invalid auth token')) {
-    return language.t(KolkhozText.kolkhozappOnlineSignInExpiredSignInAgain);
+    return language.strings.kolkhozappOnlineSignInExpiredSignInAgain;
   }
   if (normalized.contains('no open games')) {
-    return language.t(KolkhozText.kolkhozappNoOpenGames);
+    return language.strings.kolkhozappNoOpenGames;
   }
   final detail = onlineServerErrorDetail(message);
   if (detail == null) {
-    return language.t(KolkhozText.kolkhozappTheOnlineServerRejectedTheRequest);
+    return language.strings.kolkhozappTheOnlineServerRejectedTheRequest;
   }
-  return '${language.t(KolkhozText.kolkhozappTheOnlineServerRejectedTheRequest)} '
+  return '${language.strings.kolkhozappTheOnlineServerRejectedTheRequest} '
       '$detail';
 }
 
@@ -1468,7 +1456,7 @@ class _HostedInviteCodeCard extends StatelessWidget {
                 width: compact ? double.infinity : 158,
                 height: 44,
                 child: ChromeAssetButton.command(
-                  label: language.t(KolkhozText.kolkhozappCopyCode),
+                  label: language.strings.kolkhozappCopyCode,
                   prominent: false,
                   tokens: tokens,
                   onPressed: onCopy,
@@ -1495,7 +1483,7 @@ class _HostedInviteCodeCard extends StatelessWidget {
                           spacing: 2,
                           children: [
                             Text(
-                              language.t(KolkhozText.kolkhozappYourInviteCode),
+                              language.strings.kolkhozappYourInviteCode,
                               style: kolkhozFontStyle.copyWith(
                                 color: tokens.colors.onAccent,
                                 fontSize: 17,
@@ -1504,9 +1492,7 @@ class _HostedInviteCodeCard extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              language.t(
-                                KolkhozText.kolkhozappWaitingForPlayers,
-                              ),
+                              language.strings.kolkhozappWaitingForPlayers,
                               style: kolkhozFontStyle.copyWith(
                                 color: tokens.colors.onAccent.withValues(
                                   alpha: 0.72,
@@ -1632,7 +1618,7 @@ class _OpenSessionsList extends StatelessWidget {
             ? Align(
                 alignment: Alignment.topLeft,
                 child: Text(
-                  language.t(KolkhozText.kolkhozappNoOpenGames),
+                  language.strings.kolkhozappNoOpenGames,
                   style: kolkhozFontStyle.copyWith(
                     color: tokens.colors.creamDim,
                     fontSize: 12,
@@ -1802,18 +1788,15 @@ class _OpenSessionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final openSeats = session.openSeats
-        .map(
-          (seat) =>
-              language.t(KolkhozText.kolkhozappPValue1, {'value1': seat + 1}),
-        )
+        .map((seat) => language.strings.kolkhozappPValue1(value1: seat + 1))
         .join(' ');
     final hostProfile = session.playerProfiles
         .where((profile) => profile.playerID == 0)
         .firstOrNull;
     final hostName = hostProfile?.displayName?.trim();
     final gameType = session.ranked
-        ? language.t(KolkhozText.kolkhozappRanked)
-        : language.t(KolkhozText.kolkhozappCasual);
+        ? language.strings.kolkhozappRanked
+        : language.strings.kolkhozappCasual;
     final title = hostName == null || hostName.isEmpty ? gameType : hostName;
     final titleColor = expanded
         ? tokens.colors.activeSurfaceText
@@ -1835,8 +1818,8 @@ class _OpenSessionRow extends StatelessWidget {
           expanded: expanded,
           label:
               '$title, '
-              '${session.ranked ? language.t(KolkhozText.kolkhozappRanked) : language.t(KolkhozText.kolkhozappCasual)}'
-              '${hasComrade ? ', ${language.t(KolkhozText.kolkhozappComrade)}' : ''}',
+              '${session.ranked ? language.strings.kolkhozappRanked : language.strings.kolkhozappCasual}'
+              '${hasComrade ? ', ${language.strings.kolkhozappComrade}' : ''}',
           child: ExcludeSemantics(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -1850,8 +1833,8 @@ class _OpenSessionRow extends StatelessWidget {
                     _OpenSessionBadgeIcon(
                       tokens: tokens,
                       label: session.ranked
-                          ? language.t(KolkhozText.kolkhozappRanked)
-                          : language.t(KolkhozText.kolkhozappCasual),
+                          ? language.strings.kolkhozappRanked
+                          : language.strings.kolkhozappCasual,
                       asset: session.ranked
                           ? 'assets/ui/Icons/icon-medal-star.png'
                           : 'assets/ui/Icons/icon-foreman-misha.png',
@@ -1875,9 +1858,9 @@ class _OpenSessionRow extends StatelessWidget {
                           VariantPixelLine(
                             height: pixelTextSlotHeight(PixelTextSize.caption2),
                             child: PixelText(
-                              language.t(KolkhozText.kolkhozappOpenOpenseats, {
-                                'openSeats': openSeats,
-                              }),
+                              language.strings.kolkhozappOpenOpenseats(
+                                openSeats: openSeats,
+                              ),
                               color: bodyColor,
                               size: PixelTextSize.caption2,
                               variant: PixelTextVariant.regular,
@@ -1891,7 +1874,7 @@ class _OpenSessionRow extends StatelessWidget {
                     if (hasComrade)
                       _OpenSessionBadgeIcon(
                         tokens: tokens,
-                        label: language.t(KolkhozText.kolkhozappComrade),
+                        label: language.strings.kolkhozappComrade,
                         asset: 'assets/ui/Icons/icon-comrade.png',
                       ),
                   ],
@@ -1906,7 +1889,7 @@ class _OpenSessionRow extends StatelessWidget {
             language: language,
             session: session,
             hostName: hostName == null || hostName.isEmpty
-                ? language.t(KolkhozText.kolkhozappWaiting)
+                ? language.strings.kolkhozappWaiting
                 : hostName,
             currentUserID: currentUserID,
             comradeUserIDs: comradeUserIDs,
@@ -1985,15 +1968,13 @@ class _OpenSessionDetails extends StatelessWidget {
             defaultProfileStats.ratingForGameType(ranked: session.ranked),
     ];
     final averageRating = ratings.isEmpty
-        ? language.t(KolkhozText.kolkhozappWaiting)
+        ? language.strings.kolkhozappWaiting
         : (ratings.reduce((left, right) => left + right) / ratings.length)
               .round()
               .toString();
     final turn = session.turnPlayerID == null
-        ? language.t(KolkhozText.kolkhozappWaiting)
-        : language.t(KolkhozText.kolkhozappPValue1, {
-            'value1': session.turnPlayerID! + 1,
-          });
+        ? language.strings.kolkhozappWaiting
+        : language.strings.kolkhozappPValue1(value1: session.turnPlayerID! + 1);
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.fromLTRB(18, 0, 18, 8),
@@ -2016,42 +1997,42 @@ class _OpenSessionDetails extends StatelessWidget {
             children: [
               _OpenSessionDetailChip(
                 tokens: tokens,
-                label: language.t(KolkhozText.kolkhozappHost),
+                label: language.strings.kolkhozappHost,
                 value: hostName,
               ),
               _OpenSessionDetailChip(
                 tokens: tokens,
-                label: language.t(KolkhozText.kolkhozappSeats),
+                label: language.strings.kolkhozappSeats,
                 value: '$occupiedSeats / $openSeats',
               ),
               _OpenSessionDetailChip(
                 tokens: tokens,
-                label: language.t(KolkhozText.kolkhozappTurn),
+                label: language.strings.kolkhozappTurn,
                 value: turn,
               ),
               _OpenSessionDetailChip(
                 tokens: tokens,
-                label: language.t(KolkhozText.kolkhozappMoves),
+                label: language.strings.kolkhozappMoves,
                 value: '${session.actionLogCount}',
               ),
               _OpenSessionDetailChip(
                 tokens: tokens,
-                label: language.t(KolkhozText.kolkhozappAverageRating),
+                label: language.strings.kolkhozappAverageRating,
                 value: averageRating,
               ),
               _OpenSessionDetailChip(
                 tokens: tokens,
-                label: language.t(KolkhozText.kolkhozappGameType),
+                label: language.strings.kolkhozappGameType,
                 value: session.ranked
-                    ? language.t(KolkhozText.kolkhozappRanked)
-                    : language.t(KolkhozText.kolkhozappCasual),
+                    ? language.strings.kolkhozappRanked
+                    : language.strings.kolkhozappCasual,
               ),
               _OpenSessionDetailChip(
                 tokens: tokens,
-                label: language.t(KolkhozText.kolkhozappAccess),
+                label: language.strings.kolkhozappAccess,
                 value: session.browserJoinable
-                    ? language.t(KolkhozText.kolkhozappBrowser)
-                    : language.t(KolkhozText.kolkhozappLocked),
+                    ? language.strings.kolkhozappBrowser
+                    : language.strings.kolkhozappLocked,
               ),
             ],
           ),
@@ -2097,13 +2078,10 @@ class _OpenSessionDetails extends StatelessWidget {
 
   String _seatList(List<int> seats) {
     if (seats.isEmpty) {
-      return language.t(KolkhozText.kolkhozappWaiting);
+      return language.strings.kolkhozappWaiting;
     }
     return seats
-        .map(
-          (seat) =>
-              language.t(KolkhozText.kolkhozappPValue1, {'value1': seat + 1}),
-        )
+        .map((seat) => language.strings.kolkhozappPValue1(value1: seat + 1))
         .join(' ');
   }
 }
@@ -2139,15 +2117,13 @@ class _OpenSessionPlayerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final player = language.t(KolkhozText.kolkhozappPValue1, {
-      'value1': playerID + 1,
-    });
+    final player = language.strings.kolkhozappPValue1(value1: playerID + 1);
     final name = profile?.displayName?.trim();
     final occupied = !open;
     final displayName = name == null || name.isEmpty
         ? occupied
-              ? language.t(KolkhozText.kolkhozappHuman)
-              : language.t(KolkhozText.kolkhozappOpen)
+              ? language.strings.kolkhozappHuman
+              : language.strings.kolkhozappOpen
         : name;
     final portraitAsset = profile?.portraitAsset ?? 'worker${playerID + 1}';
     final rating =
@@ -2168,12 +2144,12 @@ class _OpenSessionPlayerCard extends StatelessWidget {
         profileUserID != null &&
         outgoingComradeRequestUserIDs.contains(profileUserID);
     final actionLabel = isComrade
-        ? language.t(KolkhozText.kolkhozappComrade)
+        ? language.strings.kolkhozappComrade
         : hasOutgoingRequest
-        ? language.t(KolkhozText.kolkhozappPending)
+        ? language.strings.kolkhozappPending
         : hasIncomingRequest
-        ? language.t(KolkhozText.kolkhozappAccept)
-        : language.t(KolkhozText.kolkhozappAddComrade);
+        ? language.strings.kolkhozappAccept
+        : language.strings.kolkhozappAddComrade;
     final actionIcon = isComrade
         ? 'assets/ui/Icons/icon-comrade.png'
         : hasOutgoingRequest
@@ -2201,8 +2177,8 @@ class _OpenSessionPlayerCard extends StatelessWidget {
             ),
       seatLabel: player,
       subtitle: occupied
-          ? '${language.t(KolkhozText.kolkhozappRating)} $rating'
-          : language.t(KolkhozText.kolkhozappOpen),
+          ? '${language.strings.kolkhozappRating} $rating'
+          : language.strings.kolkhozappOpen,
       subtitleIconAsset: occupied
           ? 'assets/ui/Icons/icon-medal-star.png'
           : 'assets/ui/Icons/icon-human-seat.png',

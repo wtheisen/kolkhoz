@@ -25,6 +25,7 @@ class LocalGameEngine implements GameEngine {
     required this.setRevealedPlayerID,
     required this.lastSyncedPhase,
     required this.setLastSyncedPhase,
+    required this.onGameUpdate,
     required this.onStateChanged,
     required this.onError,
     required this.onPersist,
@@ -41,6 +42,7 @@ class LocalGameEngine implements GameEngine {
   final void Function(int?) setRevealedPlayerID;
   final String? Function() lastSyncedPhase;
   final void Function(String?) setLastSyncedPhase;
+  final void Function(GameEngineUpdate) onGameUpdate;
   final void Function() onStateChanged;
   final void Function(String?) onError;
   final void Function() onPersist;
@@ -51,8 +53,6 @@ class LocalGameEngine implements GameEngine {
   Timer? _automaticStepTimer;
   int? _automaticPhaseBefore;
   int _automaticRequisitionCountBefore = 0;
-  int _presentationSequence = 0;
-  int? _presentationRevision;
   bool _disposed = false;
 
   List<EngineAction> actionLog;
@@ -61,8 +61,6 @@ class LocalGameEngine implements GameEngine {
   @override
   GameEngineMode get mode => GameEngineMode.local;
 
-  @override
-  int? get presentationRevision => _presentationRevision;
   bool get hasScheduledAutomaticStep => _automaticStepTimer != null;
   bool canUndo(String? phase) =>
       phase == phaseAssignment && _undoStack.isNotEmpty;
@@ -101,19 +99,9 @@ class LocalGameEngine implements GameEngine {
     setRevealedPlayerID(snapshot.revealedPlayerID);
     setLastSyncedPhase(snapshot.lastSyncedPhase);
     onError(null);
-    _beginPresentation();
+    onGameUpdate(const GameEngineUpdate());
     onStateChanged();
     onPersist();
-  }
-
-  @override
-  void acknowledgePresentation(int revision) {
-    if (_presentationRevision != revision) {
-      return;
-    }
-    _presentationRevision = null;
-    onStateChanged();
-    scheduleAutomaticStep();
   }
 
   void rescheduleAutomaticStep() {
@@ -125,7 +113,7 @@ class LocalGameEngine implements GameEngine {
   }
 
   void scheduleAutomaticStep() {
-    if (_automaticStepTimer != null || presentationRevision != null) {
+    if (_automaticStepTimer != null) {
       return;
     }
     if (!_engineDecisionNeedsRouting(engine)) {
@@ -332,17 +320,19 @@ class LocalGameEngine implements GameEngine {
     _automaticPhaseBefore = null;
     _automaticRequisitionCountBefore = 0;
     if (event.stateChanged) {
-      _beginPresentation();
+      onGameUpdate(
+        GameEngineUpdate(
+          action: switch (command) {
+            SubmitGameAction(:final action) => action,
+            _ => null,
+          },
+        ),
+      );
     }
     onStateChanged();
     if (event.stateChanged) {
       onPersist();
     }
-  }
-
-  void _beginPresentation() {
-    _presentationSequence += 1;
-    _presentationRevision = _presentationSequence;
   }
 
   GameUndoSnapshot _snapshotForUndo() => GameUndoSnapshot(

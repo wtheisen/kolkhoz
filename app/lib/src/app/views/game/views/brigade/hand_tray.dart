@@ -3,6 +3,7 @@ import 'dart:ui' show clampDouble;
 
 import 'package:flutter/material.dart';
 
+import 'package:kolkhoz_app/src/app/settings/game_motion.dart';
 import 'package:kolkhoz_app/src/app/settings/settings.dart';
 import 'package:kolkhoz_app/src/app/views/shared/app_text.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/assignment_projection.dart';
@@ -75,18 +76,16 @@ String lowerBarActionLabel(
 }) {
   final resolvedLanguage = language ?? KolkhozLanguage.en;
   return switch (action.kind) {
-    actionSwap => resolvedLanguage.t(KolkhozText.lowerbaractionsSwap),
-    actionUndoSwap => resolvedLanguage.t(KolkhozText.lowerbaractionsUndo),
-    actionConfirmSwap => resolvedLanguage.t(KolkhozText.lowerbaractionsConfirm),
-    actionSubmitAssignments => resolvedLanguage.t(
-      KolkhozText.lowerbaractionsConfirm,
-    ),
+    actionSwap => resolvedLanguage.strings.lowerbaractionsSwap,
+    actionUndoSwap => resolvedLanguage.strings.lowerbaractionsUndo,
+    actionConfirmSwap => resolvedLanguage.strings.lowerbaractionsConfirm,
+    actionSubmitAssignments => resolvedLanguage.strings.lowerbaractionsConfirm,
     actionContinueAfterRequisition =>
       tableYear >= finalGameYear
-          ? resolvedLanguage.t(KolkhozText.lowerbaractionsFinish)
-          : resolvedLanguage.t(KolkhozText.lowerbaractionsYearValue1, {
-              'value1': tableYear + 1,
-            }),
+          ? resolvedLanguage.strings.lowerbaractionsFinish
+          : resolvedLanguage.strings.lowerbaractionsYearValue1(
+              value1: tableYear + 1,
+            ),
     _ => action.label,
   };
 }
@@ -110,7 +109,6 @@ const handTrayCardMinimumExposedFraction = 0.42;
 const handTrayCardMinimumExposedWidth = 28.0;
 const handTrayCardSelectedLiftFraction = 0.07;
 const handTrayCardHoverScale = 1.025;
-const handTrayCardAnimationDuration = Duration(milliseconds: 150);
 const handTrayAssignmentDividerWidth = 2.0;
 const handTrayAssignmentDividerSpacing = 10.0;
 const handTrayAssignmentDividerTopMargin = 5.0;
@@ -242,7 +240,7 @@ String handConsoleWaitingStatus(
   required KolkhozText detailedKey,
 }) {
   if (seat == null) {
-    return language.t(KolkhozText.boardviewWait);
+    return language.strings.boardviewWait;
   }
   final name = seatDisplayName(seat, language: language);
   return language.t(
@@ -261,7 +259,7 @@ String handConsoleStatus(
   return switch (model.table.phase) {
     phasePlanning =>
       handConsoleSeatIsLocal(currentSeat)
-          ? language.t(KolkhozText.boardviewChooseTrump)
+          ? language.strings.boardviewChooseTrump
           : handConsoleWaitingStatus(
               currentSeat,
               language,
@@ -296,8 +294,8 @@ String handConsoleStatus(
     phaseSwap =>
       handConsoleSeatIsLocal(currentSeat)
           ? compact
-                ? language.t(KolkhozText.boardviewYourTurn)
-                : language.t(KolkhozText.handConsoleChooseSwap)
+                ? language.strings.boardviewYourTurn
+                : language.strings.handConsoleChooseSwap
           : handConsoleWaitingStatus(
               currentSeat,
               language,
@@ -307,8 +305,8 @@ String handConsoleStatus(
     phaseTrick =>
       handConsoleSeatIsLocal(currentSeat)
           ? compact
-                ? language.t(KolkhozText.boardviewYourTurn)
-                : language.t(KolkhozText.handConsoleYourTurnToPlay)
+                ? language.strings.boardviewYourTurn
+                : language.strings.handConsoleYourTurnToPlay
           : handConsoleWaitingStatus(
               currentSeat,
               language,
@@ -319,7 +317,7 @@ String handConsoleStatus(
       final winnerID = model.table.lastTrick.winnerSeatID;
       final winner = winnerID == null ? null : seatByID(model, winnerID);
       return handConsoleSeatIsLocal(winner)
-          ? language.t(KolkhozText.handConsoleAssignTrick)
+          ? language.strings.handConsoleAssignTrick
           : handConsoleWaitingStatus(
               winner,
               language,
@@ -589,7 +587,7 @@ class HandTray extends StatelessWidget {
                 ? KolkhozText.lowerbaractionsFinish
                 : KolkhozText.handConsoleContinue,
           )
-        : language.t(KolkhozText.lowerbaractionsConfirm);
+        : language.strings.lowerbaractionsConfirm;
     final primaryCommand = HandTrayCommand(
       label: primaryLabel,
       iconAsset: 'icon-toolbar-confirm.png',
@@ -602,7 +600,7 @@ class HandTray extends StatelessWidget {
     final swapSecondaryAction = handConsoleSecondaryAction(model);
     final secondaryCommand = switch (model.table.phase) {
       phaseTrick => HandTrayCommand(
-        label: language.t(KolkhozText.boardHandtrayUndo),
+        label: language.strings.boardHandtrayUndo,
         iconAsset: 'icon-toolbar-undo.png',
         prominent: false,
         onPressed:
@@ -614,7 +612,7 @@ class HandTray extends StatelessWidget {
       ),
       phaseSwap => HandTrayCommand(
         label: swapSecondaryAction == null
-            ? language.t(KolkhozText.lowerbaractionsSwap)
+            ? language.strings.lowerbaractionsSwap
             : lowerBarActionLabel(
                 swapSecondaryAction,
                 tableYear: model.table.year,
@@ -642,13 +640,13 @@ class HandTray extends StatelessWidget {
         prominent: false,
       ),
       phaseAssignment => HandTrayCommand(
-        label: language.t(KolkhozText.boardHandtrayUndo),
+        label: language.strings.boardHandtrayUndo,
         iconAsset: 'icon-toolbar-undo.png',
         prominent: false,
         onPressed: consoleActionsEnabled && canUndo ? onUndo : null,
       ),
       phaseRequisition => HandTrayCommand(
-        label: language.t(KolkhozText.boardBoardrailTheNorth),
+        label: language.strings.boardBoardrailTheNorth,
         iconAsset: 'icon-north.png',
         prominent: false,
         onPressed: !consoleActionsEnabled || onPanelSelected == null
@@ -656,7 +654,7 @@ class HandTray extends StatelessWidget {
             : () => onPanelSelected!(panelNorth),
       ),
       _ => HandTrayCommand(
-        label: language.t(KolkhozText.boardHandtrayUndo),
+        label: language.strings.boardHandtrayUndo,
         iconAsset: 'icon-toolbar-undo.png',
         prominent: false,
       ),
@@ -896,6 +894,7 @@ class _HandCardControlState extends State<HandCardControl> {
 
   @override
   Widget build(BuildContext context) {
+    final motion = GameMotion.of(context);
     final actionable = widget.onTap != null;
     final emphasized = actionable && (hovered || focused);
     final label = handCardAccessibilityLabel(
@@ -909,15 +908,15 @@ class _HandCardControlState extends State<HandCardControl> {
       offset: widget.card.selected
           ? const Offset(0, -handTrayCardSelectedLiftFraction)
           : Offset.zero,
-      duration: handTrayCardAnimationDuration,
-      curve: Curves.easeOutCubic,
+      duration: motion.handInteraction,
+      curve: GameMotion.handInteractionCurve,
       child: AnimatedScale(
         scale: emphasized ? handTrayCardHoverScale : 1,
-        duration: handTrayCardAnimationDuration,
-        curve: Curves.easeOutCubic,
+        duration: motion.handInteraction,
+        curve: GameMotion.handInteractionCurve,
         child: AnimatedOpacity(
           opacity: widget.unavailable ? 0.58 : 1,
-          duration: handTrayCardAnimationDuration,
+          duration: motion.handInteraction,
           child: DecoratedBox(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(cardViewCornerRadius),

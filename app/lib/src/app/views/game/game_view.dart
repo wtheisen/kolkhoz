@@ -3,12 +3,13 @@ import 'dart:math' as math;
 import 'dart:ui' show clampDouble, lerpDouble;
 
 import 'package:flutter/material.dart';
+import 'package:simple_animations/simple_animations.dart';
 import 'package:kolkhoz_app/src/app/settings/animation_speed.dart';
-import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
+import 'package:kolkhoz_app/src/app/settings/game_motion.dart';
 import 'package:kolkhoz_app/src/app/settings/settings.dart';
-import 'package:kolkhoz_app/src/app/views/shared/app_text.dart';
 import 'package:kolkhoz_app/src/app/views/shared/chrome_button.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/render_model.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/game_presentation_transition.dart';
 import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
 import 'package:kolkhoz_app/src/app/views/shared/field_plan_world_scene.dart';
@@ -20,21 +21,22 @@ import 'package:kolkhoz_app/src/app/views/game/views/components/board_chrome.dar
 import 'package:kolkhoz_app/src/app/views/game/views/components/board_metrics.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/components/board_rail.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/components/board_widgets.dart';
+import 'package:kolkhoz_app/src/app/views/game/views/components/card_motion.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/game_log/game_log_view.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/brigade/hand_tray.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/brigade/brigade_fields_scope.dart';
-import 'package:kolkhoz_app/src/app/views/game/views/brigade/brigade_view.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/brigade/brigade_layout.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/brigade/planning_phase_view.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/fields/fields_view.dart';
-import 'package:kolkhoz_app/src/app/views/game/views/north/north_view.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/settings/game_settings_view.dart';
+import 'package:kolkhoz_app/src/app/views/game/views/static_hero/static_hero_game_panel.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/plots/plots_view.dart';
 
 export 'package:kolkhoz_app/src/app/views/game/views/components/board_chrome.dart';
 export 'package:kolkhoz_app/src/app/views/game/views/components/board_metrics.dart';
 export 'package:kolkhoz_app/src/app/views/game/views/components/board_rail.dart';
 export 'package:kolkhoz_app/src/app/views/game/views/components/board_widgets.dart';
+export 'package:kolkhoz_app/src/app/views/game/views/components/card_motion.dart';
 export 'package:kolkhoz_app/src/app/views/game/views/brigade/hand_tray.dart';
 export 'package:kolkhoz_app/src/app/views/game/views/brigade/brigade_fields_scope.dart';
 export 'package:kolkhoz_app/src/app/views/game/views/brigade/brigade_view.dart';
@@ -49,10 +51,10 @@ export 'package:kolkhoz_app/src/app/views/shared/chrome_button.dart';
 String hotSeatPhaseLine(TableViewModel model, {KolkhozLanguage? language}) {
   final resolvedLanguage = language ?? KolkhozLanguage.en;
   final phaseName = resolvedLanguage.phaseName(model.table.phase);
-  return resolvedLanguage.t(KolkhozText.phasedisplayYearValue1Phasename, {
-    'value1': model.table.year,
-    'phaseName': phaseName,
-  });
+  return resolvedLanguage.strings.phasedisplayYearValue1Phasename(
+    value1: model.table.year,
+    phaseName: phaseName,
+  );
 }
 
 const hotSeatScrimOpacity = 0.96;
@@ -127,8 +129,6 @@ double fieldPlanCameraTravelProgress(double dragProgress) {
   return progress * progress * (3 - 2 * progress);
 }
 
-const fieldPlanCameraFullTravelDuration = Duration(milliseconds: 760);
-
 Duration fieldPlanCameraTravelDuration(
   double distance, {
   int minimumMilliseconds = 80,
@@ -136,7 +136,7 @@ Duration fieldPlanCameraTravelDuration(
   return Duration(
     milliseconds: math.max(
       minimumMilliseconds,
-      (fieldPlanCameraFullTravelDuration.inMilliseconds *
+      (GameMotion.cameraFullTravelDuration.inMilliseconds *
               clampDouble(distance, 0, 1))
           .round(),
     ),
@@ -178,14 +178,19 @@ class _BrigadeFieldsCoordinatorState extends State<BrigadeFieldsCoordinator>
           setState(() => cameraPosition = snapController.value);
         }
       });
-    focusController =
-        AnimationController(
-          vsync: this,
-          duration: const Duration(milliseconds: 440),
-          reverseDuration: const Duration(milliseconds: 320),
-        )..addListener(() {
-          if (mounted) setState(() {});
-        });
+    focusController = AnimationController(vsync: this)
+      ..addListener(() {
+        if (mounted) setState(() {});
+      });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final motion = GameMotion.of(context);
+    focusController
+      ..duration = motion.cameraFocusIn
+      ..reverseDuration = motion.cameraFocusOut;
   }
 
   @override
@@ -234,10 +239,10 @@ class _BrigadeFieldsCoordinatorState extends State<BrigadeFieldsCoordinator>
     unawaited(
       snapController.animateTo(
         rawCameraPosition,
-        duration: Duration(
-          milliseconds: math.max(45, (180 * followDistance).round()),
+        duration: GameMotion.of(context).duration(
+          Duration(milliseconds: math.max(45, (180 * followDistance).round())),
         ),
-        curve: Curves.easeOut,
+        curve: GameMotion.cameraFollowCurve,
       ),
     );
   }
@@ -269,11 +274,10 @@ class _BrigadeFieldsCoordinatorState extends State<BrigadeFieldsCoordinator>
     final distance = (cameraPosition - target).abs();
     await snapController.animateTo(
       target,
-      duration: fieldPlanCameraTravelDuration(
-        distance,
-        minimumMilliseconds: 180,
+      duration: GameMotion.of(context).duration(
+        fieldPlanCameraTravelDuration(distance, minimumMilliseconds: 180),
       ),
-      curve: Curves.easeOutCubic,
+      curve: GameMotion.cameraTravelCurve,
     );
     if (!mounted) {
       return;
@@ -372,9 +376,8 @@ class KolkhozBoard extends StatelessWidget {
     this.gameOverReturnsToLobby = false,
     this.onTutorial,
     this.animationSpeed = defaultGameAnimationSpeed,
-    this.presentationRevision,
-    this.assignmentPresentationCardIDs = const [],
-    this.onPresentationComplete,
+    this.transition,
+    this.onTransitionComplete,
     this.onAnimationSpeedChanged,
     this.confirmNewGame = true,
     this.onConfirmNewGameChanged,
@@ -422,9 +425,8 @@ class KolkhozBoard extends StatelessWidget {
   final bool gameOverReturnsToLobby;
   final VoidCallback? onTutorial;
   final GameAnimationSpeed animationSpeed;
-  final int? presentationRevision;
-  final List<String> assignmentPresentationCardIDs;
-  final ValueChanged<int>? onPresentationComplete;
+  final GamePresentationTransition? transition;
+  final ValueChanged<int>? onTransitionComplete;
   final ValueChanged<GameAnimationSpeed>? onAnimationSpeedChanged;
   final bool confirmNewGame;
   final ValueChanged<bool>? onConfirmNewGameChanged;
@@ -439,14 +441,13 @@ class KolkhozBoard extends StatelessWidget {
   final Future<void> Function(String userID)? onComradeRequestToUser;
   @override
   Widget build(BuildContext context) {
-    final fieldsNavigationActive =
-        configuredKolkhozArtStyle.usesNewArt &&
-        (model.panels.active == panelBrigade ||
-            model.panels.active == panelPlot) &&
-        model.table.phase != phaseGameOver;
-    return BrigadeFieldsCoordinator(
-      active: fieldsNavigationActive,
-      builder: (context, verticalPage) => KolkhozCardBackScope(
+    return BrigadeFieldsScope(
+      verticalPage: 0,
+      transitionProgress: null,
+      focusedSurfaceID: null,
+      focusProgress: 0,
+      onFocusSurface: (_) {},
+      child: KolkhozCardBackScope(
         cardBack: cardBack,
         child: DefaultTextStyle.merge(
           style: kolkhozFontStyle,
@@ -467,21 +468,7 @@ class KolkhozBoard extends StatelessWidget {
                 contentWidth: contentWidth,
                 contentHeight: contentHeight,
               );
-              final showFieldPlanBrigadeEnvironment =
-                  configuredKolkhozArtStyle.usesNewArt &&
-                  !compact &&
-                  (model.table.phase == phaseAssignment ||
-                      model.panels.active == panelBrigade ||
-                      model.panels.active == panelPlot) &&
-                  model.table.phase != phaseGameOver;
-              final fieldPlanEnvironmentPage = showFieldPlanBrigadeEnvironment
-                  ? model.table.phase == phaseAssignment
-                        ? 1
-                        : verticalPage
-                  : null;
-              final gameWidth = showFieldPlanBrigadeEnvironment
-                  ? boardWidth
-                  : boardWidth - railWidth - separatorWidth;
+              final gameWidth = boardWidth - railWidth - separatorWidth;
 
               return DecoratedBox(
                 decoration: boardBackdropDecoration(tokens),
@@ -489,9 +476,8 @@ class KolkhozBoard extends StatelessWidget {
                   model: model,
                   tokens: tokens,
                   speed: animationSpeed,
-                  presentationRevision: presentationRevision,
-                  assignmentPresentationCardIDs: assignmentPresentationCardIDs,
-                  onPresentationComplete: onPresentationComplete,
+                  transition: transition,
+                  onTransitionComplete: onTransitionComplete,
                   child: Stack(
                     clipBehavior: Clip.none,
                     fit: StackFit.expand,
@@ -588,29 +574,27 @@ class KolkhozBoard extends StatelessWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
                                     children: [
-                                      if (!showFieldPlanBrigadeEnvironment) ...[
-                                        SizedBox(
-                                          width: railWidth,
-                                          child: BoardRail(
-                                            activePanel: model.panels.active,
-                                            actionPanel: actionPanelForPhase(
-                                              model.table.phase,
-                                            ),
-                                            tokens: tokens,
-                                            metrics: metrics,
-                                            language: language,
-                                            year: model.table.year,
-                                            hasUnreadLogMessages:
-                                                hasUnreadLogMessages,
-                                            onPanelSelected: onPanelSelected,
+                                      SizedBox(
+                                        width: railWidth,
+                                        child: BoardRail(
+                                          activePanel: model.panels.active,
+                                          actionPanel: actionPanelForPhase(
+                                            model.table.phase,
                                           ),
-                                        ),
-                                        BoardSeparator(
                                           tokens: tokens,
-                                          vertical: true,
-                                          thickness: separatorWidth,
+                                          metrics: metrics,
+                                          language: language,
+                                          year: model.table.year,
+                                          hasUnreadLogMessages:
+                                              hasUnreadLogMessages,
+                                          onPanelSelected: onPanelSelected,
                                         ),
-                                      ],
+                                      ),
+                                      BoardSeparator(
+                                        tokens: tokens,
+                                        vertical: true,
+                                        thickness: separatorWidth,
+                                      ),
                                       SizedBox(
                                         width: gameWidth,
                                         height: contentHeight,
@@ -621,11 +605,7 @@ class KolkhozBoard extends StatelessWidget {
                                           fieldPlanBoardWidth: boardWidth,
                                           fieldPlanBoardHeight: contentHeight,
                                           fieldPlanBoardLeftInset:
-                                              showFieldPlanBrigadeEnvironment
-                                              ? 0
-                                              : railWidth + separatorWidth,
-                                          fieldPlanEnvironmentPage:
-                                              fieldPlanEnvironmentPage,
+                                              railWidth + separatorWidth,
                                           heroOfSovietUnion: heroOfSovietUnion,
                                           onAction: onAction,
                                           onPanelSelected: onPanelSelected,
@@ -913,10 +893,9 @@ class HotSeatPrivacyOverlay extends StatelessWidget {
                     SizedBox(
                       height: hotSeatTitleRowHeight,
                       child: PanelTitleRow(
-                        title: language.t(KolkhozText.boardviewPassDevice),
-                        subtitle: language.t(
-                          KolkhozText.boardviewSeatValue1IsUp,
-                          {'value1': player.id + 1},
+                        title: language.strings.boardviewPassDevice,
+                        subtitle: language.strings.boardviewSeatValue1IsUp(
+                          value1: player.id + 1,
                         ),
                         iconPath: 'assets/ui/Icons/icon-pass-device.png',
                         tokens: tokens,
@@ -997,7 +976,7 @@ class HotSeatPrivacyOverlay extends StatelessWidget {
                       width: hotSeatReadyButtonMaxWidth,
                       child: HotSeatReadyButton(
                         tokens: tokens,
-                        label: language.t(KolkhozText.boardviewReady),
+                        label: language.strings.boardviewReady,
                         onPressed: onReady,
                       ),
                     ),
@@ -1297,6 +1276,14 @@ class BoardPlayArea extends StatelessWidget {
                             ),
                           ),
                         ),
+                        const Positioned.fill(
+                          child: IgnorePointer(
+                            child: Opacity(
+                              opacity: 0,
+                              child: StaticHeroJobMotionTargets(),
+                            ),
+                          ),
+                        ),
                         if (!fieldPlanEnvironmentActive) ...[
                           Positioned(
                             top: 0,
@@ -1459,6 +1446,11 @@ class _PlanningTrumpFocusHostState extends State<PlanningTrumpFocusHost> {
   @override
   void initState() {
     super.initState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     syncSelectorTimer();
   }
 
@@ -1485,11 +1477,12 @@ class _PlanningTrumpFocusHostState extends State<PlanningTrumpFocusHost> {
   void syncSelectorTimer() {
     selectorTimer?.cancel();
     selectorTimer = null;
-    if (!planningTrumpSelectorIsAI(widget.model)) {
+    final motion = GameMotion.of(context);
+    if (!planningTrumpSelectorIsAI(widget.model) || !motion.enabled) {
       return;
     }
     selectorIndex = selectorRandom.nextInt(displaySuitOrder.length);
-    selectorTimer = Timer.periodic(planningTrumpAiSelectorHopDuration, (_) {
+    selectorTimer = Timer.periodic(motion.trumpSelectorHop, (_) {
       if (!mounted) {
         return;
       }
@@ -1903,11 +1896,10 @@ class _JobGaugeState extends State<JobGauge> {
   void didUpdateWidget(JobGauge oldWidget) {
     super.didUpdateWidget(oldWidget);
     final previousCardIDs = {
-      for (final card in oldWidget.job.assignedCards)
-        if (!card.pending) card.id,
+      for (final card in oldWidget.job.assignedCards) card.id,
     };
     for (final card in widget.job.assignedCards) {
-      if (!card.pending && !previousCardIDs.contains(card.id)) {
+      if (!previousCardIDs.contains(card.id)) {
         pendingCardDeltas[card.id] = card.value;
       }
     }
@@ -2126,27 +2118,30 @@ class JobGaugeDeltaBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
+    final motion = GameMotion.of(context);
+    if (!motion.enabled) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => onDone());
+      return const SizedBox.shrink();
+    }
+    return PlayAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: jobGaugeDeltaDuration,
-      curve: Curves.easeOutCubic,
-      onEnd: onDone,
-      builder: (context, value, child) {
-        return Opacity(
-          opacity: (1 - value).clamp(0.0, 1.0),
-          child: Transform.translate(
-            offset: Offset(0, jobGaugeDeltaDropDistance * value),
-            child: Transform.scale(
-              scale: lerpDouble(
-                jobGaugeDeltaStartScale,
-                jobGaugeDeltaEndScale,
-                math.min(value * 1.8, 1),
-              )!,
-              child: child,
+      duration: motion.gaugeDelta,
+      curve: GameMotion.gaugeDeltaCurve,
+      onCompleted: onDone,
+      builder: (context, value, child) => Opacity(
+        opacity: (1 - value).clamp(0.0, 1.0),
+        child: Transform.translate(
+          offset: Offset(0, jobGaugeDeltaDropDistance * value),
+          child: Transform.scale(
+            scale: lerpDouble(
+              jobGaugeDeltaStartScale,
+              jobGaugeDeltaEndScale,
+              math.min(value * 1.8, 1),
             ),
+            child: child,
           ),
-        );
-      },
+        ),
+      ),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: tokens.colors.black.withValues(alpha: 0.82),
@@ -2167,7 +2162,6 @@ class JobGaugeDeltaBadge extends StatelessWidget {
   }
 }
 
-const jobGaugeDeltaDuration = Duration(milliseconds: 1600);
 const jobGaugeDeltaDropDistance = 46.0;
 const jobGaugeDeltaStartScale = 1.64;
 const jobGaugeDeltaEndScale = 2.16;
@@ -2284,57 +2278,33 @@ class ActivePanelView extends StatelessWidget {
           reactions: gameReactions,
         );
       case panelJobs:
-        if (configuredKolkhozArtStyle.usesNewArt &&
-            model.table.phase == phaseAssignment) {
-          return BrigadePanel(
-            model: model,
-            tokens: tokens,
-            language: language,
-            heroOfSovietUnion: heroOfSovietUnion,
-            activeReaction: activeReaction,
-            compact: compact,
-            onAction: onAction,
-            fieldPlanEnvironmentPage: fieldPlanEnvironmentPage,
-          );
-        }
-        return JobsPanel(
+        return StaticHeroGamePanel(
+          kind: StaticHeroGamePanelKind.fields,
           model: model,
           tokens: tokens,
           language: language,
+          compact: compact,
           onAction: onAction,
         );
       case panelPlot:
-        if (!configuredKolkhozArtStyle.usesNewArt) {
-          return PlotPanel(
-            model: model,
-            tokens: tokens,
-            onPlotCardTap: onPlotCardTap,
-          );
-        }
-        return BrigadePanel(
+        return StaticHeroGamePanel(
+          kind: StaticHeroGamePanelKind.brigade,
           model: model,
           tokens: tokens,
           language: language,
-          heroOfSovietUnion: heroOfSovietUnion,
-          activeReaction: activeReaction,
           compact: compact,
           planningTrumpFocusedSuit: planningTrumpFocusedSuit,
           onPlanningTrumpActionSelected: onPlanningTrumpActionSelected,
-          currentProfileUserID: currentProfileUserID,
-          comradeUserIDs: comradeUserIDs,
-          incomingComradeRequestUserIDs: incomingComradeRequestUserIDs,
-          outgoingComradeRequestUserIDs: outgoingComradeRequestUserIDs,
-          onComradeRequestToUser: onComradeRequestToUser,
-          onAction: onAction,
           onPlotCardTap: onPlotCardTap,
-          fieldPlanBoardWidth: fieldPlanBoardWidth,
-          fieldPlanBoardHeight: fieldPlanBoardHeight,
-          fieldPlanBoardLeftInset: fieldPlanBoardLeftInset,
-          fieldPlanBoardTopInset: fieldPlanBoardTopInset,
-          fieldPlanEnvironmentPage: fieldPlanEnvironmentPage,
         );
       case panelNorth:
-        return NorthPanel(model: model, tokens: tokens, language: language);
+        return StaticHeroGamePanel(
+          kind: StaticHeroGamePanelKind.north,
+          model: model,
+          tokens: tokens,
+          language: language,
+          compact: compact,
+        );
       case panelOptions:
         return OptionsPanel(
           model: model,
@@ -2358,27 +2328,15 @@ class ActivePanelView extends StatelessWidget {
           onCardBackChanged: onCardBackChanged,
         );
       default:
-        return BrigadePanel(
+        return StaticHeroGamePanel(
+          kind: StaticHeroGamePanelKind.brigade,
           model: model,
           tokens: tokens,
           language: language,
-          heroOfSovietUnion: heroOfSovietUnion,
-          activeReaction: activeReaction,
           compact: compact,
           planningTrumpFocusedSuit: planningTrumpFocusedSuit,
           onPlanningTrumpActionSelected: onPlanningTrumpActionSelected,
-          currentProfileUserID: currentProfileUserID,
-          comradeUserIDs: comradeUserIDs,
-          incomingComradeRequestUserIDs: incomingComradeRequestUserIDs,
-          outgoingComradeRequestUserIDs: outgoingComradeRequestUserIDs,
-          onComradeRequestToUser: onComradeRequestToUser,
-          onAction: onAction,
           onPlotCardTap: onPlotCardTap,
-          fieldPlanBoardWidth: fieldPlanBoardWidth,
-          fieldPlanBoardHeight: fieldPlanBoardHeight,
-          fieldPlanBoardLeftInset: fieldPlanBoardLeftInset,
-          fieldPlanBoardTopInset: fieldPlanBoardTopInset,
-          fieldPlanEnvironmentPage: fieldPlanEnvironmentPage,
         );
     }
   }

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import 'package:kolkhoz_app/src/app/settings/animation_speed.dart';
 import 'package:kolkhoz_app/src/app/settings/settings.dart';
-import 'package:kolkhoz_app/src/app/views/shared/app_text.dart';
 import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
 import 'package:kolkhoz_app/src/app/views/shared/chrome_button.dart';
 import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
@@ -56,14 +55,10 @@ double optionsMenuSectionSpacing(double height) {
 
 String animationSpeedLabel(GameAnimationSpeed speed, KolkhozLanguage language) {
   return switch (speed) {
-    GameAnimationSpeed.instant => language.t(
-      KolkhozText.boardOptionspanelInstant,
-    ),
-    GameAnimationSpeed.fast => language.t(KolkhozText.boardOptionspanelFast),
-    GameAnimationSpeed.normal => language.t(
-      KolkhozText.boardOptionspanelNormal,
-    ),
-    GameAnimationSpeed.slow => language.t(KolkhozText.boardOptionspanelSlow),
+    GameAnimationSpeed.instant => language.strings.boardOptionspanelInstant,
+    GameAnimationSpeed.fast => language.strings.boardOptionspanelFast,
+    GameAnimationSpeed.normal => language.strings.boardOptionspanelNormal,
+    GameAnimationSpeed.slow => language.strings.boardOptionspanelSlow,
   };
 }
 
@@ -81,11 +76,9 @@ enum OptionsMenuTab {
 
   String title(KolkhozLanguage language) {
     return switch (this) {
-      OptionsMenuTab.assist => language.t(KolkhozText.boardOptionspanelAssist),
-      OptionsMenuTab.display => language.t(
-        KolkhozText.boardOptionspanelDisplay,
-      ),
-      OptionsMenuTab.rules => language.t(KolkhozText.boardOptionspanelRules),
+      OptionsMenuTab.assist => language.strings.boardOptionspanelAssist,
+      OptionsMenuTab.display => language.strings.boardOptionspanelDisplay,
+      OptionsMenuTab.rules => language.strings.boardOptionspanelRules,
     };
   }
 
@@ -536,7 +529,7 @@ class OptionsMenuHeader extends StatelessWidget {
           filterQuality: FilterQuality.none,
         ),
         ChromePixelLabel(
-          language.t(KolkhozText.boardOptionspanelMenu),
+          language.strings.boardOptionspanelMenu,
           size: PixelTextSize.title,
           color: tokens.colors.gold,
         ),
@@ -612,14 +605,14 @@ class OptionsSessionControls extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: optionsMenuActionsSpacing,
       children: [
-        _sectionTitle(language.t(KolkhozText.boardOptionspanelGameControls)),
+        _sectionTitle(language.strings.boardOptionspanelGameControls),
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: optionsMenuControlsSpacing,
           children: [
             Center(
               child: ChromeAssetButton.command(
-                label: language.t(KolkhozText.kolkhozappNewGame2),
+                label: language.strings.kolkhozappNewGame2,
                 prominent: true,
                 tokens: tokens,
                 onPressed: onNewGame,
@@ -628,7 +621,7 @@ class OptionsSessionControls extends StatelessWidget {
             ),
             Center(
               child: ChromeAssetButton(
-                label: language.t(KolkhozText.boardOptionspanelHowToPlay),
+                label: language.strings.boardOptionspanelHowToPlay,
                 tokens: tokens,
                 backgroundColor: tokens.colors.black.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(5),
@@ -651,7 +644,7 @@ class OptionsSessionControls extends StatelessWidget {
             ),
             Center(
               child: ChromeAssetButton(
-                label: language.t(KolkhozText.kolkhozappMainMenu2),
+                label: language.strings.kolkhozappMainMenu2,
                 tokens: tokens,
                 backgroundColor: tokens.colors.black.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(5),
@@ -683,22 +676,21 @@ class OptionsSessionControls extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: optionsMenuActionsSpacing,
       children: [
-        _sectionTitle(language.t(KolkhozText.boardOptionspanelSafeguards)),
+        _sectionTitle(language.strings.boardOptionspanelSafeguards),
         OptionsSettingToggle(
           tokens: tokens,
-          label: language.t(KolkhozText.boardOptionspanelConfirmNewGame),
-          body: language.t(
-            KolkhozText.boardOptionspanelAskBeforeReplacingTheCurrentGame,
-          ),
+          label: language.strings.boardOptionspanelConfirmNewGame,
+          body: language
+              .strings
+              .boardOptionspanelAskBeforeReplacingTheCurrentGame,
           value: confirmNewGame,
           onChanged: onConfirmNewGameChanged,
         ),
         OptionsSettingToggle(
           tokens: tokens,
-          label: language.t(KolkhozText.boardOptionspanelConfirmMainMenu),
-          body: language.t(
-            KolkhozText.boardOptionspanelAskBeforeLeavingTheCurrentGame,
-          ),
+          label: language.strings.boardOptionspanelConfirmMainMenu,
+          body:
+              language.strings.boardOptionspanelAskBeforeLeavingTheCurrentGame,
           value: confirmMainMenu,
           onChanged: onConfirmMainMenuChanged,
         ),
@@ -728,18 +720,17 @@ class OptionsAssistControls extends StatelessWidget {
       spacing: optionsMenuSettingSpacing,
       children: [
         ChromePixelLabel(
-          language.t(KolkhozText.boardOptionspanelMoveHelp),
+          language.strings.boardOptionspanelMoveHelp,
           size: PixelTextSize.caption,
           variant: PixelTextVariant.regular,
           color: tokens.colors.smoke,
         ),
         OptionsSettingToggle(
           tokens: tokens,
-          label: language.t(KolkhozText.boardOptionspanelInvalidTapHints),
-          body: language.t(
-            KolkhozText
-                .boardOptionspanelShowTheForemanReminderWhenYouTapAnIllegalC,
-          ),
+          label: language.strings.boardOptionspanelInvalidTapHints,
+          body: language
+              .strings
+              .boardOptionspanelShowTheForemanReminderWhenYouTapAnIllegalC,
           value: showInvalidTapHints,
           onChanged: onShowInvalidTapHintsChanged,
         ),
@@ -790,7 +781,7 @@ class OptionsDisplayControls extends StatelessWidget {
       spacing: optionsMenuActionsSpacing,
       children: [
         ChromePixelLabel(
-          language.t(KolkhozText.boardOptionspanelDisplay),
+          language.strings.boardOptionspanelDisplay,
           size: PixelTextSize.caption,
           variant: PixelTextVariant.regular,
           color: tokens.colors.smoke,
@@ -879,7 +870,7 @@ class OptionsCardBackPicker extends StatelessWidget {
       spacing: optionsMenuSettingSpacing,
       children: [
         ChromePixelLabel(
-          language.t(KolkhozText.appsettingsCardBacks),
+          language.strings.appsettingsCardBacks,
           size: PixelTextSize.caption,
           variant: PixelTextVariant.regular,
           color: tokens.colors.smoke,
@@ -1108,7 +1099,7 @@ class OptionsMenuRules extends StatelessWidget {
       spacing: optionsMenuRulesSpacing,
       children: [
         ChromePixelLabel(
-          language.t(KolkhozText.boardOptionspanelRules),
+          language.strings.boardOptionspanelRules,
           size: PixelTextSize.headline,
           color: tokens.colors.gold,
         ),
@@ -1200,7 +1191,7 @@ class AnimationSpeedControl extends StatelessWidget {
         spacing: optionsAnimationSpeedSpacing,
         children: [
           ChromePixelLabel(
-            language.t(KolkhozText.boardOptionspanelAnimationSpeed),
+            language.strings.boardOptionspanelAnimationSpeed,
             size: PixelTextSize.caption,
             color: tokens.colors.smoke,
           ),

@@ -34,15 +34,24 @@ dependencies:
   firebase_messaging: ^16.4.1
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   flutter_secure_storage: ^10.3.1
+  freezed_annotation: ^3.1.0
   in_app_purchase: ^3.3.0
+  intl: ^0.20.2
+  json_annotation: ^4.12.0
+  simple_animations: ^5.3.0
   mobile_scanner: ^7.3.0
   qr_flutter: ^4.1.0
   supabase_flutter: ^2.16.0
 
 dev_dependencies:
+  build_runner: ^2.15.1
+  freezed: ^3.2.5
   flutter_test:
     sdk: flutter
+  json_serializable: ^6.14.0
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -56,6 +65,7 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  generate: true
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
@@ -88,8 +98,11 @@ flutter:
     - assets/art/field_plan/cards/suits/
     - assets/art/field_plan/cards/suits/mip/
     - assets/art/field_plan/cards/faces/
+    - assets/art/field_plan/cards/frames/
+    - assets/art/field_plan/cards/ranks/
     - assets/art/field_plan/cards/backs/
     - assets/art/field_plan/cards/planted/
+    - assets/art/field_plan/cards/physical-deck-layout-v16.json
     - assets/audio/
     - assets/audio/voice_lines/
     - assets/policies/current_best_policy.json
@@ -109,6 +122,14 @@ flutter:
       fonts:
         - asset: assets/art/field_plan/shared/fonts/PTSans-Regular.ttf
         - asset: assets/art/field_plan/shared/fonts/PTSans-Bold.ttf
+          weight: 700
+    - family: Podkova
+      fonts:
+        - asset: assets/art/field_plan/shared/fonts/Podkova-Variable.ttf
+          weight: 700
+    - family: Bitter
+      fonts:
+        - asset: assets/art/field_plan/shared/fonts/Bitter-Variable.ttf
           weight: 700
 
   # To add assets to your application, add an assets section, like this:

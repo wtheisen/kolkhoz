@@ -1574,9 +1574,9 @@ void registerLobbyAndProfileTests() {
       findsOneWidget,
     );
     expect(findAppText('WEEKLY KOLKHOZ TOURNAMENT'), findsOneWidget);
-    expect(find.text('JOIN TOURNAMENT'), findsOneWidget);
+    expect(findChromeButton('JOIN TOURNAMENT'), findsOneWidget);
 
-    await tester.tap(find.text('JOIN TOURNAMENT'));
+    await tester.tap(findChromeButton('JOIN TOURNAMENT'));
     await tester.pumpAndSettle();
 
     expect(httpClient.joined, isTrue);
@@ -1701,14 +1701,18 @@ void registerLobbyAndProfileTests() {
     expect(find.bySemanticsLabel(RegExp(r'Mira')), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp(r'ABCDE - Mira')), findsNothing);
 
-    await tester.tap(findAppText('ASSIGN GAME'));
+    await tester.tap(findChromeButton('Assign Game'));
     await tester.pump();
 
     expect(matchmakeCalls, 1);
     expect(joinedInviteCode, isNull);
+    final disabledAssignButton = findChromeButton(
+      'Sent north: online play is locked for this account.',
+    );
+    expect(disabledAssignButton, findsOneWidget);
     expect(
-      find.text('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
-      findsOneWidget,
+      tester.widget<ChromeAssetButton>(disabledAssignButton).enabled,
+      false,
     );
     expect(
       findAppText('Sent north: online play is locked for this account.'),
@@ -1716,10 +1720,7 @@ void registerLobbyAndProfileTests() {
     );
     expect(find.bySemanticsLabel(RegExp(r'ABCDE - Mira')), findsNothing);
 
-    await tester.tap(
-      find.text('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
-      warnIfMissed: false,
-    );
+    await tester.tap(disabledAssignButton, warnIfMissed: false);
     await tester.pump();
 
     expect(matchmakeCalls, 1);
@@ -1800,7 +1801,7 @@ void registerLobbyAndProfileTests() {
       findsOneWidget,
     );
     expect(
-      find.text('SENT NORTH: ONLINE PLAY IS LOCKED FOR THIS ACCOUNT.'),
+      findChromeButton('Sent north: online play is locked for this account.'),
       findsOneWidget,
     );
 

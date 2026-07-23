@@ -8,6 +8,8 @@ import 'package:kolkhoz_app/src/app/views/game/game_controller/models/assignment
 import 'package:kolkhoz_app/src/app/views/game/game_controller/finished_game_lobby.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/game_engine.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/game_lobby.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/game_presentation_queue.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/game_presentation_transition.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/engine_values.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_serialization.dart';
@@ -24,6 +26,15 @@ import 'remote_game_engine/remote_game_engine_factory.dart';
 
 bool actionCapturesUndoSnapshot(String actionKind) =>
     actionKind == actionAssign;
+
+TableViewModel withoutLegalActions(TableViewModel model) => TableViewModel(
+  viewer: model.viewer,
+  table: model.table,
+  panels: model.panels,
+  selection: model.selection,
+  legalActions: const [],
+  seed: model.seed,
+);
 
 enum GameControllerLifecycle { lobby, starting, playing, finishing, finished }
 
@@ -109,6 +120,9 @@ class GameController extends ChangeNotifier {
     _ => null,
   };
   TableViewModel? _model;
+  TableViewModel? _authoritativeModel;
+  final GamePresentationQueue _presentationQueue = GamePresentationQueue();
+  final List<String> _pendingAssignmentCardIDs = [];
   TableViewModel? get model => finishedGameLobby?.model ?? _model;
   FinishedGameLobby? finishedGameLobby;
   bool get hasActiveEngine => _engine != null;
@@ -215,6 +229,9 @@ class GameController extends ChangeNotifier {
   }
 
   void applyLegalAction(LegalAction action) {
+    if (_presentationQueue.isBusy) {
+      return;
+    }
     _engine?.sendHumanAction(action);
   }
 
@@ -248,9 +265,8 @@ class GameController extends ChangeNotifier {
   int? get onlinePlayerID => _remoteEngine?.playerID;
   OnlineSessionUpdate? get onlineUpdate =>
       finishedGameLobby?.onlineUpdate ?? _remoteEngine?.update;
-  int? get presentationRevision => _engine?.presentationRevision;
-  List<String> get onlineAssignmentPresentationCardIDs =>
-      _remoteEngine?.assignmentPresentationCardIDs ?? const [];
+  GamePresentationTransition? get currentTransition =>
+      _presentationQueue.current;
   List<EngineAction> get gameLogActions =>
       finishedGameLobby?.gameLogActions ??
       (_remoteEngine == null
@@ -541,10 +557,94 @@ class GameController extends ChangeNotifier {
     await _remoteEngine?.sendReaction(reactionID);
   }
 
+  void _handleGameUpdate(GameEngineUpdate update) {
+    final before = _authoritativeModel ?? _model;
+    final after = _projectEngineModel();
+    if (before == null || after == null) {
+      _sync();
+      return;
+    }
+    _authoritativeModel = after;
+    final action = update.action;
+    final submittedAssignmentCardIDs = action?.kind == actionSubmitAssignments
+        ? Set<String>.unmodifiable(_pendingAssignmentCardIDs)
+        : const <String>{};
+    String? assignedCardID;
+    if (action?.kind == actionAssign) {
+      assignedCardID = action?.card?.id;
+      if (assignedCardID != null) {
+        _pendingAssignmentCardIDs.remove(assignedCardID);
+        _pendingAssignmentCardIDs.add(assignedCardID);
+      }
+    }
+    if (after.table.phase == phaseAssignment) {
+      final pendingAfter = {
+        for (final job in after.table.jobs)
+          for (final card in job.assignedCards)
+            if (card.pending) card.id,
+      };
+      _pendingAssignmentCardIDs.removeWhere(
+        (cardID) => !pendingAfter.contains(cardID),
+      );
+    }
+    if (action?.kind == actionSubmitAssignments) {
+      _pendingAssignmentCardIDs.clear();
+    }
+    final wasIdle = !_presentationQueue.isBusy;
+    _presentationQueue.enqueue(
+      before: before,
+      after: withoutLegalActions(after),
+      action: action,
+      assignmentCardIDs: assignedCardID == null ? const [] : [assignedCardID],
+      assignmentTargets: assignedCardID == null || action?.targetSuit == null
+          ? const {}
+          : {assignedCardID: action!.targetSuit!},
+      suppressedCardIDs: submittedAssignmentCardIDs,
+    );
+    if (wasIdle) {
+      _presentCurrentTransition();
+    }
+  }
+
+  TableViewModel? _projectEngineModel() {
+    final engine = _engine;
+    var nextModel = engine?.project();
+    if (nextModel == null) {
+      return null;
+    }
+    final phase = nextModel.table.phase;
+    final nextUiState = autoSelectCards(
+      uiState.clearActivePanelAfterPhaseChange(
+        previousPhase: _lastSyncedPhase,
+        nextPhase: phase,
+      ),
+      nextModel,
+    );
+    if (!identical(nextUiState, uiState)) {
+      uiState = nextUiState;
+      nextModel = engine!.project();
+    }
+    _lastSyncedPhase = phase;
+    return nextModel;
+  }
+
+  void _presentCurrentTransition() {
+    final transition = _presentationQueue.current;
+    if (transition == null) {
+      _sync();
+      return;
+    }
+    _model = transition.after;
+    finishedGameLobby = null;
+    lifecycle = _model!.table.phase == phaseGameOver
+        ? GameControllerLifecycle.finishing
+        : GameControllerLifecycle.playing;
+    notifyListeners();
+  }
+
   void _sync() {
     final engine = _engine;
     final online = _remoteEngine;
-    final local = _localEngine;
     final finished = finishedGameLobby;
     if (engine == null && finished != null) {
       finishedGameLobby = finished.withUiState(uiState);
@@ -552,22 +652,15 @@ class GameController extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    var nextModel = engine?.project();
+    if (_presentationQueue.isBusy) {
+      notifyListeners();
+      return;
+    }
+    final nextModel = _projectEngineModel();
     if (nextModel != null) {
       final phase = nextModel.table.phase;
-      final nextUiState = autoSelectCards(
-        uiState.clearActivePanelAfterPhaseChange(
-          previousPhase: _lastSyncedPhase,
-          nextPhase: phase,
-        ),
-        nextModel,
-      );
-      if (!identical(nextUiState, uiState)) {
-        uiState = nextUiState;
-        nextModel = engine!.project();
-      }
-      _lastSyncedPhase = phase;
       _model = nextModel;
+      _authoritativeModel = nextModel;
       if (phase == phaseGameOver) {
         _finishGame(nextModel, online);
       } else {
@@ -578,7 +671,7 @@ class GameController extends ChangeNotifier {
       }
     }
     notifyListeners();
-    local?.scheduleAutomaticStep();
+    _localEngine?.scheduleAutomaticStep();
   }
 
   Future<void> _connectOnline({
@@ -603,6 +696,7 @@ class GameController extends ChangeNotifier {
       setUiState: (value) => uiState = value,
       lobby: () => lobby,
       onUpdate: _acceptOnlineUpdate,
+      onGameUpdate: _handleGameUpdate,
       onStateChanged: _sync,
       onError: (value) => error = value,
     );
@@ -683,8 +777,11 @@ class GameController extends ChangeNotifier {
     spectators: spectators,
   );
 
-  void acknowledgeRevisionPresented(int revision) {
-    _engine?.acknowledgePresentation(revision);
+  void completeTransition(int transitionID) {
+    if (!_presentationQueue.complete(transitionID)) {
+      return;
+    }
+    _presentCurrentTransition();
   }
 
   void _acceptOnlineUpdate(OnlineSessionUpdate update) {
@@ -752,6 +849,7 @@ class GameController extends ChangeNotifier {
     setRevealedPlayerID: (value) => revealedPlayerID = value,
     lastSyncedPhase: () => _lastSyncedPhase,
     setLastSyncedPhase: (value) => _lastSyncedPhase = value,
+    onGameUpdate: _handleGameUpdate,
     onStateChanged: _sync,
     onError: (value) => error = value,
     onPersist: _saveAutosave,
@@ -761,6 +859,9 @@ class GameController extends ChangeNotifier {
     final engine = _engine;
     _engine = null;
     engine?.dispose();
+    _authoritativeModel = null;
+    _presentationQueue.clear();
+    _pendingAssignmentCardIDs.clear();
   }
 
   int _newSeed() => DateTime.now().microsecondsSinceEpoch;

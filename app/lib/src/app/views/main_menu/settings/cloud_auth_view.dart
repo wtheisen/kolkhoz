@@ -64,9 +64,7 @@ class _CloudAuthPanelState extends State<CloudAuthView> {
     final confirmPassword = confirmPasswordController.text;
     if (password != confirmPassword) {
       setState(() {
-        localMessage = widget.language.t(
-          KolkhozText.kolkhozappPasswordsDoNotMatch,
-        );
+        localMessage = widget.language.strings.kolkhozappPasswordsDoNotMatch;
       });
       return;
     }
@@ -77,21 +75,20 @@ class _CloudAuthPanelState extends State<CloudAuthView> {
   @override
   Widget build(BuildContext context) {
     final status = !widget.configured
-        ? widget.language.t(
-            KolkhozText.kolkhozappCloudProfilesAreNotConfiguredForThisBuild,
-          )
+        ? widget
+              .language
+              .strings
+              .kolkhozappCloudProfilesAreNotConfiguredForThisBuild
         : !widget.ready
-        ? widget.language.t(KolkhozText.kolkhozappCloudProfilesAreStarting)
-        : widget.language.t(
-            KolkhozText.kolkhozappSignInToSyncProfileAndOnlineSeats,
-          );
+        ? widget.language.strings.kolkhozappCloudProfilesAreStarting
+        : widget.language.strings.kolkhozappSignInToSyncProfileAndOnlineSeats;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: 8,
       children: [
         Text(
-          widget.language.t(KolkhozText.kolkhozappAccount),
+          widget.language.strings.kolkhozappAccount,
           style: kolkhozFontStyle.copyWith(
             color: widget.tokens.colors.gold,
             fontSize: 13,
@@ -126,7 +123,7 @@ class _CloudAuthPanelState extends State<CloudAuthView> {
           _ProfileTextField(
             tokens: widget.tokens,
             controller: emailController,
-            label: widget.language.t(KolkhozText.kolkhozappEmail),
+            label: widget.language.strings.kolkhozappEmail,
             keyboardType: TextInputType.emailAddress,
             autocorrect: false,
             enableSuggestions: false,
@@ -136,7 +133,7 @@ class _CloudAuthPanelState extends State<CloudAuthView> {
           _ProfileTextField(
             tokens: widget.tokens,
             controller: passwordController,
-            label: widget.language.t(KolkhozText.kolkhozappPassword),
+            label: widget.language.strings.kolkhozappPassword,
             obscureText: true,
             maxLength: 72,
             onChanged: (_) => clearLocalMessage(),
@@ -144,7 +141,7 @@ class _CloudAuthPanelState extends State<CloudAuthView> {
           _ProfileTextField(
             tokens: widget.tokens,
             controller: confirmPasswordController,
-            label: widget.language.t(KolkhozText.kolkhozappConfirmPassword),
+            label: widget.language.strings.kolkhozappConfirmPassword,
             obscureText: true,
             maxLength: 72,
             onChanged: (_) => clearLocalMessage(),
@@ -159,8 +156,8 @@ class _CloudAuthPanelState extends State<CloudAuthView> {
                 height: 38,
                 child: ChromeAssetButton.command(
                   label: widget.busy
-                      ? widget.language.t(KolkhozText.kolkhozappWorking)
-                      : widget.language.t(KolkhozText.kolkhozappSignIn),
+                      ? widget.language.strings.kolkhozappWorking
+                      : widget.language.strings.kolkhozappSignIn,
                   prominent: false,
                   tokens: widget.tokens,
                   onPressed: widget.busy || widget.onSignIn == null
@@ -178,7 +175,7 @@ class _CloudAuthPanelState extends State<CloudAuthView> {
                 width: 142,
                 height: 38,
                 child: ChromeAssetButton.command(
-                  label: widget.language.t(KolkhozText.kolkhozappReset),
+                  label: widget.language.strings.kolkhozappReset,
                   prominent: false,
                   tokens: widget.tokens,
                   onPressed: widget.busy || widget.onResetPassword == null
@@ -193,7 +190,7 @@ class _CloudAuthPanelState extends State<CloudAuthView> {
                 width: 142,
                 height: 38,
                 child: ChromeAssetButton.command(
-                  label: widget.language.t(KolkhozText.kolkhozappCreate),
+                  label: widget.language.strings.kolkhozappCreate,
                   prominent: true,
                   tokens: widget.tokens,
                   onPressed: widget.busy || widget.onSignUp == null

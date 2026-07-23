@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:kolkhoz_app/src/app/views/game/game_controller/models/engine_values.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/render_model.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/game_session_models.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/game_state_models.dart';
 import '../../../../remote_connection/remote_error.dart';
@@ -33,7 +33,6 @@ class GameRemoteCommands extends GameCommandStream {
     required this.realtimeReconnectDelay,
     this.spectator = false,
   }) : _latestRevision = initialUpdate.actionLogCount {
-    _presentedUpdate = initialUpdate;
     _realtime = GameRealtime(
       client: client,
       sessionID: sessionID,
@@ -65,12 +64,6 @@ class GameRemoteCommands extends GameCommandStream {
   bool _refreshInFlight = false;
   bool _commandInFlight = false;
   bool _disposed = false;
-  late OnlineSessionUpdate _presentedUpdate;
-  final List<OnlineActionUpdate> _pendingUpdates = [];
-  final List<String> _pendingAssignmentCardIDs = [];
-  List<OnlineEngineAction> _pendingPresentationLegalActions = const [];
-  OnlineSessionUpdate? _deferredUpdate;
-  int? _awaitingPresentationRevision;
 
   bool get commandInFlight => _commandInFlight;
 
@@ -89,7 +82,6 @@ class GameRemoteCommands extends GameCommandStream {
     return switch (command) {
       SubmitGameAction() => _submitAction(command),
       RefreshGame() => _refresh(command),
-      AcknowledgeGamePresentation() => _acknowledgePresentation(command),
       SendGameReaction() => _sendReaction(command),
       KickGamePlayer() => _kickPlayer(command),
       LeaveGame() => _leave(command),
@@ -259,39 +251,15 @@ class GameRemoteCommands extends GameCommandStream {
     }
   }
 
-  Future<void> _acknowledgePresentation(
-    AcknowledgeGamePresentation command,
-  ) async {
-    if (_awaitingPresentationRevision != command.revision) {
-      return;
-    }
-    _awaitingPresentationRevision = null;
-    if (_pendingUpdates.isNotEmpty) {
-      _drainNextUpdate();
-      return;
-    }
-    final deferred = _deferredUpdate;
-    _deferredUpdate = null;
-    if (deferred != null &&
-        deferred.actionLogCount >= _presentedUpdate.actionLogCount) {
-      _deliverState(deferred);
-      return;
-    }
-    _deliverState(
-      _presentedUpdate.copyWith(legalActions: _pendingPresentationLegalActions),
-    );
-    _pendingPresentationLegalActions = const [];
-  }
-
   bool _publishActions(OnlineActionUpdatesResponse response) {
     final resync = response.resyncUpdate;
     if (resync != null) {
       if (resync.actionLogCount < _latestRevision) {
         return false;
       }
+      final committed = resync.actionLogCount > _latestRevision;
       _latestRevision = resync.actionLogCount;
-      _clearPresentationQueue();
-      _deliverState(resync);
+      _deliverState(resync, committed: committed);
       return true;
     }
     final updates = response.updates
@@ -301,8 +269,13 @@ class GameRemoteCommands extends GameCommandStream {
       return false;
     }
     _latestRevision = updates.last.revision;
-    _pendingUpdates.addAll(updates);
-    _drainNextUpdate();
+    for (final update in updates) {
+      _deliverState(
+        update.update,
+        action: update.action.engineAction,
+        committed: true,
+      );
+    }
     return true;
   }
 
@@ -310,62 +283,19 @@ class GameRemoteCommands extends GameCommandStream {
     if (update.actionLogCount < _latestRevision) {
       return;
     }
+    final committed = update.actionLogCount > _latestRevision;
     _latestRevision = update.actionLogCount;
-    if (_awaitingPresentationRevision != null) {
-      final deferred = _deferredUpdate;
-      if (deferred == null ||
-          update.actionLogCount >= deferred.actionLogCount) {
-        _deferredUpdate = update;
-      }
-      return;
-    }
-    _deliverState(update);
+    _deliverState(update, committed: committed);
   }
 
-  void _drainNextUpdate() {
-    if (_awaitingPresentationRevision != null || _pendingUpdates.isEmpty) {
-      return;
-    }
-    final next = _pendingUpdates.removeAt(0);
-    final deferred = _deferredUpdate;
-    if (deferred != null && deferred.actionLogCount <= next.revision) {
-      _deferredUpdate = null;
-    }
-    if (next.action.kind == kcActionAssign) {
-      final cardID = next.action.engineAction.card?.id;
-      if (cardID != null) {
-        _pendingAssignmentCardIDs.add(cardID);
-      }
-    }
-    final assignmentCardIDs = next.action.kind == kcActionSubmitAssignments
-        ? List<String>.unmodifiable(_pendingAssignmentCardIDs)
-        : const <String>[];
-    if (next.action.kind == kcActionSubmitAssignments) {
-      _pendingAssignmentCardIDs.clear();
-    }
-    _awaitingPresentationRevision = next.revision;
-    _pendingPresentationLegalActions = next.update.legalActions;
-    _presentedUpdate = next.update.copyWith(legalActions: const []);
+  void _deliverState(
+    OnlineSessionUpdate update, {
+    EngineAction? action,
+    bool committed = false,
+  }) {
     publish(
-      OnlineGameStateReceived(
-        _presentedUpdate,
-        presentationRevision: next.revision,
-        assignmentPresentationCardIDs: assignmentCardIDs,
-      ),
+      OnlineGameStateReceived(update, action: action, committed: committed),
     );
-  }
-
-  void _deliverState(OnlineSessionUpdate update) {
-    _presentedUpdate = update;
-    publish(OnlineGameStateReceived(update));
-  }
-
-  void _clearPresentationQueue() {
-    _pendingUpdates.clear();
-    _pendingAssignmentCardIDs.clear();
-    _pendingPresentationLegalActions = const [];
-    _deferredUpdate = null;
-    _awaitingPresentationRevision = null;
   }
 
   void _startPolling({Duration interval = onlineGameRefreshInterval}) {
@@ -384,7 +314,6 @@ class GameRemoteCommands extends GameCommandStream {
     _disposed = true;
     _refreshTimer?.cancel();
     _refreshTimer = null;
-    _clearPresentationQueue();
     _realtime.dispose();
     super.dispose();
   }

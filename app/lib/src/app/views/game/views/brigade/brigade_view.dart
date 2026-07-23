@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
+import 'package:simple_animations/simple_animations.dart';
+import 'package:kolkhoz_app/src/app/settings/game_motion.dart';
 import 'package:kolkhoz_app/src/app/settings/settings.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/brigade/brigade_fields_scope.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/brigade/brigade_layout.dart';
@@ -12,7 +14,6 @@ import 'package:kolkhoz_app/src/app/views/game/views/fields/fields_view.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/game_log/game_log_view.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/north/north_view.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/plots/plots_view.dart';
-import 'package:kolkhoz_app/src/app/views/shared/app_text.dart';
 import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/assignment_projection.dart';
 import 'package:kolkhoz_app/src/app/views/shared/chrome_button.dart';
@@ -900,7 +901,7 @@ class FarmsteadPerspectivePositioned extends StatelessWidget {
           );
           final focus = FieldPlanWorldFocusScope.maybeOf(context);
           if (surfaceID != null && focus?.surfaceID == surfaceID) {
-            final progress = Curves.easeInOutCubic.transform(
+            final progress = GameMotion.focusCurve.transform(
               focus!.progress.clamp(0, 1),
             );
             final center = fieldPlanQuadCenter(destination);
@@ -2414,37 +2415,37 @@ class ExpandedPlayerInfoPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = seatDisplayName(seat, language: language);
     final statusChips = [
-      if (seat.isViewer) language.t(KolkhozText.tabledisplayYou),
-      if (seat.isCurrentTurn) language.t(KolkhozText.kolkhozappCurrentTurn),
-      if (seat.isBrigadeLeader) language.t(KolkhozText.kolkhozappBrigadeLeader),
+      if (seat.isViewer) language.strings.tabledisplayYou,
+      if (seat.isCurrentTurn) language.strings.kolkhozappCurrentTurn,
+      if (seat.isBrigadeLeader) language.strings.kolkhozappBrigadeLeader,
       if (seat.statusText.isNotEmpty &&
           !RegExp(r'^\d+s$').hasMatch(seat.statusText))
         seat.statusText,
     ];
     final stats = [
       PlayerProfileStat(
-        label: language.t(KolkhozText.kolkhozappScore),
+        label: language.strings.kolkhozappScore,
         value: seat.visibleScore.toString(),
       ),
       PlayerProfileStat(
-        label: language.t(KolkhozText.kolkhozappMedals),
+        label: language.strings.kolkhozappMedals,
         value: '${seat.medals}/$maxTricks',
       ),
       PlayerProfileStat(
-        label: language.t(KolkhozText.kolkhozappHand),
+        label: language.strings.kolkhozappHand,
         value: playerInfoHandCount(seat).toString(),
       ),
       PlayerProfileStat(
-        label: language.t(KolkhozText.kolkhozappCellar),
+        label: language.strings.kolkhozappCellar,
         value: playerInfoCellarCount(seat).toString(),
       ),
       PlayerProfileStat(
-        label: language.t(KolkhozText.kolkhozappPlot),
+        label: language.strings.kolkhozappPlot,
         value: playerInfoVisiblePlotCount(seat).toString(),
       ),
       if (seat.profileStats != null)
         PlayerProfileStat(
-          label: language.t(KolkhozText.kolkhozappRating),
+          label: language.strings.kolkhozappRating,
           value: seat.profileStats!.rating.toString(),
           prominent: true,
         ),
@@ -2463,12 +2464,12 @@ class ExpandedPlayerInfoPanel extends StatelessWidget {
         profileUserID != null &&
         outgoingComradeRequestUserIDs.contains(profileUserID);
     final actionLabel = isComrade
-        ? language.t(KolkhozText.kolkhozappComrade)
+        ? language.strings.kolkhozappComrade
         : hasOutgoingRequest
-        ? language.t(KolkhozText.kolkhozappPending)
+        ? language.strings.kolkhozappPending
         : hasIncomingRequest
-        ? language.t(KolkhozText.kolkhozappAccept)
-        : language.t(KolkhozText.kolkhozappAddComrade);
+        ? language.strings.kolkhozappAccept
+        : language.strings.kolkhozappAddComrade;
     final actionIcon = isComrade
         ? 'assets/ui/Icons/icon-comrade.png'
         : hasOutgoingRequest
@@ -2488,7 +2489,7 @@ class ExpandedPlayerInfoPanel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           PixelText(
-            language.t(KolkhozText.kolkhozappPlayer),
+            language.strings.kolkhozappPlayer,
             size: PixelTextSize.xSmall,
             variant: PixelTextVariant.heavy,
             color: tokens.colors.gold,
@@ -2515,7 +2516,7 @@ class ExpandedPlayerInfoPanel extends StatelessWidget {
         for (final chip in statusChips)
           PlayerProfileChip(
             label: chip,
-            active: chip == language.t(KolkhozText.kolkhozappCurrentTurn),
+            active: chip == language.strings.kolkhozappCurrentTurn,
           ),
       ],
       statGroups: [
@@ -2542,7 +2543,7 @@ class ExpandedPlayerInfoPanel extends StatelessWidget {
                 height: 26,
                 child: Center(
                   child: PixelText(
-                    language.t(KolkhozText.kolkhozappCancel),
+                    language.strings.kolkhozappCancel,
                     size: PixelTextSize.xSmall,
                     variant: PixelTextVariant.heavy,
                     color: tokens.colors.gold,
@@ -2725,6 +2726,7 @@ class PlayerMedalStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final motion = GameMotion.of(context);
     final iconSize = playerPanelMedalIconSize * scale;
     final spacing = playerPanelMedalSpacing * scale;
     final medalStrip = SizedBox(
@@ -2737,9 +2739,9 @@ class PlayerMedalStat extends StatelessWidget {
               left: index * (iconSize + spacing),
               top: 0,
               child: AnimatedSwitcher(
-                duration: playerPanelMedalAppearDuration,
-                switchInCurve: Curves.easeOutBack,
-                switchOutCurve: Curves.easeInCubic,
+                duration: motion.medalAppear,
+                switchInCurve: GameMotion.medalInCurve,
+                switchOutCurve: GameMotion.medalOutCurve,
                 transitionBuilder: (child, animation) {
                   return FadeTransition(
                     opacity: animation,
@@ -2777,84 +2779,41 @@ class PlayerMedalStat extends StatelessWidget {
   }
 }
 
-class HeroMedalPulse extends StatefulWidget {
+class HeroMedalPulse extends StatelessWidget {
   const HeroMedalPulse({required this.active, required this.child, super.key});
 
   final bool active;
   final Widget child;
 
   @override
-  State<HeroMedalPulse> createState() => _HeroMedalPulseState();
-}
-
-class _HeroMedalPulseState extends State<HeroMedalPulse>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 900),
-  );
-  late final Animation<double> pulse = CurvedAnimation(
-    parent: controller,
-    curve: Curves.easeInOut,
-  );
-
-  @override
-  void initState() {
-    super.initState();
-    updateAnimation();
-  }
-
-  @override
-  void didUpdateWidget(HeroMedalPulse oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.active != widget.active) {
-      updateAnimation();
-    }
-  }
-
-  void updateAnimation() {
-    if (widget.active) {
-      controller.repeat(reverse: true);
-    } else {
-      controller.stop();
-      controller.value = 0;
-    }
-  }
-
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (!widget.active) {
-      return widget.child;
+    final motion = GameMotion.of(context);
+    if (!active || !motion.enabled) {
+      return child;
     }
     return Semantics(
       label: 'One trick from Hero of Socialist Labor',
-      child: AnimatedBuilder(
-        animation: pulse,
-        builder: (context, child) {
-          return DecoratedBox(
-            key: const ValueKey('hero-medal-warning'),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(3),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(
-                    0xffffd75a,
-                  ).withValues(alpha: 0.28 + pulse.value * 0.5),
-                  blurRadius: 3 + pulse.value * 6,
-                  spreadRadius: pulse.value * 2,
-                ),
-              ],
-            ),
-            child: Transform.scale(scale: 1 + pulse.value * 0.12, child: child),
-          );
-        },
-        child: widget.child,
+      child: MirrorAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: motion.heroMedalPulse,
+        curve: GameMotion.ambientPulseCurve,
+        builder: (context, value, child) => DecoratedBox(
+          key: const ValueKey('hero-medal-warning'),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(3),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(
+                  0xffffd75a,
+                ).withValues(alpha: 0.28 + value * 0.5),
+                blurRadius: 3 + value * 6,
+                spreadRadius: value * 2,
+              ),
+            ],
+          ),
+          child: Transform.scale(scale: 1 + value * 0.12, child: child),
+        ),
+        child: child,
       ),
     );
   }
@@ -2863,7 +2822,6 @@ class _HeroMedalPulseState extends State<HeroMedalPulse>
 const playerPanelMedalIconSize = 12.0;
 const playerPanelMedalSpacing = -4.0;
 const playerPanelUnearnedMedalOpacity = 0.18;
-const playerPanelMedalAppearDuration = Duration(milliseconds: 520);
 const playerPanelCardBackWidth = 10.0;
 const playerPanelCardBackHeight = 15.0;
 
@@ -3015,8 +2973,8 @@ class CardSlot extends StatelessWidget {
           child: active && showPrompt
               ? PixelText(
                   human
-                      ? language.t(KolkhozText.boardviewYourTurn)
-                      : language.t(KolkhozText.boardviewWait),
+                      ? language.strings.boardviewYourTurn
+                      : language.strings.boardviewWait,
                   size: human ? PixelTextSize.headline : PixelTextSize.caption2,
                   variant: PixelTextVariant.heavy,
                   color: human
@@ -3035,7 +2993,7 @@ class CardSlot extends StatelessWidget {
   }
 }
 
-class PulsingCardSlotFrame extends StatefulWidget {
+class PulsingCardSlotFrame extends StatelessWidget {
   const PulsingCardSlotFrame({
     required this.human,
     required this.tokens,
@@ -3048,68 +3006,44 @@ class PulsingCardSlotFrame extends StatefulWidget {
   final Widget child;
 
   @override
-  State<PulsingCardSlotFrame> createState() => _PulsingCardSlotFrameState();
-}
-
-class _PulsingCardSlotFrameState extends State<PulsingCardSlotFrame>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController controller;
-  late final Animation<double> pulse;
-
-  @override
-  void initState() {
-    super.initState();
-    controller = AnimationController(
-      vsync: this,
-      duration: cardSlotPulseDuration,
-    )..repeat(reverse: true);
-    pulse = CurvedAnimation(parent: controller, curve: Curves.easeInOut);
-  }
-
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final baseColor = widget.human
-        ? widget.tokens.colors.gold
-        : widget.tokens.colors.red;
-    final restOpacity = widget.human
+    final motion = GameMotion.of(context);
+    final baseColor = human ? tokens.colors.gold : tokens.colors.red;
+    final restOpacity = human
         ? cardSlotHumanShadowRestOpacity
         : cardSlotOpponentShadowRestOpacity;
-    final pulseOpacity = widget.human
+    final pulseOpacity = human
         ? cardSlotHumanShadowPulseOpacity
         : cardSlotOpponentShadowPulseOpacity;
-    return AnimatedBuilder(
-      animation: pulse,
-      builder: (context, child) {
-        final value = pulse.value;
-        return Transform.scale(
-          scale: lerpDouble(1, cardSlotActiveScale, value)!,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(cardSlotCornerRadius),
-              boxShadow: [
-                BoxShadow(
-                  color: baseColor.withValues(
-                    alpha: lerpDouble(restOpacity, pulseOpacity, value)!,
-                  ),
-                  blurRadius: lerpDouble(
-                    cardSlotShadowRestRadius,
-                    cardSlotShadowPulseRadius,
-                    value,
-                  )!,
+    if (!motion.enabled) {
+      return child;
+    }
+    return MirrorAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: motion.activeCardSlotPulse,
+      curve: GameMotion.ambientPulseCurve,
+      builder: (context, value, child) => Transform.scale(
+        scale: lerpDouble(1, cardSlotActiveScale, value)!,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(cardSlotCornerRadius),
+            boxShadow: [
+              BoxShadow(
+                color: baseColor.withValues(
+                  alpha: lerpDouble(restOpacity, pulseOpacity, value)!,
                 ),
-              ],
-            ),
-            child: child,
+                blurRadius: lerpDouble(
+                  cardSlotShadowRestRadius,
+                  cardSlotShadowPulseRadius,
+                  value,
+                )!,
+              ),
+            ],
           ),
-        );
-      },
-      child: widget.child,
+          child: child,
+        ),
+      ),
+      child: child,
     );
   }
 }
@@ -3118,7 +3052,6 @@ const cardSlotCornerRadius = 8.0;
 const cardSlotStrokeWidth = 2.0;
 const cardSlotDashLength = 6.0;
 const cardSlotDashGap = 6.0;
-const cardSlotPulseDuration = Duration(milliseconds: 1800);
 const cardSlotActiveScale = 1.035;
 const cardSlotHumanFillOpacity = 0.18;
 const cardSlotOpponentFillOpacity = 0.12;

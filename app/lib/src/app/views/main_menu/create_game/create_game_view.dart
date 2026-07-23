@@ -341,7 +341,7 @@ class _VariantPanelState extends State<CreateGameView> {
       return;
     }
     setState(() {
-      setOnlineStatus(widget.language.t(KolkhozText.kolkhozappCopied));
+      setOnlineStatus(widget.language.strings.kolkhozappCopied);
     });
   }
 
@@ -405,7 +405,7 @@ class _VariantPanelState extends State<CreateGameView> {
         ),
         if (widget.demoMode)
           _primaryCommandButton(
-            label: widget.language.t(KolkhozText.kolkhozappStartDemo),
+            label: widget.language.strings.kolkhozappStartDemo,
             iconAsset: 'assets/ui/Icons/icon-demo.png',
             onPressed: startGame,
           )
@@ -457,7 +457,7 @@ class _VariantPanelState extends State<CreateGameView> {
             ),
             if (widget.demoMode)
               _primaryCommandButton(
-                label: widget.language.t(KolkhozText.kolkhozappStartDemo),
+                label: widget.language.strings.kolkhozappStartDemo,
                 iconAsset: 'assets/ui/Icons/icon-demo.png',
                 onPressed: startGame,
               )
@@ -548,10 +548,10 @@ class _VariantPanelState extends State<CreateGameView> {
         ),
         _OnlineGameOptionToggle(
           tokens: widget.tokens,
-          title: widget.language.t(KolkhozText.kolkhozappAccess),
+          title: widget.language.strings.kolkhozappAccess,
           label: browserJoinable
-              ? widget.language.t(KolkhozText.kolkhozappBrowser)
-              : widget.language.t(KolkhozText.kolkhozappLocked),
+              ? widget.language.strings.kolkhozappBrowser
+              : widget.language.strings.kolkhozappLocked,
           selected: browserJoinable,
           enabled: hasOnlineSeats,
           iconAsset: browserJoinable
@@ -589,7 +589,7 @@ class _VariantPanelState extends State<CreateGameView> {
       height: height,
       child: ChromeAssetButton.command(
         key: key,
-        label: widget.language.t(KolkhozText.kolkhozappBackToSetup),
+        label: widget.language.strings.kolkhozappBackToSetup,
         prominent: false,
         tokens: widget.tokens,
         iconAsset: 'assets/ui/Icons/icon-toolbar-undo.png',
@@ -669,10 +669,10 @@ class _VariantPanelState extends State<CreateGameView> {
     final height = widget.compactRail ? 50.0 : 56.0;
     final countdownSeconds = update.lobbyCountdownSeconds;
     final waitingLabel = countdownSeconds == null
-        ? widget.language.t(KolkhozText.kolkhozappWaitingForPlayers)
-        : widget.language.t(KolkhozText.kolkhozappGameStartsInValue1s, {
-            'value1': countdownSeconds,
-          });
+        ? widget.language.strings.kolkhozappWaitingForPlayers
+        : widget.language.strings.kolkhozappGameStartsInValue1s(
+            value1: countdownSeconds,
+          );
     return Row(
       spacing: 8,
       children: [
@@ -692,10 +692,10 @@ class _VariantPanelState extends State<CreateGameView> {
             child: Semantics(
               button: true,
               label:
-                  '${widget.language.t(KolkhozText.kolkhozappInviteCode)} ${widget.hostedInviteCode!}',
+                  '${widget.language.strings.kolkhozappInviteCode} ${widget.hostedInviteCode!}',
               child: ExcludeSemantics(
                 child: Tooltip(
-                  message: widget.language.t(KolkhozText.kolkhozappCopyCode),
+                  message: widget.language.strings.kolkhozappCopyCode,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () => unawaited(
@@ -728,9 +728,10 @@ class _VariantPanelState extends State<CreateGameView> {
                                     spacing: 2,
                                     children: [
                                       ChromeScaledLabel(
-                                        widget.language.t(
-                                          KolkhozText.kolkhozappInviteCode,
-                                        ),
+                                        widget
+                                            .language
+                                            .strings
+                                            .kolkhozappInviteCode,
                                         color: widget.tokens.colors.cardInk,
                                         size: PixelTextSize.xSmall,
                                         textAlign: TextAlign.start,
@@ -814,7 +815,7 @@ class _VariantPanelState extends State<CreateGameView> {
           child: SizedBox(
             height: height,
             child: ChromeAssetButton.command(
-              label: widget.language.t(KolkhozText.kolkhozappSaveFavorite),
+              label: widget.language.strings.kolkhozappSaveFavorite,
               prominent: false,
               tokens: widget.tokens,
               onPressed: widget.onSaveFavoriteSetup,
@@ -829,7 +830,7 @@ class _VariantPanelState extends State<CreateGameView> {
           child: SizedBox(
             height: height,
             child: ChromeAssetButton.command(
-              label: widget.language.t(KolkhozText.kolkhozappUseFavorite),
+              label: widget.language.strings.kolkhozappUseFavorite,
               prominent: false,
               tokens: widget.tokens,
               onPressed: widget.favoriteSetup != null ? useFavoriteSetup : null,
@@ -847,7 +848,7 @@ class _VariantPanelState extends State<CreateGameView> {
             height: height,
             child: ChromeAssetButton.command(
               width: double.infinity,
-              label: widget.language.t(KolkhozText.kolkhozappContinueToLobby),
+              label: widget.language.strings.kolkhozappContinueToLobby,
               prominent: true,
               tokens: widget.tokens,
               onPressed: () => setState(() => showingSeatLobby = true),
@@ -876,12 +877,12 @@ class _VariantPanelState extends State<CreateGameView> {
       return onlineStatus!;
     }
     if (startingOnline) {
-      return widget.language.t(KolkhozText.kolkhozappWorking);
+      return widget.language.strings.kolkhozappWorking;
     }
     if (hasOnlineSeats) {
-      return widget.language.t(KolkhozText.kolkhozappStartOnlineGame);
+      return widget.language.strings.kolkhozappStartOnlineGame;
     }
-    return widget.language.t(KolkhozText.kolkhozappStartOfflineGame);
+    return widget.language.strings.kolkhozappStartOfflineGame;
   }
 
   String _startButtonIconAsset() {
@@ -1546,9 +1547,9 @@ class _SeatLobbyColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final playerLabel = language.t(KolkhozText.kolkhozappPValue1, {
-      'value1': playerID + 1,
-    });
+    final playerLabel = language.strings.kolkhozappPValue1(
+      value1: playerID + 1,
+    );
     final localProfile = playerID == 0 && choice == _LobbySeatChoice.local;
     final selectedComrade = choice == _LobbySeatChoice.comrade
         ? _selectedComrade()
@@ -1563,7 +1564,7 @@ class _SeatLobbyColumn extends StatelessWidget {
         : selectedComrade != null
         ? comradePresenceSummary(language, selectedComrade)
         : choice == _LobbySeatChoice.empty
-        ? language.t(KolkhozText.kolkhozappOpen)
+        ? language.strings.kolkhozappOpen
         : choice.shortTitle(language);
     final semanticLabel = '$playerLabel $occupantLabel';
     final card = PlayerProfileBadge(
@@ -1723,7 +1724,7 @@ class _SeatComradePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final selected = _selectedComrade();
     final label =
-        selected?.displayLabel ?? language.t(KolkhozText.kolkhozappNoComrades);
+        selected?.displayLabel ?? language.strings.kolkhozappNoComrades;
     final enabled = onChanged != null && comrades.isNotEmpty;
     return Tooltip(
       message: label,
@@ -2179,10 +2180,10 @@ enum _LobbySeatChoice {
 
   String shortTitle(KolkhozLanguage language) {
     return switch (this) {
-      _LobbySeatChoice.empty => language.t(KolkhozText.kolkhozappOpen),
-      _LobbySeatChoice.local => language.t(KolkhozText.kolkhozappHotseat),
-      _LobbySeatChoice.online => language.t(KolkhozText.kolkhozappOnline),
-      _LobbySeatChoice.comrade => language.t(KolkhozText.kolkhozappComrade),
+      _LobbySeatChoice.empty => language.strings.kolkhozappOpen,
+      _LobbySeatChoice.local => language.strings.kolkhozappHotseat,
+      _LobbySeatChoice.online => language.strings.kolkhozappOnline,
+      _LobbySeatChoice.comrade => language.strings.kolkhozappComrade,
       _LobbySeatChoice.easyAI => KolkhozPlayerController.heuristicAI.shortTitle(
         language,
       ),

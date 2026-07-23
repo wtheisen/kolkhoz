@@ -1,4 +1,5 @@
 import 'package:kolkhoz_app/src/app/views/game/game_controller/game_lobby.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/game_engine.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/game_ui_state.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/game_remote_connection.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/game_session_models.dart';
@@ -23,6 +24,7 @@ class RemoteGameEngineFactory {
     required void Function(GameUiState) setUiState,
     required GameLobby Function() lobby,
     required void Function(OnlineSessionUpdate) onUpdate,
+    required void Function(GameEngineUpdate) onGameUpdate,
     required void Function() onStateChanged,
     required void Function(String?) onError,
     bool spectator = false,
@@ -38,6 +40,7 @@ class RemoteGameEngineFactory {
     setUiState: setUiState,
     lobby: lobby,
     onUpdate: onUpdate,
+    onGameUpdate: onGameUpdate,
     onStateChanged: onStateChanged,
     onError: onError,
     spectator: spectator,

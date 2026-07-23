@@ -382,6 +382,8 @@ enum KolkhozLanguage {
     return this == KolkhozLanguage.ru ? KolkhozLanguage.en : KolkhozLanguage.ru;
   }
 
+  AppLocalizations get strings => lookupAppLocalizations(Locale(name));
+
   String t(KolkhozText key, [Map<String, Object?> args = const {}]) {
     return lookupKolkhozText(
       key,
@@ -452,14 +454,14 @@ enum KolkhozAppearance {
 
   String label(KolkhozLanguage language) {
     return this == KolkhozAppearance.dark
-        ? language.t(KolkhozText.appsettingsDark)
-        : language.t(KolkhozText.appsettingsLight);
+        ? language.strings.appsettingsDark
+        : language.strings.appsettingsLight;
   }
 
   String toggleTitle(KolkhozLanguage language) {
     return this == KolkhozAppearance.dark
-        ? language.t(KolkhozText.appsettingsSwitchToLightMode)
-        : language.t(KolkhozText.appsettingsSwitchToDarkMode);
+        ? language.strings.appsettingsSwitchToLightMode
+        : language.strings.appsettingsSwitchToDarkMode;
   }
 
   String get toggleIconAsset {
@@ -511,10 +513,10 @@ enum KolkhozCardBack {
 
   String label(KolkhozLanguage language) {
     return switch (this) {
-      KolkhozCardBack.classic => language.t(KolkhozText.appsettingsClassic),
-      KolkhozCardBack.harvest => language.t(KolkhozText.appsettingsHarvest),
-      KolkhozCardBack.granary => language.t(KolkhozText.appsettingsGranary),
-      KolkhozCardBack.winter => language.t(KolkhozText.appsettingsWinter),
+      KolkhozCardBack.classic => language.strings.appsettingsClassic,
+      KolkhozCardBack.harvest => language.strings.appsettingsHarvest,
+      KolkhozCardBack.granary => language.strings.appsettingsGranary,
+      KolkhozCardBack.winter => language.strings.appsettingsWinter,
     };
   }
 }

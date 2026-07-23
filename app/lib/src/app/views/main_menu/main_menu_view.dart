@@ -655,7 +655,7 @@ class _LobbyTitleColumn extends StatelessWidget {
                 spacing: 2,
                 children: [
                   Text(
-                    language.t(KolkhozText.kolkhozappGameBy),
+                    language.strings.kolkhozappGameBy,
                     style: kolkhozFontStyle.copyWith(
                       color: tokens.colors.gold,
                       fontSize: 11,
@@ -663,7 +663,7 @@ class _LobbyTitleColumn extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    language.t(KolkhozText.kolkhozappWilliamTheisen),
+                    language.strings.kolkhozappWilliamTheisen,
                     style: kolkhozFontStyle.copyWith(
                       color: tokens.colors.gold,
                       fontSize: 11,
@@ -764,7 +764,7 @@ class _LobbyButtonStack extends StatelessWidget {
           width: double.infinity,
           height: mainButtonHeight,
           child: ChromeAssetButton.command(
-            label: language.t(KolkhozText.lobbyJoinGame),
+            label: language.strings.lobbyJoinGame,
             prominent: joinEnabled && showingOnline,
             tokens: tokens,
             onPressed: onOnlinePressed,
@@ -785,7 +785,7 @@ class _LobbyButtonStack extends StatelessWidget {
           width: double.infinity,
           height: mainButtonHeight,
           child: ChromeAssetButton.command(
-            label: language.t(KolkhozText.lobbyHowToPlay),
+            label: language.strings.lobbyHowToPlay,
             prominent: showingRules,
             tokens: tokens,
             onPressed: onRulesPressed,
@@ -814,7 +814,7 @@ class _LobbyButtonStack extends StatelessWidget {
             final buttons = [
               _LobbyIconButton(
                 tokens: tokens,
-                label: language.t(KolkhozText.lobbyAccountStatus),
+                label: language.strings.lobbyAccountStatus,
                 tooltip: cloudStatusTooltip,
                 iconAsset: cloudStatusIconAsset,
                 prominent: cloudSignedIn,
@@ -824,7 +824,7 @@ class _LobbyButtonStack extends StatelessWidget {
               ),
               _LobbyIconButton(
                 tokens: tokens,
-                label: language.t(KolkhozText.lobbyLanguage),
+                label: language.strings.lobbyLanguage,
                 tooltip: language.toggleTitle,
                 iconAsset: 'assets/ui/Icons/${language.toggleIconAsset}',
                 size: iconSize,
@@ -832,7 +832,7 @@ class _LobbyButtonStack extends StatelessWidget {
               ),
               _LobbyIconButton(
                 tokens: tokens,
-                label: language.t(KolkhozText.lobbyTheme),
+                label: language.strings.lobbyTheme,
                 tooltip: appearance.toggleTitle(language),
                 iconAsset: 'assets/ui/Icons/${appearance.toggleIconAsset}',
                 size: iconSize,
@@ -840,8 +840,8 @@ class _LobbyButtonStack extends StatelessWidget {
               ),
               _LobbyIconButton(
                 tokens: tokens,
-                label: language.t(KolkhozText.lobbySettings),
-                tooltip: language.t(KolkhozText.lobbySettings),
+                label: language.strings.lobbySettings,
+                tooltip: language.strings.lobbySettings,
                 iconAsset: 'assets/ui/Icons/icon-gears.png',
                 prominent: showingProfile,
                 size: iconSize,
@@ -883,21 +883,19 @@ class _LobbyButtonStack extends StatelessWidget {
 
   String get cloudStatusTooltip {
     if (!cloudConfigured) {
-      return language.t(KolkhozText.kolkhozappCloudAccountUnavailable);
+      return language.strings.kolkhozappCloudAccountUnavailable;
     }
     if (cloudAuthBusy || !cloudReady) {
-      return language.t(KolkhozText.kolkhozappConnectingAccount);
+      return language.strings.kolkhozappConnectingAccount;
     }
     if (cloudSignedIn) {
       final email = cloudEmail?.trim();
       if (email != null && email.isNotEmpty) {
-        return language.t(KolkhozText.kolkhozappSignedInEmail, {
-          'email': email,
-        });
+        return language.strings.kolkhozappSignedInEmail(email: email);
       }
-      return language.t(KolkhozText.kolkhozappSignedIn);
+      return language.strings.kolkhozappSignedIn;
     }
-    return language.t(KolkhozText.kolkhozappSignedOut2);
+    return language.strings.kolkhozappSignedOut2;
   }
 }
 
@@ -1348,12 +1346,10 @@ enum KolkhozSettingsTab {
 
   String title(KolkhozLanguage language) {
     return switch (this) {
-      KolkhozSettingsTab.profile => language.t(KolkhozText.kolkhozappProfile),
-      KolkhozSettingsTab.leaderboard => language.t(
-        KolkhozText.kolkhozappLeaderboard,
-      ),
-      KolkhozSettingsTab.progress => language.t(KolkhozText.kolkhozappProgress),
-      KolkhozSettingsTab.comrades => language.t(KolkhozText.kolkhozappComrades),
+      KolkhozSettingsTab.profile => language.strings.kolkhozappProfile,
+      KolkhozSettingsTab.leaderboard => language.strings.kolkhozappLeaderboard,
+      KolkhozSettingsTab.progress => language.strings.kolkhozappProgress,
+      KolkhozSettingsTab.comrades => language.strings.kolkhozappComrades,
       KolkhozSettingsTab.admin => 'OPERATIONS',
       KolkhozSettingsTab.assist => OptionsMenuTab.assist.title(language),
       KolkhozSettingsTab.display => OptionsMenuTab.display.title(language),

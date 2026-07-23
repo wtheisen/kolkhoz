@@ -4,7 +4,6 @@ import 'dart:ui' show clampDouble;
 import 'package:flutter/material.dart';
 
 import 'package:kolkhoz_app/src/app/settings/settings.dart';
-import 'package:kolkhoz_app/src/app/views/shared/app_text.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/assignment_projection.dart';
 import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
@@ -478,9 +477,10 @@ class _JobTileState extends State<JobTile> {
                                 fit: BoxFit.scaleDown,
                                 child: PixelText(
                                   job.claimed
-                                      ? widget.language.t(
-                                          KolkhozText.boardJobspanelDone,
-                                        )
+                                      ? widget
+                                            .language
+                                            .strings
+                                            .boardJobspanelDone
                                       : '$displayHours/${job.requiredHours}',
                                   size: PixelTextSize.headline,
                                   variant: PixelTextVariant.heavy,
@@ -509,10 +509,10 @@ class _JobTileState extends State<JobTile> {
                                     child: Center(
                                       child: PixelText(
                                         showAssignPrompt
-                                            ? widget.language.t(
-                                                KolkhozText
-                                                    .boardJobspanelTapToAssign,
-                                              )
+                                            ? widget
+                                                  .language
+                                                  .strings
+                                                  .boardJobspanelTapToAssign
                                             : '',
                                         textAlign: TextAlign.center,
                                         size: PixelTextSize.caption2,

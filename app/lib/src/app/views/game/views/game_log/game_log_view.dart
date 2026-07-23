@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:kolkhoz_app/src/app/settings/game_motion.dart';
 import 'package:kolkhoz_app/src/app/settings/settings.dart';
 import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
@@ -223,6 +224,7 @@ class _LogExpansionState extends State<_LogExpansion> {
 
   @override
   Widget build(BuildContext context) {
+    final motion = GameMotion.of(context);
     return Column(
       children: [
         Semantics(
@@ -240,7 +242,7 @@ class _LogExpansionState extends State<_LogExpansion> {
                   children: [
                     AnimatedRotation(
                       turns: expanded ? 0.25 : 0,
-                      duration: const Duration(milliseconds: 140),
+                      duration: motion.logChevron,
                       child: CustomPaint(
                         size: const Size.square(14),
                         painter: _ExpansionChevronPainter(
@@ -278,7 +280,7 @@ class _LogExpansionState extends State<_LogExpansion> {
           ),
         ),
         AnimatedSize(
-          duration: const Duration(milliseconds: 160),
+          duration: motion.logSectionResize,
           alignment: Alignment.topCenter,
           child: expanded
               ? Padding(

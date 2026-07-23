@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:kolkhoz_app/src/app/settings/settings.dart';
-import 'package:kolkhoz_app/src/app/views/shared/app_text.dart';
 import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
 import 'package:kolkhoz_app/src/app/views/shared/chrome_button.dart';
 import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
@@ -135,7 +134,7 @@ class GameOverPlotPanel extends StatelessWidget {
                       ),
                     ),
                     Tooltip(
-                      message: language.t(KolkhozText.kolkhozappCopyResult),
+                      message: language.strings.kolkhozappCopyResult,
                       child: ChromeAssetButton.command(
                         key: const Key('game-over-copy-result-button'),
                         label: '',
@@ -172,8 +171,8 @@ class GameOverPlotPanel extends StatelessWidget {
                     ),
                     ChromeAssetButton.command(
                       label: returnsToLobby
-                          ? language.t(KolkhozText.kolkhozappMainMenu2)
-                          : language.t(KolkhozText.kolkhozappNewGame2),
+                          ? language.strings.kolkhozappMainMenu2
+                          : language.strings.kolkhozappNewGame2,
                       prominent: true,
                       tokens: tokens,
                       onPressed: returnsToLobby ? onReturnToLobby : onNewGame,

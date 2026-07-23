@@ -122,7 +122,7 @@ one and Drunkard removes its crop before the quota is counted.
 6. `app/lib/src/app/profile/profile_controller/profile_controller.dart` - identity, profile, comrades, and recent-games owner.
 7. `app/lib/src/app/views/main_menu/main_menu_controller/main_menu_controller.dart` - browser, tournament, and invitation owner.
 8. `app/lib/src/app/views/game/game_controller/game_controller.dart` - game lifecycle and engine selection.
-9. `app/lib/src/app/views/game/game_controller/game_engine.dart` - shared local/remote runtime contract.
+9. `app/lib/src/app/views/game/game_controller/game_engine.dart` - shared local/remote execution and projection contract.
 10. `app/lib/src/app/views/game/game_controller/local_game_engine/local_game_engine_factory.dart` - local runtime construction and restoration.
 11. `app/lib/src/app/views/game/game_controller/local_game_engine/local_game_engine.dart` - local match owner.
 12. `app/lib/src/app/views/game/game_controller/local_game_engine/native_game_engine.dart` - native C-engine lifecycle.
@@ -131,10 +131,12 @@ one and Drunkard removes its crop before the quota is counted.
 15. `app/lib/src/app/views/game/game_controller/remote_game_engine/game_remote_connection.dart` - match protocol.
 16. `app/lib/src/app/views/game/game_controller/models/` - projected and terminal game models.
 17. `app/lib/src/app/views/game/game_view.dart` - active-game shell.
-18. `app/lib/src/app/views/main_menu/` - create, join, and settings surfaces.
-19. `research/kolkhoz_research/c_engine.py` - Python C-engine wrapper.
-20. `server/kolkhoz_server/production.py` - production online composition.
-21. `research/kolkhoz_research/cli.py` - training and benchmark commands.
+18. `app/lib/src/app/settings/game_motion.dart` - gameplay motion timing, easing, and reduced-motion policy.
+19. `app/lib/src/app/views/game/views/components/card_motion.dart` - thin card-motion playback runner.
+20. `app/lib/src/app/views/main_menu/` - create, join, and settings surfaces.
+21. `research/kolkhoz_research/c_engine.py` - Python C-engine wrapper.
+22. `server/kolkhoz_server/production.py` - production online composition.
+23. `research/kolkhoz_research/cli.py` - training and benchmark commands.
 
 ## Common Tasks
 

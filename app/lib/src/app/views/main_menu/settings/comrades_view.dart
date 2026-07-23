@@ -71,7 +71,7 @@ class _ComradesPanelState extends State<ComradesView> {
     await runComradeAction(() async {
       await connection.sendComradeRequest(code);
       codeController.clear();
-      message = widget.language.t(KolkhozText.kolkhozappComradeRequestSent);
+      message = widget.language.strings.kolkhozappComradeRequestSent;
       messageIsError = false;
     });
   }
@@ -95,7 +95,7 @@ class _ComradesPanelState extends State<ComradesView> {
     if (connection == null) return;
     await runComradeAction(() async {
       await connection.removeComrade(userID);
-      message = widget.language.t(KolkhozText.kolkhozappComradeRemoved);
+      message = widget.language.strings.kolkhozappComradeRemoved;
       messageIsError = false;
     });
   }
@@ -110,7 +110,7 @@ class _ComradesPanelState extends State<ComradesView> {
       return;
     }
     setState(() {
-      message = widget.language.t(KolkhozText.kolkhozappCopied);
+      message = widget.language.strings.kolkhozappCopied;
       messageIsError = false;
     });
   }
@@ -151,7 +151,7 @@ class _ComradesPanelState extends State<ComradesView> {
     if (exception is RemoteRequestException || exception is SocketException) {
       return onlineFailureStatusMessage(exception, widget.language);
     }
-    return widget.language.t(KolkhozText.kolkhozappProfileSyncFailed);
+    return widget.language.strings.kolkhozappProfileSyncFailed;
   }
 
   @override
@@ -169,13 +169,13 @@ class _ComradesPanelState extends State<ComradesView> {
               children: [
                 _ComradeSectionTitle(
                   tokens: widget.tokens,
-                  label: widget.language.t(KolkhozText.kolkhozappComrades),
+                  label: widget.language.strings.kolkhozappComrades,
                   iconAsset: 'assets/ui/Icons/icon-friends-list.png',
                 ),
                 if (comrades.comrades.isEmpty)
                   _ComradeEmptyRow(
                     tokens: widget.tokens,
-                    label: widget.language.t(KolkhozText.kolkhozappNoComrades),
+                    label: widget.language.strings.kolkhozappNoComrades,
                   )
                 else
                   for (final comrade in comrades.comrades)
@@ -193,9 +193,8 @@ class _ComradesPanelState extends State<ComradesView> {
                       _ComradeRequestColumn(
                         tokens: widget.tokens,
                         language: widget.language,
-                        label: widget.language.t(
-                          KolkhozText.kolkhozappIncomingRequests,
-                        ),
+                        label:
+                            widget.language.strings.kolkhozappIncomingRequests,
                         iconAsset: 'assets/ui/Icons/icon-add-friend.png',
                         requests: comrades.incomingRequests,
                         busy: busy,
@@ -208,9 +207,8 @@ class _ComradesPanelState extends State<ComradesView> {
                       _ComradeRequestColumn(
                         tokens: widget.tokens,
                         language: widget.language,
-                        label: widget.language.t(
-                          KolkhozText.kolkhozappOutgoingRequests,
-                        ),
+                        label:
+                            widget.language.strings.kolkhozappOutgoingRequests,
                         iconAsset: 'assets/ui/Icons/icon-friends-list.png',
                         requests: comrades.outgoingRequests,
                         busy: busy,
@@ -265,7 +263,7 @@ class _ComradesPanelState extends State<ComradesView> {
               width: 126,
               height: footerControlHeight,
               child: ChromeAssetButton.command(
-                label: widget.language.t(KolkhozText.kolkhozappCopyCode),
+                label: widget.language.strings.kolkhozappCopyCode,
                 prominent: false,
                 tokens: widget.tokens,
                 iconAsset: 'assets/ui/Icons/icon-comrade.png',
@@ -314,8 +312,8 @@ class _ComradesPanelState extends State<ComradesView> {
               height: footerControlHeight,
               child: ChromeAssetButton.command(
                 label: busy
-                    ? widget.language.t(KolkhozText.kolkhozappWorking)
-                    : widget.language.t(KolkhozText.kolkhozappAddComrade),
+                    ? widget.language.strings.kolkhozappWorking
+                    : widget.language.strings.kolkhozappAddComrade,
                 prominent: true,
                 tokens: widget.tokens,
                 iconAsset: 'assets/ui/Icons/icon-add-friend.png',
@@ -397,7 +395,7 @@ class _ComradeRequestColumn extends StatelessWidget {
         if (requests.isEmpty)
           _ComradeEmptyRow(
             tokens: tokens,
-            label: language.t(KolkhozText.kolkhozappNoComradeRequests),
+            label: language.strings.kolkhozappNoComradeRequests,
           )
         else
           for (final request in requests)
@@ -554,13 +552,13 @@ class _ComradeRequestRow extends StatelessWidget {
             _ComradeIconButton(
               tokens: tokens,
               iconAsset: 'assets/ui/Icons/icon-check.png',
-              label: language.t(KolkhozText.kolkhozappAccept),
+              label: language.strings.kolkhozappAccept,
               onPressed: busy ? null : onAccept,
             ),
             _ComradeIconButton(
               tokens: tokens,
               iconAsset: 'assets/ui/Icons/icon-warning.png',
-              label: language.t(KolkhozText.kolkhozappDecline),
+              label: language.strings.kolkhozappDecline,
               onPressed: busy ? null : onDecline,
             ),
           ] else
@@ -677,7 +675,7 @@ class _ComradeRow extends StatelessWidget {
             width: 100,
             height: 32,
             child: ChromeAssetButton.command(
-              label: language.t(KolkhozText.kolkhozappRemove),
+              label: language.strings.kolkhozappRemove,
               prominent: false,
               tokens: tokens,
               iconAsset: 'assets/ui/Icons/icon-warning.png',
@@ -695,23 +693,23 @@ String comradePresenceSummary(
   OnlineComradeProfile comrade,
 ) {
   if (comrade.inGame) {
-    return language.t(KolkhozText.kolkhozappInGame);
+    return language.strings.kolkhozappInGame;
   }
   if (comrade.inLobby) {
-    return language.t(KolkhozText.kolkhozappInLobby);
+    return language.strings.kolkhozappInLobby;
   }
   if (comrade.isOnline) {
-    return language.t(KolkhozText.kolkhozappOnline);
+    return language.strings.kolkhozappOnline;
   }
-  return language.t(KolkhozText.kolkhozappOfflineStatus);
+  return language.strings.kolkhozappOfflineStatus;
 }
 
 String profileRatingSummary(
   KolkhozLanguage language,
   KolkhozProfileStats stats,
 ) {
-  return '${language.t(KolkhozText.kolkhozappRanked)} ${stats.rating}  '
-      '${language.t(KolkhozText.kolkhozappCasual)} ${stats.casualRating}';
+  return '${language.strings.kolkhozappRanked} ${stats.rating}  '
+      '${language.strings.kolkhozappCasual} ${stats.casualRating}';
 }
 
 BoxDecoration _comradeFooterBoxDecoration(DesignTokens tokens) {

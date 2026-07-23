@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:kolkhoz_app/src/app/settings/game_motion.dart';
 import 'package:kolkhoz_app/src/app/settings/settings.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/render_model.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/brigade/brigade_layout.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/components/board_widgets.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/plots/plots_view.dart';
-import 'package:kolkhoz_app/src/app/views/shared/app_text.dart';
 import 'package:kolkhoz_app/src/app/views/shared/chrome_button.dart';
 import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
 import 'package:kolkhoz_app/src/app/views/shared/pixel_text.dart';
@@ -196,8 +196,8 @@ class PlanningTrumpPanel extends StatelessWidget {
       language: language,
     );
     final title = isFamine
-        ? language.t(KolkhozText.boardviewFamineYear)
-        : language.t(KolkhozText.boardviewChooseTrump);
+        ? language.strings.boardviewFamineYear
+        : language.strings.boardviewChooseTrump;
     return PanelStyleSurface(
       tokens: tokens,
       padding: const EdgeInsets.all(8),
@@ -279,7 +279,6 @@ const planningTrumpIconSize = 29.0;
 const planningTrumpGridSpacing = 6.0;
 const planningTrumpPanelSpacing = 7.0;
 const planningTrumpFamineIconSize = 46.0;
-const planningTrumpAiSelectorHopDuration = Duration(milliseconds: 230);
 
 class TrumpSelectionButton extends StatelessWidget {
   const TrumpSelectionButton({
@@ -303,6 +302,7 @@ class TrumpSelectionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final motion = GameMotion.of(context);
     final scale = size / 54;
     return Tooltip(
       message: label,
@@ -346,8 +346,8 @@ class TrumpSelectionButton extends StatelessWidget {
                 Positioned.fill(
                   child: IgnorePointer(
                     child: AnimatedContainer(
-                      duration: planningTrumpAiSelectorFrameDuration,
-                      curve: Curves.easeOutBack,
+                      duration: motion.trumpSelectorFrame,
+                      curve: GameMotion.medalInCurve,
                       margin: EdgeInsets.all(2 * scale),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(7 * scale),
@@ -373,5 +373,3 @@ class TrumpSelectionButton extends StatelessWidget {
     );
   }
 }
-
-const planningTrumpAiSelectorFrameDuration = Duration(milliseconds: 120);

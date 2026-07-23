@@ -1,18 +1,21 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:kolkhoz_app/src/app/remote_connection/json_shape.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/engine_action_codec.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/engine_values.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/render_model.dart';
 
-class OnlineEngineCard {
-  const OnlineEngineCard({
-    required this.suit,
-    required this.value,
-    this.assignmentRound,
-  });
+part 'game_state_models.freezed.dart';
+part 'game_state_models.g.dart';
 
-  final int suit;
-  final int value;
-  final int? assignmentRound;
+@Freezed(fromJson: false, toJson: false)
+abstract class OnlineEngineCard with _$OnlineEngineCard {
+  const OnlineEngineCard._();
+
+  const factory OnlineEngineCard({
+    required int suit,
+    required int value,
+    int? assignmentRound,
+  }) = _OnlineEngineCard;
 
   bool get isValid =>
       (suit >= 0 && suit < 4 && value > 0) || (suit == 4 && value == 0);
@@ -21,7 +24,7 @@ class OnlineEngineCard {
 
   Map<String, Object?> toJson() => {'suit': suit, 'value': value};
 
-  static OnlineEngineCard fromJson(Map<String, Object?> json) {
+  factory OnlineEngineCard.fromJson(Map<String, Object?> json) {
     final suit = json['suit'] as int;
     final value = json['value'] as int;
     return OnlineEngineCard(
@@ -32,71 +35,58 @@ class OnlineEngineCard {
   }
 }
 
-class OnlineEngineAction {
-  const OnlineEngineAction({
-    required this.kind,
-    required this.playerID,
-    this.suit = -1,
-    this.card = const OnlineEngineCard(suit: -1, value: 0),
-    this.handCard = const OnlineEngineCard(suit: -1, value: 0),
-    this.plotCard = const OnlineEngineCard(suit: -1, value: 0),
-    this.plotZone = -1,
-    this.targetSuit = -1,
-  });
+@Freezed(fromJson: false, toJson: false)
+abstract class OnlineEngineAction with _$OnlineEngineAction {
+  const OnlineEngineAction._();
 
-  final int kind;
-  final int playerID;
-  final int suit;
-  final OnlineEngineCard card;
-  final OnlineEngineCard handCard;
-  final OnlineEngineCard plotCard;
-  final int plotZone;
-  final int targetSuit;
+  const factory OnlineEngineAction({
+    required int kind,
+    required int playerID,
+    @Default(-1) int suit,
+    @Default(OnlineEngineCard(suit: -1, value: 0)) OnlineEngineCard card,
+    @Default(OnlineEngineCard(suit: -1, value: 0)) OnlineEngineCard handCard,
+    @Default(OnlineEngineCard(suit: -1, value: 0)) OnlineEngineCard plotCard,
+    @Default(-1) int plotZone,
+    @Default(-1) int targetSuit,
+  }) = _OnlineEngineAction;
 
-  CEngineActionValue get cValue {
-    return CEngineActionValue(
-      kind: kind,
-      playerID: playerID,
-      suit: suit,
-      card: card.valueObject,
-      handCard: handCard.valueObject,
-      plotCard: plotCard.valueObject,
-      plotZone: plotZone,
-      targetSuit: targetSuit,
-    );
-  }
+  CEngineActionValue get cValue => CEngineActionValue(
+    kind: kind,
+    playerID: playerID,
+    suit: suit,
+    card: card.valueObject,
+    handCard: handCard.valueObject,
+    plotCard: plotCard.valueObject,
+    plotZone: plotZone,
+    targetSuit: targetSuit,
+  );
 
-  EngineAction get engineAction {
-    return engineActionFromCValue(cValue);
-  }
+  EngineAction get engineAction => engineActionFromCValue(cValue);
 
-  Map<String, Object?> toJson() {
-    return {
-      'kind': kind,
-      'playerID': playerID,
-      'suit': suit,
-      'card': card.toJson(),
-      'handCard': handCard.toJson(),
-      'plotCard': plotCard.toJson(),
-      'plotZone': plotZone,
-      'targetSuit': targetSuit,
-    };
-  }
+  Map<String, Object?> toJson() => {
+    'kind': kind,
+    'playerID': playerID,
+    'suit': suit,
+    'card': card.toJson(),
+    'handCard': handCard.toJson(),
+    'plotCard': plotCard.toJson(),
+    'plotZone': plotZone,
+    'targetSuit': targetSuit,
+  };
 
-  static OnlineEngineAction fromJson(Map<String, Object?> json) {
-    return OnlineEngineAction(
-      kind: json['kind'] as int,
-      playerID: json['playerID'] as int,
-      suit: json['suit'] as int? ?? -1,
-      card: OnlineEngineCard.fromJson(jsonObject(json['card'])),
-      handCard: OnlineEngineCard.fromJson(jsonObject(json['handCard'])),
-      plotCard: OnlineEngineCard.fromJson(jsonObject(json['plotCard'])),
-      plotZone: json['plotZone'] as int? ?? -1,
-      targetSuit: json['targetSuit'] as int? ?? -1,
-    );
-  }
+  factory OnlineEngineAction.fromJson(Map<String, Object?> json) =>
+      OnlineEngineAction(
+        kind: json['kind'] as int,
+        playerID: json['playerID'] as int,
+        suit: json['suit'] as int? ?? -1,
+        card: OnlineEngineCard.fromJson(jsonObject(json['card'])),
+        handCard: OnlineEngineCard.fromJson(jsonObject(json['handCard'])),
+        plotCard: OnlineEngineCard.fromJson(jsonObject(json['plotCard'])),
+        plotZone: json['plotZone'] as int? ?? -1,
+        targetSuit: json['targetSuit'] as int? ?? -1,
+      );
 
-  static OnlineEngineAction fromEngineAction(EngineAction action) {
+  factory OnlineEngineAction.fromEngineAction(EngineAction action) {
     final cAction = cEngineAction(action);
     if (cAction == null) {
       throw const FormatException('Action cannot be sent online');
@@ -123,334 +113,167 @@ class OnlineEngineAction {
   }
 }
 
-class OnlinePlayerSnapshot {
-  const OnlinePlayerSnapshot({
-    required this.id,
-    required this.hand,
-    required this.revealedPlot,
-    required this.hiddenPlot,
-    this.hiddenPlotCount,
-    required this.medals,
-    required this.bankedMedals,
-    required this.brigadeLeader,
-    required this.wonTrickThisYear,
-    required this.stacks,
-  });
+@Freezed(toJson: false)
+abstract class OnlinePlayerSnapshot with _$OnlinePlayerSnapshot {
+  const OnlinePlayerSnapshot._();
 
-  final int id;
-  final List<OnlineEngineCard> hand;
-  final List<OnlineEngineCard> revealedPlot;
-  final List<OnlineEngineCard> hiddenPlot;
-  final int? hiddenPlotCount;
+  const factory OnlinePlayerSnapshot({
+    required int id,
+    required List<OnlineEngineCard> hand,
+    required List<OnlineEngineCard> revealedPlot,
+    required List<OnlineEngineCard> hiddenPlot,
+    @JsonKey(readValue: _hiddenPlotCountFromJson) int? hiddenPlotCount,
+    required int medals,
+    required int bankedMedals,
+    required bool brigadeLeader,
+    required bool wonTrickThisYear,
+    required List<OnlinePlotStackSnapshot> stacks,
+  }) = _OnlinePlayerSnapshot;
+
+  factory OnlinePlayerSnapshot.fromJson(Map<String, Object?> json) =>
+      _$OnlinePlayerSnapshotFromJson(json);
 
   int get effectiveHiddenPlotCount => hiddenPlotCount ?? hiddenPlot.length;
-  final int medals;
-  final int bankedMedals;
-  final bool brigadeLeader;
-  final bool wonTrickThisYear;
-  final List<OnlinePlotStackSnapshot> stacks;
-
-  static OnlinePlayerSnapshot fromJson(Map<String, Object?> json) {
-    return OnlinePlayerSnapshot(
-      id: json['id'] as int,
-      hand: _cards(json['hand']),
-      revealedPlot: _cards(json['revealedPlot']),
-      hiddenPlot: _cards(json['hiddenPlot']),
-      hiddenPlotCount:
-          json['hiddenPlotCount'] as int? ?? _cards(json['hiddenPlot']).length,
-      medals: json['medals'] as int,
-      bankedMedals: json['bankedMedals'] as int,
-      brigadeLeader: json['brigadeLeader'] as bool,
-      wonTrickThisYear: json['wonTrickThisYear'] as bool,
-      stacks: [
-        for (final value in jsonList(json['stacks']))
-          OnlinePlotStackSnapshot.fromJson(jsonObject(value)),
-      ],
-    );
-  }
 }
 
-class OnlinePlotStackSnapshot {
-  const OnlinePlotStackSnapshot({
-    required this.revealed,
-    required this.hidden,
-    this.hiddenCount,
-  });
+@Freezed(toJson: false)
+abstract class OnlinePlotStackSnapshot with _$OnlinePlotStackSnapshot {
+  const OnlinePlotStackSnapshot._();
 
-  final List<OnlineEngineCard> revealed;
-  final List<OnlineEngineCard> hidden;
-  final int? hiddenCount;
+  const factory OnlinePlotStackSnapshot({
+    required List<OnlineEngineCard> revealed,
+    required List<OnlineEngineCard> hidden,
+    @JsonKey(readValue: _hiddenCountFromJson) int? hiddenCount,
+  }) = _OnlinePlotStackSnapshot;
+
+  factory OnlinePlotStackSnapshot.fromJson(Map<String, Object?> json) =>
+      _$OnlinePlotStackSnapshotFromJson(json);
 
   int get effectiveHiddenCount => hiddenCount ?? hidden.length;
-
-  static OnlinePlotStackSnapshot fromJson(Map<String, Object?> json) {
-    return OnlinePlotStackSnapshot(
-      revealed: _cards(json['revealed']),
-      hidden: _cards(json['hidden']),
-      hiddenCount: json['hiddenCount'] as int? ?? _cards(json['hidden']).length,
-    );
-  }
 }
 
-class OnlineTrickPlaySnapshot {
-  const OnlineTrickPlaySnapshot({required this.playerID, required this.card});
+@Freezed(toJson: false)
+abstract class OnlineTrickPlaySnapshot with _$OnlineTrickPlaySnapshot {
+  const factory OnlineTrickPlaySnapshot({
+    required int playerID,
+    required OnlineEngineCard card,
+  }) = _OnlineTrickPlaySnapshot;
 
-  final int playerID;
-  final OnlineEngineCard card;
-
-  static OnlineTrickPlaySnapshot fromJson(Map<String, Object?> json) {
-    return OnlineTrickPlaySnapshot(
-      playerID: json['playerID'] as int,
-      card: OnlineEngineCard.fromJson(jsonObject(json['card'])),
-    );
-  }
+  factory OnlineTrickPlaySnapshot.fromJson(Map<String, Object?> json) =>
+      _$OnlineTrickPlaySnapshotFromJson(json);
 }
 
-class OnlineSuitCardsSnapshot {
-  const OnlineSuitCardsSnapshot({required this.suit, required this.cards});
+@Freezed(toJson: false)
+abstract class OnlineSuitCardsSnapshot with _$OnlineSuitCardsSnapshot {
+  const factory OnlineSuitCardsSnapshot({
+    required int suit,
+    required List<OnlineEngineCard> cards,
+  }) = _OnlineSuitCardsSnapshot;
 
-  final int suit;
-  final List<OnlineEngineCard> cards;
-
-  static OnlineSuitCardsSnapshot fromJson(Map<String, Object?> json) {
-    return OnlineSuitCardsSnapshot(
-      suit: json['suit'] as int,
-      cards: _cards(json['cards']),
-    );
-  }
+  factory OnlineSuitCardsSnapshot.fromJson(Map<String, Object?> json) =>
+      _$OnlineSuitCardsSnapshotFromJson(json);
 }
 
-class OnlineSuitValueSnapshot {
-  const OnlineSuitValueSnapshot({required this.suit, required this.value});
+@Freezed(toJson: false)
+abstract class OnlineSuitValueSnapshot with _$OnlineSuitValueSnapshot {
+  const factory OnlineSuitValueSnapshot({
+    required int suit,
+    required int value,
+  }) = _OnlineSuitValueSnapshot;
 
-  final int suit;
-  final int value;
-
-  static OnlineSuitValueSnapshot fromJson(Map<String, Object?> json) {
-    return OnlineSuitValueSnapshot(
-      suit: json['suit'] as int,
-      value: json['value'] as int,
-    );
-  }
+  factory OnlineSuitValueSnapshot.fromJson(Map<String, Object?> json) =>
+      _$OnlineSuitValueSnapshotFromJson(json);
 }
 
-class OnlineSuitPlayersSnapshot {
-  const OnlineSuitPlayersSnapshot({required this.suit, required this.values});
+@Freezed(toJson: false)
+abstract class OnlineSuitPlayersSnapshot with _$OnlineSuitPlayersSnapshot {
+  const factory OnlineSuitPlayersSnapshot({
+    required int suit,
+    required List<int> values,
+  }) = _OnlineSuitPlayersSnapshot;
 
-  final int suit;
-  final List<int> values;
-
-  static OnlineSuitPlayersSnapshot fromJson(Map<String, Object?> json) {
-    return OnlineSuitPlayersSnapshot(
-      suit: json['suit'] as int,
-      values: _ints(json['values']),
-    );
-  }
+  factory OnlineSuitPlayersSnapshot.fromJson(Map<String, Object?> json) =>
+      _$OnlineSuitPlayersSnapshotFromJson(json);
 }
 
-class OnlineAssignmentSnapshot {
-  const OnlineAssignmentSnapshot({
-    required this.card,
-    required this.targetSuit,
-  });
+@Freezed(toJson: false)
+abstract class OnlineAssignmentSnapshot with _$OnlineAssignmentSnapshot {
+  const factory OnlineAssignmentSnapshot({
+    required OnlineEngineCard card,
+    required int targetSuit,
+  }) = _OnlineAssignmentSnapshot;
 
-  final OnlineEngineCard card;
-  final int targetSuit;
-
-  static OnlineAssignmentSnapshot fromJson(Map<String, Object?> json) {
-    return OnlineAssignmentSnapshot(
-      card: OnlineEngineCard.fromJson(jsonObject(json['card'])),
-      targetSuit: json['targetSuit'] as int,
-    );
-  }
+  factory OnlineAssignmentSnapshot.fromJson(Map<String, Object?> json) =>
+      _$OnlineAssignmentSnapshotFromJson(json);
 }
 
-class OnlineRequisitionSnapshot {
-  const OnlineRequisitionSnapshot({
-    required this.playerID,
-    required this.suit,
-    required this.card,
-    required this.message,
-  });
+@Freezed(toJson: false)
+abstract class OnlineRequisitionSnapshot with _$OnlineRequisitionSnapshot {
+  const factory OnlineRequisitionSnapshot({
+    required int playerID,
+    required int suit,
+    required OnlineEngineCard card,
+    required String message,
+  }) = _OnlineRequisitionSnapshot;
 
-  final int playerID;
-  final int suit;
-  final OnlineEngineCard card;
-  final String message;
-
-  static OnlineRequisitionSnapshot fromJson(Map<String, Object?> json) {
-    return OnlineRequisitionSnapshot(
-      playerID: json['playerID'] as int,
-      suit: json['suit'] as int,
-      card: OnlineEngineCard.fromJson(jsonObject(json['card'])),
-      message: json['message'] as String,
-    );
-  }
+  factory OnlineRequisitionSnapshot.fromJson(Map<String, Object?> json) =>
+      _$OnlineRequisitionSnapshotFromJson(json);
 }
 
-class OnlineScoreSnapshot {
-  const OnlineScoreSnapshot({
-    required this.playerID,
-    required this.visibleScore,
-    required this.finalScore,
-  });
+@Freezed(toJson: false)
+abstract class OnlineScoreSnapshot with _$OnlineScoreSnapshot {
+  const factory OnlineScoreSnapshot({
+    required int playerID,
+    required int visibleScore,
+    required int finalScore,
+  }) = _OnlineScoreSnapshot;
 
-  final int playerID;
-  final int visibleScore;
-  final int finalScore;
-
-  static OnlineScoreSnapshot fromJson(Map<String, Object?> json) {
-    return OnlineScoreSnapshot(
-      playerID: json['playerID'] as int,
-      visibleScore: json['visibleScore'] as int,
-      finalScore: json['finalScore'] as int,
-    );
-  }
+  factory OnlineScoreSnapshot.fromJson(Map<String, Object?> json) =>
+      _$OnlineScoreSnapshotFromJson(json);
 }
 
-class OnlineEngineSnapshot {
-  const OnlineEngineSnapshot({
-    required this.year,
-    required this.phase,
-    required this.currentPlayer,
-    required this.waitingPlayer,
-    required this.waitingForExternalAction,
-    required this.lead,
-    required this.trumpSelector,
-    required this.trump,
-    required this.trickCount,
-    required this.isFamine,
-    required this.players,
-    required this.jobPiles,
-    required this.revealedJobs,
-    required this.claimedJobs,
-    required this.workHours,
-    required this.jobBuckets,
-    required this.accumulatedJobCards,
-    required this.currentTrick,
-    required this.lastTrick,
-    required this.lastWinner,
-    required this.exiled,
-    this.exiledPlayers = const [],
-    required this.pendingAssignments,
-    required this.requisitionEvents,
-    required this.scores,
-    required this.winnerID,
-    required this.swapConfirmed,
-    required this.swapCount,
-    this.passConfirmed = const [],
-    this.finalYearTrumpCard = const OnlineEngineCard(suit: -1, value: 0),
-  });
+@Freezed(toJson: false)
+abstract class OnlineEngineSnapshot with _$OnlineEngineSnapshot {
+  const factory OnlineEngineSnapshot({
+    required int year,
+    required int phase,
+    required int currentPlayer,
+    required int waitingPlayer,
+    required bool waitingForExternalAction,
+    required int lead,
+    required int trumpSelector,
+    required int trump,
+    required int trickCount,
+    required bool isFamine,
+    required List<OnlinePlayerSnapshot> players,
+    required List<OnlineSuitCardsSnapshot> jobPiles,
+    required List<OnlineSuitCardsSnapshot> revealedJobs,
+    required List<int> claimedJobs,
+    required List<OnlineSuitValueSnapshot> workHours,
+    required List<OnlineSuitCardsSnapshot> jobBuckets,
+    required List<OnlineSuitCardsSnapshot> accumulatedJobCards,
+    required List<OnlineTrickPlaySnapshot> currentTrick,
+    required List<OnlineTrickPlaySnapshot> lastTrick,
+    required int lastWinner,
+    required List<OnlineSuitCardsSnapshot> exiled,
+    @Default([]) List<OnlineSuitPlayersSnapshot> exiledPlayers,
+    required List<OnlineAssignmentSnapshot> pendingAssignments,
+    required List<OnlineRequisitionSnapshot> requisitionEvents,
+    required List<OnlineScoreSnapshot> scores,
+    required int winnerID,
+    required List<int> swapConfirmed,
+    required List<int> swapCount,
+    @Default([]) List<int> passConfirmed,
+    @Default(OnlineEngineCard(suit: -1, value: 0))
+    OnlineEngineCard finalYearTrumpCard,
+  }) = _OnlineEngineSnapshot;
 
-  final int year;
-  final int phase;
-  final int currentPlayer;
-  final int waitingPlayer;
-  final bool waitingForExternalAction;
-  final int lead;
-  final int trumpSelector;
-  final int trump;
-  final int trickCount;
-  final bool isFamine;
-  final List<OnlinePlayerSnapshot> players;
-  final List<OnlineSuitCardsSnapshot> jobPiles;
-  final List<OnlineSuitCardsSnapshot> revealedJobs;
-  final List<int> claimedJobs;
-  final List<OnlineSuitValueSnapshot> workHours;
-  final List<OnlineSuitCardsSnapshot> jobBuckets;
-  final List<OnlineSuitCardsSnapshot> accumulatedJobCards;
-  final List<OnlineTrickPlaySnapshot> currentTrick;
-  final List<OnlineTrickPlaySnapshot> lastTrick;
-  final int lastWinner;
-  final List<OnlineSuitCardsSnapshot> exiled;
-  final List<OnlineSuitPlayersSnapshot> exiledPlayers;
-  final List<OnlineAssignmentSnapshot> pendingAssignments;
-  final List<OnlineRequisitionSnapshot> requisitionEvents;
-  final List<OnlineScoreSnapshot> scores;
-  final int winnerID;
-  final List<int> swapConfirmed;
-  final List<int> swapCount;
-  final List<int> passConfirmed;
-  final OnlineEngineCard finalYearTrumpCard;
-
-  static OnlineEngineSnapshot fromJson(Map<String, Object?> json) {
-    return OnlineEngineSnapshot(
-      year: json['year'] as int,
-      phase: json['phase'] as int,
-      currentPlayer: json['currentPlayer'] as int,
-      waitingPlayer: json['waitingPlayer'] as int,
-      waitingForExternalAction: json['waitingForExternalAction'] as bool,
-      lead: json['lead'] as int,
-      trumpSelector: json['trumpSelector'] as int,
-      trump: json['trump'] as int,
-      trickCount: json['trickCount'] as int,
-      isFamine: json['isFamine'] as bool,
-      players: [
-        for (final value in jsonList(json['players']))
-          OnlinePlayerSnapshot.fromJson(jsonObject(value)),
-      ],
-      jobPiles: _suitCards(json['jobPiles']),
-      revealedJobs: _suitCards(json['revealedJobs']),
-      claimedJobs: _ints(json['claimedJobs']),
-      workHours: [
-        for (final value in jsonList(json['workHours']))
-          OnlineSuitValueSnapshot.fromJson(jsonObject(value)),
-      ],
-      jobBuckets: _suitCards(json['jobBuckets']),
-      accumulatedJobCards: _suitCards(json['accumulatedJobCards']),
-      currentTrick: [
-        for (final value in jsonList(json['currentTrick']))
-          OnlineTrickPlaySnapshot.fromJson(jsonObject(value)),
-      ],
-      lastTrick: [
-        for (final value in jsonList(json['lastTrick']))
-          OnlineTrickPlaySnapshot.fromJson(jsonObject(value)),
-      ],
-      lastWinner: json['lastWinner'] as int,
-      exiled: _suitCards(json['exiled']),
-      exiledPlayers: [
-        for (final value in jsonList(json['exiledPlayers'] ?? const []))
-          OnlineSuitPlayersSnapshot.fromJson(jsonObject(value)),
-      ],
-      pendingAssignments: [
-        for (final value in jsonList(json['pendingAssignments']))
-          OnlineAssignmentSnapshot.fromJson(jsonObject(value)),
-      ],
-      requisitionEvents: [
-        for (final value in jsonList(json['requisitionEvents']))
-          OnlineRequisitionSnapshot.fromJson(jsonObject(value)),
-      ],
-      scores: [
-        for (final value in jsonList(json['scores']))
-          OnlineScoreSnapshot.fromJson(jsonObject(value)),
-      ],
-      winnerID: json['winnerID'] as int,
-      swapConfirmed: _ints(json['swapConfirmed']),
-      swapCount: _ints(json['swapCount']),
-      passConfirmed: _ints(json['passConfirmed'] ?? const []),
-      finalYearTrumpCard: OnlineEngineCard.fromJson(
-        jsonObject(
-          json['finalYearTrumpCard'] ?? const {'suit': -1, 'value': 0},
-        ),
-      ),
-    );
-  }
+  factory OnlineEngineSnapshot.fromJson(Map<String, Object?> json) =>
+      _$OnlineEngineSnapshotFromJson(json);
 }
 
-List<OnlineEngineCard> _cards(Object? value) {
-  return [
-    for (final card in jsonList(value))
-      OnlineEngineCard.fromJson(jsonObject(card)),
-  ];
-}
+Object? _hiddenPlotCountFromJson(Map<dynamic, dynamic> json, String key) =>
+    json[key] ?? (json['hiddenPlot'] as List<dynamic>).length;
 
-List<OnlineSuitCardsSnapshot> _suitCards(Object? value) {
-  return [
-    for (final entry in jsonList(value))
-      OnlineSuitCardsSnapshot.fromJson(jsonObject(entry)),
-  ];
-}
-
-List<int> _ints(Object? value) {
-  return [for (final entry in jsonList(value)) entry as int];
-}
+Object? _hiddenCountFromJson(Map<dynamic, dynamic> json, String key) =>
+    json[key] ?? (json['hidden'] as List<dynamic>).length;

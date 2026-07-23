@@ -233,7 +233,7 @@ class _ProfilePanelState extends State<ProfileView> {
                     spacing: 8,
                     children: [
                       Text(
-                        widget.language.t(KolkhozText.kolkhozappStats),
+                        widget.language.strings.kolkhozappStats,
                         style: kolkhozFontStyle.copyWith(
                           color: widget.tokens.colors.gold,
                           fontSize: 13,

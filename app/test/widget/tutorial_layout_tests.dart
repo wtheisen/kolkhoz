@@ -198,12 +198,10 @@ void registerTutorialAndLayoutTests() {
     expect(find.byType(CompactBoardShell), findsOneWidget);
     expect(find.byType(BoardRail), findsNothing);
     expect(find.byType(CompactBoardToolbar), findsOneWidget);
-    expect(find.byType(BrigadePlayerColumn), findsNWidgets(4));
-    final seatPositions = tester
-        .widgetList<BrigadePlayerColumn>(find.byType(BrigadePlayerColumn))
-        .map((seat) => tester.getTopLeft(find.byWidget(seat)))
-        .toList();
-    expect(seatPositions.map((position) => position.dy).toSet(), hasLength(1));
+    expect(
+      find.byKey(const Key('production-static-hero-brigade')),
+      findsOneWidget,
+    );
     expect(
       tester.getSize(find.byType(CompactBoardToolbar)).height,
       compactBoardToolbarCollapsedHeight,
@@ -236,11 +234,10 @@ void registerTutorialAndLayoutTests() {
     expect(find.byType(CompactBoardShell), findsNothing);
     expect(find.byType(CompactBoardToolbar), findsNothing);
     expect(find.byType(BoardRail), findsOneWidget);
-    final seatPositions = tester
-        .widgetList<BrigadePlayerColumn>(find.byType(BrigadePlayerColumn))
-        .map((seat) => tester.getTopLeft(find.byWidget(seat)))
-        .toList();
-    expect(seatPositions.map((position) => position.dy).toSet(), hasLength(1));
+    expect(
+      find.byKey(const Key('production-static-hero-brigade')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('compact fallback keeps four seat columns in landscape', (
@@ -290,9 +287,9 @@ void registerTutorialAndLayoutTests() {
 
     expect(find.byType(Dialog), findsNothing);
     expect(find.byKey(const Key('player-info-panel-0')), findsOneWidget);
-    expect(findAppText('PLAYER'), findsOneWidget);
-    expect(findAppText('SCORE'), findsOneWidget);
-    expect(findAppText('HAND'), findsOneWidget);
+    expect(find.textContaining('PLAYER'), findsOneWidget);
+    expect(find.textContaining('SCORE'), findsOneWidget);
+    expect(find.textContaining('HAND'), findsOneWidget);
   });
 
   test('brigade display helpers project column geometry', () {
@@ -427,7 +424,7 @@ void registerTutorialAndLayoutTests() {
         tokens: lightDesignTokens,
         trump: null,
       ),
-      'assets/ui/Cards/card-template-light-no-overlay.png',
+      'assets/ui/Cards/card-template-light.png',
     );
     expect(pipPositions(12), hasLength(10));
     expect(

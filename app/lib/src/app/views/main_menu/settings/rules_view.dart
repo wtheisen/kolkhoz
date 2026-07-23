@@ -40,7 +40,7 @@ class RulesView extends StatelessWidget {
                           size: 30,
                         ),
                         Text(
-                          language.t(KolkhozText.kolkhozappHowToPlay),
+                          language.strings.kolkhozappHowToPlay,
                           style: kolkhozFontStyle.copyWith(
                             color: tokens.colors.gold,
                             fontSize: 22,
@@ -84,7 +84,7 @@ class RulesView extends StatelessWidget {
             width: 220,
             height: 44,
             child: ChromeAssetButton.command(
-              label: language.t(KolkhozText.kolkhozappTutorial),
+              label: language.strings.kolkhozappTutorial,
               prominent: true,
               tokens: tokens,
               onPressed: onTutorialPressed,

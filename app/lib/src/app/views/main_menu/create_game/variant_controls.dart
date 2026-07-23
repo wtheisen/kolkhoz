@@ -124,10 +124,8 @@ class VariantRowData {
   final bool Function(KolkhozGameVariants variants) visibleInCustom;
 
   static final deckType = VariantRowData(
-    titleFor: (variants, language) => language.t(
-      KolkhozText.variantValue1CardDeck,
-      {'value1': variants.deckType},
-    ),
+    titleFor: (variants, language) =>
+        language.strings.variantValue1CardDeck(value1: variants.deckType),
     descriptionFor: (variants, language) => '',
     iconAssetForVariants: (variants) =>
         'assets/ui/Icons/icon-variant-deck-${variants.deckType}.png',
@@ -135,10 +133,8 @@ class VariantRowData {
     withValue: (variants, value) => variants,
   );
   static final maxYears = VariantRowData(
-    titleFor: (variants, language) => language.t(
-      KolkhozText.variantValue1YearPlan,
-      {'value1': variants.maxYears},
-    ),
+    titleFor: (variants, language) =>
+        language.strings.variantValue1YearPlan(value1: variants.maxYears),
     descriptionFor: (variants, language) => '',
     iconAssetForVariants: (variants) {
       final yearIcon = variants.maxYears.clamp(1, 5).toInt();
@@ -329,28 +325,20 @@ bool _alwaysVisible(KolkhozGameVariants variants) => true;
 extension ControllerLobbyLabels on KolkhozPlayerController {
   String shortTitle(KolkhozLanguage language) {
     return switch (this) {
-      KolkhozPlayerController.human => language.t(KolkhozText.kolkhozappHuman),
-      KolkhozPlayerController.heuristicAI => language.t(
-        KolkhozText.kolkhozappEasy,
-      ),
-      KolkhozPlayerController.mediumAI => language.t(
-        KolkhozText.kolkhozappMedium,
-      ),
-      KolkhozPlayerController.neuralAI => language.t(
-        KolkhozText.kolkhozappHard,
-      ),
+      KolkhozPlayerController.human => language.strings.kolkhozappHuman,
+      KolkhozPlayerController.heuristicAI => language.strings.kolkhozappEasy,
+      KolkhozPlayerController.mediumAI => language.strings.kolkhozappMedium,
+      KolkhozPlayerController.neuralAI => language.strings.kolkhozappHard,
     };
   }
 }
 
 String presetTitle(KolkhozGamePreset preset, KolkhozLanguage language) {
   return switch (preset) {
-    KolkhozGamePreset.kolkhoz => language.t(KolkhozText.presetKolkhoz),
-    KolkhozGamePreset.littleKolkhoz => language.t(
-      KolkhozText.presetLittleKolkhoz,
-    ),
-    KolkhozGamePreset.campStyle => language.t(KolkhozText.presetCampStyle),
-    KolkhozGamePreset.custom => language.t(KolkhozText.presetCustom),
+    KolkhozGamePreset.kolkhoz => language.strings.presetKolkhoz,
+    KolkhozGamePreset.littleKolkhoz => language.strings.presetLittleKolkhoz,
+    KolkhozGamePreset.campStyle => language.strings.presetCampStyle,
+    KolkhozGamePreset.custom => language.strings.presetCustom,
   };
 }
 
@@ -573,7 +561,7 @@ class _DeckVariantToggleRow extends StatelessWidget {
         Expanded(
           child: ImageTabButton(
             tokens: tokens,
-            label: language.t(KolkhozText.variantDeck52Cards),
+            label: language.strings.variantDeck52Cards,
             iconAsset: 'assets/ui/Icons/icon-variant-deck-52.png',
             iconSize: deckIconSize,
             selected: variants.deckType == 52,
@@ -589,7 +577,7 @@ class _DeckVariantToggleRow extends StatelessWidget {
         Expanded(
           child: ImageTabButton(
             tokens: tokens,
-            label: language.t(KolkhozText.variantDeck36Cards),
+            label: language.strings.variantDeck36Cards,
             iconAsset: 'assets/ui/Icons/icon-variant-deck-36.png',
             iconSize: deckIconSize,
             selected: variants.deckType == 36,
@@ -637,9 +625,7 @@ class _YearVariantToggleRow extends StatelessWidget {
         for (var years = 1; years <= 5; years += 1)
           _VariantIconChip(
             tokens: tokens,
-            label: language.t(KolkhozText.variantValue1YearPlan, {
-              'value1': years,
-            }),
+            label: language.strings.variantValue1YearPlan(value1: years),
             iconAsset: 'assets/ui/Icons/icon-year-$years.png',
             selected: variants.maxYears == years,
             onPressed: () => onChanged(variants.copyWith(maxYears: years)),

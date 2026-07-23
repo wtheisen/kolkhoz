@@ -79,7 +79,7 @@ Future<bool> showGameControlConfirmation({
               textStyle: actionTextStyle,
             ),
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text(language.t(KolkhozText.kolkhozappCancel)),
+            child: Text(language.strings.kolkhozappCancel),
           ),
           TextButton(
             style: TextButton.styleFrom(
@@ -182,16 +182,16 @@ String safeAccountErrorMessage(Object exception, KolkhozLanguage language) {
   }
   final message = '$exception'.toLowerCase();
   if (message.contains('valid recovery email')) {
-    return language.t(KolkhozText.kolkhozappAccountInvalidEmail);
+    return language.strings.kolkhozappAccountInvalidEmail;
   }
   if (message.contains('too many')) {
-    return language.t(KolkhozText.kolkhozappAccountRateLimited);
+    return language.strings.kolkhozappAccountRateLimited;
   }
   if (message.contains('not configured') ||
       message.contains('could not be sent')) {
-    return language.t(KolkhozText.kolkhozappAccountServiceUnavailable);
+    return language.strings.kolkhozappAccountServiceUnavailable;
   }
-  return language.t(KolkhozText.kolkhozappAccountRequestFailed);
+  return language.strings.kolkhozappAccountRequestFailed;
 }
 
 class KolkhozApp extends StatefulWidget {
@@ -405,6 +405,9 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'Kolkhoz',
+      locale: Locale(settings.language.name),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       theme: ThemeData(
         fontFamily: 'Handjet',
         textTheme: ThemeData.dark().textTheme.apply(fontFamily: 'Handjet'),
@@ -763,10 +766,8 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
                           store.model?.table.phase == phaseGameOver),
                   onTutorial: showTutorial,
                   animationSpeed: store.animationSpeed,
-                  presentationRevision: store.presentationRevision,
-                  assignmentPresentationCardIDs:
-                      store.onlineAssignmentPresentationCardIDs,
-                  onPresentationComplete: store.acknowledgeRevisionPresented,
+                  transition: store.currentTransition,
+                  onTransitionComplete: store.completeTransition,
                   onAnimationSpeedChanged: store.setAnimationSpeed,
                   confirmNewGame: settings.confirmNewGame,
                   onConfirmNewGameChanged: setConfirmNewGame,
@@ -1085,11 +1086,10 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     }
     if (settings.confirmNewGame) {
       final confirmed = await confirmGameControl(
-        title: settings.language.t(KolkhozText.kolkhozappNewGame),
-        message: settings.language.t(
-          KolkhozText.kolkhozappThisWillReplaceTheCurrentGame,
-        ),
-        confirmLabel: settings.language.t(KolkhozText.kolkhozappNewGame2),
+        title: settings.language.strings.kolkhozappNewGame,
+        message:
+            settings.language.strings.kolkhozappThisWillReplaceTheCurrentGame,
+        confirmLabel: settings.language.strings.kolkhozappNewGame2,
       );
       if (!confirmed) {
         return;
@@ -1107,11 +1107,12 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     final gameOver = store.finishedGameLobby != null;
     if (!gameOver && settings.confirmMainMenu) {
       final confirmed = await confirmGameControl(
-        title: settings.language.t(KolkhozText.kolkhozappMainMenu),
-        message: settings.language.t(
-          KolkhozText.kolkhozappLeaveTheCurrentGameAndReturnToSetup,
-        ),
-        confirmLabel: settings.language.t(KolkhozText.kolkhozappMainMenu2),
+        title: settings.language.strings.kolkhozappMainMenu,
+        message: settings
+            .language
+            .strings
+            .kolkhozappLeaveTheCurrentGameAndReturnToSetup,
+        confirmLabel: settings.language.strings.kolkhozappMainMenu2,
       );
       if (!confirmed) {
         return;
@@ -1159,7 +1160,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
         ),
       ),
     );
-    showForemanHintMessage(settings.language.t(KolkhozText.kolkhozappCopied));
+    showForemanHintMessage(settings.language.strings.kolkhozappCopied);
   }
 
   Future<void> saveGameLog() async {
@@ -1183,9 +1184,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
       return;
     }
     showForemanHintMessage(
-      settings.language.t(
-        KolkhozText.kolkhozappRememberYouMustFollowSuitIfAble,
-      ),
+      settings.language.strings.kolkhozappRememberYouMustFollowSuitIfAble,
     );
   }
 
@@ -1263,11 +1262,11 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
           fontSize: 16,
           fontWeight: FontWeight.w700,
         ),
-        title: Text(settings.language.t(KolkhozText.kolkhozappGameInvite)),
+        title: Text(settings.language.strings.kolkhozappGameInvite),
         content: Text(
-          settings.language.t(KolkhozText.kolkhozappValue1InvitedYouToAGame, {
-            'value1': invite.hostDisplayName,
-          }),
+          settings.language.strings.kolkhozappValue1InvitedYouToAGame(
+            value1: invite.hostDisplayName,
+          ),
         ),
         actions: [
           TextButton(
@@ -1279,7 +1278,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
               ),
             ),
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text(settings.language.t(KolkhozText.kolkhozappDecline)),
+            child: Text(settings.language.strings.kolkhozappDecline),
           ),
           TextButton(
             style: TextButton.styleFrom(
@@ -1290,7 +1289,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
               ),
             ),
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(settings.language.t(KolkhozText.kolkhozappJoinGame)),
+            child: Text(settings.language.strings.kolkhozappJoinGame),
           ),
         ],
       ),
@@ -1391,9 +1390,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     );
     setState(() => settings = next);
     settingsStore.save(next);
-    showForemanHintMessage(
-      settings.language.t(KolkhozText.kolkhozappFavoriteSaved),
-    );
+    showForemanHintMessage(settings.language.strings.kolkhozappFavoriteSaved);
   }
 
   void rememberStartedSetup(
@@ -1448,8 +1445,8 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
     profileController.scheduleCurrentProfileSave(
       displayName: normalizedDisplayName,
       portraitAsset: settings.portraitAsset,
-      loadingMessage: settings.language.t(KolkhozText.kolkhozappSyncingProfile),
-      successMessage: settings.language.t(KolkhozText.kolkhozappProfileSaved),
+      loadingMessage: settings.language.strings.kolkhozappSyncingProfile,
+      successMessage: settings.language.strings.kolkhozappProfileSaved,
       errorMessage: syncErrorMessage(),
     );
   }
@@ -1472,7 +1469,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
         mainMenuController.resetInvites();
         activeInviteDialogSessionID = null;
       },
-      successMessage: settings.language.t(KolkhozText.kolkhozappAccountDeleted),
+      successMessage: settings.language.strings.kolkhozappAccountDeleted,
       errorMessage: accountErrorMessage,
     );
   }
@@ -1557,7 +1554,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
       return;
     }
     final profile = await profileController.loadCurrentProfile(
-      successMessage: settings.language.t(KolkhozText.kolkhozappProfileLoaded),
+      successMessage: settings.language.strings.kolkhozappProfileLoaded,
       errorMessage: syncErrorMessage(),
     );
     if (profile == null || !mounted) return;
@@ -1674,7 +1671,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   }
 
   String syncErrorMessage() {
-    return settings.language.t(KolkhozText.kolkhozappProfileSyncFailed);
+    return settings.language.strings.kolkhozappProfileSyncFailed;
   }
 
   Future<bool> confirmGameControl({
@@ -1721,9 +1718,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   ) async {
     if (!onlinePlayAllowed) {
       throw HttpException(
-        settings.language.t(
-          KolkhozText.kolkhozappSignInBeforeJoiningOnlinePlay,
-        ),
+        settings.language.strings.kolkhozappSignInBeforeJoiningOnlinePlay,
       );
     }
     store.configureLobby(variants: activeVariants, controllers: controllers);
@@ -1766,9 +1761,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   ) async {
     if (!onlinePlayAllowed) {
       throw HttpException(
-        settings.language.t(
-          KolkhozText.kolkhozappSignInBeforeJoiningOnlinePlay,
-        ),
+        settings.language.strings.kolkhozappSignInBeforeJoiningOnlinePlay,
       );
     }
     await store.joinOnlineGame(
@@ -1789,9 +1782,7 @@ class _KolkhozAppState extends State<KolkhozApp> with WidgetsBindingObserver {
   ) async {
     if (!onlinePlayAllowed) {
       throw HttpException(
-        settings.language.t(
-          KolkhozText.kolkhozappSignInBeforeJoiningOnlinePlay,
-        ),
+        settings.language.strings.kolkhozappSignInBeforeJoiningOnlinePlay,
       );
     }
     final inviteCode = await store.matchmakeOnlineGame(

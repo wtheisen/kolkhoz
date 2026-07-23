@@ -70,19 +70,21 @@ Important files:
 | `lib/src/app/profile/profile_controller/profile_controller.dart` | Identity startup, profile synchronization, comrades mutations, recent games, and account-operation state |
 | `lib/src/app/profile/models/profile_remote_models.dart` | Player-profile, comrade, and social response contracts |
 | `lib/src/app/views/game/game_controller/game_controller.dart` | Game lifecycle facade and engine selection |
-| `lib/src/app/views/game/game_controller/game_engine.dart` | Shared local/remote runtime contract for mode, projection, actions, presentation, and disposal |
+| `lib/src/app/views/game/game_controller/game_engine.dart` | Shared local/remote runtime contract for mode, projection, actions, and disposal |
+| `lib/src/app/views/game/game_controller/game_presentation_transition.dart` | Controller-owned queued transition between two projected table models |
 | `lib/src/app/views/game/game_controller/models/engine_values.dart` | Engine-neutral cards, actions, variants, controllers, and portable numeric protocol values |
 | `lib/src/app/views/game/game_controller/models/game_serialization.dart` | Engine-neutral JSON encoding for variants, controllers, cards, and actions |
 | `lib/src/app/views/game/game_controller/local_game_engine/local_game_engine.dart` | Local action routing, AI pacing, undo, projection, and autosave cadence |
 | `lib/src/app/views/game/game_controller/local_game_engine/local_game_engine_factory.dart` | Local player composition, native-engine construction, autosave restoration, and policy ownership |
 | `lib/src/app/views/game/game_controller/local_game_engine/native_game_engine.dart` | Exclusive native C-engine lifecycle, actions, and cloning |
-| `lib/src/app/views/game/game_controller/remote_game_engine/remote_game_engine.dart` | Online presentation state, revision ordering, reactions, and rollback |
+| `lib/src/app/views/game/game_controller/remote_game_engine/remote_game_engine.dart` | Online authoritative state, revision ordering, reactions, and rollback |
 | `lib/src/app/views/game/game_controller/remote_game_engine/remote_game_engine_factory.dart` | Remote-engine construction from the game connection |
 | `lib/src/app/views/game/game_controller/remote_game_engine/game_remote_connection.dart` | Per-match HTTP/WebSocket protocol |
 | `lib/src/app/views/game/game_controller/remote_game_engine/game_state_models.dart` | Active-match action and projected engine snapshot contracts |
 | `lib/src/app/views/game/game_controller/remote_game_engine/game_session_models.dart` | Active-session updates, presence, reactions, series, and revision contracts |
 | `lib/src/app/views/game/game_controller/models/` | Lobby, UI, projection, table, terminal-record, and replay models |
 | `lib/src/app/views/game/game_view.dart` | Active-game shell |
+| `lib/src/app/views/game/views/components/card_motion_plan.dart` | Pure card-zone change planning and immutable staged motion instructions |
 | `lib/src/app/views/game/views/` | Independently imported brigade, fields, north, plots, log, settings, and component views |
 | `lib/src/app/views/main_menu/` | Independently imported create, join, settings, leaderboard, and lobby views |
 | `lib/src/app/profile/` | Profile values, identity, progression, commerce, and profile views |
@@ -156,18 +158,20 @@ GameController owns a lobby, four GamePlayers, and exactly one optional GameEngi
     +-- RemoteGameEngine --> GameRemoteConnection --> server C engine
     |
     v
-GameController publishes projected Dart model objects
+GameController queues committed projected updates and publishes one transition at a time
     |
     v
-Flutter re-renders views and acknowledges presentation completion
+Flutter derives an immutable CardMotionPlan, runs its stages, and completes the
+current controller-owned transition
     |
     +-- game over -------------> FinishedGameLobby snapshot
 ```
 
 Flutter widgets do not mutate game state or call FFI directly. They report intent to the
 controller and render its projected state. `GameController` stores one `GameEngine` and
-uses that contract for mode, projection, action submission, presentation revisions,
-acknowledgement, and disposal. It narrows to `LocalGameEngine` or `RemoteGameEngine`
+uses that contract for mode, projection, action submission, and disposal. The controller,
+not either engine, owns the client update queue, the currently presented model, input
+gating, and transition completion. It narrows to `LocalGameEngine` or `RemoteGameEngine`
 only for capabilities unique to that runtime, such as local undo/AI pacing or online
 presence/reactions. There is no session, runtime, or channel compatibility layer.
 
@@ -190,15 +194,17 @@ widget state.
 autosave inputs. `LocalGameEngineFactory` owns concrete player adapters, policy loading,
 native construction, and autosave replay, so `GameController` does not import those
 implementation details. `RemoteGameEngineFactory` similarly owns remote runtime assembly.
-`RemoteGameEngine` owns the redacted match projection, selection
-rollback, reactions, presentation acknowledgements, and revision ordering. Its
+`RemoteGameEngine` owns the redacted match projection, selection rollback, reactions,
+and authoritative revision ordering. Its
 `GameRemoteConnection` owns active-match requests and realtime transport.
 
 Authoritative server revisions and client presentation acknowledgements are deliberately
-separate. `RemoteGameEngine` preserves every committed action needed for animation and
-publishes only the next presentation-ready state; newer full snapshots wait as deferred
-state. A client acknowledgement advances only that engine's local delivery queue; it
-never blocks the server or another client.
+separate. Local and remote engines emit presentation-neutral committed updates.
+`GameController` captures their projected models in a FIFO of
+`GamePresentationTransition` values and exposes only the current transition to Flutter.
+Completing a transition advances only that controller's local queue; it never blocks the
+server, either engine, or another client. Remote transport code does not know about card
+flights, animation timing, or assignment choreography.
 
 The controller lifecycle is `lobby -> starting -> playing -> finishing -> finished`. It begins
 without an engine. `startGame()` freezes the lobby's four seats and variants and creates
@@ -290,6 +296,15 @@ manually switch panels with the board rail:
 
 Animation belongs to Flutter. The C engine should stay unaware of animation speed,
 motion targets, or view timing.
+
+Gameplay motion is split by ownership under
+`app/lib/src/app/views/game/views/components/`: `card_motion_plan.dart` derives
+immutable flight stages, `card_motion_resolver.dart` maps semantic zones to measured
+geometry, `card_motion_tracking.dart` owns the frame geometry registry,
+`card_flight.dart` renders one flight, and `card_motion.dart` runs plans and reports
+presentation completion. Shared timing, curves, and reduced-motion behavior live in
+`app/lib/src/app/settings/game_motion.dart`; gameplay widgets should consume that policy
+instead of defining local animation durations.
 
 ## AI And Training
 

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolkhoz_app/src/app/settings/animation_speed.dart';
+import 'package:kolkhoz_app/src/app/settings/game_motion.dart';
 import 'package:kolkhoz_app/src/app/settings/settings.dart';
 import 'package:kolkhoz_app/src/app/views/shared/app_text.dart';
 import 'package:kolkhoz_app/src/app/remote_connection/remote_connection.dart';
@@ -27,6 +28,8 @@ import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/engine_action_projection.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/game_controller.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/game_presentation_queue.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/game_presentation_transition.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/local_game_engine_factory.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/game_remote_commands.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/game_lobby.dart';
@@ -109,6 +112,13 @@ Finder findAppText(String text, {bool skipOffstage = true}) {
         (widget is Text && widget.data == text) ||
         (widget is PixelText && widget.text == text) ||
         (widget is EditableText && widget.controller.text == text),
+    skipOffstage: skipOffstage,
+  );
+}
+
+Finder findChromeButton(String label, {bool skipOffstage = true}) {
+  return find.byWidgetPredicate(
+    (widget) => widget is ChromeAssetButton && widget.label == label,
     skipOffstage: skipOffstage,
   );
 }
@@ -353,6 +363,16 @@ TableViewModel runtimeModelWith({
   );
 }
 
+TableViewModel modelWithActivePanel(TableViewModel model, String activePanel) {
+  return TableViewModel(
+    viewer: model.viewer,
+    table: model.table,
+    panels: Panels(active: activePanel, available: model.panels.available),
+    selection: model.selection,
+    legalActions: model.legalActions,
+  );
+}
+
 Seat seatWithHand(Seat seat, List<TableCard> hand) {
   return Seat(
     id: seat.id,
@@ -552,11 +572,12 @@ class _CardMotionTestBoard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hand = model.table.seats[0].hand;
-    final trick = model.table.trick.plays.isNotEmpty
+    final trick = model.table.phase == phaseAssignment
+        ? visibleAssignmentTrick(model).plays
+        : model.table.trick.plays.isNotEmpty
         ? model.table.trick.plays
         : model.table.lastTrick.plays;
     final handCard = hand.isEmpty ? null : hand.first;
-    final trickPlay = trick.isEmpty ? null : trick.first;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -588,10 +609,10 @@ class _CardMotionTestBoard extends StatelessWidget {
               sizeOverride: defaultDesignTokens.card.small,
             ),
           ),
-        if (trickPlay != null)
+        for (final (index, trickPlay) in trick.indexed)
           Positioned(
-            left: 260,
-            top: 96,
+            left: 220 + index * 42,
+            top: 76 + index * 20,
             child: GameCard(
               card: trickPlay.card,
               tokens: defaultDesignTokens,
@@ -625,6 +646,52 @@ class _RequisitionMotionTestBoard extends StatelessWidget {
           child: MotionTrackedRegion(
             motionKey: northCardMotionTargetKey,
             child: const SizedBox(width: 44, height: 44),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ParallelAssignmentMotionTestBoard extends StatelessWidget {
+  const _ParallelAssignmentMotionTestBoard({required this.card});
+
+  final TableCard card;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned(
+          left: 220,
+          top: 120,
+          child: MotionTrackedRegion(
+            motionKey: trickCardMotionSourceKey(card.id),
+            child: SizedBox(
+              width: 74,
+              height: 104,
+              child: GameCard(
+                card: card,
+                tokens: defaultDesignTokens,
+                motionTracked: false,
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          left: 24,
+          top: 24,
+          child: MotionTrackedRegion(
+            motionKey: jobGaugeMotionTargetKey(card.suit),
+            child: const SizedBox(width: 90, height: 42),
+          ),
+        ),
+        Positioned(
+          left: 24,
+          top: 130,
+          child: MotionTrackedRegion(
+            motionKey: jobFieldMotionTargetKey(card.suit),
+            child: const SizedBox(width: 150, height: 120),
           ),
         ),
       ],

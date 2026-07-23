@@ -1,6 +1,58 @@
 part of '../widget_test.dart';
 
 void registerStoreAndOnlineTests() {
+  test('presentation queue owns ordering and ignores stale completions', () {
+    final queue = GamePresentationQueue();
+    final firstModel = runtimeModel();
+    final secondModel = runtimeModelWith(
+      phase: phaseTrick,
+      selection: SelectionState.empty,
+      jobs: firstModel.table.jobs,
+    );
+
+    final first = queue.enqueue(before: firstModel, after: secondModel);
+    final second = queue.enqueue(before: secondModel, after: firstModel);
+
+    expect(first.id, 1);
+    expect(second.id, 2);
+    expect(queue.current, same(first));
+    expect(queue.pendingCount, 1);
+    expect(queue.complete(second.id), isFalse);
+    expect(queue.current, same(first));
+    expect(queue.complete(first.id), isTrue);
+    expect(queue.current, same(second));
+    expect(queue.complete(second.id), isTrue);
+    expect(queue.isBusy, isFalse);
+  });
+
+  test(
+    'presentation queue drains rapid updates in order and clears safely',
+    () {
+      final queue = GamePresentationQueue();
+      final model = runtimeModel();
+      final transitions = [
+        for (var index = 0; index < 5; index++)
+          queue.enqueue(before: model, after: model),
+      ];
+
+      expect(queue.current, same(transitions.first));
+      expect(queue.pendingCount, 4);
+      for (final transition in transitions.take(3)) {
+        expect(queue.complete(transition.id), isTrue);
+      }
+      expect(queue.current, same(transitions[3]));
+      expect(queue.pendingCount, 1);
+
+      queue.clear();
+
+      expect(queue.isBusy, isFalse);
+      expect(queue.current, isNull);
+      expect(queue.complete(transitions[3].id), isFalse);
+      final resumed = queue.enqueue(before: model, after: model);
+      expect(resumed.id, greaterThan(transitions.last.id));
+    },
+  );
+
   test('online lobby boundary maps wire roster into domain seats', () {
     final json = onlineUpdateJson(viewerID: 1);
     json['playerProfiles'] = [
@@ -88,7 +140,7 @@ void registerStoreAndOnlineTests() {
 
       expect(store.error, isNull);
       expect(store.actionLog.single.kind, actionRevealReward);
-      expect(store.presentationRevision, isNotNull);
+      expect(store.currentTransition, isNotNull);
       expect(store.lifecycle, GameControllerLifecycle.playing);
 
       store.returnToLobby();
@@ -96,6 +148,33 @@ void registerStoreAndOnlineTests() {
       expect(store.model, isNull);
     },
   );
+
+  test('game controller gates local actions while a transition is active', () {
+    final store = GameController(autosaveEnabled: false);
+    addTearDown(store.dispose);
+    store.startGame(
+      persist: false,
+      variants: KolkhozGameVariants.demoKolkhoz,
+      controllers: const [
+        KolkhozPlayerController.human,
+        KolkhozPlayerController.human,
+        KolkhozPlayerController.human,
+        KolkhozPlayerController.human,
+      ],
+    );
+    while (store.currentTransition != null) {
+      store.completeTransition(store.currentTransition!.id);
+    }
+    final action = store.model!.legalActions.first;
+    final actionCount = store.actionLog.length;
+
+    store.applyLegalAction(action);
+    store.applyLegalAction(action);
+
+    expect(store.actionLog, hasLength(actionCount + 1));
+    expect(store.currentTransition, isNotNull);
+    expect(store.error, isNull);
+  });
 
   testWidgets(
     'finished game keeps a replayable terminal record and releases its local engine',
@@ -127,9 +206,9 @@ void registerStoreAndOnlineTests() {
         actionUndoSwap: 4,
       };
       for (var guard = 0; guard < 1000; guard += 1) {
-        final revision = store.presentationRevision;
-        if (revision != null) {
-          store.acknowledgeRevisionPresented(revision);
+        final transition = store.currentTransition;
+        if (transition != null) {
+          store.completeTransition(transition.id);
         }
         if (store.lifecycle == GameControllerLifecycle.finished) {
           break;
@@ -2207,12 +2286,12 @@ void registerStoreAndOnlineTests() {
         }),
       );
       await Future<void>.delayed(const Duration(milliseconds: 20));
-      expect(store.presentationRevision, 1);
+      expect(store.currentTransition?.id, 1);
 
       releaseAction.complete();
       await Future<void>.delayed(const Duration(milliseconds: 20));
-      store.acknowledgeRevisionPresented(1);
-      expect(store.presentationRevision, isNull);
+      store.completeTransition(1);
+      expect(store.currentTransition, isNull);
       expect(httpClient.actionRequestCount, 1);
     },
   );
@@ -2237,6 +2316,8 @@ void registerStoreAndOnlineTests() {
 
     expect(httpClient.actionRequestCount, 1);
     expect(store.onlineUpdate!.actionLogCount, 1);
+    expect(store.currentTransition, isNotNull);
+    store.completeTransition(store.currentTransition!.id);
     expect(store.model!.legalActions, hasLength(1));
     expect(store.error, isNull);
   });
@@ -2416,9 +2497,9 @@ void registerStoreAndOnlineTests() {
         );
       expect(actions, isNotEmpty);
       store.applyLegalAction(actions.first);
-      final revision = store.presentationRevision;
-      if (revision != null) {
-        store.acknowledgeRevisionPresented(revision);
+      final transition = store.currentTransition;
+      if (transition != null) {
+        store.completeTransition(transition.id);
       }
     }
 
@@ -2443,7 +2524,7 @@ void registerStoreAndOnlineTests() {
     await tester.pump(GameAnimationSpeed.normal.automaticStepDelay * 2);
     expect(store.model!.table.requisitionEvents, hasLength(1));
 
-    store.acknowledgeRevisionPresented(store.presentationRevision!);
+    store.completeTransition(store.currentTransition!.id);
     await tester.pump(GameAnimationSpeed.normal.automaticStepDelay);
     expect(store.model!.table.requisitionEvents, hasLength(2));
     expect(
@@ -2685,7 +2766,7 @@ void registerStoreAndOnlineTests() {
     expect(jsonDecode(httpClient.requests.last.body)['actionLogCount'], 0);
   });
 
-  test('realtime snapshots wait for the active presentation', () async {
+  test('game controller queues realtime snapshots for presentation', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => server.close(force: true));
     final framesSent = Completer<void>();
@@ -2743,13 +2824,15 @@ void registerStoreAndOnlineTests() {
     await framesSent.future;
     await Future<void>.delayed(const Duration(milliseconds: 20));
 
-    expect(store.onlineUpdate!.actionLogCount, 1);
-    expect(store.presentationRevision, 1);
-    expect(store.onlineUpdate!.legalActions, isEmpty);
-    expect(store.model!.legalActions, isEmpty);
-    store.acknowledgeRevisionPresented(1);
     expect(store.onlineUpdate!.actionLogCount, 2);
-    expect(store.onlineUpdate!.legalActions, hasLength(1));
+    expect(store.currentTransition?.id, 1);
+    expect(store.model!.legalActions, isEmpty);
+    store.completeTransition(1);
+    expect(store.currentTransition?.id, 2);
+    expect(store.model!.legalActions, isEmpty);
+    store.completeTransition(2);
+    expect(store.currentTransition, isNull);
+    expect(store.model!.legalActions, hasLength(1));
   });
 
   test(
