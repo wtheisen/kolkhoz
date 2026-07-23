@@ -111,4 +111,14 @@ jobs:
           --concurrency=1
           --tags neural-policy
           test/widget_test.dart
-      - run: flutter build macos --debug
+      - name: Configure macOS debug build
+        run: flutter build macos --debug --config-only
+      - name: Build unsigned macOS debug app
+        run: >-
+          xcodebuild
+          -workspace macos/Runner.xcworkspace
+          -scheme Runner
+          -configuration Debug
+          -destination 'platform=macOS'
+          CODE_SIGNING_ALLOWED=NO
+          build
