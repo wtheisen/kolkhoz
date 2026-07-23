@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kolkhoz Cyrillic Font Comparison</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:wght@800&family=PT+Serif:wght@700&family=Podkova:wght@800&family=Roboto+Slab:wght@800&display=swap" rel="stylesheet">
+  <style>
+    @font-face {
+      font-family: "Zilla Local";
+      src: url("../fonts/candidates/zilla-slab/ZillaSlab-Bold.ttf") format("truetype");
+      font-weight: 700;
+    }
+
+    :root {
+      color-scheme: dark;
+      --ink: #20291f;
+      --night: #19211f;
+      --panel: #252e2a;
+      --cream: #f5e9c3;
+      --wheat: #e6ad35;
+      --red: #e94727;
+      --green: #657b45;
+      --muted: #b7b7a8;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(230,173,53,.1), transparent 34rem),
+        var(--night);
+      color: #f6f0da;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    main { width: min(1380px, calc(100% - 48px)); margin: 0 auto; padding: 40px 0 64px; }
+    header { display: flex; align-items: end; justify-content: space-between; gap: 32px; margin-bottom: 28px; }
+    h1 { margin: 0; font-size: clamp(30px, 4vw, 54px); letter-spacing: -.035em; }
+    header p { margin: 0; max-width: 600px; color: var(--muted); line-height: 1.5; }
+
+    .reference, .candidate {
+      display: grid;
+      grid-template-columns: 210px minmax(0, 1fr) 210px;
+      gap: 26px;
+      align-items: center;
+      border: 1px solid rgba(245,233,195,.15);
+      background: var(--panel);
+      padding: 22px 24px;
+      margin-bottom: 14px;
+      box-shadow: 0 12px 35px rgba(0,0,0,.15);
+    }
+
+    .reference { opacity: .76; border-style: dashed; }
+    .candidate.recommended { border-color: var(--wheat); box-shadow: inset 5px 0 0 var(--wheat), 0 12px 35px rgba(0,0,0,.2); }
+    .name h2 { margin: 5px 0 8px; font: 750 25px/1.05 system-ui, sans-serif; }
+    .name p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.4; }
+    .tag { display: inline-block; padding: 4px 8px; border-radius: 2px; background: var(--red); color: white; font: 800 10px/1 system-ui; letter-spacing: .1em; text-transform: uppercase; }
+    .reference .tag { background: #59605c; }
+
+    .sample { min-width: 0; }
+    .headline {
+      color: var(--cream);
+      font-size: clamp(50px, 6vw, 86px);
+      font-weight: 800;
+      line-height: .9;
+      letter-spacing: .015em;
+      white-space: nowrap;
+    }
+    .words { color: var(--wheat); font-size: 22px; font-weight: 800; margin-top: 13px; letter-spacing: .055em; }
+    .latin { color: #d8d5c4; font-size: 18px; margin-top: 7px; }
+    .unsupported { color: #aaa99e; font: 700 20px/1.2 system-ui; border-left: 4px solid #6c726e; padding-left: 16px; }
+
+    .corner {
+      position: relative;
+      width: 190px;
+      height: 190px;
+      justify-self: end;
+      overflow: hidden;
+      background: var(--cream);
+      color: var(--ink);
+      border: 8px solid var(--ink);
+      clip-path: polygon(13% 0,100% 0,100% 87%,87% 100%,0 100%,0 13%);
+    }
+    .corner::after {
+      content: "";
+      position: absolute;
+      inset: 10px;
+      border: 3px solid var(--green);
+      clip-path: inherit;
+    }
+    .corner-rank { position: absolute; z-index: 1; left: 19px; top: 20px; font-size: 92px; font-weight: 800; line-height: .85; }
+    .corner-value { position: absolute; z-index: 1; left: 91px; top: 74px; color: var(--red); font-size: 34px; font-weight: 800; line-height: 1; }
+    .corner-word { position: absolute; z-index: 1; left: 21px; bottom: 18px; font-size: 15px; font-weight: 800; letter-spacing: .045em; }
+
+    .zilla { font-family: "Zilla Local", serif; }
+    .podkova { font-family: "Podkova", serif; }
+    .roboto { font-family: "Roboto Slab", serif; }
+    .bitter { font-family: "Bitter", serif; }
+    .pt { font-family: "PT Serif", serif; }
+
+    footer { margin: 24px 4px 0; color: var(--muted); font-size: 13px; }
+
+    @media (max-width: 900px) {
+      header { display: block; }
+      header p { margin-top: 12px; }
+      .reference, .candidate { grid-template-columns: 150px minmax(0, 1fr); }
+      .corner { display: none; }
+      .headline { white-space: normal; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <div class="tag">Typeface proof</div>
+        <h1>Cyrillic replacement for Zilla Slab</h1>
+      </div>
+      <p>All candidates are free for commercial use and include Cyrillic. Compare the headline rhythm, numerals, corner-index weight, and specifically shaped Cyrillic letters such as Ж, Я, Д, Ц, and Й.</p>
+    </header>
+
+    <section class="reference">
+      <div class="name">
+        <div class="tag">Reference only</div>
+        <h2>Zilla Slab Bold</h2>
+        <p>Current choice · OFL<br>Latin only</p>
+      </div>
+      <div class="sample zilla">
+        <div class="headline">KOLKHOZ</div>
+        <div class="latin">J 11 · Q 12 · K 13 · S 0</div>
+      </div>
+      <div class="unsupported">No Cyrillic glyphs in the installed font file.</div>
+    </section>
+
+    <section class="candidate recommended">
+      <div class="name">
+        <div class="tag">Recommended</div>
+        <h2>Podkova ExtraBold</h2>
+        <p>Closest poster character<br>OFL · Cyrillic Extended</p>
+      </div>
+      <div class="sample podkova">
+        <div class="headline">КОЛХОЗ</div>
+        <div class="words">УРОЖАЙ · ПШЕНИЦА · БРИГАДА</div>
+        <div class="latin">J 11 · Q 12 · K 13 · S 0</div>
+      </div>
+      <div class="corner podkova"><span class="corner-rank">Ж</span><span class="corner-value">13</span><span class="corner-word">ПШЕНИЦА</span></div>
+    </section>
+
+    <section class="candidate">
+      <div class="name">
+        <div class="tag">Cleanest</div>
+        <h2>Roboto Slab ExtraBold</h2>
+        <p>Strongest small-size clarity<br>Apache 2.0 · Cyrillic Extended</p>
+      </div>
+      <div class="sample roboto">
+        <div class="headline">КОЛХОЗ</div>
+        <div class="words">УРОЖАЙ · ПШЕНИЦА · БРИГАДА</div>
+        <div class="latin">J 11 · Q 12 · K 13 · S 0</div>
+      </div>
+      <div class="corner roboto"><span class="corner-rank">Ж</span><span class="corner-value">13</span><span class="corner-word">ПШЕНИЦА</span></div>
+    </section>
+
+    <section class="candidate">
+      <div class="name">
+        <div class="tag">Expressive</div>
+        <h2>Bitter ExtraBold</h2>
+        <p>More human and literary<br>OFL · Cyrillic Extended</p>
+      </div>
+      <div class="sample bitter">
+        <div class="headline">КОЛХОЗ</div>
+        <div class="words">УРОЖАЙ · ПШЕНИЦА · БРИГАДА</div>
+        <div class="latin">J 11 · Q 12 · K 13 · S 0</div>
+      </div>
+      <div class="corner bitter"><span class="corner-rank">Ж</span><span class="corner-value">13</span><span class="corner-word">ПШЕНИЦА</span></div>
+    </section>
+
+    <section class="candidate">
+      <div class="name">
+        <div class="tag">Most Russian</div>
+        <h2>PT Serif Bold</h2>
+        <p>Native editorial authority<br>OFL · Cyrillic Extended</p>
+      </div>
+      <div class="sample pt">
+        <div class="headline">КОЛХОЗ</div>
+        <div class="words">УРОЖАЙ · ПШЕНИЦА · БРИГАДА</div>
+        <div class="latin">J 11 · Q 12 · K 13 · S 0</div>
+      </div>
+      <div class="corner pt"><span class="corner-rank">Ж</span><span class="corner-value">13</span><span class="corner-word">ПШЕНИЦА</span></div>
+    </section>
+
+    <footer>Weights are intentionally heavy to match the physical card’s current corner indices. Selection here will be installed locally before changing the card editor.</footer>
+  </main>
+</body>
+</html>

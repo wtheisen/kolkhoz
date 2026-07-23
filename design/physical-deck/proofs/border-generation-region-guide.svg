@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1644" height="2244" viewBox="0 0 1644 2244">
+  <!-- Cream means locked: it must remain quiet card stock. -->
+  <rect width="1644" height="2244" fill="#e3c17a"/>
+  <rect x="150" y="150" width="1344" height="1944" rx="24" fill="#ead18d"/>
+
+  <!-- Magenta is the only editable region for generated border artwork. -->
+  <rect x="150" y="150" width="1344" height="1944" fill="#ff00ff"/>
+  <rect x="260" y="260" width="1124" height="1724" fill="#ead18d"/>
+
+  <!-- Extra room for illustrated motifs only in the non-index corners. -->
+  <path d="M1080 260H1384V690L1240 555Z" fill="#ff00ff"/>
+  <path d="M260 1984H564L404 1834L260 1554Z" fill="#ff00ff"/>
+
+  <!-- Reinstate protected information zones in upper-left and lower-right. -->
+  <path d="M260 260H610V760H260Z" fill="#ead18d"/>
+  <path d="M1034 1484H1384V1984H1034Z" fill="#ead18d"/>
+</svg>

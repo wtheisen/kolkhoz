@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="2400" viewBox="0 0 2400 2400">
+  <defs>
+    <style>
+      @font-face {
+        font-family: 'Kolkhoz Zilla Slab';
+        src: url('file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/design/physical-deck/fonts/candidates/zilla-slab/ZillaSlab-Bold.ttf');
+        font-weight: 700;
+      }
+      .title { font: 700 54px 'Avenir Next', sans-serif; fill: #263025; }
+      .subtitle { font: 400 27px 'Avenir Next', sans-serif; fill: #59603e; }
+      .label { font: 700 29px 'Avenir Next', sans-serif; fill: #263025; }
+      .note { font: 400 22px 'Avenir Next', sans-serif; fill: #59603e; }
+      .rank { font: 700 155px 'Kolkhoz Zilla Slab'; fill: #263025; text-anchor: middle; }
+    </style>
+    <image id="wheat" href="file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/app/assets/art/field_plan/cards/suits/suit-wheat.png" width="92" height="92"/>
+    <g id="cardContent">
+      <text class="rank" x="115" y="215">7</text>
+      <use href="#wheat" x="69" y="240"/>
+      <use href="#wheat" x="272" y="225" width="150" height="150"/>
+      <use href="#wheat" x="205" y="385" width="150" height="150"/>
+    </g>
+  </defs>
+
+  <rect width="2400" height="2400" fill="#d7c68f"/>
+  <text class="title" x="100" y="90">KOLKHOZ — LIGHTER CARD-BORDER DIRECTIONS</text>
+  <text class="subtitle" x="100" y="137">Same Zilla index and wheat treatment · all information corners remain clear</text>
+
+  <!-- 1: restrained manual-style double rule. -->
+  <g transform="translate(100 190)">
+    <rect width="500" height="700" rx="12" fill="#ead18d"/>
+    <rect x="42" y="48" width="416" height="604" rx="3" fill="none" stroke="#263025" stroke-width="8"/>
+    <rect x="54" y="60" width="392" height="580" rx="2" fill="none" stroke="#59603e" stroke-width="3"/>
+    <use href="#cardContent"/>
+    <text class="label" x="0" y="745">1 · FIELD-MANUAL DOUBLE RULE</text>
+    <text class="note" x="0" y="779">Quiet, traditional, and print-safe</text>
+  </g>
+
+  <!-- 2: clipped single rule with tiny registration accents. -->
+  <g transform="translate(950 190)">
+    <rect width="500" height="700" rx="12" fill="#ead18d"/>
+    <path d="M55 46H430L454 70V630L430 654H70L46 630V70Z" fill="none" stroke="#263025" stroke-width="9"/>
+    <path d="M431 55L446 70V124" fill="none" stroke="#a8462c" stroke-width="5"/>
+    <path d="M69 645L54 630V576" fill="none" stroke="#a8462c" stroke-width="5"/>
+    <use href="#cardContent"/>
+    <text class="label" x="0" y="745">2 · CLIPPED REGISTRATION FRAME</text>
+    <text class="note" x="0" y="779">One strong rule with restrained red detail</text>
+  </g>
+
+  <!-- 3: two opposing brackets, no enclosing box. -->
+  <g transform="translate(1800 190)">
+    <rect width="500" height="700" rx="12" fill="#ead18d"/>
+    <path d="M328 50H450V172" fill="none" stroke="#263025" stroke-width="11"/>
+    <path d="M172 650H50V528" fill="none" stroke="#263025" stroke-width="11"/>
+    <path d="M348 63H437V152" fill="none" stroke="#59603e" stroke-width="4"/>
+    <path d="M152 637H63V548" fill="none" stroke="#59603e" stroke-width="4"/>
+    <use href="#cardContent"/>
+    <text class="label" x="0" y="745">3 · OPPOSING CORNER BRACKETS</text>
+    <text class="note" x="0" y="779">Open and asymmetric; preserves the diagonal</text>
+  </g>
+
+  <!-- 4: fine ledger rules with tiny fan marks. -->
+  <g transform="translate(100 990)">
+    <rect width="500" height="700" rx="12" fill="#ead18d"/>
+    <rect x="45" y="50" width="410" height="600" fill="none" stroke="#3e4a32" stroke-width="5"/>
+    <rect x="54" y="59" width="392" height="582" fill="none" stroke="#a8462c" stroke-width="2"/>
+    <g fill="#59603e">
+      <path d="M446 59H390L446 115Z"/>
+      <path d="M54 641H110L54 585Z"/>
+    </g>
+    <g stroke="#ead18d" stroke-width="4">
+      <path d="M442 64L404 64M442 64L415 78M442 64L428 92"/>
+      <path d="M58 636L96 636M58 636L85 622M58 636L72 608"/>
+    </g>
+    <use href="#cardContent"/>
+    <text class="label" x="0" y="745">4 · LEDGER RULE + SMALL FANS</text>
+    <text class="note" x="0" y="779">Closest relative of the old frame, much lighter</text>
+  </g>
+
+  <!-- 5: partial rails suggest rows and leave the index corners open. -->
+  <g transform="translate(950 990)">
+    <rect width="500" height="700" rx="12" fill="#ead18d"/>
+    <path d="M190 52H448V308" fill="none" stroke="#263025" stroke-width="8"/>
+    <path d="M310 648H52V392" fill="none" stroke="#263025" stroke-width="8"/>
+    <path d="M202 64H436V296" fill="none" stroke="#a8462c" stroke-width="3"/>
+    <path d="M298 636H64V404" fill="none" stroke="#a8462c" stroke-width="3"/>
+    <use href="#cardContent"/>
+    <text class="label" x="0" y="745">5 · PARTIAL FIELD RAILS</text>
+    <text class="note" x="0" y="779">Graphic but airy; no box around the card</text>
+  </g>
+
+  <!-- 6: near-borderless; only two crop-row corner marks. -->
+  <g transform="translate(1800 990)">
+    <rect width="500" height="700" rx="12" fill="#ead18d"/>
+    <g fill="#59603e">
+      <path d="M450 52H372L450 130Z"/>
+      <path d="M50 648H128L50 570Z"/>
+    </g>
+    <g stroke="#ead18d" stroke-width="5">
+      <path d="M444 58L390 58M444 58L405 78M444 58L424 98"/>
+      <path d="M56 642L110 642M56 642L95 622M56 642L76 602"/>
+    </g>
+    <use href="#cardContent"/>
+    <text class="label" x="0" y="745">6 · CORNER MARKS ONLY</text>
+    <text class="note" x="0" y="779">Maximum breathing room; artwork carries the card</text>
+  </g>
+</svg>

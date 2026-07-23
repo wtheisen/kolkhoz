@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="1644" height="2244" viewBox="0 0 1644 2244">
+  <defs>
+    <!-- This single upper-right window is the canonical geometry for every suit. -->
+    <path id="cornerWindowShape"
+          d="M970 116 H1440 L1492 168 V752
+             C1460 615 1370 492 1210 366
+             C1145 315 1112 282 1107 224
+             C1102 160 1055 116 970 116 Z"/>
+
+    <clipPath id="upperRightWindow">
+      <use xlink:href="#cornerWindowShape"/>
+    </clipPath>
+    <clipPath id="lowerLeftWindow">
+      <use xlink:href="#cornerWindowShape" transform="rotate(180 822 1122)"/>
+    </clipPath>
+
+    <!-- One strong interior rail is reused with the same exact 180-degree transform. -->
+    <path id="cornerRail"
+          d="M970 116
+             C1055 116 1102 160 1107 224
+             C1112 282 1145 315 1210 366
+             C1370 492 1460 615 1492 752"/>
+
+    <filter id="paperTooth" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.42" numOctaves="2" seed="31" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0" result="gray"/>
+      <feComponentTransfer in="gray" result="faint">
+        <feFuncA type="linear" slope="0.045"/>
+      </feComponentTransfer>
+      <feBlend in="SourceGraphic" in2="faint" mode="multiply"/>
+    </filter>
+  </defs>
+
+  <!-- Replace only this paper layer when a suit needs a different stock tint. -->
+  <rect width="1644" height="2244" fill="#f6edcf" filter="url(#paperTooth)"/>
+
+  <!-- Replace these magenta guide fills with suit-specific artwork plates. -->
+  <g id="artwork-windows" fill="#ff00ff">
+    <rect width="1644" height="2244" clip-path="url(#upperRightWindow)"/>
+    <rect width="1644" height="2244" clip-path="url(#lowerLeftWindow)"/>
+  </g>
+
+  <!-- This vector frame is immutable across suits and ranks. -->
+  <g id="canonical-frame" fill="none" stroke="#33434a" stroke-linejoin="miter">
+    <path d="M176 88 H1460 L1520 148 V2096 L1460 2156 H184 L124 2096 V148 Z"
+          stroke-width="15"/>
+    <path d="M204 116 H1440 L1492 168 V2076 L1440 2128 H204 L152 2076 V168 Z"
+          stroke-width="9"/>
+
+    <use xlink:href="#cornerRail" stroke-width="9"/>
+    <use xlink:href="#cornerRail" stroke-width="9" transform="rotate(180 822 1122)"/>
+  </g>
+</svg>

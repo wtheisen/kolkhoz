@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="2400" viewBox="0 0 2400 2400">
+  <defs>
+    <font-face font-family="Candidate Roboto Slab">
+      <font-face-src><font-face-uri href="file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/design/physical-deck/fonts/candidates/roboto-slab/RobotoSlab%5Bwght%5D.ttf"/></font-face-src>
+    </font-face>
+    <style>
+      @font-face { font-family: 'Candidate Roboto Slab'; src: url('file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/design/physical-deck/fonts/candidates/roboto-slab/RobotoSlab%5Bwght%5D.ttf'); font-weight: 100 900; }
+      @font-face { font-family: 'Candidate Archivo'; src: url('file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/design/physical-deck/fonts/candidates/archivo/Archivo%5Bwdth%2Cwght%5D.ttf'); font-weight: 100 900; font-stretch: 62% 125%; }
+      @font-face { font-family: 'Candidate Arsenal'; src: url('file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/design/physical-deck/fonts/candidates/arsenal/Arsenal-Bold.ttf'); font-weight: 700; }
+      @font-face { font-family: 'Candidate Oswald'; src: url('file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/design/physical-deck/fonts/candidates/oswald/Oswald%5Bwght%5D.ttf'); font-weight: 200 700; }
+      @font-face { font-family: 'Candidate Zilla Slab'; src: url('file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/design/physical-deck/fonts/candidates/zilla-slab/ZillaSlab-Bold.ttf'); font-weight: 700; }
+      @font-face { font-family: 'Candidate Bitter'; src: url('file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/design/physical-deck/fonts/candidates/bitter/Bitter%5Bwght%5D.ttf'); font-weight: 100 900; }
+      .sheet-title { font: 700 54px 'Avenir Next', sans-serif; fill: #263025; letter-spacing: 1px; }
+      .sheet-subtitle { font: 400 27px 'Avenir Next', sans-serif; fill: #59603e; }
+      .label { font: 700 29px 'Avenir Next', sans-serif; fill: #263025; }
+      .note { font: 400 22px 'Avenir Next', sans-serif; fill: #59603e; }
+      .rank { fill: #263025; text-anchor: middle; }
+    </style>
+    <image id="wheat" href="file:///Users/wtheisen/Library/CloudStorage/Dropbox/linux_files/programs/kolkhoz/app/assets/art/field_plan/cards/suits/suit-wheat.png" width="120" height="120"/>
+    <g id="specimen">
+      <rect width="500" height="650" rx="8" fill="#20251f"/>
+      <rect x="16" y="16" width="484" height="634" fill="#d8ba74"/>
+      <rect x="28" y="28" width="472" height="622" fill="#3e4a32"/>
+      <rect x="40" y="40" width="460" height="610" fill="#20251f"/>
+      <rect x="52" y="52" width="448" height="598" fill="#a8462c"/>
+      <rect x="61" y="61" width="439" height="589" fill="#59603e"/>
+      <rect x="70" y="70" width="430" height="580" fill="#ead18d"/>
+    </g>
+  </defs>
+
+  <rect width="2400" height="2400" fill="#d7c68f"/>
+  <text class="sheet-title" x="110" y="92">KOLKHOZ — OPEN-SOURCE NUMERAL OPTIONS</text>
+  <text class="sheet-subtitle" x="110" y="137">Commercial-use candidates · optically normalized for the same corner treatment</text>
+
+  <g transform="translate(250 190)">
+    <use href="#specimen"/>
+    <text class="rank" x="190" y="315" font-family="Candidate Roboto Slab" font-size="270" font-weight="800">7</text>
+    <use href="#wheat" x="130" y="340"/>
+    <text class="label" x="0" y="700">1 · ROBOTO SLAB EXTRABOLD</text>
+    <text class="note" x="0" y="736">Mechanical slab · strongest all-around candidate</text>
+  </g>
+
+  <g transform="translate(950 190)">
+    <use href="#specimen"/>
+    <text class="rank" x="190" y="315" font-family="Candidate Archivo" font-size="280" font-weight="800" font-stretch="condensed">7</text>
+    <use href="#wheat" x="130" y="340"/>
+    <text class="label" x="0" y="700">2 · ARCHIVO CONDENSED</text>
+    <text class="note" x="0" y="736">Industrial grotesque · compact and direct</text>
+  </g>
+
+  <g transform="translate(1650 190)">
+    <use href="#specimen"/>
+    <text class="rank" x="190" y="315" font-family="Candidate Arsenal" font-size="280" font-weight="700">7</text>
+    <use href="#wheat" x="130" y="340"/>
+    <text class="label" x="0" y="700">3 · ARSENAL BOLD</text>
+    <text class="note" x="0" y="736">Traditional semi-grotesque · field-manual tone</text>
+  </g>
+
+  <g transform="translate(250 980)">
+    <use href="#specimen"/>
+    <text class="rank" x="190" y="315" font-family="Candidate Oswald" font-size="245" font-weight="700">7</text>
+    <use href="#wheat" x="130" y="340"/>
+    <text class="label" x="0" y="700">4 · OSWALD BOLD</text>
+    <text class="note" x="0" y="736">Condensed advertising/poster sans</text>
+  </g>
+
+  <g transform="translate(950 980)">
+    <use href="#specimen"/>
+    <text class="rank" x="190" y="315" font-family="Candidate Zilla Slab" font-size="300" font-weight="700">7</text>
+    <use href="#wheat" x="130" y="340"/>
+    <text class="label" x="0" y="700">5 · ZILLA SLAB BOLD</text>
+    <text class="note" x="0" y="736">Warm printed-editorial slab</text>
+  </g>
+
+  <g transform="translate(1650 980)">
+    <use href="#specimen"/>
+    <text class="rank" x="190" y="315" font-family="Candidate Bitter" font-size="275" font-weight="800">7</text>
+    <use href="#wheat" x="130" y="340"/>
+    <text class="label" x="0" y="700">6 · BITTER EXTRABOLD</text>
+    <text class="note" x="0" y="736">Robust book and report serif</text>
+  </g>
+</svg>
