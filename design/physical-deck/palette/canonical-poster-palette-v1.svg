@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="920" viewBox="0 0 1400 920">
+  <rect width="1400" height="920" fill="#F5D19A"/>
+  <rect x="35" y="35" width="1330" height="850" rx="18" fill="#F8DFB4" stroke="#120E08" stroke-width="8"/>
+  <text x="80" y="115" font-family="Podkova, Georgia, serif" font-size="52" font-weight="700" fill="#120E08">KOLKHOZ - CANONICAL POSTER PALETTE</text>
+  <text x="82" y="160" font-family="Arial, sans-serif" font-size="23" fill="#58595B">Solid design inks sampled from the canonical poster / texture and aging stay separate</text>
+
+  <g font-family="Arial, sans-serif">
+    <text x="80" y="225" font-size="24" font-weight="700" fill="#120E08">CORE INKS</text>
+
+    <g transform="translate(80 250)">
+      <rect width="390" height="155" rx="10" fill="#F5D19A" stroke="#120E08" stroke-width="3"/>
+      <text x="22" y="101" font-size="28" font-weight="700" fill="#120E08">PAPER CREAM</text><text x="22" y="132" font-size="22" fill="#120E08">#F5D19A</text>
+    </g>
+    <g transform="translate(505 250)">
+      <rect width="390" height="155" rx="10" fill="#E9B353" stroke="#120E08" stroke-width="3"/>
+      <text x="22" y="101" font-size="28" font-weight="700" fill="#120E08">HARVEST GOLD</text><text x="22" y="132" font-size="22" fill="#120E08">#E9B353</text>
+    </g>
+    <g transform="translate(930 250)">
+      <rect width="390" height="155" rx="10" fill="#B7B34A" stroke="#120E08" stroke-width="3"/>
+      <text x="22" y="101" font-size="28" font-weight="700" fill="#120E08">FIELD GREEN</text><text x="22" y="132" font-size="22" fill="#120E08">#B7B34A</text>
+    </g>
+
+    <g transform="translate(80 430)">
+      <rect width="390" height="155" rx="10" fill="#E13212" stroke="#120E08" stroke-width="3"/>
+      <text x="22" y="101" font-size="28" font-weight="700" fill="#FFF0D5">POSTER RED</text><text x="22" y="132" font-size="22" fill="#FFF0D5">#E13212</text>
+    </g>
+    <g transform="translate(505 430)">
+      <rect width="390" height="155" rx="10" fill="#58595B" stroke="#120E08" stroke-width="3"/>
+      <text x="22" y="101" font-size="28" font-weight="700" fill="#FFF0D5">SLATE CHARCOAL</text><text x="22" y="132" font-size="22" fill="#FFF0D5">#58595B</text>
+    </g>
+    <g transform="translate(930 430)">
+      <rect width="390" height="155" rx="10" fill="#120E08" stroke="#120E08" stroke-width="3"/>
+      <text x="22" y="101" font-size="28" font-weight="700" fill="#FFF0D5">INK BLACK</text><text x="22" y="132" font-size="22" fill="#FFF0D5">#120E08</text>
+    </g>
+
+    <text x="80" y="650" font-size="24" font-weight="700" fill="#120E08">SUPPORT INKS</text>
+    <g transform="translate(80 675)"><rect width="280" height="125" rx="8" fill="#F1C667" stroke="#120E08" stroke-width="3"/><text x="18" y="76" font-size="22" font-weight="700" fill="#120E08">SUNLIT YELLOW</text><text x="18" y="104" font-size="19" fill="#120E08">#F1C667</text></g>
+    <g transform="translate(400 675)"><rect width="280" height="125" rx="8" fill="#7B794A" stroke="#120E08" stroke-width="3"/><text x="18" y="76" font-size="22" font-weight="700" fill="#FFF0D5">DEEP OLIVE</text><text x="18" y="104" font-size="19" fill="#FFF0D5">#7B794A</text></g>
+    <g transform="translate(720 675)"><rect width="280" height="125" rx="8" fill="#754E2F" stroke="#120E08" stroke-width="3"/><text x="18" y="76" font-size="22" font-weight="700" fill="#FFF0D5">EARTH BROWN</text><text x="18" y="104" font-size="19" fill="#FFF0D5">#754E2F</text></g>
+    <g transform="translate(1040 675)"><rect width="280" height="125" rx="8" fill="#93876A" stroke="#120E08" stroke-width="3"/><text x="18" y="76" font-size="22" font-weight="700" fill="#FFF0D5">WORKWEAR GRAY</text><text x="18" y="104" font-size="19" fill="#FFF0D5">#93876A</text></g>
+  </g>
+  <text x="80" y="850" font-family="Arial, sans-serif" font-size="21" fill="#58595B">Rule: clean color first, print texture second. Never wash every fill toward beige.</text>
+</svg>

@@ -1,0 +1,57 @@
+{
+  "name": "Kolkhoz Canonical Poster Palette",
+  "version": 1,
+  "source": "references/canonical-poster-reference.png",
+  "notes": "Semantic spot-color approximations sampled from broad, relatively flat regions of the canonical poster. Use these as solid design inks; do not sample isolated scan speckles or average them into the colors.",
+  "core": {
+    "paperCream": {
+      "hex": "#F5D19A",
+      "role": "Primary card field, caption panels, and light negative space"
+    },
+    "harvestGold": {
+      "hex": "#E9B353",
+      "role": "Wheat, sunlit crops, warm clothing, and agricultural highlights"
+    },
+    "fieldGreen": {
+      "hex": "#B7B34A",
+      "role": "Primary fields, leaves, and large green fills"
+    },
+    "posterRed": {
+      "hex": "#E13212",
+      "role": "Primary accent, rank marks, flags, stars, and small focal details"
+    },
+    "slateCharcoal": {
+      "hex": "#58595B",
+      "role": "Sky, workwear, machinery, and secondary dark fills"
+    },
+    "inkBlack": {
+      "hex": "#120E08",
+      "role": "Outlines, typography, deepest shadows, and borders"
+    }
+  },
+  "support": {
+    "sunlitYellow": {
+      "hex": "#F1C667",
+      "role": "Selective highlight above harvest gold; never a replacement for paper cream"
+    },
+    "deepOlive": {
+      "hex": "#7B794A",
+      "role": "Green shadows, subdued uniforms, distant vegetation, and mid-dark fills"
+    },
+    "earthBrown": {
+      "hex": "#754E2F",
+      "role": "Soil, wood, leather, hair, and warm shadow accents"
+    },
+    "workwearGray": {
+      "hex": "#93876A",
+      "role": "Neutral clothing and machinery where slate charcoal is too dark"
+    }
+  },
+  "usageRules": [
+    "Build illustrations from flat areas of these colors, then add texture separately.",
+    "Keep ink black or slate charcoal around light adjacent fills to preserve card-scale legibility.",
+    "Use poster red sparingly as the strongest focal accent.",
+    "Do not age colors by mixing everything toward beige or gray; aging belongs in a separate paper or print-texture layer.",
+    "For face-card art, use paper cream plus two or three core colors and no more than two support colors."
+  ]
+}
