@@ -2411,6 +2411,7 @@ class ActivePanelView extends StatelessWidget {
           tokens: tokens,
           language: language,
           compact: compact,
+          heroOfSovietUnion: heroOfSovietUnion,
           showPlanningPanel: false,
           onAction: onAction,
         );
@@ -2421,6 +2422,7 @@ class ActivePanelView extends StatelessWidget {
           tokens: tokens,
           language: language,
           compact: compact,
+          heroOfSovietUnion: heroOfSovietUnion,
           showPlanningPanel: false,
           planningTrumpFocusedSuit: planningTrumpFocusedSuit,
           onPlanningTrumpActionSelected: onPlanningTrumpActionSelected,
@@ -2463,6 +2465,7 @@ class ActivePanelView extends StatelessWidget {
           tokens: tokens,
           language: language,
           compact: compact,
+          heroOfSovietUnion: heroOfSovietUnion,
           showPlanningPanel: false,
           planningTrumpFocusedSuit: planningTrumpFocusedSuit,
           onPlanningTrumpActionSelected: onPlanningTrumpActionSelected,

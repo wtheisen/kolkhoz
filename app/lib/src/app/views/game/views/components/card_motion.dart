@@ -280,6 +280,15 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
   @override
   Widget build(BuildContext context) {
     final frame = _controller.beginFrame();
+    final presentedModel = widget.transition?.after ?? widget.model;
+    final winnerSeatID = presentedModel.table.trick.winnerSeatID;
+    String? winningTrickCardID;
+    for (final play in presentedModel.table.trick.plays) {
+      if (play.seatID == winnerSeatID) {
+        winningTrickCardID = play.card.id;
+        break;
+      }
+    }
     final activeCardIDs = {
       ..._pendingFlightCardIDs,
       for (final flight in _flights) flight.card.id,
@@ -311,6 +320,9 @@ class _CardMotionLayerState extends State<CardMotionLayer> {
                         flight,
                         widget.model.panels.active,
                       ),
+                      winningTrick:
+                          flight.destinationZone.kind == MotionZoneKind.trick &&
+                          flight.card.id == winningTrickCardID,
                       onDone: () => _landFlight(flight.id),
                     ),
                 ],

@@ -164,6 +164,14 @@ String physicalDeckRankLabel(TableCard card) {
 
 String? physicalDeckFaceCaption(TableCard card) {
   if (card.suit == wreckerSuit) return 'Вредитель';
+  if (card.nomenclature) {
+    return switch (card.value) {
+      11 => 'Пьяница',
+      12 => 'Доносчица',
+      13 => 'Парторг',
+      _ => null,
+    };
+  }
   return switch (card.value) {
     11 => 'Валет',
     12 => 'Дама',
@@ -194,6 +202,7 @@ String cardTemplateAssetPath({
   return fieldPlanCardFrameAssetPath(
     suit: card.suit == wreckerSuit ? 'wheat' : card.suit,
     trump: cardUsesTrumpTemplate(card: card, trump: trump),
+    dark: !tokens.usesLightAppearance,
   );
 }
 

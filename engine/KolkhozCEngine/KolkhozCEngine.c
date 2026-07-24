@@ -60,6 +60,10 @@ static void kc_emit_transition(KCEngine *engine, KCTransitionEvent event) {
     if (!engine || engine->transition_event_count >= KC_MAX_TRANSITION_EVENTS) {
         return;
     }
+    if (event.kind != KC_TRANSITION_CARD_MOVED ||
+        event.to_zone != KC_OBJECT_ZONE_CURRENT_TRICK) {
+        event.trick_winner = KC_NO_PLAYER;
+    }
     engine->transition_events[engine->transition_event_count++] = event;
 }
 
@@ -860,6 +864,11 @@ int32_t kc_transition_event_target_suit(const KCEngine *engine, int32_t index) {
     return event ? event->target_suit : KC_NO_SUIT;
 }
 
+int32_t kc_transition_event_trick_winner(const KCEngine *engine, int32_t index) {
+    const KCTransitionEvent *event = kc_transition_event_at(engine, index);
+    return event ? event->trick_winner : KC_NO_PLAYER;
+}
+
 bool kc_swap_count(const KCEngine *engine, int32_t player_id) {
     if (!engine || !kc_valid_player_id(player_id)) return false;
     return engine->swap_count[player_id];
@@ -1449,7 +1458,8 @@ static int32_t kc_play_card_index(KCEngine *engine, int32_t player_id, int32_t c
         .to_zone = KC_OBJECT_ZONE_CURRENT_TRICK,
         .from_owner = player_id,
         .to_owner = player_id,
-        .target_suit = KC_NO_SUIT
+        .target_suit = KC_NO_SUIT,
+        .trick_winner = kc_trick_winner(engine)
     });
     if (engine->current_trick_count == KC_PLAYER_COUNT) {
         kc_resolve_current_trick(engine);

@@ -4,7 +4,12 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_DIR="$ROOT_DIR/app"
-APP_BUNDLE="$APP_DIR/build/macos/Build/Products/Debug/kolkhoz_app.app"
+FLUTTER_RUN=(
+  flutter run
+  -d macos
+  --debug
+  --dart-define=KOLKHOZ_ART_STYLE=field_plan
+)
 
 case "${1:-}" in
   --verify)
@@ -14,13 +19,12 @@ case "${1:-}" in
     exit 0
     ;;
   --logs)
-    exec log stream --style compact --predicate 'process == "kolkhoz_app"'
     ;;
   --telemetry)
-    exec log show --style compact --last 10m --predicate 'process == "kolkhoz_app"'
+    exec log stream --style compact --predicate 'process == "kolkhoz_app"'
     ;;
   --debug)
-    set -x
+    FLUTTER_RUN+=(--verbose)
     ;;
   "")
     ;;
@@ -33,18 +37,4 @@ esac
 pkill -x kolkhoz_app 2>/dev/null || true
 
 cd "$APP_DIR"
-flutter build macos \
-  --debug \
-  --config-only \
-  --dart-define=KOLKHOZ_ART_STYLE=field_plan
-xcodebuild \
-  -quiet \
-  -workspace macos/Runner.xcworkspace \
-  -scheme Runner \
-  -configuration Debug \
-  -destination 'generic/platform=macOS' \
-  -derivedDataPath build/macos \
-  CODE_SIGNING_ALLOWED=NO \
-  CODE_SIGNING_REQUIRED=NO \
-  build
-open -n "$APP_BUNDLE"
+exec "${FLUTTER_RUN[@]}"

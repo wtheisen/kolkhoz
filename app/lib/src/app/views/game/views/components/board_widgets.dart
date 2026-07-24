@@ -605,36 +605,21 @@ class _WinningTrickCardFrame extends StatelessWidget {
   }
 
   Widget _frame({required double value, required Widget child}) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        child,
-        Positioned.fill(
-          child: IgnorePointer(
-            child: DecoratedBox(
-              key: const ValueKey('winning-trick-card-frame'),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(cardViewCornerRadius),
-                border: Border.all(
-                  color: tokens.colors.redBright.withValues(
-                    alpha: lerpDouble(0.58, 1, value)!,
-                  ),
-                  width: lerpDouble(2, 4, value)!,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: tokens.colors.redBright.withValues(
-                      alpha: lerpDouble(0.18, 0.62, value)!,
-                    ),
-                    blurRadius: lerpDouble(3, 10, value)!,
-                    spreadRadius: lerpDouble(0, 2, value)!,
-                  ),
-                ],
-              ),
+    return IgnorePointer(
+      child: DecoratedBox(
+        key: const ValueKey('winning-trick-card-frame'),
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(cardViewCornerRadius),
+          border: Border.all(
+            color: tokens.colors.redBright.withValues(
+              alpha: lerpDouble(0.58, 1, value)!,
             ),
+            width: lerpDouble(2, 4, value)!,
           ),
         ),
-      ],
+        child: child,
+      ),
     );
   }
 }
@@ -707,7 +692,8 @@ class PendingAssignmentCardPulse extends StatelessWidget {
 
 const _physicalDeckWidth = 1644.0;
 const _physicalDeckHeight = 2244.0;
-const _physicalDeckInk = Color(0xff263025);
+const _physicalDeckLightInk = Color(0xff263025);
+const _physicalDeckDarkInk = Color(0xfff5d19a);
 
 class PhysicalDeckCardContent extends StatelessWidget {
   const PhysicalDeckCardContent({
@@ -718,6 +704,9 @@ class PhysicalDeckCardContent extends StatelessWidget {
 
   final TableCard card;
   final DesignTokens tokens;
+
+  Color get _ink =>
+      tokens.usesLightAppearance ? _physicalDeckLightInk : _physicalDeckDarkInk;
 
   static Future<Map<String, dynamic>>? _layoutsFuture;
 
@@ -794,24 +783,28 @@ class PhysicalDeckCardContent extends StatelessWidget {
       if (id == 'topTrumpInset' || id == 'bottomTrumpInset') continue;
       final piece = entry.value as Map<String, dynamic>;
       final type = piece['type'] as String;
+      final text = id == 'faceCaption'
+          ? physicalDeckFaceCaption(card) ?? piece['text'] as String
+          : piece['text'] as String?;
       final rotation =
           ((piece['rotation'] as num?)?.toDouble() ?? 0) * math.pi / 180;
 
       if (type == 'rank' || type == 'caption') {
+        final renderedText = text!;
         result.add(
           _textPiece(
-            text: piece['text'] as String,
+            text: renderedText,
             x: (piece['x'] as num).toDouble(),
             y: (piece['y'] as num).toDouble(),
             visualHeight: (piece['visualHeight'] as num).toDouble(),
             scaleX: scaleX,
             scaleY: scaleY,
             rotation: rotation,
-            fontFamily: piece['text'] == '0' && card.suit == wreckerSuit
+            fontFamily: renderedText == '0' && card.suit == wreckerSuit
                 ? 'Bitter'
                 : 'Podkova',
-            inkMetrics: fontMetrics[piece['text']] as Map<String, dynamic>?,
-            slashedZero: piece['text'] == '0' && card.suit == wreckerSuit,
+            inkMetrics: fontMetrics[renderedText] as Map<String, dynamic>?,
+            slashedZero: renderedText == '0' && card.suit == wreckerSuit,
             width: type == 'caption' ? 760 : 360,
           ),
         );
@@ -1130,6 +1123,7 @@ class PhysicalDeckCardContent extends StatelessWidget {
             rotation: rotation,
             fontFamily: fontFamily,
             slashedZero: slashedZero,
+            color: _ink,
             left: (inkMetrics['left'] as num).toDouble(),
             right: (inkMetrics['right'] as num).toDouble(),
             ascent: (inkMetrics['ascent'] as num).toDouble(),
@@ -1153,7 +1147,7 @@ class PhysicalDeckCardContent extends StatelessWidget {
             text,
             maxLines: 1,
             style: TextStyle(
-              color: _physicalDeckInk,
+              color: _ink,
               fontFamily: fontFamily,
               fontWeight: FontWeight.w700,
               height: 1,
@@ -1178,6 +1172,7 @@ class _PhysicalDeckTextPainter extends CustomPainter {
     required this.rotation,
     required this.fontFamily,
     required this.slashedZero,
+    required this.color,
     required this.left,
     required this.right,
     required this.ascent,
@@ -1192,6 +1187,7 @@ class _PhysicalDeckTextPainter extends CustomPainter {
   final double rotation;
   final String fontFamily;
   final bool slashedZero;
+  final Color color;
   final double left;
   final double right;
   final double ascent;
@@ -1203,7 +1199,7 @@ class _PhysicalDeckTextPainter extends CustomPainter {
       text: TextSpan(
         text: text,
         style: TextStyle(
-          color: _physicalDeckInk,
+          color: color,
           fontFamily: fontFamily,
           fontSize: 1000 * scaleY,
           fontWeight: FontWeight.w700,
@@ -1241,6 +1237,7 @@ class _PhysicalDeckTextPainter extends CustomPainter {
       rotation != oldDelegate.rotation ||
       fontFamily != oldDelegate.fontFamily ||
       slashedZero != oldDelegate.slashedZero ||
+      color != oldDelegate.color ||
       left != oldDelegate.left ||
       right != oldDelegate.right ||
       ascent != oldDelegate.ascent ||

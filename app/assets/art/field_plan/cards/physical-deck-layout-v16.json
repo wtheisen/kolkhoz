@@ -6,10 +6,10 @@
   },
   "fontMetrics": {
     "0": {
-      "left": 271.0050048828125,
-      "right": 270.3387451171875,
-      "ascent": 716,
-      "descent": 12
+      "left": 300.29296875,
+      "right": 300.29296875,
+      "ascent": 541.50390625,
+      "descent": 16.6015625
     },
     "2": {
       "left": 239.83383178710938,
@@ -130,11 +130,30 @@
       "right": 2557.533447265625,
       "ascent": 589,
       "descent": 220
+    },
+    "Пьяница": {
+      "left": 2174.21435546875,
+      "right": 2194.951171875,
+      "ascent": 589,
+      "descent": 143
+    },
+    "Доносчица": {
+      "left": 2671.09130859375,
+      "right": 2692.375,
+      "ascent": 589,
+      "descent": 143
+    },
+    "Парторг": {
+      "left": 1930.3533935546875,
+      "right": 1961.0186767578125,
+      "ascent": 589,
+      "descent": 220
     }
   },
-  "currentCardId": "sunflower-king",
+  "currentCardId": "sunflower-jack",
   "currentSuitId": "sunflower",
-  "currentInsetMode": "trump",
+  "currentInsetMode": "suit",
+  "currentNomenklatura": false,
   "mirrorCorners": true,
   "sharedCorners": {
     "topRank": {
@@ -2979,7 +2998,7 @@
       "centralFace": {
         "type": "image",
         "label": "King portrait",
-        "href": "../faces/candidates/face-king-sunflower-poster-v1.png",
+        "href": "../faces/candidates/face-king-sunflower-poster-v2.png",
         "x": 372,
         "y": 445,
         "width": 900,
@@ -5627,7 +5646,7 @@
       "centralFace": {
         "type": "image",
         "label": "Jack portrait",
-        "href": "../faces/candidates/face-jack-beet-poster-v1.png",
+        "href": "../faces/candidates/face-jack-beet-poster-v2.png",
         "x": 372,
         "y": 445,
         "width": 900,

@@ -6,6 +6,18 @@ void registerStoreAndOnlineTests() {
     () {
       final base = runtimeModel();
       final playedCard = base.table.seats[0].hand.single;
+      final highlightedHandCard = TableCard(
+        id: playedCard.id,
+        suit: playedCard.suit,
+        value: playedCard.value,
+        rank: playedCard.rank,
+        selected: true,
+        highlighted: true,
+        pending: playedCard.pending,
+        assignmentRound: playedCard.assignmentRound,
+        nomenclature: playedCard.nomenclature,
+        ownerSeatID: playedCard.ownerSeatID,
+      );
       final earlierPlays = [
         TrickPlay(
           seatID: 1,
@@ -24,6 +36,10 @@ void registerStoreAndOnlineTests() {
         phase: phaseTrick,
         selection: SelectionState.empty,
         jobs: base.table.jobs,
+        seats: [
+          seatWithHand(base.table.seats[0], [highlightedHandCard]),
+          ...base.table.seats.skip(1),
+        ],
         trick: Trick(plays: earlierPlays, winnerSeatID: null),
       );
       final resolvedPlays = [
@@ -90,6 +106,8 @@ void registerStoreAndOnlineTests() {
       expect(states[0].table.phase, phaseTrick);
       expect(states[0].table.trick.plays, hasLength(4));
       expect(states[0].table.trick.plays.last.card.id, playedCard.id);
+      expect(states[0].table.trick.plays.last.card.selected, isFalse);
+      expect(states[0].table.trick.plays.last.card.highlighted, isFalse);
       expect(states[0].table.trick.winnerSeatID, 0);
       expect(states[0].table.seats[0].hand, isEmpty);
       expect(states[1].table.phase, phaseTrick);
@@ -99,6 +117,74 @@ void registerStoreAndOnlineTests() {
       expect(states[2].panels.active, panelJobs);
     },
   );
+
+  test('presentation batch uses the leader recorded after each trick play', () {
+    final before = runtimeModel();
+    final plays = [
+      TrickPlay(
+        seatID: 0,
+        card: testCard(id: 'wheat-8', suit: 'wheat', value: 8),
+      ),
+      TrickPlay(
+        seatID: 1,
+        card: testCard(id: 'wheat-7', suit: 'wheat', value: 7),
+      ),
+      TrickPlay(
+        seatID: 2,
+        card: testCard(id: 'potato-2', suit: 'potato', value: 2),
+      ),
+      TrickPlay(
+        seatID: 3,
+        card: testCard(id: 'potato-9', suit: 'potato', value: 9),
+      ),
+    ];
+    final after = runtimeModelWith(
+      phase: phaseAssignment,
+      selection: SelectionState.empty,
+      jobs: before.table.jobs,
+      trick: const Trick(plays: [], winnerSeatID: null),
+      lastTrick: Trick(plays: plays, winnerSeatID: 3),
+    );
+    final leaders = [0, 0, 2, 3];
+    final events = [
+      for (final (index, play) in plays.indexed)
+        EngineTransitionEvent(
+          kind: kcTransitionCardMoved,
+          playerID: play.seatID,
+          card: EngineCardValue(
+            suit: suitCode(play.card.suit)!,
+            value: play.card.value,
+          ),
+          fromZone: kcObjectZoneHand,
+          toZone: kcObjectZoneCurrentTrick,
+          fromOwner: play.seatID,
+          toOwner: play.seatID,
+          targetSuit: -1,
+          trickWinnerID: leaders[index],
+        ),
+      const EngineTransitionEvent(
+        kind: kcTransitionTrickResolved,
+        playerID: 3,
+        card: EngineCardValue(suit: -1, value: 0),
+        fromZone: kcObjectZoneCurrentTrick,
+        toZone: kcObjectZoneLastTrick,
+        fromOwner: -1,
+        toOwner: 3,
+        targetSuit: -1,
+      ),
+    ];
+
+    final states = projectPresentationBatch(
+      before: before,
+      after: after,
+      events: events,
+    );
+
+    expect(
+      states.take(4).map((state) => state.table.trick.winnerSeatID),
+      leaders,
+    );
+  });
 
   test('presentation transition carries an authoritative engine event', () {
     final model = runtimeModel();
@@ -134,6 +220,7 @@ void registerStoreAndOnlineTests() {
         'fromOwner': 3,
         'toOwner': 3,
         'targetSuit': -1,
+        'trickWinnerID': 2,
       },
     ];
 
@@ -145,6 +232,7 @@ void registerStoreAndOnlineTests() {
       update.snapshot.transitionEvents.single.toZone,
       kcObjectZoneCurrentTrick,
     );
+    expect(update.snapshot.transitionEvents.single.trickWinnerID, 2);
   });
 
   test('presentation queue owns ordering and ignores stale completions', () {

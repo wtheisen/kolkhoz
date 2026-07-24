@@ -20,9 +20,12 @@ const fieldPlanCardBackAssetPath =
 String fieldPlanCardFrameAssetPath({
   required String suit,
   required bool trump,
-}) => trump
-    ? 'assets/art/field_plan/cards/frames/card-frame-trump.png'
-    : 'assets/art/field_plan/cards/frames/card-frame-$suit.png';
+  bool dark = false,
+}) {
+  final name = trump ? 'trump' : suit;
+  final suffix = dark ? '-dark' : '';
+  return 'assets/art/field_plan/cards/frames/card-frame-$name$suffix.png';
+}
 
 const fieldPlanCardSuitAssetPaths = <String, String>{
   'wheat': 'assets/art/field_plan/cards/suits/suit-wheat.png',
@@ -55,7 +58,8 @@ String? fieldPlanCardFaceAssetPath({
       (rank != 'jack' && rank != 'queen' && rank != 'king')) {
     return null;
   }
-  return 'assets/art/field_plan/cards/faces/face-$rank-$suit.png';
+  final suffix = nomenclature ? '-nomenklatura' : '';
+  return 'assets/art/field_plan/cards/faces/face-$rank-$suit$suffix.png';
 }
 
 const fieldPlanCardArtAssetPaths = <String>[
@@ -65,6 +69,11 @@ const fieldPlanCardArtAssetPaths = <String>[
   'assets/art/field_plan/cards/frames/card-frame-potato.png',
   'assets/art/field_plan/cards/frames/card-frame-beet.png',
   'assets/art/field_plan/cards/frames/card-frame-trump.png',
+  'assets/art/field_plan/cards/frames/card-frame-wheat-dark.png',
+  'assets/art/field_plan/cards/frames/card-frame-sunflower-dark.png',
+  'assets/art/field_plan/cards/frames/card-frame-potato-dark.png',
+  'assets/art/field_plan/cards/frames/card-frame-beet-dark.png',
+  'assets/art/field_plan/cards/frames/card-frame-trump-dark.png',
   fieldPlanPlantedSunflowerPath,
   fieldPlanPlantedSunflowerMipPath,
   'assets/art/field_plan/cards/suits/suit-wheat.png',
@@ -88,6 +97,18 @@ const fieldPlanCardArtAssetPaths = <String>[
   'assets/art/field_plan/cards/faces/face-king-sunflower.png',
   'assets/art/field_plan/cards/faces/face-king-potato.png',
   'assets/art/field_plan/cards/faces/face-king-beet.png',
+  'assets/art/field_plan/cards/faces/face-jack-wheat-nomenklatura.png',
+  'assets/art/field_plan/cards/faces/face-jack-sunflower-nomenklatura.png',
+  'assets/art/field_plan/cards/faces/face-jack-potato-nomenklatura.png',
+  'assets/art/field_plan/cards/faces/face-jack-beet-nomenklatura.png',
+  'assets/art/field_plan/cards/faces/face-queen-wheat-nomenklatura.png',
+  'assets/art/field_plan/cards/faces/face-queen-sunflower-nomenklatura.png',
+  'assets/art/field_plan/cards/faces/face-queen-potato-nomenklatura.png',
+  'assets/art/field_plan/cards/faces/face-queen-beet-nomenklatura.png',
+  'assets/art/field_plan/cards/faces/face-king-wheat-nomenklatura.png',
+  'assets/art/field_plan/cards/faces/face-king-sunflower-nomenklatura.png',
+  'assets/art/field_plan/cards/faces/face-king-potato-nomenklatura.png',
+  'assets/art/field_plan/cards/faces/face-king-beet-nomenklatura.png',
   'assets/art/field_plan/cards/faces/face-saboteur.png',
   'assets/art/field_plan/cards/ranks/rank-saboteur-star.png',
 ];

@@ -179,6 +179,7 @@ typedef struct {
     int32_t from_owner;
     int32_t to_owner;
     int32_t target_suit;
+    int32_t trick_winner;
 } KCTransitionEvent;
 
 typedef struct {
@@ -482,6 +483,7 @@ int32_t kc_transition_event_to_zone(const KCEngine *engine, int32_t index);
 int32_t kc_transition_event_from_owner(const KCEngine *engine, int32_t index);
 int32_t kc_transition_event_to_owner(const KCEngine *engine, int32_t index);
 int32_t kc_transition_event_target_suit(const KCEngine *engine, int32_t index);
+int32_t kc_transition_event_trick_winner(const KCEngine *engine, int32_t index);
 bool kc_swap_count(const KCEngine *engine, int32_t player_id);
 bool kc_swap_confirmed(const KCEngine *engine, int32_t player_id);
 bool kc_pass_confirmed(const KCEngine *engine, int32_t player_id);

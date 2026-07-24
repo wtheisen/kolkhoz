@@ -2353,6 +2353,20 @@ void registerBoardTests() {
 
     expect(find.byType(FlyingCard), findsOneWidget);
     expect(completed, isEmpty);
+    final flyingWinner = tester.widget<GameCard>(
+      find.descendant(
+        of: find.byType(FlyingCard),
+        matching: find.byType(GameCard),
+      ),
+    );
+    expect(flyingWinner.winningTrick, isTrue);
+    expect(
+      find.descendant(
+        of: find.byType(FlyingCard),
+        matching: find.byKey(const ValueKey('winning-trick-card-frame')),
+      ),
+      findsOneWidget,
+    );
 
     await tester.pump(const Duration(milliseconds: 521));
 

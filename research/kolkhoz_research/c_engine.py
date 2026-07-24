@@ -128,6 +128,7 @@ class KCTransitionEvent(ctypes.Structure):
         ("from_owner", ctypes.c_int32),
         ("to_owner", ctypes.c_int32),
         ("target_suit", ctypes.c_int32),
+        ("trick_winner", ctypes.c_int32),
     ]
 
 

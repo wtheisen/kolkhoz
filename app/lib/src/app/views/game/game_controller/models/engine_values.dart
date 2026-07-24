@@ -18,6 +18,7 @@ class EngineTransitionEvent {
     required this.fromOwner,
     required this.toOwner,
     required this.targetSuit,
+    this.trickWinnerID = -1,
   });
 
   final int kind;
@@ -28,6 +29,7 @@ class EngineTransitionEvent {
   final int fromOwner;
   final int toOwner;
   final int targetSuit;
+  final int trickWinnerID;
 
   factory EngineTransitionEvent.fromJson(Map<String, Object?> json) {
     final card = json['card'] as Map<String, Object?>?;
@@ -43,6 +45,7 @@ class EngineTransitionEvent {
       fromOwner: json['fromOwner'] as int? ?? -1,
       toOwner: json['toOwner'] as int? ?? -1,
       targetSuit: json['targetSuit'] as int? ?? -1,
+      trickWinnerID: json['trickWinnerID'] as int? ?? -1,
     );
   }
 }

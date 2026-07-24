@@ -113,6 +113,35 @@ const _comrades = OnlineComradesResponse(
 );
 
 void main() {
+  testWidgets('add players opens and closes a nested lobby route', (
+    tester,
+  ) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final semantics = tester.ensureSemantics();
+    await tester.binding.setSurfaceSize(const Size(1152, 768));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox.expand(child: _lobby(const _LobbyScenario('routing'))),
+      ),
+    );
+
+    final nestedNavigator = find.byType(Navigator).last;
+    expect(tester.state<NavigatorState>(nestedNavigator).canPop(), isFalse);
+
+    await tester.tap(find.bySemanticsLabel('ADD PLAYERS'));
+    await tester.pumpAndSettle();
+
+    expect(tester.state<NavigatorState>(nestedNavigator).canPop(), isTrue);
+    expect(find.bySemanticsLabel('BACK TO SETUP'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('BACK TO SETUP'));
+    await tester.pumpAndSettle();
+
+    expect(tester.state<NavigatorState>(nestedNavigator).canPop(), isFalse);
+    expect(find.bySemanticsLabel('ADD PLAYERS'), findsOneWidget);
+    semantics.dispose();
+  });
+
   testWidgets('phone landscape lobby screenshots', (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(const SizedBox.shrink());

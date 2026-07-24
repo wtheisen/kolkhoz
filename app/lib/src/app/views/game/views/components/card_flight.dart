@@ -20,6 +20,7 @@ class FlyingCard extends StatelessWidget {
     required this.onDone,
     this.trump,
     this.visible = true,
+    this.winningTrick = false,
     super.key,
   });
 
@@ -29,6 +30,7 @@ class FlyingCard extends StatelessWidget {
   final VoidCallback onDone;
   final String? trump;
   final bool visible;
+  final bool winningTrick;
 
   @override
   Widget build(BuildContext context) {
@@ -115,6 +117,7 @@ class FlyingCard extends StatelessWidget {
               trump: trump,
               sizeOverride: size,
               motionTracked: false,
+              winningTrick: winningTrick,
             ),
     );
     if (!flight.requisitioned) {

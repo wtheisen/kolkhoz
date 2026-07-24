@@ -382,8 +382,9 @@ void registerTutorialAndLayoutTests() {
     );
     expect(
       faceAssetPath(nomenklaturaQueen),
-      'assets/art/field_plan/cards/faces/face-queen-beet.png',
+      'assets/art/field_plan/cards/faces/face-queen-beet-nomenklatura.png',
     );
+    expect(physicalDeckFaceCaption(nomenklaturaQueen), 'Доносчица');
     expect(genericFaceAssetPath(queen), 'assets/ui/Cards/face-queen.png');
     expect(faceRankName(wrecker), 'saboteur');
     expect(cardRankDisplayLabel(wrecker), 'S 0');
@@ -405,7 +406,7 @@ void registerTutorialAndLayoutTests() {
         tokens: defaultDesignTokens,
         trump: 'wheat',
       ),
-      'assets/ui/Cards/card-template-dark.png',
+      'assets/art/field_plan/cards/frames/card-frame-trump-dark.png',
     );
     expect(
       cardTemplateAssetPath(
@@ -413,7 +414,7 @@ void registerTutorialAndLayoutTests() {
         tokens: lightDesignTokens,
         trump: 'beet',
       ),
-      'assets/ui/Cards/card-template-light-no-overlay.png',
+      'assets/art/field_plan/cards/frames/card-frame-wheat.png',
     );
     expect(
       cardTemplateAssetPath(
@@ -421,7 +422,7 @@ void registerTutorialAndLayoutTests() {
         tokens: defaultDesignTokens,
         trump: null,
       ),
-      'assets/ui/Cards/card-template-dark-no-overlay.png',
+      'assets/art/field_plan/cards/frames/card-frame-wheat-dark.png',
     );
     expect(cardUsesTrumpTemplate(card: wrecker, trump: 'beet'), isTrue);
     expect(
@@ -430,7 +431,7 @@ void registerTutorialAndLayoutTests() {
         tokens: lightDesignTokens,
         trump: null,
       ),
-      'assets/ui/Cards/card-template-light.png',
+      'assets/art/field_plan/cards/frames/card-frame-trump.png',
     );
     expect(pipPositions(12), hasLength(10));
     expect(

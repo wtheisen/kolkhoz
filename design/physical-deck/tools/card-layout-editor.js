@@ -1,5 +1,8 @@
 const CARD = { width: 1644, height: 2244 };
 const STORAGE_KEY = "kolkhoz-card-layout-editor-v1";
+const DARK_PREVIEW_STORAGE_KEY = "kolkhoz-card-layout-editor-dark-preview";
+const FLUTTER_SYNC_URL = "/api/card-layout";
+const FLUTTER_SYNC_INTERVAL_MS = 30_000;
 const RANK_METRIC_SIZE = 1000;
 const CARD_FONT_FAMILY = '"Kolkhoz Podkova", Georgia, serif';
 const ZERO_FONT_FAMILY = '"Kolkhoz Bitter", Georgia, serif';
@@ -14,10 +17,10 @@ const suitDefinitions = [
 ];
 
 const artworkPlateHrefs = {
-  wheat: "../proofs/generated-borders/wheat-artwork-plate-v4-mpc.png",
-  sunflower: "../proofs/generated-borders/sunflower-artwork-plate-v3-mpc.png",
-  potato: "../proofs/generated-borders/potato-artwork-plate-v3-mpc.png",
-  beet: "../proofs/generated-borders/beet-artwork-plate-v3-mpc.png"
+  wheat: "../proofs/generated-borders/wheat-artwork-plate-v5-mpc.png",
+  sunflower: "../proofs/generated-borders/sunflower-artwork-plate-v4-mpc.png",
+  potato: "../proofs/generated-borders/potato-artwork-plate-v4-mpc.png",
+  beet: "../proofs/generated-borders/beet-artwork-plate-v4-mpc.png"
 };
 const trumpArtworkHref = "../proofs/generated-borders/trump-inset-tile-v2-flat-red.png";
 const trumpArtworkRotatedHref = "../proofs/generated-borders/trump-inset-tile-v2-flat-red-rotated.png";
@@ -28,6 +31,12 @@ const faceRankDefinitions = [
   { key: "king", label: "King", rank: "К", value: 13, caption: "Король" }
 ];
 
+const nomenklaturaDefinitions = {
+  jack: { caption: "Пьяница" },
+  queen: { caption: "Доносчица" },
+  king: { caption: "Парторг" }
+};
+
 const faceHrefs = {
   wheat: {
     jack: "../faces/candidates/face-jack-poster-v5-palette.png",
@@ -37,7 +46,7 @@ const faceHrefs = {
   sunflower: {
     jack: "../faces/candidates/face-jack-sunflower-poster-v2.png",
     queen: "../faces/candidates/face-queen-sunflower-poster-v1.png",
-    king: "../faces/candidates/face-king-sunflower-poster-v1.png"
+    king: "../faces/candidates/face-king-sunflower-poster-v2.png"
   },
   potato: {
     jack: "../faces/candidates/face-jack-potato-poster-v1.png",
@@ -45,14 +54,42 @@ const faceHrefs = {
     king: "../faces/candidates/face-king-potato-poster-v1.png"
   },
   beet: {
-    jack: "../faces/candidates/face-jack-beet-poster-v1.png",
+    jack: "../faces/candidates/face-jack-beet-poster-v2.png",
     queen: "../faces/candidates/face-queen-beet-poster-v1.png",
     king: "../faces/candidates/face-king-beet-poster-v1.png"
   }
 };
 
+const nomenklaturaFaceHrefs = Object.fromEntries(
+  suitDefinitions.map(suit => [
+    suit.id,
+    Object.fromEntries(
+      faceRankDefinitions.map(face => [
+        face.key,
+        `../faces/nomenklatura/candidates/face-nomenklatura-${face.key}-${suit.id}-poster-v1.png`
+      ])
+    )
+  ])
+);
+
 function faceHref(suitId, rankKey) {
   return faceHrefs[suitId][rankKey];
+}
+
+function supportsNomenklatura(card) {
+  return card.kind === "face" && card.suit !== "all";
+}
+
+function resolvedFaceHref(card) {
+  return currentNomenklatura && supportsNomenklatura(card)
+    ? nomenklaturaFaceHrefs[card.suit][card.rankKey]
+    : card.faceHref;
+}
+
+function resolvedFaceCaption(card) {
+  return currentNomenklatura && supportsNomenklatura(card)
+    ? nomenklaturaDefinitions[card.rankKey].caption
+    : card.faceCaption;
 }
 
 const ordinaryCardDefinitions = suitDefinitions.flatMap(suit => [
@@ -197,7 +234,7 @@ function faceDefaults(card) {
     },
     topSuit: corners.topSuit,
     centralFace: {
-      type: "image", label: card.faceLabel, href: card.faceHref,
+      type: "image", label: card.faceLabel, href: resolvedFaceHref(card),
       ...face, contentBounds: card.faceContentBounds, rotation: 0
     },
     bottomRank: corners.bottomRank,
@@ -207,9 +244,10 @@ function faceDefaults(card) {
     },
     bottomSuit: corners.bottomSuit
   };
-  if (card.faceCaption) {
+  const faceCaption = resolvedFaceCaption(card);
+  if (faceCaption) {
     facePieces.faceCaption = {
-      type: "caption", label: "Face caption", text: card.faceCaption,
+      type: "caption", label: "Face caption", text: faceCaption,
       x: CARD.width / 2, y: face.y + face.height + 90,
       visualHeight: 96, rotation: 0
     };
@@ -235,12 +273,16 @@ function defaultsFor(cardId) {
 let currentCardId = "wheat-7";
 let currentSuitId = "wheat";
 let currentInsetMode = "suit";
+let currentNomenklatura = false;
 let layouts = {};
 let pieces = defaultsFor(currentCardId);
 let sharedCorners = null;
 let selectedId = "topRank";
 let drag = null;
 let saveTimer = null;
+let layoutRevision = 0;
+let syncedLayoutRevision = -1;
+let flutterSyncInFlight = false;
 let loadedStorageVersion = 0;
 const fieldEditTimers = {};
 
@@ -252,6 +294,7 @@ const list = document.querySelector("#componentList");
 const cardPicker = document.querySelector("#cardPicker");
 const suitPicker = document.querySelector("#suitPicker");
 const trumpInset = document.querySelector("#trumpInset");
+const nomenklaturaToggle = document.querySelector("#nomenklatura");
 const fields = {
   x: document.querySelector("#fieldX"), y: document.querySelector("#fieldY"),
   width: document.querySelector("#fieldWidth"), height: document.querySelector("#fieldHeight"),
@@ -292,7 +335,7 @@ function mergeLayout(cardId, savedPieces) {
         ? cardById[cardId].cornerValue
         : cardById[cardId].rank;
     }
-    if (defaults[id].type === "caption") defaults[id].text = cardById[cardId].faceCaption;
+    if (defaults[id].type === "caption") defaults[id].text = currentDefault.text;
     for (const key of ["x", "y", "width", "height", "rotation", "visualHeight"]) {
       if (key in currentDefault && !validPieceNumber(key, defaults[id][key])) {
         defaults[id][key] = currentDefault[key];
@@ -344,6 +387,9 @@ function ensureSharedFaceValues() {
 }
 
 function load() {
+  const darkCard = document.querySelector("#darkCard");
+  darkCard.checked = localStorage.getItem(DARK_PREVIEW_STORAGE_KEY) === "true";
+  svg.classList.toggle("dark-card", darkCard.checked);
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     loadedStorageVersion = saved?.version || 1;
@@ -367,6 +413,7 @@ function load() {
     }
     if (suitDefinitions.some(suit => suit.id === saved?.currentSuitId)) currentSuitId = saved.currentSuitId;
     if (["suit", "trump"].includes(saved?.currentInsetMode)) currentInsetMode = saved.currentInsetMode;
+    currentNomenklatura = saved?.currentNomenklatura === true;
   } catch (_) {}
   const loadedCard = cardById[currentCardId];
   if (loadedCard?.suit !== "all") currentSuitId = loadedCard.suit;
@@ -623,6 +670,22 @@ function syncPickers() {
   trumpInset.checked = currentInsetMode === "trump";
   suitPicker.disabled = card.suit === "all";
   trumpInset.disabled = card.id === "saboteur";
+  nomenklaturaToggle.checked = currentNomenklatura && supportsNomenklatura(card);
+  nomenklaturaToggle.disabled = !supportsNomenklatura(card);
+}
+
+function refreshVariantContent() {
+  const defaults = defaultsFor(currentCardId);
+  for (const id of ["centralFace", "faceCaption"]) {
+    if (!pieces[id] || !defaults[id]) continue;
+    pieces[id].label = defaults[id].label;
+    if (id === "centralFace") {
+      pieces[id].href = defaults[id].href;
+      pieces[id].contentBounds = defaults[id].contentBounds;
+    } else {
+      pieces[id].text = defaults[id].text;
+    }
+  }
 }
 
 function buildList() {
@@ -643,6 +706,7 @@ function switchCard(cardId) {
   currentCardId = cardId;
   if (cardById[cardId].suit !== "all") currentSuitId = cardById[cardId].suit;
   pieces = applySharedCorners(clone(layouts[cardId] || defaultsFor(cardId)));
+  refreshVariantContent();
   selectedId = "topRank";
   syncPickers();
   buildList();
@@ -761,6 +825,7 @@ function layoutPayload() {
   const result = {
     canvas: CARD,
     card: { id: card.id, label: card.label, rank: card.rank, value: card.value },
+    nomenklatura: currentNomenklatura && supportsNomenklatura(card),
     inset: {
       mode: currentInsetMode,
       artworkHref: currentInsetMode === "trump"
@@ -790,6 +855,9 @@ function allLayoutsPayload() {
       if (isTextPiece(piece)) fontTexts.add(piece.text);
     }
   }
+  for (const definition of Object.values(nomenklaturaDefinitions)) {
+    fontTexts.add(definition.caption);
+  }
   return {
     version: 16,
     canvas: CARD,
@@ -802,6 +870,7 @@ function allLayoutsPayload() {
     currentCardId,
     currentSuitId,
     currentInsetMode,
+    currentNomenklatura,
     mirrorCorners: document.querySelector("#mirrorCorners").checked,
     sharedCorners,
     layouts: exportedLayouts
@@ -841,12 +910,42 @@ function scheduleSave() {
       currentCardId,
       currentSuitId,
       currentInsetMode,
+      currentNomenklatura,
       layouts,
       sharedCorners,
       mirrorCorners: document.querySelector("#mirrorCorners").checked
     }));
-    document.querySelector("#saveStatus").textContent = "Saved locally";
+    layoutRevision += 1;
+    document.querySelector("#saveStatus").textContent = "Saved locally · Flutter sync pending";
   }, 180);
+}
+
+async function syncLayoutsToFlutter() {
+  if (flutterSyncInFlight || layoutRevision <= syncedLayoutRevision) return;
+  flutterSyncInFlight = true;
+  const revision = layoutRevision;
+  document.querySelector("#saveStatus").textContent = "Syncing to Flutter…";
+  try {
+    const response = await fetch(FLUTTER_SYNC_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(allLayoutsPayload())
+    });
+    if (!response.ok) {
+      const result = await response.json().catch(() => null);
+      throw new Error(result?.error || `HTTP ${response.status}`);
+    }
+    syncedLayoutRevision = revision;
+    document.querySelector("#saveStatus").textContent =
+      layoutRevision === revision
+        ? `Synced to Flutter · ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}`
+        : "Saved locally · Flutter sync pending";
+  } catch (error) {
+    console.warn("Flutter layout auto-sync failed:", error);
+    document.querySelector("#saveStatus").textContent = "Saved locally · Flutter auto-sync offline";
+  } finally {
+    flutterSyncInFlight = false;
+  }
 }
 
 svg.addEventListener("pointermove", moveDrag);
@@ -888,6 +987,16 @@ trumpInset.addEventListener("change", () => {
   if (currentInsetMode !== "trump" && pieces[selectedId]?.type === "inset") selectedId = "topRank";
   buildList();
   renderPieces();
+});
+nomenklaturaToggle.addEventListener("change", () => {
+  currentNomenklatura = nomenklaturaToggle.checked;
+  refreshVariantContent();
+  renderPieces();
+});
+document.querySelector("#darkCard").addEventListener("change", event => {
+  const enabled = event.currentTarget.checked;
+  svg.classList.toggle("dark-card", enabled);
+  localStorage.setItem(DARK_PREVIEW_STORAGE_KEY, String(enabled));
 });
 document.querySelector("#mirrorCorners").addEventListener("change", () => { mirrorCorners(); renderPieces(); });
 document.querySelector("#toggleGuides").addEventListener("click", event => {
@@ -944,6 +1053,7 @@ async function initializeEditor() {
   migrateFaceValuePlacement();
   buildList();
   renderPieces();
+  window.setInterval(syncLayoutsToFlutter, FLUTTER_SYNC_INTERVAL_MS);
 }
 
 initializeEditor();

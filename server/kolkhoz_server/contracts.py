@@ -454,6 +454,7 @@ def transition_events_json(state: KCEngineSnapshot) -> list[JsonObject]:
             "fromOwner": int(state.transition_events[i].from_owner),
             "toOwner": int(state.transition_events[i].to_owner),
             "targetSuit": int(state.transition_events[i].target_suit),
+            "trickWinnerID": int(state.transition_events[i].trick_winner),
         }
         for i in range(int(state.transition_event_count))
     ]

@@ -117,6 +117,9 @@ class CreateGameView extends StatefulWidget {
 }
 
 class _VariantPanelState extends State<CreateGameView> {
+  static const setupPageKey = ValueKey('create-game-setup-page');
+  static const lobbyPageKey = ValueKey('create-game-lobby-page');
+
   late List<_LobbySeatChoice> seatChoices;
   final Map<int, String> selectedComradeUserIDsBySeat = {};
   bool showingSeatLobby = false;
@@ -346,11 +349,24 @@ class _VariantPanelState extends State<CreateGameView> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (showingSeatLobby && !widget.demoMode) {
-      return _buildLobbyStep();
+  Widget build(BuildContext context) => Navigator(
+    pages: [
+      MaterialPage<void>(key: setupPageKey, child: _buildSetupStep()),
+      if (showingSeatLobby && !widget.demoMode)
+        MaterialPage<void>(key: lobbyPageKey, child: _buildLobbyStep()),
+    ],
+    onDidRemovePage: (page) {
+      if (page.key == lobbyPageKey && showingSeatLobby) {
+        setState(() => showingSeatLobby = false);
+      }
+    },
+  );
+
+  void showLobbyStep(bool show) {
+    if (showingSeatLobby == show) {
+      return;
     }
-    return _buildSetupStep();
+    setState(() => showingSeatLobby = show);
   }
 
   Widget _buildSetupStep() => _buildFieldPlanSetupStep();
@@ -539,7 +555,7 @@ class _VariantPanelState extends State<CreateGameView> {
             : PixelTextSize.headline,
         padding: const EdgeInsets.symmetric(horizontal: 10),
         expandLabel: false,
-        onPressed: onPressed ?? () => setState(() => showingSeatLobby = false),
+        onPressed: onPressed ?? () => showLobbyStep(false),
       ),
     );
   }
@@ -621,9 +637,7 @@ class _VariantPanelState extends State<CreateGameView> {
           child: _backToSetupButton(
             height: height,
             key: const Key('hosted-online-back-to-setup'),
-            onPressed:
-                widget.onCancelOnlineGame ??
-                () => setState(() => showingSeatLobby = false),
+            onPressed: widget.onCancelOnlineGame ?? () => showLobbyStep(false),
           ),
         ),
         if (widget.hostedInviteCode != null)
@@ -791,7 +805,7 @@ class _VariantPanelState extends State<CreateGameView> {
               label: widget.language.strings.kolkhozappContinueToLobby,
               prominent: true,
               tokens: widget.tokens,
-              onPressed: () => setState(() => showingSeatLobby = true),
+              onPressed: () => showLobbyStep(true),
               iconAsset: 'assets/ui/Icons/icon-add-friend.png',
               iconSize: widget.compactRail ? 22 : 28,
               textSize: widget.compactRail

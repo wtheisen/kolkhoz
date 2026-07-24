@@ -76,6 +76,18 @@ TableViewModel _withPlayedTrickCard(
   if (card == null) {
     return visible;
   }
+  final playedCard = TableCard(
+    id: card.id,
+    suit: card.suit,
+    value: card.value,
+    rank: card.rank,
+    selected: false,
+    highlighted: false,
+    pending: card.pending,
+    assignmentRound: card.assignmentRound,
+    nomenclature: card.nomenclature,
+    ownerSeatID: card.ownerSeatID,
+  );
 
   final finalSeat = finalModel.table.seats
       .where((seat) => seat.id == event.playerID)
@@ -94,10 +106,11 @@ TableViewModel _withPlayedTrickCard(
   final plays = [
     for (final play in visible.table.trick.plays)
       if (play.card.id != cardID) play,
-    TrickPlay(seatID: event.playerID, card: card),
+    TrickPlay(seatID: event.playerID, card: playedCard),
   ];
-  final winnerSeatID =
-      finalModel.table.trick.plays.any((play) => play.card.id == cardID)
+  final winnerSeatID = event.trickWinnerID >= 0
+      ? event.trickWinnerID
+      : finalModel.table.trick.plays.any((play) => play.card.id == cardID)
       ? finalModel.table.trick.winnerSeatID
       : finalModel.table.lastTrick.plays.any((play) => play.card.id == cardID)
       ? finalModel.table.lastTrick.winnerSeatID

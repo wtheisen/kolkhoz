@@ -125,6 +125,7 @@ class KolkhozCEngineBridge {
   late final int Function(Pointer<KCEngine>, int) _transitionEventFromOwner;
   late final int Function(Pointer<KCEngine>, int) _transitionEventToOwner;
   late final int Function(Pointer<KCEngine>, int) _transitionEventTargetSuit;
+  late final int Function(Pointer<KCEngine>, int) _transitionEventTrickWinner;
   late final bool Function(Pointer<KCEngine>, int) _swapCount;
   late final bool Function(Pointer<KCEngine>, int) _swapConfirmed;
   late final bool Function(Pointer<KCEngine>, int) _passConfirmed;
@@ -401,6 +402,7 @@ class KolkhozCEngineBridge {
         fromOwner: _transitionEventFromOwner(engine, index),
         toOwner: _transitionEventToOwner(engine, index),
         targetSuit: _transitionEventTargetSuit(engine, index),
+        trickWinnerID: _transitionEventTrickWinner(engine, index),
       ),
   ];
   bool swapCount(Pointer<KCEngine> engine, int playerID) =>
@@ -680,6 +682,7 @@ class KolkhozCEngineBridge {
     _transitionEventFromOwner = _int1('kc_transition_event_from_owner');
     _transitionEventToOwner = _int1('kc_transition_event_to_owner');
     _transitionEventTargetSuit = _int1('kc_transition_event_target_suit');
+    _transitionEventTrickWinner = _int1('kc_transition_event_trick_winner');
     _swapCount = _bool1('kc_swap_count');
     _swapConfirmed = _bool1('kc_swap_confirmed');
     _passConfirmed = _bool1('kc_pass_confirmed');

@@ -63,13 +63,15 @@ void main() {
       expect(actions, isNotEmpty);
       expect(engine.applyManual(actions.first), 0);
       if (play < 3) {
+        final currentWinner = engine.readNative(
+          (bridge, pointer) => bridge.currentTrickWinner(pointer),
+        );
         expect(
-          engine.readNative(
-            (bridge, pointer) => bridge.currentTrickWinner(pointer),
-          ),
+          currentWinner,
           isNot(-1),
           reason: 'the in-progress trick needs a visible leader',
         );
+        expect(engine.transitionEvents.single.trickWinnerID, currentWinner);
       }
     }
 

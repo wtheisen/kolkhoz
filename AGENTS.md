@@ -65,6 +65,20 @@ python3 -m research.kolkhoz_research.cli engine-smoke --games 8
 Use Flutter/web UI skills when changing app screens or layout. The Flutter app is the
 visual and behavioral app source of truth.
 
+### macOS UI Iteration
+
+For Flutter-only UI, layout, and animation work, start one long-lived
+`cd app && flutter run -d macos` session and use hot reload while iterating. Run
+targeted tests as needed, but reserve `flutter build macos --debug` and the full
+verification suite for final handoff or changes to native C/FFI, plugins, signing, or
+other build inputs that cannot hot reload.
+
+This checkout may live inside Dropbox. Generated Flutter/Xcode output in `app/build/`
+can acquire conflicted framework copies and stale symlinks there. Prefer placing build
+output on a local unsynced volume via a project-specific setup or symlink; do not change
+the user's global Flutter build directory. Treat `app/build/` as disposable and move a
+corrupted build directory aside before rebuilding rather than repeatedly retrying it.
+
 ## iPhone Deployment
 
 Never deploy physical iPhones with Flutter debug builds. On iOS 14+, debug-mode Flutter

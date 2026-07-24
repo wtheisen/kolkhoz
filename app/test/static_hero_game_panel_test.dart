@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,11 +8,182 @@ import 'package:kolkhoz_app/src/app/settings/settings.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/render_model.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_view.dart';
+import 'package:kolkhoz_app/src/app/views/game/views/static_hero/static_hero_game_panel.dart';
 import 'package:kolkhoz_app/src/app/views/shared/field_plan_typography.dart';
 
 import 'support/layout_scenarios.dart';
 
 void main() {
+  testWidgets('production trick panel frames the current winner', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 760));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _loadFonts(tester);
+
+    final model = fieldPlanFourCardTrickModel();
+    await _pumpBoard(tester, model, settle: false);
+
+    final winningCards = tester
+        .widgetList<GameCard>(find.byType(GameCard))
+        .where((card) => card.winningTrick)
+        .toList();
+    expect(winningCards, hasLength(1));
+    expect(winningCards.single.card.id, 'wheat-12');
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('static-hero-trick-card-wheat-12')),
+        matching: find.byKey(const ValueKey('winning-trick-card-frame')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('player-portrait-1-inspect')),
+        matching: find.byKey(const ValueKey('winning-trick-player-frame')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('winning-trick-player-frame')),
+      findsOneWidget,
+    );
+    for (final (seatID, cardID) in [
+      (2, 'sunflower-8'),
+      (3, 'potato-10'),
+      (1, 'wheat-12'),
+      (0, 'beet-6'),
+    ]) {
+      final profileCenter = tester
+          .getCenter(find.byKey(Key('player-portrait-$seatID-inspect')))
+          .dy;
+      final cardCenter = tester
+          .getCenter(find.byKey(Key('static-hero-trick-card-$cardID')))
+          .dy;
+      if (seatID == 2 || seatID == 3) {
+        expect(profileCenter, greaterThan(cardCenter));
+      } else {
+        expect(profileCenter, lessThan(cardCenter));
+      }
+    }
+    for (final seat in model.table.seats) {
+      final cellarCount =
+          seat.plot.effectiveHiddenCardCount +
+          seat.plot.stacks.fold<int>(
+            0,
+            (total, stack) => total + stack.effectiveHiddenCardCount,
+          );
+      expect(
+        find.byKey(Key('player-profile-portrait-${seat.id}')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(Key('player-profile-medals-${seat.id}')),
+        findsOneWidget,
+      );
+      for (var index = 0; index < model.table.maxTricks; index++) {
+        expect(
+          find.byKey(Key('player-profile-medal-${seat.id}-$index')),
+          findsOneWidget,
+        );
+      }
+      expect(
+        find.descendant(
+          of: find.byKey(Key('player-profile-plot-${seat.id}')),
+          matching: find.text('${seat.visibleScore}'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(Key('player-profile-cellar-${seat.id}')),
+          matching: find.text('$cellarCount'),
+        ),
+        findsOneWidget,
+      );
+    }
+    final topProfileYs = [
+      for (final seatID in [2, 3])
+        tester.getCenter(find.byKey(Key('player-portrait-$seatID-inspect'))).dy,
+    ];
+    final bottomProfileYs = [
+      for (final seatID in [1, 0])
+        tester.getCenter(find.byKey(Key('player-portrait-$seatID-inspect'))).dy,
+    ];
+    expect(topProfileYs.reduce(math.max) - topProfileYs.reduce(math.min), 0);
+    expect(
+      bottomProfileYs.reduce(math.max) - bottomProfileYs.reduce(math.min),
+      0,
+    );
+    expect(bottomProfileYs.first, greaterThan(topProfileYs.first));
+
+    for (final seatID in [2, 1]) {
+      final profile = tester.getRect(
+        find.byKey(Key('player-portrait-$seatID-inspect')),
+      );
+      final cardID = seatID == 2 ? 'sunflower-8' : 'wheat-12';
+      final card = tester.getRect(
+        find.byKey(Key('static-hero-trick-card-$cardID')),
+      );
+      expect(profile.left, lessThan(card.left));
+    }
+    for (final seatID in [3, 0]) {
+      final profile = tester.getRect(
+        find.byKey(Key('player-portrait-$seatID-inspect')),
+      );
+      final cardID = seatID == 3 ? 'potato-10' : 'beet-6';
+      final card = tester.getRect(
+        find.byKey(Key('static-hero-trick-card-$cardID')),
+      );
+      expect(profile.right, greaterThan(card.right));
+    }
+  });
+
+  testWidgets('field-art medals pulse when a player is one trick from Hero', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 760));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _loadFonts(tester);
+
+    final base = fieldPlanFourCardTrickModel();
+    final model = _withViewer(
+      base,
+      base.viewer.seatID ?? 0,
+      medalsBySeat: {2: base.table.maxTricks - 1},
+    );
+    await _pumpBoard(tester, model, settle: false);
+
+    expect(find.byKey(const ValueKey('hero-medal-warning')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('player-profile-medals-2')),
+        matching: find.byType(AnimatedSwitcher),
+      ),
+      findsNWidgets(model.table.maxTricks),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 1200,
+          height: 760,
+          child: StaticHeroGamePanel(
+            kind: StaticHeroGamePanelKind.brigade,
+            model: model,
+            tokens: KolkhozAppearance.light.tokens,
+            language: KolkhozLanguage.en,
+            heroOfSovietUnion: false,
+            showPlanningPanel: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('hero-medal-warning')), findsNothing);
+  });
+
   testWidgets('production board renders all three static hero panels', (
     tester,
   ) async {
@@ -135,7 +308,11 @@ void main() {
 LayoutScenario _scenario(String name) =>
     layoutScenarios.firstWhere((scenario) => scenario.name == name);
 
-TableViewModel _withViewer(TableViewModel model, int viewerSeatID) {
+TableViewModel _withViewer(
+  TableViewModel model,
+  int viewerSeatID, {
+  Map<int, int> medalsBySeat = const {},
+}) {
   return TableViewModel(
     viewer: Viewer(seatID: viewerSeatID, privacyMode: model.viewer.privacyMode),
     table: TableState(
@@ -159,7 +336,7 @@ TableViewModel _withViewer(TableViewModel model, int viewerSeatID) {
             hand: seat.hand,
             hiddenHandCount: seat.hiddenHandCount,
             plot: seat.plot,
-            medals: seat.medals,
+            medals: medalsBySeat[seat.id] ?? seat.medals,
             visibleScore: seat.visibleScore,
             profileStats: seat.profileStats,
             profileUserID: seat.profileUserID,
@@ -186,6 +363,7 @@ Future<void> _pumpBoard(
   WidgetTester tester,
   TableViewModel model, {
   ValueChanged<LegalAction>? onAction,
+  bool settle = true,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -204,7 +382,12 @@ Future<void> _pumpBoard(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
+    await tester.pump();
+  }
 }
 
 Future<void> _loadFonts(WidgetTester tester) async {

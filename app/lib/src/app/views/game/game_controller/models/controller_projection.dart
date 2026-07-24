@@ -1,6 +1,19 @@
 import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/c_engine_bridge.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
 
+const botPlayerNames = [
+  'Ivan',
+  'Dmitri',
+  'Alyosha',
+  'Fyodor',
+  'Grushenka',
+  'Katerina',
+];
+
+String botNameForPlayerID(int playerID) {
+  return botPlayerNames[(playerID - 1) % botPlayerNames.length];
+}
+
 int viewerSeatIDForControllers(List<KolkhozPlayerController> controllers) {
   final normalized = KolkhozPlayerController.normalized(controllers);
   return normalized.indexOf(KolkhozPlayerController.human);
@@ -56,5 +69,5 @@ String seatNameForController({
   if (controller == KolkhozPlayerController.human) {
     return 'Player ${playerID + 1}';
   }
-  return 'Bot $playerID';
+  return botNameForPlayerID(playerID);
 }

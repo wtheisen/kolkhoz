@@ -118,6 +118,11 @@
     #card .piece:not(.selected) .selection { display: none; }
     #card .guide { pointer-events: none; fill: none; vector-effect: non-scaling-stroke; }
     #card.guides-off .guide { display: none; }
+    #card .card-paper { fill: #f6edcf; transition: fill 160ms ease; }
+    #card .card-frame { stroke: #33434a; transition: stroke 160ms ease; }
+    #card.dark-card .card-paper { fill: #171b1a; }
+    #card.dark-card .card-frame { stroke: #f5d19a; }
+    #card.dark-card .piece text { fill: #f5d19a; }
 
     .sidebar {
       position: relative;
@@ -185,10 +190,18 @@
           <input id="trumpInset" type="checkbox" aria-label="Trump inset">
           Trump
         </label>
+        <label class="check toolbar-check">
+          <input id="nomenklatura" type="checkbox" aria-label="Nomenklatura face card">
+          Nomenklatura
+        </label>
+        <label class="check toolbar-check">
+          <input id="darkCard" type="checkbox" aria-label="Dark card preview">
+          Dark card
+        </label>
         <button id="zoomFit">Fit</button>
         <button id="toggleGuides">Hide guides</button>
         <div class="spacer"></div>
-        <div class="status" id="saveStatus">Saved locally</div>
+        <div class="status" id="saveStatus">Loading layouts…</div>
       </div>
       <div class="stage">
         <svg id="card" viewBox="0 0 1644 2244" role="img" aria-label="Editable seven of wheat card">
@@ -210,11 +223,11 @@
             </filter>
           </defs>
 
-          <rect width="1644" height="2244" fill="#f6edcf" filter="url(#paperTooth)"/>
+          <rect class="card-paper" width="1644" height="2244" filter="url(#paperTooth)"/>
           <image id="upperInsetArtwork" href="../proofs/generated-borders/wheat-artwork-plate-v1-mpc.png" width="1644" height="2244" clip-path="url(#upperRightWindow)" preserveAspectRatio="none"/>
           <image id="lowerInsetArtwork" href="../proofs/generated-borders/wheat-artwork-plate-v1-mpc.png" x="58" width="1644" height="2244" clip-path="url(#lowerLeftWindow)" preserveAspectRatio="none"/>
 
-          <g fill="none" stroke="#33434a" stroke-linejoin="miter" pointer-events="none">
+          <g class="card-frame" fill="none" stroke-linejoin="miter" pointer-events="none">
             <path d="M176 88 H1460 L1520 148 V2096 L1460 2156 H184 L124 2096 V148 Z" stroke-width="15"/>
             <path d="M204 116 H1440 L1492 168 V2076 L1440 2128 H204 L152 2076 V168 Z" stroke-width="9"/>
             <use href="#cornerRail" stroke-width="9"/>
@@ -265,7 +278,7 @@
 
       <div class="readout" id="readout"></div>
       <textarea id="allLayoutExport" hidden aria-label="All layout export"></textarea>
-      <p class="help">Nudge with <span class="kbd">arrow keys</span>; hold <span class="kbd">Shift</span> for 10 px. Your layout is automatically stored in this browser.</p>
+      <p class="help">Nudge with <span class="kbd">arrow keys</span>; hold <span class="kbd">Shift</span> for 10 px. Changes are stored in this browser immediately and synced into Flutter every 30 seconds while this editor server is running.</p>
     </aside>
   </main>
 
@@ -536,6 +549,6 @@
     buildList();
     renderPieces();
   </script>
-  <script src="card-layout-editor.js"></script>
+  <script src="card-layout-editor.js?v=20260724-nomenklatura-faces"></script>
 </body>
 </html>

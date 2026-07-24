@@ -24,12 +24,22 @@ draw_frame() {
     -resize 822x1122 "$2"
 }
 
+draw_dark_frame() {
+  magick "$1" \
+    -fuzz 2% -fill '#171b1a' \
+    -draw 'color 400,500 floodfill' \
+    -draw 'color 0,0 floodfill' \
+    -draw 'color 100,50 floodfill' \
+    -fuzz 0% -fill '#F5D19A' -opaque '#33434a' \
+    -strip -depth 8 "$2"
+}
+
 for suit in wheat sunflower potato beet; do
   case "$suit" in
-    wheat) plate="$source_dir/wheat-artwork-plate-v4-mpc.png" ;;
-    sunflower) plate="$source_dir/sunflower-artwork-plate-v3-mpc.png" ;;
-    potato) plate="$source_dir/potato-artwork-plate-v3-mpc.png" ;;
-    beet) plate="$source_dir/beet-artwork-plate-v3-mpc.png" ;;
+    wheat) plate="$source_dir/wheat-artwork-plate-v5-mpc.png" ;;
+    sunflower) plate="$source_dir/sunflower-artwork-plate-v4-mpc.png" ;;
+    potato) plate="$source_dir/potato-artwork-plate-v4-mpc.png" ;;
+    beet) plate="$source_dir/beet-artwork-plate-v4-mpc.png" ;;
   esac
   magick "$plate" -alpha extract "$work_dir/source-alpha.png"
   magick "$work_dir/source-alpha.png" "$work_dir/upper-mask.png" \
@@ -47,6 +57,9 @@ for suit in wheat sunflower potato beet; do
     -composite "$work_dir/lower.png" -compose over -composite \
     "$work_dir/$suit.png"
   draw_frame "$work_dir/$suit.png" "$output_dir/card-frame-$suit.png"
+  draw_dark_frame \
+    "$output_dir/card-frame-$suit.png" \
+    "$output_dir/card-frame-$suit-dark.png"
 done
 
 trump_tile="$source_dir/trump-inset-tile-v2-flat-red.png"
@@ -71,3 +84,6 @@ magick -size 1644x2244 xc:'#F5D19A' "$work_dir/upper.png" -compose over \
   -composite "$work_dir/lower.png" -compose over -composite \
   "$work_dir/trump.png"
 draw_frame "$work_dir/trump.png" "$output_dir/card-frame-trump.png"
+draw_dark_frame \
+  "$output_dir/card-frame-trump.png" \
+  "$output_dir/card-frame-trump-dark.png"

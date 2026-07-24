@@ -115,6 +115,16 @@ void main() {
         find.byKey(const Key('production-static-hero-brigade')),
         findsOneWidget,
       );
+      final winningCards = tester
+          .widgetList<GameCard>(find.byType(GameCard))
+          .where((card) => card.winningTrick)
+          .toList();
+      expect(winningCards, hasLength(1));
+      expect(winningCards.single.card.id, 'wheat-12');
+      expect(
+        find.byKey(const ValueKey('winning-trick-card-frame')),
+        findsOneWidget,
+      );
 
       await expectLater(
         find.byKey(const Key('field-plan-trick-screenshot')),

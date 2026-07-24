@@ -166,7 +166,7 @@ void main() {
         rank: 'queen',
         nomenclature: true,
       ),
-      'assets/art/field_plan/cards/faces/face-queen-wheat.png',
+      'assets/art/field_plan/cards/faces/face-queen-wheat-nomenklatura.png',
     );
     expect(
       fieldPlanCardFaceAssetPath(
@@ -183,6 +183,14 @@ void main() {
     expect(
       fieldPlanCardFrameAssetPath(suit: 'potato', trump: true),
       'assets/art/field_plan/cards/frames/card-frame-trump.png',
+    );
+    expect(
+      fieldPlanCardFrameAssetPath(suit: 'potato', trump: false, dark: true),
+      'assets/art/field_plan/cards/frames/card-frame-potato-dark.png',
+    );
+    expect(
+      fieldPlanCardFrameAssetPath(suit: 'potato', trump: true, dark: true),
+      'assets/art/field_plan/cards/frames/card-frame-trump-dark.png',
     );
   });
 
