@@ -7,9 +7,17 @@ create table if not exists server_games (
     variants jsonb not null default '{}'::jsonb,
     revision bigint not null default 0,
     fencing_token bigint not null default 0,
+    engine_build_sha text not null default 'unknown',
+    engine_sha256 text not null default 'unknown',
+    engine_contract_version integer not null default 1,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
 );
+
+alter table server_games
+    add column if not exists engine_build_sha text not null default 'unknown',
+    add column if not exists engine_sha256 text not null default 'unknown',
+    add column if not exists engine_contract_version integer not null default 1;
 
 create table if not exists server_game_events (
     session_id uuid not null references server_games(session_id) on delete cascade,

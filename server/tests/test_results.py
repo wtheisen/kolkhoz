@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest import mock
 
 from server.kolkhoz_server.results import (
     DEFAULT_MU,
@@ -8,6 +9,7 @@ from server.kolkhoz_server.results import (
     PostgresResultsRepository,
     RatingInput,
     aggregate_ai_results,
+    display_rating,
     evaluate_online_progression,
     rate_multiplayer,
 )
@@ -158,6 +160,72 @@ class ResultsRepositoryTests(unittest.TestCase):
         self.assertFalse(changed)
         self.assertEqual(len(cursor.executions), 1)
         self.assertIn("server_result_commits", cursor.executions[0][0])
+
+    def test_finished_result_snapshots_rating_before_and_after_update(self) -> None:
+        cursor = _Cursor([("session",), None])
+        repository = PostgresResultsRepository(
+            pool=_Pool(cursor), json_value=lambda value: value
+        )
+        before = (28.0, 7.0)
+        output = rate_multiplayer(
+            [
+                RatingInput("user:winner", 1, 120, *before),
+                RatingInput(
+                    "ai:mediumAI", 2, 80, DEFAULT_MU, DEFAULT_SIGMA
+                ),
+            ]
+        )["user:winner"]
+        with (
+            mock.patch.object(repository, "_ensure_human"),
+            mock.patch.object(
+                repository,
+                "_load_ratings",
+                return_value={
+                    "user:winner": before,
+                    "ai:mediumAI": (DEFAULT_MU, DEFAULT_SIGMA),
+                },
+            ),
+            mock.patch.object(repository, "_record_progression"),
+            mock.patch.object(repository, "_update_stats"),
+            mock.patch.object(repository, "_insert_update"),
+        ):
+            changed = repository.record_session_results(
+                session_id="session",
+                results=[
+                    {
+                        "user_id": "winner",
+                        "controller": "human",
+                        "player_id": 0,
+                        "score": 120,
+                        "rank": 1,
+                        "won": True,
+                    },
+                    {
+                        "controller": "mediumAI",
+                        "player_id": 1,
+                        "score": 80,
+                        "rank": 2,
+                        "won": False,
+                    },
+                ],
+                ranked=True,
+                updated_at=100,
+                expires_at=200,
+            )
+
+        self.assertTrue(changed)
+        result_insert = next(
+            (sql, params)
+            for sql, params in cursor.executions
+            if "insert into server_game_results" in sql
+        )
+        sql, params = result_insert
+        self.assertIn("rating_mu_before", sql)
+        self.assertEqual(params[7], "human")
+        self.assertEqual(params[8:11], (*before, display_rating(*before)))
+        self.assertAlmostEqual(float(params[11]), output.mu)
+        self.assertAlmostEqual(float(params[12]), output.sigma)
+        self.assertEqual(params[13], output.display_rating)
 
     def test_abandonment_is_one_transaction_and_returns_penalty(self) -> None:
         from datetime import datetime, timezone

@@ -1190,6 +1190,29 @@ def online_load_test_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def export_online_trajectories_command(args: argparse.Namespace) -> int:
+    from .online_trajectories import export_online_trajectories
+
+    database_url = args.database_url or os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise ValueError(
+            "provide --database-url or set DATABASE_URL to export online games"
+        )
+    engine = CEngine(build_shared_library(force=args.rebuild))
+    record = export_online_trajectories(
+        database_url,
+        args.output,
+        engine=engine,
+        min_player_rating=args.min_player_rating,
+        limit_games=args.limit_games,
+        input_size=args.input_size,
+        since=args.since,
+        include_forced_actions=args.include_forced_actions,
+    )
+    print(json.dumps(record, indent=2, sort_keys=True))
+    return 0
+
+
 def cleanup_artifacts_command(args: argparse.Namespace) -> int:
     roots = args.root or DEFAULT_CLEANUP_ROOTS
     record = cleanup_artifacts(
@@ -1906,6 +1929,32 @@ def main() -> int:
     supervised_generate_parser.add_argument("--record", action="store_true")
     supervised_generate_parser.add_argument("--rebuild", action="store_true")
     supervised_generate_parser.set_defaults(func=supervised_generate_command)
+
+    online_export_parser = subparsers.add_parser(
+        "export-online-trajectories",
+        help="replay eligible four-human production games into training JSONL",
+    )
+    online_export_parser.add_argument(
+        "--database-url",
+        default=None,
+        help="PostgreSQL URL; defaults to DATABASE_URL",
+    )
+    online_export_parser.add_argument("--output", type=Path, required=True)
+    online_export_parser.add_argument("--min-player-rating", type=int, default=1400)
+    online_export_parser.add_argument("--limit-games", type=int, default=100)
+    online_export_parser.add_argument(
+        "--since",
+        default=None,
+        help="optional PostgreSQL-compatible timestamp lower bound",
+    )
+    online_export_parser.add_argument("--input-size", type=int, default=200)
+    online_export_parser.add_argument(
+        "--include-forced-actions",
+        action="store_true",
+        help="include states where only one action is legal",
+    )
+    online_export_parser.add_argument("--rebuild", action="store_true")
+    online_export_parser.set_defaults(func=export_online_trajectories_command)
 
     supervised_pretrain_parser = subparsers.add_parser(
         "supervised-pretrain",

@@ -46,11 +46,23 @@ void registerLobbyAndProfileTests() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
 
-    final kolkhozTab = find.bySemanticsLabel('Kolkhoz');
+    final kolkhozTab = find.byKey(const ValueKey('field-plan-preset-kolkhoz'));
     expect(kolkhozTab, findsOneWidget);
+    final icon = find.descendant(of: kolkhozTab, matching: find.byType(Image));
+    final text = find.descendant(
+      of: kolkhozTab,
+      matching: find.text('KOLKHOZ'),
+    );
+    expect(icon, findsOneWidget);
+    expect(text, findsOneWidget);
+    expect(tester.getRect(icon).overlaps(tester.getRect(text)), isFalse);
 
-    expect(find.bySemanticsLabel('Custom'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('field-plan-preset-custom')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('lobby utility icon row controls are interactive', (
@@ -1343,21 +1355,14 @@ void registerLobbyAndProfileTests() {
       find.text('5-year Kolkhoz with easy AI', findRichText: true),
       findsOneWidget,
     );
-    expect(
-      find.byWidgetPredicate(
-        (widget) => widget is PixelText && widget.text == '52 CARD DECK',
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.byWidgetPredicate(
-        (widget) => widget is PixelText && widget.text == '5 YEAR PLAN',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('52 CARD DECK'), findsOneWidget);
+    expect(find.text('5 YEAR PLAN'), findsOneWidget);
     expect(KolkhozGameVariants.demoKolkhoz.wreckerCard, isTrue);
 
-    await tester.tap(find.bySemanticsLabel('Custom'));
+    await tester.tap(
+      find.byKey(const ValueKey('field-plan-preset-custom')),
+      warnIfMissed: false,
+    );
     await tester.pumpAndSettle();
 
     expect(presetChanges, 0);

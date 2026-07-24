@@ -88,9 +88,24 @@ create table if not exists server_game_results (
     rank integer not null,
     won boolean not null,
     ranked boolean not null,
+    controller text not null default 'human',
+    rating_mu_before double precision,
+    rating_sigma_before double precision,
+    display_rating_before integer,
+    rating_mu_after double precision,
+    rating_sigma_after double precision,
+    display_rating_after integer,
     completed_at timestamptz not null,
     primary key (session_id, user_id)
 );
+alter table server_game_results
+    add column if not exists controller text not null default 'human',
+    add column if not exists rating_mu_before double precision,
+    add column if not exists rating_sigma_before double precision,
+    add column if not exists display_rating_before integer,
+    add column if not exists rating_mu_after double precision,
+    add column if not exists rating_sigma_after double precision,
+    add column if not exists display_rating_after integer;
 create index if not exists server_game_results_user_idx
     on server_game_results (user_id, completed_at desc);
 create table if not exists server_series (

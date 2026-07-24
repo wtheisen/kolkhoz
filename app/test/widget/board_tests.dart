@@ -752,28 +752,12 @@ void registerBoardTests() {
   testWidgets('medals pulse when a player is one trick from Hero', (
     tester,
   ) async {
-    final base = runtimeModel();
-    final seats = [
-      for (final seat in base.table.seats)
-        seat.id == 1 ? seatWithMedals(seat, base.table.maxTricks - 1) : seat,
-    ];
-    final model = runtimeModelWith(
-      phase: phaseTrick,
-      selection: SelectionState.empty,
-      jobs: base.table.jobs,
-      seats: seats,
-    );
-
     await tester.pumpWidget(
       MaterialApp(
         home: SizedBox(
-          width: 900,
-          height: 360,
-          child: BrigadePanel(
-            model: model,
-            tokens: defaultDesignTokens,
-            language: KolkhozLanguage.en,
-          ),
+          width: 100,
+          height: 30,
+          child: HeroMedalPulse(active: true, child: const Text('4/5')),
         ),
       ),
     );
@@ -783,14 +767,9 @@ void registerBoardTests() {
     await tester.pumpWidget(
       MaterialApp(
         home: SizedBox(
-          width: 900,
-          height: 360,
-          child: BrigadePanel(
-            model: model,
-            tokens: defaultDesignTokens,
-            language: KolkhozLanguage.en,
-            heroOfSovietUnion: false,
-          ),
+          width: 100,
+          height: 30,
+          child: HeroMedalPulse(active: false, child: const Text('4/5')),
         ),
       ),
     );

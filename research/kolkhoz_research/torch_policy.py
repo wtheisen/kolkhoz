@@ -85,6 +85,7 @@ KC_PHASE_NAMES = {
     3: "assignment",
     4: "requisition",
     5: "game_over",
+    6: "pass",
 }
 
 
@@ -2580,10 +2581,16 @@ def pretrain_torch_policy_from_trajectories(
                         [target_index], dtype=torch.long, device=device
                     )
                     policy_loss = F.cross_entropy(scores.unsqueeze(0), target)
+                    serialized_value = record.get("target_value")
                     value_scalar = (
-                        1.0
-                        if target_index != int(record.get("heuristic_index", -1))
-                        else 0.5
+                        float(serialized_value)
+                        if serialized_value is not None
+                        else (
+                            1.0
+                            if target_index
+                            != int(record.get("heuristic_index", -1))
+                            else 0.5
+                        )
                     )
                     policy_weight = 1.0
                     q_value_loss = torch.zeros((), dtype=torch.float32, device=device)

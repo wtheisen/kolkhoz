@@ -58,6 +58,24 @@ research/scripts/launch_supervised_warmstart_then_round_delta_ppo_v1.sh
 This generates or reuses supervised search labels, pretrains an action transformer, then
 PPO-finetunes against the promoted baseline and runs a fresh holdout benchmark.
 
+## Expert Online Trajectories
+
+Finished online games can be exported as hidden-information-safe supervised records once
+all four seats are human, every player's pre-game display rating meets the threshold, and
+the recorded engine build and source digest match the local engine exactly:
+
+```bash
+DATABASE_URL=postgresql://... \
+python3 -m research.kolkhoz_research.cli export-online-trajectories \
+  --output research/runs/expert_games/trajectories.jsonl \
+  --min-player-rating 1600
+```
+
+The export replays every durable action through the C engine, rejects incompatible or
+invalid histories, and omits account identifiers. Its JSONL output can be passed directly
+to `supervised-pretrain`; human choices provide hard policy labels and final results
+provide value targets.
+
 ## Benchmarks And Promotion
 
 Run a paired benchmark:

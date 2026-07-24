@@ -10,7 +10,12 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Iterator, Protocol
 
-from .model import GameRecord, JsonObject, StoredEvent
+from .model import (
+    ENGINE_REPLAY_CONTRACT_VERSION,
+    GameRecord,
+    JsonObject,
+    StoredEvent,
+)
 
 if TYPE_CHECKING:
     from .metrics import ServerMetrics
@@ -38,6 +43,9 @@ class EventStore(Protocol):
         seed: int,
         variants: JsonObject,
         *,
+        engine_build_sha: str = "unknown",
+        engine_sha256: str = "unknown",
+        engine_contract_version: int = ENGINE_REPLAY_CONTRACT_VERSION,
         command_id: str | None = None,
         fencing_token: int | None = None,
         command_result: JsonObject | None = None,
@@ -177,6 +185,9 @@ create table if not exists games (
     seed integer not null,
     variants_json text not null,
     revision integer not null default 0,
+    engine_build_sha text not null default 'unknown',
+    engine_sha256 text not null default 'unknown',
+    engine_contract_version integer not null default 1,
     created_at real not null,
     updated_at real not null
 );
@@ -213,6 +224,17 @@ class SQLiteEventStore:
         connection = self._connect()
         try:
             connection.executescript(SCHEMA)
+            columns = {
+                str(row["name"])
+                for row in connection.execute("pragma table_info(games)").fetchall()
+            }
+            for name, definition in (
+                ("engine_build_sha", "text not null default 'unknown'"),
+                ("engine_sha256", "text not null default 'unknown'"),
+                ("engine_contract_version", "integer not null default 1"),
+            ):
+                if name not in columns:
+                    connection.execute(f"alter table games add column {name} {definition}")
         finally:
             connection.close()
 
@@ -233,6 +255,9 @@ class SQLiteEventStore:
         seed: int,
         variants: JsonObject,
         *,
+        engine_build_sha: str = "unknown",
+        engine_sha256: str = "unknown",
+        engine_contract_version: int = ENGINE_REPLAY_CONTRACT_VERSION,
         command_id: str | None = None,
         fencing_token: int | None = None,
         command_result: JsonObject | None = None,
@@ -240,13 +265,34 @@ class SQLiteEventStore:
         now = time.time()
         with closing(self._connect()) as connection, connection:
             connection.execute(
-                "insert into games values (?, ?, ?, 0, ?, ?)",
-                (session_id, seed, json.dumps(variants, sort_keys=True), now, now),
+                """insert into games (
+                       session_id, seed, variants_json, revision,
+                       engine_build_sha, engine_sha256, engine_contract_version,
+                       created_at, updated_at
+                   ) values (?, ?, ?, 0, ?, ?, ?, ?, ?)""",
+                (
+                    session_id,
+                    seed,
+                    json.dumps(variants, sort_keys=True),
+                    engine_build_sha,
+                    engine_sha256,
+                    engine_contract_version,
+                    now,
+                    now,
+                ),
             )
             self._insert_sqlite_receipt(
                 connection, command_id, session_id, fencing_token, command_result, now
             )
-        return GameRecord(session_id, seed, dict(variants), 0)
+        return GameRecord(
+            session_id,
+            seed,
+            dict(variants),
+            0,
+            engine_build_sha,
+            engine_sha256,
+            engine_contract_version,
+        )
 
     def command_receipt(self, command_id: str) -> JsonObject | None:
         with closing(self._connect()) as connection:
@@ -259,7 +305,9 @@ class SQLiteEventStore:
     def game(self, session_id: str) -> GameRecord:
         with closing(self._connect()) as connection:
             row = connection.execute(
-                "select session_id, seed, variants_json, revision from games where session_id = ?",
+                """select session_id, seed, variants_json, revision,
+                          engine_build_sha, engine_sha256, engine_contract_version
+                     from games where session_id = ?""",
                 (session_id,),
             ).fetchone()
         if row is None:
@@ -269,6 +317,9 @@ class SQLiteEventStore:
             int(row["seed"]),
             json.loads(str(row["variants_json"])),
             int(row["revision"]),
+            str(row["engine_build_sha"]),
+            str(row["engine_sha256"]),
+            int(row["engine_contract_version"]),
         )
 
     def events(self, session_id: str, *, after_revision: int = 0) -> list[StoredEvent]:
@@ -483,6 +534,9 @@ class PostgresEventStore:
         seed: int,
         variants: JsonObject,
         *,
+        engine_build_sha: str = "unknown",
+        engine_sha256: str = "unknown",
+        engine_contract_version: int = ENGINE_REPLAY_CONTRACT_VERSION,
         command_id: str | None = None,
         fencing_token: int | None = None,
         command_result: JsonObject | None = None,
@@ -490,15 +544,33 @@ class PostgresEventStore:
         with self._pool.connection() as connection, connection.transaction():  # type: ignore[attr-defined]
             connection.execute(  # type: ignore[attr-defined]
                 """
-                insert into server_games (session_id, seed, variants)
-                values (%s::uuid, %s, %s)
+                insert into server_games (
+                    session_id, seed, variants, engine_build_sha,
+                    engine_sha256, engine_contract_version
+                )
+                values (%s::uuid, %s, %s, %s, %s, %s)
                 """,
-                (session_id, seed, self._jsonb(variants)),
+                (
+                    session_id,
+                    seed,
+                    self._jsonb(variants),
+                    engine_build_sha,
+                    engine_sha256,
+                    engine_contract_version,
+                ),
             )
             self._insert_postgres_receipt(
                 connection, command_id, session_id, fencing_token, command_result
             )
-        return GameRecord(session_id, seed, dict(variants), 0)
+        return GameRecord(
+            session_id,
+            seed,
+            dict(variants),
+            0,
+            engine_build_sha,
+            engine_sha256,
+            engine_contract_version,
+        )
 
     def command_receipt(self, command_id: str) -> JsonObject | None:
         with self._pool.connection() as connection:
@@ -512,14 +584,23 @@ class PostgresEventStore:
         with self._pool.connection() as connection:
             row = connection.execute(  # type: ignore[attr-defined]
                 """
-                select session_id::text, seed, variants, revision
+                select session_id::text, seed, variants, revision,
+                       engine_build_sha, engine_sha256, engine_contract_version
                   from server_games where session_id = %s::uuid
                 """,
                 (session_id,),
             ).fetchone()
         if row is None:
             raise GameNotFound(session_id)
-        return GameRecord(str(row[0]), int(row[1]), dict(row[2]), int(row[3]))
+        return GameRecord(
+            str(row[0]),
+            int(row[1]),
+            dict(row[2]),
+            int(row[3]),
+            str(row[4]),
+            str(row[5]),
+            int(row[6]),
+        )
 
     def events(self, session_id: str, *, after_revision: int = 0) -> list[StoredEvent]:
         with self._pool.connection() as connection:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 import tempfile
 import threading
 import time
@@ -73,6 +74,11 @@ class FakeEngineFactory:
 
     def create(self, seed: int, variants: dict[str, object]) -> FakeEngine:
         return FakeEngine(seed, self.delay, self.tracker)
+
+
+class VersionedFakeEngineFactory(FakeEngineFactory):
+    def provenance(self) -> dict[str, str]:
+        return {"gitSHA": "build-123", "engineSHA256": "engine-456"}
 
 
 class TerminalFakeEngine(FakeEngine):
@@ -176,6 +182,62 @@ class RuntimeTests(unittest.TestCase):
                 runtime.create_game(seed=10, session_id="same")
         finally:
             runtime.close()
+
+    def test_create_records_engine_replay_metadata(self) -> None:
+        store = SQLiteEventStore(self.database)
+        runtime = GameRuntime(
+            store,
+            engine_factory=VersionedFakeEngineFactory(),
+            shard_count=1,
+        )
+        try:
+            runtime.create_game(seed=9, session_id="versioned")
+            record = store.game("versioned")
+        finally:
+            runtime.close()
+
+        self.assertEqual(record.engine_build_sha, "build-123")
+        self.assertEqual(record.engine_sha256, "engine-456")
+        self.assertEqual(record.engine_contract_version, 1)
+
+    def test_sqlite_store_migrates_existing_games_table(self) -> None:
+        connection = sqlite3.connect(self.database)
+        try:
+            connection.execute(
+                """create table games (
+                       session_id text primary key,
+                       seed integer not null,
+                       variants_json text not null,
+                       revision integer not null default 0,
+                       created_at real not null,
+                       updated_at real not null
+                   )"""
+            )
+            connection.execute(
+                "insert into games values ('legacy', 4, '{}', 0, 1, 1)"
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        store = SQLiteEventStore(self.database)
+        try:
+            legacy = store.game("legacy")
+            created = store.create_game(
+                "versioned",
+                5,
+                {},
+                engine_build_sha="build",
+                engine_sha256="digest",
+            )
+        finally:
+            store.close()
+
+        self.assertEqual(legacy.engine_build_sha, "unknown")
+        self.assertEqual(legacy.engine_sha256, "unknown")
+        self.assertEqual(legacy.engine_contract_version, 1)
+        self.assertEqual(created.engine_build_sha, "build")
+        self.assertEqual(created.engine_sha256, "digest")
 
     def runtime(
         self, *, factory: FakeEngineFactory | None = None, shards: int = 4

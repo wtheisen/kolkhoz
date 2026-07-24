@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from .engine import EngineFactory, GameEngine, KolkhozCEngineFactory
 from .events import EventHub
 from .ai import HUMAN, AutomaticAdvancer, AutomaticState
-from .model import GameUpdate, JsonObject
+from .model import ENGINE_REPLAY_CONTRACT_VERSION, GameUpdate, JsonObject
 from .store import EventStore
 from .updates import ShardUpdateBuffer
 from .distributed import SessionLease, SessionLeaseRepository
@@ -219,6 +219,12 @@ class GameRuntime:
         self.hub = event_hub or EventHub()
         factory = engine_factory or KolkhozCEngineFactory()
         self._factory = factory
+        provenance = getattr(factory, "provenance", None)
+        engine_details = provenance() if provenance is not None else {}
+        self._engine_build_sha = os.environ.get(
+            "KOLKHOZ_BUILD_SHA", str(engine_details.get("gitSHA", "unknown"))
+        )
+        self._engine_sha256 = str(engine_details.get("engineSHA256", "unknown"))
         if lease_ttl_seconds <= 0:
             raise ValueError("lease_ttl_seconds must be positive")
         resolved_owner = owner_id or str(uuid.uuid4())
@@ -340,6 +346,9 @@ class GameRuntime:
                     session_id,
                     seed,
                     variants,
+                    engine_build_sha=self._engine_build_sha,
+                    engine_sha256=self._engine_sha256,
+                    engine_contract_version=ENGINE_REPLAY_CONTRACT_VERSION,
                     command_id=command_id,
                     fencing_token=fencing_token or command_fencing_token or 1,
                     command_result=receipt,

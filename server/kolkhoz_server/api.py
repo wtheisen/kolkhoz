@@ -1581,7 +1581,9 @@ class OnlineApplication:
                 {
                     "player_id": player_id,
                     "user_id": seat.user_id if seat else None,
-                    "controller": record.controllers[player_id],
+                    "controller": (
+                        seat.controller if seat else record.controllers[player_id]
+                    ),
                     "score": scores[player_id],
                     "rank": ranks[player_id],
                     "won": player_id == winner_id,

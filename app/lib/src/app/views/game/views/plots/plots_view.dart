@@ -275,9 +275,9 @@ class GameOverFinalScorePill extends StatelessWidget {
           asset: winner ? chromeButtonPrimaryAsset : chromeButtonSecondaryAsset,
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
           child: Row(
-            spacing: 5,
+            spacing: 3,
             children: [
               if (winner)
                 Image.asset(

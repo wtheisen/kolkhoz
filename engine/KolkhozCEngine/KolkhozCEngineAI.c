@@ -1616,14 +1616,10 @@ int32_t kc_policy_candidates(const KCEngine *engine, int32_t player_id, KCPolicy
             count++;
         }
     } else if (engine->phase == KC_PHASE_ASSIGNMENT) {
-        int32_t play_index = -1;
-        for (int32_t i = 0; i < engine->last_trick_count; i++) {
-            if (engine->pending_assignment_targets[i] < 0) {
-                play_index = i;
-                break;
+        for (int32_t play_index = 0; play_index < engine->last_trick_count && count < max_candidates; play_index++) {
+            if (engine->pending_assignment_targets[play_index] >= 0) {
+                continue;
             }
-        }
-        if (play_index >= 0) {
             KCCard assigned_card = engine->last_trick[play_index].card;
             for (int32_t suit = 0; suit < KC_SUIT_COUNT && count < max_candidates; suit++) {
                 if (!kc_assignment_target_legal(engine, suit)) {
@@ -1718,14 +1714,10 @@ int32_t kc_engine_policy_action_features(const KCEngine *engine, int32_t player_
             count++;
         }
     } else if (engine->phase == KC_PHASE_ASSIGNMENT) {
-        int32_t play_index = -1;
-        for (int32_t i = 0; i < engine->last_trick_count; i++) {
-            if (engine->pending_assignment_targets[i] < 0) {
-                play_index = i;
-                break;
+        for (int32_t play_index = 0; play_index < engine->last_trick_count && count < max_features; play_index++) {
+            if (engine->pending_assignment_targets[play_index] >= 0) {
+                continue;
             }
-        }
-        if (play_index >= 0) {
             KCCard assigned_card = engine->last_trick[play_index].card;
             for (int32_t suit = 0; suit < KC_SUIT_COUNT && count < max_features; suit++) {
                 if (!kc_assignment_target_legal(engine, suit)) {

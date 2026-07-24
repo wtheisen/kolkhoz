@@ -247,30 +247,6 @@ class PostgresResultsRepository:
                 user_id = _user_id(result)
                 assert user_id is not None
                 self._ensure_human(cursor, user_id, now)
-                cursor.execute(
-                    """insert into server_game_results (
-                           session_id, user_id, player_id, score, rank, won,
-                           ranked, completed_at
-                       ) values (%s, %s, %s, %s, %s, %s, %s, %s)
-                       on conflict (session_id, user_id) do nothing""",
-                    (
-                        session_id,
-                        user_id,
-                        int(result.get("player_id", 0)),
-                        int(result.get("score", 0)),
-                        int(result.get("rank", 4)),
-                        bool(result.get("won", False)),
-                        ranked,
-                        now,
-                    ),
-                )
-                self._record_progression(
-                    cursor,
-                    session_id=session_id,
-                    user_id=user_id,
-                    result=result,
-                    updated_at=now,
-                )
 
             ai_results = aggregate_ai_results(results)
             for ai_key in ai_results:
@@ -288,6 +264,55 @@ class PostgresResultsRepository:
             outputs = rate_multiplayer(
                 rating_inputs(human_results, ai_results, ratings)
             )
+
+            for result in human_results:
+                user_id = _user_id(result)
+                assert user_id is not None
+                before_mu, before_sigma = ratings.get(
+                    _user_key(user_id), (DEFAULT_MU, DEFAULT_SIGMA)
+                )
+                after = outputs.get(_user_key(user_id))
+                cursor.execute(
+                    """insert into server_game_results (
+                           session_id, user_id, player_id, score, rank, won,
+                           ranked, controller, rating_mu_before, rating_sigma_before,
+                           display_rating_before, rating_mu_after,
+                           rating_sigma_after, display_rating_after, completed_at
+                       ) values (
+                           %s, %s, %s, %s, %s, %s, %s, %s,
+                           %s, %s, %s, %s, %s, %s, %s
+                       )
+                       on conflict (session_id, user_id) do nothing""",
+                    (
+                        session_id,
+                        user_id,
+                        int(result.get("player_id", 0)),
+                        int(result.get("score", 0)),
+                        int(result.get("rank", 4)),
+                        bool(result.get("won", False)),
+                        ranked,
+                        str(result.get("controller", "human")),
+                        before_mu,
+                        before_sigma,
+                        display_rating(before_mu, before_sigma),
+                        after.mu if after is not None else before_mu,
+                        after.sigma if after is not None else before_sigma,
+                        (
+                            after.display_rating
+                            if after is not None
+                            else display_rating(before_mu, before_sigma)
+                        ),
+                        now,
+                    ),
+                )
+                self._record_progression(
+                    cursor,
+                    session_id=session_id,
+                    user_id=user_id,
+                    result=result,
+                    updated_at=now,
+                )
+
             for result in human_results:
                 user_id = _user_id(result)
                 assert user_id is not None

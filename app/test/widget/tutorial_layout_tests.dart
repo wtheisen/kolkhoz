@@ -405,7 +405,7 @@ void registerTutorialAndLayoutTests() {
         tokens: defaultDesignTokens,
         trump: 'wheat',
       ),
-      'assets/ui/Cards/card-template-dark.png',
+      'assets/art/field_plan/cards/frames/card-frame-trump.png',
     );
     expect(
       cardTemplateAssetPath(
@@ -413,7 +413,7 @@ void registerTutorialAndLayoutTests() {
         tokens: lightDesignTokens,
         trump: 'beet',
       ),
-      'assets/ui/Cards/card-template-light-no-overlay.png',
+      'assets/art/field_plan/cards/frames/card-frame-wheat.png',
     );
     expect(
       cardTemplateAssetPath(
@@ -421,7 +421,7 @@ void registerTutorialAndLayoutTests() {
         tokens: defaultDesignTokens,
         trump: null,
       ),
-      'assets/ui/Cards/card-template-dark-no-overlay.png',
+      'assets/art/field_plan/cards/frames/card-frame-wheat.png',
     );
     expect(cardUsesTrumpTemplate(card: wrecker, trump: 'beet'), isTrue);
     expect(
@@ -430,7 +430,7 @@ void registerTutorialAndLayoutTests() {
         tokens: lightDesignTokens,
         trump: null,
       ),
-      'assets/ui/Cards/card-template-light.png',
+      'assets/art/field_plan/cards/frames/card-frame-trump.png',
     );
     expect(pipPositions(12), hasLength(10));
     expect(
