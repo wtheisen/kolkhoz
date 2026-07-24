@@ -45,6 +45,7 @@ cd "$APP_DIR"
 
 echo "Deploying Kolkhoz to iOS device $DEVICE_ID in profile mode."
 echo "Beta full-game access: $BETA_BUILD"
+echo "Art style: $ART_STYLE"
 echo "Do not use debug mode for physical iPhone home-screen installs."
 
 "$FLUTTER" build ios --profile -d "$DEVICE_ID" "${DART_DEFINES[@]}"

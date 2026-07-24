@@ -5,7 +5,6 @@ OPEN_APP=1
 CLEAN_BUILD=1
 STOP_STALE=1
 REQUIRE_SUPABASE=1
-ART_STYLE=legacy
 EXTRA_ARGS=()
 
 usage() {
@@ -21,8 +20,6 @@ Options:
   --no-clean                Keep existing build caches for a faster build.
   --no-stop-stale           Do not stop stale Flutter/Xcode/app processes first.
   --allow-missing-supabase  Build even if Supabase env values are missing.
-  --new-art                 Build with the incremental field-plan art direction.
-  --legacy-art              Build with the current pixel-art direction (default).
   -h, --help                Show this help.
 USAGE
 }
@@ -49,12 +46,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --allow-missing-supabase)
       REQUIRE_SUPABASE=0
-      ;;
-    --new-art)
-      ART_STYLE=field_plan
-      ;;
-    --legacy-art)
-      ART_STYLE=legacy
       ;;
     -h|--help)
       usage
@@ -105,7 +96,6 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 DART_DEFINES=()
-DART_DEFINES+=("--dart-define=KOLKHOZ_ART_STYLE=$ART_STYLE")
 if [[ -n "${KOLKHOZ_SUPABASE_URL:-}" && -n "${KOLKHOZ_SUPABASE_PUBLISHABLE_KEY:-}" ]]; then
   DART_DEFINES+=("--dart-define=KOLKHOZ_SUPABASE_URL=$KOLKHOZ_SUPABASE_URL")
   DART_DEFINES+=("--dart-define=KOLKHOZ_SUPABASE_PUBLISHABLE_KEY=$KOLKHOZ_SUPABASE_PUBLISHABLE_KEY")

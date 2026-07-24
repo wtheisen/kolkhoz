@@ -51,6 +51,5 @@ fi
 exec flutter run \
   --device-id macos \
   --target lib/field_plan_world_lab.dart \
-  --dart-define=KOLKHOZ_ART_STYLE=field_plan \
   --dart-define=KOLKHOZ_FIELD_PLAN_EDITOR=true \
   "$@"

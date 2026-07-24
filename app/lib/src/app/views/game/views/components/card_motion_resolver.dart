@@ -28,54 +28,74 @@ class DefaultCardMotionGeometryResolver implements CardMotionGeometryResolver {
   @override
   Rect? source({
     required String cardID,
-    required MotionZone previousZone,
-    required MotionZone nextZone,
-    required MotionGeometry previous,
-    required TableViewModel model,
-  }) => cardFlightSourceRect(
-    cardID: cardID,
-    previousZone: previousZone,
-    nextZone: nextZone,
-    previousRects: previous,
-    model: model,
-    tokens: tokens,
-  );
-
-  @override
-  Rect? sourceForNewCard({
-    required MotionZone nextZone,
-    required MotionGeometry previous,
-    required TableViewModel model,
-  }) => newTrickCardFallbackSourceRect(
-    nextZone: nextZone,
-    previousRects: previous,
-    model: model,
-    tokens: tokens,
-  );
-
-  @override
-  Rect? fallbackSource({
     required MotionZone? previousZone,
     required MotionZone nextZone,
+    required MotionGeometry previous,
     required MotionGeometry current,
-  }) => cardFlightFallbackSourceRect(
-    previousZone: previousZone,
-    nextZone: nextZone,
-    currentRects: current,
-    tokens: tokens,
-  );
+    required TableViewModel previousModel,
+    required TableViewModel nextModel,
+  }) {
+    if (nextZone.kind == MotionZoneKind.northExile) {
+      var source = current[MotionAnchor.card(cardID)];
+      if (source == null && previousZone?.isPlot == true) {
+        source = cardFlightSourceRect(
+          cardID: cardID,
+          previousZone: previousZone!,
+          nextZone: nextZone,
+          previousRects: previous,
+          model: previousModel,
+          tokens: tokens,
+        );
+      }
+      final seatID =
+          plotSeatIDForMotionCard(nextModel, cardID) ?? previousZone?.seatID;
+      source ??= seatID == null
+          ? null
+          : plotCardMotionSourceRect(
+              seatID: seatID,
+              currentRects: current,
+              tokens: tokens,
+            );
+      return source ??
+          cardFlightFallbackSourceRect(
+            previousZone: previousZone,
+            nextZone: nextZone,
+            currentRects: current,
+            tokens: tokens,
+          );
+    }
 
-  @override
-  Rect? plotSource({required int seatID, required MotionGeometry current}) =>
-      plotCardMotionSourceRect(
-        seatID: seatID,
-        currentRects: current,
+    Rect? source;
+    if (previousZone == null) {
+      source = switch (nextZone.kind) {
+        MotionZoneKind.reward =>
+          previous[rewardPileMotionSourceKey(nextZone.suit!)],
+        MotionZoneKind.finalTrump => previous[finalTrumpMotionSourceKey],
+        _ => newTrickCardFallbackSourceRect(
+          nextZone: nextZone,
+          previousRects: previous,
+          model: previousModel,
+          tokens: tokens,
+        ),
+      };
+    } else {
+      source = cardFlightSourceRect(
+        cardID: cardID,
+        previousZone: previousZone,
+        nextZone: nextZone,
+        previousRects: previous,
+        model: previousModel,
         tokens: tokens,
       );
-
-  @override
-  Rect? northTarget(MotionGeometry current) =>
-      northCardMotionTargetRect(currentRects: current, tokens: tokens);
+    }
+    return source ??
+        cardFlightFallbackSourceRect(
+          previousZone: previousZone,
+          nextZone: nextZone,
+          currentRects: current,
+          tokens: tokens,
+        );
+  }
 }
 
 class CardMotionEntry {
@@ -113,7 +133,12 @@ Iterable<CardMotionEntry> cardMotionEntries(TableViewModel model) sync* {
   }
   for (final job in model.table.jobs) {
     if (job.reward case final reward?) {
-      yield CardMotionEntry(card: reward, zone: MotionZone.reward(job.suit));
+      yield CardMotionEntry(
+        card: reward,
+        zone: model.table.phase == phasePlanning
+            ? MotionZone.rewardReveal(job.suit)
+            : MotionZone.reward(job.suit),
+      );
     }
     for (final card in job.assignedCards) {
       if (!card.pending) {
@@ -151,12 +176,20 @@ Rect? cardFlightSourceRect({
   required DesignTokens tokens,
 }) {
   final seatID = handToTrickFlightSeatID(previousZone, nextZone);
-  if (seatID != null && !motionSeatIsViewer(model, seatID)) {
-    return playerCardMotionSourceRect(
-      seatID: seatID,
-      previousRects: previousRects,
-      tokens: tokens,
-    );
+  if (seatID != null) {
+    if (!motionSeatIsViewer(model, seatID)) {
+      return playerCardMotionSourceRect(
+        seatID: seatID,
+        previousRects: previousRects,
+        tokens: tokens,
+      );
+    }
+    return previousRects[MotionAnchor.card(cardID)] ??
+        handCardMotionSourceRect(
+          seatID: seatID,
+          previousRects: previousRects,
+          tokens: tokens,
+        );
   }
   if (previousZone.kind == MotionZoneKind.trick &&
       nextZone.kind == MotionZoneKind.job) {
@@ -169,6 +202,9 @@ Rect? cardFlightSourceRect({
       currentRects: previousRects,
       tokens: tokens,
     );
+  }
+  if (nextZone.kind == MotionZoneKind.rewardReveal) {
+    return previousRects[rewardPileMotionSourceKey(nextZone.suit!)];
   }
   if (nextZone.kind == MotionZoneKind.reward) {
     return previousRects[rewardPileMotionSourceKey(nextZone.suit!)];
@@ -186,7 +222,9 @@ Rect? cardFlightDestinationRect({
   required MotionGeometry currentRects,
   required DesignTokens tokens,
 }) {
-  if (previousZone?.isPlot == true && nextZone.kind == MotionZoneKind.exiled) {
+  if (nextZone.kind == MotionZoneKind.northExile ||
+      (previousZone?.isPlot == true &&
+          nextZone.kind == MotionZoneKind.exiled)) {
     return northCardMotionTargetRect(
       currentRects: currentRects,
       tokens: tokens,
@@ -201,12 +239,24 @@ Rect? cardFlightDestinationRect({
     final assignedCardRect = currentRects[MotionAnchor.card(cardID)];
     return gaugeRect ?? assignedCardRect;
   }
+  if (nextZone.kind == MotionZoneKind.rewardReveal) {
+    return null;
+  }
   if (nextZone.kind == MotionZoneKind.reward) {
     return jobGaugeCardMotionTargetRect(
       suit: nextZone.suit!,
       currentRects: currentRects,
       tokens: tokens,
     );
+  }
+  if (nextZone.kind == MotionZoneKind.trick) {
+    return trickCardMotionTargetRect(
+          seatID: nextZone.seatID!,
+          currentRects: currentRects,
+          tokens: tokens,
+        ) ??
+        currentRects[MotionAnchor.card(cardID)] ??
+        currentRects[trickCardMotionSourceKey(cardID)];
   }
   return currentRects[MotionAnchor.card(cardID)];
 }
@@ -251,6 +301,9 @@ CardMotionPlan addParallelJobPanelFlights({
                 destinationZone: flight.destinationZone,
                 durationScale: flight.durationScale,
                 audiencePanel: panelBrigade,
+                faceDown: flight.faceDown,
+                revealBeforeFlight: flight.revealBeforeFlight,
+                requisitioned: flight.requisitioned,
               )
             else
               flight,
@@ -270,6 +323,9 @@ CardMotionPlan addParallelJobPanelFlights({
                   durationScale: flight.durationScale,
                   audiencePanel: panelJobs,
                   reportsJobArrival: false,
+                  faceDown: flight.faceDown,
+                  revealBeforeFlight: flight.revealBeforeFlight,
+                  requisitioned: flight.requisitioned,
                 ),
           ],
         ],
@@ -286,6 +342,21 @@ Rect? cardFlightFallbackSourceRect({
   required MotionGeometry currentRects,
   required DesignTokens tokens,
 }) {
+  final handSeatID = previousZone == null
+      ? null
+      : handToTrickFlightSeatID(previousZone, nextZone);
+  if (handSeatID != null) {
+    return handCardMotionSourceRect(
+          seatID: handSeatID,
+          previousRects: currentRects,
+          tokens: tokens,
+        ) ??
+        playerCardMotionSourceRect(
+          seatID: handSeatID,
+          previousRects: currentRects,
+          tokens: tokens,
+        );
+  }
   if (previousZone == null ||
       !previousZone.isPlot ||
       !(nextZone.kind == MotionZoneKind.exiled ||
@@ -324,13 +395,29 @@ Rect? newTrickCardFallbackSourceRect({
 Rect? northCardMotionTargetRect({
   required MotionGeometry currentRects,
   required DesignTokens tokens,
-}) => _cardSizedRect(currentRects[northCardMotionTargetKey], tokens);
+}) => _cardSizedRect(
+  currentRects[northRailCardMotionTargetKey] ??
+      currentRects[northCardMotionTargetKey],
+  tokens,
+);
 
 Rect? playerCardMotionSourceRect({
   required int seatID,
   required MotionGeometry previousRects,
   required DesignTokens tokens,
 }) => _cardSizedRect(previousRects[playerCardMotionSourceKey(seatID)], tokens);
+
+Rect? handCardMotionSourceRect({
+  required int seatID,
+  required MotionGeometry previousRects,
+  required DesignTokens tokens,
+}) => _cardSizedRect(previousRects[handCardMotionSourceKey(seatID)], tokens);
+
+Rect? trickCardMotionTargetRect({
+  required int seatID,
+  required MotionGeometry currentRects,
+  required DesignTokens tokens,
+}) => _cardSizedRect(currentRects[trickCardMotionTargetKey(seatID)], tokens);
 
 Rect? _cardSizedRect(Rect? anchor, DesignTokens tokens) {
   if (anchor == null) {

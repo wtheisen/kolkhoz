@@ -253,12 +253,16 @@ abstract class OnlineEngineSnapshot with _$OnlineEngineSnapshot {
     required List<OnlineSuitCardsSnapshot> jobBuckets,
     required List<OnlineSuitCardsSnapshot> accumulatedJobCards,
     required List<OnlineTrickPlaySnapshot> currentTrick,
+    @Default(-1) int currentTrickWinner,
     required List<OnlineTrickPlaySnapshot> lastTrick,
     required int lastWinner,
     required List<OnlineSuitCardsSnapshot> exiled,
     @Default([]) List<OnlineSuitPlayersSnapshot> exiledPlayers,
     required List<OnlineAssignmentSnapshot> pendingAssignments,
     required List<OnlineRequisitionSnapshot> requisitionEvents,
+    @JsonKey(fromJson: _transitionEventsFromJson)
+    @Default([])
+    List<EngineTransitionEvent> transitionEvents,
     required List<OnlineScoreSnapshot> scores,
     required int winnerID,
     required List<int> swapConfirmed,
@@ -277,3 +281,11 @@ Object? _hiddenPlotCountFromJson(Map<dynamic, dynamic> json, String key) =>
 
 Object? _hiddenCountFromJson(Map<dynamic, dynamic> json, String key) =>
     json[key] ?? (json['hidden'] as List<dynamic>).length;
+
+List<EngineTransitionEvent> _transitionEventsFromJson(Object? value) =>
+    value == null
+    ? const []
+    : [
+        for (final item in jsonList(value))
+          EngineTransitionEvent.fromJson(jsonObject(item)),
+      ];

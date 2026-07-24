@@ -159,7 +159,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get variantDemoModeTitle => 'Demo Mode';
 
   @override
-  String get variantDemoModeDescription => '2-year Kolkhoz with easy AI';
+  String get variantDemoModeDescription => '5-year Kolkhoz with easy AI';
 
   @override
   String get appsettingsDark => 'DARK';
@@ -402,7 +402,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get kolkhozappDemoMode2YearKolkhozWithEasyAi =>
-      'Demo mode: 2-year Kolkhoz with easy AI.';
+      'Demo mode: 5-year Kolkhoz with easy AI.';
 
   @override
   String get kolkhozappWorking => 'Working...';

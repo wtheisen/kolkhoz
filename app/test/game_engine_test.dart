@@ -34,4 +34,54 @@ void main() {
     expect(clone.phase, phase);
     clone.dispose();
   });
+
+  test('final trick card returns ordered rule transitions in one dispatch', () {
+    final bridge = KolkhozCEngineBridge();
+    final engine = NativeGameEngine(
+      bridge: bridge,
+      seed: 20260723,
+      variants: KolkhozGameVariants.kolkhoz,
+      controllers: const [
+        KolkhozPlayerController.human,
+        KolkhozPlayerController.human,
+        KolkhozPlayerController.human,
+        KolkhozPlayerController.human,
+      ],
+    );
+    addTearDown(engine.dispose);
+
+    while (engine.phase != kcPhaseTrick) {
+      final actions = engine.legalActions;
+      expect(actions, isNotEmpty);
+      expect(engine.applyManual(actions.first), 0);
+    }
+
+    for (var play = 0; play < 4; play++) {
+      final actions = engine.legalActions
+          .where((action) => action.kind == kcActionPlayCard)
+          .toList();
+      expect(actions, isNotEmpty);
+      expect(engine.applyManual(actions.first), 0);
+      if (play < 3) {
+        expect(
+          engine.readNative(
+            (bridge, pointer) => bridge.currentTrickWinner(pointer),
+          ),
+          isNot(-1),
+          reason: 'the in-progress trick needs a visible leader',
+        );
+      }
+    }
+
+    expect(
+      engine.transitionEvents.map((event) => event.kind),
+      containsAllInOrder([
+        kcTransitionCardMoved,
+        kcTransitionTrickResolved,
+        kcTransitionAssignmentOpened,
+      ]),
+    );
+    expect(engine.transitionEvents.first.fromZone, kcObjectZoneHand);
+    expect(engine.transitionEvents.first.toZone, kcObjectZoneCurrentTrick);
+  });
 }

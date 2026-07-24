@@ -245,7 +245,7 @@ class VariantRowData {
   static final demoMode = VariantRowData(
     titleKey: KolkhozText.variantDemoModeTitle,
     descriptionKey: KolkhozText.variantDemoModeDescription,
-    iconAsset: 'assets/ui/Icons/icon-year-2.png',
+    iconAsset: 'assets/ui/Icons/icon-year-5.png',
     valueOf: (variants) => false,
     withValue: (variants, value) => variants,
     visibleInCustom: (variants) => false,

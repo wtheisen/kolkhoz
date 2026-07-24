@@ -158,7 +158,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get variantDemoModeTitle => 'ДЕМО-РЕЖИМ';
 
   @override
-  String get variantDemoModeDescription => 'Колхоз на 2 года с лёгким ИИ';
+  String get variantDemoModeDescription => 'Колхоз на 5 лет с лёгким ИИ';
 
   @override
   String get appsettingsDark => 'ТЬМА';
@@ -403,7 +403,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get kolkhozappDemoMode2YearKolkhozWithEasyAi =>
-      'Демо-режим: Колхоз на 2 года с лёгким ИИ.';
+      'Демо-режим: Колхоз на 5 лет с лёгким ИИ.';
 
   @override
   String get kolkhozappWorking => 'Идёт...';

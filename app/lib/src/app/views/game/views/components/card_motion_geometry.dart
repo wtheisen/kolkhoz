@@ -7,6 +7,7 @@ enum MotionZoneKind {
   plotStackRevealed,
   trick,
   job,
+  rewardReveal,
   reward,
   finalTrump,
   exiled,
@@ -42,6 +43,8 @@ class MotionZone {
   const MotionZone.trick(int seatID)
     : this._(MotionZoneKind.trick, seatID: seatID);
   const MotionZone.job(String suit) : this._(MotionZoneKind.job, suit: suit);
+  const MotionZone.rewardReveal(String suit)
+    : this._(MotionZoneKind.rewardReveal, suit: suit);
   const MotionZone.reward(String suit)
     : this._(MotionZoneKind.reward, suit: suit);
   const MotionZone.finalTrump() : this._(MotionZoneKind.finalTrump);
@@ -76,13 +79,16 @@ class MotionZone {
 
 enum MotionAnchorKind {
   card,
+  handSource,
   playerSource,
   plotSource,
+  trickTarget,
   trickSource,
   jobGaugeTarget,
   jobFieldTarget,
   rewardPileSource,
   finalTrumpSource,
+  northRailTarget,
   northExileTarget,
 }
 
@@ -93,10 +99,14 @@ class MotionAnchor {
 
   const MotionAnchor.card(String cardID)
     : this._(MotionAnchorKind.card, cardID: cardID);
+  const MotionAnchor.handSource(int seatID)
+    : this._(MotionAnchorKind.handSource, seatID: seatID);
   const MotionAnchor.playerSource(int seatID)
     : this._(MotionAnchorKind.playerSource, seatID: seatID);
   const MotionAnchor.plotSource(int seatID)
     : this._(MotionAnchorKind.plotSource, seatID: seatID);
+  const MotionAnchor.trickTarget(int seatID)
+    : this._(MotionAnchorKind.trickTarget, seatID: seatID);
   const MotionAnchor.trickSource(String cardID)
     : this._(MotionAnchorKind.trickSource, cardID: cardID);
   const MotionAnchor.jobGaugeTarget(String suit)
@@ -107,6 +117,8 @@ class MotionAnchor {
     : this._(MotionAnchorKind.rewardPileSource, suit: suit);
   const MotionAnchor.finalTrumpSource()
     : this._(MotionAnchorKind.finalTrumpSource);
+  const MotionAnchor.northRailTarget()
+    : this._(MotionAnchorKind.northRailTarget);
   const MotionAnchor.northExileTarget()
     : this._(MotionAnchorKind.northExileTarget);
 
@@ -141,8 +153,12 @@ class MotionGeometry {
 
 MotionAnchor playerCardMotionSourceKey(int seatID) =>
     MotionAnchor.playerSource(seatID);
+MotionAnchor handCardMotionSourceKey(int seatID) =>
+    MotionAnchor.handSource(seatID);
 MotionAnchor plotCardMotionSourceKey(int seatID) =>
     MotionAnchor.plotSource(seatID);
+MotionAnchor trickCardMotionTargetKey(int seatID) =>
+    MotionAnchor.trickTarget(seatID);
 MotionAnchor trickCardMotionSourceKey(String cardID) =>
     MotionAnchor.trickSource(cardID);
 MotionAnchor jobGaugeMotionTargetKey(String suit) =>
@@ -152,5 +168,6 @@ MotionAnchor jobFieldMotionTargetKey(String suit) =>
 MotionAnchor rewardPileMotionSourceKey(String suit) =>
     MotionAnchor.rewardPileSource(suit);
 const finalTrumpMotionSourceKey = MotionAnchor.finalTrumpSource();
+const northRailCardMotionTargetKey = MotionAnchor.northRailTarget();
 const northCardMotionTargetKey = MotionAnchor.northExileTarget();
 const cardMotionNorthExileZone = MotionZone.northExile();

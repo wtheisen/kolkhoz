@@ -641,20 +641,30 @@ class JobBucketCard extends StatelessWidget {
     final color = card.pending
         ? tokens.colors.green.withValues(alpha: 0.85)
         : tokens.colors.gold.withValues(alpha: 0.8);
-    return Stack(
-      children: [
-        GameCard(card: card, tokens: tokens, trump: trump, sizeOverride: size),
-        Positioned.fill(
-          child: IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: color, width: card.pending ? 2 : 1),
+    return PendingAssignmentCardPulse(
+      cardID: card.id,
+      active: card.pending,
+      tokens: tokens,
+      child: Stack(
+        children: [
+          GameCard(
+            card: card,
+            tokens: tokens,
+            trump: trump,
+            sizeOverride: size,
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: color, width: card.pending ? 2 : 1),
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -17,6 +17,7 @@ extern "C" {
 #define KC_STATE_INPUT_SIZE 200
 #define KC_MAX_POLICY_HIDDEN_LAYERS 4
 #define KC_MAX_OBJECT_TOKENS 256
+#define KC_MAX_TRANSITION_EVENTS 64
 #define KC_OBJECT_SCALAR_COUNT 8
 #define KC_ACTION_SCALAR_COUNT 32
 
@@ -84,6 +85,13 @@ enum {
     KC_OBJECT_ZONE_DRUNKARD_REPLACEMENT = 13,
     KC_OBJECT_ZONE_UNKNOWN_HIDDEN = 14,
     KC_OBJECT_ZONE_PENDING_ASSIGNMENT = 15
+};
+
+enum {
+    KC_TRANSITION_CARD_MOVED = 1,
+    KC_TRANSITION_TRICK_RESOLVED = 2,
+    KC_TRANSITION_ASSIGNMENT_OPENED = 3,
+    KC_TRANSITION_ASSIGNMENT_TARGETED = 4
 };
 
 typedef struct {
@@ -161,6 +169,17 @@ typedef struct {
     KCCard card;
     int32_t message_kind;
 } KCRequisitionEvent;
+
+typedef struct {
+    int32_t kind;
+    int32_t player_id;
+    KCCard card;
+    int32_t from_zone;
+    int32_t to_zone;
+    int32_t from_owner;
+    int32_t to_owner;
+    int32_t target_suit;
+} KCTransitionEvent;
 
 typedef struct {
     int32_t actions;
@@ -364,6 +383,9 @@ typedef struct {
     KCRequisitionEvent requisition_plan[KC_MAX_CARDS];
     int32_t requisition_plan_count;
     int32_t requisition_plan_index;
+    KCTransitionEvent transition_events[KC_MAX_TRANSITION_EVENTS];
+    int32_t transition_event_count;
+    int32_t transition_batch_depth;
 } KCEngine;
 
 void kc_variants_kolkhoz(KCVariants *variants);
@@ -436,6 +458,7 @@ int32_t kc_job_bucket_count(const KCEngine *engine, int32_t suit);
 KCCard kc_job_bucket_card(const KCEngine *engine, int32_t suit, int32_t index);
 int32_t kc_job_bucket_trick(const KCEngine *engine, int32_t suit, int32_t index);
 int32_t kc_current_trick_count(const KCEngine *engine);
+int32_t kc_current_trick_winner(const KCEngine *engine);
 int32_t kc_current_trick_player(const KCEngine *engine, int32_t index);
 KCCard kc_current_trick_card(const KCEngine *engine, int32_t index);
 int32_t kc_last_trick_count(const KCEngine *engine);
@@ -450,6 +473,15 @@ int32_t kc_requisition_event_player(const KCEngine *engine, int32_t index);
 int32_t kc_requisition_event_suit(const KCEngine *engine, int32_t index);
 KCCard kc_requisition_event_card(const KCEngine *engine, int32_t index);
 int32_t kc_requisition_event_message_kind(const KCEngine *engine, int32_t index);
+int32_t kc_transition_event_count(const KCEngine *engine);
+int32_t kc_transition_event_kind(const KCEngine *engine, int32_t index);
+int32_t kc_transition_event_player(const KCEngine *engine, int32_t index);
+KCCard kc_transition_event_card(const KCEngine *engine, int32_t index);
+int32_t kc_transition_event_from_zone(const KCEngine *engine, int32_t index);
+int32_t kc_transition_event_to_zone(const KCEngine *engine, int32_t index);
+int32_t kc_transition_event_from_owner(const KCEngine *engine, int32_t index);
+int32_t kc_transition_event_to_owner(const KCEngine *engine, int32_t index);
+int32_t kc_transition_event_target_suit(const KCEngine *engine, int32_t index);
 bool kc_swap_count(const KCEngine *engine, int32_t player_id);
 bool kc_swap_confirmed(const KCEngine *engine, int32_t player_id);
 bool kc_pass_confirmed(const KCEngine *engine, int32_t player_id);

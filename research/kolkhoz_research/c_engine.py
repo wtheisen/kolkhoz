@@ -22,6 +22,7 @@ SUIT_COUNT = 4
 MAX_YEARS = 5
 MAX_CARDS = 80
 MAX_STACKS = 16
+MAX_TRANSITION_EVENTS = 64
 
 
 class KCVariants(ctypes.Structure):
@@ -117,6 +118,18 @@ class KCRequisitionEvent(ctypes.Structure):
         ("message_kind", ctypes.c_int32),
     ]
 
+class KCTransitionEvent(ctypes.Structure):
+    _fields_ = [
+        ("kind", ctypes.c_int32),
+        ("player_id", ctypes.c_int32),
+        ("card", KCCard),
+        ("from_zone", ctypes.c_int32),
+        ("to_zone", ctypes.c_int32),
+        ("from_owner", ctypes.c_int32),
+        ("to_owner", ctypes.c_int32),
+        ("target_suit", ctypes.c_int32),
+    ]
+
 
 class KCEngineSnapshot(ctypes.Structure):
     _fields_ = [
@@ -168,6 +181,9 @@ class KCEngineSnapshot(ctypes.Structure):
         ("requisition_plan", KCRequisitionEvent * MAX_CARDS),
         ("requisition_plan_count", ctypes.c_int32),
         ("requisition_plan_index", ctypes.c_int32),
+        ("transition_events", KCTransitionEvent * MAX_TRANSITION_EVENTS),
+        ("transition_event_count", ctypes.c_int32),
+        ("transition_batch_depth", ctypes.c_int32),
     ]
 
 
@@ -616,6 +632,8 @@ class CEngine:
         self.lib.kc_engine_waiting_for_external_action.restype = ctypes.c_bool
         self.lib.kc_engine_waiting_player.argtypes = [ctypes.c_void_p]
         self.lib.kc_engine_waiting_player.restype = ctypes.c_int32
+        self.lib.kc_current_trick_winner.argtypes = [ctypes.c_void_p]
+        self.lib.kc_current_trick_winner.restype = ctypes.c_int32
         self.lib.kc_engine_phase.argtypes = [ctypes.c_void_p]
         self.lib.kc_engine_phase.restype = ctypes.c_int32
         self.lib.kc_engine_year.argtypes = [ctypes.c_void_p]
@@ -730,6 +748,9 @@ class CEngine:
 
     def waiting_for_external_action(self, pointer: ctypes.c_void_p) -> bool:
         return bool(self.lib.kc_engine_waiting_for_external_action(pointer))
+
+    def current_trick_winner(self, pointer: ctypes.c_void_p) -> int:
+        return int(self.lib.kc_current_trick_winner(pointer))
 
     def phase(self, pointer: ctypes.c_void_p) -> int:
         return int(self.lib.kc_engine_phase(pointer))

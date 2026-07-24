@@ -8,13 +8,11 @@ import 'package:kolkhoz_app/src/app/settings/game_motion.dart';
 import 'package:kolkhoz_app/src/app/settings/settings.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/brigade/brigade_fields_scope.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/brigade/brigade_layout.dart';
-import 'package:kolkhoz_app/src/app/views/game/views/brigade/planning_phase_view.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/components/board_widgets.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/fields/fields_view.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/game_log/game_log_view.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/north/north_view.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/plots/plots_view.dart';
-import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/assignment_projection.dart';
 import 'package:kolkhoz_app/src/app/views/shared/chrome_button.dart';
 import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
@@ -110,7 +108,7 @@ class _BrigadePanelState extends State<BrigadePanel> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final playerOrder = orderedSeats(seats);
-        if (configuredKolkhozArtStyle.usesNewArt && !widget.compact) {
+        if (!widget.compact) {
           final verticalPage =
               widget.fieldPlanEnvironmentPage ??
               BrigadeFieldsScope.verticalPageOf(context);
@@ -229,7 +227,6 @@ class _BrigadePanelState extends State<BrigadePanel> {
         }
 
         final calibratedFieldPlan =
-            configuredKolkhozArtStyle.usesNewArt &&
             model.table.phase == phaseTrick &&
             widget.fieldPlanBoardWidth != null &&
             widget.fieldPlanBoardHeight != null;
@@ -254,18 +251,6 @@ class _BrigadePanelState extends State<BrigadePanel> {
                           playerOrder[index],
                           trick.playForSeat(playerOrder[index].id),
                         ),
-                        planningTrumpChooser:
-                            model.table.phase == phasePlanning &&
-                                playerOrder[index].id ==
-                                    model.table.currentPlayerID
-                            ? PlanningPhasePanel(
-                                model: model,
-                                tokens: tokens,
-                                language: language,
-                                focusedSuit: widget.planningTrumpFocusedSuit,
-                                onAction: widget.onPlanningTrumpActionSelected,
-                              )
-                            : null,
                         columnWidth: columnWidth,
                         columnHeight: columnHeight,
                         playerPanelWidth: playerPanelWidth,
@@ -276,6 +261,7 @@ class _BrigadePanelState extends State<BrigadePanel> {
                         heroOfSovietUnion: widget.heroOfSovietUnion,
                         trump: model.table.trump,
                         phase: model.table.phase,
+                        winning: trick.winnerSeatID == playerOrder[index].id,
                         tokens: tokens,
                         language: language,
                         activeReaction: widget.activeReaction,
@@ -350,7 +336,7 @@ class _BrigadePanelState extends State<BrigadePanel> {
                               tokens: tokens,
                               trump: model.table.trump,
                               sizeOverride: tokens.card.large,
-                              fieldPlanSeatID: seat.id,
+                              winningTrick: trick.winnerSeatID == seat.id,
                             ),
                           ),
                         );
@@ -366,7 +352,10 @@ class _BrigadePanelState extends State<BrigadePanel> {
                         destination,
                       ),
                       transformHitTests: false,
-                      child: child,
+                      child: MotionTrackedRegion(
+                        motionKey: trickCardMotionTargetKey(seat.id),
+                        child: child,
+                      ),
                     ),
                   );
                 },
@@ -548,17 +537,6 @@ class CompactBrigadeGrid extends StatelessWidget {
         seat,
         trick.playForSeat(seat.id),
       ),
-      planningTrumpChooser:
-          model.table.phase == phasePlanning &&
-              seat.id == model.table.currentPlayerID
-          ? PlanningPhasePanel(
-              model: model,
-              tokens: tokens,
-              language: language,
-              focusedSuit: planningTrumpFocusedSuit,
-              onAction: onPlanningTrumpActionSelected,
-            )
-          : null,
       columnWidth: columnWidth,
       columnHeight: columnHeight,
       playerPanelWidth: playerPanelWidth,
@@ -569,6 +547,7 @@ class CompactBrigadeGrid extends StatelessWidget {
       heroOfSovietUnion: heroOfSovietUnion,
       trump: model.table.trump,
       phase: model.table.phase,
+      winning: trick.winnerSeatID == seat.id,
       tokens: tokens,
       language: language,
       activeReaction: activeReaction,
@@ -839,20 +818,10 @@ class FarmsteadBrigadePlotBoard extends StatelessWidget {
                     trick.playForSeat(playerOrder[index].id),
                   ),
                   phase: model.table.phase,
+                  winning: trick.winnerSeatID == playerOrder[index].id,
                   trump: model.table.trump,
                   tokens: tokens,
                   language: language,
-                ),
-              ),
-            if (model.table.phase == phasePlanning)
-              FarmsteadPerspectivePositioned(
-                sourceQuad: fieldPlanPlanningSourceQuad(0),
-                child: PlanningPhasePanel(
-                  model: model,
-                  tokens: tokens,
-                  language: language,
-                  focusedSuit: planningTrumpFocusedSuit,
-                  onAction: onPlanningTrumpActionSelected,
                 ),
               ),
             Positioned(
@@ -983,39 +952,42 @@ class FarmsteadPlayerPortrait extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: seat.name,
-      child: GestureDetector(
-        key: Key('player-portrait-${seat.id}-inspect'),
-        behavior: HitTestBehavior.opaque,
-        onTap: onInspect,
-        child: LayoutBuilder(
-          builder: (context, constraints) => Stack(
-            fit: StackFit.expand,
-            children: [
-              PlayerPortrait(
-                seat: seat,
-                tokens: tokens,
-                width: constraints.maxWidth,
-                height: constraints.maxHeight,
-                badgeVisible: false,
-              ),
-              if (reaction != null)
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: tokens.colors.black.withValues(alpha: 0.62),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Image.asset(
-                      'assets/ui/Icons/${reactionAsset(reaction!.reactionID)}',
-                      filterQuality: FilterQuality.none,
+    return MotionTrackedRegion(
+      motionKey: playerCardMotionSourceKey(seat.id),
+      child: Semantics(
+        button: true,
+        label: seat.name,
+        child: GestureDetector(
+          key: Key('player-portrait-${seat.id}-inspect'),
+          behavior: HitTestBehavior.opaque,
+          onTap: onInspect,
+          child: LayoutBuilder(
+            builder: (context, constraints) => Stack(
+              fit: StackFit.expand,
+              children: [
+                PlayerPortrait(
+                  seat: seat,
+                  tokens: tokens,
+                  width: constraints.maxWidth,
+                  height: constraints.maxHeight,
+                  badgeVisible: false,
+                ),
+                if (reaction != null)
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: tokens.colors.black.withValues(alpha: 0.62),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Image.asset(
+                        'assets/ui/Icons/${reactionAsset(reaction!.reactionID)}',
+                        filterQuality: FilterQuality.none,
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1109,6 +1081,7 @@ class FarmsteadPlotCards extends StatelessWidget {
   Widget build(BuildContext context) {
     final hiddenExiledCardIDs = hiddenExiledPlotCardIDs(model);
     final cards = visiblePlotCards(seat.plot.revealed, hiddenExiledCardIDs);
+    final stacks = visiblePlotStacks(seat.plot.stacks, hiddenExiledCardIDs);
     final exiledCardIDs = requisitionExiledCardIDs(model);
     final selectable = seat.isViewer && model.table.phase == phaseSwap;
     return LayoutBuilder(
@@ -1124,7 +1097,7 @@ class FarmsteadPlotCards extends StatelessWidget {
               spacing: -cardSize.width * 0.32,
               children: plotOverviewCardItems(
                 cards: cards,
-                stacks: seat.plot.stacks,
+                stacks: stacks,
                 hiddenCards: false,
                 cardSize: cardSize,
                 selectedCardID: model.selection.plotCardID,
@@ -1207,6 +1180,7 @@ class FarmsteadTrickCard extends StatelessWidget {
     required this.play,
     required this.pendingPlayCard,
     required this.phase,
+    required this.winning,
     required this.trump,
     required this.tokens,
     required this.language,
@@ -1217,6 +1191,7 @@ class FarmsteadTrickCard extends StatelessWidget {
   final TrickPlay? play;
   final TableCard? pendingPlayCard;
   final String phase;
+  final bool winning;
   final String? trump;
   final DesignTokens tokens;
   final KolkhozLanguage language;
@@ -1224,8 +1199,9 @@ class FarmsteadTrickCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final active = phase == phaseTrick && seat.isCurrentTurn && play == null;
+    late final Widget child;
     if (play != null) {
-      return MotionTrackedRegion(
+      child = MotionTrackedRegion(
         motionKey: trickCardMotionSourceKey(play!.card.id),
         child: FittedBox(
           fit: BoxFit.contain,
@@ -1234,12 +1210,12 @@ class FarmsteadTrickCard extends StatelessWidget {
             tokens: tokens,
             trump: trump,
             sizeOverride: tokens.card.medium,
+            winningTrick: winning,
           ),
         ),
       );
-    }
-    if (pendingPlayCard != null) {
-      return PendingTrickPreview(
+    } else if (pendingPlayCard != null) {
+      child = PendingTrickPreview(
         card: pendingPlayCard!,
         active: active,
         human: seat.isViewer,
@@ -1249,14 +1225,19 @@ class FarmsteadTrickCard extends StatelessWidget {
         tokens: tokens,
         language: language,
       );
+    } else {
+      child = CardSlot(
+        active: active,
+        human: seat.isViewer,
+        width: tokens.card.medium.width,
+        height: tokens.card.medium.height,
+        tokens: tokens,
+        language: language,
+      );
     }
-    return CardSlot(
-      active: active,
-      human: seat.isViewer,
-      width: tokens.card.medium.width,
-      height: tokens.card.medium.height,
-      tokens: tokens,
-      language: language,
+    return MotionTrackedRegion(
+      motionKey: trickCardMotionTargetKey(seat.id),
+      child: child,
     );
   }
 }
@@ -1286,7 +1267,6 @@ class BrigadePlayerColumn extends StatelessWidget {
     required this.seat,
     required this.play,
     required this.pendingPlayCard,
-    required this.planningTrumpChooser,
     required this.columnWidth,
     required this.columnHeight,
     required this.playerPanelWidth,
@@ -1297,6 +1277,7 @@ class BrigadePlayerColumn extends StatelessWidget {
     required this.heroOfSovietUnion,
     required this.trump,
     required this.phase,
+    required this.winning,
     required this.tokens,
     required this.language,
     this.activeReaction,
@@ -1315,7 +1296,6 @@ class BrigadePlayerColumn extends StatelessWidget {
   final Seat seat;
   final TrickPlay? play;
   final TableCard? pendingPlayCard;
-  final Widget? planningTrumpChooser;
   final double columnWidth;
   final double columnHeight;
   final double playerPanelWidth;
@@ -1326,6 +1306,7 @@ class BrigadePlayerColumn extends StatelessWidget {
   final bool heroOfSovietUnion;
   final String? trump;
   final String phase;
+  final bool winning;
   final DesignTokens tokens;
   final KolkhozLanguage language;
   final OnlineReaction? activeReaction;
@@ -1341,19 +1322,11 @@ class BrigadePlayerColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fieldPlanTrick =
-        configuredKolkhozArtStyle.usesNewArt && phase == phaseTrick;
+    final fieldPlanTrick = phase == phaseTrick;
     final active = phase == phaseTrick && seat.isCurrentTurn && play == null;
-    final planningSelector =
-        phase == phasePlanning && planningTrumpChooser != null;
-    final activeColumn =
-        active ||
-        planningSelector ||
-        (phase == phaseAssignment && play != null);
+    final activeColumn = active || (phase == phaseAssignment && play != null);
     final human = seat.isViewer;
-    final playAreaChild = planningTrumpChooser != null
-        ? FittedBox(fit: BoxFit.contain, child: planningTrumpChooser)
-        : play == null
+    final playAreaChild = play == null
         ? pendingPlayCard == null
               ? CardSlot(
                   active: active,
@@ -1382,7 +1355,7 @@ class BrigadePlayerColumn extends StatelessWidget {
                 tokens: tokens,
                 trump: trump,
                 sizeOverride: tokens.card.large,
-                fieldPlanSeatID: fieldPlanTrick ? seat.id : null,
+                winningTrick: winning,
               ),
             ),
           );
@@ -1449,7 +1422,7 @@ class BrigadePlayerColumn extends StatelessWidget {
                           : PlayerBadge(
                               seat: seat,
                               tokens: tokens,
-                              active: active || planningSelector,
+                              active: active,
                               width: playerPanelWidth,
                               height: playerPanelHeight,
                               maxTricks: maxTricks,
@@ -1476,7 +1449,12 @@ class BrigadePlayerColumn extends StatelessWidget {
                         child: SizedBox(
                           width: playObjectWidth,
                           height: playObjectHeight,
-                          child: presentedPlayAreaChild,
+                          child: hidePlayArea
+                              ? presentedPlayAreaChild
+                              : MotionTrackedRegion(
+                                  motionKey: trickCardMotionTargetKey(seat.id),
+                                  child: presentedPlayAreaChild,
+                                ),
                         ),
                       ),
                     ),
@@ -2092,209 +2070,7 @@ class PlayerBadge extends StatelessWidget {
   final VoidCallback? onInspect;
 
   @override
-  Widget build(BuildContext context) {
-    if (configuredKolkhozArtStyle.usesNewArt) {
-      return _buildFieldPlanBadge();
-    }
-    final human = seat.isViewer;
-    final scale = playerPanelScale(height);
-    final portraitSize = playerPanelPortraitSize(width, height);
-    final statColumnWidth = playerPanelStatColumnWidth(width, height);
-    final cellarCardSpacing = playerPanelCellarCardSpacing(width, height);
-    final contentLeft = playerPanelContentLeft(width);
-    final contentRight = playerPanelContentRight(width);
-    final contentWidth = math.max(0, contentRight - contentLeft);
-    final portraitLeft = playerPanelPortraitLeft(width, portraitSize);
-    final portraitTop = playerPanelPortraitTop(height, portraitSize);
-    final nameTop = playerPanelNameTop(height);
-    final scoreTop = playerPanelScoreTop(height);
-    final lowerTop = playerPanelLowerStatsTop(height);
-    final scoreWidth = math.min(statColumnWidth, contentWidth * 0.36);
-    final statusWidth = math.min(contentWidth * 0.22, 34 * scale);
-    final medalsWidth = contentWidth * 0.48;
-    final cellarWidth = contentWidth * 0.48;
-    return MotionTrackedRegion(
-      motionKey: playerCardMotionSourceKey(seat.id),
-      child: SizedBox(
-        width: width,
-        height: height,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            boxShadow: [
-              BoxShadow(
-                color: active
-                    ? tokens.colors.gold.withValues(
-                        alpha: playerPanelActiveShadowOpacity,
-                      )
-                    : tokens.colors.black.withValues(
-                        alpha: playerPanelInactiveShadowOpacity,
-                      ),
-                blurRadius: playerPanelShadowRadius,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned.fill(
-                child: Image.asset(
-                  'assets/ui/ui-player-panel.png',
-                  fit: BoxFit.fill,
-                  filterQuality: FilterQuality.none,
-                ),
-              ),
-              Positioned.fill(
-                child: Stack(
-                  clipBehavior: Clip.hardEdge,
-                  children: [
-                    Positioned(
-                      left: portraitLeft,
-                      top: portraitTop,
-                      child: Tooltip(
-                        message: displayName,
-                        child: Semantics(
-                          button: true,
-                          label: displayName,
-                          child: GestureDetector(
-                            key: Key('player-portrait-${seat.id}-inspect'),
-                            behavior: HitTestBehavior.opaque,
-                            onTap: onInspect,
-                            child: PortraitFrame(
-                              seat: seat,
-                              tokens: tokens,
-                              width: portraitSize,
-                              height: portraitSize,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (reaction != null)
-                      Positioned(
-                        key: ValueKey(
-                          'portrait-reaction-${reaction!.revision}',
-                        ),
-                        left: portraitLeft,
-                        top: portraitTop,
-                        width: portraitSize,
-                        height: portraitSize,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: tokens.colors.black.withValues(alpha: 0.62),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Padding(
-                            padding: EdgeInsets.all(portraitSize * 0.18),
-                            child: Image.asset(
-                              'assets/ui/Icons/${reactionAsset(reaction!.reactionID)}',
-                              filterQuality: FilterQuality.none,
-                            ),
-                          ),
-                        ),
-                      ),
-                    Positioned(
-                      left: contentLeft,
-                      top: nameTop,
-                      width: contentWidth - scoreWidth - 4 * scale,
-                      height: 24 * scale,
-                      child: ClipRect(
-                        child: Transform.scale(
-                          scale: scale,
-                          alignment: Alignment.topLeft,
-                          child: PixelText(
-                            displayName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            size: PixelTextSize.caption,
-                            variant: PixelTextVariant.heavy,
-                            color: active
-                                ? tokens.colors.gold
-                                : tokens.colors.cardInk,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: contentRight - scoreWidth,
-                      top: scoreTop,
-                      width: scoreWidth,
-                      child: PlayerPlotScoreStat(
-                        score: seat.visibleScore,
-                        tokens: tokens,
-                        width: scoreWidth,
-                        scale: scale,
-                      ),
-                    ),
-                    if (statusBadgeAssets.isNotEmpty)
-                      Positioned(
-                        left: contentRight - statusWidth,
-                        top: height * 0.42,
-                        width: statusWidth,
-                        child: PlayerStatusBadgeStrip(
-                          assets: statusBadgeAssets,
-                          tokens: tokens,
-                          scale: scale,
-                        ),
-                      ),
-                    Positioned(
-                      left: contentLeft,
-                      top: lowerTop,
-                      width: medalsWidth,
-                      child: PlayerMedalStat(
-                        medals: seat.medals,
-                        maxTricks: maxTricks,
-                        heroWithinReach: heroWithinReach,
-                        tokens: tokens,
-                        statColumnWidth: medalsWidth,
-                        scale: scale,
-                      ),
-                    ),
-                    Positioned(
-                      left: contentRight - cellarWidth,
-                      top: lowerTop,
-                      width: cellarWidth,
-                      child: PlayerCellarStat(
-                        count: seat.plot.hidden.length,
-                        tokens: tokens,
-                        width: cellarWidth,
-                        cardSpacing: cellarCardSpacing,
-                        scale: scale,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: Padding(
-                    padding: EdgeInsets.all(2 * scale),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(7),
-                        border: Border.all(
-                          color: active
-                              ? tokens.colors.gold.withValues(alpha: 0.78)
-                              : human
-                              ? tokens.colors.redDark.withValues(alpha: 0.42)
-                              : Colors.transparent,
-                          width: active
-                              ? 1.3 * scale
-                              : human
-                              ? scale
-                              : 0,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => _buildFieldPlanBadge();
 
   Widget _buildFieldPlanBadge() {
     final human = seat.isViewer;
@@ -2343,12 +2119,15 @@ class PlayerBadge extends StatelessWidget {
                               fontSize: math.max(10, height * 0.24),
                             ),
                           ),
-                          Text(
-                            '${seat.visibleScore}  •  ${seat.medals}/$maxTricks',
-                            maxLines: 1,
-                            style: fieldPlanBodyStrongTextStyle.copyWith(
-                              color: accent,
-                              fontSize: math.max(8, height * 0.18),
+                          HeroMedalPulse(
+                            active: heroWithinReach,
+                            child: Text(
+                              '${seat.visibleScore}  •  ${seat.medals}/$maxTricks',
+                              maxLines: 1,
+                              style: fieldPlanBodyStrongTextStyle.copyWith(
+                                color: accent,
+                                fontSize: math.max(8, height * 0.18),
+                              ),
                             ),
                           ),
                         ],
@@ -2788,8 +2567,14 @@ class HeroMedalPulse extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final motion = GameMotion.of(context);
-    if (!active || !motion.enabled) {
+    if (!active) {
       return child;
+    }
+    if (!motion.enabled) {
+      return KeyedSubtree(
+        key: const ValueKey('hero-medal-warning'),
+        child: child,
+      );
     }
     return Semantics(
       label: 'One trick from Hero of Socialist Labor',
@@ -2919,9 +2704,7 @@ class PlayerCardBackThumbnail extends StatelessWidget {
         child: Image.asset(
           cardBack.displayedIconAssetPath,
           fit: BoxFit.cover,
-          filterQuality: configuredKolkhozArtStyle.usesNewArt
-              ? FilterQuality.medium
-              : FilterQuality.none,
+          filterQuality: FilterQuality.medium,
         ),
       ),
     );

@@ -39,7 +39,9 @@ class GameMotion {
   Duration get medalAppear => duration(_medalAppearDuration);
   Duration get heroMedalPulse => duration(_heroMedalPulseDuration);
   Duration get activeCardSlotPulse => duration(_activeCardSlotPulseDuration);
+  Duration get trickWinnerPulse => duration(_trickWinnerPulseDuration);
   Duration get trumpSelectorFrame => duration(_trumpSelectorFrameDuration);
+  Duration get rewardFlip => duration(_rewardFlipDuration);
   Duration get logChevron => duration(_logChevronDuration);
   Duration get logSectionResize => duration(_logSectionResizeDuration);
 
@@ -49,6 +51,7 @@ class GameMotion {
   static const Curve focusCurve = Curves.easeInOutCubic;
   static const Curve gaugeDeltaCurve = Curves.easeOutCubic;
   static const Curve handInteractionCurve = Curves.easeOutCubic;
+  static const Curve rewardFlipCurve = Curves.easeInOutCubic;
   static const Curve medalInCurve = Curves.easeOutBack;
   static const Curve medalOutCurve = Curves.easeInCubic;
   static const Curve ambientPulseCurve = Curves.easeInOut;
@@ -65,9 +68,11 @@ class GameMotion {
   static const Duration _activeCardSlotPulseDuration = Duration(
     milliseconds: 1800,
   );
+  static const Duration _trickWinnerPulseDuration = Duration(milliseconds: 900);
   static const Duration _trumpSelectorFrameDuration = Duration(
     milliseconds: 120,
   );
+  static const Duration _rewardFlipDuration = Duration(milliseconds: 460);
   static const Duration _logChevronDuration = Duration(milliseconds: 140);
   static const Duration _logSectionResizeDuration = Duration(milliseconds: 160);
 }

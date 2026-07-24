@@ -4,6 +4,7 @@ import 'dart:ffi' hide Size;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolkhoz_app/src/app/settings/animation_speed.dart';
@@ -25,9 +26,11 @@ import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine
 import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/c_engine_bridge.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/controller_projection.dart';
 import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
+import 'package:kolkhoz_app/src/app/views/shared/field_plan_assets.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/engine_action_projection.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/game_controller.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/game_presentation_batch.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/game_presentation_queue.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/game_presentation_transition.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/local_game_engine_factory.dart';
@@ -58,6 +61,7 @@ import 'package:kolkhoz_app/src/app/views/game/game_controller/models/render_mod
 import 'package:kolkhoz_app/src/app/views/shared/rule_content.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/saved_game_store.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/components/display/table_display.dart';
+import 'package:kolkhoz_app/src/app/views/game/views/static_hero/static_hero_game_panel.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/table_projection_helpers.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/terminal_game_record.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/terminal_game_replay.dart';
@@ -572,21 +576,34 @@ class _CardMotionTestBoard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hand = model.table.seats[0].hand;
-    final trick = model.table.phase == phaseAssignment
-        ? visibleAssignmentTrick(model).plays
+    final visibleTrick = model.table.phase == phaseAssignment
+        ? visibleAssignmentTrick(model)
         : model.table.trick.plays.isNotEmpty
-        ? model.table.trick.plays
-        : model.table.lastTrick.plays;
+        ? model.table.trick
+        : model.table.lastTrick;
+    final trick = visibleTrick.plays;
     final handCard = hand.isEmpty ? null : hand.first;
     return Stack(
       clipBehavior: Clip.none,
       children: [
+        for (final seatID in [0, 1, 2, 3])
+          Positioned(
+            left: 24 + seatID * 96,
+            top: 208,
+            child: MotionTrackedRegion(
+              motionKey: playerCardMotionSourceKey(seatID),
+              child: const SizedBox(width: 82, height: 42),
+            ),
+          ),
         Positioned(
           left: 24,
-          top: 208,
+          top: 24,
           child: MotionTrackedRegion(
-            motionKey: playerCardMotionSourceKey(2),
-            child: const SizedBox(width: 96, height: 42),
+            motionKey: handCardMotionSourceKey(0),
+            child: SizedBox(
+              width: defaultDesignTokens.card.small.width,
+              height: defaultDesignTokens.card.small.height,
+            ),
           ),
         ),
         for (final (index, job) in model.table.jobs.indexed)
@@ -609,45 +626,34 @@ class _CardMotionTestBoard extends StatelessWidget {
               sizeOverride: defaultDesignTokens.card.small,
             ),
           ),
-        for (final (index, trickPlay) in trick.indexed)
+        for (final seatID in [0, 1, 2, 3])
           Positioned(
-            left: 220 + index * 42,
-            top: 76 + index * 20,
-            child: GameCard(
-              card: trickPlay.card,
-              tokens: defaultDesignTokens,
-              trump: model.table.trump,
-              sizeOverride: defaultDesignTokens.card.small,
+            left: 220 + seatID * 42,
+            top: 76 + seatID * 20,
+            child: Builder(
+              builder: (context) {
+                final card = trick
+                    .where((play) => play.seatID == seatID)
+                    .firstOrNull
+                    ?.card;
+                return MotionTrackedRegion(
+                  motionKey: trickCardMotionTargetKey(seatID),
+                  child: card == null
+                      ? SizedBox(
+                          width: defaultDesignTokens.card.small.width,
+                          height: defaultDesignTokens.card.small.height,
+                        )
+                      : GameCard(
+                          card: card,
+                          tokens: defaultDesignTokens,
+                          trump: model.table.trump,
+                          sizeOverride: defaultDesignTokens.card.small,
+                          winningTrick: visibleTrick.winnerSeatID == seatID,
+                        ),
+                );
+              },
             ),
           ),
-      ],
-    );
-  }
-}
-
-class _RequisitionMotionTestBoard extends StatelessWidget {
-  const _RequisitionMotionTestBoard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          left: 260,
-          top: 120,
-          child: MotionTrackedRegion(
-            motionKey: plotCardMotionSourceKey(0),
-            child: const SizedBox(width: 120, height: 100),
-          ),
-        ),
-        Positioned(
-          left: 18,
-          top: 24,
-          child: MotionTrackedRegion(
-            motionKey: northCardMotionTargetKey,
-            child: const SizedBox(width: 44, height: 44),
-          ),
-        ),
       ],
     );
   }

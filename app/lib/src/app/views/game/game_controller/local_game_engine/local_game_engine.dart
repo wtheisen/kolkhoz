@@ -326,6 +326,7 @@ class LocalGameEngine implements GameEngine {
             SubmitGameAction(:final action) => action,
             _ => null,
           },
+          transitions: engine.transitionEvents,
         ),
       );
     }

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:kolkhoz_app/src/app/settings/settings.dart';
-import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
 import 'package:kolkhoz_app/src/app/views/shared/chrome_button.dart';
 import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
@@ -99,19 +98,22 @@ class GameOverPlotPanel extends StatelessWidget {
                   child: Semantics(
                     label: 'Game seed ${model.seed}',
                     button: true,
-                    child: InkWell(
-                      key: const Key('game-over-seed'),
-                      onTap: () => Clipboard.setData(
-                        ClipboardData(text: '${model.seed}'),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 3),
-                        child: Text(
-                          'SEED ${model.seed}  •  TAP TO COPY',
-                          style: kolkhozFontStyle.copyWith(
-                            color: tokens.colors.creamDim,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: InkWell(
+                        key: const Key('game-over-seed'),
+                        onTap: () => Clipboard.setData(
+                          ClipboardData(text: '${model.seed}'),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 3),
+                          child: Text(
+                            'SEED ${model.seed}  •  TAP TO COPY',
+                            style: kolkhozFontStyle.copyWith(
+                              color: tokens.colors.creamDim,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ),
@@ -345,6 +347,10 @@ class PlotOverviewView extends StatelessWidget {
       viewer.plot.revealed,
       hiddenExiledCardIDs,
     );
+    final viewerStacks = visiblePlotStacks(
+      viewer.plot.stacks,
+      hiddenExiledCardIDs,
+    );
     final selectable = model.table.phase == phaseSwap;
     final revealOpponentCellars = model.table.phase == phaseGameOver;
     return LayoutBuilder(
@@ -420,7 +426,6 @@ class PlotOverviewView extends StatelessWidget {
                         cards: viewerHiddenCards,
                         value: viewerHiddenCards.length,
                         hidden: true,
-                        hiddenCards: false,
                         selectable: selectable,
                         selectedCardID: model.selection.plotCardID,
                         exiledCardIDs: exiledCardIDs,
@@ -435,10 +440,10 @@ class PlotOverviewView extends StatelessWidget {
                         title: 'Plot',
                         iconPath: 'assets/ui/Icons/icon-plot.png',
                         cards: viewerRevealedCards,
-                        stacks: viewer.plot.stacks,
+                        stacks: viewerStacks,
                         value: plotSectionValue(
                           viewerRevealedCards,
-                          viewer.plot.stacks,
+                          viewerStacks,
                         ),
                         hidden: false,
                         selectable: selectable,
@@ -475,24 +480,47 @@ List<Widget> plotOverviewCardItems({
 }) {
   return [
     for (final card in cards)
-      GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: selectable ? () => onPlotCardTap?.call(card.id, zone) : null,
-        child: PlotCardExileFrame(
-          exiled: exiledCardIDs.contains(card.id),
+      PlotCardExileFrame(
+        exiled: exiledCardIDs.contains(card.id),
+        tokens: tokens,
+        radius: tokens.radius.card,
+        child: SwapSelectedCardFrame(
+          cardID: card.id,
+          selected: card.id == selectedCardID,
           tokens: tokens,
-          radius: tokens.radius.card,
           child: hiddenCards
-              ? ScaledHighlightableCardBack(
-                  card: selectedPlotCard(card, selectedCardID),
-                  tokens: tokens,
-                  size: cardSize,
+              ? InteractiveCardFlip(
+                  key: ValueKey('cellar-card-${card.id}'),
+                  concealedLabel: 'Cellar card. Tap to reveal.',
+                  revealedLabel:
+                      '${card.rank} of ${card.suit}. Tap to conceal.',
+                  frontKey: ValueKey('cellar-face-${card.id}'),
+                  backKey: ValueKey('cellar-back-${card.id}'),
+                  onTap: selectable
+                      ? () => onPlotCardTap?.call(card.id, zone)
+                      : null,
+                  front: GameCard(
+                    card: selectedPlotCard(card, selectedCardID),
+                    tokens: tokens,
+                    sizeOverride: cardSize,
+                    motionTracked: false,
+                  ),
+                  back: ScaledHighlightableCardBack(
+                    card: selectedPlotCard(card, selectedCardID),
+                    tokens: tokens,
+                    size: cardSize,
+                  ),
                 )
-              : GameCard(
-                  card: selectedPlotCard(card, selectedCardID),
-                  tokens: tokens,
-                  sizeOverride: cardSize,
-                  motionTracked: false,
+              : GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: selectable
+                      ? () => onPlotCardTap?.call(card.id, zone)
+                      : null,
+                  child: GameCard(
+                    card: selectedPlotCard(card, selectedCardID),
+                    tokens: tokens,
+                    sizeOverride: cardSize,
+                  ),
                 ),
         ),
       ),
@@ -512,6 +540,49 @@ List<Widget> plotOverviewCardItems({
         ),
     ],
   ];
+}
+
+class SwapSelectedCardFrame extends StatelessWidget {
+  const SwapSelectedCardFrame({
+    required this.cardID,
+    required this.selected,
+    required this.tokens,
+    required this.child,
+    super.key,
+  });
+
+  final String cardID;
+  final bool selected;
+  final DesignTokens tokens;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!selected) {
+      return child;
+    }
+    return Container(
+      key: ValueKey('swap-selected-plot-card-$cardID'),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(cardViewCornerRadius),
+        boxShadow: [
+          BoxShadow(
+            color: tokens.colors.green.withValues(alpha: 0.72),
+            blurRadius: 9,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(cardViewCornerRadius),
+        border: Border.all(
+          color: tokens.colors.green,
+          width: math.max(3, tokens.stroke.active),
+        ),
+      ),
+      child: child,
+    );
+  }
 }
 
 class GameOverPlotCard extends StatelessWidget {
@@ -1423,9 +1494,7 @@ class CardBackMini extends StatelessWidget {
           child: Image.asset(
             cardBack.displayedAssetPath,
             fit: BoxFit.cover,
-            filterQuality: configuredKolkhozArtStyle.usesNewArt
-                ? FilterQuality.medium
-                : FilterQuality.none,
+            filterQuality: FilterQuality.medium,
             errorBuilder: (_, _, _) => ColoredBox(color: tokens.colors.iron),
           ),
         ),

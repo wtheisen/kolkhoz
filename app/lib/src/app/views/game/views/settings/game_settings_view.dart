@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import 'package:kolkhoz_app/src/app/settings/animation_speed.dart';
 import 'package:kolkhoz_app/src/app/settings/settings.dart';
-import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
 import 'package:kolkhoz_app/src/app/views/shared/chrome_button.dart';
 import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
 import 'package:kolkhoz_app/src/app/views/shared/pixel_text.dart';
@@ -829,14 +828,6 @@ class OptionsDisplayControls extends StatelessWidget {
             onChanged: onAnimationSpeedChanged,
           ),
         ),
-        if (!configuredKolkhozArtStyle.usesNewArt)
-          OptionsCardBackPicker(
-            selected: cardBack,
-            tokens: tokens,
-            language: language,
-            onChanged: onCardBackChanged,
-            unlockedCardBacks: unlockedCardBacks,
-          ),
       ],
     );
   }
@@ -954,9 +945,7 @@ class OptionsCardBackButton extends StatelessWidget {
                         Image.asset(
                           cardBack.displayedAssetPath,
                           fit: BoxFit.cover,
-                          filterQuality: configuredKolkhozArtStyle.usesNewArt
-                              ? FilterQuality.medium
-                              : FilterQuality.none,
+                          filterQuality: FilterQuality.medium,
                           color: unlocked
                               ? null
                               : tokens.colors.black.withValues(alpha: 0.58),

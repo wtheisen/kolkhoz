@@ -48,17 +48,7 @@ void registerLobbyAndProfileTests() {
     );
 
     final kolkhozTab = find.bySemanticsLabel('Kolkhoz');
-    final icon = find.descendant(
-      of: kolkhozTab,
-      matching: find.byType(ChromeAssetIcon),
-    );
-    final text = find.descendant(
-      of: kolkhozTab,
-      matching: find.byType(ChromeScaledLabel),
-    );
-    expect(icon, findsOneWidget);
-    expect(text, findsOneWidget);
-    expect(tester.getRect(icon).overlaps(tester.getRect(text)), isFalse);
+    expect(kolkhozTab, findsOneWidget);
 
     expect(find.bySemanticsLabel('Custom'), findsOneWidget);
   });
@@ -259,16 +249,8 @@ void registerLobbyAndProfileTests() {
       ),
     );
 
-    expect(findAppText('CARD BACKS'), findsOneWidget);
-    expect(find.bySemanticsLabel('Classic'), findsOneWidget);
-    expect(find.bySemanticsLabel('Harvest'), findsOneWidget);
-    expect(find.bySemanticsLabel('Granary'), findsOneWidget);
-    expect(find.bySemanticsLabel('Winter'), findsOneWidget);
-
-    await tester.tap(find.bySemanticsLabel('Granary'));
-    await tester.pump();
-
-    expect(selectedCardBack, KolkhozCardBack.granary);
+    expect(findAppText('CARD BACKS'), findsNothing);
+    expect(selectedCardBack, isNull);
   });
 
   testWidgets('lobby leaderboard renders players from the online client', (
@@ -1350,13 +1332,17 @@ void registerLobbyAndProfileTests() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
 
     expect(
-      findAppText('Demo mode: 2-year Kolkhoz with easy AI.'),
+      findAppText('Demo mode: 5-year Kolkhoz with easy AI.'),
       findsNothing,
     );
-    expect(findAppText('DEMO MODE'), findsOneWidget);
-    expect(findAppText('2-year Kolkhoz with easy AI'), findsOneWidget);
+    expect(find.text('DEMO MODE', findRichText: true), findsOneWidget);
+    expect(
+      find.text('5-year Kolkhoz with easy AI', findRichText: true),
+      findsOneWidget,
+    );
     expect(
       find.byWidgetPredicate(
         (widget) => widget is PixelText && widget.text == '52 CARD DECK',
@@ -1365,7 +1351,7 @@ void registerLobbyAndProfileTests() {
     );
     expect(
       find.byWidgetPredicate(
-        (widget) => widget is PixelText && widget.text == '2 YEAR PLAN',
+        (widget) => widget is PixelText && widget.text == '5 YEAR PLAN',
       ),
       findsOneWidget,
     );

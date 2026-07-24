@@ -120,7 +120,7 @@ class MenuDioramaScene extends StatefulWidget {
 class _MenuDioramaSceneState extends State<MenuDioramaScene>
     with SingleTickerProviderStateMixin {
   static const _asset =
-      'assets/art/field_plan/menu-village-day-underlay-v1.png';
+      'assets/art/field_plan/menu-village-day-underlay-v3.png';
 
   late final AnimationController _ambientClock;
   Offset _pointer = Offset.zero;
@@ -277,8 +277,8 @@ class _FarIndustryClipper extends CustomClipper<Path> {
 
   @override
   Path getClip(Size size) => Path()
-    ..moveTo(0, size.height * .07)
-    ..lineTo(size.width, size.height * .07)
+    ..moveTo(0, 0)
+    ..lineTo(size.width, 0)
     ..lineTo(size.width, size.height * .40)
     ..cubicTo(
       size.width * .72,
@@ -347,7 +347,7 @@ class _SceneWash extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
-          colors: [Color(0xcc151713), Color(0x55151713), Color(0x00151713)],
+          colors: [Color(0xa8151713), Color(0x38151713), Color(0x00151713)],
           stops: [0, .32, .68],
         ),
       ),
@@ -523,15 +523,31 @@ class _PaperGrainVignette extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0x99211e17), width: 8),
-        gradient: const RadialGradient(
-          radius: 1.05,
-          colors: [Colors.transparent, Color(0x52110f0c)],
-          stops: [.58, 1],
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Opacity(
+          opacity: .07,
+          child: Image.asset(
+            'assets/art/field_plan/shared/textures/paper-light.png',
+            fit: BoxFit.none,
+            repeat: ImageRepeat.repeat,
+            color: const Color(0xff705c3b),
+            colorBlendMode: BlendMode.multiply,
+            filterQuality: FilterQuality.low,
+          ),
         ),
-      ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0x77211e17), width: 8),
+            gradient: const RadialGradient(
+              radius: 1.05,
+              colors: [Colors.transparent, Color(0x38110f0c)],
+              stops: [.58, 1],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -32,6 +32,20 @@ List<TableCard> visiblePlotCards(
       .toList(growable: false);
 }
 
+List<PlotStackState> visiblePlotStacks(
+  List<PlotStackState> stacks,
+  Set<String> hiddenExiledCardIDs,
+) {
+  return [
+    for (final stack in stacks)
+      PlotStackState(
+        revealed: visiblePlotCards(stack.revealed, hiddenExiledCardIDs),
+        hidden: visiblePlotCards(stack.hidden, hiddenExiledCardIDs),
+        hiddenCardCount: stack.hiddenCardCount,
+      ),
+  ];
+}
+
 int visiblePlotScore(Seat seat, Set<String> hiddenExiledCardIDs) {
   final hiddenValue = seat.plot.revealed
       .where((card) => hiddenExiledCardIDs.contains(card.id))

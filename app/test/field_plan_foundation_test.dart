@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolkhoz_app/src/app/settings/settings.dart';
-import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
 import 'package:kolkhoz_app/src/app/views/shared/field_plan_assets.dart';
 import 'package:kolkhoz_app/src/app/views/shared/field_plan_typography.dart';
 
@@ -15,10 +14,7 @@ void main() {
     await tester.runAsync(() async {
       await Future.wait([
         for (final asset in fieldPlanGlobalNavigationPictograms)
-          precacheImage(
-            AssetImage(asset.pathFor(KolkhozArtStyle.fieldPlan)),
-            context,
-          ),
+          precacheImage(AssetImage(asset.fieldPlanPath), context),
       ]);
     });
     expect(tester.takeException(), isNull);
@@ -32,10 +28,7 @@ void main() {
     await tester.runAsync(() async {
       await Future.wait([
         for (final asset in fieldPlanLedgerIllustrations)
-          precacheImage(
-            AssetImage(asset.pathFor(KolkhozArtStyle.fieldPlan)),
-            context,
-          ),
+          precacheImage(AssetImage(asset.fieldPlanPath), context),
       ]);
     });
     expect(tester.takeException(), isNull);
@@ -49,10 +42,7 @@ void main() {
     await tester.runAsync(() async {
       await Future.wait([
         for (final asset in fieldPlanLedgerActions)
-          precacheImage(
-            AssetImage(asset.pathFor(KolkhozArtStyle.fieldPlan)),
-            context,
-          ),
+          precacheImage(AssetImage(asset.fieldPlanPath), context),
       ]);
     });
     expect(tester.takeException(), isNull);
@@ -66,10 +56,7 @@ void main() {
     await tester.runAsync(() async {
       await Future.wait([
         for (final asset in fieldPlanPlayerPortraits)
-          precacheImage(
-            AssetImage(asset.pathFor(KolkhozArtStyle.fieldPlan)),
-            context,
-          ),
+          precacheImage(AssetImage(asset.fieldPlanPath), context),
       ]);
     });
     expect(tester.takeException(), isNull);
@@ -142,16 +129,12 @@ void main() {
 
   test('field-plan card mappings cover the complete physical deck', () {
     expect(
-      KolkhozCardBack.classic.assetPathFor(KolkhozArtStyle.fieldPlan),
+      KolkhozCardBack.classic.displayedAssetPath,
       fieldPlanCardBackAssetPath,
     );
     expect(
-      KolkhozCardBack.winter.iconAssetPathFor(KolkhozArtStyle.fieldPlan),
+      KolkhozCardBack.winter.displayedIconAssetPath,
       fieldPlanCardBackAssetPath,
-    );
-    expect(
-      KolkhozCardBack.classic.assetPathFor(KolkhozArtStyle.legacy),
-      KolkhozCardBack.classic.assetPath,
     );
     expect(
       fieldPlanCardSuitAssetPath('beet'),

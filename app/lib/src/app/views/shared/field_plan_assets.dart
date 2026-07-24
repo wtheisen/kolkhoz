@@ -24,9 +24,6 @@ String fieldPlanCardFrameAssetPath({
     ? 'assets/art/field_plan/cards/frames/card-frame-trump.png'
     : 'assets/art/field_plan/cards/frames/card-frame-$suit.png';
 
-String fieldPlanPlantedCardFacePath(int seatID) =>
-    'assets/art/field_plan/cards/planted/seat-$seatID.png';
-
 const fieldPlanCardSuitAssetPaths = <String, String>{
   'wheat': 'assets/art/field_plan/cards/suits/suit-wheat.png',
   'sunflower': 'assets/art/field_plan/cards/suits/suit-sunflower.png',
@@ -70,11 +67,6 @@ const fieldPlanCardArtAssetPaths = <String>[
   'assets/art/field_plan/cards/frames/card-frame-trump.png',
   fieldPlanPlantedSunflowerPath,
   fieldPlanPlantedSunflowerMipPath,
-  'assets/art/field_plan/cards/planted/seat-0.png',
-  'assets/art/field_plan/cards/planted/seat-1.png',
-  'assets/art/field_plan/cards/planted/seat-2.png',
-  'assets/art/field_plan/cards/planted/seat-3.png',
-  'assets/art/field_plan/cards/planted/frame-paper-overlay.png',
   'assets/art/field_plan/cards/suits/suit-wheat.png',
   'assets/art/field_plan/cards/suits/suit-sunflower.png',
   'assets/art/field_plan/cards/suits/suit-potato.png',
@@ -101,27 +93,21 @@ const fieldPlanCardArtAssetPaths = <String>[
 ];
 
 const fieldPlanCreateGamePictogram = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-create-game.png',
   fieldPlanPath: 'assets/art/field_plan/shared/pictograms/create-game.png',
 );
 const fieldPlanJoinGamePictogram = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-join-game.png',
   fieldPlanPath: 'assets/art/field_plan/shared/pictograms/join-game.png',
 );
 const fieldPlanHowToPlayPictogram = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-rules-scroll.png',
   fieldPlanPath: 'assets/art/field_plan/shared/pictograms/how-to-play.png',
 );
 const fieldPlanLanguagePictogram = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-language.png',
   fieldPlanPath: 'assets/art/field_plan/shared/pictograms/language.png',
 );
 const fieldPlanAppearancePictogram = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-appearance.png',
   fieldPlanPath: 'assets/art/field_plan/shared/pictograms/appearance.png',
 );
 const fieldPlanSettingsPictogram = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-settings-session.png',
   fieldPlanPath: 'assets/art/field_plan/shared/pictograms/settings.png',
 );
 
@@ -135,62 +121,49 @@ const fieldPlanGlobalNavigationPictograms = <ArtAssetRef>[
 ];
 
 const fieldPlanPresetKolkhoz = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-preset-kolkhoz.png',
   fieldPlanPath: 'assets/art/field_plan/ledger/presets/preset_kolkhoz.png',
 );
 const fieldPlanPresetLittleKolkhoz = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-preset-little-kolkhoz.png',
   fieldPlanPath:
       'assets/art/field_plan/ledger/presets/preset_little_kolkhoz.png',
 );
 const fieldPlanPresetCampStyle = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-preset-camp-style.png',
   fieldPlanPath: 'assets/art/field_plan/ledger/presets/preset_camp_style.png',
 );
 const fieldPlanPresetCustom = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-settings-display.png',
   fieldPlanPath: 'assets/art/field_plan/ledger/presets/preset_custom.png',
 );
 
 const fieldPlanVariantDeck = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-variant-deck-52.png',
   fieldPlanPath: 'assets/art/field_plan/ledger/variants/variant_deck.png',
 );
 const fieldPlanVariantFiveYearPlan = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-year-5.png',
   fieldPlanPath:
       'assets/art/field_plan/ledger/variants/variant_five_year_plan.png',
 );
 const fieldPlanVariantSwapCards = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-variant-swap.png',
   fieldPlanPath: 'assets/art/field_plan/ledger/variants/variant_swap_cards.png',
 );
 const fieldPlanVariantPassCards = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-pass.png',
   fieldPlanPath: 'assets/art/field_plan/ledger/variants/variant_pass_cards.png',
 );
 const fieldPlanVariantFinalYearTrump = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-final-year-trump.png',
   fieldPlanPath:
       'assets/art/field_plan/ledger/variants/variant_final_year_trump.png',
 );
 const fieldPlanVariantHighestCardsRequisition = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-highest-cards-requisition.png',
   fieldPlanPath:
       'assets/art/field_plan/ledger/variants/variant_highest_cards_requisition.png',
 );
 const fieldPlanVariantLottoRewards = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-lotto-rewards.png',
   fieldPlanPath:
       'assets/art/field_plan/ledger/variants/variant_lotto_rewards.png',
 );
 const fieldPlanVariantStakhanovite = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-variant-accumulation.png',
   fieldPlanPath:
       'assets/art/field_plan/ledger/variants/variant_stakhanovite.png',
 );
 const fieldPlanVariantSaboteur = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-variant-saboteur.png',
   fieldPlanPath: 'assets/art/field_plan/ledger/variants/variant_saboteur.png',
 );
 
@@ -211,15 +184,12 @@ const fieldPlanLedgerIllustrations = <ArtAssetRef>[
 ];
 
 const fieldPlanSaveFavorite = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-save.png',
   fieldPlanPath: 'assets/art/field_plan/ledger/actions/save-favorite.png',
 );
 const fieldPlanLoadFavorite = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-save.png',
   fieldPlanPath: 'assets/art/field_plan/ledger/actions/load-favorite.png',
 );
 const fieldPlanGoToLobby = ArtAssetRef(
-  legacyPath: 'assets/ui/Icons/icon-add-friend.png',
   fieldPlanPath: 'assets/art/field_plan/ledger/actions/go-to-lobby.png',
 );
 
@@ -230,19 +200,15 @@ const fieldPlanLedgerActions = <ArtAssetRef>[
 ];
 
 const fieldPlanPlayerForewoman = ArtAssetRef(
-  legacyPath: 'assets/ui/worker1.png',
   fieldPlanPath: 'assets/art/field_plan/game/players/forewoman.png',
 );
 const fieldPlanPlayerMechanic = ArtAssetRef(
-  legacyPath: 'assets/ui/worker2.png',
   fieldPlanPath: 'assets/art/field_plan/game/players/mechanic.png',
 );
 const fieldPlanPlayerAgronomist = ArtAssetRef(
-  legacyPath: 'assets/ui/worker3.png',
   fieldPlanPath: 'assets/art/field_plan/game/players/agronomist.png',
 );
 const fieldPlanPlayerBeekeeper = ArtAssetRef(
-  legacyPath: 'assets/ui/worker4.png',
   fieldPlanPath: 'assets/art/field_plan/game/players/beekeeper.png',
 );
 

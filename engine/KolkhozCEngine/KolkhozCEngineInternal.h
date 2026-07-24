@@ -38,6 +38,8 @@ bool kc_card_is_wrecker(KCCard card);
 bool kc_card_valid(KCCard card);
 bool kc_card_matches_suit(KCCard card, int32_t suit);
 int32_t kc_lead_suit(const KCEngine *engine);
+void kc_engine_begin_transition_batch(KCEngine *engine);
+void kc_engine_end_transition_batch(KCEngine *engine);
 bool kc_valid_player_id(int32_t player_id);
 bool kc_valid_suit(int32_t suit);
 bool kc_controller_is_policy(int32_t controller);

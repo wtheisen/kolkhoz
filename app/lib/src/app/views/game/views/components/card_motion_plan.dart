@@ -17,6 +17,9 @@ class CardFlight {
     this.durationScale = 1,
     this.audiencePanel,
     this.reportsJobArrival = true,
+    this.faceDown = false,
+    this.revealBeforeFlight = false,
+    this.requisitioned = false,
   });
 
   final int id;
@@ -27,6 +30,9 @@ class CardFlight {
   final double durationScale;
   final String? audiencePanel;
   final bool reportsJobArrival;
+  final bool faceDown;
+  final bool revealBeforeFlight;
+  final bool requisitioned;
 }
 
 @immutable
@@ -100,27 +106,13 @@ abstract interface class CardMotionGeometryResolver {
 
   Rect? source({
     required String cardID,
-    required MotionZone previousZone,
-    required MotionZone nextZone,
-    required MotionGeometry previous,
-    required TableViewModel model,
-  });
-
-  Rect? sourceForNewCard({
-    required MotionZone nextZone,
-    required MotionGeometry previous,
-    required TableViewModel model,
-  });
-
-  Rect? fallbackSource({
     required MotionZone? previousZone,
     required MotionZone nextZone,
+    required MotionGeometry previous,
     required MotionGeometry current,
+    required TableViewModel previousModel,
+    required TableViewModel nextModel,
   });
-
-  Rect? plotSource({required int seatID, required MotionGeometry current});
-
-  Rect? northTarget(MotionGeometry current);
 }
 
 /// Produces immutable playback instructions from model and geometry snapshots.
@@ -145,6 +137,7 @@ CardMotionPlan planCardFlights({
   required Set<String> suppressedCardIDs,
   required Set<String> presentedAssignmentCardIDs,
   required int initialFlightID,
+  bool explicitTransition = false,
 }) {
   if (!motionEnabled) {
     return CardMotionPlan(
@@ -168,13 +161,18 @@ CardMotionPlan planCardFlights({
     assignmentTargets: assignmentTargets,
     suppressedCardIDs: suppressedCardIDs,
     presentedAssignmentCardIDs: presentedAssignmentCardIDs,
+    explicitTransition: explicitTransition,
   );
   final flights = <CardFlight>[];
   var nextFlightID = initialFlightID;
-  for (final entry in changes.nextZones.entries) {
+  final routedNextZones = {
+    ...changes.nextZones,
+    for (final cardID in changes.exiledCardIDs)
+      cardID: const MotionZone.northExile(),
+  };
+  for (final entry in routedNextZones.entries) {
     final cardID = entry.key;
-    if (changes.exiledCardIDs.contains(cardID) ||
-        changes.suppressedCardIDs.contains(cardID)) {
+    if (changes.suppressedCardIDs.contains(cardID)) {
       continue;
     }
     final previousZone = previousZones[cardID];
@@ -190,29 +188,14 @@ CardMotionPlan planCardFlights({
     if (to == null) {
       continue;
     }
-    var from = previousZone == null
-        ? entry.value.kind == MotionZoneKind.reward
-              ? previousGeometry[MotionAnchor.rewardPileSource(
-                  entry.value.suit!,
-                )]
-              : entry.value.kind == MotionZoneKind.finalTrump
-              ? previousGeometry[const MotionAnchor.finalTrumpSource()]
-              : geometry.sourceForNewCard(
-                  nextZone: entry.value,
-                  previous: previousGeometry,
-                  model: previousModel,
-                )
-        : geometry.source(
-            cardID: cardID,
-            previousZone: previousZone,
-            nextZone: entry.value,
-            previous: previousGeometry,
-            model: previousModel,
-          );
-    from ??= geometry.fallbackSource(
+    final from = geometry.source(
+      cardID: cardID,
       previousZone: previousZone,
       nextZone: entry.value,
+      previous: previousGeometry,
       current: currentGeometry,
+      previousModel: previousModel,
+      nextModel: nextModel,
     );
     final card = changes.nextCards[cardID] ?? previousCards[cardID];
     if (from == null ||
@@ -220,6 +203,10 @@ CardMotionPlan planCardFlights({
         (from.center - to.center).distance < minimumFlightDistance) {
       continue;
     }
+    final requisitioned =
+        entry.value.kind == MotionZoneKind.northExile ||
+        (previousZone?.isPlot == true &&
+            entry.value.kind == MotionZoneKind.exiled);
     flights.add(
       CardFlight(
         id: nextFlightID++,
@@ -232,51 +219,15 @@ CardMotionPlan planCardFlights({
           nextZone: entry.value,
           model: previousModel,
         ),
-      ),
-    );
-  }
-  for (final cardID in changes.exiledCardIDs) {
-    final previousZone = previousZones[cardID];
-    var from = currentGeometry[MotionAnchor.card(cardID)];
-    if (from == null && previousZone?.isPlot == true) {
-      from = geometry.source(
-        cardID: cardID,
-        previousZone: previousZone!,
-        nextZone: const MotionZone.northExile(),
-        previous: previousGeometry,
-        model: previousModel,
-      );
-    }
-    final plotSeatID =
-        plotSeatIDForMotionCard(nextModel, cardID) ?? previousZone?.seatID;
-    from ??= plotSeatID == null
-        ? null
-        : geometry.plotSource(seatID: plotSeatID, current: currentGeometry);
-    from ??= geometry.fallbackSource(
-      previousZone: previousZone,
-      nextZone: const MotionZone.northExile(),
-      current: currentGeometry,
-    );
-    final to = geometry.northTarget(currentGeometry);
-    final card = changes.nextCards[cardID] ?? previousCards[cardID];
-    if (from == null ||
-        to == null ||
-        card == null ||
-        (from.center - to.center).distance < minimumFlightDistance) {
-      continue;
-    }
-    flights.add(
-      CardFlight(
-        id: nextFlightID++,
-        card: card,
-        from: from,
-        to: to,
-        destinationZone: const MotionZone.northExile(),
-        durationScale: cardFlightDurationScaleForZones(
+        faceDown: cardFlightShouldBeFaceDown(
           previousZone: previousZone,
-          nextZone: const MotionZone.northExile(),
-          model: previousModel,
+          nextZone: entry.value,
+          previousModel: previousModel,
+          nextModel: nextModel,
         ),
+        revealBeforeFlight:
+            requisitioned && previousZone?.kind == MotionZoneKind.plotHidden,
+        requisitioned: requisitioned,
       ),
     );
   }
@@ -302,27 +253,55 @@ CardMotionPlan planCardFlights({
     changes.nextZones,
     changes.nextCards,
   ).where((arrival) => !flownJobCardIDs.contains(arrival.cardID)).toList();
-  if (assignmentCardIDs.isNotEmpty) {
-    final order = {
-      for (final entry in assignmentCardIDs.indexed) entry.$2: entry.$1,
-    };
-    flights.sort(
-      (left, right) => (order[left.card.id] ?? order.length).compareTo(
-        order[right.card.id] ?? order.length,
-      ),
-    );
-  }
+  final assignmentOrder = {
+    for (final entry in assignmentCardIDs.indexed) entry.$2: entry.$1,
+  };
+  final assignmentFlights =
+      flights
+          .where((flight) => assignmentOrder.containsKey(flight.card.id))
+          .toList()
+        ..sort(
+          (left, right) => assignmentOrder[left.card.id]!.compareTo(
+            assignmentOrder[right.card.id]!,
+          ),
+        );
+  final otherFlights = flights
+      .where((flight) => !assignmentOrder.containsKey(flight.card.id))
+      .toList();
   return CardMotionPlan(
     transitionID: transitionID,
-    stages: assignmentCardIDs.isNotEmpty && flights.length > 1
+    stages: assignmentFlights.isNotEmpty
         ? [
-            for (final flight in flights) [flight],
+            if (otherFlights.isNotEmpty) otherFlights,
+            for (final flight in assignmentFlights) [flight],
           ]
         : [flights],
     immediateJobArrivals: immediateJobArrivals,
     presentedAssignmentCardIDs: changes.presentedAssignmentCardIDs,
     nextFlightID: nextFlightID,
   );
+}
+
+bool cardFlightShouldBeFaceDown({
+  required MotionZone? previousZone,
+  required MotionZone nextZone,
+  required TableViewModel previousModel,
+  required TableViewModel nextModel,
+}) {
+  if (previousZone == null) {
+    return false;
+  }
+  final seatID =
+      previousZone.kind == MotionZoneKind.hand &&
+          nextZone.isPlot &&
+          previousZone.seatID == nextZone.seatID
+      ? nextZone.seatID
+      : previousZone.isPlot &&
+            nextZone.kind == MotionZoneKind.hand &&
+            previousZone.seatID == nextZone.seatID
+      ? previousZone.seatID
+      : null;
+  return seatID != null && !motionSeatIsViewer(previousModel, seatID);
 }
 
 /// Derives card-zone changes without reading widget state or layout geometry.
@@ -335,6 +314,7 @@ CardMotionChanges planCardMotionChanges({
   required Map<String, String> assignmentTargets,
   required Set<String> suppressedCardIDs,
   required Set<String> presentedAssignmentCardIDs,
+  bool explicitTransition = false,
 }) {
   final plannedZones = Map<String, MotionZone>.of(nextZones);
   final plannedCards = Map<String, TableCard>.of(nextCards);
@@ -352,6 +332,7 @@ CardMotionChanges planCardMotionChanges({
   presented.addAll(assignmentTargets.keys);
 
   final leavingAssignment =
+      !explicitTransition &&
       previousModel.table.phase == phaseAssignment &&
       nextModel.table.phase != phaseAssignment;
   final effectiveSuppressed = {
@@ -424,9 +405,8 @@ double cardFlightDurationScaleForZones({
     }
     return 1;
   }
-  if (previousZone.isPlot &&
-      (nextZone.kind == MotionZoneKind.exiled ||
-          nextZone.kind == MotionZoneKind.northExile)) {
+  if (nextZone.kind == MotionZoneKind.northExile ||
+      (previousZone.isPlot && nextZone.kind == MotionZoneKind.exiled)) {
     return requisitionCardFlightDurationScale;
   }
   if (previousZone.kind == MotionZoneKind.trick &&

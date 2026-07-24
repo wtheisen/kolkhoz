@@ -3,33 +3,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
 
 void main() {
-  test('legacy remains the safe default', () {
-    expect(KolkhozArtStyle.fromEnvironmentValue(null), KolkhozArtStyle.legacy);
-    expect(
-      KolkhozArtStyle.fromEnvironmentValue('unknown'),
-      KolkhozArtStyle.legacy,
-    );
-    expect(
-      KolkhozArtStyle.fromEnvironmentValue(fieldPlanArtStyleValue),
-      KolkhozArtStyle.fieldPlan,
-    );
-  });
-
-  testWidgets('missing field-plan art falls back to the legacy asset', (
-    tester,
-  ) async {
+  testWidgets('art assets render their field-plan source', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: ArtAssetImage(
-          style: KolkhozArtStyle.fieldPlan,
-          asset: ArtAssetRef(
-            legacyPath: 'assets/ui/Icons/icon-check.png',
-            fieldPlanPath: 'assets/art/field_plan/missing.png',
-          ),
+          asset: ArtAssetRef(fieldPlanPath: 'assets/ui/Icons/icon-check.png'),
         ),
       ),
     );
-    await tester.pumpAndSettle();
+
     expect(
       find.byWidgetPredicate(
         (widget) =>
@@ -40,6 +22,5 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(tester.takeException(), isNull);
   });
 }

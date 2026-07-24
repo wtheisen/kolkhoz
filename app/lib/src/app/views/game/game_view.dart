@@ -12,6 +12,7 @@ import 'package:kolkhoz_app/src/app/views/game/game_controller/models/render_mod
 import 'package:kolkhoz_app/src/app/views/game/game_controller/game_presentation_transition.dart';
 import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/engine_values.dart';
 import 'package:kolkhoz_app/src/app/views/shared/field_plan_world_scene.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/remote_game_engine/game_session_models.dart';
 import 'package:kolkhoz_app/src/app/views/shared/pixel_text.dart';
@@ -441,6 +442,7 @@ class KolkhozBoard extends StatelessWidget {
   final Future<void> Function(String userID)? onComradeRequestToUser;
   @override
   Widget build(BuildContext context) {
+    final visibleModel = boardVisibleModelDuringTransition(model, transition);
     return BrigadeFieldsScope(
       verticalPage: 0,
       transitionProgress: null,
@@ -516,7 +518,7 @@ class KolkhozBoard extends StatelessWidget {
                               children: [
                                 if (compact)
                                   CompactBoardShell(
-                                    model: model,
+                                    model: visibleModel,
                                     tokens: tokens,
                                     metrics: metrics,
                                     language: language,
@@ -577,14 +579,15 @@ class KolkhozBoard extends StatelessWidget {
                                       SizedBox(
                                         width: railWidth,
                                         child: BoardRail(
-                                          activePanel: model.panels.active,
+                                          activePanel:
+                                              visibleModel.panels.active,
                                           actionPanel: actionPanelForPhase(
-                                            model.table.phase,
+                                            visibleModel.table.phase,
                                           ),
                                           tokens: tokens,
                                           metrics: metrics,
                                           language: language,
-                                          year: model.table.year,
+                                          year: visibleModel.table.year,
                                           hasUnreadLogMessages:
                                               hasUnreadLogMessages,
                                           onPanelSelected: onPanelSelected,
@@ -599,7 +602,7 @@ class KolkhozBoard extends StatelessWidget {
                                         width: gameWidth,
                                         height: contentHeight,
                                         child: BoardPlayArea(
-                                          model: model,
+                                          model: visibleModel,
                                           tokens: tokens,
                                           metrics: metrics,
                                           fieldPlanBoardWidth: boardWidth,
@@ -668,11 +671,11 @@ class KolkhozBoard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (model.viewer.privacyMode ==
+                      if (visibleModel.viewer.privacyMode ==
                           viewerPrivacyHotSeatHidden)
                         Positioned.fill(
                           child: HotSeatPrivacyOverlay(
-                            model: model,
+                            model: visibleModel,
                             tokens: tokens,
                             language: language,
                             onReady: onHotSeatReady,
@@ -688,6 +691,58 @@ class KolkhozBoard extends StatelessWidget {
       ),
     );
   }
+}
+
+TableViewModel boardVisibleModelDuringTransition(
+  TableViewModel model,
+  GamePresentationTransition? transition,
+) {
+  final event = transition?.event;
+  if (event != null &&
+      (event.kind == kcTransitionTrickResolved ||
+          (event.kind == kcTransitionCardMoved &&
+              event.toZone == kcObjectZoneCurrentTrick))) {
+    final after = transition!.after;
+    return TableViewModel(
+      viewer: after.viewer,
+      table: after.table,
+      panels: Panels(active: panelBrigade, available: after.panels.available),
+      selection: after.selection,
+      legalActions: after.legalActions,
+      seed: after.seed,
+    );
+  }
+  if (transition?.before.table.phase == phasePlanning &&
+      transition?.after.table.phase != phasePlanning) {
+    return transition!.before;
+  }
+  if (event == null &&
+      transition != null &&
+      transitionAddsTrickCard(transition)) {
+    final after = transition.after;
+    return TableViewModel(
+      viewer: after.viewer,
+      table: after.table,
+      panels: Panels(active: panelBrigade, available: after.panels.available),
+      selection: after.selection,
+      legalActions: after.legalActions,
+      seed: after.seed,
+    );
+  }
+  return model;
+}
+
+bool transitionAddsTrickCard(GamePresentationTransition transition) {
+  final beforeCardIDs = {
+    for (final play in transition.before.table.trick.plays) play.card.id,
+    for (final play in transition.before.table.lastTrick.plays) play.card.id,
+  };
+  return transition.after.table.trick.plays.any(
+        (play) => !beforeCardIDs.contains(play.card.id),
+      ) ||
+      transition.after.table.lastTrick.plays.any(
+        (play) => !beforeCardIDs.contains(play.card.id),
+      );
 }
 
 class CompactBoardShell extends StatelessWidget {
@@ -1034,6 +1089,8 @@ double? activePanelPreferredHeight({
   );
 }
 
+const planningPhaseOverlayScale = 2.0;
+
 class BoardPlayArea extends StatelessWidget {
   const BoardPlayArea({
     required this.model,
@@ -1206,6 +1263,7 @@ class BoardPlayArea extends StatelessWidget {
                   planningTrumpFocusedSuit,
                   planningTrumpAction,
                   onPlanningTrumpActionSelected,
+                  onPlanningRewardsRevealed,
                 ) {
                   final activePanelWithFocus = IgnorePointer(
                     ignoring: fieldPlanTransitionProgress != null,
@@ -1276,6 +1334,41 @@ class BoardPlayArea extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (model.table.phase == phasePlanning)
+                          Positioned.fill(
+                            key: const Key('planning-phase-overlay'),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Positioned.fill(
+                                  child: IgnorePointer(
+                                    child: ColoredBox(
+                                      color: tokens.colors.black.withValues(
+                                        alpha: 0.22,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Center(
+                                  child: Transform.scale(
+                                    key: const Key(
+                                      'planning-phase-panel-scale',
+                                    ),
+                                    scale: planningPhaseOverlayScale,
+                                    child: PlanningPhasePanel(
+                                      model: model,
+                                      tokens: tokens,
+                                      language: language,
+                                      focusedSuit: planningTrumpFocusedSuit,
+                                      onAction: onPlanningTrumpActionSelected,
+                                      onRewardsRevealed:
+                                          onPlanningRewardsRevealed,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         const Positioned.fill(
                           child: IgnorePointer(
                             child: Opacity(
@@ -1350,31 +1443,36 @@ class BoardPlayArea extends StatelessWidget {
                                 alignment: Alignment.topCenter,
                                 minHeight: handTrayVisibleHeight,
                                 maxHeight: handTrayVisibleHeight,
-                                child: HandTray(
-                                  model: model,
-                                  tokens: tokens,
-                                  language: language,
-                                  visibleTrayHeight: handTrayVisibleHeight,
-                                  planningTrumpFocusedSuit:
-                                      planningTrumpFocusedSuit,
-                                  confirmActionOverride: planningTrumpAction,
-                                  onAction: onAction,
-                                  onPanelSelected: onPanelSelected,
-                                  onSwapHandCardTap: onSwapHandCardTap,
-                                  onHandCardTap: onHandCardTap,
-                                  onAssignmentCardTap: onAssignmentCardTap,
-                                  onInvalidHandCardTap: onInvalidHandCardTap,
-                                  canUndo: canUndo,
-                                  onUndo: onUndo,
-                                  contentOverride:
-                                      model.panels.active == panelLog
-                                      ? ReactionTray(
-                                          tokens: tokens,
-                                          language: language,
-                                          enabled: canSendReaction,
-                                          onReaction: onReaction,
-                                        )
-                                      : null,
+                                child: MotionTrackedRegion(
+                                  motionKey: handCardMotionSourceKey(
+                                    localSeat(model).id,
+                                  ),
+                                  child: HandTray(
+                                    model: model,
+                                    tokens: tokens,
+                                    language: language,
+                                    visibleTrayHeight: handTrayVisibleHeight,
+                                    planningTrumpFocusedSuit:
+                                        planningTrumpFocusedSuit,
+                                    confirmActionOverride: planningTrumpAction,
+                                    onAction: onAction,
+                                    onPanelSelected: onPanelSelected,
+                                    onSwapHandCardTap: onSwapHandCardTap,
+                                    onHandCardTap: onHandCardTap,
+                                    onAssignmentCardTap: onAssignmentCardTap,
+                                    onInvalidHandCardTap: onInvalidHandCardTap,
+                                    canUndo: canUndo,
+                                    onUndo: onUndo,
+                                    contentOverride:
+                                        model.panels.active == panelLog
+                                        ? ReactionTray(
+                                            tokens: tokens,
+                                            language: language,
+                                            enabled: canSendReaction,
+                                            onReaction: onReaction,
+                                          )
+                                        : null,
+                                  ),
                                 ),
                               ),
                             ),
@@ -1430,6 +1528,7 @@ class PlanningTrumpFocusHost extends StatefulWidget {
     String? focusedSuit,
     LegalAction? selectedAction,
     ValueChanged<LegalAction> onActionSelected,
+    VoidCallback onRewardsRevealed,
   )
   builder;
 
@@ -1442,6 +1541,7 @@ class _PlanningTrumpFocusHostState extends State<PlanningTrumpFocusHost> {
   Timer? selectorTimer;
   int selectorIndex = 0;
   LegalAction? selectedAction;
+  bool rewardsRevealed = false;
 
   @override
   void initState() {
@@ -1464,6 +1564,7 @@ class _PlanningTrumpFocusHostState extends State<PlanningTrumpFocusHost> {
             widget.model.table.currentPlayerID ||
         oldWidget.model.table.phase != widget.model.table.phase) {
       selectedAction = null;
+      rewardsRevealed = false;
       syncSelectorTimer();
     }
   }
@@ -1478,7 +1579,9 @@ class _PlanningTrumpFocusHostState extends State<PlanningTrumpFocusHost> {
     selectorTimer?.cancel();
     selectorTimer = null;
     final motion = GameMotion.of(context);
-    if (!planningTrumpSelectorIsAI(widget.model) || !motion.enabled) {
+    if (!planningTrumpSelectorIsAI(widget.model) ||
+        !rewardsRevealed ||
+        !motion.enabled) {
       return;
     }
     selectorIndex = selectorRandom.nextInt(displaySuitOrder.length);
@@ -1498,12 +1601,23 @@ class _PlanningTrumpFocusHostState extends State<PlanningTrumpFocusHost> {
 
   @override
   Widget build(BuildContext context) {
-    final focusedSuit = planningTrumpSelectorIsAI(widget.model)
+    final focusedSuit =
+        planningTrumpSelectorIsAI(widget.model) && rewardsRevealed
         ? displaySuitOrder[selectorIndex]
         : selectedAction?.engineAction.suit;
-    return widget.builder(context, focusedSuit, selectedAction, (action) {
-      setState(() => selectedAction = action);
-    });
+    return widget.builder(
+      context,
+      focusedSuit,
+      selectedAction,
+      (action) => setState(() => selectedAction = action),
+      () {
+        if (rewardsRevealed) {
+          return;
+        }
+        setState(() => rewardsRevealed = true);
+        syncSelectorTimer();
+      },
+    );
   }
 }
 
@@ -1728,6 +1842,9 @@ class _TopInfoStripState extends State<TopInfoStrip> {
                                                   .gaugeContentWidthMultiplier,
                                           height: gaugeHeight,
                                           tokens: tokens,
+                                          hideReward:
+                                              model.table.phase ==
+                                              phasePlanning,
                                         ),
                                       ),
                                     ),
@@ -1856,6 +1973,7 @@ class JobGauge extends StatefulWidget {
     required this.width,
     required this.height,
     required this.tokens,
+    this.hideReward = false,
     super.key,
   });
 
@@ -1864,6 +1982,7 @@ class JobGauge extends StatefulWidget {
   final double width;
   final double height;
   final DesignTokens tokens;
+  final bool hideReward;
 
   @override
   State<JobGauge> createState() => _JobGaugeState();
@@ -1938,6 +2057,7 @@ class _JobGaugeState extends State<JobGauge> {
     final containsWrecker = jobContainsWrecker(job);
     final pileEffectIconSize = height * 0.4;
     final nomenklaturaValues = jobNomenklaturaValues(job);
+    final reward = widget.hideReward ? null : job.reward;
     final markerWidth =
         rewardMarkerWidth +
         (job.claimed ? 3 : 0) +
@@ -1945,7 +2065,11 @@ class _JobGaugeState extends State<JobGauge> {
         nomenklaturaValues.length * (pileEffectIconSize + 2);
     const contentSpacing = 4.0;
     final contentWidth = width - markerWidth - contentSpacing;
-    final displayedHours = displayedJobHours(job);
+    final pendingArrivalHours = pendingCardDeltas.values.fold<int>(
+      0,
+      (total, value) => total + value,
+    );
+    final displayedHours = displayedJobHours(job) - pendingArrivalHours;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -1967,90 +2091,93 @@ class _JobGaugeState extends State<JobGauge> {
                   width: markerWidth,
                   height: height,
                   child: Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      spacing: containsWrecker ? 2 : 0,
-                      children: [
-                        if (job.claimed)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            spacing: 2,
-                            children: [
-                              Image.asset(
-                                'assets/ui/Icons/icon-check.png',
-                                width:
-                                    height *
-                                    tokens
-                                        .layout
-                                        .topInfo
-                                        .checkIconHeightMultiplier,
-                                height:
-                                    height *
-                                    tokens
-                                        .layout
-                                        .topInfo
-                                        .checkIconHeightMultiplier,
-                                filterQuality: FilterQuality.none,
-                              ),
-                              SuitMark(
-                                key: ValueKey(
-                                  'job-gauge-completed-suit-${job.suit}',
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        spacing: containsWrecker ? 2 : 0,
+                        children: [
+                          if (job.claimed)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              spacing: 2,
+                              children: [
+                                Image.asset(
+                                  'assets/ui/Icons/icon-check.png',
+                                  width:
+                                      height *
+                                      tokens
+                                          .layout
+                                          .topInfo
+                                          .checkIconHeightMultiplier,
+                                  height:
+                                      height *
+                                      tokens
+                                          .layout
+                                          .topInfo
+                                          .checkIconHeightMultiplier,
+                                  filterQuality: FilterQuality.none,
                                 ),
-                                suit: job.suit,
-                                tokens: tokens,
-                                size: height * 0.4,
-                              ),
-                            ],
-                          )
-                        else if (job.reward == null)
-                          EmptyRewardMarker(
-                            size: 34,
-                            checkSize: topInfoEmptyRewardCheckSize,
-                            tokens: tokens,
-                          )
-                        else
-                          Row(
-                            key: ValueKey('job-gauge-reward-${job.suit}'),
-                            mainAxisSize: MainAxisSize.min,
-                            spacing: 2,
-                            children: [
-                              PixelText(
-                                job.reward!.rank,
-                                size: PixelTextSize.caption,
-                                variant: PixelTextVariant.heavy,
-                                color: tokens.colors.cardInk,
-                              ),
-                              SuitMark(
-                                key: ValueKey(
-                                  'job-gauge-reward-suit-${job.suit}',
+                                SuitMark(
+                                  key: ValueKey(
+                                    'job-gauge-completed-suit-${job.suit}',
+                                  ),
+                                  suit: job.suit,
+                                  tokens: tokens,
+                                  size: height * 0.4,
                                 ),
-                                suit: job.reward!.suit,
-                                tokens: tokens,
-                                size: height * 0.4,
-                              ),
-                            ],
-                          ),
-                        if (containsWrecker)
-                          Image.asset(
-                            'assets/ui/Icons/icon-variant-saboteur.png',
-                            key: ValueKey('job-gauge-wrecker-${job.suit}'),
-                            width: pileEffectIconSize,
-                            height: pileEffectIconSize,
-                            fit: BoxFit.contain,
-                            filterQuality: FilterQuality.none,
-                          ),
-                        for (final value in nomenklaturaValues)
-                          Image.asset(
-                            nomenklaturaPileIconAsset(value),
-                            key: ValueKey(
-                              'job-gauge-nomenklatura-$value-${job.suit}',
+                              ],
+                            )
+                          else if (reward == null)
+                            EmptyRewardMarker(
+                              size: 34,
+                              checkSize: topInfoEmptyRewardCheckSize,
+                              tokens: tokens,
+                            )
+                          else
+                            Row(
+                              key: ValueKey('job-gauge-reward-${job.suit}'),
+                              mainAxisSize: MainAxisSize.min,
+                              spacing: 2,
+                              children: [
+                                PixelText(
+                                  reward.rank,
+                                  size: PixelTextSize.caption,
+                                  variant: PixelTextVariant.heavy,
+                                  color: tokens.colors.cardInk,
+                                ),
+                                SuitMark(
+                                  key: ValueKey(
+                                    'job-gauge-reward-suit-${job.suit}',
+                                  ),
+                                  suit: reward.suit,
+                                  tokens: tokens,
+                                  size: height * 0.4,
+                                ),
+                              ],
                             ),
-                            width: pileEffectIconSize,
-                            height: pileEffectIconSize,
-                            fit: BoxFit.contain,
-                            filterQuality: FilterQuality.none,
-                          ),
-                      ],
+                          if (containsWrecker)
+                            Image.asset(
+                              'assets/ui/Icons/icon-variant-saboteur.png',
+                              key: ValueKey('job-gauge-wrecker-${job.suit}'),
+                              width: pileEffectIconSize,
+                              height: pileEffectIconSize,
+                              fit: BoxFit.contain,
+                              filterQuality: FilterQuality.none,
+                            ),
+                          for (final value in nomenklaturaValues)
+                            Image.asset(
+                              nomenklaturaPileIconAsset(value),
+                              key: ValueKey(
+                                'job-gauge-nomenklatura-$value-${job.suit}',
+                              ),
+                              width: pileEffectIconSize,
+                              height: pileEffectIconSize,
+                              fit: BoxFit.contain,
+                              filterQuality: FilterQuality.none,
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -2284,6 +2411,7 @@ class ActivePanelView extends StatelessWidget {
           tokens: tokens,
           language: language,
           compact: compact,
+          showPlanningPanel: false,
           onAction: onAction,
         );
       case panelPlot:
@@ -2293,6 +2421,7 @@ class ActivePanelView extends StatelessWidget {
           tokens: tokens,
           language: language,
           compact: compact,
+          showPlanningPanel: false,
           planningTrumpFocusedSuit: planningTrumpFocusedSuit,
           onPlanningTrumpActionSelected: onPlanningTrumpActionSelected,
           onPlotCardTap: onPlotCardTap,
@@ -2334,6 +2463,7 @@ class ActivePanelView extends StatelessWidget {
           tokens: tokens,
           language: language,
           compact: compact,
+          showPlanningPanel: false,
           planningTrumpFocusedSuit: planningTrumpFocusedSuit,
           onPlanningTrumpActionSelected: onPlanningTrumpActionSelected,
           onPlotCardTap: onPlotCardTap,

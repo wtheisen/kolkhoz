@@ -8,6 +8,7 @@ import 'package:kolkhoz_app/src/app/views/game/game_controller/models/assignment
 import 'package:kolkhoz_app/src/app/views/game/game_controller/finished_game_lobby.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/game_engine.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/game_lobby.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/game_presentation_batch.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/game_presentation_queue.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/game_presentation_transition.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
@@ -122,7 +123,6 @@ class GameController extends ChangeNotifier {
   TableViewModel? _model;
   TableViewModel? _authoritativeModel;
   final GamePresentationQueue _presentationQueue = GamePresentationQueue();
-  final List<String> _pendingAssignmentCardIDs = [];
   TableViewModel? get model => finishedGameLobby?.model ?? _model;
   FinishedGameLobby? finishedGameLobby;
   bool get hasActiveEngine => _engine != null;
@@ -566,41 +566,42 @@ class GameController extends ChangeNotifier {
     }
     _authoritativeModel = after;
     final action = update.action;
-    final submittedAssignmentCardIDs = action?.kind == actionSubmitAssignments
-        ? Set<String>.unmodifiable(_pendingAssignmentCardIDs)
-        : const <String>{};
-    String? assignedCardID;
-    if (action?.kind == actionAssign) {
-      assignedCardID = action?.card?.id;
-      if (assignedCardID != null) {
-        _pendingAssignmentCardIDs.remove(assignedCardID);
-        _pendingAssignmentCardIDs.add(assignedCardID);
+    final wasIdle = !_presentationQueue.isBusy;
+    final presentedAfter = withoutLegalActions(after);
+    if (update.transitions.isEmpty) {
+      _presentationQueue.enqueue(
+        before: before,
+        after: presentedAfter,
+        action: action,
+      );
+    } else {
+      final visibleStates = projectPresentationBatch(
+        before: before,
+        after: presentedAfter,
+        events: update.transitions,
+      );
+      var visibleBefore = before;
+      for (final (index, event) in update.transitions.indexed) {
+        final cardID = event.card.isValid
+            ? '${engineSuitName(event.card.suit)}-${event.card.value}'
+            : null;
+        final isAssignment =
+            event.kind == kcTransitionAssignmentTargeted &&
+            cardID != null &&
+            event.targetSuit >= 0;
+        _presentationQueue.enqueue(
+          before: visibleBefore,
+          after: visibleStates[index],
+          action: index == 0 ? action : null,
+          event: event,
+          assignmentCardIDs: isAssignment ? [cardID] : const [],
+          assignmentTargets: isAssignment
+              ? {cardID: engineSuitName(event.targetSuit)!}
+              : const {},
+        );
+        visibleBefore = visibleStates[index];
       }
     }
-    if (after.table.phase == phaseAssignment) {
-      final pendingAfter = {
-        for (final job in after.table.jobs)
-          for (final card in job.assignedCards)
-            if (card.pending) card.id,
-      };
-      _pendingAssignmentCardIDs.removeWhere(
-        (cardID) => !pendingAfter.contains(cardID),
-      );
-    }
-    if (action?.kind == actionSubmitAssignments) {
-      _pendingAssignmentCardIDs.clear();
-    }
-    final wasIdle = !_presentationQueue.isBusy;
-    _presentationQueue.enqueue(
-      before: before,
-      after: withoutLegalActions(after),
-      action: action,
-      assignmentCardIDs: assignedCardID == null ? const [] : [assignedCardID],
-      assignmentTargets: assignedCardID == null || action?.targetSuit == null
-          ? const {}
-          : {assignedCardID: action!.targetSuit!},
-      suppressedCardIDs: submittedAssignmentCardIDs,
-    );
     if (wasIdle) {
       _presentCurrentTransition();
     }
@@ -861,7 +862,6 @@ class GameController extends ChangeNotifier {
     engine?.dispose();
     _authoritativeModel = null;
     _presentationQueue.clear();
-    _pendingAssignmentCardIDs.clear();
   }
 
   int _newSeed() => DateTime.now().microsecondsSinceEpoch;

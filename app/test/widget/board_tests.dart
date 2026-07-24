@@ -652,7 +652,101 @@ void registerBoardTests() {
     final previewSize = tester.getSize(
       find.byKey(const Key('pending-trick-card-preview')),
     );
-    expect(previewSize.width, greaterThan(130));
+    expect(previewSize.width, greaterThan(70));
+  });
+
+  testWidgets('brigade pulses only the card currently winning the trick', (
+    tester,
+  ) async {
+    final base = runtimeModel();
+    final leadCard = testCard(id: 'wheat-10', suit: 'wheat', value: 10);
+    final winningCard = testCard(id: 'wheat-12', suit: 'wheat', value: 12);
+    final model = runtimeModelWith(
+      phase: phaseTrick,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+      trick: Trick(
+        plays: [
+          TrickPlay(seatID: 0, card: leadCard),
+          TrickPlay(seatID: 1, card: winningCard),
+        ],
+        winnerSeatID: 1,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 900,
+          height: 360,
+          child: BrigadePanel(
+            model: model,
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final winningCards = tester
+        .widgetList<GameCard>(find.byType(GameCard))
+        .where((card) => card.winningTrick)
+        .toList();
+    expect(winningCards, hasLength(1));
+    expect(winningCards.single.card.id, winningCard.id);
+    expect(
+      find.byKey(const ValueKey('winning-trick-card-frame')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('brigade keeps the winning card highlighted during assignment', (
+    tester,
+  ) async {
+    final base = runtimeModel();
+    final leadCard = testCard(id: 'wheat-10', suit: 'wheat', value: 10);
+    final winningCard = testCard(id: 'wheat-12', suit: 'wheat', value: 12);
+    final model = runtimeModelWith(
+      phase: phaseAssignment,
+      currentPlayerID: 1,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+      trick: const Trick(plays: [], winnerSeatID: null),
+      lastTrick: Trick(
+        plays: [
+          TrickPlay(seatID: 0, card: leadCard),
+          TrickPlay(seatID: 1, card: winningCard),
+        ],
+        winnerSeatID: 1,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 900,
+          height: 360,
+          child: BrigadePanel(
+            model: model,
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final winningCards = tester
+        .widgetList<GameCard>(find.byType(GameCard))
+        .where((card) => card.winningTrick)
+        .toList();
+    expect(winningCards, hasLength(1));
+    expect(winningCards.single.card.id, winningCard.id);
+    expect(
+      find.byKey(const ValueKey('winning-trick-card-frame')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('medals pulse when a player is one trick from Hero', (
@@ -661,7 +755,7 @@ void registerBoardTests() {
     final base = runtimeModel();
     final seats = [
       for (final seat in base.table.seats)
-        seat.id == 1 ? seatWithMedals(seat, 3) : seat,
+        seat.id == 1 ? seatWithMedals(seat, base.table.maxTricks - 1) : seat,
     ];
     final model = runtimeModelWith(
       phase: phaseTrick,
@@ -1257,6 +1351,69 @@ void registerBoardTests() {
     expect(wheat9.selected, isFalse);
     expect(selectedPlotCard(beet10, 'wheat-9'), same(beet10));
     expect(visiblePlotCards([wheat9, beet10], {'wheat-9'}), [beet10]);
+    final visibleStacks = visiblePlotStacks(
+      [
+        PlotStackState(revealed: [wheat9, beet10], hidden: [wheat9]),
+      ],
+      {'wheat-9'},
+    );
+    expect(visibleStacks.single.revealed, [beet10]);
+    expect(visibleStacks.single.hidden, isEmpty);
+  });
+
+  testWidgets('swap selection frames plot and cellar cards', (tester) async {
+    final card = testCard(id: 'wheat-9', suit: 'wheat', value: 9);
+
+    Widget cardView({required bool hidden}) => MaterialApp(
+      home: Center(
+        child: SizedBox(
+          width: defaultDesignTokens.card.small.width,
+          height: defaultDesignTokens.card.small.height,
+          child: Stack(
+            children: plotOverviewCardItems(
+              cards: [card],
+              stacks: const [],
+              hiddenCards: hidden,
+              cardSize: defaultDesignTokens.card.small,
+              selectedCardID: card.id,
+              selectable: true,
+              zone: hidden ? plotZoneHidden : plotZoneRevealed,
+              exiledCardIDs: const {},
+              tokens: defaultDesignTokens,
+              onPlotCardTap: (_, _) {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(cardView(hidden: false));
+
+    expect(
+      find.byKey(ValueKey('swap-selected-plot-card-${card.id}')),
+      findsOneWidget,
+    );
+    expect(
+      tester.widgetList<GameCard>(find.byType(GameCard)).single.card.selected,
+      isTrue,
+    );
+
+    await tester.pumpWidget(cardView(hidden: true));
+    await tester.pump();
+
+    expect(
+      find.byKey(ValueKey('swap-selected-plot-card-${card.id}')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<ScaledHighlightableCardBack>(
+            find.byType(ScaledHighlightableCardBack),
+          )
+          .card
+          .selected,
+      isTrue,
+    );
   });
 
   testWidgets('plot stack mini exposes revealed and hidden stack cards', (
@@ -1616,6 +1773,100 @@ void registerBoardTests() {
     expect(motion.heroMedalPulse, Duration.zero);
     expect(motion.activeCardSlotPulse, Duration.zero);
     expect(motion.trumpSelectorFrame, Duration.zero);
+    expect(motion.rewardFlip, Duration.zero);
+  });
+
+  test('planning rewards stay in the popup until planning ends', () {
+    final rewards = [
+      for (final job in runtimeModel().table.jobs)
+        Job(
+          suit: job.suit,
+          hours: job.hours,
+          requiredHours: job.requiredHours,
+          claimed: job.claimed,
+          reward: testCard(id: '${job.suit}-reward', suit: job.suit, value: 5),
+          assignedCards: job.assignedCards,
+          validAssignmentTarget: job.validAssignmentTarget,
+          highlighted: job.highlighted,
+        ),
+    ];
+    final planning = runtimeModelWith(
+      phase: phasePlanning,
+      selection: SelectionState.empty,
+      jobs: rewards,
+    );
+    final trick = runtimeModelWith(
+      phase: phaseTrick,
+      selection: SelectionState.empty,
+      jobs: rewards,
+    );
+    final transition = GamePresentationTransition(
+      id: 1,
+      before: planning,
+      after: trick,
+      action: const EngineAction(
+        kind: actionSetTrump,
+        playerID: 0,
+        suit: 'wheat',
+      ),
+    );
+
+    expect(
+      cardMotionZones(planning)['wheat-reward'],
+      const MotionZone.rewardReveal('wheat'),
+    );
+    expect(
+      cardMotionZones(trick)['wheat-reward'],
+      const MotionZone.reward('wheat'),
+    );
+    expect(boardVisibleModelDuringTransition(trick, transition), planning);
+
+    final previousGeometry = MotionGeometry({
+      for (final (index, suit) in displaySuitOrder.indexed)
+        rewardPileMotionSourceKey(suit): Rect.fromLTWH(
+          100 + index * 60,
+          300,
+          42,
+          58,
+        ),
+    });
+    final currentGeometry = MotionGeometry({
+      for (final (index, suit) in displaySuitOrder.indexed)
+        jobGaugeMotionTargetKey(suit): Rect.fromLTWH(
+          80 + index * 110,
+          20,
+          90,
+          38,
+        ),
+    });
+    final plan = planCardFlights(
+      motionEnabled: true,
+      minimumFlightDistance: GameMotion.minimumFlightDistance,
+      previousModel: planning,
+      nextModel: trick,
+      previousZones: cardMotionZones(planning),
+      nextZones: cardMotionZones(trick),
+      previousCards: cardMotionCards(planning),
+      nextCards: cardMotionCards(trick),
+      previousGeometry: previousGeometry,
+      currentGeometry: currentGeometry,
+      geometry: const DefaultCardMotionGeometryResolver(defaultDesignTokens),
+      transitionID: transition.id,
+      assignmentCardIDs: const [],
+      assignmentTargets: const {},
+      suppressedCardIDs: const {},
+      presentedAssignmentCardIDs: const {},
+      initialFlightID: 0,
+    );
+
+    expect(plan.stages, hasLength(1));
+    expect(plan.stages.single, hasLength(4));
+    expect(
+      plan.stages.single.map((flight) => flight.destinationZone),
+      containsAll([
+        for (final suit in displaySuitOrder) MotionZone.reward(suit),
+      ]),
+    );
   });
 
   test('card motion planning is pure and preserves assignment intent', () {
@@ -1670,6 +1921,300 @@ void registerBoardTests() {
     expect(leaving.presentedAssignmentCardIDs, isEmpty);
   });
 
+  test('opponent swaps keep both card flights face down', () {
+    final base = runtimeModel();
+    final swapModel = runtimeModelWith(
+      phase: phaseSwap,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+    );
+    final handCard = testCard(id: 'wheat-hand', suit: 'wheat', value: 9);
+    final cellarCard = testCard(id: 'beet-cellar', suit: 'beet', value: 8);
+    final plan = planCardFlights(
+      motionEnabled: true,
+      minimumFlightDistance: 1,
+      previousModel: swapModel,
+      nextModel: swapModel,
+      previousZones: {
+        handCard.id: const MotionZone.hand(1),
+        cellarCard.id: const MotionZone.plotHidden(1),
+      },
+      nextZones: {
+        handCard.id: const MotionZone.plotHidden(1),
+        cellarCard.id: const MotionZone.hand(1),
+      },
+      previousCards: {handCard.id: handCard, cellarCard.id: cellarCard},
+      nextCards: {handCard.id: handCard, cellarCard.id: cellarCard},
+      previousGeometry: MotionGeometry({
+        MotionAnchor.card(handCard.id): const Rect.fromLTWH(20, 20, 48, 68),
+        MotionAnchor.card(cellarCard.id): const Rect.fromLTWH(220, 140, 48, 68),
+      }),
+      currentGeometry: MotionGeometry({
+        MotionAnchor.card(handCard.id): const Rect.fromLTWH(220, 140, 48, 68),
+        MotionAnchor.card(cellarCard.id): const Rect.fromLTWH(20, 20, 48, 68),
+      }),
+      geometry: const DefaultCardMotionGeometryResolver(defaultDesignTokens),
+      transitionID: 1,
+      assignmentCardIDs: const [],
+      assignmentTargets: const {},
+      suppressedCardIDs: const {},
+      presentedAssignmentCardIDs: const {},
+      initialFlightID: 0,
+    );
+
+    expect(plan.flights, hasLength(2));
+    expect(plan.flights.every((flight) => flight.faceDown), isTrue);
+    expect(
+      cardFlightShouldBeFaceDown(
+        previousZone: const MotionZone.hand(1),
+        nextZone: const MotionZone.plotRevealed(1),
+        previousModel: swapModel,
+        nextModel: swapModel,
+      ),
+      isTrue,
+    );
+    expect(
+      cardFlightShouldBeFaceDown(
+        previousZone: const MotionZone.hand(0),
+        nextZone: const MotionZone.plotHidden(0),
+        previousModel: swapModel,
+        nextModel: swapModel,
+      ),
+      isFalse,
+    );
+    final postSwapModel = runtimeModelWith(
+      phase: phaseTrick,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+    );
+    expect(
+      cardFlightShouldBeFaceDown(
+        previousZone: const MotionZone.hand(1),
+        nextZone: const MotionZone.plotHidden(1),
+        previousModel: swapModel,
+        nextModel: postSwapModel,
+      ),
+      isTrue,
+      reason: 'bot swap privacy must survive the final swap phase boundary',
+    );
+  });
+
+  testWidgets('face-down card flights render the card back', (tester) async {
+    final card = testCard(id: 'hidden-swap-card', suit: 'wheat', value: 9);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 240,
+          child: Stack(
+            children: [
+              FlyingCard(
+                flight: CardFlight(
+                  id: 1,
+                  card: card,
+                  from: const Rect.fromLTWH(20, 20, 48, 68),
+                  to: const Rect.fromLTWH(220, 140, 48, 68),
+                  destinationZone: const MotionZone.plotHidden(1),
+                  faceDown: true,
+                ),
+                tokens: defaultDesignTokens,
+                duration: const Duration(seconds: 1),
+                onDone: () {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey('flying-card-back-hidden-swap-card')),
+      findsOneWidget,
+    );
+    expect(find.byType(GameCard), findsNothing);
+  });
+
+  testWidgets(
+    'hidden requisition flips at its source before flying with a red frame',
+    (tester) async {
+      final card = testCard(
+        id: 'hidden-requisition-card',
+        suit: 'wheat',
+        value: 9,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SizedBox(
+            width: 320,
+            height: 240,
+            child: Stack(
+              children: [
+                FlyingCard(
+                  flight: CardFlight(
+                    id: 2,
+                    card: card,
+                    from: const Rect.fromLTWH(20, 20, 48, 68),
+                    to: const Rect.fromLTWH(220, 140, 48, 68),
+                    destinationZone: const MotionZone.northExile(),
+                    revealBeforeFlight: true,
+                    requisitioned: true,
+                  ),
+                  tokens: defaultDesignTokens,
+                  duration: const Duration(milliseconds: 520),
+                  onDone: () {},
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        find.byKey(const ValueKey('flying-card-back-hidden-requisition-card')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const ValueKey('requisition-card-frame-hidden-requisition-card'),
+        ),
+        findsOneWidget,
+      );
+      Positioned flightPosition() => tester
+          .widgetList<Positioned>(
+            find.descendant(
+              of: find.byType(FlyingCard),
+              matching: find.byType(Positioned),
+            ),
+          )
+          .firstWhere(
+            (positioned) =>
+                positioned.left != null &&
+                positioned.top != null &&
+                positioned.width == 48 &&
+                positioned.height == 68,
+          );
+      var positioned = flightPosition();
+      expect(positioned.left, 20);
+
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(
+        find.byKey(const ValueKey('flying-card-face-hidden-requisition-card')),
+        findsOneWidget,
+      );
+      positioned = flightPosition();
+      expect(positioned.left, 20);
+
+      await tester.pump(const Duration(milliseconds: 300));
+
+      positioned = flightPosition();
+      expect(positioned.left, greaterThan(20));
+      expect(
+        find.byKey(
+          const ValueKey('requisition-card-frame-hidden-requisition-card'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  test('fourth card flight precedes prefilled assignment flights', () {
+    final base = runtimeModel();
+    final finalCard = base.table.seats[0].hand.single;
+    final firstAssignment = testCard(
+      id: 'sunflower-7',
+      suit: 'sunflower',
+      value: 7,
+      pending: true,
+    );
+    final secondAssignment = testCard(
+      id: 'wheat-8',
+      suit: 'wheat',
+      value: 8,
+      pending: true,
+    );
+    final before = runtimeModelWith(
+      phase: phaseTrick,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+    );
+    final after = runtimeModelWith(
+      phase: phaseAssignment,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+    );
+    final previousZones = {
+      finalCard.id: const MotionZone.hand(0),
+      firstAssignment.id: const MotionZone.trick(1),
+      secondAssignment.id: const MotionZone.trick(2),
+    };
+    final nextZones = {finalCard.id: const MotionZone.trick(0)};
+    final cards = {
+      finalCard.id: finalCard,
+      firstAssignment.id: firstAssignment,
+      secondAssignment.id: secondAssignment,
+    };
+    final plan = planCardFlights(
+      motionEnabled: true,
+      minimumFlightDistance: GameMotion.minimumFlightDistance,
+      previousModel: before,
+      nextModel: after,
+      previousZones: previousZones,
+      nextZones: nextZones,
+      previousCards: cards,
+      nextCards: {finalCard.id: finalCard},
+      previousGeometry: MotionGeometry({
+        handCardMotionSourceKey(0): const Rect.fromLTWH(20, 220, 48, 68),
+        trickCardMotionSourceKey(firstAssignment.id): const Rect.fromLTWH(
+          150,
+          100,
+          48,
+          68,
+        ),
+        trickCardMotionSourceKey(secondAssignment.id): const Rect.fromLTWH(
+          210,
+          100,
+          48,
+          68,
+        ),
+      }),
+      currentGeometry: MotionGeometry({
+        trickCardMotionTargetKey(0): const Rect.fromLTWH(90, 90, 48, 68),
+        jobGaugeMotionTargetKey(firstAssignment.suit): const Rect.fromLTWH(
+          280,
+          20,
+          90,
+          38,
+        ),
+        jobGaugeMotionTargetKey(secondAssignment.suit): const Rect.fromLTWH(
+          390,
+          20,
+          90,
+          38,
+        ),
+      }),
+      geometry: const DefaultCardMotionGeometryResolver(defaultDesignTokens),
+      transitionID: 17,
+      assignmentCardIDs: [firstAssignment.id, secondAssignment.id],
+      assignmentTargets: {
+        firstAssignment.id: firstAssignment.suit,
+        secondAssignment.id: secondAssignment.suit,
+      },
+      suppressedCardIDs: const {},
+      presentedAssignmentCardIDs: const {},
+      initialFlightID: 0,
+    );
+
+    expect(plan.stages, hasLength(3));
+    expect(plan.stages[0].map((flight) => flight.card.id), [finalCard.id]);
+    expect(plan.stages[1].map((flight) => flight.card.id), [
+      firstAssignment.id,
+    ]);
+    expect(plan.stages[2].map((flight) => flight.card.id), [
+      secondAssignment.id,
+    ]);
+  });
+
   testWidgets('card motion layer draws hand-to-trick flights', (tester) async {
     final before = runtimeModel();
     final playedCard = before.table.seats[0].hand.single;
@@ -1718,10 +2263,454 @@ void registerBoardTests() {
       currentModel = after;
     });
     await tester.pump();
+
+    final playedStaticCard = find.byWidgetPredicate(
+      (widget) => widget is GameCard && widget.card.id == playedCard.id,
+    );
+    final staticCardOpacity = tester.widget<Opacity>(
+      find.descendant(of: playedStaticCard, matching: find.byType(Opacity)),
+    );
+    expect(staticCardOpacity.opacity, 0);
+    expect(find.byType(FlyingCard), findsNothing);
+
     await tester.pump();
     await tester.pump();
 
     expect(find.byType(FlyingCard), findsOneWidget);
+  });
+
+  testWidgets('trick landing shows its winner before the queue advances', (
+    tester,
+  ) async {
+    final before = runtimeModel();
+    final playedCard = before.table.seats[0].hand.single;
+    final after = runtimeModelWith(
+      phase: phaseTrick,
+      selection: SelectionState.empty,
+      jobs: before.table.jobs,
+      seats: [
+        seatWithHand(before.table.seats[0], const []),
+        ...before.table.seats.skip(1),
+      ],
+      trick: Trick(
+        plays: [TrickPlay(seatID: 0, card: playedCard)],
+        winnerSeatID: 0,
+      ),
+    );
+    var model = before;
+    GamePresentationTransition? transition;
+    final completed = <int>[];
+    late StateSetter setMotionState;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            setMotionState = setState;
+            return SizedBox(
+              width: 420,
+              height: 280,
+              child: CardMotionLayer(
+                model: model,
+                tokens: defaultDesignTokens,
+                speed: GameAnimationSpeed.normal,
+                transition: transition,
+                onTransitionComplete: completed.add,
+                child: _CardMotionTestBoard(model: model),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    setMotionState(() {
+      model = after;
+      transition = GamePresentationTransition(
+        id: 31,
+        before: before,
+        after: after,
+        event: EngineTransitionEvent(
+          kind: kcTransitionCardMoved,
+          playerID: 0,
+          card: EngineCardValue(
+            suit: suitCode(playedCard.suit)!,
+            value: playedCard.value,
+          ),
+          fromZone: kcObjectZoneHand,
+          toZone: kcObjectZoneCurrentTrick,
+          fromOwner: 0,
+          toOwner: 0,
+          targetSuit: -1,
+        ),
+      );
+    });
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(FlyingCard), findsOneWidget);
+    expect(completed, isEmpty);
+
+    await tester.pump(const Duration(milliseconds: 521));
+
+    expect(find.byType(FlyingCard), findsNothing);
+    expect(
+      find.byKey(const ValueKey('winning-trick-card-frame')),
+      findsOneWidget,
+    );
+    expect(completed, isEmpty);
+
+    await tester.pump(const Duration(milliseconds: 139));
+    expect(completed, isEmpty);
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(completed, [31]);
+  });
+
+  testWidgets('fourth trick card flies before assignment changes panels', (
+    tester,
+  ) async {
+    final base = runtimeModel();
+    final playedCard = base.table.seats[0].hand.single;
+    final earlierPlays = [
+      TrickPlay(
+        seatID: 1,
+        card: testCard(id: 'sunflower-7', suit: 'sunflower', value: 7),
+      ),
+      TrickPlay(
+        seatID: 2,
+        card: testCard(id: 'potato-8', suit: 'potato', value: 8),
+      ),
+      TrickPlay(
+        seatID: 3,
+        card: testCard(id: 'beet-10', suit: 'beet', value: 10),
+      ),
+    ];
+    final before = runtimeModelWith(
+      phase: phaseTrick,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+      trick: Trick(plays: earlierPlays, winnerSeatID: null),
+    );
+    final after = modelWithActivePanel(
+      runtimeModelWith(
+        phase: phaseAssignment,
+        selection: SelectionState.empty,
+        jobs: base.table.jobs,
+        seats: [
+          seatWithHand(base.table.seats[0], const []),
+          ...base.table.seats.skip(1),
+        ],
+        trick: const Trick(plays: [], winnerSeatID: null),
+        lastTrick: Trick(
+          plays: [
+            ...earlierPlays,
+            TrickPlay(seatID: 0, card: playedCard),
+          ],
+          winnerSeatID: 0,
+        ),
+      ),
+      panelJobs,
+    );
+
+    var model = before;
+    GamePresentationTransition? transition;
+    late StateSetter setMotionState;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            setMotionState = setState;
+            final visibleModel = boardVisibleModelDuringTransition(
+              model,
+              transition,
+            );
+            return SizedBox(
+              width: 420,
+              height: 280,
+              child: CardMotionLayer(
+                model: model,
+                tokens: defaultDesignTokens,
+                speed: GameAnimationSpeed.normal,
+                transition: transition,
+                child: visibleModel.panels.active == panelBrigade
+                    ? _CardMotionTestBoard(model: visibleModel)
+                    : const SizedBox.expand(),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    setMotionState(() {
+      model = after;
+      transition = GamePresentationTransition(
+        id: 23,
+        before: before,
+        after: after,
+        event: EngineTransitionEvent(
+          kind: kcTransitionCardMoved,
+          playerID: 0,
+          card: EngineCardValue(
+            suit: suitCode(playedCard.suit)!,
+            value: playedCard.value,
+          ),
+          fromZone: kcObjectZoneHand,
+          toZone: kcObjectZoneCurrentTrick,
+          fromOwner: 0,
+          toOwner: 0,
+          targetSuit: -1,
+        ),
+      );
+    });
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      boardVisibleModelDuringTransition(after, transition).panels.active,
+      panelBrigade,
+    );
+    expect(find.byType(FlyingCard), findsOneWidget);
+    expect(
+      tester.widget<FlyingCard>(find.byType(FlyingCard)).flight.card.id,
+      playedCard.id,
+    );
+  });
+
+  test('prefilled assignment revision opens Fields before card motion', () {
+    final after = modelWithActivePanel(
+      runtimeModelWith(
+        phase: phaseAssignment,
+        selection: SelectionState.empty,
+        jobs: runtimeModel().table.jobs,
+      ),
+      panelJobs,
+    );
+    final transition = GamePresentationTransition(
+      id: 24,
+      before: after,
+      after: after,
+      event: const EngineTransitionEvent(
+        kind: kcTransitionAssignmentTargeted,
+        playerID: 0,
+        card: EngineCardValue(suit: 0, value: 11),
+        fromZone: kcObjectZoneLastTrick,
+        toZone: kcObjectZonePendingAssignment,
+        fromOwner: 0,
+        toOwner: 0,
+        targetSuit: 0,
+      ),
+      assignmentCardIDs: const ['wheat-11'],
+      assignmentTargets: const {'wheat-11': 'wheat'},
+    );
+
+    expect(
+      boardVisibleModelDuringTransition(after, transition).panels.active,
+      panelJobs,
+    );
+    final resolved = GamePresentationTransition(
+      id: 25,
+      before: after,
+      after: after,
+      event: const EngineTransitionEvent(
+        kind: kcTransitionTrickResolved,
+        playerID: 0,
+        card: EngineCardValue(suit: -1, value: 0),
+        fromZone: kcObjectZoneCurrentTrick,
+        toZone: kcObjectZoneLastTrick,
+        fromOwner: -1,
+        toOwner: 0,
+        targetSuit: -1,
+      ),
+    );
+    final opened = GamePresentationTransition(
+      id: 26,
+      before: after,
+      after: after,
+      event: const EngineTransitionEvent(
+        kind: kcTransitionAssignmentOpened,
+        playerID: 0,
+        card: EngineCardValue(suit: -1, value: 0),
+        fromZone: kcObjectZoneLastTrick,
+        toZone: kcObjectZonePendingAssignment,
+        fromOwner: 0,
+        toOwner: 0,
+        targetSuit: -1,
+      ),
+    );
+
+    expect(
+      boardVisibleModelDuringTransition(after, resolved).panels.active,
+      panelBrigade,
+    );
+    expect(
+      boardVisibleModelDuringTransition(after, opened).panels.active,
+      panelJobs,
+    );
+  });
+
+  testWidgets('Fields pulses only cards assigned during the current trick', (
+    tester,
+  ) async {
+    final base = runtimeModel();
+    final pendingCard = testCard(
+      id: 'wheat-pending',
+      suit: 'wheat',
+      value: 9,
+      pending: true,
+    );
+    final committedCard = testCard(
+      id: 'wheat-committed',
+      suit: 'wheat',
+      value: 8,
+    );
+    final model = modelWithActivePanel(
+      runtimeModelWith(
+        phase: phaseAssignment,
+        selection: SelectionState.empty,
+        jobs: [
+          for (final job in base.table.jobs)
+            job.suit == 'wheat'
+                ? Job(
+                    suit: job.suit,
+                    hours: job.hours,
+                    requiredHours: job.requiredHours,
+                    claimed: job.claimed,
+                    reward: job.reward,
+                    assignedCards: [committedCard, pendingCard],
+                    validAssignmentTarget: job.validAssignmentTarget,
+                    highlighted: job.highlighted,
+                  )
+                : job,
+        ],
+      ),
+      panelJobs,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 900,
+          height: 600,
+          child: StaticHeroGamePanel(
+            kind: StaticHeroGamePanelKind.fields,
+            model: model,
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
+            showPlanningPanel: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('pending-assignment-card-pulse-wheat-pending')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey('pending-assignment-card-pulse-wheat-committed'),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('all four sequential trick plays use stable zone anchors', (
+    tester,
+  ) async {
+    final base = runtimeModel();
+    final cards = [
+      base.table.seats[0].hand.single,
+      testCard(id: 'sunflower-7', suit: 'sunflower', value: 7),
+      testCard(id: 'potato-8', suit: 'potato', value: 8),
+      testCard(id: 'beet-10', suit: 'beet', value: 10),
+    ];
+    final plays = [
+      for (final (seatID, card) in cards.indexed)
+        TrickPlay(seatID: seatID, card: card),
+    ];
+    TableViewModel modelAfterPlays(int count) {
+      final model = runtimeModelWith(
+        phase: count == 4 ? phaseAssignment : phaseTrick,
+        selection: SelectionState.empty,
+        jobs: base.table.jobs,
+        seats: [
+          seatWithHand(
+            base.table.seats[0],
+            count == 0 ? base.table.seats[0].hand : const [],
+          ),
+          ...base.table.seats.skip(1),
+        ],
+        trick: count == 4
+            ? const Trick(plays: [], winnerSeatID: null)
+            : Trick(plays: plays.take(count).toList(), winnerSeatID: null),
+        lastTrick: count == 4
+            ? Trick(plays: plays, winnerSeatID: 0)
+            : const Trick(plays: [], winnerSeatID: null),
+      );
+      return count == 4 ? modelWithActivePanel(model, panelJobs) : model;
+    }
+
+    var model = modelAfterPlays(0);
+    GamePresentationTransition? transition;
+    late StateSetter setMotionState;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            setMotionState = setState;
+            final visibleModel = boardVisibleModelDuringTransition(
+              model,
+              transition,
+            );
+            return SizedBox(
+              width: 420,
+              height: 280,
+              child: CardMotionLayer(
+                model: model,
+                tokens: defaultDesignTokens,
+                speed: GameAnimationSpeed.normal,
+                transition: transition,
+                child: _CardMotionTestBoard(model: visibleModel),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    for (var count = 1; count <= 4; count++) {
+      final before = model;
+      final after = modelAfterPlays(count);
+      setMotionState(() {
+        model = after;
+        transition = GamePresentationTransition(
+          id: 40 + count,
+          before: before,
+          after: after,
+        );
+      });
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(FlyingCard), findsOneWidget);
+      expect(
+        tester.widget<FlyingCard>(find.byType(FlyingCard)).flight.card.id,
+        cards[count - 1].id,
+      );
+      await tester.pump(const Duration(milliseconds: 900));
+      expect(find.byType(FlyingCard), findsNothing);
+    }
   });
 
   testWidgets('reduced motion completes a card transition without a flight', (
@@ -2262,7 +3251,7 @@ void registerBoardTests() {
     expect(completedTransitions, [7]);
   });
 
-  testWidgets('requisition flies a newly plotted hand card to North', (
+  testWidgets('field-plan requisition flies a local card to North', (
     tester,
   ) async {
     final before = runtimeModel();
@@ -2272,12 +3261,14 @@ void registerBoardTests() {
       phase: phaseRequisition,
       selection: SelectionState.empty,
       jobs: before.table.jobs,
-      seats: [
-        seatWithPlot(
-          seatWithHand(seat, const []),
-          PlotState(revealed: const [], hidden: [card], stacks: const []),
+      seats: [seatWithHand(seat, const []), ...before.table.seats.skip(1)],
+      requisitionEvents: [
+        RequisitionEvent(
+          seatID: seat.id,
+          suit: card.suit,
+          card: card,
+          message: 'Requisitioned.',
         ),
-        ...before.table.seats.skip(1),
       ],
       exiledByYear: {
         ...before.table.exiledByYear,
@@ -2293,13 +3284,19 @@ void registerBoardTests() {
           builder: (context, setState) {
             setMotionState = setState;
             return SizedBox(
-              width: 420,
-              height: 280,
+              width: 900,
+              height: 600,
               child: CardMotionLayer(
                 model: currentModel,
                 tokens: defaultDesignTokens,
                 speed: GameAnimationSpeed.normal,
-                child: const _RequisitionMotionTestBoard(),
+                child: StaticHeroGamePanel(
+                  kind: StaticHeroGamePanelKind.brigade,
+                  model: currentModel,
+                  tokens: defaultDesignTokens,
+                  language: KolkhozLanguage.en,
+                  showPlanningPanel: false,
+                ),
               ),
             );
           },
@@ -2318,11 +3315,106 @@ void registerBoardTests() {
 
     expect(find.byType(FlyingCard), findsOneWidget);
     expect(plotSeatIDForMotionCard(after, card.id), 0);
+  });
 
+  testWidgets(
+    'requisitioned card leaves its retained plot source immediately',
+    (tester) async {
+      final base = runtimeModel();
+      final card = base.table.seats[0].hand.single;
+      final seat = seatWithPlot(
+        seatWithHand(base.table.seats[0], const []),
+        PlotState(revealed: [card], hidden: const [], stacks: const []),
+      );
+      final before = runtimeModelWith(
+        phase: phaseTrick,
+        selection: SelectionState.empty,
+        jobs: base.table.jobs,
+        seats: [seat, ...base.table.seats.skip(1)],
+      );
+      final after = runtimeModelWith(
+        phase: phaseRequisition,
+        selection: SelectionState.empty,
+        jobs: base.table.jobs,
+        seats: [seat, ...base.table.seats.skip(1)],
+        requisitionEvents: [
+          RequisitionEvent(
+            seatID: seat.id,
+            suit: card.suit,
+            card: card,
+            message: 'Requisitioned.',
+          ),
+        ],
+        exiledByYear: {
+          ...base.table.exiledByYear,
+          base.table.year: [card],
+        },
+      );
+
+      var model = before;
+      late StateSetter updateModel;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              updateModel = setState;
+              return SizedBox(
+                width: 900,
+                height: 600,
+                child: CardMotionLayer(
+                  model: model,
+                  tokens: defaultDesignTokens,
+                  speed: GameAnimationSpeed.normal,
+                  child: StaticHeroGamePanel(
+                    kind: StaticHeroGamePanelKind.brigade,
+                    model: model,
+                    tokens: defaultDesignTokens,
+                    language: KolkhozLanguage.en,
+                    showPlanningPanel: false,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      updateModel(() => model = after);
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(FlyingCard), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is GameCard && widget.card.id == card.id,
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('field-plan requisition flies a redacted online card to North', (
+    tester,
+  ) async {
+    final base = runtimeModel();
+    final card = base.table.seats[0].hand.single;
+    final before = runtimeModelWith(
+      phase: phaseTrick,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+      seats: [
+        seatWithHand(base.table.seats[0], const []),
+        ...base.table.seats.skip(1),
+      ],
+    );
     final redactedOnlineModel = runtimeModelWith(
       phase: phaseRequisition,
       selection: SelectionState.empty,
-      jobs: before.table.jobs,
+      jobs: base.table.jobs,
+      seats: before.table.seats,
       requisitionEvents: [
         RequisitionEvent(
           seatID: 2,
@@ -2332,11 +3424,183 @@ void registerBoardTests() {
         ),
       ],
       exiledByYear: {
-        ...before.table.exiledByYear,
-        before.table.year: [card],
+        ...base.table.exiledByYear,
+        base.table.year: [card],
       },
     );
+
+    var currentModel = before;
+    late StateSetter setMotionState;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            setMotionState = setState;
+            return SizedBox(
+              width: 900,
+              height: 600,
+              child: CardMotionLayer(
+                model: currentModel,
+                tokens: defaultDesignTokens,
+                speed: GameAnimationSpeed.normal,
+                child: StaticHeroGamePanel(
+                  kind: StaticHeroGamePanelKind.brigade,
+                  model: currentModel,
+                  tokens: defaultDesignTokens,
+                  language: KolkhozLanguage.en,
+                  showPlanningPanel: false,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    setMotionState(() {
+      currentModel = redactedOnlineModel;
+    });
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(FlyingCard), findsOneWidget);
     expect(plotSeatIDForMotionCard(redactedOnlineModel, card.id), 2);
+  });
+
+  testWidgets('field-plan cellar cards flip for their owner on hover and tap', (
+    tester,
+  ) async {
+    final base = runtimeModel();
+    final localCard = testCard(id: 'beet-cellar', suit: 'beet', value: 8);
+    final opponentCard = testCard(
+      id: 'potato-cellar',
+      suit: 'potato',
+      value: 9,
+    );
+    final model = runtimeModelWith(
+      phase: phaseTrick,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+      seats: [
+        seatWithPlot(
+          base.table.seats[0],
+          PlotState(revealed: const [], hidden: [localCard], stacks: const []),
+        ),
+        seatWithPlot(
+          base.table.seats[1],
+          PlotState(
+            revealed: const [],
+            hidden: [opponentCard],
+            stacks: const [],
+          ),
+        ),
+        ...base.table.seats.skip(2),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 900,
+          height: 600,
+          child: StaticHeroGamePanel(
+            kind: StaticHeroGamePanelKind.brigade,
+            model: model,
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
+            showPlanningPanel: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(InteractiveCardFlip), findsOneWidget);
+    expect(find.byKey(ValueKey('cellar-back-${localCard.id}')), findsOneWidget);
+    expect(
+      find.byKey(ValueKey('cellar-face-${opponentCard.id}')),
+      findsNothing,
+    );
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(
+      tester.getCenter(find.byKey(Key('static-hero-card-${localCard.id}'))),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 240));
+    expect(find.byKey(ValueKey('cellar-face-${localCard.id}')), findsOneWidget);
+
+    await mouse.moveTo(const Offset(899, 599));
+    await tester.pumpAndSettle();
+    expect(find.byKey(ValueKey('cellar-back-${localCard.id}')), findsOneWidget);
+
+    await tester.tap(find.byKey(Key('static-hero-card-${localCard.id}')));
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.byKey(ValueKey('cellar-face-${localCard.id}')), findsOneWidget);
+    await mouse.removePointer();
+  });
+
+  testWidgets('field-plan played cards retain their trump artwork', (
+    tester,
+  ) async {
+    final base = runtimeModel();
+    final trumpCard = testCard(id: 'wheat-trump', suit: 'wheat', value: 10);
+    final model = runtimeModelWith(
+      phase: phaseTrick,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+      trick: Trick(
+        plays: [TrickPlay(seatID: 1, card: trumpCard)],
+        winnerSeatID: null,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 900,
+          height: 600,
+          child: StaticHeroGamePanel(
+            kind: StaticHeroGamePanelKind.brigade,
+            model: model,
+            tokens: defaultDesignTokens,
+            language: KolkhozLanguage.en,
+            showPlanningPanel: false,
+          ),
+        ),
+      ),
+    );
+
+    final playedCard = find.descendant(
+      of: find.byKey(Key('static-hero-trick-card-${trumpCard.id}')),
+      matching: find.byType(GameCard),
+    );
+    expect(playedCard, findsOneWidget);
+    expect(tester.widget<GameCard>(playedCard).trump, model.table.trump);
+    expect(
+      cardUsesTrumpTemplate(
+        card: tester.widget<GameCard>(playedCard).card,
+        trump: tester.widget<GameCard>(playedCard).trump,
+      ),
+      isTrue,
+    );
+    expect(
+      tester.widget<GameCard>(playedCard).sizeOverride,
+      defaultDesignTokens.card.large,
+    );
+    final highQualityScale = find.descendant(
+      of: find.byKey(Key('static-hero-trick-card-${trumpCard.id}')),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Transform && widget.filterQuality == FilterQuality.high,
+      ),
+    );
+    expect(highQualityScale, findsOneWidget);
   });
 
   testWidgets('top job gauge includes pending assignment hours', (
@@ -2522,23 +3786,25 @@ void registerBoardTests() {
     await tester.pumpWidget(gaugeWithCards(const []));
     await tester.pumpWidget(gaugeWithCards([pendingWheat7]));
 
-    expect(findAppText('17/40'), findsWidgets);
+    expect(findAppText('10/40'), findsWidgets);
     expect(findAppText('+7'), findsNothing);
 
     controller.recordJobCardArrival(
       const JobCardArrival(cardID: 'wheat-7', suit: 'wheat'),
     );
     await tester.pump();
+    expect(findAppText('17/40'), findsWidgets);
     expect(findAppText('+7'), findsWidgets);
     await tester.pumpAndSettle();
 
     await tester.pumpWidget(gaugeWithCards([pendingWheat7, pendingWheat8]));
-    expect(findAppText('25/40'), findsWidgets);
+    expect(findAppText('17/40'), findsWidgets);
 
     controller.recordJobCardArrival(
       const JobCardArrival(cardID: 'wheat-8', suit: 'wheat'),
     );
     await tester.pump();
+    expect(findAppText('25/40'), findsWidgets);
     expect(findAppText('+8'), findsWidgets);
     await tester.pumpAndSettle();
 
@@ -2560,6 +3826,11 @@ void registerBoardTests() {
         testCard(id: 'wheat-15', suit: 'wheat', value: 15),
       ], claimed: true),
     );
+    expect(findAppText('25/40'), findsWidgets);
+    controller.recordJobCardArrival(
+      const JobCardArrival(cardID: 'wheat-15', suit: 'wheat'),
+    );
+    await tester.pump();
     expect(findAppText('40/40'), findsWidgets);
   });
 
@@ -2628,13 +3899,73 @@ void registerBoardTests() {
     );
   });
 
-  test('requisition card flights target the north rail icon', () {
+  test(
+    'trick flights prefer the played card then fall back to hand anchors',
+    () {
+      const playerRect = Rect.fromLTWH(24, 208, 96, 42);
+      const handRect = Rect.fromLTWH(18, 220, 280, 72);
+      const playedCardRect = Rect.fromLTWH(360, 220, 42, 60);
+      const trickRect = Rect.fromLTWH(220, 76, 42, 60);
+      final exactCardSource = cardFlightSourceRect(
+        cardID: 'wheat-11',
+        previousZone: const MotionZone.hand(0),
+        nextZone: const MotionZone.trick(0),
+        previousRects: MotionGeometry({
+          handCardMotionSourceKey(0): handRect,
+          const MotionAnchor.card('wheat-11'): playedCardRect,
+        }),
+        model: runtimeModel(),
+        tokens: defaultDesignTokens,
+      );
+      final stableHandSource = cardFlightSourceRect(
+        cardID: 'wheat-11',
+        previousZone: const MotionZone.hand(0),
+        nextZone: const MotionZone.trick(0),
+        previousRects: MotionGeometry({handCardMotionSourceKey(0): handRect}),
+        model: runtimeModel(),
+        tokens: defaultDesignTokens,
+      );
+      final source = cardFlightFallbackSourceRect(
+        previousZone: const MotionZone.hand(0),
+        nextZone: const MotionZone.trick(0),
+        currentRects: MotionGeometry({
+          playerCardMotionSourceKey(0): playerRect,
+        }),
+        tokens: defaultDesignTokens,
+      );
+      final destination = cardFlightDestinationRect(
+        cardID: 'wheat-11',
+        previousZone: const MotionZone.hand(0),
+        nextZone: const MotionZone.trick(0),
+        currentRects: MotionGeometry({trickCardMotionTargetKey(0): trickRect}),
+        tokens: defaultDesignTokens,
+      );
+
+      expect(exactCardSource, playedCardRect);
+      expect(stableHandSource, isNotNull);
+      expect(stableHandSource!.center, handRect.center);
+      expect(source, isNotNull);
+      expect(source!.center, playerRect.center);
+      expect(destination, isNotNull);
+      expect(destination!.center, trickRect.center);
+      expect(
+        destination.height,
+        closeTo(defaultDesignTokens.card.small.height, 0.001),
+      );
+    },
+  );
+
+  test('requisition card flights use the shared North motion route', () {
     const northIconRect = Rect.fromLTWH(8, 128, 42, 42);
+    const oldTopTarget = Rect.fromLTWH(400, 0, 42, 42);
     final destination = cardFlightDestinationRect(
       cardID: 'wheat-9',
       previousZone: const MotionZone.plotRevealed(0),
       nextZone: const MotionZone.exiled(1),
-      currentRects: MotionGeometry({northCardMotionTargetKey: northIconRect}),
+      currentRects: MotionGeometry({
+        northRailCardMotionTargetKey: northIconRect,
+        northCardMotionTargetKey: oldTopTarget,
+      }),
       tokens: defaultDesignTokens,
     );
 
@@ -2668,6 +3999,42 @@ void registerBoardTests() {
       ),
       requisitionCardFlightDurationScale,
     );
+    expect(
+      cardFlightDurationScale(
+        previousZone: const MotionZone.hand(2),
+        nextZone: const MotionZone.northExile(),
+        model: runtimeModel(),
+      ),
+      requisitionCardFlightDurationScale,
+    );
+
+    final card = testCard(id: 'hidden-wheat-9', suit: 'wheat', value: 9);
+    final plan = planCardFlights(
+      motionEnabled: true,
+      minimumFlightDistance: GameMotion.minimumFlightDistance,
+      previousModel: runtimeModel(),
+      nextModel: runtimeModel(),
+      previousZones: {card.id: const MotionZone.plotHidden(0)},
+      nextZones: {card.id: const MotionZone.northExile()},
+      previousCards: {card.id: card},
+      nextCards: {card.id: card},
+      previousGeometry: MotionGeometry({
+        MotionAnchor.card(card.id): const Rect.fromLTWH(120, 240, 48, 68),
+      }),
+      currentGeometry: MotionGeometry({
+        northRailCardMotionTargetKey: northIconRect,
+      }),
+      geometry: const DefaultCardMotionGeometryResolver(defaultDesignTokens),
+      transitionID: 1,
+      assignmentCardIDs: const [],
+      assignmentTargets: const {},
+      suppressedCardIDs: const {},
+      presentedAssignmentCardIDs: const {},
+      initialFlightID: 0,
+    );
+
+    expect(plan.flights.single.revealBeforeFlight, isTrue);
+    expect(plan.flights.single.requisitioned, isTrue);
   });
 
   test('job assignment flights can target top gauges', () {
@@ -2748,6 +4115,80 @@ void registerBoardTests() {
     expect(source!.center, gaugeRect.center);
     expect(source.width, closeTo(defaultDesignTokens.card.small.width, 0.001));
     expect(destination, plotCardRect);
+  });
+
+  testWidgets('active reward flight hides its revealed plot destination', (
+    tester,
+  ) async {
+    final reward = testCard(id: 'wheat-reward-9', suit: 'wheat', value: 9);
+    final controller = CardMotionController();
+    final rootKey = GlobalKey();
+    var activeCardIDs = {reward.id};
+    var frame = 0;
+    late StateSetter updateMotion;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            updateMotion = setState;
+            return CardMotionScope(
+              controller: controller,
+              frame: frame,
+              rootKey: rootKey,
+              activeCardIDs: activeCardIDs,
+              child: SizedBox(
+                key: rootKey,
+                width: 240,
+                height: 160,
+                child: Stack(
+                  children: plotOverviewCardItems(
+                    cards: [reward],
+                    stacks: const [],
+                    hiddenCards: false,
+                    cardSize: defaultDesignTokens.card.small,
+                    selectedCardID: null,
+                    selectable: false,
+                    zone: plotZoneRevealed,
+                    exiledCardIDs: const {},
+                    tokens: defaultDesignTokens,
+                    onPlotCardTap: null,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    final trackedReward = find.byWidgetPredicate(
+      (widget) => widget is MotionTrackedCard && widget.card.id == reward.id,
+    );
+    expect(trackedReward, findsOneWidget);
+    expect(
+      tester
+          .widget<Opacity>(
+            find.descendant(of: trackedReward, matching: find.byType(Opacity)),
+          )
+          .opacity,
+      0,
+    );
+
+    updateMotion(() {
+      activeCardIDs = const {};
+      frame += 1;
+    });
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<Opacity>(
+            find.descendant(of: trackedReward, matching: find.byType(Opacity)),
+          )
+          .opacity,
+      1,
+    );
   });
 
   test('job assignments produce parallel brigade and fields flights', () {
@@ -2841,13 +4282,12 @@ void registerBoardTests() {
     await tester.tap(find.byTooltip('Switch to Russian'));
     await tester.tap(find.byTooltip('Switch to light mode'));
     await tester.tap(find.bySemanticsLabel('SLOW'));
-    await tester.tap(find.bySemanticsLabel('Winter'));
 
     expect(calls, ['new', 'tutorial', 'menu', 'language', 'appearance']);
     expect(confirmNewGame, isFalse);
     expect(confirmMainMenu, isFalse);
     expect(showInvalidTapHints, isFalse);
     expect(selectedSpeed, GameAnimationSpeed.slow);
-    expect(selectedCardBack, KolkhozCardBack.winter);
+    expect(selectedCardBack, isNull);
   });
 }

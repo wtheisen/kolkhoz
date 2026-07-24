@@ -212,7 +212,9 @@ class OnlineTableProjection {
             card: projectOnlineCard(play.card.valueObject),
           ),
       ],
-      winnerSeatID: current ? null : nullablePlayerID(snapshot.lastWinner),
+      winnerSeatID: current
+          ? nullablePlayerID(snapshot.currentTrickWinner)
+          : nullablePlayerID(snapshot.lastWinner),
     );
   }
 

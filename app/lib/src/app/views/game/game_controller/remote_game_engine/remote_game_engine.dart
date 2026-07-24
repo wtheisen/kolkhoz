@@ -133,7 +133,12 @@ class RemoteGameEngine implements GameEngine {
         _acceptUpdate(event.update);
         onError(null);
         if (event.committed) {
-          onGameUpdate(GameEngineUpdate(action: event.action));
+          onGameUpdate(
+            GameEngineUpdate(
+              action: event.action,
+              transitions: event.update.snapshot.transitionEvents,
+            ),
+          );
         } else {
           onStateChanged();
         }

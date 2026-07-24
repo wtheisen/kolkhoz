@@ -222,7 +222,7 @@ class TableViewProjection {
     return Trick(
       plays: plays,
       winnerSeatID: current
-          ? null
+          ? nullablePlayerID(bridge.currentTrickWinner(engine))
           : nullablePlayerID(bridge.lastWinner(engine)),
     );
   }

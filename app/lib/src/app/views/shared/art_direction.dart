@@ -1,49 +1,14 @@
 import 'package:flutter/widgets.dart';
 
-const kolkhozArtStyleEnvironmentKey = 'KOLKHOZ_ART_STYLE';
-const fieldPlanArtStyleValue = 'field_plan';
-
-enum KolkhozArtStyle {
-  legacy,
-  fieldPlan;
-
-  static KolkhozArtStyle fromEnvironmentValue(String? value) {
-    return value == fieldPlanArtStyleValue
-        ? KolkhozArtStyle.fieldPlan
-        : KolkhozArtStyle.legacy;
-  }
-
-  bool get usesNewArt => this == KolkhozArtStyle.fieldPlan;
-  bool get supportsDarkAppearance => this == KolkhozArtStyle.legacy;
-}
-
-const configuredKolkhozArtStyle =
-    String.fromEnvironment(
-          kolkhozArtStyleEnvironmentKey,
-          defaultValue: 'legacy',
-        ) ==
-        fieldPlanArtStyleValue
-    ? KolkhozArtStyle.fieldPlan
-    : KolkhozArtStyle.legacy;
-
 class ArtAssetRef {
-  const ArtAssetRef({required this.legacyPath, this.fieldPlanPath});
+  const ArtAssetRef({required this.fieldPlanPath});
 
-  final String legacyPath;
-  final String? fieldPlanPath;
-
-  String pathFor(KolkhozArtStyle style) {
-    if (style.usesNewArt && fieldPlanPath != null) {
-      return fieldPlanPath!;
-    }
-    return legacyPath;
-  }
+  final String fieldPlanPath;
 }
 
 class ArtAssetImage extends StatelessWidget {
   const ArtAssetImage({
     required this.asset,
-    this.style = configuredKolkhozArtStyle,
     this.width,
     this.height,
     this.fit,
@@ -57,7 +22,6 @@ class ArtAssetImage extends StatelessWidget {
   });
 
   final ArtAssetRef asset;
-  final KolkhozArtStyle style;
   final double? width;
   final double? height;
   final BoxFit? fit;
@@ -70,14 +34,7 @@ class ArtAssetImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final requestedPath = asset.pathFor(style);
-    if (requestedPath == asset.legacyPath) {
-      return _image(asset.legacyPath, errorBuilder);
-    }
-    return _image(
-      requestedPath,
-      (context, error, stackTrace) => _image(asset.legacyPath, errorBuilder),
-    );
+    return _image(asset.fieldPlanPath, errorBuilder);
   }
 
   Image _image(String path, ImageErrorWidgetBuilder? onError) {

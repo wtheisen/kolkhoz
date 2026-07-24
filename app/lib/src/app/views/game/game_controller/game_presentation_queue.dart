@@ -2,6 +2,7 @@ import 'dart:collection';
 
 import 'package:kolkhoz_app/src/app/views/game/game_controller/game_presentation_transition.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/render_model.dart';
+import 'package:kolkhoz_app/src/app/views/game/game_controller/models/engine_values.dart';
 
 /// Owns the ordered, one-at-a-time presentation of authoritative game updates.
 ///
@@ -21,6 +22,7 @@ class GamePresentationQueue {
     required TableViewModel before,
     required TableViewModel after,
     EngineAction? action,
+    EngineTransitionEvent? event,
     List<String> assignmentCardIDs = const [],
     Map<String, String> assignmentTargets = const {},
     Set<String> suppressedCardIDs = const {},
@@ -30,6 +32,7 @@ class GamePresentationQueue {
       before: before,
       after: after,
       action: action,
+      event: event,
       assignmentCardIDs: assignmentCardIDs,
       assignmentTargets: assignmentTargets,
       suppressedCardIDs: suppressedCardIDs,

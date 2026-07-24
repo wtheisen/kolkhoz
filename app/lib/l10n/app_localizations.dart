@@ -365,7 +365,7 @@ abstract class AppLocalizations {
   /// No description provided for @variantDemoModeDescription.
   ///
   /// In en, this message translates to:
-  /// **'2-year Kolkhoz with easy AI'**
+  /// **'5-year Kolkhoz with easy AI'**
   String get variantDemoModeDescription;
 
   /// No description provided for @appsettingsDark.
@@ -794,7 +794,7 @@ abstract class AppLocalizations {
   /// No description provided for @kolkhozappDemoMode2YearKolkhozWithEasyAi.
   ///
   /// In en, this message translates to:
-  /// **'Demo mode: 2-year Kolkhoz with easy AI.'**
+  /// **'Demo mode: 5-year Kolkhoz with easy AI.'**
   String get kolkhozappDemoMode2YearKolkhozWithEasyAi;
 
   /// No description provided for @kolkhozappWorking.

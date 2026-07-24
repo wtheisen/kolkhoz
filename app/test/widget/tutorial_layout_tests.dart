@@ -376,10 +376,13 @@ void registerTutorialAndLayoutTests() {
       cardRankDisplayLabel(testCard(id: 'wheat-10', suit: 'wheat', value: 10)),
       '10',
     );
-    expect(faceAssetPath(jack), 'assets/ui/Cards/face-jack-wheat.png');
+    expect(
+      faceAssetPath(jack),
+      'assets/art/field_plan/cards/faces/face-jack-wheat.png',
+    );
     expect(
       faceAssetPath(nomenklaturaQueen),
-      'assets/ui/Cards/face-queen-beet-nomenklatura.png',
+      'assets/art/field_plan/cards/faces/face-queen-beet.png',
     );
     expect(genericFaceAssetPath(queen), 'assets/ui/Cards/face-queen.png');
     expect(faceRankName(wrecker), 'saboteur');
@@ -390,9 +393,12 @@ void registerTutorialAndLayoutTests() {
       facePortraitArtWidth(wrecker, defaultDesignTokens.card.large),
       40.95,
     );
-    expect(faceAssetPath(wrecker), 'assets/ui/Cards/face-wrecker.png');
+    expect(
+      faceAssetPath(wrecker),
+      'assets/art/field_plan/cards/faces/face-saboteur.png',
+    );
     expect(genericFaceAssetPath(wrecker), 'assets/ui/Cards/face-wrecker.png');
-    expect(portraitAssetPath(seat), 'assets/ui/worker1.png');
+    expect(portraitAssetPath(seat), fieldPlanPlayerForewoman.fieldPlanPath);
     expect(
       cardTemplateAssetPath(
         card: jack,

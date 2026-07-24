@@ -1,6 +1,152 @@
 part of '../widget_test.dart';
 
 void registerStoreAndOnlineTests() {
+  test(
+    'presentation batch keeps the completed trick visible before assignment',
+    () {
+      final base = runtimeModel();
+      final playedCard = base.table.seats[0].hand.single;
+      final earlierPlays = [
+        TrickPlay(
+          seatID: 1,
+          card: testCard(id: 'potato-7', suit: 'potato', value: 7),
+        ),
+        TrickPlay(
+          seatID: 2,
+          card: testCard(id: 'wheat-8', suit: 'wheat', value: 8),
+        ),
+        TrickPlay(
+          seatID: 3,
+          card: testCard(id: 'sunflower-9', suit: 'sunflower', value: 9),
+        ),
+      ];
+      final before = runtimeModelWith(
+        phase: phaseTrick,
+        selection: SelectionState.empty,
+        jobs: base.table.jobs,
+        trick: Trick(plays: earlierPlays, winnerSeatID: null),
+      );
+      final resolvedPlays = [
+        ...earlierPlays,
+        TrickPlay(seatID: 0, card: playedCard),
+      ];
+      final after = modelWithActivePanel(
+        runtimeModelWith(
+          phase: phaseAssignment,
+          selection: SelectionState.empty,
+          jobs: base.table.jobs,
+          seats: [
+            seatWithHand(base.table.seats[0], const []),
+            ...base.table.seats.skip(1),
+          ],
+          trick: const Trick(plays: [], winnerSeatID: null),
+          lastTrick: Trick(plays: resolvedPlays, winnerSeatID: 0),
+        ),
+        panelJobs,
+      );
+      final events = [
+        EngineTransitionEvent(
+          kind: kcTransitionCardMoved,
+          playerID: 0,
+          card: EngineCardValue(
+            suit: suitCode(playedCard.suit)!,
+            value: playedCard.value,
+          ),
+          fromZone: kcObjectZoneHand,
+          toZone: kcObjectZoneCurrentTrick,
+          fromOwner: 0,
+          toOwner: 0,
+          targetSuit: -1,
+        ),
+        const EngineTransitionEvent(
+          kind: kcTransitionTrickResolved,
+          playerID: 0,
+          card: EngineCardValue(suit: -1, value: 0),
+          fromZone: kcObjectZoneCurrentTrick,
+          toZone: kcObjectZoneLastTrick,
+          fromOwner: -1,
+          toOwner: 0,
+          targetSuit: -1,
+        ),
+        const EngineTransitionEvent(
+          kind: kcTransitionAssignmentOpened,
+          playerID: 0,
+          card: EngineCardValue(suit: -1, value: 0),
+          fromZone: kcObjectZoneLastTrick,
+          toZone: kcObjectZonePendingAssignment,
+          fromOwner: 0,
+          toOwner: 0,
+          targetSuit: -1,
+        ),
+      ];
+
+      final states = projectPresentationBatch(
+        before: before,
+        after: after,
+        events: events,
+      );
+
+      expect(states, hasLength(3));
+      expect(states[0].table.phase, phaseTrick);
+      expect(states[0].table.trick.plays, hasLength(4));
+      expect(states[0].table.trick.plays.last.card.id, playedCard.id);
+      expect(states[0].table.trick.winnerSeatID, 0);
+      expect(states[0].table.seats[0].hand, isEmpty);
+      expect(states[1].table.phase, phaseTrick);
+      expect(states[1].table.lastTrick.plays, hasLength(4));
+      expect(states[1].panels.active, panelBrigade);
+      expect(states[2].table.phase, phaseAssignment);
+      expect(states[2].panels.active, panelJobs);
+    },
+  );
+
+  test('presentation transition carries an authoritative engine event', () {
+    final model = runtimeModel();
+    const event = EngineTransitionEvent(
+      kind: kcTransitionCardMoved,
+      playerID: 2,
+      card: EngineCardValue(suit: 0, value: 11),
+      fromZone: kcObjectZoneHand,
+      toZone: kcObjectZoneCurrentTrick,
+      fromOwner: 2,
+      toOwner: 2,
+      targetSuit: -1,
+    );
+    final queue = GamePresentationQueue();
+
+    final transition = queue.enqueue(before: model, after: model, event: event);
+
+    expect(transition.event, same(event));
+    expect(transition.event!.fromZone, kcObjectZoneHand);
+    expect(transition.event!.toZone, kcObjectZoneCurrentTrick);
+  });
+
+  test('online snapshots preserve authoritative engine transitions', () {
+    final json = onlineUpdateJson();
+    final snapshot = json['snapshot']! as Map<String, Object?>;
+    snapshot['transitionEvents'] = [
+      {
+        'kind': kcTransitionCardMoved,
+        'playerID': 3,
+        'card': {'suit': 2, 'value': 9},
+        'fromZone': kcObjectZoneHand,
+        'toZone': kcObjectZoneCurrentTrick,
+        'fromOwner': 3,
+        'toOwner': 3,
+        'targetSuit': -1,
+      },
+    ];
+
+    final update = OnlineSessionUpdate.fromJson(json);
+
+    expect(update.snapshot.transitionEvents, hasLength(1));
+    expect(update.snapshot.transitionEvents.single.playerID, 3);
+    expect(
+      update.snapshot.transitionEvents.single.toZone,
+      kcObjectZoneCurrentTrick,
+    );
+  });
+
   test('presentation queue owns ordering and ignores stale completions', () {
     final queue = GamePresentationQueue();
     final firstModel = runtimeModel();
@@ -903,10 +1049,7 @@ void registerStoreAndOnlineTests() {
     );
 
     final image = tester.widget<Image>(find.byType(Image));
-    expect(
-      (image.image as AssetImage).assetName,
-      KolkhozCardBack.granary.assetPath,
-    );
+    expect((image.image as AssetImage).assetName, fieldPlanCardBackAssetPath);
   });
 
   testWidgets('game control confirmation resolves through navigator context', (
@@ -1003,10 +1146,10 @@ void registerStoreAndOnlineTests() {
     expect(findAssetImage('assets/ui/Icons/icon-brigade.png'), findsOneWidget);
     expect(findAssetImage('assets/ui/Icons/icon-jobs.png'), findsOneWidget);
     expect(findAssetImage('assets/ui/Icons/icon-north.png'), findsOneWidget);
-    expect(findAssetImage('assets/ui/Icons/icon-plot.png'), findsOneWidget);
+    expect(findAssetImage('assets/ui/Icons/icon-plot.png'), findsNothing);
     expect(findAssetImage('assets/ui/Icons/icon-game-log.png'), findsOneWidget);
     expect(find.byType(RailStatusIcon), findsOneWidget);
-    expect(find.byType(RailButton), findsNWidgets(6));
+    expect(find.byType(RailButton), findsNWidgets(5));
   });
 
   testWidgets('left rail reports selected panel', (tester) async {
@@ -1035,8 +1178,9 @@ void registerStoreAndOnlineTests() {
       ),
     );
 
-    await tester.tap(find.byTooltip('Cellar'));
-    expect(selectedPanel, panelPlot);
+    await tester.tap(find.byTooltip('The North'));
+    expect(selectedPanel, panelNorth);
+
     expect(find.byTooltip('Switch to Russian'), findsNothing);
     expect(find.byTooltip('Switch to light mode'), findsNothing);
     expect(
@@ -1045,7 +1189,7 @@ void registerStoreAndOnlineTests() {
     );
     expect(
       tester.getBottomLeft(find.byTooltip('Menu')).dy,
-      greaterThan(tester.getBottomLeft(find.byTooltip('Cellar')).dy),
+      greaterThan(tester.getBottomLeft(find.byTooltip('The North')).dy),
     );
   });
 
@@ -1092,14 +1236,14 @@ void registerStoreAndOnlineTests() {
     expect(brigade.properties.selected, isTrue);
     expect(brigade.properties.onTap, isNotNull);
 
-    final cellar = railSemantics('Cellar');
-    expect(cellar.properties.label, 'Cellar');
-    expect(cellar.properties.button, isTrue);
-    expect(cellar.properties.selected, isFalse);
-    expect(cellar.properties.onTap, isNotNull);
+    final north = railSemantics('The North');
+    expect(north.properties.label, 'The North');
+    expect(north.properties.button, isTrue);
+    expect(north.properties.selected, isFalse);
+    expect(north.properties.onTap, isNotNull);
 
-    await tester.tap(find.bySemanticsLabel('Cellar'));
-    expect(selectedPanel, panelPlot);
+    await tester.tap(find.bySemanticsLabel('The North'));
+    expect(selectedPanel, panelNorth);
   });
 
   testWidgets('jobs require a selected assignment card before assigning', (
@@ -1474,17 +1618,32 @@ void registerStoreAndOnlineTests() {
     ]);
   });
 
-  testWidgets('planning trump chooser waits for confirmation', (tester) async {
+  testWidgets('planning popup combines revealed rewards and trump choice', (
+    tester,
+  ) async {
     const tokens = defaultDesignTokens;
     final metrics = ResponsiveBoardMetrics.fromSize(
       const Size(900, 520),
       tokens,
     );
     LegalAction? selectedAction;
+    final jobs = [
+      for (final job in runtimeModel().table.jobs)
+        Job(
+          suit: job.suit,
+          hours: job.hours,
+          requiredHours: job.requiredHours,
+          claimed: job.claimed,
+          reward: testCard(id: '${job.suit}-reward', suit: job.suit, value: 5),
+          assignedCards: job.assignedCards,
+          validAssignmentTarget: job.validAssignmentTarget,
+          highlighted: job.highlighted,
+        ),
+    ];
     final model = runtimeModelWith(
       phase: phasePlanning,
       selection: SelectionState.empty,
-      jobs: runtimeModel().table.jobs,
+      jobs: jobs,
       legalActions: [
         for (final suit in displaySuitOrder)
           testLegalAction(
@@ -1515,9 +1674,27 @@ void registerStoreAndOnlineTests() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
 
-    expect(find.byType(PlanningTrumpPanel), findsOneWidget);
+    expect(find.byType(PlanningRewardsPanel), findsOneWidget);
+    expect(
+      tester
+          .widget<Transform>(
+            find.byKey(const Key('planning-phase-panel-scale')),
+          )
+          .transform
+          .getMaxScaleOnAxis(),
+      planningPhaseOverlayScale,
+    );
+    expect(find.byType(RewardFlipCard), findsNWidgets(4));
     expect(find.byType(TrumpSelectionButton), findsNWidgets(4));
+    expect(
+      find.descendant(
+        of: find.byType(TrumpSelectionButton),
+        matching: find.byType(SuitMark),
+      ),
+      findsNWidgets(4),
+    );
     expect(
       tester
           .widget<ActionIconButton>(
@@ -1534,6 +1711,82 @@ void registerStoreAndOnlineTests() {
     await tester.tap(find.byKey(const Key('hand-console-primary')));
     expect(selectedAction?.kind, actionSetTrump);
     expect(selectedAction?.engineAction.suit, 'wheat');
+  });
+
+  testWidgets('planning starts on reward backs without legacy trump popup', (
+    tester,
+  ) async {
+    final model = runtimeModelWith(
+      phase: phasePlanning,
+      selection: SelectionState.empty,
+      jobs: runtimeModel().table.jobs,
+      legalActions: [
+        testLegalAction(
+          kind: actionSetTrump,
+          label: 'wheat',
+          engineAction: const EngineAction(
+            kind: actionSetTrump,
+            playerID: 0,
+            suit: 'wheat',
+          ),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlanningPhasePanel(
+          model: model,
+          tokens: defaultDesignTokens,
+          language: KolkhozLanguage.en,
+        ),
+      ),
+    );
+
+    expect(find.byType(PlanningRewardsPanel), findsOneWidget);
+    expect(find.byType(PlanningTrumpPanel), findsNothing);
+    expect(find.byKey(const ValueKey('reward-back')), findsNWidgets(4));
+  });
+
+  testWidgets('reward card flips from its back to its revealed face', (
+    tester,
+  ) async {
+    const reward = TableCard(
+      id: 'beet-reward',
+      suit: 'beet',
+      value: 7,
+      rank: '7',
+      selected: false,
+      highlighted: false,
+      pending: false,
+      nomenclature: false,
+    );
+
+    Widget card(TableCard? value) => MaterialApp(
+      home: Center(
+        child: RewardFlipCard(
+          reward: value,
+          tokens: defaultDesignTokens,
+          size: defaultDesignTokens.card.small,
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(card(null));
+    expect(find.byKey(const ValueKey('reward-back')), findsOneWidget);
+
+    await tester.pumpWidget(card(reward));
+    await tester.pump(const Duration(milliseconds: 230));
+    expect(
+      find.byKey(const ValueKey('reward-face-beet-reward')),
+      findsOneWidget,
+    );
+
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('reward-face-beet-reward')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('game over panel occupies the hand tray area', (tester) async {
@@ -1615,6 +1868,7 @@ void registerStoreAndOnlineTests() {
       panels: base.panels,
       selection: base.selection,
       legalActions: base.legalActions,
+      seed: 4242,
     );
     final gameOverWinnerID =
         model.table.gameResult?.winnerSeatID ??
@@ -1639,6 +1893,14 @@ void registerStoreAndOnlineTests() {
     );
 
     expect(find.byType(GameOverPlotPanel), findsOneWidget);
+    expect(find.byKey(const Key('game-over-seed')), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.byKey(const Key('game-over-seed')),
+        matching: find.byType(Material),
+      ),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const Key('game-over-copy-result-button')),
       findsOneWidget,
@@ -1844,7 +2106,7 @@ void registerStoreAndOnlineTests() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('plot overview shows local cellar cards face up during swap', (
+  testWidgets('plot overview flips local cellar cards on tap during swap', (
     tester,
   ) async {
     final base = runtimeModelWith(
@@ -1925,7 +2187,7 @@ void registerStoreAndOnlineTests() {
       find.byWidgetPredicate(
         (widget) => widget is GameCard && widget.card.id == localHiddenCard.id,
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.byWidgetPredicate(
@@ -1933,7 +2195,7 @@ void registerStoreAndOnlineTests() {
             widget is ScaledHighlightableCardBack &&
             widget.card.id == localHiddenCard.id,
       ),
-      findsNothing,
+      findsOneWidget,
     );
     expect(
       find.byWidgetPredicate(
@@ -1941,6 +2203,23 @@ void registerStoreAndOnlineTests() {
             widget is GameCard && widget.card.id == opponentHiddenCard.id,
       ),
       findsNothing,
+    );
+
+    await tester.tap(
+      find.byKey(ValueKey('cellar-card-${localHiddenCard2.id}')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 240));
+
+    expect(
+      find.byKey(ValueKey('cellar-face-${localHiddenCard2.id}')),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is GameCard && widget.card.id == localHiddenCard2.id,
+      ),
+      findsOneWidget,
     );
     final localColumns = tester
         .widgetList<LocalPlotColumn>(find.byType(LocalPlotColumn))
@@ -2010,6 +2289,100 @@ void registerStoreAndOnlineTests() {
       ),
     );
     expect(buttons().where((button) => button.aiFocused), isEmpty);
+  });
+
+  testWidgets('AI trump focus waits for every reward flip to complete', (
+    tester,
+  ) async {
+    final base = runtimeModel();
+    final legalActions = [
+      for (final suit in displaySuitOrder)
+        testLegalAction(
+          kind: actionSetTrump,
+          label: suit,
+          engineAction: EngineAction(
+            kind: actionSetTrump,
+            playerID: 1,
+            suit: suit,
+          ),
+        ),
+    ];
+    final unrevealed = runtimeModelWith(
+      phase: phasePlanning,
+      currentPlayerID: 1,
+      selection: SelectionState.empty,
+      jobs: base.table.jobs,
+      legalActions: legalActions,
+    );
+    final revealed = runtimeModelWith(
+      phase: phasePlanning,
+      currentPlayerID: 1,
+      selection: SelectionState.empty,
+      jobs: [
+        for (final job in base.table.jobs)
+          Job(
+            suit: job.suit,
+            hours: job.hours,
+            requiredHours: job.requiredHours,
+            claimed: job.claimed,
+            reward: testCard(
+              id: '${job.suit}-reward',
+              suit: job.suit,
+              value: 7,
+            ),
+            assignedCards: job.assignedCards,
+            validAssignmentTarget: job.validAssignmentTarget,
+            highlighted: job.highlighted,
+          ),
+      ],
+      legalActions: legalActions,
+    );
+    var model = unrevealed;
+    late StateSetter updateModel;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            updateModel = setState;
+            return PlanningTrumpFocusHost(
+              model: model,
+              builder:
+                  (
+                    context,
+                    focusedSuit,
+                    selectedAction,
+                    onActionSelected,
+                    onRewardsRevealed,
+                  ) => PlanningRewardsPanel(
+                    model: model,
+                    tokens: defaultDesignTokens,
+                    language: KolkhozLanguage.en,
+                    focusedSuit: focusedSuit,
+                    onAction: onActionSelected,
+                    onRewardsRevealed: onRewardsRevealed,
+                  ),
+            );
+          },
+        ),
+      ),
+    );
+
+    updateModel(() => model = revealed);
+    await tester.pump();
+
+    Iterable<TrumpSelectionButton> buttons() => tester
+        .widgetList<TrumpSelectionButton>(find.byType(TrumpSelectionButton));
+
+    expect(buttons().where((button) => button.aiFocused), isEmpty);
+    await tester.pump(const Duration(milliseconds: 459));
+    expect(buttons().where((button) => button.aiFocused), isEmpty);
+
+    await tester.pump(const Duration(milliseconds: 2));
+    await tester.pump();
+    await tester.pump();
+
+    expect(buttons().where((button) => button.aiFocused), hasLength(1));
   });
 
   test('c engine action codec encodes portable engine actions', () {
@@ -2497,9 +2870,8 @@ void registerStoreAndOnlineTests() {
         );
       expect(actions, isNotEmpty);
       store.applyLegalAction(actions.first);
-      final transition = store.currentTransition;
-      if (transition != null) {
-        store.completeTransition(transition.id);
+      while (store.currentTransition != null) {
+        store.completeTransition(store.currentTransition!.id);
       }
     }
 

@@ -4,12 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolkhoz_app/src/app/settings/animation_speed.dart';
 import 'package:kolkhoz_app/src/app/settings/settings.dart';
-import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_view.dart';
 import 'package:kolkhoz_app/src/app/views/shared/field_plan_assets.dart';
 import 'package:kolkhoz_app/src/app/views/shared/field_plan_typography.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
-import 'package:kolkhoz_app/src/app/views/shared/pixel_text.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/table_projection_helpers.dart';
 
 import 'support/layout_scenarios.dart';
@@ -28,14 +26,6 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final model = fieldPlanFourCardTrickModel();
 
-    PixelFontAtlasCache.instance.resetForTesting();
-    await tester.runAsync(
-      () => Future.wait([
-        for (final variant in PixelTextVariant.values)
-          for (final size in PixelTextSize.values)
-            PixelFontAtlasCache.instance.load(variant: variant, size: size),
-      ]),
-    );
     await tester.runAsync(() async {
       final display = FontLoader(fieldPlanDisplayFontFamily)
         ..addFont(
@@ -77,10 +67,7 @@ void main() {
         ),
         precacheImage(const AssetImage(fieldPlanSignAssetPath), imageContext),
         for (final portrait in fieldPlanPlayerPortraits)
-          precacheImage(
-            AssetImage(portrait.pathFor(KolkhozArtStyle.fieldPlan)),
-            imageContext,
-          ),
+          precacheImage(AssetImage(portrait.fieldPlanPath), imageContext),
         for (final path in fieldPlanCardArtAssetPaths)
           precacheImage(AssetImage(path), imageContext),
       ]);

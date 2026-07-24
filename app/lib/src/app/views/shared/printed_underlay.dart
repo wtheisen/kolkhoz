@@ -6,11 +6,9 @@ import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
 import 'package:kolkhoz_app/src/app/views/shared/chrome_button.dart';
 
 const ledgerNeutralUnderlay = ArtAssetRef(
-  legacyPath: 'assets/ui/ui-nav-button-inactive.png',
   fieldPlanPath: 'assets/art/field_plan/ledger/underlays/ledger-neutral.png',
 );
 const ledgerPrimaryUnderlay = ArtAssetRef(
-  legacyPath: 'assets/ui/ui-nav-button-active.png',
   fieldPlanPath: 'assets/art/field_plan/ledger/underlays/ledger-primary.png',
 );
 const fieldPlanLightPaperTexture =
@@ -29,7 +27,6 @@ class PrintedUnderlay extends StatelessWidget {
   const PrintedUnderlay({
     required this.child,
     this.tone = PrintedUnderlayTone.neutral,
-    this.style = configuredKolkhozArtStyle,
     this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
     this.focused = false,
     super.key,
@@ -37,7 +34,6 @@ class PrintedUnderlay extends StatelessWidget {
 
   final Widget child;
   final PrintedUnderlayTone tone;
-  final KolkhozArtStyle style;
   final EdgeInsetsGeometry padding;
   final bool focused;
 
@@ -46,7 +42,6 @@ class PrintedUnderlay extends StatelessWidget {
     final primary = tone == PrintedUnderlayTone.primary;
     Widget underlay = _PrintedUnderlayBackground(
       asset: primary ? ledgerPrimaryUnderlay : ledgerNeutralUnderlay,
-      style: style,
     );
     if (tone == PrintedUnderlayTone.disabled) {
       underlay = Opacity(opacity: 0.46, child: underlay);
@@ -72,24 +67,17 @@ class PrintedUnderlay extends StatelessWidget {
 }
 
 class _PrintedUnderlayBackground extends StatelessWidget {
-  const _PrintedUnderlayBackground({required this.asset, required this.style});
+  const _PrintedUnderlayBackground({required this.asset});
 
   final ArtAssetRef asset;
-  final KolkhozArtStyle style;
 
   @override
   Widget build(BuildContext context) {
-    if (!style.usesNewArt || asset.fieldPlanPath == null) {
-      return ChromeButtonBackground(asset: asset.legacyPath);
-    }
     return FutureBuilder<ui.Image>(
-      future: ChromeImageCache.load(context, asset.fieldPlanPath!),
+      future: ChromeImageCache.load(context, asset.fieldPlanPath),
       builder: (context, snapshot) {
         final image = snapshot.data;
         if (image == null) {
-          if (snapshot.hasError) {
-            return ChromeButtonBackground(asset: asset.legacyPath);
-          }
           return const SizedBox.expand();
         }
         return CustomPaint(

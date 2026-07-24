@@ -100,6 +100,7 @@ class KolkhozCEngineBridge {
   late final KCCardNative Function(Pointer<KCEngine>, int, int) _jobBucketCard;
   late final int Function(Pointer<KCEngine>, int, int) _jobBucketTrick;
   late final int Function(Pointer<KCEngine>) _currentTrickCount;
+  late final int Function(Pointer<KCEngine>) _currentTrickWinner;
   late final int Function(Pointer<KCEngine>, int) _currentTrickPlayer;
   late final KCCardNative Function(Pointer<KCEngine>, int) _currentTrickCard;
   late final int Function(Pointer<KCEngine>) _lastTrickCount;
@@ -115,6 +116,15 @@ class KolkhozCEngineBridge {
   late final KCCardNative Function(Pointer<KCEngine>, int)
   _requisitionEventCard;
   late final int Function(Pointer<KCEngine>, int) _requisitionEventMessageKind;
+  late final int Function(Pointer<KCEngine>) _transitionEventCount;
+  late final int Function(Pointer<KCEngine>, int) _transitionEventKind;
+  late final int Function(Pointer<KCEngine>, int) _transitionEventPlayer;
+  late final KCCardNative Function(Pointer<KCEngine>, int) _transitionEventCard;
+  late final int Function(Pointer<KCEngine>, int) _transitionEventFromZone;
+  late final int Function(Pointer<KCEngine>, int) _transitionEventToZone;
+  late final int Function(Pointer<KCEngine>, int) _transitionEventFromOwner;
+  late final int Function(Pointer<KCEngine>, int) _transitionEventToOwner;
+  late final int Function(Pointer<KCEngine>, int) _transitionEventTargetSuit;
   late final bool Function(Pointer<KCEngine>, int) _swapCount;
   late final bool Function(Pointer<KCEngine>, int) _swapConfirmed;
   late final bool Function(Pointer<KCEngine>, int) _passConfirmed;
@@ -351,6 +361,8 @@ class KolkhozCEngineBridge {
   int jobBucketTrick(Pointer<KCEngine> engine, int suit, int index) =>
       _jobBucketTrick(engine, suit, index);
   int currentTrickCount(Pointer<KCEngine> engine) => _currentTrickCount(engine);
+  int currentTrickWinner(Pointer<KCEngine> engine) =>
+      _currentTrickWinner(engine);
   int currentTrickPlayer(Pointer<KCEngine> engine, int index) =>
       _currentTrickPlayer(engine, index);
   EngineCardValue currentTrickCard(Pointer<KCEngine> engine, int index) =>
@@ -378,6 +390,19 @@ class KolkhozCEngineBridge {
       _cardValue(_requisitionEventCard(engine, index));
   int requisitionEventMessageKind(Pointer<KCEngine> engine, int index) =>
       _requisitionEventMessageKind(engine, index);
+  List<EngineTransitionEvent> transitionEvents(Pointer<KCEngine> engine) => [
+    for (var index = 0; index < _transitionEventCount(engine); index++)
+      EngineTransitionEvent(
+        kind: _transitionEventKind(engine, index),
+        playerID: _transitionEventPlayer(engine, index),
+        card: _cardValue(_transitionEventCard(engine, index)),
+        fromZone: _transitionEventFromZone(engine, index),
+        toZone: _transitionEventToZone(engine, index),
+        fromOwner: _transitionEventFromOwner(engine, index),
+        toOwner: _transitionEventToOwner(engine, index),
+        targetSuit: _transitionEventTargetSuit(engine, index),
+      ),
+  ];
   bool swapCount(Pointer<KCEngine> engine, int playerID) =>
       _swapCount(engine, playerID);
   bool swapConfirmed(Pointer<KCEngine> engine, int playerID) =>
@@ -631,6 +656,7 @@ class KolkhozCEngineBridge {
     _jobBucketCard = _card2('kc_job_bucket_card');
     _jobBucketTrick = _int2('kc_job_bucket_trick');
     _currentTrickCount = _int0('kc_current_trick_count');
+    _currentTrickWinner = _int0('kc_current_trick_winner');
     _currentTrickPlayer = _int1('kc_current_trick_player');
     _currentTrickCard = _card1('kc_current_trick_card');
     _lastTrickCount = _int0('kc_last_trick_count');
@@ -645,6 +671,15 @@ class KolkhozCEngineBridge {
     _requisitionEventSuit = _int1('kc_requisition_event_suit');
     _requisitionEventCard = _card1('kc_requisition_event_card');
     _requisitionEventMessageKind = _int1('kc_requisition_event_message_kind');
+    _transitionEventCount = _int0('kc_transition_event_count');
+    _transitionEventKind = _int1('kc_transition_event_kind');
+    _transitionEventPlayer = _int1('kc_transition_event_player');
+    _transitionEventCard = _card1('kc_transition_event_card');
+    _transitionEventFromZone = _int1('kc_transition_event_from_zone');
+    _transitionEventToZone = _int1('kc_transition_event_to_zone');
+    _transitionEventFromOwner = _int1('kc_transition_event_from_owner');
+    _transitionEventToOwner = _int1('kc_transition_event_to_owner');
+    _transitionEventTargetSuit = _int1('kc_transition_event_target_suit');
     _swapCount = _bool1('kc_swap_count');
     _swapConfirmed = _bool1('kc_swap_confirmed');
     _passConfirmed = _bool1('kc_pass_confirmed');

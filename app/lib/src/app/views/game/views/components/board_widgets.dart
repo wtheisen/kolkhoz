@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:ui' show clampDouble, FontFeature;
+import 'dart:ui' show clampDouble, FontFeature, lerpDouble;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
+import 'package:kolkhoz_app/src/app/settings/game_motion.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/components/display/card_art_display.dart';
 import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
 import 'package:kolkhoz_app/src/app/views/shared/field_plan_assets.dart';
@@ -13,8 +13,10 @@ import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_const
 import 'package:kolkhoz_app/src/app/views/shared/pixel_text.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/render_model.dart';
 import 'package:kolkhoz_app/src/app/views/game/views/components/display/table_display.dart';
+import 'package:simple_animations/simple_animations.dart';
 import 'card_motion_tracking.dart';
 
+export 'card_flip.dart';
 export 'card_motion_geometry.dart';
 export 'card_motion_tracking.dart';
 
@@ -465,7 +467,7 @@ class GameCard extends StatelessWidget {
     this.selectedStrokeWidthOverride,
     this.sizeOverride,
     this.motionTracked = true,
-    this.fieldPlanSeatID,
+    this.winningTrick = false,
     super.key,
   });
 
@@ -481,16 +483,12 @@ class GameCard extends StatelessWidget {
   final double? selectedStrokeWidthOverride;
   final TokenCardSize? sizeOverride;
   final bool motionTracked;
-  final int? fieldPlanSeatID;
+  final bool winningTrick;
 
   @override
   Widget build(BuildContext context) {
     final size =
         sizeOverride ?? (small ? tokens.card.small : tokens.card.large);
-    final plantedFace =
-        configuredKolkhozArtStyle.usesNewArt && fieldPlanSeatID != null;
-    final physicalDeckFace =
-        configuredKolkhozArtStyle.usesNewArt && !plantedFace;
     final highlightColor = card.highlighted
         ? highlightColorOverride ??
               cardHighlightColor(card: card, trump: trump, tokens: tokens)
@@ -510,10 +508,8 @@ class GameCard extends StatelessWidget {
       width: size.width,
       height: size.height,
       decoration: BoxDecoration(
-        color: plantedFace ? Colors.transparent : tokens.colors.panel,
-        borderRadius: BorderRadius.circular(
-          plantedFace ? 0 : cardViewCornerRadius,
-        ),
+        color: tokens.colors.panel,
+        borderRadius: BorderRadius.circular(cardViewCornerRadius),
         boxShadow: highlightGlow == null
             ? null
             : [
@@ -527,99 +523,21 @@ class GameCard extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          if (!plantedFace)
-            Positioned.fill(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(cardViewCornerRadius),
-                child: Image.asset(
-                  cardTemplateAssetPath(
-                    card: card,
-                    tokens: tokens,
-                    trump: trump,
-                  ),
-                  fit: BoxFit.cover,
-                  filterQuality: physicalDeckFace
-                      ? FilterQuality.high
-                      : FilterQuality.none,
-                  isAntiAlias: physicalDeckFace,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                ),
-              ),
-            ),
-          if (plantedFace)
-            Positioned.fill(
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(cardViewCornerRadius),
               child: Image.asset(
-                fieldPlanPlantedCardFacePath(fieldPlanSeatID!),
-                fit: BoxFit.fill,
+                cardTemplateAssetPath(card: card, tokens: tokens, trump: trump),
+                fit: BoxFit.cover,
                 filterQuality: FilterQuality.high,
+                isAntiAlias: true,
                 errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
             ),
-          if (physicalDeckFace)
-            Positioned.fill(
-              child: PhysicalDeckCardContent(card: card, tokens: tokens),
-            )
-          else
-            Padding(
-              padding: EdgeInsets.all(size.faceInset),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned.fill(
-                    child: CardCenterFace(
-                      card: card,
-                      size: size,
-                      tokens: tokens,
-                      trump: trump,
-                    ),
-                  ),
-                  Positioned(
-                    left:
-                        cardCornerHorizontalInset(size) + (plantedFace ? 4 : 0),
-                    top:
-                        cardTopCornerVerticalInset(size) +
-                        (plantedFace ? 2 : 0),
-                    child: CardCornerIndex(
-                      card: card,
-                      size: size,
-                      tokens: tokens,
-                      placement: CardCornerPlacement.top,
-                      trump: trump,
-                    ),
-                  ),
-                  Positioned(
-                    right:
-                        cardCornerHorizontalInset(size) + (plantedFace ? 4 : 0),
-                    bottom:
-                        cardBottomCornerVerticalInset(size) +
-                        (plantedFace ? 2 : 0),
-                    child: CardCornerIndex(
-                      card: card,
-                      size: size,
-                      tokens: tokens,
-                      placement: CardCornerPlacement.bottom,
-                      trump: trump,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          if (!plantedFace && !physicalDeckFace)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(cardViewCornerRadius),
-                    border: Border.all(
-                      color: tokens.colors.black.withValues(
-                        alpha: tokens.colors.cardStrokeOpacity,
-                      ),
-                      width: cardViewStrokeWidth,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          ),
+          Positioned.fill(
+            child: PhysicalDeckCardContent(card: card, tokens: tokens),
+          ),
           if (highlightBorder != null)
             Positioned.fill(
               child: IgnorePointer(
@@ -639,10 +557,151 @@ class GameCard extends StatelessWidget {
         ],
       ),
     );
+    final presentedSurface = _WinningTrickCardFrame(
+      active: winningTrick,
+      tokens: tokens,
+      child: cardSurface,
+    );
     if (!motionTracked) {
-      return cardSurface;
+      return presentedSurface;
     }
-    return MotionTrackedCard(card: card, child: cardSurface);
+    return MotionTrackedCard(card: card, child: presentedSurface);
+  }
+}
+
+class _WinningTrickCardFrame extends StatelessWidget {
+  const _WinningTrickCardFrame({
+    required this.active,
+    required this.tokens,
+    required this.child,
+  });
+
+  final bool active;
+  final DesignTokens tokens;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!active) {
+      return child;
+    }
+    final motion = GameMotion.of(context);
+    if (!motion.enabled) {
+      return Semantics(
+        label: 'Currently winning trick',
+        child: _frame(value: 1, child: child),
+      );
+    }
+    return Semantics(
+      label: 'Currently winning trick',
+      child: MirrorAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: motion.trickWinnerPulse,
+        curve: GameMotion.ambientPulseCurve,
+        builder: (context, value, child) => _frame(value: value, child: child!),
+        child: child,
+      ),
+    );
+  }
+
+  Widget _frame({required double value, required Widget child}) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        Positioned.fill(
+          child: IgnorePointer(
+            child: DecoratedBox(
+              key: const ValueKey('winning-trick-card-frame'),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(cardViewCornerRadius),
+                border: Border.all(
+                  color: tokens.colors.redBright.withValues(
+                    alpha: lerpDouble(0.58, 1, value)!,
+                  ),
+                  width: lerpDouble(2, 4, value)!,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: tokens.colors.redBright.withValues(
+                      alpha: lerpDouble(0.18, 0.62, value)!,
+                    ),
+                    blurRadius: lerpDouble(3, 10, value)!,
+                    spreadRadius: lerpDouble(0, 2, value)!,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class PendingAssignmentCardPulse extends StatelessWidget {
+  const PendingAssignmentCardPulse({
+    required this.cardID,
+    required this.active,
+    required this.tokens,
+    required this.child,
+    super.key,
+  });
+
+  final String cardID;
+  final bool active;
+  final DesignTokens tokens;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!active) {
+      return child;
+    }
+    final motion = GameMotion.of(context);
+    if (!motion.enabled) {
+      return _frame(value: 1);
+    }
+    return MirrorAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: motion.activeCardSlotPulse,
+      curve: GameMotion.ambientPulseCurve,
+      builder: (context, value, _) => _frame(value: value),
+    );
+  }
+
+  Widget _frame({required double value}) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        Positioned.fill(
+          child: IgnorePointer(
+            child: DecoratedBox(
+              key: ValueKey('pending-assignment-card-pulse-$cardID'),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(cardViewCornerRadius),
+                border: Border.all(
+                  color: tokens.colors.green.withValues(
+                    alpha: lerpDouble(0.66, 1, value)!,
+                  ),
+                  width: lerpDouble(2, 4, value)!,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: tokens.colors.green.withValues(
+                      alpha: lerpDouble(0.18, 0.62, value)!,
+                    ),
+                    blurRadius: lerpDouble(3, 12, value)!,
+                    spreadRadius: lerpDouble(0, 3, value)!,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -1459,9 +1518,7 @@ class PipPattern extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (configuredKolkhozArtStyle.usesNewArt &&
-        card.suit == 'sunflower' &&
-        card.value == 8) {
+    if (card.suit == 'sunflower' && card.value == 8) {
       return FieldPlanSunflowerRows(size: size);
     }
 
@@ -1770,9 +1827,7 @@ class SuitMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fieldPlanSuit =
-        configuredKolkhozArtStyle.usesNewArt &&
-        fieldPlanCardSuitAssetPath(suit) != null;
+    final fieldPlanSuit = fieldPlanCardSuitAssetPath(suit) != null;
     final useMip = fieldPlanSuit && size <= 24;
     return Image.asset(
       suitAssetPath(suit, mip: useMip),
@@ -1851,7 +1906,6 @@ class PlayerPortrait extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fieldPlan = configuredKolkhozArtStyle.usesNewArt;
     final imageWidth = width * 32 / 38;
     final imageHeight = height * 36 / 42;
     final medalSize = math.max(7.0, math.min(width, height) * 9 / 38);
@@ -1866,20 +1920,18 @@ class PlayerPortrait extends StatelessWidget {
               width: imageWidth,
               height: imageHeight,
               foregroundDecoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(fieldPlan ? 0 : 3),
+                borderRadius: BorderRadius.zero,
                 border: Border.all(
                   color: tokens.colors.black.withValues(alpha: 0.68),
                   width: 1,
                 ),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(fieldPlan ? 0 : 3),
+                borderRadius: BorderRadius.zero,
                 child: Image.asset(
                   portraitAssetPath(seat),
                   fit: BoxFit.cover,
-                  filterQuality: fieldPlan
-                      ? FilterQuality.medium
-                      : FilterQuality.none,
+                  filterQuality: FilterQuality.medium,
                   errorBuilder: (_, _, _) => Image.asset(
                     'assets/ui/worker4.png',
                     fit: BoxFit.cover,

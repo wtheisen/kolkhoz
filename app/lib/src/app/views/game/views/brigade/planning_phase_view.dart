@@ -17,6 +17,7 @@ class PlanningPhasePanel extends StatelessWidget {
     required this.language,
     this.focusedSuit,
     this.onAction,
+    this.onRewardsRevealed,
     super.key,
   });
 
@@ -25,6 +26,7 @@ class PlanningPhasePanel extends StatelessWidget {
   final KolkhozLanguage language;
   final String? focusedSuit;
   final ValueChanged<LegalAction>? onAction;
+  final VoidCallback? onRewardsRevealed;
 
   @override
   Widget build(BuildContext context) {
@@ -35,61 +37,267 @@ class PlanningPhasePanel extends StatelessWidget {
               action.kind == actionRevealTrump,
         )
         .firstOrNull;
-    final rewardsRevealed = model.table.jobs
-        .where((job) => job.reward != null)
-        .length;
-    if (revealAction != null ||
-        (rewardsRevealed > 0 && rewardsRevealed < displaySuitOrder.length)) {
-      return RewardRevealPanel(
+    if (model.table.isFamine &&
+        (revealAction?.kind == actionRevealTrump ||
+            model.table.finalYearTrumpCard != null)) {
+      return FinalTrumpRevealPanel(
         model: model,
         tokens: tokens,
         language: language,
-        revealingSuit: revealAction?.kind == actionRevealReward
-            ? revealAction?.engineAction.suit
-            : null,
-        revealingTrump: revealAction?.kind == actionRevealTrump,
       );
     }
-    if (model.table.isFamine && model.table.finalYearTrumpCard != null) {
-      return RewardRevealPanel(
-        model: model,
-        tokens: tokens,
-        language: language,
-        revealingTrump: true,
-      );
-    }
-    return PlanningTrumpPanel(
+    return PlanningRewardsPanel(
       model: model,
       tokens: tokens,
       language: language,
       focusedSuit: focusedSuit,
       onAction: onAction,
+      onRewardsRevealed: onRewardsRevealed,
     );
   }
 }
 
-class RewardRevealPanel extends StatelessWidget {
-  const RewardRevealPanel({
+class PlanningRewardsPanel extends StatefulWidget {
+  const PlanningRewardsPanel({
     required this.model,
     required this.tokens,
     required this.language,
-    this.revealingSuit,
-    this.revealingTrump = false,
+    this.focusedSuit,
+    this.onAction,
+    this.onRewardsRevealed,
     super.key,
   });
 
   final TableViewModel model;
   final DesignTokens tokens;
   final KolkhozLanguage language;
-  final String? revealingSuit;
-  final bool revealingTrump;
+  final String? focusedSuit;
+  final ValueChanged<LegalAction>? onAction;
+  final VoidCallback? onRewardsRevealed;
+
+  @override
+  State<PlanningRewardsPanel> createState() => _PlanningRewardsPanelState();
+}
+
+class _PlanningRewardsPanelState extends State<PlanningRewardsPanel> {
+  final Map<String, String> completedRewardIDs = {};
+  bool reportedAllRewards = false;
+
+  @override
+  void didUpdateWidget(PlanningRewardsPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final currentRewards = {
+      for (final job in widget.model.table.jobs) job.suit: job.reward?.id,
+    };
+    completedRewardIDs.removeWhere(
+      (suit, cardID) => currentRewards[suit] != cardID,
+    );
+    if (!_allRewardsCompleted(currentRewards)) {
+      reportedAllRewards = false;
+    }
+  }
+
+  void _handleRewardCompleted(String suit, TableCard reward) {
+    if (completedRewardIDs[suit] == reward.id) {
+      return;
+    }
+    setState(() => completedRewardIDs[suit] = reward.id);
+    final rewards = {
+      for (final job in widget.model.table.jobs) job.suit: job.reward?.id,
+    };
+    if (_allRewardsCompleted(rewards) && !reportedAllRewards) {
+      reportedAllRewards = true;
+      widget.onRewardsRevealed?.call();
+    }
+  }
+
+  bool _allRewardsCompleted(Map<String, String?> rewards) =>
+      displaySuitOrder.every(
+        (suit) =>
+            rewards[suit] != null && completedRewardIDs[suit] == rewards[suit],
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final cardSize = widget.tokens.card.small;
+    final rewards = {
+      for (final job in widget.model.table.jobs) job.suit: job.reward,
+    };
+    final rewardsReady = displaySuitOrder.every(
+      (suit) => rewards[suit] != null,
+    );
+    final options = planningTrumpOptions(
+      widget.model.legalActions,
+      language: widget.language,
+    );
+    final aiSelecting =
+        planningTrumpSelectorIsAI(widget.model) && widget.focusedSuit != null;
+    return PanelStyleSurface(
+      key: const Key('planning-rewards-panel'),
+      tokens: widget.tokens,
+      padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        spacing: 8,
+        children: [
+          PixelText(
+            widget.language == KolkhozLanguage.en
+                ? 'REWARD REVEAL'
+                : 'ОТКРЫТИЕ НАГРАД',
+            textAlign: TextAlign.center,
+            size: PixelTextSize.caption,
+            variant: PixelTextVariant.heavy,
+            color: widget.tokens.colors.gold,
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: planningRewardColumnSpacing,
+            children: [
+              for (final suit in displaySuitOrder)
+                SizedBox(
+                  width: cardSize.width,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: 5,
+                    children: [
+                      MotionTrackedRegion(
+                        motionKey: rewardPileMotionSourceKey(suit),
+                        child: RewardFlipCard(
+                          key: ValueKey('reward-flip-$suit'),
+                          reward: rewards[suit],
+                          tokens: widget.tokens,
+                          size: cardSize,
+                          onCompleted: rewards[suit] == null
+                              ? null
+                              : () => _handleRewardCompleted(
+                                  suit,
+                                  rewards[suit]!,
+                                ),
+                        ),
+                      ),
+                      SizedBox(
+                        height: planningTrumpButtonSize,
+                        child: AnimatedSwitcher(
+                          duration: GameMotion.of(context).handInteraction,
+                          child: rewardsReady
+                              ? GestureDetector(
+                                  key: ValueKey('planning-trump-$suit'),
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap:
+                                      optionForSuit(options, suit)?.action !=
+                                              null &&
+                                          widget.onAction != null
+                                      ? () => widget.onAction!(
+                                          optionForSuit(options, suit)!.action!,
+                                        )
+                                      : null,
+                                  child: TrumpSelectionButton(
+                                    suit: suit,
+                                    label:
+                                        optionForSuit(options, suit)?.label ??
+                                        widget.language.suitName(suit),
+                                    selected:
+                                        !aiSelecting &&
+                                        suit == widget.focusedSuit,
+                                    aiFocused:
+                                        aiSelecting &&
+                                        suit == widget.focusedSuit,
+                                    tokens: widget.tokens,
+                                    size: planningTrumpButtonSize,
+                                    iconSize: planningTrumpIconSize,
+                                  ),
+                                )
+                              : Center(
+                                  key: ValueKey('planning-reward-suit-$suit'),
+                                  child: SuitMark(
+                                    suit: suit,
+                                    tokens: widget.tokens,
+                                    size: 22,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          PixelText(
+            rewardsReady
+                ? widget.language.strings.boardviewChooseTrump
+                : (widget.language == KolkhozLanguage.en
+                      ? 'REVEALING REWARDS…'
+                      : 'ОТКРЫВАЕМ НАГРАДЫ…'),
+            key: const Key('planning-reward-status'),
+            textAlign: TextAlign.center,
+            size: PixelTextSize.xSmall,
+            variant: PixelTextVariant.heavy,
+            color: rewardsReady
+                ? widget.tokens.colors.gold
+                : widget.tokens.colors.cream,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+TrumpActionOption? optionForSuit(
+  List<TrumpActionOption> options,
+  String suit,
+) => options.where((option) => option.suit == suit).firstOrNull;
+
+const planningRewardColumnSpacing = 7.0;
+
+class RewardFlipCard extends StatelessWidget {
+  const RewardFlipCard({
+    required this.reward,
+    required this.tokens,
+    required this.size,
+    this.onCompleted,
+    super.key,
+  });
+
+  final TableCard? reward;
+  final DesignTokens tokens;
+  final TokenCardSize size;
+  final VoidCallback? onCompleted;
+
+  @override
+  Widget build(BuildContext context) {
+    final reward = this.reward;
+    return CardFlip(
+      showFront: reward != null,
+      frontKey: reward == null ? null : ValueKey('reward-face-${reward.id}'),
+      backKey: const ValueKey('reward-back'),
+      onCompleted: onCompleted,
+      front: reward == null
+          ? const SizedBox.shrink()
+          : GameCard(card: reward, tokens: tokens, sizeOverride: size),
+      back: ScaledCardBack(tokens: tokens, size: size),
+    );
+  }
+}
+
+class FinalTrumpRevealPanel extends StatelessWidget {
+  const FinalTrumpRevealPanel({
+    required this.model,
+    required this.tokens,
+    required this.language,
+    super.key,
+  });
+
+  final TableViewModel model;
+  final DesignTokens tokens;
+  final KolkhozLanguage language;
 
   @override
   Widget build(BuildContext context) {
     final finalTrump = model.table.finalYearTrumpCard;
     final cardSize = tokens.card.small;
     return PanelStyleSurface(
-      key: const Key('reward-reveal-panel'),
+      key: const Key('final-trump-reveal-panel'),
       tokens: tokens,
       padding: const EdgeInsets.all(8),
       child: Column(
@@ -97,73 +305,28 @@ class RewardRevealPanel extends StatelessWidget {
         spacing: 7,
         children: [
           PixelText(
-            revealingTrump
-                ? (language == KolkhozLanguage.en
-                      ? 'REVEAL TRUMP'
-                      : 'ОТКРЫТЬ КОЗЫРЬ')
-                : (language == KolkhozLanguage.en ? 'REWARD PILES' : 'НАГРАДЫ'),
+            language == KolkhozLanguage.en ? 'REVEAL TRUMP' : 'ОТКРЫТЬ КОЗЫРЬ',
             textAlign: TextAlign.center,
             size: PixelTextSize.caption,
             variant: PixelTextVariant.heavy,
             color: tokens.colors.gold,
           ),
-          if (revealingTrump)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: 10,
-              children: [
-                MotionTrackedRegion(
-                  motionKey: finalTrumpMotionSourceKey,
-                  child: ScaledCardBack(tokens: tokens, size: cardSize),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 10,
+            children: [
+              MotionTrackedRegion(
+                motionKey: finalTrumpMotionSourceKey,
+                child: ScaledCardBack(tokens: tokens, size: cardSize),
+              ),
+              if (finalTrump != null)
+                GameCard(
+                  card: finalTrump,
+                  tokens: tokens,
+                  sizeOverride: cardSize,
                 ),
-                if (finalTrump != null)
-                  GameCard(
-                    card: finalTrump,
-                    tokens: tokens,
-                    sizeOverride: cardSize,
-                  ),
-              ],
-            )
-          else
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: 5,
-              children: [
-                for (final suit in displaySuitOrder)
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    spacing: 2,
-                    children: [
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(5),
-                          border: Border.all(
-                            color: suit == revealingSuit
-                                ? tokens.colors.gold
-                                : Colors.transparent,
-                            width: 2,
-                          ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(2),
-                          child: MotionTrackedRegion(
-                            motionKey: rewardPileMotionSourceKey(suit),
-                            child: ScaledCardBack(
-                              tokens: tokens,
-                              size: cardSize,
-                            ),
-                          ),
-                        ),
-                      ),
-                      PixelText(
-                        '${displaySuitOrder.indexOf(suit) + 1}',
-                        size: PixelTextSize.xSmall,
-                        color: tokens.colors.cream,
-                      ),
-                    ],
-                  ),
-              ],
-            ),
+            ],
+          ),
         ],
       ),
     );
@@ -333,14 +496,7 @@ class TrumpSelectionButton extends StatelessWidget {
               ),
               Padding(
                 padding: EdgeInsets.only(top: selected ? 2 * scale : 0),
-                child: Image.asset(
-                  'assets/ui/Icons/icon-trump-$suit.png',
-                  width: iconSize,
-                  height: iconSize,
-                  filterQuality: FilterQuality.none,
-                  errorBuilder: (_, _, _) =>
-                      SuitMark(suit: suit, tokens: tokens, size: 28 * scale),
-                ),
+                child: SuitMark(suit: suit, tokens: tokens, size: iconSize),
               ),
               if (aiFocused)
                 Positioned.fill(

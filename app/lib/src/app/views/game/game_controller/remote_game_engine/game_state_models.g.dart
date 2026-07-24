@@ -134,6 +134,7 @@ _OnlineEngineSnapshot _$OnlineEngineSnapshotFromJson(
   currentTrick: (json['currentTrick'] as List<dynamic>)
       .map((e) => OnlineTrickPlaySnapshot.fromJson(e as Map<String, dynamic>))
       .toList(),
+  currentTrickWinner: (json['currentTrickWinner'] as num?)?.toInt() ?? -1,
   lastTrick: (json['lastTrick'] as List<dynamic>)
       .map((e) => OnlineTrickPlaySnapshot.fromJson(e as Map<String, dynamic>))
       .toList(),
@@ -155,6 +156,9 @@ _OnlineEngineSnapshot _$OnlineEngineSnapshotFromJson(
   requisitionEvents: (json['requisitionEvents'] as List<dynamic>)
       .map((e) => OnlineRequisitionSnapshot.fromJson(e as Map<String, dynamic>))
       .toList(),
+  transitionEvents: json['transitionEvents'] == null
+      ? const []
+      : _transitionEventsFromJson(json['transitionEvents']),
   scores: (json['scores'] as List<dynamic>)
       .map((e) => OnlineScoreSnapshot.fromJson(e as Map<String, dynamic>))
       .toList(),

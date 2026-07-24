@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
 import 'package:kolkhoz_app/src/app/views/shared/chrome_button.dart';
 import 'package:kolkhoz_app/src/app/views/shared/printed_underlay.dart';
 
@@ -13,16 +12,12 @@ void main() {
             SizedBox(
               width: 120,
               height: 40,
-              child: PrintedUnderlay(
-                style: KolkhozArtStyle.fieldPlan,
-                child: Text('SMALL'),
-              ),
+              child: PrintedUnderlay(child: Text('SMALL')),
             ),
             SizedBox(
               width: 320,
               height: 56,
               child: PrintedUnderlay(
-                style: KolkhozArtStyle.fieldPlan,
                 tone: PrintedUnderlayTone.primary,
                 focused: true,
                 child: Text('PRIMARY'),
@@ -32,7 +27,6 @@ void main() {
               width: 600,
               height: 80,
               child: PrintedUnderlay(
-                style: KolkhozArtStyle.fieldPlan,
                 tone: PrintedUnderlayTone.disabled,
                 child: Text('DISABLED'),
               ),

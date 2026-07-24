@@ -37,9 +37,31 @@ int32_t kc_lead_suit(const KCEngine *engine) {
 }
 
 static void kc_process_automatic_turns(KCEngine *engine);
+static int32_t kc_engine_step_automatic_impl(KCEngine *engine);
 static int32_t kc_engine_apply_action(KCEngine *engine, KCAction action);
 static bool kc_step_requisition(KCEngine *engine);
 static void kc_append_exiled(KCEngine *engine, KCCard card, int32_t player_id);
+
+void kc_engine_begin_transition_batch(KCEngine *engine) {
+    if (!engine) return;
+    if (engine->transition_batch_depth == 0) {
+        engine->transition_event_count = 0;
+    }
+    engine->transition_batch_depth++;
+}
+
+void kc_engine_end_transition_batch(KCEngine *engine) {
+    if (engine && engine->transition_batch_depth > 0) {
+        engine->transition_batch_depth--;
+    }
+}
+
+static void kc_emit_transition(KCEngine *engine, KCTransitionEvent event) {
+    if (!engine || engine->transition_event_count >= KC_MAX_TRANSITION_EVENTS) {
+        return;
+    }
+    engine->transition_events[engine->transition_event_count++] = event;
+}
 
 static int32_t kc_single_assignment_target(const KCEngine *engine) {
     int32_t only_target = KC_NO_SUIT;
@@ -70,6 +92,16 @@ static void kc_prefill_single_assignment_target(KCEngine *engine) {
     }
     for (int32_t i = 0; i < engine->last_trick_count; i++) {
         engine->pending_assignment_targets[i] = target;
+        kc_emit_transition(engine, (KCTransitionEvent){
+            .kind = KC_TRANSITION_ASSIGNMENT_TARGETED,
+            .player_id = engine->last_trick[i].player_id,
+            .card = engine->last_trick[i].card,
+            .from_zone = KC_OBJECT_ZONE_LAST_TRICK,
+            .to_zone = KC_OBJECT_ZONE_PENDING_ASSIGNMENT,
+            .from_owner = engine->last_trick[i].player_id,
+            .to_owner = target,
+            .target_suit = target
+        });
     }
 }
 
@@ -261,6 +293,16 @@ static bool kc_reveal_job(KCEngine *engine, int32_t suit) {
     if (!kc_card_valid(card)) return false;
     engine->revealed_jobs[suit] = card;
     engine->has_revealed_job[suit] = true;
+    kc_emit_transition(engine, (KCTransitionEvent){
+        .kind = KC_TRANSITION_CARD_MOVED,
+        .player_id = engine->current_player,
+        .card = card,
+        .from_zone = KC_OBJECT_ZONE_JOB_PILE,
+        .to_zone = KC_OBJECT_ZONE_REVEALED_JOB,
+        .from_owner = suit,
+        .to_owner = suit,
+        .target_suit = suit
+    });
     return true;
 }
 
@@ -769,6 +811,55 @@ int32_t kc_requisition_event_message_kind(const KCEngine *engine, int32_t index)
     return engine->requisition_events[index].message_kind;
 }
 
+static const KCTransitionEvent *kc_transition_event_at(const KCEngine *engine, int32_t index) {
+    if (!engine || index < 0 || index >= engine->transition_event_count) return NULL;
+    return &engine->transition_events[index];
+}
+
+int32_t kc_transition_event_count(const KCEngine *engine) {
+    return engine ? engine->transition_event_count : 0;
+}
+
+int32_t kc_transition_event_kind(const KCEngine *engine, int32_t index) {
+    const KCTransitionEvent *event = kc_transition_event_at(engine, index);
+    return event ? event->kind : 0;
+}
+
+int32_t kc_transition_event_player(const KCEngine *engine, int32_t index) {
+    const KCTransitionEvent *event = kc_transition_event_at(engine, index);
+    return event ? event->player_id : KC_NO_PLAYER;
+}
+
+KCCard kc_transition_event_card(const KCEngine *engine, int32_t index) {
+    const KCTransitionEvent *event = kc_transition_event_at(engine, index);
+    return event ? event->card : kc_no_card();
+}
+
+int32_t kc_transition_event_from_zone(const KCEngine *engine, int32_t index) {
+    const KCTransitionEvent *event = kc_transition_event_at(engine, index);
+    return event ? event->from_zone : KC_OBJECT_ZONE_NONE;
+}
+
+int32_t kc_transition_event_to_zone(const KCEngine *engine, int32_t index) {
+    const KCTransitionEvent *event = kc_transition_event_at(engine, index);
+    return event ? event->to_zone : KC_OBJECT_ZONE_NONE;
+}
+
+int32_t kc_transition_event_from_owner(const KCEngine *engine, int32_t index) {
+    const KCTransitionEvent *event = kc_transition_event_at(engine, index);
+    return event ? event->from_owner : KC_NO_PLAYER;
+}
+
+int32_t kc_transition_event_to_owner(const KCEngine *engine, int32_t index) {
+    const KCTransitionEvent *event = kc_transition_event_at(engine, index);
+    return event ? event->to_owner : KC_NO_PLAYER;
+}
+
+int32_t kc_transition_event_target_suit(const KCEngine *engine, int32_t index) {
+    const KCTransitionEvent *event = kc_transition_event_at(engine, index);
+    return event ? event->target_suit : KC_NO_SUIT;
+}
+
 bool kc_swap_count(const KCEngine *engine, int32_t player_id) {
     if (!engine || !kc_valid_player_id(player_id)) return false;
     return engine->swap_count[player_id];
@@ -1060,6 +1151,16 @@ static void kc_resolve_pass(KCEngine *engine) {
             ? (sender + 1) % KC_PLAYER_COUNT
             : (sender + KC_PLAYER_COUNT - 1) % KC_PLAYER_COUNT;
         kc_list_append(&engine->players[recipient].hand, selected[sender]);
+        kc_emit_transition(engine, (KCTransitionEvent){
+            .kind = KC_TRANSITION_CARD_MOVED,
+            .player_id = sender,
+            .card = selected[sender],
+            .from_zone = KC_OBJECT_ZONE_HAND,
+            .to_zone = KC_OBJECT_ZONE_HAND,
+            .from_owner = sender,
+            .to_owner = recipient,
+            .target_suit = KC_NO_SUIT
+        });
     }
     kc_clear_pass(engine);
     kc_advance_after_pass(engine);
@@ -1106,13 +1207,13 @@ static void kc_process_automatic_turns(KCEngine *engine) {
     int32_t guard_count = 0;
     while (guard_count < 200) {
         guard_count++;
-        if (kc_engine_step_automatic(engine) <= 0) {
+        if (kc_engine_step_automatic_impl(engine) <= 0) {
             return;
         }
     }
 }
 
-int32_t kc_engine_step_automatic(KCEngine *engine) {
+static int32_t kc_engine_step_automatic_impl(KCEngine *engine) {
     if (!engine) {
         return 0;
     }
@@ -1157,6 +1258,13 @@ int32_t kc_engine_step_automatic(KCEngine *engine) {
     }
     int32_t error = kc_engine_apply_action(engine, selected);
     return error == 0 ? 1 : -error;
+}
+
+int32_t kc_engine_step_automatic(KCEngine *engine) {
+    kc_engine_begin_transition_batch(engine);
+    int32_t result = kc_engine_step_automatic_impl(engine);
+    kc_engine_end_transition_batch(engine);
+    return result;
 }
 
 bool kc_engine_heuristic_action(const KCEngine *engine, KCAction *selected) {
@@ -1277,6 +1385,13 @@ static int32_t kc_trick_winner(const KCEngine *engine) {
     return best_player;
 }
 
+int32_t kc_current_trick_winner(const KCEngine *engine) {
+    if (!engine || engine->current_trick_count <= 0) {
+        return KC_NO_PLAYER;
+    }
+    return kc_trick_winner(engine);
+}
+
 static void kc_resolve_current_trick(KCEngine *engine) {
     int32_t winner = kc_trick_winner(engine);
     engine->last_winner = winner;
@@ -1292,11 +1407,31 @@ static void kc_resolve_current_trick(KCEngine *engine) {
     }
     engine->players[winner].has_won_trick_this_year = true;
     engine->players[winner].medals += 1;
+    kc_emit_transition(engine, (KCTransitionEvent){
+        .kind = KC_TRANSITION_TRICK_RESOLVED,
+        .player_id = winner,
+        .card = kc_no_card(),
+        .from_zone = KC_OBJECT_ZONE_CURRENT_TRICK,
+        .to_zone = KC_OBJECT_ZONE_LAST_TRICK,
+        .from_owner = KC_NO_PLAYER,
+        .to_owner = winner,
+        .target_suit = KC_NO_SUIT
+    });
     engine->phase = KC_PHASE_ASSIGNMENT;
     engine->current_player = winner;
     for (int32_t i = 0; i < KC_PLAYER_COUNT; i++) {
         engine->pending_assignment_targets[i] = KC_NO_SUIT;
     }
+    kc_emit_transition(engine, (KCTransitionEvent){
+        .kind = KC_TRANSITION_ASSIGNMENT_OPENED,
+        .player_id = winner,
+        .card = kc_no_card(),
+        .from_zone = KC_OBJECT_ZONE_LAST_TRICK,
+        .to_zone = KC_OBJECT_ZONE_PENDING_ASSIGNMENT,
+        .from_owner = winner,
+        .to_owner = winner,
+        .target_suit = KC_NO_SUIT
+    });
     kc_prefill_single_assignment_target(engine);
 }
 
@@ -1306,6 +1441,16 @@ static int32_t kc_play_card_index(KCEngine *engine, int32_t player_id, int32_t c
         .player_id = player_id,
         .card = card
     };
+    kc_emit_transition(engine, (KCTransitionEvent){
+        .kind = KC_TRANSITION_CARD_MOVED,
+        .player_id = player_id,
+        .card = card,
+        .from_zone = KC_OBJECT_ZONE_HAND,
+        .to_zone = KC_OBJECT_ZONE_CURRENT_TRICK,
+        .from_owner = player_id,
+        .to_owner = player_id,
+        .target_suit = KC_NO_SUIT
+    });
     if (engine->current_trick_count == KC_PLAYER_COUNT) {
         kc_resolve_current_trick(engine);
     } else {
@@ -1417,6 +1562,16 @@ static void kc_claim_job_if_needed(KCEngine *engine, int32_t suit) {
             kc_list_clear(&engine->accumulated_job_cards[suit]);
         }
         kc_list_append(&engine->players[winner].plot_revealed, reward);
+        kc_emit_transition(engine, (KCTransitionEvent){
+            .kind = KC_TRANSITION_CARD_MOVED,
+            .player_id = winner,
+            .card = reward,
+            .from_zone = KC_OBJECT_ZONE_REVEALED_JOB,
+            .to_zone = KC_OBJECT_ZONE_PLOT_REVEALED,
+            .from_owner = suit,
+            .to_owner = winner,
+            .target_suit = suit
+        });
         engine->has_revealed_job[suit] = false;
         engine->revealed_jobs[suit] = kc_no_card();
     }
@@ -1463,7 +1618,18 @@ static void kc_move_remaining_hands_to_plots(KCEngine *engine) {
     for (int32_t player_id = 0; player_id < KC_PLAYER_COUNT; player_id++) {
         KCPlayer *player = &engine->players[player_id];
         for (int32_t i = 0; i < player->hand.count; i++) {
-            kc_list_append(&player->plot_hidden, player->hand.cards[i]);
+            KCCard card = player->hand.cards[i];
+            kc_list_append(&player->plot_hidden, card);
+            kc_emit_transition(engine, (KCTransitionEvent){
+                .kind = KC_TRANSITION_CARD_MOVED,
+                .player_id = player_id,
+                .card = card,
+                .from_zone = KC_OBJECT_ZONE_HAND,
+                .to_zone = KC_OBJECT_ZONE_PLOT_HIDDEN,
+                .from_owner = player_id,
+                .to_owner = player_id,
+                .target_suit = KC_NO_SUIT
+            });
         }
         kc_list_clear(&player->hand);
     }
@@ -1794,6 +1960,11 @@ static bool kc_step_requisition(KCEngine *engine) {
     }
     int32_t event_index = engine->requisition_plan_index++;
     KCRequisitionEvent event = engine->requisition_plan[event_index];
+    int32_t source_zone = KC_OBJECT_ZONE_PLOT_REVEALED;
+    if (event.player_id >= 0 && event.player_id < KC_PLAYER_COUNT &&
+        kc_list_contains(&engine->players[event.player_id].plot_hidden, event.card)) {
+        source_zone = KC_OBJECT_ZONE_PLOT_HIDDEN;
+    }
     if (event.message_kind == 1 && event.player_id >= 0 && event.player_id < KC_PLAYER_COUNT) {
         if (kc_requisition_reveal_all(engine, event.suit)) {
             kc_reveal_hidden_cards(engine, event.player_id, event.suit, true);
@@ -1807,6 +1978,20 @@ static bool kc_step_requisition(KCEngine *engine) {
     }
     if (engine->requisition_event_count < KC_MAX_CARDS) {
         engine->requisition_events[engine->requisition_event_count++] = event;
+    }
+    if (kc_card_valid(event.card)) {
+        kc_emit_transition(engine, (KCTransitionEvent){
+            .kind = KC_TRANSITION_CARD_MOVED,
+            .player_id = event.player_id,
+            .card = event.card,
+            .from_zone = event.message_kind == 3
+                ? KC_OBJECT_ZONE_JOB_BUCKET
+                : source_zone,
+            .to_zone = KC_OBJECT_ZONE_EXILED,
+            .from_owner = event.player_id,
+            .to_owner = KC_NO_PLAYER,
+            .target_suit = event.suit
+        });
     }
     return true;
 }
@@ -1985,6 +2170,29 @@ static int32_t kc_swap_card(KCEngine *engine, int32_t player_id, KCCard hand_car
     engine->last_swap_plot_index = plot_index;
     engine->last_swap_hand_index = hand_index;
     engine->last_swap_new_plot_card = hand_card;
+    int32_t plot_object_zone = zone == KC_ZONE_REVEALED
+        ? KC_OBJECT_ZONE_PLOT_REVEALED
+        : KC_OBJECT_ZONE_PLOT_HIDDEN;
+    kc_emit_transition(engine, (KCTransitionEvent){
+        .kind = KC_TRANSITION_CARD_MOVED,
+        .player_id = player_id,
+        .card = hand_card,
+        .from_zone = KC_OBJECT_ZONE_HAND,
+        .to_zone = plot_object_zone,
+        .from_owner = player_id,
+        .to_owner = player_id,
+        .target_suit = KC_NO_SUIT
+    });
+    kc_emit_transition(engine, (KCTransitionEvent){
+        .kind = KC_TRANSITION_CARD_MOVED,
+        .player_id = player_id,
+        .card = plot_card,
+        .from_zone = plot_object_zone,
+        .to_zone = KC_OBJECT_ZONE_HAND,
+        .from_owner = player_id,
+        .to_owner = player_id,
+        .target_suit = KC_NO_SUIT
+    });
     return 0;
 }
 
@@ -2003,8 +2211,32 @@ static int32_t kc_undo_swap(KCEngine *engine, int32_t player_id) {
         return KC_ERR_INVALID_CARD;
     }
     KCCard temporary = plot->cards[engine->last_swap_plot_index];
-    plot->cards[engine->last_swap_plot_index] = engine->players[player_id].hand.cards[engine->last_swap_hand_index];
+    KCCard returned_to_plot = engine->players[player_id].hand.cards[engine->last_swap_hand_index];
+    plot->cards[engine->last_swap_plot_index] = returned_to_plot;
     engine->players[player_id].hand.cards[engine->last_swap_hand_index] = temporary;
+    int32_t plot_object_zone = engine->last_swap_plot_zone == KC_ZONE_REVEALED
+        ? KC_OBJECT_ZONE_PLOT_REVEALED
+        : KC_OBJECT_ZONE_PLOT_HIDDEN;
+    kc_emit_transition(engine, (KCTransitionEvent){
+        .kind = KC_TRANSITION_CARD_MOVED,
+        .player_id = player_id,
+        .card = temporary,
+        .from_zone = plot_object_zone,
+        .to_zone = KC_OBJECT_ZONE_HAND,
+        .from_owner = player_id,
+        .to_owner = player_id,
+        .target_suit = KC_NO_SUIT
+    });
+    kc_emit_transition(engine, (KCTransitionEvent){
+        .kind = KC_TRANSITION_CARD_MOVED,
+        .player_id = player_id,
+        .card = returned_to_plot,
+        .from_zone = KC_OBJECT_ZONE_HAND,
+        .to_zone = plot_object_zone,
+        .from_owner = player_id,
+        .to_owner = player_id,
+        .target_suit = KC_NO_SUIT
+    });
     engine->swap_count[player_id] = false;
     kc_clear_last_swap(engine);
     return 0;
@@ -2141,6 +2373,16 @@ static int32_t kc_engine_apply_action(KCEngine *engine, KCAction action) {
         for (int32_t i = 0; i < engine->last_trick_count; i++) {
             if (engine->pending_assignment_targets[i] < 0 && kc_card_equal(engine->last_trick[i].card, action.card)) {
                 engine->pending_assignment_targets[i] = action.target_suit;
+                kc_emit_transition(engine, (KCTransitionEvent){
+                    .kind = KC_TRANSITION_ASSIGNMENT_TARGETED,
+                    .player_id = engine->last_trick[i].player_id,
+                    .card = engine->last_trick[i].card,
+                    .from_zone = KC_OBJECT_ZONE_LAST_TRICK,
+                    .to_zone = KC_OBJECT_ZONE_PENDING_ASSIGNMENT,
+                    .from_owner = engine->last_trick[i].player_id,
+                    .to_owner = action.target_suit,
+                    .target_suit = action.target_suit
+                });
                 return 0;
             }
         }
@@ -2181,15 +2423,20 @@ static int32_t kc_engine_apply_action(KCEngine *engine, KCAction action) {
 }
 
 int32_t kc_engine_apply(KCEngine *engine, KCAction action) {
+    kc_engine_begin_transition_batch(engine);
     int32_t error = kc_engine_apply_action(engine, action);
     if (error == 0) {
         kc_process_automatic_turns(engine);
     }
+    kc_engine_end_transition_batch(engine);
     return error;
 }
 
 int32_t kc_engine_apply_manual(KCEngine *engine, KCAction action) {
-    return kc_engine_apply_action(engine, action);
+    kc_engine_begin_transition_batch(engine);
+    int32_t error = kc_engine_apply_action(engine, action);
+    kc_engine_end_transition_batch(engine);
+    return error;
 }
 
 static void kc_add_action(KCAction *actions, int32_t max_actions, int32_t *count, KCAction action) {

@@ -264,6 +264,7 @@ def snapshot_json(
         "jobBuckets": job_buckets_json(state),
         "accumulatedJobCards": redacted_suit_cards(SUIT_COUNT),
         "currentTrick": trick_json(state.current_trick, state.current_trick_count),
+        "currentTrickWinner": engine.current_trick_winner(pointer),
         "lastTrick": trick_json(state.last_trick, state.last_trick_count),
         "lastWinner": int(state.last_winner),
         "exiled": suit_card_lists_json(state.exiled, MAX_YEARS + 1),
@@ -279,6 +280,7 @@ def snapshot_json(
         ],
         "pendingAssignments": pending_assignments_json(state),
         "requisitionEvents": requisition_events_json(state),
+        "transitionEvents": transition_events_json(state),
         "scores": [
             score_json(engine, pointer, i, viewer_id, game_over)
             for i in range(PLAYER_COUNT)
@@ -438,6 +440,22 @@ def requisition_events_json(state: KCEngineSnapshot) -> list[JsonObject]:
             state.requisition_events[i]
             for i in range(int(state.requisition_event_count))
         )
+    ]
+
+
+def transition_events_json(state: KCEngineSnapshot) -> list[JsonObject]:
+    return [
+        {
+            "kind": int(state.transition_events[i].kind),
+            "playerID": int(state.transition_events[i].player_id),
+            "card": card_to_json(state.transition_events[i].card),
+            "fromZone": int(state.transition_events[i].from_zone),
+            "toZone": int(state.transition_events[i].to_zone),
+            "fromOwner": int(state.transition_events[i].from_owner),
+            "toOwner": int(state.transition_events[i].to_owner),
+            "targetSuit": int(state.transition_events[i].target_suit),
+        }
+        for i in range(int(state.transition_event_count))
     ]
 
 

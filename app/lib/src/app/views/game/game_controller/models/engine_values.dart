@@ -8,6 +8,45 @@ class EngineCardValue {
       (suit >= 0 && suit < 4 && value > 0) || (suit == 4 && value == 0);
 }
 
+class EngineTransitionEvent {
+  const EngineTransitionEvent({
+    required this.kind,
+    required this.playerID,
+    required this.card,
+    required this.fromZone,
+    required this.toZone,
+    required this.fromOwner,
+    required this.toOwner,
+    required this.targetSuit,
+  });
+
+  final int kind;
+  final int playerID;
+  final EngineCardValue card;
+  final int fromZone;
+  final int toZone;
+  final int fromOwner;
+  final int toOwner;
+  final int targetSuit;
+
+  factory EngineTransitionEvent.fromJson(Map<String, Object?> json) {
+    final card = json['card'] as Map<String, Object?>?;
+    return EngineTransitionEvent(
+      kind: json['kind'] as int,
+      playerID: json['playerID'] as int? ?? -1,
+      card: EngineCardValue(
+        suit: card?['suit'] as int? ?? -1,
+        value: card?['value'] as int? ?? 0,
+      ),
+      fromZone: json['fromZone'] as int? ?? kcObjectZoneNone,
+      toZone: json['toZone'] as int? ?? kcObjectZoneNone,
+      fromOwner: json['fromOwner'] as int? ?? -1,
+      toOwner: json['toOwner'] as int? ?? -1,
+      targetSuit: json['targetSuit'] as int? ?? -1,
+    );
+  }
+}
+
 class CEngineActionValue {
   const CEngineActionValue({
     required this.kind,
@@ -109,14 +148,7 @@ class KolkhozGameVariants {
     highestCardsRequisition: true,
     lottoRewards: true,
   );
-  static const demoKolkhoz = KolkhozGameVariants(
-    maxYears: 2,
-    nomenclature: false,
-    wreckerCard: true,
-    finalYearTrump: true,
-    highestCardsRequisition: true,
-    lottoRewards: true,
-  );
+  static const demoKolkhoz = kolkhoz;
   static const littleKolkhoz = KolkhozGameVariants(
     deckType: 36,
     nomenclature: true,
@@ -178,6 +210,34 @@ const kcPhaseAssignment = 3;
 const kcPhaseRequisition = 4;
 const kcPhaseGameOver = 5;
 const kcPhasePass = 6;
+
+const kcTransitionCardMoved = 1;
+const kcTransitionTrickResolved = 2;
+const kcTransitionAssignmentOpened = 3;
+const kcTransitionAssignmentTargeted = 4;
+
+const kcObjectZoneNone = 0;
+const kcObjectZoneHand = 1;
+const kcObjectZonePlotRevealed = 2;
+const kcObjectZonePlotHidden = 3;
+const kcObjectZoneStackRevealed = 4;
+const kcObjectZoneStackHidden = 5;
+const kcObjectZoneJobPile = 6;
+const kcObjectZoneRevealedJob = 7;
+const kcObjectZoneJobBucket = 8;
+const kcObjectZoneCurrentTrick = 9;
+const kcObjectZoneLastTrick = 10;
+const kcObjectZoneExiled = 11;
+const kcObjectZonePendingAssignment = 15;
+
+String? engineSuitName(int suit) => switch (suit) {
+  0 => 'wheat',
+  1 => 'sunflower',
+  2 => 'potato',
+  3 => 'beet',
+  4 => 'wrecker',
+  _ => null,
+};
 
 const kcControllerExternal = 0;
 const kcControllerHeuristicAI = 1;

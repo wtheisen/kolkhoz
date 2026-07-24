@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'package:kolkhoz_app/src/app/settings/settings.dart';
-import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
 import 'package:kolkhoz_app/src/app/views/shared/chrome_button.dart';
 import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
@@ -255,29 +254,17 @@ List<Widget> boardRailButtons({
       metrics: metrics,
       onTap: () => onPanelSelected?.call(panelJobs),
     ),
-    if (!configuredKolkhozArtStyle.usesNewArt)
-      RailButton(
-        asset: 'icon-north.png',
-        active: activePanel == panelNorth,
-        action: actionPanel == panelNorth,
-        label: language.strings.boardBoardrailTheNorth,
-        muted: activePanel != panelNorth,
-        motionKey: northCardMotionTargetKey,
-        tokens: tokens,
-        metrics: metrics,
-        onTap: () => onPanelSelected?.call(panelNorth),
-      ),
-    if (!configuredKolkhozArtStyle.usesNewArt)
-      RailButton(
-        asset: 'icon-plot.png',
-        active: activePanel == panelPlot,
-        action: actionPanel == panelPlot,
-        label: language.strings.boardBoardrailCellar,
-        muted: activePanel != panelPlot,
-        tokens: tokens,
-        metrics: metrics,
-        onTap: () => onPanelSelected?.call(panelPlot),
-      ),
+    RailButton(
+      asset: 'icon-north.png',
+      active: activePanel == panelNorth,
+      action: actionPanel == panelNorth,
+      label: language.strings.boardBoardrailTheNorth,
+      muted: activePanel != panelNorth,
+      motionKey: northRailCardMotionTargetKey,
+      tokens: tokens,
+      metrics: metrics,
+      onTap: () => onPanelSelected?.call(panelNorth),
+    ),
     RailButton(
       asset: 'icon-game-log.png',
       active: activePanel == panelLog,

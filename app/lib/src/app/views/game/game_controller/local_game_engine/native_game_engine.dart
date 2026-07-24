@@ -50,6 +50,8 @@ class NativeGameEngine {
   ]);
   List<CEngineActionValue> get legalActions => _bridge.legalActions(_pointer);
   int get requisitionEventCount => _bridge.requisitionEventCount(_pointer);
+  List<EngineTransitionEvent> get transitionEvents =>
+      List.unmodifiable(_bridge.transitionEvents(_pointer));
 
   CEngineActionValue? heuristicAction() => _bridge.heuristicAction(_pointer);
 

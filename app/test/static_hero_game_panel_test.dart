@@ -7,7 +7,6 @@ import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_const
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/render_model.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_view.dart';
 import 'package:kolkhoz_app/src/app/views/shared/field_plan_typography.dart';
-import 'package:kolkhoz_app/src/app/views/shared/pixel_text.dart';
 
 import 'support/layout_scenarios.dart';
 
@@ -209,7 +208,6 @@ Future<void> _pumpBoard(
 }
 
 Future<void> _loadFonts(WidgetTester tester) async {
-  PixelFontAtlasCache.instance.resetForTesting();
   await tester.runAsync(() async {
     final display = FontLoader(fieldPlanDisplayFontFamily)
       ..addFont(
@@ -221,12 +219,6 @@ Future<void> _loadFonts(WidgetTester tester) async {
       ..addFont(
         rootBundle.load('assets/art/field_plan/shared/fonts/PTSans-Bold.ttf'),
       );
-    await Future.wait([
-      display.load(),
-      body.load(),
-      for (final variant in PixelTextVariant.values)
-        for (final size in PixelTextSize.values)
-          PixelFontAtlasCache.instance.load(variant: variant, size: size),
-    ]);
+    await Future.wait([display.load(), body.load()]);
   });
 }

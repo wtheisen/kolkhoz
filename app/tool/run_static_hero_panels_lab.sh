@@ -14,5 +14,4 @@ cd "$app_root"
 exec flutter run \
   --device-id macos \
   --target lib/static_hero_panels_lab.dart \
-  --dart-define=KOLKHOZ_ART_STYLE=field_plan \
   "$@"

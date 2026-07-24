@@ -3,7 +3,13 @@ from __future__ import annotations
 import ctypes
 import unittest
 
-from research.kolkhoz_research.c_engine import CEngine, KCAction, KCCard, KCControllers
+from research.kolkhoz_research.c_engine import (
+    CEngine,
+    KCAction,
+    KCCard,
+    KCControllers,
+    KCTrickPlay,
+)
 
 
 NO_CARD = KCCard(-1, 0)
@@ -45,6 +51,29 @@ class VariantEngineTests(unittest.TestCase):
             state.players[0].medals = 0
             state.players[0].plot_medals = 0
             self.assertEqual(self.engine.lib.kc_visible_score(pointer, 0), 0)
+        finally:
+            self.engine.free_engine(pointer)
+
+    def test_current_trick_winner_updates_when_trump_overtakes_lead(self) -> None:
+        pointer = self.engine.new_engine(20260723, controllers=self.controllers)
+        try:
+            state = self.engine.snapshot(pointer)
+            state.lead = 0
+            state.trump = 2
+            state.current_trick_count = 0
+            self.assertEqual(self.engine.current_trick_winner(pointer), -1)
+
+            state.current_trick[0] = KCTrickPlay(0, KCCard(0, 13))
+            state.current_trick_count = 1
+            self.assertEqual(self.engine.current_trick_winner(pointer), 0)
+
+            state.current_trick[1] = KCTrickPlay(1, KCCard(0, 12))
+            state.current_trick_count = 2
+            self.assertEqual(self.engine.current_trick_winner(pointer), 0)
+
+            state.current_trick[2] = KCTrickPlay(2, KCCard(2, 6))
+            state.current_trick_count = 3
+            self.assertEqual(self.engine.current_trick_winner(pointer), 2)
         finally:
             self.engine.free_engine(pointer)
 
@@ -381,6 +410,17 @@ class VariantEngineTests(unittest.TestCase):
                     int(stepped.exiled[1].cards[0].value),
                 ),
                 (0, 10),
+            )
+            self.assertEqual(int(stepped.transition_event_count), 1)
+            transition = stepped.transition_events[0]
+            self.assertEqual(int(transition.kind), 1)
+            self.assertEqual(
+                (int(transition.card.suit), int(transition.card.value)),
+                (0, 10),
+            )
+            self.assertEqual(
+                (int(transition.from_zone), int(transition.to_zone)),
+                (3, 11),
             )
         finally:
             self.engine.free_engine(pointer)

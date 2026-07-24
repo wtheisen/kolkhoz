@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kolkhoz_app/src/app/settings/animation_speed.dart';
 import 'package:kolkhoz_app/src/app/settings/settings.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_view.dart';
-import 'package:kolkhoz_app/src/app/views/shared/pixel_text.dart';
 
 import 'support/layout_scenarios.dart';
 
@@ -24,15 +23,7 @@ const _devices = [
 void main() {
   testWidgets('phone landscape layout screenshots', (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    PixelFontAtlasCache.instance.resetForTesting();
     await tester.pumpWidget(const SizedBox.shrink());
-    await tester.runAsync(
-      () => Future.wait([
-        for (final variant in PixelTextVariant.values)
-          for (final size in PixelTextSize.values)
-            PixelFontAtlasCache.instance.load(variant: variant, size: size),
-      ]),
-    );
 
     for (final scenario in layoutScenarios) {
       for (final device in _devices) {

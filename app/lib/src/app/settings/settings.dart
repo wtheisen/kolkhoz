@@ -3,7 +3,6 @@ import 'package:flutter/widgets.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine/c_engine_bridge.dart';
 import 'package:kolkhoz_app/src/app/profile/profile_controller/progression.dart';
 import 'package:kolkhoz_app/src/app/views/shared/app_text.dart';
-import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
 import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
 import 'package:kolkhoz_app/src/app/views/shared/field_plan_assets.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
@@ -494,15 +493,8 @@ enum KolkhozCardBack {
   final String assetPath;
   final String iconAssetPath;
 
-  String assetPathFor(KolkhozArtStyle style) =>
-      style.usesNewArt ? fieldPlanCardBackAssetPath : assetPath;
-
-  String iconAssetPathFor(KolkhozArtStyle style) =>
-      style.usesNewArt ? fieldPlanCardBackAssetPath : iconAssetPath;
-
-  String get displayedAssetPath => assetPathFor(configuredKolkhozArtStyle);
-  String get displayedIconAssetPath =>
-      iconAssetPathFor(configuredKolkhozArtStyle);
+  String get displayedAssetPath => fieldPlanCardBackAssetPath;
+  String get displayedIconAssetPath => fieldPlanCardBackAssetPath;
 
   static KolkhozCardBack fromStoredValue(String? value) {
     return KolkhozCardBack.values.firstWhere(

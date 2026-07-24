@@ -353,67 +353,7 @@ class _VariantPanelState extends State<CreateGameView> {
     return _buildSetupStep();
   }
 
-  Widget _buildSetupStep() {
-    if (configuredKolkhozArtStyle.usesNewArt) {
-      return _buildFieldPlanSetupStep();
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: 10,
-      children: [
-        _PresetSelector(
-          tokens: widget.tokens,
-          language: widget.language,
-          selectedPreset: widget.selectedPreset,
-          compact: widget.compactRail,
-          onPresetChanged: widget.demoMode ? null : widget.onPresetChanged,
-        ),
-        MainMenuGoldDivider(tokens: widget.tokens),
-        Expanded(
-          child: KolkhozScrollbar(
-            tokens: widget.tokens,
-            childBuilder: (context, scrollController) => SingleChildScrollView(
-              controller: scrollController,
-              child: Padding(
-                padding: const EdgeInsets.only(right: 10, bottom: 18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: 10,
-                  children: [
-                    if (widget.selectedPreset == KolkhozGamePreset.custom &&
-                        !widget.demoMode)
-                      CustomVariantOptions(
-                        tokens: widget.tokens,
-                        language: widget.language,
-                        variants: widget.customVariants,
-                        compact: widget.compactRail,
-                        onChanged: widget.onCustomVariantsChanged,
-                      )
-                    else
-                      PresetSummary(
-                        tokens: widget.tokens,
-                        language: widget.language,
-                        variants: widget.variants,
-                        demoMode: widget.demoMode,
-                        compact: widget.compactRail,
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (widget.demoMode)
-          _primaryCommandButton(
-            label: widget.language.strings.kolkhozappStartDemo,
-            iconAsset: 'assets/ui/Icons/icon-demo.png',
-            onPressed: startGame,
-          )
-        else
-          _setupCommandRow(),
-      ],
-    );
-  }
+  Widget _buildSetupStep() => _buildFieldPlanSetupStep();
 
   Widget _buildFieldPlanSetupStep() {
     final custom =
@@ -1367,72 +1307,6 @@ class _FieldPlanVariantLedger extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-}
-
-class _PresetSelector extends StatelessWidget {
-  const _PresetSelector({
-    required this.tokens,
-    required this.language,
-    required this.selectedPreset,
-    required this.compact,
-    required this.onPresetChanged,
-  });
-
-  final DesignTokens tokens;
-  final KolkhozLanguage language;
-  final KolkhozGamePreset selectedPreset;
-  final bool compact;
-  final ValueChanged<KolkhozGamePreset>? onPresetChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final scale = ((constraints.maxWidth - 620) / 900)
-            .clamp(0.0, 1.0)
-            .toDouble();
-        final spacing = compact ? 6.0 : 6 + 6 * scale;
-        final buttonWidth =
-            (constraints.maxWidth - spacing * (betaGamePresets.length - 1)) /
-            betaGamePresets.length;
-        final buttonHeight = compact
-            ? 52.0
-            : (buttonWidth * 0.21).clamp(58.0, 88.0);
-        final iconSize = compact
-            ? (buttonHeight * 0.72).clamp(34.0, 40.0)
-            : (buttonHeight * 0.58).clamp(38.0, 52.0);
-        final textSize = compact
-            ? buttonContentTextSize(buttonHeight)
-            : scale > 0.38
-            ? PixelTextSize.cardRank
-            : PixelTextSize.title;
-        final horizontalPadding = compact ? 7.0 : 16 + 10 * scale;
-
-        return Row(
-          spacing: spacing,
-          children: [
-            for (final preset in betaGamePresets)
-              Expanded(
-                child: ImageTabButton(
-                  tokens: tokens,
-                  label: presetTitle(preset, language),
-                  selected: selectedPreset == preset,
-                  iconAsset: preset.iconAsset,
-                  iconSize: iconSize,
-                  height: buttonHeight,
-                  textSize: textSize,
-                  horizontalPadding: horizontalPadding,
-                  contentSpacing: compact ? 6 : 8,
-                  onPressed: onPresetChanged == null
-                      ? null
-                      : () => onPresetChanged!(preset),
-                ),
-              ),
-          ],
-        );
-      },
     );
   }
 }

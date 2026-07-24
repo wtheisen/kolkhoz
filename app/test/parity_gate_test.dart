@@ -33,7 +33,7 @@ void main() {
     expect(requisitionMessage(4), 'Protected from requisition.');
   });
 
-  test('two-year variant ends after the second year', () {
+  test('demo variant runs the normal five-year game', () {
     withEngine(seed: 20260708, variants: KolkhozGameVariants.demoKolkhoz, (
       bridge,
       engine,
@@ -41,7 +41,7 @@ void main() {
       final result = runToGameOver(bridge, engine);
 
       expect(result.model.table.phase, phaseGameOver);
-      expect(result.model.table.year, 2);
+      expect(result.model.table.year, 5);
       expect(result.phaseVisits, contains(phaseRequisition));
     });
   });
@@ -106,6 +106,10 @@ actions=
         model = project(bridge, engine);
         expect(model.table.currentPlayerID, 0);
         expect(model.table.trick.plays, hasLength(1));
+        expect(
+          model.table.trick.winnerSeatID,
+          model.table.trick.plays.single.seatID,
+        );
       },
     );
   });
@@ -504,6 +508,7 @@ actions=playCard:1:wheat-9
 '''
             .trim(),
       );
+      expect(model.table.trick.winnerSeatID, 0);
     },
   );
 }
@@ -891,6 +896,7 @@ OnlineSessionUpdate onlineFixtureUpdate() {
           card: OnlineEngineCard(suit: 0, value: 7),
         ),
       ],
+      currentTrickWinner: 0,
       lastTrick: [],
       lastWinner: -1,
       exiled: [],

@@ -158,7 +158,10 @@ GameController owns a lobby, four GamePlayers, and exactly one optional GameEngi
     +-- RemoteGameEngine --> GameRemoteConnection --> server C engine
     |
     v
-GameController queues committed projected updates and publishes one transition at a time
+GameEngine dispatch returns the final projection plus ordered semantic transitions
+    |
+    v
+GameController queues those transitions and publishes one at a time
     |
     v
 Flutter derives an immutable CardMotionPlan, runs its stages, and completes the
@@ -199,9 +202,12 @@ and authoritative revision ordering. Its
 `GameRemoteConnection` owns active-match requests and realtime transport.
 
 Authoritative server revisions and client presentation acknowledgements are deliberately
-separate. Local and remote engines emit presentation-neutral committed updates.
-`GameController` captures their projected models in a FIFO of
-`GamePresentationTransition` values and exposes only the current transition to Flutter.
+separate. Local and remote engines emit a final committed projection together with the
+ordered semantic transitions produced by that dispatch. Card transitions identify their
+source and destination engine zones; rule milestones identify boundaries such as trick
+resolution and assignment opening. `GameController` places those values directly in a
+FIFO of `GamePresentationTransition` values and exposes only the current transition to
+Flutter. Flutter does not infer rule ordering from a large snapshot diff.
 Completing a transition advances only that controller's local queue; it never blocks the
 server, either engine, or another client. Remote transport code does not know about card
 flights, animation timing, or assignment choreography.

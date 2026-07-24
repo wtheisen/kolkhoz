@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolkhoz_app/src/app/settings/animation_speed.dart';
-import 'package:kolkhoz_app/src/app/settings/settings.dart';
-import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_view.dart';
 import 'package:kolkhoz_app/src/app/views/shared/field_plan_world_scene.dart';
 
-import 'support/layout_scenarios.dart';
 
 void main() {
   test('camera travel eases at both maps and moves faster between them', () {
@@ -165,43 +161,5 @@ void main() {
     await toNorth.up();
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('map-page-2')), findsOneWidget);
-  });
-
-  testWidgets('plot focus and calibration editor remain interactive', (
-    tester,
-  ) async {
-    if (!configuredKolkhozArtStyle.usesNewArt) {
-      return;
-    }
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.binding.setSurfaceSize(const Size(932, 430));
-    await tester.pumpWidget(
-      MaterialApp(
-        home: KolkhozBoard(
-          model: fieldPlanFourCardTrickModel(),
-          tokens: KolkhozAppearance.light.tokens,
-          language: KolkhozLanguage.en,
-          appearance: KolkhozAppearance.light,
-          animationSpeed: GameAnimationSpeed.instant,
-        ),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 300));
-
-    await tester.tap(
-      find.byKey(const Key('player-portrait-0-inspect')),
-      warnIfMissed: false,
-    );
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('field-plan-surface-dismiss')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('field-plan-surface-dismiss')));
-    await tester.pumpAndSettle();
-
-    await tester.longPress(find.byKey(const Key('field-plan-world-scene')));
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(const Key('field-plan-world-editor-toggle')),
-      findsOneWidget,
-    );
   });
 }

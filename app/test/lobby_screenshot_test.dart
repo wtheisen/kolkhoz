@@ -11,7 +11,6 @@ import 'package:kolkhoz_app/src/app/views/game/game_controller/local_game_engine
 import 'package:kolkhoz_app/src/app/app.dart';
 import 'package:kolkhoz_app/src/app/profile/models/profile_remote_models.dart';
 import 'package:kolkhoz_app/src/app/views/main_menu/main_menu_controller/menu_remote_models.dart';
-import 'package:kolkhoz_app/src/app/views/shared/pixel_text.dart';
 
 class _ScreenshotDevice {
   const _ScreenshotDevice(this.name, this.size, this.renderScale);
@@ -116,17 +115,11 @@ const _comrades = OnlineComradesResponse(
 void main() {
   testWidgets('phone landscape lobby screenshots', (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    PixelFontAtlasCache.instance.resetForTesting();
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.runAsync(() async {
       final handjet = FontLoader('Handjet')
         ..addFont(rootBundle.load('assets/ui/Fonts/Handjet.ttf'));
-      await Future.wait([
-        handjet.load(),
-        for (final variant in PixelTextVariant.values)
-          for (final size in PixelTextSize.values)
-            PixelFontAtlasCache.instance.load(variant: variant, size: size),
-      ]);
+      await handjet.load();
     });
 
     for (final scenario in _scenarios) {

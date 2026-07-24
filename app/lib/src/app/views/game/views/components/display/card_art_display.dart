@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:kolkhoz_app/src/app/views/shared/art_direction.dart';
 import 'package:kolkhoz_app/src/app/views/shared/design_tokens.dart';
 import 'package:kolkhoz_app/src/app/views/shared/field_plan_assets.dart';
 import 'package:kolkhoz_app/src/app/views/game/game_controller/models/game_constants.dart';
@@ -90,15 +89,13 @@ List<Offset> pipPositions(int value) {
 
 String faceAssetPath(TableCard card) {
   final rank = faceRankName(card);
-  if (configuredKolkhozArtStyle.usesNewArt) {
-    final fieldPlanPath = fieldPlanCardFaceAssetPath(
-      suit: card.suit,
-      rank: rank,
-      nomenclature: card.nomenclature,
-    );
-    if (fieldPlanPath != null) {
-      return fieldPlanPath;
-    }
+  final fieldPlanPath = fieldPlanCardFaceAssetPath(
+    suit: card.suit,
+    rank: rank,
+    nomenclature: card.nomenclature,
+  );
+  if (fieldPlanPath != null) {
+    return fieldPlanPath;
   }
   if (card.suit == wreckerSuit) {
     return 'assets/ui/Cards/face-wrecker.png';
@@ -108,20 +105,17 @@ String faceAssetPath(TableCard card) {
 }
 
 bool cardUsesFieldPlanFaceArt(TableCard card) =>
-    configuredKolkhozArtStyle.usesNewArt &&
     fieldPlanCardFaceAssetPath(
-          suit: card.suit,
-          rank: faceRankName(card),
-          nomenclature: card.nomenclature,
-        ) !=
-        null;
+      suit: card.suit,
+      rank: faceRankName(card),
+      nomenclature: card.nomenclature,
+    ) !=
+    null;
 
 String suitAssetPath(String suit, {bool mip = false}) {
-  if (configuredKolkhozArtStyle.usesNewArt) {
-    final fieldPlanPath = fieldPlanCardSuitAssetPath(suit, mip: mip);
-    if (fieldPlanPath != null) {
-      return fieldPlanPath;
-    }
+  final fieldPlanPath = fieldPlanCardSuitAssetPath(suit, mip: mip);
+  if (fieldPlanPath != null) {
+    return fieldPlanPath;
   }
   return 'assets/ui/Icons/icon-$suit.png';
 }
@@ -179,17 +173,15 @@ String? physicalDeckFaceCaption(TableCard card) {
 }
 
 String portraitAssetPath(Seat seat) {
-  if (configuredKolkhozArtStyle.usesNewArt) {
-    final asset = switch (seat.portraitAsset) {
-      'worker1' || 'worker-forewoman' => fieldPlanPlayerForewoman,
-      'worker2' || 'worker-mechanic' => fieldPlanPlayerMechanic,
-      'worker3' || 'worker-agronomist' => fieldPlanPlayerAgronomist,
-      'worker4' || 'worker-beekeeper' => fieldPlanPlayerBeekeeper,
-      _ => null,
-    };
-    if (asset != null) {
-      return asset.pathFor(configuredKolkhozArtStyle);
-    }
+  final asset = switch (seat.portraitAsset) {
+    'worker1' || 'worker-forewoman' => fieldPlanPlayerForewoman,
+    'worker2' || 'worker-mechanic' => fieldPlanPlayerMechanic,
+    'worker3' || 'worker-agronomist' => fieldPlanPlayerAgronomist,
+    'worker4' || 'worker-beekeeper' => fieldPlanPlayerBeekeeper,
+    _ => null,
+  };
+  if (asset != null) {
+    return asset.fieldPlanPath;
   }
   return 'assets/ui/${seat.portraitAsset}.png';
 }
@@ -199,18 +191,10 @@ String cardTemplateAssetPath({
   required DesignTokens tokens,
   required String? trump,
 }) {
-  if (configuredKolkhozArtStyle.usesNewArt) {
-    return fieldPlanCardFrameAssetPath(
-      suit: card.suit == wreckerSuit ? 'wheat' : card.suit,
-      trump: cardUsesTrumpTemplate(card: card, trump: trump),
-    );
-  }
-  final suffix = cardUsesTrumpTemplate(card: card, trump: trump)
-      ? ''
-      : '-no-overlay';
-  return !tokens.usesLightAppearance
-      ? 'assets/ui/Cards/card-template-dark$suffix.png'
-      : 'assets/ui/Cards/card-template-light$suffix.png';
+  return fieldPlanCardFrameAssetPath(
+    suit: card.suit == wreckerSuit ? 'wheat' : card.suit,
+    trump: cardUsesTrumpTemplate(card: card, trump: trump),
+  );
 }
 
 bool cardUsesTrumpTemplate({required TableCard card, required String? trump}) {

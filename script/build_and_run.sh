@@ -33,5 +33,18 @@ esac
 pkill -x kolkhoz_app 2>/dev/null || true
 
 cd "$APP_DIR"
-flutter build macos --debug --dart-define=KOLKHOZ_ART_STYLE=field_plan
+flutter build macos \
+  --debug \
+  --config-only \
+  --dart-define=KOLKHOZ_ART_STYLE=field_plan
+xcodebuild \
+  -quiet \
+  -workspace macos/Runner.xcworkspace \
+  -scheme Runner \
+  -configuration Debug \
+  -destination 'generic/platform=macOS' \
+  -derivedDataPath build/macos \
+  CODE_SIGNING_ALLOWED=NO \
+  CODE_SIGNING_REQUIRED=NO \
+  build
 open -n "$APP_BUNDLE"

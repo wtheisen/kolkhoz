@@ -18,6 +18,12 @@ The engine tracks:
 The Flutter projection mirrors only what the app needs to render and act on. Keep hidden
 information redaction at the engine/server boundary when adding online behavior.
 
+Each action or automatic step also resets and fills an ordered transition batch. The
+batch describes meaningful rule boundaries and card zone movements produced by that
+single dispatch, while the engine state remains atomic and authoritative. Local FFI and
+online snapshots expose the same batch so Flutter can present it sequentially without
+reconstructing rule order from before/after projections.
+
 When a match reaches `gameOver`, the app controller captures a detached
 `TerminalGameRecord` before releasing the native engine. It contains the seed, frozen
 variants and controllers, participants, applied engine actions, final result, and
